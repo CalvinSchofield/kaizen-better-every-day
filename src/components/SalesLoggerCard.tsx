@@ -3,6 +3,10 @@ import { Sale } from "@/components/LogSaleSheet";
 import { X, Ban } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { useFocusTier } from "@/hooks/useFocusTier";
+import { usePreseasonFP } from "@/hooks/usePreseasonFP";
+import { usePlannedDays } from "@/hooks/usePlannedDays";
+import { useRepGoals } from "@/hooks/useRepGoals";
 
 interface SalesLoggerCardProps {
   salesLog: Sale[];
@@ -16,6 +20,9 @@ export const SalesLoggerCard = ({
   onDeleteSale,
 }: SalesLoggerCardProps) => {
   const { efpModeEnabled } = useEfpMode();
+  const { goals } = useRepGoals();
+  const { totalFP: cumulativeFP, totalEFP: cumulativeEFP } = usePreseasonFP();
+  const { plannedDays } = usePlannedDays();
   
   // Filter funded sales for totals
   const fundedSales = salesLog.filter(s => s.install_status !== 'cancelled');
@@ -33,6 +40,32 @@ export const SalesLoggerCard = ({
   
   // EFP = Total PRMR / 85
   const totalEFP = totalPrmr / 85;
+  
+  // Current cumulative progress for focus tier
+  const currentProgress = efpModeEnabled ? (cumulativeEFP || 0) : (cumulativeFP || 0);
+  
+  // Get focus tier daily goal
+  const { focusTier, fundedFocusTierGoal, isUserSummerStarted } = useFocusTier(currentProgress);
+  
+  // Calculate daily goal based on total season knocking days
+  const dailyGoal = (() => {
+    if (!plannedDays || !isUserSummerStarted) return 0;
+    
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const seasonEndStr = '2026-09-27'; // Summer end
+    
+    // Future planned days from today forward
+    const futurePlanned = plannedDays.filter(d => 
+      d.planned_date >= todayStr && d.planned_date <= seasonEndStr
+    ).length;
+    
+    if (futurePlanned === 0) return 0;
+    return fundedFocusTierGoal / futurePlanned;
+  })();
+
+  // Today's progress in the relevant metric
+  const todaysProgress = efpModeEnabled ? totalEFP : totalFPPlus;
+  const metricLabel = efpModeEnabled ? "EFP" : "FP+";
 
   if (salesLog.length === 0) {
     return null; // Don't show card if no sales
@@ -51,7 +84,15 @@ export const SalesLoggerCard = ({
             {efpModeEnabled ? (
               <>
                 <div className="text-lg font-bold text-primary">
-                  {totalEFP.toFixed(2)} EFP
+                  {isUserSummerStarted && dailyGoal > 0 ? (
+                    <>
+                      {totalEFP.toFixed(2)}
+                      <span className="text-muted-foreground font-normal"> / {dailyGoal.toFixed(1)}</span>
+                      <span className="text-sm font-normal ml-1">EFP</span>
+                    </>
+                  ) : (
+                    <>{totalEFP.toFixed(2)} EFP</>
+                  )}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {fpCount} FP+
@@ -60,10 +101,18 @@ export const SalesLoggerCard = ({
             ) : (
               <>
                 <div className="text-lg font-bold text-primary">
-                  ${totalPrmr.toLocaleString()}
+                  {isUserSummerStarted && dailyGoal > 0 ? (
+                    <>
+                      {totalFPPlus.toFixed(1)}
+                      <span className="text-muted-foreground font-normal"> / {dailyGoal.toFixed(1)}</span>
+                      <span className="text-sm font-normal ml-1">FP+</span>
+                    </>
+                  ) : (
+                    <>${totalPrmr.toLocaleString()}</>
+                  )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {totalFPPlus.toFixed(1)} FP+
+                  {isUserSummerStarted && dailyGoal > 0 ? `$${totalPrmr.toLocaleString()}` : `${totalFPPlus.toFixed(1)} FP+`}
                 </div>
               </>
             )}
