@@ -1,13 +1,6 @@
 import { motion } from "framer-motion";
-import { Phone, Mail, Trophy, Target, Handshake, Quote, Users } from "lucide-react";
+import { Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { useRef, useEffect } from "react";
 
 const trackRecord = [
   "5 years in the field (rookie → vet → leader)",
@@ -28,7 +21,8 @@ const expectations = [
   "High quality trainings and tech to leverage your attitude and effort",
 ];
 
-const teamLeads = [
+const allLeaders = [
+  { name: "Calvin Schofield", photo: "/images/about-team/calvin-schofield.jpeg", isAreaDirector: true },
   { name: "Christian Fabian", photo: "/images/about-team/christian-fabian.png" },
   { name: "Adam Schofield", photo: "/images/about-team/adam-schofield.jpg" },
   { name: "Ansel Severson", photo: "/images/about-team/ansel-severson.png" },
@@ -46,41 +40,6 @@ const teamLeads = [
 ];
 
 export const LeaderSection = () => {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollPositionRef = useRef(0);
-
-  useEffect(() => {
-    const scrollContainer = scrollRef.current;
-    if (!scrollContainer) return;
-
-    let animationId: number;
-    const scrollSpeed = 1.0; // pixels per frame (2x speed)
-
-    const animate = () => {
-      if (scrollContainer) {
-        scrollPositionRef.current += scrollSpeed;
-        
-        // Reset to start when we've scrolled through the first set
-        const singleSetWidth = scrollContainer.scrollWidth / 2;
-        if (scrollPositionRef.current >= singleSetWidth) {
-          scrollPositionRef.current = 0;
-        }
-        
-        scrollContainer.scrollLeft = scrollPositionRef.current;
-      }
-      animationId = requestAnimationFrame(animate);
-    };
-
-    animationId = requestAnimationFrame(animate);
-
-    return () => {
-      cancelAnimationFrame(animationId);
-    };
-  }, []);
-
-  // Duplicate team leads for seamless loop
-  const duplicatedTeamLeads = [...teamLeads, ...teamLeads];
-
   return (
     <section className="py-16 px-4 bg-muted/30">
       <div className="max-w-lg mx-auto">
@@ -88,36 +47,52 @@ export const LeaderSection = () => {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-6"
+          className="text-center mb-8"
         >
           <h2 className="text-2xl font-bold">Meet the Team</h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            The leaders who'll help you succeed
+          <p className="text-muted-foreground mt-2 text-base">
+            This group of leaders has your back
           </p>
         </motion.div>
 
-        {/* Featured Leader - Calvin */}
+        {/* Leaders Grid - 3 columns, 5 rows */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="bg-card rounded-2xl border border-border overflow-hidden"
+          className="grid grid-cols-3 gap-4"
         >
-          {/* Large photo header */}
-          <div className="relative aspect-[4/3] overflow-hidden">
-            <img
-              src="/images/about-team/calvin-schofield.jpeg"
-              alt="Calvin Schofield"
-              className="w-full h-full object-cover object-[center_30%]"
-            />
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-5 py-5">
-              <h3 className="text-2xl font-bold text-white">Calvin Schofield</h3>
-              <p className="text-primary font-medium">Area Director</p>
+          {allLeaders.map((leader, index) => (
+            <div
+              key={leader.name}
+              className="text-center"
+            >
+              <div className={`w-20 h-20 mx-auto rounded-full overflow-hidden border-2 ${leader.isAreaDirector ? 'border-primary' : 'border-border'} bg-muted`}>
+                <img
+                  src={leader.photo}
+                  alt={leader.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <p className="text-xs font-medium mt-2 leading-tight">{leader.name}</p>
+              <span className="text-[10px] text-muted-foreground">
+                {leader.isAreaDirector ? 'Area Director' : 'Team Lead'}
+              </span>
             </div>
-          </div>
+          ))}
+        </motion.div>
 
-          {/* Contact buttons */}
-          <div className="flex gap-2 p-4 border-b border-border">
+        {/* Contact Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-8 bg-card rounded-2xl border border-border p-4"
+        >
+          <p className="text-center text-sm text-muted-foreground mb-4">
+            Questions? Reach out to Calvin
+          </p>
+          <div className="flex gap-2">
             <Button
               size="sm"
               variant="outline"
@@ -126,7 +101,7 @@ export const LeaderSection = () => {
             >
               <a href="sms:469-715-7056">
                 <Phone className="w-4 h-4 mr-2" />
-                Text Me
+                Text
               </a>
             </Button>
             <Button
@@ -137,123 +112,9 @@ export const LeaderSection = () => {
             >
               <a href="mailto:Calvin.Schofield@vivint.com">
                 <Mail className="w-4 h-4 mr-2" />
-                Email Me
+                Email
               </a>
             </Button>
-          </div>
-
-          {/* Accordion sections */}
-          <Accordion type="single" collapsible defaultValue="track-record" className="px-4">
-            <AccordionItem value="track-record" className="border-b-border">
-              <AccordionTrigger className="py-3 hover:no-underline">
-                <div className="flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-primary" />
-                  <span className="font-semibold text-sm">Track Record</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="pb-4">
-                <ul className="space-y-1.5">
-                  {trackRecord.map((item, index) => (
-                    <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <span className="text-primary mt-0.5">•</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-sm text-foreground mt-3 italic">
-                  I've done the job at a high level and I know what actually works on the doors.
-                </p>
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="what-i-care-about" className="border-b-border">
-              <AccordionTrigger className="py-3 hover:no-underline">
-                <div className="flex items-center gap-2">
-                  <Target className="w-4 h-4 text-primary" />
-                  <span className="font-semibold text-sm">What I Care About</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="pb-4 space-y-2 text-sm text-muted-foreground">
-                <p>
-                  My priorities are simple: my faith, my family, and my community.
-                </p>
-                <p>
-                  Vivint has never been the end goal — it's been the vehicle. The flexibility, income, and opportunity this job provides has completely changed the trajectory of my career and my life.
-                </p>
-                <p>
-                  What drives me now is helping others realize they're capable of far more than they think — and giving them a system that actually works.
-                </p>
-                <p className="text-foreground font-medium">
-                  I'll believe in you before you believe in yourself. And I'll hold you to your potential, not your comfort.
-                </p>
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="what-to-expect" className="border-b-0">
-              <AccordionTrigger className="py-3 hover:no-underline">
-                <div className="flex items-center gap-2">
-                  <Handshake className="w-4 h-4 text-primary" />
-                  <span className="font-semibold text-sm">What You Can Expect</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="pb-4">
-                <ul className="space-y-1.5">
-                  {expectations.map((item, index) => (
-                    <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <span className="text-primary mt-0.5">•</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-
-          {/* Closing quote */}
-          <div className="px-4 py-4 bg-muted/50 border-t border-border">
-            <div className="flex items-start gap-2">
-              <Quote className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-              <p className="text-sm font-medium">
-                If you're willing to work, stay coachable, and commit to the process — I'll go to bat for you.
-              </p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Team Leads Carousel */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mt-8"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold">Team Leads</h3>
-          </div>
-
-          <div
-            ref={scrollRef}
-            className="overflow-x-hidden"
-          >
-            <div className="flex gap-4">
-              {duplicatedTeamLeads.map((lead, index) => (
-                <div
-                  key={`${lead.name}-${index}`}
-                  className="flex-shrink-0 w-24 text-center"
-                >
-                  <div className="w-20 h-20 mx-auto rounded-full overflow-hidden border-2 border-border bg-muted">
-                    <img
-                      src={lead.photo}
-                      alt={lead.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <p className="text-xs font-medium mt-2 leading-tight">{lead.name}</p>
-                  <span className="text-[10px] text-muted-foreground">Team Lead</span>
-                </div>
-              ))}
-            </div>
           </div>
         </motion.div>
       </div>
