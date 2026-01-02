@@ -36,7 +36,7 @@ export const FinalCTA = () => {
           </Button>
           
           <p className="text-xs text-muted-foreground mt-4">
-            Already on the team? Head back to your dashboard.
+            Your next steps are waiting.
           </p>
         </motion.div>
       </div>

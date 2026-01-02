@@ -51,19 +51,17 @@ export const AlumniSection = () => {
                   <p className="text-sm text-muted-foreground mt-2">
                     {alumni.story}
                   </p>
+                  
+                  {/* Josh Guthrie text screenshot - inline in his card */}
+                  {alumni.id === "josh" && (
+                    <img 
+                      src="/images/about-team/josh-text.png"
+                      alt="Josh's thank you text"
+                      className="w-full rounded-lg border border-border mt-3"
+                    />
+                  )}
                 </div>
               </div>
-              
-              {/* Josh Guthrie text screenshot */}
-              {alumni.id === "josh" && (
-                <div className="mt-4">
-                  <img 
-                    src="/images/about-team/josh-text.png"
-                    alt="Josh's thank you text message"
-                    className="w-full rounded-xl border border-border"
-                  />
-                </div>
-              )}
             </motion.div>
           ))}
         </div>
