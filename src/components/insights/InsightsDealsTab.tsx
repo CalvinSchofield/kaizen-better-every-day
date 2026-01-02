@@ -226,17 +226,21 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
                     >
                       {Math.round(userCumulativeFpPlus)} FP+ (Current)
                     </Button>
-                    {QUICK_TIER_OPTIONS.map((tier) => (
-                      <Button
-                        key={tier}
-                        variant={customPayLevel === tier ? "secondary" : "ghost"}
-                        size="sm"
-                        className="w-full justify-start text-xs"
-                        onClick={() => handleTierChange(tier)}
-                      >
-                        {tier} FP+ (${getTier(tier).rate.toFixed(2)}/PRMR)
-                      </Button>
-                    ))}
+                    {QUICK_TIER_OPTIONS.map((tier) => {
+                      const isDisabled = tier < userCumulativeFpPlus;
+                      return (
+                        <Button
+                          key={tier}
+                          variant={customPayLevel === tier ? "secondary" : "ghost"}
+                          size="sm"
+                          className={`w-full justify-start text-xs ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          onClick={() => !isDisabled && handleTierChange(tier)}
+                          disabled={isDisabled}
+                        >
+                          {tier} FP+ (${getTier(tier).rate.toFixed(2)}/PRMR)
+                        </Button>
+                      );
+                    })}
                   </div>
                 </PopoverContent>
               </Popover>

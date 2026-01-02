@@ -27,8 +27,12 @@ import { useWeeklyReports } from "@/hooks/useWeeklyReports";
 import { TeamRecapStory } from "@/components/team-recap";
 import { PastRecapsSection } from "@/components/recap/PastRecapsSection";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCumulativeFP } from "@/hooks/useCumulativeFP";
 
 import { Separator } from "@/components/ui/separator";
+
+// Payscale tier options for recap
+const RECAP_TIER_OPTIONS = [60, 100, 150, 200, 250, 300];
 
 interface CustomCounter {
   id: string;
@@ -66,7 +70,13 @@ export default function Settings() {
   const { goals, updateGoals: updateRepGoals, isUpdating: isUpdatingGoals } = useRepGoals();
   const { resetIntro, markIntroComplete } = useIntroStatus(repData?.user_id);
   const teamAccess = useTeamAccess();
+  const { data: cumulativeData } = useCumulativeFP();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
+  
+  // Get user's current cumulative FP+ for minimum tier restriction
+  const userCumulativeFpPlus = cumulativeData && cumulativeData.length > 0 
+    ? cumulativeData[cumulativeData.length - 1].cumulativeFp 
+    : 0;
   
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [counterName, setCounterName] = useState("");
@@ -1325,12 +1335,19 @@ export default function Settings() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="60">60 FP+</SelectItem>
-                        <SelectItem value="100">100 FP+</SelectItem>
-                        <SelectItem value="150">150 FP+</SelectItem>
-                        <SelectItem value="200">200 FP+</SelectItem>
-                        <SelectItem value="250">250 FP+</SelectItem>
-                        <SelectItem value="300">300 FP+</SelectItem>
+                        {RECAP_TIER_OPTIONS.map((tier) => {
+                          const isDisabled = tier < userCumulativeFpPlus;
+                          return (
+                            <SelectItem 
+                              key={tier} 
+                              value={String(tier)}
+                              disabled={isDisabled}
+                              className={isDisabled ? 'opacity-50' : ''}
+                            >
+                              {tier} FP+
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
