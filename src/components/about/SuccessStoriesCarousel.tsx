@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { successStories, dingDongDitchVideo } from "@/data/aboutTeamData";
+import { successStories } from "@/data/aboutTeamData";
 import { SuccessStoryCard } from "./SuccessStoryCard";
 import {
   Carousel,
@@ -23,33 +23,12 @@ export const SuccessStoriesCarousel = () => {
         </motion.div>
       </div>
       
-      {/* Ding Dong Ditch Video - Christian & Javier */}
-      <div className="max-w-lg mx-auto px-4 mb-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="rounded-2xl overflow-hidden bg-card border border-border"
-        >
-          <video 
-            src={dingDongDitchVideo}
-            controls
-            playsInline
-            className="w-full aspect-video object-cover"
-          />
-          <div className="p-4">
-            <p className="text-sm text-muted-foreground">
-              Christian & Javier were caught ding-dong ditching Vivint doorbell cameras 6 months before selling them. Now they're top earners.
-            </p>
-          </div>
-        </motion.div>
-      </div>
-      
-      {/* Horizontal scroll carousel using embla */}
+      {/* Horizontal scroll carousel with sticky snapping */}
       <Carousel
         opts={{
-          align: "start",
-          dragFree: true,
+          align: "center",
+          containScroll: "trimSnaps",
+          skipSnaps: false,
         }}
         className="w-full"
       >

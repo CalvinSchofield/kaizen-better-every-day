@@ -14,7 +14,7 @@ import {
   type LucideIcon
 } from "lucide-react";
 
-// Success Stories
+// Success Stories - Reordered: Christian, Ammon, Javier, Ansel, Levi
 export interface SuccessStory {
   id: string;
   name: string;
@@ -42,6 +42,17 @@ export const successStories: SuccessStory[] = [
     youtubeUrl: "https://www.youtube.com/embed/votRoVLUbO0"
   },
   {
+    id: "ammon",
+    name: "Ammon Allan",
+    photo: "/images/about-team/placeholder-avatar.jpg",
+    hook: "College athlete. $100k+ in 5 months.",
+    beforeStory: "Ammon was a college basketball player looking for a way to channel his competitiveness and work ethic into a high income opportunity.",
+    afterResult: "Ammon applied the skills he developed playing sports—discipline, coachability, hard work, and positivity—to this opportunity and made $100k+ in 5 months with no prior sales experience.",
+    earnings: "$100k+",
+    rhetoricalQuestion: "Are you an athlete with similar attributes that misses competing at a high level?",
+    youtubeUrl: "https://www.youtube.com/embed/-7aXnGXmasc"
+  },
+  {
     id: "javier",
     name: "Javier Estrada",
     photo: "/images/about-team/javier-estrada.png",
@@ -63,17 +74,6 @@ export const successStories: SuccessStory[] = [
     earnings: "$70k+",
     rhetoricalQuestion: "Would a high income summer job help you get better grades and focus on those who matter most too?",
     youtubeUrl: "https://www.youtube.com/embed/ROrZpeL-UAA"
-  },
-  {
-    id: "ammon",
-    name: "Ammon Allan",
-    photo: "/images/about-team/placeholder-avatar.jpg",
-    hook: "College athlete. $100k+ in 5 months.",
-    beforeStory: "Ammon was a college basketball player looking for a way to channel his competitiveness and work ethic into a high income opportunity.",
-    afterResult: "Ammon applied the skills he developed playing sports—discipline, coachability, hard work, and positivity—to this opportunity and made $100k+ in 5 months with no prior sales experience.",
-    earnings: "$100k+",
-    rhetoricalQuestion: "Are you an athlete with similar attributes that misses competing at a high level?",
-    youtubeUrl: "https://www.youtube.com/embed/-7aXnGXmasc"
   },
   {
     id: "levi",
@@ -326,17 +326,54 @@ export const quickStats: QuickStat[] = [
   { id: "trips", value: "5-Star", label: "Trips Earned" }
 ];
 
-// Culture photos
-export const culturePhotos = [
+// Culture photos - Updated with new images
+export interface CulturePhoto {
+  id: string;
+  src: string;
+  alt: string;
+  caption?: string;
+}
+
+export const culturePhotos: CulturePhoto[] = [
   {
-    id: "dinner",
-    src: "/images/about-team/team-dinner.jpeg",
-    alt: "Team dinner celebration"
+    id: "team-group",
+    src: "/images/about-team/culture-team-group.jpeg",
+    alt: "Team group photo flexing"
   },
   {
-    id: "formal",
-    src: "/images/about-team/team-formal.jpeg",
-    alt: "Team formal event"
+    id: "f1-race",
+    src: "/images/about-team/culture-f1-race.jpeg",
+    alt: "Team at F1 race"
+  },
+  {
+    id: "trophy",
+    src: "/images/about-team/culture-trophy.jpeg",
+    alt: "Team with trophy on stage"
+  },
+  {
+    id: "viper-stage",
+    src: "/images/about-team/culture-viper-stage.jpeg",
+    alt: "VIPER Champions on stage"
+  },
+  {
+    id: "sevens-stage",
+    src: "/images/about-team/culture-sevens-stage.jpeg",
+    alt: "SEVENS Champions on stage"
+  },
+  {
+    id: "dream-team",
+    src: "/images/about-team/culture-dream-team.jpeg",
+    alt: "Dream Team on stage"
+  },
+  {
+    id: "formal-group",
+    src: "/images/about-team/culture-formal-group.jpeg",
+    alt: "Team dressed up formal"
+  },
+  {
+    id: "kid-whales",
+    src: "/images/about-team/culture-kid-whales.jpeg",
+    alt: "Family moment with stuffed whales"
   }
 ];
 

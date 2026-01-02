@@ -1,6 +1,7 @@
-import { motion } from "framer-motion";
-import { MessageCircle, User } from "lucide-react";
-import { SuccessStory } from "@/data/aboutTeamData";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { MessageCircle, User, Play, ChevronDown, ChevronUp } from "lucide-react";
+import { SuccessStory, dingDongDitchVideo } from "@/data/aboutTeamData";
 
 interface SuccessStoryCardProps {
   story: SuccessStory;
@@ -10,6 +11,8 @@ interface SuccessStoryCardProps {
 export const SuccessStoryCard = ({ story, index }: SuccessStoryCardProps) => {
   const hasPhoto = story.photo && !story.photo.includes('placeholder');
   const hasVideo = !!story.youtubeUrl;
+  const isChristian = story.id === "christian";
+  const [showDingDong, setShowDingDong] = useState(false);
 
   return (
     <motion.div
@@ -17,7 +20,7 @@ export const SuccessStoryCard = ({ story, index }: SuccessStoryCardProps) => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay: index * 0.1 }}
-      className="flex-shrink-0 w-[85vw] max-w-[340px] snap-center"
+      className="flex-shrink-0 w-full"
     >
       <div className="bg-card rounded-3xl overflow-hidden border border-border shadow-lg">
         {/* Photo / Video Section */}
@@ -54,6 +57,52 @@ export const SuccessStoryCard = ({ story, index }: SuccessStoryCardProps) => {
             </div>
           )}
         </div>
+        
+        {/* Expandable Ding Dong Ditch video for Christian */}
+        {isChristian && (
+          <div className="border-t border-border">
+            <button
+              onClick={() => setShowDingDong(!showDingDong)}
+              className="w-full px-5 py-3 flex items-center justify-between bg-muted/50 hover:bg-muted transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Play className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">
+                  Watch: Ding Dong Ditching Before Selling
+                </span>
+              </div>
+              {showDingDong ? (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              )}
+            </button>
+            
+            <AnimatePresence>
+              {showDingDong && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-4 pb-4">
+                    <video 
+                      src={dingDongDitchVideo}
+                      controls
+                      playsInline
+                      className="w-full aspect-video object-cover rounded-xl"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Christian & Javier were caught ding-dong ditching Vivint cameras 6 months before selling them.
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
         
         {/* Content */}
         <div className="p-5 space-y-4">

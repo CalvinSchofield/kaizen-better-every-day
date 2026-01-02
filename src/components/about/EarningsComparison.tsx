@@ -3,6 +3,7 @@ import { jobComparisons, earningStats } from "@/data/aboutTeamData";
 
 export const EarningsComparison = () => {
   const maxEarnings = earningStats.teamRookieAverage;
+  const companyPercent = (earningStats.companyRookieAverage / maxEarnings) * 100;
   
   return (
     <section className="py-12 bg-background">
@@ -19,41 +20,43 @@ export const EarningsComparison = () => {
           </p>
         </motion.div>
         
-        {/* Our team bar */}
+        {/* Combined comparison bar - Our Team vs Company Average */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
-          className="mb-4"
+          className="mb-8"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="font-bold text-foreground">Our Team Rookies</span>
             <span className="font-bold text-primary">${earningStats.teamRookieAverage.toLocaleString()}</span>
           </div>
-          <div className="h-8 rounded-full bg-primary overflow-hidden shadow-lg shadow-primary/20" />
-        </motion.div>
-        
-        {/* Company average bar */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.05 }}
-          className="mb-6"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-medium text-muted-foreground">Company Avg Rookie</span>
-            <span className="font-medium text-muted-foreground">${earningStats.companyRookieAverage.toLocaleString()}</span>
-          </div>
-          <div className="h-6 rounded-full bg-muted overflow-hidden">
+          <div className="relative h-10 rounded-full bg-primary overflow-hidden shadow-lg shadow-primary/20">
+            {/* Company average marker inside the bar */}
             <motion.div
               initial={{ width: 0 }}
-              whileInView={{ width: `${(earningStats.companyRookieAverage / maxEarnings) * 100}%` }}
+              whileInView={{ width: `${companyPercent}%` }}
               viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 0.05 }}
-              className="h-full rounded-full bg-primary/40"
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="absolute top-0 left-0 h-full bg-primary/50 border-r-4 border-white/80"
             />
+            {/* Label for company average */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.8 }}
+              className="absolute top-0 h-full flex items-center px-3"
+              style={{ left: `${companyPercent - 2}%` }}
+            >
+              <div className="bg-white/90 text-primary text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow">
+                Avg Rookie $38k
+              </div>
+            </motion.div>
           </div>
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            Our rookies outpace the company average by 27%
+          </p>
         </motion.div>
         
         {/* Comparison bars */}
@@ -66,7 +69,7 @@ export const EarningsComparison = () => {
                 initial={{ opacity: 0, x: -20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: (index + 2) * 0.05 }}
+                transition={{ delay: index * 0.05 }}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm text-muted-foreground">{job.job}</span>
@@ -77,7 +80,7 @@ export const EarningsComparison = () => {
                     initial={{ width: 0 }}
                     whileInView={{ width: `${widthPercent}%` }}
                     viewport={{ once: true }}
-                    transition={{ duration: 0.8, delay: (index + 2) * 0.05 }}
+                    transition={{ duration: 0.8, delay: index * 0.05 }}
                     className="h-full rounded-full bg-muted-foreground/30"
                   />
                 </div>
