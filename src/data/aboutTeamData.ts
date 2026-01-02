@@ -44,7 +44,7 @@ export const successStories: SuccessStory[] = [
   {
     id: "ammon",
     name: "Ammon Allan",
-    photo: "/images/about-team/placeholder-avatar.jpg",
+    photo: "/images/about-team/ammon-allan.png",
     hook: "College athlete. $100k+ in 5 months.",
     beforeStory: "Ammon was a college basketball player looking for a way to channel his competitiveness and work ethic into a high income opportunity.",
     afterResult: "Ammon applied the skills he developed playing sports—discipline, coachability, hard work, and positivity—to this opportunity and made $100k+ in 5 months with no prior sales experience.",
@@ -55,7 +55,7 @@ export const successStories: SuccessStory[] = [
   {
     id: "javier",
     name: "Javier Estrada",
-    photo: "/images/about-team/javier-estrada.png",
+    photo: "/images/about-team/javier-estrada.jpg",
     hook: "From Target to record-setting rookie.",
     age: 19,
     beforeStory: "Javier was working at Target making $20/hour and building a mobile detailing company before knocking doors with Vivint.",
@@ -67,7 +67,7 @@ export const successStories: SuccessStory[] = [
   {
     id: "ansel",
     name: "Ansel Severson",
-    photo: "/images/about-team/ansel-severson.jpg",
+    photo: "/images/about-team/ansel-severson.png",
     hook: "Proposed in Hawaii. Paid for by Vivint.",
     beforeStory: "Ansel was a college student looking for a way to graduate debt-free while still having time for what matters most.",
     afterResult: "Ansel proposed to his now-fiancée on the free five-star Hawaii trip he earned for himself and a guest—all while making $70k+ in four months with no sales experience. Now he doesn't have to work during the school year.",

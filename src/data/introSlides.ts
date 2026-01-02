@@ -36,7 +36,7 @@ export interface IntroSlideConfig {
 // Team leads for carousel - Calvin first as Area Director, then team leads
 const teamLeads = [
   { name: "Calvin Schofield", photo: "/images/about-team/calvin.jpg", title: "Area Director" },
-  { name: "Jose Pineda", photo: "/images/about-team/jose-pineda.jpeg" },
+  { name: "Jose Pineda", photo: "/images/about-team/jose-pineda.jpg" },
   { name: "John Ramer", photo: "/images/about-team/john-ramer.png" },
   { name: "Jack Mair", photo: "/images/about-team/jack-mair.png" },
   { name: "Henry Condie", photo: "/images/about-team/henry-condie.png" },
