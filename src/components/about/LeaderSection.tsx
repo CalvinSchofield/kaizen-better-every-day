@@ -108,7 +108,7 @@ export const LeaderSection = () => {
             <img
               src="/images/about-team/calvin-schofield.jpeg"
               alt="Calvin Schofield"
-              className="w-full h-full object-cover object-top"
+              className="w-full h-full object-cover object-[center_30%]"
             />
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-5 py-5">
               <h3 className="text-2xl font-bold text-white">Calvin Schofield</h3>
