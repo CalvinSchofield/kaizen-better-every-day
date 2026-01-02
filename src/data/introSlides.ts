@@ -1,6 +1,6 @@
 import { earningStats, successStories } from "./aboutTeamData";
 
-export type SlideType = 'standard' | 'stat' | 'video' | 'image' | 'carousel' | 'cta' | 'photo-upload';
+export type SlideType = 'standard' | 'stat' | 'video' | 'image' | 'carousel' | 'grid' | 'cta' | 'photo-upload';
 export type IconName = 'home' | 'map' | 'book-open' | 'target' | 'calendar' | 'camera' | 'sparkles' | 'users';
 
 export interface IntroSlideConfig {
@@ -28,19 +28,34 @@ export interface IntroSlideConfig {
     photo: string;
     name: string;
   }>;
+  // Grid slide props
+  gridItems?: Array<{
+    photo: string;
+    name: string;
+    isAreaDirector?: boolean;
+  }>;
   // CTA slide props
   ctaText?: string;
   showConfetti?: boolean;
 }
 
-// Team leads for carousel - showing key leaders
-const teamLeads = [
-  { name: "Calvin Schofield", photo: "/images/about-team/calvin-schofield.jpeg" },
+// All team leaders for grid display
+const allLeaders = [
+  { name: "Calvin Schofield", photo: "/images/about-team/calvin-schofield.jpeg", isAreaDirector: true },
   { name: "Christian Fabian", photo: "/images/about-team/christian-fabian.png" },
   { name: "Adam Schofield", photo: "/images/about-team/adam-schofield.jpg" },
-  { name: "Jose Pineda", photo: "/images/about-team/jose-pineda.jpg" },
-  { name: "Jack Mair", photo: "/images/about-team/jack-mair.png" },
+  { name: "Ansel Severson", photo: "/images/about-team/ansel-severson.png" },
   { name: "Ammon Allan", photo: "/images/about-team/ammon-allan.png" },
+  { name: "RJ Ashton", photo: "/images/about-team/rj-ashton.jpg" },
+  { name: "Quinn Gleed", photo: "/images/about-team/quinn-gleed.png" },
+  { name: "Misael Sanchez", photo: "/images/about-team/misael-sanchez.png" },
+  { name: "Micah Ao", photo: "/images/about-team/micah-ao.png" },
+  { name: "Jose Pineda", photo: "/images/about-team/jose-pineda.jpg" },
+  { name: "Javier Estrada", photo: "/images/about-team/javier-estrada.jpg" },
+  { name: "Jack Mair", photo: "/images/about-team/jack-mair.png" },
+  { name: "Ephraim Wilde", photo: "/images/about-team/ephraim-wilde.jpg" },
+  { name: "Deandre Abraham", photo: "/images/about-team/deandre-abraham.png" },
+  { name: "Calder Severson", photo: "/images/about-team/calder-severson.jpeg" },
 ];
 
 // Get the first success story with a video for the testimonial
@@ -68,7 +83,7 @@ export const getPreBlitzRookieSlides = (firstName: string): IntroSlideConfig[] =
   const cleanName = stripEmojis(firstName) || 'there';
   
   return [
-    // Phase 1: Emotional Buy-In
+    // Phase 1: Emotional Buy-In (keep the team-page-mimicking content)
     {
       id: 'welcome',
       type: 'image',
@@ -99,52 +114,19 @@ export const getPreBlitzRookieSlides = (firstName: string): IntroSlideConfig[] =
     },
     {
       id: 'meet-the-team',
-      type: 'carousel',
+      type: 'grid',
       title: "Meet Your Leaders",
       description: "This group of leaders has your back. They've been in your shoes and are here to help you succeed.",
-      carouselItems: teamLeads,
+      gridItems: allLeaders,
     },
 
-    // Phase 2: App Education
-    {
-      id: 'journey-home',
-      type: 'standard',
-      iconName: 'map',
-      title: "Your Journey Starts Here",
-      description: "Home is your roadmap. Follow the steps to get blitz-ready. Each step unlocks as you progress—just focus on what's next.",
-      highlight: "Step by step"
-    },
-    {
-      id: 'training-hub',
-      type: 'standard',
-      iconName: 'book-open',
-      title: "Training Hub",
-      description: "Study product knowledge, practice pitches, and complete trainings. Everything you need to prepare is right here.",
-    },
-    {
-      id: 'pick-blitz',
-      type: 'standard',
-      iconName: 'calendar',
-      title: "Pick Your Blitz",
-      description: "View upcoming blitzes and commit to dates. Your first blitz is where it all starts—pick one that works for you.",
-    },
-    {
-      id: 'set-goals',
-      type: 'standard',
-      iconName: 'target',
-      title: "Dream Big",
-      description: "Set your summer earnings goal. We'll help you build a plan to get there and track your progress along the way.",
-      highlight: "What's your number?"
-    },
-
-    // Phase 3: Action
+    // Phase 2: Action - Photo upload then CTA
     {
       id: 'add-photo',
-      type: 'standard',
+      type: 'photo-upload',
       iconName: 'camera',
       title: "Add Your Photo",
-      description: "Upload a profile photo so teammates can recognize you on leaderboards. Tap your name in the menu anytime.",
-      highlight: "Stand out!"
+      description: "Upload a profile photo so teammates can recognize you on leaderboards and your team knows who you are!",
     },
     {
       id: 'lets-go',
@@ -152,7 +134,7 @@ export const getPreBlitzRookieSlides = (firstName: string): IntroSlideConfig[] =
       iconName: 'sparkles',
       title: "You're All Set!",
       description: "Your journey to becoming a top performer starts now. Let's make this summer legendary.",
-      ctaText: "Let's Go!",
+      ctaText: "Get Started",
       showConfetti: true,
     },
   ];
