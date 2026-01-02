@@ -42,16 +42,25 @@ export const HeroSection = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="text-4xl md:text-5xl font-bold mb-4 leading-tight max-w-md"
+          className="text-5xl md:text-6xl font-bold mb-2"
         >
-          {heroContent.headline}
+          {heroContent.title}
         </motion.h1>
         
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="text-lg md:text-xl text-white/80 mb-10 max-w-sm"
+          className="text-2xl md:text-3xl font-medium text-white/90 mb-4"
+        >
+          {heroContent.tagline}
+        </motion.p>
+        
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
+          className="text-base md:text-lg text-white/70 mb-10 max-w-sm"
         >
           {heroContent.subheadline}
         </motion.p>

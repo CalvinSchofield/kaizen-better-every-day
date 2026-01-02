@@ -318,8 +318,11 @@ export interface QuickStat {
 export const quickStats: QuickStat[] = [
   { id: "avg", value: "$48.5k", label: "Avg Rookie Earnings", highlight: true },
   { id: "100-club", value: "4", label: "100+ Account Rookies" },
-  { id: "week", value: "$11.5k", label: "Biggest Week" },
-  { id: "day", value: "$5.1k", label: "Biggest Day" },
+  { id: "week", value: "$11.5k", label: "Biggest Rookie Week" },
+  { id: "day", value: "$5.1k", label: "Biggest Rookie Day" },
+  { id: "viper", value: "🏆", label: "VIPER Champions 2026" },
+  { id: "sevens", value: "🥇", label: "SEVENS Champions" },
+  { id: "dream", value: "2", label: "Dream Dream Rookies" },
   { id: "trips", value: "5-Star", label: "Trips Earned" }
 ];
 
@@ -340,8 +343,9 @@ export const culturePhotos = [
 // Hero content
 export const heroContent = {
   backgroundImage: "/images/about-team/viper-champions.jpeg",
-  headline: "Where Rookies Become Top Earners",
-  subheadline: "No experience required. Just show up ready to grow.",
+  title: "Kaizen",
+  tagline: "Better Every Day.",
+  subheadline: "A team built to develop elite performers — not just sell alarms.",
   statValue: "$48,512",
   statLabel: "average rookie earnings"
 };

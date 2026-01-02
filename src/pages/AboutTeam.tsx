@@ -6,10 +6,8 @@ import { QuickStatsBar } from "@/components/about/QuickStatsBar";
 import { SuccessStoriesCarousel } from "@/components/about/SuccessStoriesCarousel";
 import { SkillsGrid } from "@/components/about/SkillsGrid";
 import { EarningsComparison } from "@/components/about/EarningsComparison";
-import { BigWinsShowcase } from "@/components/about/BigWinsShowcase";
 import { CultureGallery } from "@/components/about/CultureGallery";
 import { AlumniSection } from "@/components/about/AlumniSection";
-import { AccoladesBadges } from "@/components/about/AccoladesBadges";
 import { CompanyCredibility } from "@/components/about/CompanyCredibility";
 import { FinalCTA } from "@/components/about/FinalCTA";
 
@@ -35,10 +33,8 @@ const AboutTeam = () => {
       <SuccessStoriesCarousel />
       <SkillsGrid />
       <EarningsComparison />
-      <BigWinsShowcase />
       <CultureGallery />
       <AlumniSection />
-      <AccoladesBadges />
       <CompanyCredibility />
       <FinalCTA />
     </div>
