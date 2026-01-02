@@ -48,23 +48,35 @@ const featuredTestimonial = successStories.find(s => s.youtubeUrl) || successSto
 // Helper to strip emojis from text
 export const stripEmojis = (text: string): string => {
   if (!text) return '';
-  return text.replace(/\p{Emoji_Presentation}|\p{Extended_Pictographic}/gu, '').trim();
+  // Remove emojis and emoji modifiers
+  return text
+    .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Emoticons
+    .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Symbols & Pictographs
+    .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport & Map
+    .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, '') // Flags
+    .replace(/[\u{2600}-\u{26FF}]/gu, '')   // Misc symbols
+    .replace(/[\u{2700}-\u{27BF}]/gu, '')   // Dingbats
+    .replace(/[\u{FE00}-\u{FE0F}]/gu, '')   // Variation Selectors
+    .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental Symbols
+    .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '') // Chess symbols
+    .replace(/[\u{1FA70}-\u{1FAFF}]/gu, '') // Extended-A
+    .trim();
 };
 
 export const getPreBlitzRookieSlides = (firstName: string): IntroSlideConfig[] => {
-  const cleanName = stripEmojis(firstName);
+  const cleanName = stripEmojis(firstName) || 'there';
   
   return [
     // Phase 1: Emotional Buy-In
     {
       id: 'welcome',
       type: 'image',
-      title: `Welcome, ${cleanName}!`,
-      description: "You're joining a team of winners. Let us show you why this is the best decision you've made.",
+      title: "Kaizen",
+      description: "Better Every Day.\n\nA team built to develop elite performers — not just sell alarms.",
       imageSrc: "/images/about-team/hero-team.jpeg",
       imageAlt: "Kaizen team celebrating",
-      overlayPosition: 'bottom',
-      highlight: "Let's go 🚀"
+      overlayPosition: 'center',
+      highlight: `Welcome, ${cleanName}!`
     },
     {
       id: 'stat-earnings',
@@ -156,7 +168,7 @@ export const getPreBlitzRookieSlides = (firstName: string): IntroSlideConfig[] =
 
 // For vets, post-blitz rookies, and leaders - simpler flow focused on app features
 export const getKnockingUserSlides = (firstName: string, isLeader: boolean): IntroSlideConfig[] => {
-  const cleanName = stripEmojis(firstName);
+  const cleanName = stripEmojis(firstName) || 'there';
   
   const baseSlides: IntroSlideConfig[] = [
     {
