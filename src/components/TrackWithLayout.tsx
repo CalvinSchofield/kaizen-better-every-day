@@ -60,6 +60,13 @@ const TrackWithLayout = () => {
     page: 'track',
     enabled: !!repData && !isLoadingEntry,
   });
+
+  // Enable demo mode when tour starts to prevent any data changes
+  useEffect(() => {
+    if (showTour) {
+      setIsTourDemoMode(true);
+    }
+  }, [showTour]);
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
   const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
   const [unfinalizedEntries, setUnfinalizedEntries] = useState<any[]>([]);
@@ -81,6 +88,7 @@ const TrackWithLayout = () => {
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [pendingCloseIncrement, setPendingCloseIncrement] = useState(false);
   const [isDeleteSalePickerOpen, setIsDeleteSalePickerOpen] = useState(false);
+  const [isTourDemoMode, setIsTourDemoMode] = useState(false); // Prevents real data changes during tour
   
   // Local backup for data recovery
   const userId = getCurrentUserId();
@@ -409,6 +417,12 @@ const TrackWithLayout = () => {
       toast.info("Today's work is already saved. Start fresh tomorrow!");
       return;
     }
+
+    // PROTECTION LAYER 8: Block all changes during tour demo mode
+    if (isTourDemoMode) {
+      console.log('Ignoring counter change - tour demo mode active');
+      return;
+    }
     
     // Get current value to determine if adding or subtracting
     const currentValue = field.startsWith('custom_') 
@@ -545,6 +559,8 @@ const TrackWithLayout = () => {
 
   // Sales logger handlers
   const handleLogSale = useCallback(async (saleData: Omit<Sale, 'id' | 'timestamp'>) => {
+    // Block during tour demo mode
+    if (isTourDemoMode) return;
     if (!pendingCloseIncrement) return;
     
     const newSale: Sale = {
@@ -666,6 +682,9 @@ const TrackWithLayout = () => {
   }, [entry, updateCounter]);
 
   const handleStartWork = () => {
+    // Block during tour demo mode
+    if (isTourDemoMode) return;
+    
     // If work already started but not ended, end it instead
     if (entry.work_start_time && !entry.work_end_time) {
       handleEndWork();
@@ -682,6 +701,9 @@ const TrackWithLayout = () => {
   };
 
   const handleEndWork = () => {
+    // Block during tour demo mode
+    if (isTourDemoMode) return;
+    
     // Check if it's before sunset (7 PM)
     if (isBeforeSunset()) {
       setIsEarlyEndConfirmOpen(true);
@@ -765,26 +787,26 @@ const TrackWithLayout = () => {
       </Layout>
 
       {/* Log Sale Sheet */}
-      <div data-tour="track-log-sale-sheet">
-        <LogSaleSheet
-          open={isLogSaleSheetOpen}
-          onOpenChange={(open) => {
-            setIsLogSaleSheetOpen(open);
-            if (!open) {
-              setPendingCloseIncrement(false);
-              setEditingSale(null);
-            }
-          }}
-          onLogSale={handleLogSale}
-          editingSale={editingSale}
-          onUpdateSale={handleUpdateSale}
-          onDeleteSale={handleDeleteSale}
-          showPrmrHelper={showPrmrHelper}
-          crmEnabled={(repData as any)?.crm_enabled || false}
-          crmDetailedEnabled={(repData as any)?.crm_detailed_enabled || false}
-          counterTimestamps={entry.counter_timestamps}
-        />
-      </div>
+      <LogSaleSheet
+        open={isLogSaleSheetOpen}
+        onOpenChange={(open) => {
+          // Don't allow closing during tour demo mode (they need to complete tour)
+          if (isTourDemoMode && !open) return;
+          setIsLogSaleSheetOpen(open);
+          if (!open) {
+            setPendingCloseIncrement(false);
+            setEditingSale(null);
+          }
+        }}
+        onLogSale={handleLogSale}
+        editingSale={editingSale}
+        onUpdateSale={handleUpdateSale}
+        onDeleteSale={handleDeleteSale}
+        showPrmrHelper={showPrmrHelper}
+        crmEnabled={(repData as any)?.crm_enabled || false}
+        crmDetailedEnabled={(repData as any)?.crm_detailed_enabled || false}
+        counterTimestamps={entry.counter_timestamps}
+      />
 
       {/* Delete Sale Picker Sheet */}
       <DeleteSalePickerSheet
@@ -902,10 +924,19 @@ const TrackWithLayout = () => {
       <PageTour
         steps={trackTourSteps}
         isOpen={showTour}
-        onComplete={completeTour}
-        onSkip={skipTour}
+        onComplete={() => {
+          setIsTourDemoMode(false);
+          setIsLogSaleSheetOpen(false);
+          completeTour();
+        }}
+        onSkip={() => {
+          setIsTourDemoMode(false);
+          setIsLogSaleSheetOpen(false);
+          skipTour();
+        }}
         onStepAction={(action) => {
           if (action === 'openLogSaleSheet') {
+            setIsTourDemoMode(true);
             setIsLogSaleSheetOpen(true);
           }
         }}
