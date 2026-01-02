@@ -1,6 +1,6 @@
 import { earningStats, successStories } from "./aboutTeamData";
 
-export type SlideType = 'standard' | 'stat' | 'video' | 'image' | 'carousel' | 'cta';
+export type SlideType = 'standard' | 'stat' | 'video' | 'image' | 'carousel' | 'cta' | 'photo-upload';
 export type IconName = 'home' | 'map' | 'book-open' | 'target' | 'calendar' | 'camera' | 'sparkles' | 'users';
 
 export interface IntroSlideConfig {
@@ -169,11 +169,10 @@ export const getKnockingUserSlides = (firstName: string, isLeader: boolean): Int
     },
     {
       id: 'add-photo',
-      type: 'standard',
+      type: 'photo-upload',
       iconName: 'camera',
       title: "Add Your Photo",
-      description: "Upload a profile photo so teammates can recognize you on leaderboards.",
-      highlight: "Stand out!"
+      description: "Upload a profile photo so teammates can recognize you on leaderboards and your team knows who you are!",
     },
   ];
 
