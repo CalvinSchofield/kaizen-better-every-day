@@ -426,7 +426,7 @@ export const LogSaleSheet = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="pb-safe">
+      <DrawerContent className="pb-safe" data-tour="track-log-sale-sheet">
         <DrawerHeader className="text-center pb-2">
           <DrawerTitle className="text-xl">
             {isEditing ? "Edit Sale" : "Nice! 🎉"}

@@ -160,13 +160,17 @@ export const QTallyGrid = ({ entry, onCounterChange, customCounterConfig = [], c
       {/* Core 6 counters - Fixed grid */}
       <div className="grid grid-cols-2 gap-3 w-full" style={{ gridTemplateRows: 'repeat(3, 1fr)', minHeight: hasCustomCounters ? 'auto' : '100%' }}>
         {coreCounters.map((counter) => (
-          <CounterCard
+          <div 
             key={counter.field}
-            label={counter.label}
-            value={counter.value}
-            field={counter.field}
-            onCounterChange={onCounterChange}
-          />
+            data-tour={counter.field === 'closes' ? 'track-fp-counter' : undefined}
+          >
+            <CounterCard
+              label={counter.label}
+              value={counter.value}
+              field={counter.field}
+              onCounterChange={onCounterChange}
+            />
+          </div>
         ))}
       </div>
 
