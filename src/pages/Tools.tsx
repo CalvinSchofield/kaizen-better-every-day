@@ -108,9 +108,8 @@ const Tools = () => {
         {
           title: "About the Team",
           description: "Team story, culture, and expectations",
-          href: "#",
+          href: "/about-team",
           icon: Users,
-          comingSoon: true,
         },
         {
           title: "Team Calendar",
