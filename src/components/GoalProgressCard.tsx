@@ -290,13 +290,47 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
 
   // ==========================================
   // FIXED DAILY PACE (never changes)
-  // Use PRESEASON goal when in preseason, FOCUS TIER goal when in summer
-  // Formula: Funded Goal (with cancel buffer) / Total Knocking Days
+  // PRESEASON: Funded preseason goal / preseason knocking days
+  // SUMMER: (Funded tier goal - projected preseason total) / summer knocking days
+  // This matches Goals page calculation exactly
   // ==========================================
-  const activeSeasonGoal = isInPreseason ? displayPreseasonGoal : fundedFocusTierGoal;
-  const fixedDailyGoal = totalSeasonKnockingDays > 0 
-    ? activeSeasonGoal / totalSeasonKnockingDays 
-    : 0;
+  const fixedDailyGoal = useMemo(() => {
+    if (totalSeasonKnockingDays <= 0) return 0;
+    
+    if (isInPreseason) {
+      // During preseason viewing preseason dates: simple division
+      return displayPreseasonGoal / totalSeasonKnockingDays;
+    } else {
+      // Viewing summer dates: subtract projected preseason progress first
+      // Use fundedFocusTierGoal (which is already the summer tier goal with buffer)
+      // Subtract what we're projected to hit in preseason based on current pace
+      const preseasonGoalForCalc = displayPreseasonGoal;
+      const preseasonDaysComplete = entries.filter(e => {
+        if (!e.is_finalized) return false;
+        if (e.entry_date > PRESEASON_END) return false;
+        return (e.doors_knocked || 0) >= 4 && !!e.work_start_time && !!e.work_end_time;
+      }).length;
+      
+      // Project preseason total based on current pace if still in preseason
+      const todayStr = format(today, 'yyyy-MM-dd');
+      const stillInPreseason = todayStr <= PRESEASON_END;
+      
+      let projectedPreseasonTotal = currentProgress;
+      if (stillInPreseason && preseasonDaysComplete > 0 && displayPreseasonGoal > 0) {
+        // Calculate pace and project
+        const pacePerDay = currentProgress / preseasonDaysComplete;
+        // Get remaining preseason planned days
+        const remainingPreseasonPlanned = plannedDays?.filter(d => 
+          d.planned_date > todayStr && d.planned_date <= PRESEASON_END
+        ).length || 0;
+        projectedPreseasonTotal = currentProgress + (pacePerDay * remainingPreseasonPlanned);
+      }
+      
+      // Summer daily = (Summer goal - projected preseason) / summer knocking days
+      const remainingForSummer = Math.max(0, fundedFocusTierGoal - projectedPreseasonTotal);
+      return remainingForSummer / totalSeasonKnockingDays;
+    }
+  }, [isInPreseason, displayPreseasonGoal, totalSeasonKnockingDays, fundedFocusTierGoal, currentProgress, entries, today, plannedDays]);
 
   // ==========================================
   // PERIOD GOAL: What you should hit this entire week/month
