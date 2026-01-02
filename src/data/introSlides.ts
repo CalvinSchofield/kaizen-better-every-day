@@ -1,6 +1,6 @@
-import { earningStats, successStories } from "./aboutTeamData";
+import { successStories } from "./aboutTeamData";
 
-export type SlideType = 'standard' | 'stat' | 'video' | 'image' | 'carousel' | 'grid' | 'cta' | 'photo-upload';
+export type SlideType = 'standard' | 'stat' | 'video' | 'image' | 'carousel' | 'grid' | 'accolades' | 'cta' | 'photo-upload';
 export type IconName = 'home' | 'map' | 'book-open' | 'target' | 'calendar' | 'camera' | 'sparkles' | 'users';
 
 export interface IntroSlideConfig {
@@ -95,14 +95,10 @@ export const getPreBlitzRookieSlides = (firstName: string): IntroSlideConfig[] =
       highlight: `Welcome, ${cleanName}!`
     },
     {
-      id: 'stat-earnings',
-      type: 'stat',
-      title: "Rookie Average Earnings",
-      description: "Our rookies don't just survive—they thrive. This is what average looks like on Kaizen.",
-      statValue: earningStats.teamRookieAverage,
-      statPrefix: "$",
-      statSuffix: "",
-      statLabel: "average rookie earnings"
+      id: 'team-accolades',
+      type: 'accolades',
+      title: "Team Accolades",
+      description: "A winning culture breeds winners. Here's what our team has accomplished.",
     },
     {
       id: 'testimonial',
