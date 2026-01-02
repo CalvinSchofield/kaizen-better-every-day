@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { useRepGoals } from '@/hooks/useRepGoals';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
 import { useEfpMode } from '@/hooks/useEfpMode';
-import { useFocusTier } from '@/hooks/useFocusTier';
+import { useFocusTier, FocusTier } from '@/hooks/useFocusTier';
 import { useMemo } from 'react';
 import { calculateSalesPace } from '@/utils/salesPaceCalculator';
 
@@ -32,7 +32,7 @@ export const InsightsSummaryHero = ({
   
   // Get current progress and focus tier
   const currentProgress = efpModeEnabled ? totalEfp : totalFp;
-  const { focusTier, isUserSummerStarted } = useFocusTier(currentProgress);
+  const { focusTier, setFocusTier, allTiers, isUserSummerStarted } = useFocusTier(currentProgress);
   
   const fpPerDay = daysWorked > 0 ? (efpModeEnabled ? totalEfp : totalFp) / daysWorked : 0;
   
@@ -63,6 +63,13 @@ export const InsightsSummaryHero = ({
       focusTier: isUserSummerStarted ? focusTier : null,
     };
   }, [goals, plannedDays, totalFp, totalPrmr, totalEfp, efpModeEnabled, daysWorked, calculateEfp, focusTier, isUserSummerStarted]);
+  
+  // Tier display config
+  const tierConfig: Record<FocusTier, { label: string; color: string }> = {
+    mustDo: { label: 'Must Do', color: 'text-amber-600 dark:text-amber-400' },
+    willDo: { label: 'Will Do', color: 'text-primary' },
+    couldDo: { label: 'Could Do', color: 'text-emerald-600 dark:text-emerald-400' },
+  };
   
   return (
     <Card className="p-5 bg-gradient-to-br from-card to-accent/30 border-border/50">
@@ -109,6 +116,46 @@ export const InsightsSummaryHero = ({
               }: {paceStatus.targetGoal.toFixed(0)}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Summer Tier Goals - Only show when summer has started */}
+      {isUserSummerStarted && allTiers && (
+        <div className="flex items-center gap-2 mb-4 p-1.5 rounded-xl bg-muted/30">
+          {(['mustDo', 'willDo', 'couldDo'] as FocusTier[]).map((tier) => {
+            const isActive = focusTier === tier;
+            const tierData = allTiers[tier];
+            const config = tierConfig[tier];
+            const progressPercent = tierData.goal > 0 ? Math.min((currentProgress / tierData.goal) * 100, 100) : 0;
+            
+            return (
+              <button
+                key={tier}
+                onClick={() => setFocusTier(tier)}
+                className={`flex-1 py-2 px-2 rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? 'bg-card shadow-sm border border-border/50'
+                    : 'hover:bg-muted/50'
+                }`}
+              >
+                <div className={`text-[10px] font-medium mb-0.5 ${isActive ? config.color : 'text-muted-foreground'}`}>
+                  {config.label}
+                </div>
+                <div className={`text-sm font-bold ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {tierData.goal.toFixed(0)}
+                </div>
+                {/* Mini progress bar */}
+                <div className="mt-1.5 h-1 bg-muted/50 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all ${
+                      tierData.complete ? 'bg-green-500' : isActive ? 'bg-primary' : 'bg-muted-foreground/30'
+                    }`}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
