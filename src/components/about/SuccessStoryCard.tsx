@@ -47,15 +47,13 @@ export const SuccessStoryCard = ({ story, index }: SuccessStoryCardProps) => {
             </div>
           )}
           
-          {/* Name overlay - only show when no video */}
-          {!hasVideo && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-5 py-4">
-              <h3 className="text-white font-bold text-xl">{story.name}</h3>
-              {story.earnings && (
-                <span className="text-primary font-semibold text-sm">{story.earnings}</span>
-              )}
-            </div>
-          )}
+          {/* Name overlay bar - always show */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-5 py-4">
+            <h3 className="text-white font-bold text-xl">{story.name}</h3>
+            {story.earnings && (
+              <span className="text-primary font-semibold text-sm">{story.earnings}</span>
+            )}
+          </div>
         </div>
         
         {/* Expandable Ding Dong Ditch video for Christian */}
@@ -106,16 +104,6 @@ export const SuccessStoryCard = ({ story, index }: SuccessStoryCardProps) => {
         
         {/* Content */}
         <div className="p-5 space-y-4">
-          {/* Name & earnings when video is shown */}
-          {hasVideo && (
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg text-foreground">{story.name}</h3>
-              {story.earnings && (
-                <span className="text-primary font-semibold text-sm">{story.earnings}</span>
-              )}
-            </div>
-          )}
-          
           {/* Hook */}
           <p className="font-bold text-lg text-foreground leading-snug">
             {story.hook}
