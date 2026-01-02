@@ -1,10 +1,11 @@
-import { TrendingUp, TrendingDown, Target, CheckCircle2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, CheckCircle2, Zap } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { useRepGoals } from '@/hooks/useRepGoals';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { useFocusTier, FocusTier } from '@/hooks/useFocusTier';
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { calculateSalesPace } from '@/utils/salesPaceCalculator';
 
 interface InsightsSummaryHeroProps {
@@ -26,9 +27,13 @@ export const InsightsSummaryHero = ({
   totalDoors,
   efpModeEnabled
 }: InsightsSummaryHeroProps) => {
+  const navigate = useNavigate();
   const { goals } = useRepGoals();
   const { plannedDays } = usePlannedDays();
   const { calculateEfp } = useEfpMode();
+  
+  // Check if goals are set up
+  const goalsSetUp = goals?.setup_complete === true;
   
   // Get current progress and focus tier
   const currentProgress = efpModeEnabled ? totalEfp : totalFp;
@@ -38,6 +43,8 @@ export const InsightsSummaryHero = ({
   
   // Calculate pace status using centralized calculator with focus tier
   const paceStatus = useMemo(() => {
+    if (!goalsSetUp) return null;
+    
     const result = calculateSalesPace({
       goals,
       plannedDays,
@@ -62,7 +69,7 @@ export const InsightsSummaryHero = ({
       isInPreseason: result.isInPreseason,
       focusTier: isUserSummerStarted ? focusTier : null,
     };
-  }, [goals, plannedDays, totalFp, totalPrmr, totalEfp, efpModeEnabled, daysWorked, calculateEfp, focusTier, isUserSummerStarted]);
+  }, [goals, goalsSetUp, plannedDays, totalFp, totalPrmr, totalEfp, efpModeEnabled, daysWorked, calculateEfp, focusTier, isUserSummerStarted]);
   
   // Tier display config
   const tierConfig: Record<FocusTier, { label: string; color: string }> = {
@@ -73,6 +80,21 @@ export const InsightsSummaryHero = ({
   
   return (
     <Card className="p-5 bg-gradient-to-br from-card to-accent/30 border-border/50">
+      {/* Goals Not Set Up CTA */}
+      {!goalsSetUp && (
+        <div 
+          className="flex items-center gap-3 p-3 rounded-lg mb-4 bg-primary/10 border border-primary/20 cursor-pointer"
+          onClick={() => navigate('/goals')}
+        >
+          <Target className="w-5 h-5 text-primary flex-shrink-0" />
+          <div className="flex-1">
+            <span className="text-sm font-medium text-primary">Set Up Your Goals</span>
+            <p className="text-xs text-muted-foreground">Track your pace and see how you're doing</p>
+          </div>
+          <Zap className="w-4 h-4 text-primary" />
+        </div>
+      )}
+
       {/* Goal Pace Indicator */}
       {paceStatus && (
         <div className={`flex items-center justify-between p-3 rounded-lg mb-4 ${

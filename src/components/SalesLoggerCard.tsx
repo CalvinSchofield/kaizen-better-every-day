@@ -47,12 +47,16 @@ export const SalesLoggerCard = ({
   // Get focus tier daily goal
   const { focusTier, fundedFocusTierGoal, isUserSummerStarted } = useFocusTier(currentProgress);
   
+  // Check if goals are set up
+  const goalsSetUp = goals?.setup_complete === true;
+  
   // Calculate daily goal based on total season knocking days
+  // For preseason: use preseason goal; for summer: use focus tier goal
   const dailyGoal = (() => {
-    if (!plannedDays || !isUserSummerStarted) return 0;
+    if (!goalsSetUp || !plannedDays) return 0;
     
     const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const seasonEndStr = '2026-09-27'; // Summer end
+    const seasonEndStr = isUserSummerStarted ? '2026-09-27' : '2026-04-11'; // Summer end or Preseason end
     
     // Future planned days from today forward
     const futurePlanned = plannedDays.filter(d => 
@@ -60,7 +64,19 @@ export const SalesLoggerCard = ({
     ).length;
     
     if (futurePlanned === 0) return 0;
-    return fundedFocusTierGoal / futurePlanned;
+    
+    if (isUserSummerStarted) {
+      return fundedFocusTierGoal / futurePlanned;
+    } else {
+      // Preseason goal with cancel rate buffer
+      const cancelRate = goals?.cancel_rate || 0;
+      const preseasonGoal = goals?.preseason_fp_goal || 0;
+      const fundedPreseasonGoal = cancelRate > 0 && cancelRate < 1 
+        ? preseasonGoal / (1 - cancelRate) 
+        : preseasonGoal;
+      const conversionFactor = efpModeEnabled ? (goals?.avg_prmr_per_fp || 85) / 85 : 1;
+      return (fundedPreseasonGoal * conversionFactor) / futurePlanned;
+    }
   })();
 
   // Today's progress in the relevant metric
@@ -84,7 +100,7 @@ export const SalesLoggerCard = ({
             {efpModeEnabled ? (
               <>
                 <div className="text-lg font-bold text-primary">
-                  {isUserSummerStarted && dailyGoal > 0 ? (
+                  {goalsSetUp && dailyGoal > 0 ? (
                     <>
                       {totalEFP.toFixed(2)}
                       <span className="text-muted-foreground font-normal"> / {dailyGoal.toFixed(1)}</span>
@@ -101,7 +117,7 @@ export const SalesLoggerCard = ({
             ) : (
               <>
                 <div className="text-lg font-bold text-primary">
-                  {isUserSummerStarted && dailyGoal > 0 ? (
+                  {goalsSetUp && dailyGoal > 0 ? (
                     <>
                       {totalFPPlus.toFixed(1)}
                       <span className="text-muted-foreground font-normal"> / {dailyGoal.toFixed(1)}</span>
@@ -112,15 +128,15 @@ export const SalesLoggerCard = ({
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {isUserSummerStarted && dailyGoal > 0 ? `$${totalPrmr.toLocaleString()}` : `${totalFPPlus.toFixed(1)} FP+`}
+                  {goalsSetUp && dailyGoal > 0 ? `$${totalPrmr.toLocaleString()}` : `${totalFPPlus.toFixed(1)} FP+`}
                 </div>
               </>
             )}
           </div>
         </div>
         
-        {/* Progress bar - only show during summer with a valid goal */}
-        {isUserSummerStarted && dailyGoal > 0 && (
+        {/* Progress bar - only show when goals are set up */}
+        {goalsSetUp && dailyGoal > 0 && (
           <div className="relative h-1.5 bg-muted/50 rounded-full overflow-hidden">
             <div 
               className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out ${
