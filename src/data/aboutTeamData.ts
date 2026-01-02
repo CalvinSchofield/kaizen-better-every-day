@@ -374,7 +374,7 @@ export const culturePhotos: CulturePhoto[] = [
 
 // Hero content
 export const heroContent = {
-  backgroundImage: "/images/about-team/viper-champions.jpeg",
+  backgroundImage: "/images/about-team/hero-team.jpeg",
   title: "Kaizen",
   tagline: "Better Every Day.",
   subheadline: "A team built to develop elite performers — not just sell alarms.",
