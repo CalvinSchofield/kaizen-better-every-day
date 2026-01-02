@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { ArrowLeft, Check, X, Info, Zap, Target, Link2, Scale, ChevronDown, ChevronUp, DollarSign, FileImage } from "lucide-react";
+import { ArrowLeft, Check, X, Info, Zap, Target, Link2, Scale, ChevronDown, ChevronUp, DollarSign, FileImage, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { motion, AnimatePresence } from "framer-motion";
 import useEmblaCarousel from "embla-carousel-react";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { ProductData } from "./productKnowledgeData";
 
 interface ProductGuideProps {
@@ -416,15 +417,34 @@ export const ProductGuide = ({ product, onBack }: ProductGuideProps) => {
               className="space-y-4"
             >
               {product.onePagerImage ? (
-                <Card className="overflow-hidden">
-                  <CardContent className="p-0">
-                    <img 
-                      src={product.onePagerImage} 
-                      alt={`${product.name} Quick Reference`}
-                      className="w-full h-auto"
-                    />
-                  </CardContent>
-                </Card>
+                <>
+                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mb-2">
+                    <ZoomIn className="h-3.5 w-3.5" />
+                    <span>Pinch or double-tap to zoom</span>
+                  </div>
+                  <Card className="overflow-hidden">
+                    <CardContent className="p-0">
+                      <TransformWrapper
+                        initialScale={1}
+                        minScale={1}
+                        maxScale={4}
+                        doubleClick={{ mode: "toggle", step: 2 }}
+                        pinch={{ step: 5 }}
+                      >
+                        <TransformComponent
+                          wrapperStyle={{ width: "100%" }}
+                          contentStyle={{ width: "100%" }}
+                        >
+                          <img 
+                            src={product.onePagerImage} 
+                            alt={`${product.name} Quick Reference`}
+                            className="w-full h-auto"
+                          />
+                        </TransformComponent>
+                      </TransformWrapper>
+                    </CardContent>
+                  </Card>
+                </>
               ) : (
                 <Card>
                   <CardContent className="p-8 text-center">
