@@ -39,7 +39,7 @@ export const successStories: SuccessStory[] = [
     afterResult: "This 18-year-old went on to make six figures this year and finished as the top rookie in the entire region—with no prior sales experience.",
     earnings: "$100k+",
     rhetoricalQuestion: "If he can do it at 18 with no sales experience, can you?",
-    youtubeUrl: undefined // Add YouTube URL when ready
+    youtubeUrl: "https://www.youtube.com/embed/votRoVLUbO0"
   },
   {
     id: "javier",
@@ -62,29 +62,29 @@ export const successStories: SuccessStory[] = [
     afterResult: "Ansel proposed to his now-fiancée on the free five-star Hawaii trip he earned for himself and a guest—all while making $70k+ in four months with no sales experience. Now he doesn't have to work during the school year.",
     earnings: "$70k+",
     rhetoricalQuestion: "Would a high income summer job help you get better grades and focus on those who matter most too?",
-    youtubeUrl: undefined
+    youtubeUrl: "https://www.youtube.com/embed/ROrZpeL-UAA"
   },
   {
     id: "ammon",
     name: "Ammon Allan",
-    photo: "/images/about-team/placeholder-avatar.jpg", // Placeholder until photo provided
+    photo: "/images/about-team/placeholder-avatar.jpg",
     hook: "College athlete. $100k+ in 5 months.",
     beforeStory: "Ammon was a college basketball player looking for a way to channel his competitiveness and work ethic into a high income opportunity.",
     afterResult: "Ammon applied the skills he developed playing sports—discipline, coachability, hard work, and positivity—to this opportunity and made $100k+ in 5 months with no prior sales experience.",
     earnings: "$100k+",
     rhetoricalQuestion: "Are you an athlete with similar attributes that misses competing at a high level?",
-    youtubeUrl: undefined
+    youtubeUrl: "https://www.youtube.com/embed/-7aXnGXmasc"
   },
   {
     id: "levi",
     name: "Levi Tingey",
-    photo: "/images/about-team/placeholder-avatar.jpg", // Placeholder until photo provided
+    photo: "/images/about-team/placeholder-avatar.jpg",
     hook: "High school grad. $40k in 3 months.",
     beforeStory: "Levi started the summer late graduating high school and had some time to kill before starting college.",
     afterResult: "He prepped well in the preseason and shortened the learning curve to hit the ground running, making $9k in a week during his short summer.",
     earnings: "$40k",
     rhetoricalQuestion: "Would you rather pickup a summer job that teaches you the skills of CEOs and millionaires while giving you an uncapped earning potential or work at a Chipotle?",
-    youtubeUrl: undefined
+    youtubeUrl: "https://www.youtube.com/embed/chAVXv91kHg"
   }
 ];
 

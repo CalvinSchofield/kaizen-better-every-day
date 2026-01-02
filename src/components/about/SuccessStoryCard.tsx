@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Play, MessageCircle, User } from "lucide-react";
+import { MessageCircle, User } from "lucide-react";
 import { SuccessStory } from "@/data/aboutTeamData";
 
 interface SuccessStoryCardProps {
@@ -9,6 +9,7 @@ interface SuccessStoryCardProps {
 
 export const SuccessStoryCard = ({ story, index }: SuccessStoryCardProps) => {
   const hasPhoto = story.photo && !story.photo.includes('placeholder');
+  const hasVideo = !!story.youtubeUrl;
 
   return (
     <motion.div
@@ -21,7 +22,17 @@ export const SuccessStoryCard = ({ story, index }: SuccessStoryCardProps) => {
       <div className="bg-card rounded-3xl overflow-hidden border border-border shadow-lg">
         {/* Photo / Video Section */}
         <div className="relative h-56 bg-muted">
-          {hasPhoto ? (
+          {hasVideo ? (
+            // Inline YouTube embed
+            <iframe
+              src={`${story.youtubeUrl}?rel=0&modestbranding=1&playsinline=1`}
+              title={`${story.name} testimonial`}
+              className="w-full h-full"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          ) : hasPhoto ? (
             <img 
               src={story.photo} 
               alt={story.name}
@@ -33,31 +44,29 @@ export const SuccessStoryCard = ({ story, index }: SuccessStoryCardProps) => {
             </div>
           )}
           
-          {/* Video play button overlay */}
-          {story.youtubeUrl && (
-            <a 
-              href={story.youtubeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/40 transition-colors"
-            >
-              <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                <Play className="w-7 h-7 text-primary ml-1" fill="currentColor" />
-              </div>
-            </a>
+          {/* Name overlay - only show when no video */}
+          {!hasVideo && (
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-5 py-4">
+              <h3 className="text-white font-bold text-xl">{story.name}</h3>
+              {story.earnings && (
+                <span className="text-primary font-semibold text-sm">{story.earnings}</span>
+              )}
+            </div>
           )}
-          
-          {/* Name overlay */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-5 py-4">
-            <h3 className="text-white font-bold text-xl">{story.name}</h3>
-            {story.earnings && (
-              <span className="text-primary font-semibold text-sm">{story.earnings}</span>
-            )}
-          </div>
         </div>
         
         {/* Content */}
         <div className="p-5 space-y-4">
+          {/* Name & earnings when video is shown */}
+          {hasVideo && (
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg text-foreground">{story.name}</h3>
+              {story.earnings && (
+                <span className="text-primary font-semibold text-sm">{story.earnings}</span>
+              )}
+            </div>
+          )}
+          
           {/* Hook */}
           <p className="font-bold text-lg text-foreground leading-snug">
             {story.hook}
