@@ -3,6 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { Check, Target, Zap, Trophy, ArrowRight } from "lucide-react";
 import { formatCurrency, calculateTakeHome } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
+import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
 
 export type GoalTier = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
 
@@ -119,7 +120,7 @@ export const GoalTierCard = ({
           </div>
           
           <div className="text-right">
-            <p className="font-bold text-lg">{formatCurrency(result.takeHomePay)}</p>
+            <p className="font-bold text-lg">{formatCurrency(result.takeHomePay)}*</p>
             <p className="text-xs text-muted-foreground">
               ${result.rate}/PRMR
             </p>

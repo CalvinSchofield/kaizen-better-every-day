@@ -25,6 +25,7 @@ import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { CalendarIcon, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
+import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
 
 // Define season boundaries
 // October 2025 is the earliest visible month (season start)
@@ -1550,9 +1551,10 @@ export const CalendarPlanningCard = ({
                 Projected Earnings
               </span>
               <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                {formatCurrency(totalStats.projectedEarnings)}
+                {formatCurrency(totalStats.projectedEarnings)}*
               </span>
             </div>
+            <PayEstimateDisclaimer className="mt-3" />
           </div>
         </div>
       )}

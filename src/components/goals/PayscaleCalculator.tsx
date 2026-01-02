@@ -13,6 +13,7 @@ import {
   getTier
 } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
+import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
 
 interface PayscaleCalculatorProps {
   onCalculate?: (fpGoal: number, takeHome: number) => void;
@@ -255,6 +256,8 @@ export const PayscaleCalculator = ({
             </div>
           </div>
         </div>
+
+        <PayEstimateDisclaimer className="text-center mt-4" />
       </CardContent>
     </Card>
   );
