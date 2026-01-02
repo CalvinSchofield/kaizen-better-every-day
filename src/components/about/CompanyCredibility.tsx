@@ -2,20 +2,17 @@ import { motion } from "framer-motion";
 import { Building2, TrendingUp, Shield } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
-// NRG stock price data (simplified monthly data showing growth)
+// NRG stock price data from Feb 2023 to Jan 2026 (monthly)
 const stockData = [
-  { month: "Jan", price: 32 },
-  { month: "Feb", price: 35 },
-  { month: "Mar", price: 38 },
-  { month: "Apr", price: 42 },
-  { month: "May", price: 48 },
-  { month: "Jun", price: 52 },
-  { month: "Jul", price: 58 },
-  { month: "Aug", price: 62 },
-  { month: "Sep", price: 68 },
-  { month: "Oct", price: 75 },
-  { month: "Nov", price: 82 },
-  { month: "Dec", price: 88 },
+  { month: "Feb '23", price: 32 },
+  { month: "May '23", price: 36 },
+  { month: "Aug '23", price: 48 },
+  { month: "Nov '23", price: 52 },
+  { month: "Feb '24", price: 58 },
+  { month: "May '24", price: 72 },
+  { month: "Aug '24", price: 78 },
+  { month: "Nov '24", price: 95 },
+  { month: "Jan '26", price: 112 },
 ];
 
 export const CompanyCredibility = () => {
@@ -45,8 +42,8 @@ export const CompanyCredibility = () => {
             {/* NRG Stock Chart */}
             <div className="bg-black/20 rounded-xl p-4 mt-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-white/60 font-medium">NRG</span>
-                <span className="text-xs text-green-400 font-medium">+175% (1Y)</span>
+                <span className="text-xs text-white/60 font-medium">NRG (Feb 2023 - Today)</span>
+                <span className="text-xs text-green-400 font-medium">+250%</span>
               </div>
               <div className="h-24">
                 <ResponsiveContainer width="100%" height="100%">
@@ -59,10 +56,10 @@ export const CompanyCredibility = () => {
                     </defs>
                     <XAxis 
                       dataKey="month" 
-                      tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)' }}
+                      tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.4)' }}
                       axisLine={false}
                       tickLine={false}
-                      interval={2}
+                      interval={1}
                     />
                     <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
                     <Area

@@ -369,11 +369,6 @@ export const culturePhotos: CulturePhoto[] = [
     id: "formal-group",
     src: "/images/about-team/culture-formal-group.jpeg",
     alt: "Team dressed up formal"
-  },
-  {
-    id: "kid-whales",
-    src: "/images/about-team/culture-kid-whales.jpeg",
-    alt: "Family moment with stuffed whales"
   }
 ];
 

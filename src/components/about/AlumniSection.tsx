@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { alumniStories } from "@/data/aboutTeamData";
-import { Rocket, User, ExternalLink } from "lucide-react";
+import { Rocket, User } from "lucide-react";
 
 export const AlumniSection = () => {
   return (
@@ -53,6 +53,17 @@ export const AlumniSection = () => {
                   </p>
                 </div>
               </div>
+              
+              {/* Josh Guthrie text screenshot */}
+              {alumni.id === "josh" && (
+                <div className="mt-4">
+                  <img 
+                    src="/images/about-team/josh-text.png"
+                    alt="Josh's thank you text message"
+                    className="w-full rounded-xl border border-border"
+                  />
+                </div>
+              )}
             </motion.div>
           ))}
         </div>

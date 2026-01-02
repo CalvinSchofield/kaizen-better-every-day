@@ -40,14 +40,13 @@ export const EarningsComparison = () => {
               transition={{ duration: 0.8, delay: 0.2 }}
               className="absolute top-0 left-0 h-full bg-primary/50 border-r-4 border-white/80"
             />
-            {/* Label for company average */}
+            {/* Label for company average - positioned on left side */}
             <motion.div
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ delay: 0.8 }}
-              className="absolute top-0 h-full flex items-center px-3"
-              style={{ left: `${companyPercent - 2}%` }}
+              className="absolute top-0 left-3 h-full flex items-center"
             >
               <div className="bg-white/90 text-primary text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow">
                 Avg Rookie $38k
