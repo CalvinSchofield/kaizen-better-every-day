@@ -118,6 +118,20 @@ export const SalesLoggerCard = ({
             )}
           </div>
         </div>
+        
+        {/* Progress bar - only show during summer with a valid goal */}
+        {isUserSummerStarted && dailyGoal > 0 && (
+          <div className="relative h-1.5 bg-muted/50 rounded-full overflow-hidden">
+            <div 
+              className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out ${
+                todaysProgress >= dailyGoal 
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-400' 
+                  : 'bg-gradient-to-r from-primary to-primary/70'
+              }`}
+              style={{ width: `${Math.min((todaysProgress / dailyGoal) * 100, 100)}%` }}
+            />
+          </div>
+        )}
 
         {/* Sales chips - horizontal scroll */}
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
