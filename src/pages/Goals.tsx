@@ -75,6 +75,7 @@ const Goals = () => {
   const [showBlitzEditor, setShowBlitzEditor] = useState(false);
   const [showBooksDrawer, setShowBooksDrawer] = useState(false);
   const [activeTier, setActiveTier] = useState<GoalTier>('preseason');
+  const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
   
@@ -363,10 +364,13 @@ const Goals = () => {
   }), [goals, conversionFactor, currentProgress]);
 
   // Auto-select appropriate tier based on progress and season
-  // Only auto-select if user hasn't explicitly saved a focus_tier preference
+  // During preseason we default to preseason tier, but we should never override a user's manual selection.
   useEffect(() => {
     if (!goals) return;
-    
+
+    // If the user manually selected a tier during preseason, keep their choice.
+    if (hasManualTierSelection && !isUserSummerStarted) return;
+
     // If user has a saved focus_tier and summer has started, use it
     if (isUserSummerStarted && goals.focus_tier) {
       const savedTier = goals.focus_tier as GoalTier;
@@ -375,7 +379,7 @@ const Goals = () => {
         return;
       }
     }
-    
+
     // Once user's personal summer has started, never select preseason tier
     if (isUserSummerStarted) {
       // Select the lowest incomplete summer tier
@@ -390,7 +394,7 @@ const Goals = () => {
       }
       return;
     }
-    
+
     // During preseason (before user's summer starts), default to preseason tier if goal exists and not complete
     if (isPreseason && !tiers.preseason.complete && tiers.preseason.goal > 0) {
       setActiveTier('preseason');
@@ -405,10 +409,11 @@ const Goals = () => {
     } else if (tiers.willDo.goal > 0) {
       setActiveTier('willDo');
     }
-  }, [goals, tiers, isPreseason, isUserSummerStarted]);
+  }, [goals, tiers, isPreseason, isUserSummerStarted, hasManualTierSelection]);
 
   // Handler for tier selection that persists to database (for summer tiers only)
   const handleTierSelect = async (tier: GoalTier) => {
+    setHasManualTierSelection(true);
     setActiveTier(tier);
     // Only persist summer tiers to database
     if (tier !== 'preseason') {
