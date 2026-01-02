@@ -269,9 +269,37 @@ export const CalendarPlanningCard = ({
     summerKnockingDays: workedDaysData.summerKnockingDays,
   } : undefined;
   
-  const workedDatesSet = workedDaysData?.workedDates || new Set<string>();
-  const knockingDatesSet = workedDaysData?.knockingDates || new Set<string>();
-  const fpByDateMap = workedDaysData?.fpByDate || new Map<string, number>();
+  // Re-hydrate Sets and Maps from query data - React Query persistence may serialize them
+  const workedDatesSet = useMemo(() => {
+    const data = workedDaysData?.workedDates;
+    if (!data) return new Set<string>();
+    if (data instanceof Set) return data;
+    // If serialized, convert back from array or object
+    if (Array.isArray(data)) return new Set<string>(data);
+    if (typeof data === 'object') return new Set<string>(Object.keys(data));
+    return new Set<string>();
+  }, [workedDaysData?.workedDates]);
+  
+  const knockingDatesSet = useMemo(() => {
+    const data = workedDaysData?.knockingDates;
+    if (!data) return new Set<string>();
+    if (data instanceof Set) return data;
+    if (Array.isArray(data)) return new Set<string>(data);
+    if (typeof data === 'object') return new Set<string>(Object.keys(data));
+    return new Set<string>();
+  }, [workedDaysData?.knockingDates]);
+  
+  const fpByDateMap = useMemo(() => {
+    const data = workedDaysData?.fpByDate;
+    if (!data) return new Map<string, number>();
+    if (data instanceof Map) return data;
+    // If serialized as object, convert back
+    if (typeof data === 'object' && !Array.isArray(data)) {
+      return new Map<string, number>(Object.entries(data));
+    }
+    return new Map<string, number>();
+  }, [workedDaysData?.fpByDate]);
+  
   const isDateWorked = (dateStr: string) => workedDatesSet.has(dateStr);
   const isDateKnocking = (dateStr: string) => knockingDatesSet.has(dateStr);
   const getFpForDate = (dateStr: string): number | undefined => fpByDateMap.get(dateStr);
