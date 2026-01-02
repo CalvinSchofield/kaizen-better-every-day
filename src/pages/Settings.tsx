@@ -1180,6 +1180,52 @@ export default function Settings() {
           </Card>
         )}
 
+        {/* Developer Tools - Always visible for Calvin regardless of notification support */}
+        {repData?.email?.toLowerCase() === 'calvinjschofield@gmail.com' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                🧪 Developer Tools
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={isSendingTestPush}
+                onClick={async () => {
+                  setIsSendingTestPush(true);
+                  try {
+                    const { error } = await supabase.functions.invoke('test-push-notification', {
+                      body: { targetEmail: 'calvinjschofield@gmail.com' }
+                    });
+                    if (error) throw error;
+                    toast({
+                      title: "Test notification sent",
+                      description: "Check your device for the rich notification!",
+                    });
+                  } catch (err: any) {
+                    console.error('Test push error:', err);
+                    toast({
+                      title: "Failed to send",
+                      description: err.message,
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setIsSendingTestPush(false);
+                  }
+                }}
+              >
+                {isSendingTestPush ? "Sending..." : "🔔 Test Rich Notification"}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Sends a test push notification to your device
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {canAddCustomCounters && (
           <Card>
             <Collapsible open={isTrackCountersOpen} onOpenChange={setIsTrackCountersOpen}>
