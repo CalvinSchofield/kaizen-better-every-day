@@ -6,6 +6,7 @@ import { StatSlide } from "@/components/intro/StatSlide";
 import { VideoSlide } from "@/components/intro/VideoSlide";
 import { ImageSlide } from "@/components/intro/ImageSlide";
 import { CarouselSlide } from "@/components/intro/CarouselSlide";
+import { GridSlide } from "@/components/intro/GridSlide";
 import { PhotoUploadSlide } from "@/components/intro/PhotoUploadSlide";
 import { CTASlide } from "@/components/intro/CTASlide";
 import { ChevronLeft, ChevronRight, Home, Map, BookOpen, Target, Calendar, Camera, Sparkles, Users } from "lucide-react";
@@ -141,8 +142,18 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
             title={slide.title}
             description={slide.description}
             carouselItems={slide.carouselItems || []}
-        />
-      );
+          />
+        );
+      
+      case 'grid':
+        return (
+          <GridSlide
+            key={slide.id}
+            title={slide.title}
+            description={slide.description}
+            gridItems={slide.gridItems || []}
+          />
+        );
       
       case 'photo-upload':
         return (
