@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 export const HeroSection = () => {
   const [displayValue, setDisplayValue] = useState(0);
-  const targetValue = 48500;
+  const targetValue = 48512;
 
   useEffect(() => {
     const duration = 2000;

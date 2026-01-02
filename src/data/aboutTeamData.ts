@@ -339,9 +339,12 @@ export const culturePhotos = [
 
 // Hero content
 export const heroContent = {
-  backgroundImage: "/images/about-team/team-energy.jpeg",
+  backgroundImage: "/images/about-team/viper-champions.jpeg",
   headline: "Where Rookies Become Top Earners",
   subheadline: "No experience required. Just show up ready to grow.",
-  statValue: "$48,500",
+  statValue: "$48,512",
   statLabel: "average rookie earnings"
 };
+
+// Ding dong ditch video for Christian and Javier
+export const dingDongDitchVideo = "/videos/ding-dong-ditch.mov";

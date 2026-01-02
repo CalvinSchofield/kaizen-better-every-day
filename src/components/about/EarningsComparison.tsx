@@ -1,6 +1,5 @@
 import { motion } from "framer-motion";
 import { jobComparisons, earningStats } from "@/data/aboutTeamData";
-import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
 
 export const EarningsComparison = () => {
   const maxEarnings = earningStats.teamRookieAverage;
@@ -25,13 +24,36 @@ export const EarningsComparison = () => {
           initial={{ opacity: 0, x: -20 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
-          className="mb-6"
+          className="mb-4"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="font-bold text-foreground">Our Team Rookies*</span>
+            <span className="font-bold text-foreground">Our Team Rookies</span>
             <span className="font-bold text-primary">${earningStats.teamRookieAverage.toLocaleString()}</span>
           </div>
           <div className="h-8 rounded-full bg-primary overflow-hidden shadow-lg shadow-primary/20" />
+        </motion.div>
+        
+        {/* Company average bar */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.05 }}
+          className="mb-6"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-medium text-muted-foreground">Company Avg Rookie</span>
+            <span className="font-medium text-muted-foreground">${earningStats.companyRookieAverage.toLocaleString()}</span>
+          </div>
+          <div className="h-6 rounded-full bg-muted overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              whileInView={{ width: `${(earningStats.companyRookieAverage / maxEarnings) * 100}%` }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.05 }}
+              className="h-full rounded-full bg-primary/40"
+            />
+          </div>
         </motion.div>
         
         {/* Comparison bars */}
@@ -44,7 +66,7 @@ export const EarningsComparison = () => {
                 initial={{ opacity: 0, x: -20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: index * 0.05 }}
+                transition={{ delay: (index + 2) * 0.05 }}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm text-muted-foreground">{job.job}</span>
@@ -55,7 +77,7 @@ export const EarningsComparison = () => {
                     initial={{ width: 0 }}
                     whileInView={{ width: `${widthPercent}%` }}
                     viewport={{ once: true }}
-                    transition={{ duration: 0.8, delay: index * 0.05 }}
+                    transition={{ duration: 0.8, delay: (index + 2) * 0.05 }}
                     className="h-full rounded-full bg-muted-foreground/30"
                   />
                 </div>
@@ -63,8 +85,6 @@ export const EarningsComparison = () => {
             );
           })}
         </div>
-        
-        <PayEstimateDisclaimer className="mt-6 text-center" />
       </div>
     </section>
   );
