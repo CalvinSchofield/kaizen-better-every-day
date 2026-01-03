@@ -1388,42 +1388,120 @@ export default function Settings() {
                     </Button>
 
                     {platform === 'native' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start"
-                        disabled={isCheckingApnsToken}
-                        onClick={async () => {
-                          setIsCheckingApnsToken(true);
-                          try {
-                            const { count, error } = await supabase
-                              .from('apns_device_tokens')
-                              .select('id', { count: 'exact', head: true });
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-start"
+                          disabled={isCheckingApnsToken}
+                          onClick={async () => {
+                            setIsCheckingApnsToken(true);
+                            try {
+                              const { count, error } = await supabase
+                                .from('apns_device_tokens')
+                                .select('id', { count: 'exact', head: true });
 
-                            if (error) throw error;
+                              if (error) throw error;
 
-                            const c = count ?? 0;
-                            setApnsTokenCount(c);
+                              const c = count ?? 0;
+                              setApnsTokenCount(c);
 
-                            toast({
-                              title: 'APNs token check',
-                              description: c > 0 ? `Found ${c} token(s) stored.` : 'No APNs token stored yet.',
-                              variant: c > 0 ? undefined : 'destructive',
-                            });
-                          } catch (err: any) {
-                            toast({
-                              title: 'APNs token check failed',
-                              description: err.message,
-                              variant: 'destructive',
-                            });
-                          } finally {
-                            setIsCheckingApnsToken(false);
-                          }
-                        }}
-                      >
-                        <Bell className="h-4 w-4 mr-2" />
-                        {isCheckingApnsToken ? 'Checking APNs token…' : 'Check APNs Token In DB'}
-                      </Button>
+                              toast({
+                                title: 'APNs token check',
+                                description: c > 0 ? `Found ${c} token(s) stored.` : 'No APNs token stored yet.',
+                                variant: c > 0 ? undefined : 'destructive',
+                              });
+                            } catch (err: any) {
+                              toast({
+                                title: 'APNs token check failed',
+                                description: err.message,
+                                variant: 'destructive',
+                              });
+                            } finally {
+                              setIsCheckingApnsToken(false);
+                            }
+                          }}
+                        >
+                          <Bell className="h-4 w-4 mr-2" />
+                          {isCheckingApnsToken ? 'Checking APNs token…' : 'Check APNs Token In DB'}
+                        </Button>
+
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="w-full justify-start"
+                          disabled={isSendingTestPush}
+                          onClick={async () => {
+                            setIsSendingTestPush(true);
+                            const steps: string[] = [];
+
+                            try {
+                              // Step 1: Re-register for push
+                              steps.push('Requesting permission…');
+                              toast({ title: '1/4 Requesting permission…' });
+
+                              const registered = await subscribe();
+                              if (!registered) {
+                                toast({ title: 'Registration failed', description: 'Permission denied or error.', variant: 'destructive' });
+                                return;
+                              }
+                              steps.push('Registered ✓');
+
+                              // Step 2: Short delay for listener to store token
+                              toast({ title: '2/4 Waiting for token storage…' });
+                              await new Promise((r) => setTimeout(r, 1500));
+
+                              // Step 3: Verify token in DB
+                              toast({ title: '3/4 Checking token in DB…' });
+                              const { count, error: countErr } = await supabase
+                                .from('apns_device_tokens')
+                                .select('id', { count: 'exact', head: true });
+
+                              if (countErr) throw countErr;
+
+                              const tokenCount = count ?? 0;
+                              setApnsTokenCount(tokenCount);
+
+                              if (tokenCount === 0) {
+                                toast({ title: 'Token not stored', description: 'Registration succeeded but no token in DB. Check debug info.', variant: 'destructive' });
+                                return;
+                              }
+                              steps.push(`Token in DB ✓ (${tokenCount})`);
+
+                              // Step 4: Send test APNs to self
+                              toast({ title: '4/4 Sending test notification…' });
+                              const { data: apnsRes, error: apnsErr } = await supabase.functions.invoke('send-apns-notification', {
+                                body: {
+                                  targetEmail: repData?.email,
+                                  title: '🎉 Push Works!',
+                                  body: 'Re-registration successful. You should see this!',
+                                  type: 'test',
+                                },
+                              });
+
+                              if (apnsErr) throw apnsErr;
+
+                              const apnsOk = apnsRes?.success === true;
+                              if (apnsOk) {
+                                steps.push('APNs sent ✓');
+                                toast({ title: '✅ All steps passed!', description: steps.join(' → ') });
+                              } else {
+                                toast({
+                                  title: 'APNs send failed',
+                                  description: apnsRes?.error || apnsRes?.errors?.[0] || 'Unknown error',
+                                  variant: 'destructive',
+                                });
+                              }
+                            } catch (err: any) {
+                              toast({ title: 'Re-register failed', description: err.message, variant: 'destructive' });
+                            } finally {
+                              setIsSendingTestPush(false);
+                            }
+                          }}
+                        >
+                          🔄 Re-register & Self-Test Push
+                        </Button>
+                      </>
                     )}
 
                     <div className="text-xs text-muted-foreground p-2 bg-muted/50 rounded space-y-1">
