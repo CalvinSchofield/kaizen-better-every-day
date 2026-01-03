@@ -1181,70 +1181,197 @@ export default function Settings() {
           </Card>
         )}
 
-        {/* Developer Tools - Always visible for Calvin regardless of notification support */}
+        {/* Developer Tools - Only visible for Calvin */}
         {repData?.email?.toLowerCase() === 'calvinjschofield@gmail.com' && (
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                🧪 Developer Tools
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                disabled={isSendingTestPush}
-                onClick={async () => {
-                  setIsSendingTestPush(true);
-                  try {
-                    // Try both Web Push and APNs
-                    const results = await Promise.allSettled([
-                      supabase.functions.invoke('test-push-notification', {
-                        body: { targetEmail: 'calvinjschofield@gmail.com' }
-                      }),
-                      supabase.functions.invoke('send-apns-notification', {
-                        body: { 
-                          targetEmail: 'calvinjschofield@gmail.com',
-                          title: '🧪 Native Test',
-                          body: 'This is a test notification from TestFlight!',
-                          type: 'test_native'
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="flex items-center gap-2">
+                        🧪 Developer Tools
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Test notifications & debug
+                      </p>
+                    </div>
+                    <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform" />
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="space-y-4">
+                  {/* Test All Notifications */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">Test Notifications</h4>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start"
+                      disabled={isSendingTestPush}
+                      onClick={async () => {
+                        setIsSendingTestPush(true);
+                        try {
+                          const results = await Promise.allSettled([
+                            supabase.functions.invoke('test-push-notification', {
+                              body: { targetEmail: 'calvinjschofield@gmail.com' }
+                            }),
+                            supabase.functions.invoke('send-apns-notification', {
+                              body: { 
+                                targetEmail: 'calvinjschofield@gmail.com',
+                                title: '🧪 Native Test',
+                                body: 'Test notification from TestFlight!',
+                                type: 'test'
+                              }
+                            })
+                          ]);
+                          const webSuccess = results[0].status === 'fulfilled' && !(results[0] as any).value?.error;
+                          const apnsSuccess = results[1].status === 'fulfilled' && !(results[1] as any).value?.error;
+                          toast({
+                            title: "Test sent",
+                            description: `Web: ${webSuccess ? '✓' : '✗'} | APNs: ${apnsSuccess ? '✓' : '✗'}`,
+                          });
+                        } catch (err: any) {
+                          toast({ title: "Failed", description: err.message, variant: "destructive" });
+                        } finally {
+                          setIsSendingTestPush(false);
                         }
-                      })
-                    ]);
+                      }}
+                    >
+                      🔔 Rich Notification (Both)
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start"
+                      disabled={isSendingTestPush}
+                      onClick={async () => {
+                        setIsSendingTestPush(true);
+                        try {
+                          await supabase.functions.invoke('check-inactivity-notifications');
+                          toast({ title: "Inactivity check triggered", description: "Check your notifications" });
+                        } catch (err: any) {
+                          toast({ title: "Failed", description: err.message, variant: "destructive" });
+                        } finally {
+                          setIsSendingTestPush(false);
+                        }
+                      }}
+                    >
+                      ⏰ Inactivity Nudge
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start"
+                      disabled={isSendingTestPush}
+                      onClick={async () => {
+                        setIsSendingTestPush(true);
+                        try {
+                          await supabase.functions.invoke('check-blitz-rsvp-reminders');
+                          toast({ title: "RSVP reminder check triggered", description: "Check your notifications" });
+                        } catch (err: any) {
+                          toast({ title: "Failed", description: err.message, variant: "destructive" });
+                        } finally {
+                          setIsSendingTestPush(false);
+                        }
+                      }}
+                    >
+                      📅 Blitz RSVP Reminder
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start"
+                      disabled={isSendingTestPush}
+                      onClick={async () => {
+                        setIsSendingTestPush(true);
+                        try {
+                          await supabase.functions.invoke('check-ramp-progress-notifications');
+                          toast({ title: "Ramp progress check triggered", description: "Check your notifications" });
+                        } catch (err: any) {
+                          toast({ title: "Failed", description: err.message, variant: "destructive" });
+                        } finally {
+                          setIsSendingTestPush(false);
+                        }
+                      }}
+                    >
+                      🚀 Ramp to Blitz Nudge
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start"
+                      disabled={isSendingTestPush}
+                      onClick={async () => {
+                        setIsSendingTestPush(true);
+                        try {
+                          await supabase.functions.invoke('check-preseason-accountability');
+                          toast({ title: "Preseason accountability check triggered", description: "Check your notifications" });
+                        } catch (err: any) {
+                          toast({ title: "Failed", description: err.message, variant: "destructive" });
+                        } finally {
+                          setIsSendingTestPush(false);
+                        }
+                      }}
+                    >
+                      📊 Preseason Accountability
+                    </Button>
+                  </div>
+
+                  <Separator />
+
+                  {/* Debug Tools */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">Debug Tools</h4>
                     
-                    const webResult = results[0];
-                    const apnsResult = results[1];
-                    
-                    const webSuccess = webResult.status === 'fulfilled' && !webResult.value.error;
-                    const apnsSuccess = apnsResult.status === 'fulfilled' && !apnsResult.value.error;
-                    
-                    if (webSuccess || apnsSuccess) {
-                      toast({
-                        title: "Test notification sent",
-                        description: `Web Push: ${webSuccess ? '✓' : '✗'} | APNs: ${apnsSuccess ? '✓' : 'Not configured'}`,
-                      });
-                    } else {
-                      throw new Error('Both notification methods failed');
-                    }
-                  } catch (err: any) {
-                    console.error('Test push error:', err);
-                    toast({
-                      title: "Failed to send",
-                      description: err.message,
-                      variant: "destructive",
-                    });
-                  } finally {
-                    setIsSendingTestPush(false);
-                  }
-                }}
-              >
-                {isSendingTestPush ? "Sending..." : "🔔 Test Rich Notification"}
-              </Button>
-              <p className="text-xs text-muted-foreground text-center">
-                Tests both Web Push (PWA) and APNs (TestFlight)
-              </p>
-            </CardContent>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        // Clear all caches
+                        const keysToRemove: string[] = [];
+                        for (let i = 0; i < localStorage.length; i++) {
+                          const key = localStorage.key(i);
+                          if (key && (
+                            key.startsWith('rep-data-cache') || 
+                            key.startsWith('competitors-cache') ||
+                            key.startsWith('blitzes-cache') ||
+                            key.startsWith('team-access-cache') ||
+                            key.startsWith('season-config-cache') ||
+                            key.startsWith('group-recruits-cache') ||
+                            key.startsWith('blitz-attendance-cache') ||
+                            key.startsWith('kaizen-') ||
+                            key.startsWith('REACT_QUERY')
+                          )) {
+                            keysToRemove.push(key);
+                          }
+                        }
+                        keysToRemove.forEach(key => localStorage.removeItem(key));
+                        queryClient.clear();
+                        toast({ title: "Refreshing...", description: "Cache cleared" });
+                        setTimeout(() => window.location.reload(), 500);
+                      }}
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Force Refresh
+                    </Button>
+
+                    <div className="text-xs text-muted-foreground p-2 bg-muted/50 rounded">
+                      <p><strong>Platform:</strong> {platform}</p>
+                      <p><strong>Push Registered:</strong> {isSubscribed ? 'Yes' : 'No'}</p>
+                      <p><strong>Permission:</strong> {permission}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Collapsible>
           </Card>
         )}
 

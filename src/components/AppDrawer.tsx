@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, RefreshCw, Target, Trophy, UserPlus, Contact, Sparkles } from "lucide-react";
+import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, Target, Trophy, UserPlus, Contact, Sparkles } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -143,42 +143,6 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
     }
   };
 
-  const handleForceRefresh = () => {
-    // Clear all caches including persisted React Query cache
-    clearPersistedCache();
-    clearCachedLayoutState();
-    
-    // Clear legacy localStorage caches
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith('rep-data-cache') || 
-          key?.startsWith('competitors-cache') ||
-          key?.startsWith('blitzes-cache') ||
-          key?.startsWith('team-access-cache') ||
-          key?.startsWith('season-config-cache') ||
-          key?.startsWith('group-recruits-cache') ||
-          key?.startsWith('blitz-attendance-cache') ||
-          key === 'kaizen-setup-complete' ||
-          key === 'kaizen-setup-timestamp') {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-    
-    // Clear React Query cache
-    queryClient.clear();
-    
-    toast({
-      title: "Refreshing app...",
-      description: "Clearing cache and reloading",
-    });
-    
-    // Reload the page after a brief delay
-    setTimeout(() => {
-      window.location.reload();
-    }, 500);
-  };
 
   return (
     <>
@@ -565,21 +529,6 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
               </div>
             </Link>
 
-            <Separator />
-
-            {/* Force Refresh */}
-            <button
-              onClick={handleForceRefresh}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors w-full"
-            >
-              <RefreshCw className="w-5 h-5 text-primary" />
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="font-semibold text-sm">Force Refresh</span>
-                <span className="text-xs text-muted-foreground truncate">
-                  Clear cache & reload app
-                </span>
-              </div>
-            </button>
           </div>
         </div>
 
