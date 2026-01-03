@@ -54,7 +54,7 @@ export const EarningsComparison = () => {
             </motion.div>
           </div>
           <p className="text-xs text-muted-foreground mt-2 text-center">
-            Our rookies outpace the company average by 27%
+            Our rookies outpace the company average by 22%
           </p>
         </motion.div>
         
