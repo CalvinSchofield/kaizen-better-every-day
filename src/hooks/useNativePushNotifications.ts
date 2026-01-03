@@ -67,16 +67,19 @@ export function useNativePushNotifications() {
           return;
         }
 
-        // Store the device token
+        // Delete any old tokens for this user first (device token may have changed)
+        await supabase
+          .from('apns_device_tokens')
+          .delete()
+          .eq('user_id', user.id);
+
+        // Insert the new token
         const { error } = await supabase
           .from('apns_device_tokens')
-          .upsert({
+          .insert({
             user_id: user.id,
             device_token: token.value,
-            platform: 'ios',
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'user_id,device_token'
+            platform: 'ios'
           });
 
         if (error) {
