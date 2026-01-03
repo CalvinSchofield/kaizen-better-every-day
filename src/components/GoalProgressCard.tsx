@@ -4,12 +4,14 @@ import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useFocusTier, FocusTier } from "@/hooks/useFocusTier";
-import { Target, Flame, Zap, Trophy, TrendingDown } from "lucide-react";
+import { usePersonalBenchmarks } from "@/hooks/usePersonalBenchmarks";
+import { Target, Flame, Zap, Trophy, TrendingDown, Lightbulb, TrendingUp } from "lucide-react";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "@/hooks/useRepData";
+import { getLearningCurvePrincipleMessage, calculatePaceContext, calculateSuggestedStretchGoal } from "@/utils/learningCurveData";
 
 // Season boundaries
 const PRESEASON_END = '2026-04-11';
@@ -255,6 +257,29 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   // Get focus tier for summer goal selection
   const { focusTier, setFocusTier, fundedFocusTierGoal, allTiers } = useFocusTier(currentProgress);
   
+  // Personal benchmarks for pace messaging
+  const benchmarksQuery = usePersonalBenchmarks({
+    userId: repData?.user_id,
+    personalSummerStart: personalSummerStart,
+    personalSummerEnd: personalSummerEnd,
+    efpModeEnabled,
+    calculateEfp,
+    currentProgress,
+    futurePlannedDays: plannedDays?.length || 0,
+    fundedGoal: fundedFocusTierGoal,
+  });
+  
+  const benchmarks = benchmarksQuery.data || {
+    bestDay: 0,
+    currentAverage: 0,
+    knockingDaysCompleted: 0,
+    weekInSummer: 0,
+    hasEnoughData: false,
+    projectedFinal: 0,
+    canAddMoreDays: false,
+    availableDaysToAdd: 0,
+  };
+  
   // Tier selector handler - stops propagation to prevent navigating to goals page
   const handleTierChange = async (tier: FocusTier, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -267,6 +292,9 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     willDo: 'Will Do',
     couldDo: 'Could Do',
   };
+  
+  const isRookie = repData?.year === "Rookie";
+  
   // Period progress from entries
   const periodProgress = efpModeEnabled ? calculateEfp(periodTotals.prmr) : periodTotals.fpPlus;
 
@@ -529,6 +557,37 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
             </p>
           </div>
         ) : null}
+        
+        {/* Learning Curve Principle Message - Show for early season or rookies */}
+        {(() => {
+          const paceContext = !benchmarks.hasEnoughData ? 'insufficient-data' : 
+            calculatePaceContext(benchmarks.knockingDaysCompleted, fixedDailyGoal, benchmarks.currentAverage, benchmarks.weekInSummer, isRookie);
+          const learningCurveMessage = getLearningCurvePrincipleMessage(benchmarks.weekInSummer, isRookie, paceContext);
+          const suggestedStretch = calculateSuggestedStretchGoal(benchmarks.projectedFinal, fundedFocusTierGoal, benchmarks.hasEnoughData);
+          
+          return (
+            <>
+              {learningCurveMessage && (paceContext === 'insufficient-data' || paceContext === 'early-season' || (isRookie && benchmarks.weekInSummer <= 12)) && (
+                <div className="flex items-start gap-2 mt-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                  <Lightbulb className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {learningCurveMessage}
+                  </p>
+                </div>
+              )}
+              
+              {/* Stretch Goal Suggestion - Show when ahead of Could Do */}
+              {suggestedStretch && paceContext === 'on-track' && !isInPreseason && (
+                <div className="flex items-start gap-2 mt-3 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
+                  <TrendingUp className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-green-700 dark:text-green-300">
+                    <span className="font-semibold">You're crushing it!</span> Consider stretching your Could Do to {suggestedStretch.toFixed(0)} to maximize your summer.
+                  </p>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       {/* Season Goal Footer */}
