@@ -7,6 +7,11 @@ const config: CapacitorConfig = {
   server: {
     url: 'https://00427502-ff94-4cc9-9161-6496e2600071.lovableproject.com?forceHideBadge=true',
     cleartext: true
+  },
+  ios: {
+    contentInset: 'automatic',
+    // These will be applied when you run `npx cap sync`
+    // But Info.plist entries must be added manually in Xcode
   }
 };
 
