@@ -1,10 +1,19 @@
 import { motion } from "framer-motion";
-import { Phone, Mail } from "lucide-react";
+import { Phone, Mail, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BlurImage } from "@/components/ui/BlurImage";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+} from "@/components/ui/carousel";
 
-const allLeaders = [
-  { name: "Calvin Schofield", photo: "/images/about-team/calvin-schofield.jpeg", isAreaDirector: true },
+const areaDirector = {
+  name: "Calvin Schofield",
+  photo: "/images/about-team/calvin-schofield.jpeg",
+};
+
+const teamLeads = [
   { name: "Christian Fabian", photo: "/images/about-team/christian-fabian.png" },
   { name: "Adam Schofield", photo: "/images/about-team/adam-schofield.jpg" },
   { name: "Ansel Severson", photo: "/images/about-team/ansel-severson.png" },
@@ -23,8 +32,8 @@ const allLeaders = [
 
 export const LeaderSection = () => {
   return (
-    <section className="py-16 px-4 bg-muted/30">
-      <div className="max-w-lg mx-auto">
+    <section className="py-16 bg-muted/30">
+      <div className="max-w-lg mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -37,46 +46,37 @@ export const LeaderSection = () => {
           </p>
         </motion.div>
 
-        {/* Leaders Grid - 3 columns, 5 rows */}
+        {/* Area Director Highlight */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          className="grid grid-cols-3 gap-4"
+          className="bg-card rounded-3xl border border-primary/30 p-6 mb-8"
         >
-          {allLeaders.map((leader, index) => (
-            <div
-              key={leader.name}
-              className="text-center"
-            >
-              <div className={`w-20 h-20 mx-auto rounded-full overflow-hidden border-2 ${leader.isAreaDirector ? 'border-primary' : 'border-border'}`}>
-                <BlurImage
-                  src={leader.photo}
-                  alt={leader.name}
-                  loading="lazy"
-                  containerClassName="w-full h-full"
-                  className="w-full h-full object-cover"
-                />
+          <div className="flex items-center gap-5">
+            <BlurImage
+              src={areaDirector.photo}
+              alt={areaDirector.name}
+              loading="lazy"
+              containerClassName="w-24 h-24 rounded-2xl border-2 border-primary flex-shrink-0"
+              className="w-full h-full object-cover object-[center_30%]"
+            />
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Crown className="w-4 h-4 text-primary" />
+                <span className="text-xs font-medium text-primary uppercase tracking-wider">
+                  Area Director
+                </span>
               </div>
-              <p className="text-xs font-medium mt-2 leading-tight">{leader.name}</p>
-              <span className="text-[10px] text-muted-foreground">
-                {leader.isAreaDirector ? 'Area Director' : 'Team Lead'}
-              </span>
+              <h3 className="text-xl font-bold text-foreground">{areaDirector.name}</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Leading the Kaizen team to build elite performers
+              </p>
             </div>
-          ))}
-        </motion.div>
-
-        {/* Contact Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mt-8 bg-card rounded-2xl border border-border p-4"
-        >
-          <p className="text-center text-sm text-muted-foreground mb-4">
-            Questions? Reach out to Calvin
-          </p>
-          <div className="flex gap-2">
+          </div>
+          
+          {/* Contact buttons */}
+          <div className="flex gap-2 mt-5">
             <Button
               size="sm"
               variant="outline"
@@ -101,7 +101,49 @@ export const LeaderSection = () => {
             </Button>
           </div>
         </motion.div>
+
+        {/* Team Leads Label */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          className="text-sm font-medium text-muted-foreground mb-4"
+        >
+          Team Leads
+        </motion.p>
       </div>
+
+      {/* Team Leads Carousel */}
+      <Carousel
+        opts={{
+          align: "start",
+          dragFree: true,
+        }}
+        className="w-full"
+      >
+        <CarouselContent className="ml-4">
+          {teamLeads.map((leader, index) => (
+            <CarouselItem key={leader.name} className="basis-auto pl-0 pr-3">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.05 }}
+                className="text-center w-20"
+              >
+                <BlurImage
+                  src={leader.photo}
+                  alt={leader.name}
+                  loading="lazy"
+                  containerClassName="w-16 h-16 mx-auto rounded-full border-2 border-border"
+                  className="w-full h-full object-cover"
+                />
+                <p className="text-xs font-medium mt-2 leading-tight">{leader.name}</p>
+              </motion.div>
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+      </Carousel>
     </section>
   );
 };
