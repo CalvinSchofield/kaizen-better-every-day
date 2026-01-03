@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, LogIn, UserPlus, KeyRound } from "lucide-react";
 import { PWAInstallGate } from "@/components/PWAInstallGate";
 import { isPWAInstalled, hasUserSignedUp, markUserSignedUp, shouldBypassPWAGate } from "@/utils/pwaDetection";
+import { hapticLight, hapticSuccess, hapticError } from "@/utils/haptics";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -128,6 +129,7 @@ const Auth = () => {
 
         if (error) throw error;
 
+        hapticSuccess();
         // Welcome message will show on the loading screen instead
         
         // Check if setup has been completed
@@ -180,6 +182,7 @@ const Auth = () => {
         // Mark that user has signed up on this device
         markUserSignedUp();
 
+        hapticSuccess();
         toast({
           title: "Account created!",
           description: "Welcome to Kaizen. Setting up your account...",
@@ -189,6 +192,7 @@ const Auth = () => {
         navigate("/setup");
       }
     } catch (error: any) {
+      hapticError();
       toast({
         title: "Error",
         description: error.message || "An error occurred during authentication.",

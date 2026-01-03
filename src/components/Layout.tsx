@@ -1,6 +1,7 @@
 import { ReactNode, useMemo, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, BookOpen, Wrench, Target, Calendar, Menu, Lock, Save, RotateCcw, BarChart3, Trophy, UserPlus } from "lucide-react";
+import { hapticLight } from "@/utils/haptics";
 import { Button } from "@/components/ui/button";
 import { AppDrawer } from "@/components/AppDrawer";
 import { useAppMode } from "@/hooks/useAppMode";
@@ -311,6 +312,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                 <Link
                   key={item.path}
                   to={item.path}
+                  onClick={() => hapticLight()}
                   className="relative flex flex-col items-center justify-center flex-1 py-1 active:scale-90 transition-transform duration-150"
                 >
                   <div className={`flex flex-col items-center gap-0.5 ${

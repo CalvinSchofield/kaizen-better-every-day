@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
+import { hapticMedium, hapticLight } from "@/utils/haptics";
 
 interface CounterLayoutConfig {
   order: string[];
@@ -70,17 +71,20 @@ const CounterCard = ({ label, value, field, onCounterChange }: CounterCardProps)
       // Swipe down (positive deltaY because we're dragging down) = subtract
       if (deltaY < -40) {
         setIsAnimating(true);
+        hapticLight();
         onCounterChange(field, Math.max(0, value - 1));
       }
       // Swipe up = add (optional, but natural)
       else if (deltaY > 40) {
         setIsAnimating(true);
+        hapticMedium();
         onCounterChange(field, value + 1);
       }
     } else if (!touchMoveRef.current && deltaTime < 300) {
       // Quick tap without movement = add
       e.preventDefault();
       setIsAnimating(true);
+      hapticMedium();
       onCounterChange(field, value + 1);
     }
 
@@ -92,6 +96,7 @@ const CounterCard = ({ label, value, field, onCounterChange }: CounterCardProps)
     // Desktop click = add
     e.preventDefault();
     setIsAnimating(true);
+    hapticMedium();
     onCounterChange(field, value + 1);
   };
 
