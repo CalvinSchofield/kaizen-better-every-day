@@ -157,7 +157,7 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
         transition={{ duration: 0.3 }}
       >
         {/* SVG Mask for spotlight effect */}
-        <svg className="absolute inset-0 w-full h-full">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none">
           <defs>
             <mask id="spotlight-mask">
               <rect x="0" y="0" width="100%" height="100%" fill="white" />
@@ -181,10 +181,13 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
             y="0"
             width="100%"
             height="100%"
-            fill="rgba(0, 0, 0, 0.75)"
+            fill="hsl(var(--tour-overlay) / var(--tour-overlay-opacity))"
             mask="url(#spotlight-mask)"
           />
         </svg>
+
+        {/* Interaction blocker (prevents taps from hitting the page behind) */}
+        <div className="absolute inset-0" aria-hidden="true" />
 
         {/* Spotlight border glow */}
         {spotlightRect && (
@@ -204,7 +207,11 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
 
         {/* Skip button */}
         <button
-          onClick={handleSkip}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleSkip();
+          }}
           className="absolute top-4 right-4 p-2 rounded-full bg-background/20 backdrop-blur-sm text-white/80 hover:text-white transition-colors z-10"
           style={{ paddingTop: 'calc(0.5rem + var(--effective-safe-area-top, 0px))' }}
         >
@@ -268,11 +275,16 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
             {/* Navigation */}
             <div className="flex items-center justify-between px-4 pb-4">
               <button
-                onClick={handlePrev}
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePrev();
+                }}
                 disabled={isFirstStep}
                 className={`p-3 rounded-xl transition-all ${
-                  isFirstStep 
-                    ? 'opacity-0 pointer-events-none' 
+                  isFirstStep
+                    ? 'opacity-0 pointer-events-none'
                     : 'bg-muted hover:bg-muted/80 active:scale-95'
                 }`}
               >
@@ -284,7 +296,12 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
               </span>
 
               <button
-                onClick={handleNext}
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNext();
+                }}
                 className="p-3 rounded-xl bg-primary hover:bg-primary/90 active:scale-95 transition-all"
               >
                 {isLastStep ? (
