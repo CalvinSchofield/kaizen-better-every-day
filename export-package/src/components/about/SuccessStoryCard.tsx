@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageCircle, User, Play, ChevronDown, ChevronUp } from "lucide-react";
 import { SuccessStory, dingDongDitchVideo } from "@/data/aboutTeamData";
+import { BlurImage } from "@/components/ui/BlurImage";
 
 interface SuccessStoryCardProps {
   story: SuccessStory;
@@ -36,9 +37,11 @@ export const SuccessStoryCard = ({ story, index }: SuccessStoryCardProps) => {
               allowFullScreen
             />
           ) : hasPhoto ? (
-            <img 
-              src={story.photo} 
+            <BlurImage
+              src={story.photo}
               alt={story.name}
+              loading="lazy"
+              containerClassName="w-full h-full"
               className="w-full h-full object-cover"
             />
           ) : (
