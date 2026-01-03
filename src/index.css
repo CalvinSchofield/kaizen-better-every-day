@@ -57,6 +57,10 @@ All colors MUST be HSL.
 
     --radius: 1rem;
 
+    /* Tour overlay */
+    --tour-overlay: 0 0% 0%;
+    --tour-overlay-opacity: 0.55;
+
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(18 65% 48%), hsl(18 65% 60%));
     --gradient-subtle: linear-gradient(180deg, hsl(30 25% 96%), hsl(30 30% 98%));
@@ -138,6 +142,10 @@ All colors MUST be HSL.
     --border: 30 12% 25%;
     --input: 30 12% 25%;
     --ring: 18 70% 58%;
+
+    /* Tour overlay */
+    --tour-overlay: 0 0% 0%;
+    --tour-overlay-opacity: 0.5;
     --chart-1: 18 70% 58%;
     --chart-2: 40 70% 58%;
     --chart-3: 120 25% 50%;
