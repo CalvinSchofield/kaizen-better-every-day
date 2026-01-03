@@ -29,6 +29,10 @@ export function useNativePushNotifications() {
         
         if (permStatus.receive === 'granted') {
           setPermission('granted');
+          // Re-register to ensure we have the latest token
+          console.log('[NativePush] Already granted, re-registering for token...');
+          await PushNotifications.register();
+          
           // Check if we have a token stored
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
@@ -41,6 +45,19 @@ export function useNativePushNotifications() {
           }
         } else if (permStatus.receive === 'denied') {
           setPermission('denied');
+        } else {
+          // Permission is 'prompt' - automatically request permission on native
+          console.log('[NativePush] Requesting permission...');
+          const result = await PushNotifications.requestPermissions();
+          console.log('[NativePush] Permission result:', result.receive);
+          
+          if (result.receive === 'granted') {
+            setPermission('granted');
+            await PushNotifications.register();
+            console.log('[NativePush] Registered after permission grant');
+          } else {
+            setPermission('denied');
+          }
         }
       } catch (error) {
         console.error('[NativePush] Error checking permissions:', error);
