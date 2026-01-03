@@ -27,6 +27,8 @@ interface GoalsPaceData {
   focusTier: FocusTier | null;
   cumulativeProgress: number;
   periodProgress: number;
+  // Expected progress by end of period (what you should have done in this period to stay on pace)
+  expectedByEndOfPeriod: number;
   dailyCumulativeData: Array<{
     date: string;
     dayLabel: string;
@@ -175,6 +177,19 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     // Check if this period is entirely in preseason (period ends BEFORE summer starts)
     const periodIsPreseason = summerStartDate ? periodEnd < summerStartDate : true;
     
+    // Calculate what proportion of the preseason/summer this period represents
+    // For preseason: we need to know the total preseason days to calculate expected progress
+    const PRESEASON_START = new Date('2025-09-28'); // Standard preseason start
+    const preseasonEnd = summerStartDate || new Date('2026-04-13');
+    const totalPreseasonDays = differenceInDays(preseasonEnd, PRESEASON_START);
+    const daysIntoPeriodEnd = differenceInDays(periodEnd, PRESEASON_START);
+    const periodEndFraction = totalPreseasonDays > 0 ? Math.min(1, Math.max(0, daysIntoPeriodEnd / totalPreseasonDays)) : 0;
+    
+    // Expected cumulative by end of this period = preseasonGoal * fraction of preseason completed
+    const expectedByEndOfPeriod = periodIsPreseason && preseasonGoal > 0
+      ? preseasonGoal * periodEndFraction
+      : 0; // Summer calculation would go here if needed
+    
     const dailyCumulativeData = days.map((day, index) => {
       const dateStr = format(day, 'yyyy-MM-dd');
       const entry = periodEntries.find(e => e.entry_date === dateStr);
@@ -182,13 +197,15 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
         runningCumulative += entry.fp_plus || 0;
       }
       
-      // Calculate expected pace at this point based on days worked
-      const dayProgress = (index + 1) / totalDaysInPeriod;
+      // Calculate expected pace at this point 
+      const daysIntoThisDay = differenceInDays(day, PRESEASON_START);
+      const thisDayFraction = totalPreseasonDays > 0 ? Math.min(1, Math.max(0, daysIntoThisDay / totalPreseasonDays)) : 0;
       
-      // For preseason periods, show linear pace to preseason goal
-      const preseasonPace = periodIsPreseason && preseasonGoal > 0 ? preseasonGoal * dayProgress : undefined;
+      // For preseason periods, show linear pace based on where we should be by each day
+      const preseasonPace = periodIsPreseason && preseasonGoal > 0 ? preseasonGoal * thisDayFraction : undefined;
       
       // For summer periods, show pace lines for each tier
+      const dayProgress = (index + 1) / totalDaysInPeriod;
       const mustDoPace = !periodIsPreseason && mustDoGoal > 0 ? cumulativeBefore + (mustDoGoal - cumulativeBefore) * dayProgress : undefined;
       const willDoPace = !periodIsPreseason && willDoGoal > 0 ? cumulativeBefore + (willDoGoal - cumulativeBefore) * dayProgress : undefined;
       const couldDoPace = !periodIsPreseason && couldDoGoal > 0 ? cumulativeBefore + (couldDoGoal - cumulativeBefore) * dayProgress : undefined;
@@ -208,10 +225,10 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     const cumulativeProgress = runningCumulative;
     const periodProgress = stats.totalFpPlus;
     
-    // Calculate pace status for each goal
-    const calculatePaceStatus = (goal: number, current: number): PaceStatus => {
-      if (goal <= 0) return 'no-goal';
-      const pacePercent = (current / goal) * 100;
+    // Calculate pace status based on where you should be by end of period vs actual
+    const calculatePaceStatus = (expectedByPeriodEnd: number, actual: number): PaceStatus => {
+      if (expectedByPeriodEnd <= 0) return 'no-goal';
+      const pacePercent = (actual / expectedByPeriodEnd) * 100;
       if (pacePercent >= 100) return 'ahead';
       if (pacePercent >= 85) return 'on-track';
       return 'behind';
@@ -227,9 +244,10 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
       focusTier,
       cumulativeProgress,
       periodProgress,
+      expectedByEndOfPeriod,
       dailyCumulativeData,
       paceStatus: {
-        preseason: calculatePaceStatus(preseasonGoal, cumulativeProgress),
+        preseason: calculatePaceStatus(expectedByEndOfPeriod, cumulativeProgress),
         mustDo: calculatePaceStatus(mustDoGoal, cumulativeProgress),
         willDo: calculatePaceStatus(willDoGoal, cumulativeProgress),
         couldDo: calculatePaceStatus(couldDoGoal, cumulativeProgress),
@@ -321,11 +339,13 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     );
   }
   
-  // During preseason, show preseason goal; during summer show focus tier goal
+  // During preseason, show expected by end of period vs actual; during summer show focus tier goal
   const isPeriodPreseason = goalsData.isPeriodPreseason;
   
-  const focusGoal = isPeriodPreseason 
-    ? goalsData.preseasonGoal
+  // For preseason: compare actual vs expected by end of this period (not full goal)
+  // For summer: compare against full goal (existing behavior)
+  const displayGoal = isPeriodPreseason 
+    ? goalsData.expectedByEndOfPeriod
     : goalsData.focusTier === 'mustDo' 
       ? goalsData.mustDoGoal 
       : goalsData.focusTier === 'couldDo' 
@@ -335,10 +355,10 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
   const focusPaceStatus = isPeriodPreseason 
     ? goalsData.paceStatus.preseason
     : (goalsData.focusTier ? goalsData.paceStatus[goalsData.focusTier] : 'no-goal');
-  const progressPercent = focusGoal > 0 ? Math.min(100, (goalsData.cumulativeProgress / focusGoal) * 100) : 0;
+  const progressPercent = displayGoal > 0 ? Math.min(100, (goalsData.cumulativeProgress / displayGoal) * 100) : 0;
   
   const tierLabel = isPeriodPreseason 
-    ? 'Preseason' 
+    ? 'Expected by End of Period' 
     : goalsData.focusTier === 'mustDo' ? 'Must Do' : goalsData.focusTier === 'couldDo' ? 'Could Do' : 'Will Do';
   const unit = efpModeEnabled ? 'EFP' : 'FP+';
   
@@ -491,8 +511,8 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
       <div className="bg-card rounded-2xl p-4 mb-4 border border-border">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-sm text-muted-foreground">{tierLabel} Goal</p>
-            <p className="text-2xl font-bold">{Math.round(goalsData.cumulativeProgress)} <span className="text-lg text-muted-foreground">/ {Math.round(focusGoal)} {unit}</span></p>
+            <p className="text-sm text-muted-foreground">{tierLabel}</p>
+            <p className="text-2xl font-bold">{Math.round(goalsData.cumulativeProgress)} <span className="text-lg text-muted-foreground">/ {Math.round(displayGoal)} {unit}</span></p>
           </div>
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${
             focusPaceStatus === 'ahead' ? 'bg-green-500/10 text-green-600' :
@@ -598,7 +618,7 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
           <CollapsibleContent>
             <div className="mt-2 p-4 bg-card rounded-xl border border-border">
               <p className="text-sm text-muted-foreground mb-3">
-                Here's what a typical path to {Math.round(focusGoal)} {unit} looks like over {learningCurveData.plannedWeeks} weeks. 
+                Here's what a typical path to {Math.round(goalsData.preseasonGoal)} {unit} looks like over {learningCurveData.plannedWeeks} weeks. 
                 Notice how sales accelerate as you gain experience:
               </p>
               
@@ -634,7 +654,7 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
               <div className="bg-muted/50 rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">
                   <strong className="text-foreground">Key insight:</strong> At the midpoint (week {Math.round(learningCurveData.plannedWeeks / 2)}), 
-                  you'd only be at ~{Math.round(focusGoal * 0.35)}/{Math.round(focusGoal)}. That's normal! 
+                  you'd only be at ~{Math.round(goalsData.preseasonGoal * 0.35)}/{Math.round(goalsData.preseasonGoal)}. That's normal! 
                   What matters is consistent effort, not whether you start hot.
                 </p>
               </div>
