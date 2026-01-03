@@ -239,24 +239,18 @@ export const LeaderSection = () => {
         className="w-full"
       >
         <CarouselContent className="ml-4">
-          {teamLeads.map((leader, index) => (
+          {teamLeads.map((leader) => (
             <CarouselItem key={leader.name} className="basis-auto pl-0 pr-3">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.05 }}
-                className="text-center w-20"
-              >
+              <div className="text-center w-20">
                 <BlurImage
                   src={leader.photo}
                   alt={leader.name}
                   loading="lazy"
-                  containerClassName="w-16 h-16 mx-auto rounded-full border-2 border-border"
+                  containerClassName="w-16 h-16 mx-auto rounded-full border-2 border-border overflow-hidden"
                   className="w-full h-full object-cover"
                 />
                 <p className="text-xs font-medium mt-2 leading-tight">{leader.name}</p>
-              </motion.div>
+              </div>
             </CarouselItem>
           ))}
         </CarouselContent>
