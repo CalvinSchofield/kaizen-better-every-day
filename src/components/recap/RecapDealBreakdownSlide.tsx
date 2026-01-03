@@ -1,6 +1,9 @@
 import { motion } from 'framer-motion';
-import { PieChart, DollarSign, Clock, Zap, ArrowUpCircle, TrendingUp, Target, Trophy, Gauge, Flame, Timer, Coins } from 'lucide-react';
+import { PieChart, DollarSign, Clock, Zap, ArrowUpCircle, TrendingUp, Target, Trophy, Gauge, Flame, Timer, Coins, Sparkles } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { useRepGoals } from '@/hooks/useRepGoals';
+import { useRepData } from '@/hooks/useRepData';
+import { getTier } from '@/utils/payscaleCalculator';
 
 interface DealHighlight {
   date: string;
@@ -9,6 +12,15 @@ interface DealHighlight {
   moneySpent: number;
   timeToSell: number;
   difficulty?: string;
+}
+
+interface SalesByHour {
+  hour: number;
+  fresh: number;
+  takeover: number;
+  diy: number;
+  upgrade: number;
+  total: number;
 }
 
 interface DealBreakdownData {
@@ -44,11 +56,25 @@ interface DealBreakdownData {
   latestFpDeal?: DealHighlight | null;
   earliestUpgradeDeal?: DealHighlight | null;
   latestUpgradeDeal?: DealHighlight | null;
+  
+  // Sales by hour for heatmap
+  salesByHourAndType?: SalesByHour[];
+  hasSaleTimeData?: boolean;
 }
 
 interface RecapDealBreakdownSlideProps {
   dealBreakdown: DealBreakdownData;
 }
+
+// Pay rates by FP level for quick lookup
+const PAY_RATES: Record<number, number> = {
+  60: 6.50,
+  100: 7.00,
+  150: 7.50,
+  200: 8.00,
+  250: 8.50,
+  300: 9.00,
+};
 
 // Simple donut chart component
 function DonutChart({ fpPercent, upgradePercent }: { fpPercent: number; upgradePercent: number }) {
@@ -89,20 +115,6 @@ function DonutChart({ fpPercent, upgradePercent }: { fpPercent: number; upgradeP
         <PieChart className="w-5 h-5 text-muted-foreground" />
       </div>
     </div>
-  );
-}
-
-function DifficultyBadge({ difficulty }: { difficulty?: string }) {
-  const config = {
-    easy: { bg: 'bg-green-500/20', text: 'text-green-400', label: 'Easy' },
-    medium: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', label: 'Medium' },
-    hard: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Hard' },
-  };
-  const c = config[difficulty?.toLowerCase() as keyof typeof config] || config.medium;
-  return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${c.bg} ${c.text}`}>
-      {c.label}
-    </span>
   );
 }
 
@@ -147,12 +159,25 @@ function DifficultyBar({ easy, medium, hard }: { easy: number; medium: number; h
 }
 
 export function RecapDealBreakdownSlide({ dealBreakdown }: RecapDealBreakdownSlideProps) {
+  const { goals } = useRepGoals();
+  const { repData } = useRepData();
+  
   const { 
     totalDeals, fpDeals, upgradeDeals, avgTimeToSell, totalMoneySpent, avgSpentPerDeal, hasDetailedData,
-    totalPrmr, avgPrmrPerDeal, avgRoiPerDeal, dealTypeBreakdown, difficultyDistribution,
+    totalPrmr, avgPrmrPerDeal, dealTypeBreakdown, difficultyDistribution,
     fastestDeal, slowestDeal, highestPrmrDeal, mostExpensiveDeal, earliestFpDeal, latestFpDeal,
-    earliestUpgradeDeal, latestUpgradeDeal
+    earliestUpgradeDeal, latestUpgradeDeal, salesByHourAndType, hasSaleTimeData
   } = dealBreakdown;
+  
+  // Calculate pay-based ROI using user's pay level setting
+  const isRookie = repData?.year === 'Rookie';
+  const defaultPayLevel = isRookie ? 60 : 100;
+  const payLevel = goals?.custom_payscale_fp ?? defaultPayLevel;
+  const payRate = PAY_RATES[payLevel] || getTier(payLevel).rate;
+  
+  const totalPay = (totalPrmr || 0) * payRate;
+  const upfrontRoi = totalMoneySpent > 0 ? (totalPrmr || 0) / totalMoneySpent : 0;
+  const payRoi = totalMoneySpent > 0 ? totalPay / totalMoneySpent : 0;
   
   const fpPercent = totalDeals > 0 ? (fpDeals / totalDeals) * 100 : 0;
   const upgradePercent = totalDeals > 0 ? (upgradeDeals / totalDeals) * 100 : 0;
@@ -191,26 +216,40 @@ export function RecapDealBreakdownSlide({ dealBreakdown }: RecapDealBreakdownSli
       </motion.p>
 
       <div className="w-full max-w-sm space-y-3">
-        {/* Hero Stats Row */}
+        {/* Hero Stats Row - Total PRMR, Total Invested, and DUAL ROI */}
         {hasDetailedData && totalPrmr !== undefined && totalPrmr > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35 }}
-            className="grid grid-cols-3 gap-2"
+            className="space-y-2"
           >
-            <div className="bg-emerald-500/10 rounded-xl p-3 text-center">
-              <p className="text-[10px] text-emerald-400 mb-0.5">Total PRMR</p>
-              <p className="text-lg font-bold text-emerald-400">${totalPrmr.toLocaleString()}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-emerald-500/10 rounded-xl p-3 text-center">
+                <p className="text-[10px] text-emerald-400 mb-0.5">Total PRMR</p>
+                <p className="text-lg font-bold text-emerald-400">${totalPrmr.toLocaleString()}</p>
+              </div>
+              <div className="bg-orange-500/10 rounded-xl p-3 text-center">
+                <p className="text-[10px] text-orange-400 mb-0.5">Total Invested</p>
+                <p className="text-lg font-bold text-orange-400">${totalMoneySpent.toLocaleString()}</p>
+              </div>
             </div>
-            <div className="bg-orange-500/10 rounded-xl p-3 text-center">
-              <p className="text-[10px] text-orange-400 mb-0.5">Total Invested</p>
-              <p className="text-lg font-bold text-orange-400">${totalMoneySpent.toLocaleString()}</p>
-            </div>
-            <div className="bg-purple-500/10 rounded-xl p-3 text-center">
-              <p className="text-[10px] text-purple-400 mb-0.5">Avg ROI</p>
-              <p className="text-lg font-bold text-purple-400">{avgRoiPerDeal ? `${avgRoiPerDeal.toFixed(1)}x` : '--'}</p>
-            </div>
+            
+            {/* Dual ROI Cards */}
+            {totalMoneySpent > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-blue-500/10 rounded-xl p-3 text-center">
+                  <p className="text-[10px] text-blue-400 mb-0.5">Upfront ROI</p>
+                  <p className="text-lg font-bold text-blue-400">{upfrontRoi.toFixed(1)}x</p>
+                  <p className="text-[9px] text-muted-foreground">PRMR × 4 = ${((totalPrmr || 0) * 4).toLocaleString()}</p>
+                </div>
+                <div className="bg-green-500/10 rounded-xl p-3 text-center border border-green-500/20">
+                  <p className="text-[10px] text-green-400 mb-0.5">Pay ROI ({payLevel} FP+)</p>
+                  <p className="text-lg font-bold text-green-400">{payRoi.toFixed(1)}x</p>
+                  <p className="text-[9px] text-muted-foreground">${totalPay.toLocaleString(undefined, { maximumFractionDigits: 0 })} total</p>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -340,12 +379,118 @@ export function RecapDealBreakdownSlide({ dealBreakdown }: RecapDealBreakdownSli
           </motion.div>
         )}
 
+        {/* When You Close - Heatmap */}
+        {hasDetailedData && hasSaleTimeData && salesByHourAndType && (() => {
+          const hoursWithData = salesByHourAndType.filter(h => h.total > 0);
+          if (hoursWithData.length === 0) return null;
+          
+          const maxTotal = Math.max(...hoursWithData.map(h => h.total));
+          const hoursActive = hoursWithData.map(h => h.hour);
+          const minHour = Math.max(0, Math.min(...hoursActive) - 1);
+          const maxHour = Math.min(23, Math.max(...hoursActive) + 1);
+          
+          const displayHours = salesByHourAndType.filter(h => h.hour >= minHour && h.hour <= maxHour);
+          
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55 }}
+              className="bg-muted/30 rounded-2xl p-4"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <p className="text-xs text-muted-foreground">When You Close</p>
+              </div>
+              
+              {/* Hour grid */}
+              <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${displayHours.length}, 1fr)` }}>
+                {displayHours.map(hourData => {
+                  const intensity = hourData.total > 0 ? Math.max(0.15, hourData.total / maxTotal) : 0;
+                  
+                  return (
+                    <div key={hourData.hour} className="text-center">
+                      <div 
+                        className="h-10 rounded-lg flex flex-col items-center justify-center relative overflow-hidden"
+                        style={{ 
+                          backgroundColor: hourData.total > 0 
+                            ? `hsl(var(--primary) / ${intensity})` 
+                            : 'hsl(var(--muted) / 0.3)'
+                        }}
+                      >
+                        {hourData.total > 0 && (
+                          <>
+                            <span className="text-xs font-bold">{hourData.total}</span>
+                            {/* Stacked bar showing breakdown */}
+                            <div className="flex h-1 w-full absolute bottom-0 left-0">
+                              {hourData.fresh > 0 && (
+                                <div 
+                                  className="bg-primary h-full"
+                                  style={{ flex: hourData.fresh }}
+                                />
+                              )}
+                              {hourData.takeover > 0 && (
+                                <div 
+                                  className="bg-success h-full"
+                                  style={{ flex: hourData.takeover }}
+                                />
+                              )}
+                              {hourData.diy > 0 && (
+                                <div 
+                                  className="bg-warning h-full"
+                                  style={{ flex: hourData.diy }}
+                                />
+                              )}
+                              {hourData.upgrade > 0 && (
+                                <div 
+                                  className="bg-muted-foreground h-full"
+                                  style={{ flex: hourData.upgrade }}
+                                />
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <div className="text-[9px] text-muted-foreground mt-0.5">
+                        {hourData.hour === 0 ? '12a' : 
+                         hourData.hour < 12 ? `${hourData.hour}a` : 
+                         hourData.hour === 12 ? '12p' : 
+                         `${hourData.hour - 12}p`}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* Legend */}
+              <div className="flex flex-wrap gap-2 justify-center mt-2 text-[9px]">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-sm bg-primary" />
+                  <span className="text-muted-foreground">Fresh</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-sm bg-success" />
+                  <span className="text-muted-foreground">Takeover</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-sm bg-warning" />
+                  <span className="text-muted-foreground">DIY</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-sm bg-muted-foreground" />
+                  <span className="text-muted-foreground">Upgrade</span>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })()}
+
         {/* Difficulty Distribution */}
         {hasDetailedData && difficultyDistribution && (difficultyDistribution.easy + difficultyDistribution.medium + difficultyDistribution.hard > 0) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.55 }}
+            transition={{ delay: 0.6 }}
             className="bg-muted/30 rounded-2xl p-4"
           >
             <div className="flex items-center gap-2 mb-3">
@@ -366,7 +511,7 @@ export function RecapDealBreakdownSlide({ dealBreakdown }: RecapDealBreakdownSli
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
+            transition={{ delay: 0.65 }}
             className="bg-muted/30 rounded-2xl p-4"
           >
             <div className="flex items-center gap-2 mb-3">
@@ -431,7 +576,7 @@ export function RecapDealBreakdownSlide({ dealBreakdown }: RecapDealBreakdownSli
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.65 }}
+            transition={{ delay: 0.7 }}
             className="bg-muted/30 rounded-2xl p-4"
           >
             <p className="text-xs text-muted-foreground mb-3">First & Last Deals</p>
