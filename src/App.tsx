@@ -36,6 +36,7 @@ import ProductKnowledge from "./pages/ProductKnowledge";
 import AdminBlitzes from "./pages/AdminBlitzes";
 import RecruitingContent from "./pages/RecruitingContent";
 import AboutTeam from "./pages/AboutTeam";
+import AddApplicant from "./pages/AddApplicant";
 import { queryPersister } from "./lib/queryPersister";
 
 const queryClient = new QueryClient({
@@ -278,8 +279,16 @@ const App = () => {
               <AboutTeam />
             </ProtectedRoute>
           }
-            />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+        />
+        <Route
+          path="/add-applicant"
+          element={
+            <ProtectedRoute>
+              <AddApplicant />
+            </ProtectedRoute>
+          }
+        />
+        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
