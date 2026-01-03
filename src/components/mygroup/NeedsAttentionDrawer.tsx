@@ -506,7 +506,6 @@ const TrainingProgressItem = ({
           className="flex items-start justify-between gap-3 cursor-pointer"
           onClick={() => {
             onRecruitClick(item.recruit);
-            onOpenChange(false);
           }}
         >
           <div className="flex-1 min-w-0">
@@ -657,7 +656,6 @@ const BlitzRecruitItem = ({
           className="flex items-start justify-between gap-3 cursor-pointer"
           onClick={() => {
             onRecruitClick(item.recruit);
-            onOpenChange(false);
           }}
         >
           <div className="flex-1 min-w-0">
@@ -894,7 +892,6 @@ const BlitzPrepProgressItem = ({
           className="flex items-start justify-between gap-3 cursor-pointer"
           onClick={() => {
             onRecruitClick(item.recruit);
-            onOpenChange(false);
           }}
         >
           <div className="flex-1 min-w-0">
@@ -1056,7 +1053,6 @@ const DefaultRecruitItem = ({
     )}
     onClick={() => {
       onRecruitClick(item.recruit);
-      onOpenChange(false);
     }}
   >
     <div className="flex items-start justify-between gap-3">
@@ -1200,7 +1196,6 @@ const ReadinessItem = ({
           className="flex items-start justify-between gap-3 cursor-pointer"
           onClick={() => {
             onRecruitClick(item.recruit);
-            onOpenChange(false);
           }}
         >
           <div className="flex-1 min-w-0">
