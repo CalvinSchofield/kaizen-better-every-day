@@ -9,6 +9,7 @@ export interface TourStep {
   description: string;
   position?: 'top' | 'bottom' | 'auto';
   action?: string; // Optional action to trigger when entering this step
+  lightOverlay?: boolean; // Use lighter overlay for drawer/sheet content
 }
 
 interface PageTourProps {
@@ -30,6 +31,7 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
   const [currentStep, setCurrentStep] = useState(0);
   const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
   const [cardPosition, setCardPosition] = useState<'top' | 'bottom'>('bottom');
+  const [cardOffset, setCardOffset] = useState(0); // Additional offset to avoid spotlight
   const containerRef = useRef<HTMLDivElement>(null);
 
   const step = steps[currentStep];
@@ -62,6 +64,7 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
           width: newRect.width + padding * 2,
           height: newRect.height + padding * 2,
         });
+        calculateCardPosition(newRect, viewportHeight);
       }, 300);
     } else {
       setSpotlightRect({
@@ -70,20 +73,52 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
         width: rect.width + padding * 2,
         height: rect.height + padding * 2,
       });
-    }
-
-    // Determine card position
-    if (step.position === 'top') {
-      setCardPosition('top');
-    } else if (step.position === 'bottom') {
-      setCardPosition('bottom');
-    } else {
-      // Auto: place card where there's more space
-      const spaceAbove = rect.top;
-      const spaceBelow = viewportHeight - rect.bottom;
-      setCardPosition(spaceBelow > spaceAbove ? 'bottom' : 'top');
+      calculateCardPosition(rect, viewportHeight);
     }
   }, [step]);
+
+  const calculateCardPosition = (rect: DOMRect, viewportHeight: number) => {
+    // Determine card position based on step config or available space
+    const spaceAbove = rect.top;
+    const spaceBelow = viewportHeight - rect.bottom;
+    const cardHeight = 200; // Approximate card height
+    const safeMargin = 24;
+
+    if (step?.position === 'top') {
+      setCardPosition('top');
+      // If spotlight is high, push card down to avoid overlap
+      const spotlightBottom = rect.bottom + 8;
+      if (spotlightBottom > 120) {
+        setCardOffset(Math.max(0, spotlightBottom - 100));
+      } else {
+        setCardOffset(0);
+      }
+    } else if (step?.position === 'bottom') {
+      setCardPosition('bottom');
+      // If spotlight is low, push card up to avoid overlap
+      const spotlightTop = rect.top - 8;
+      const bottomCardTop = viewportHeight - cardHeight - 40;
+      if (spotlightTop < bottomCardTop + cardHeight) {
+        setCardOffset(Math.max(0, bottomCardTop + cardHeight - spotlightTop + safeMargin));
+      } else {
+        setCardOffset(0);
+      }
+    } else {
+      // Auto: place card where there's more space, with offset if needed
+      if (spaceBelow > spaceAbove && spaceBelow > cardHeight + safeMargin) {
+        setCardPosition('bottom');
+        setCardOffset(0);
+      } else if (spaceAbove > cardHeight + safeMargin) {
+        setCardPosition('top');
+        setCardOffset(0);
+      } else {
+        // Not enough space, use bottom and push up
+        setCardPosition('bottom');
+        const overlap = cardHeight - spaceBelow + safeMargin;
+        setCardOffset(Math.max(0, overlap));
+      }
+    }
+  };
 
   useLayoutEffect(() => {
     if (isOpen) {
@@ -146,6 +181,9 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
 
   if (!isOpen) return null;
 
+  // Use lighter overlay for drawer/sheet focused steps
+  const overlayOpacity = step?.lightOverlay ? '0.4' : 'var(--tour-overlay-opacity)';
+
   return (
     <AnimatePresence>
       <motion.div
@@ -181,13 +219,18 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
             y="0"
             width="100%"
             height="100%"
-            fill="hsl(var(--tour-overlay) / var(--tour-overlay-opacity))"
+            fill={`hsl(var(--tour-overlay) / ${overlayOpacity})`}
             mask="url(#spotlight-mask)"
           />
         </svg>
 
-        {/* Interaction blocker (prevents taps from hitting the page behind) */}
-        <div className="absolute inset-0" aria-hidden="true" />
+        {/* Interaction blocker - but let the card buttons work */}
+        <div 
+          className="absolute inset-0" 
+          aria-hidden="true"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        />
 
         {/* Spotlight border glow */}
         {spotlightRect && (
@@ -212,20 +255,20 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
             e.stopPropagation();
             handleSkip();
           }}
-          className="absolute top-4 right-4 p-2 rounded-full bg-background/20 backdrop-blur-sm text-white/80 hover:text-white transition-colors z-10"
+          className="absolute top-4 right-4 p-2 rounded-full bg-background/20 backdrop-blur-sm text-white/80 hover:text-white transition-colors z-[102] pointer-events-auto"
           style={{ paddingTop: 'calc(0.5rem + var(--effective-safe-area-top, 0px))' }}
         >
           <X className="h-5 w-5" />
         </button>
 
-        {/* Bottom sheet card */}
+        {/* Tour card - positioned to avoid spotlight */}
         <motion.div
-          className={`absolute left-4 right-4 ${
-            cardPosition === 'bottom' ? 'bottom-8' : 'top-20'
+          className={`absolute left-4 right-4 z-[101] pointer-events-auto ${
+            cardPosition === 'bottom' ? '' : ''
           }`}
           style={{
-            paddingBottom: cardPosition === 'bottom' ? 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' : undefined,
-            paddingTop: cardPosition === 'top' ? 'var(--effective-safe-area-top, 0px)' : undefined,
+            bottom: cardPosition === 'bottom' ? `calc(${32 + cardOffset}px + env(safe-area-inset-bottom, 0px))` : 'auto',
+            top: cardPosition === 'top' ? `calc(${80 + cardOffset}px + var(--effective-safe-area-top, 0px))` : 'auto',
           }}
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
@@ -236,7 +279,11 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
           exit={{ y: cardPosition === 'bottom' ? 100 : -100, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         >
-          <div className="bg-card rounded-2xl shadow-2xl border border-border/50 overflow-hidden">
+          <div 
+            className="bg-card rounded-2xl shadow-2xl border border-border/50 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
             {/* Progress indicator */}
             <div className="flex justify-center gap-1.5 pt-4 pb-2">
               {steps.map((_, idx) => (

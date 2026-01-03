@@ -110,6 +110,7 @@ export const myGroupTourSteps: TourStep[] = [
     description: "Tap a recruit to see their full profile. For rookies, this is where you move them along in the process — from first contact all the way to signed!",
     position: 'top',
     action: 'openRecruitDrawer',
+    lightOverlay: true, // Lighter overlay so drawer content is visible
   },
   {
     target: 'group-add-recruit',
