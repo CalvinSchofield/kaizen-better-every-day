@@ -128,10 +128,7 @@ const Auth = () => {
 
         if (error) throw error;
 
-        toast({
-          title: "Welcome back!",
-          description: "You've successfully logged in.",
-        });
+        // Welcome message will show on the loading screen instead
         
         // Check if setup has been completed
         const setupComplete = localStorage.getItem('kaizen-setup-complete');
