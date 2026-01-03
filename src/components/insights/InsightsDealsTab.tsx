@@ -1,26 +1,14 @@
 import { useState } from 'react';
-import { DollarSign, Clock, TrendingUp, Zap, Award, Target, ArrowRight, CalendarCheck, MapPin, Flame, Sparkles, Banknote } from 'lucide-react';
+import { DollarSign, Clock, TrendingUp, Zap, Award, Target, ArrowRight, CalendarCheck, MapPin, Flame, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCustomerInsights, DealHighlight } from '@/hooks/useCustomerInsights';
 import { InsightsSectionHeader } from './InsightsSectionHeader';
 import { useNavigate } from 'react-router-dom';
 import { useRepGoals } from '@/hooks/useRepGoals';
-import { useRepData } from '@/hooks/useRepData';
+import { getTier } from '@/utils/payscaleCalculator';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
-
-// Pay rates by FP+ level (same as RecapSummarySlide)
-const PAY_RATES: Record<number, number> = {
-  60: 6.50,
-  100: 7.00,
-  150: 7.50,
-  200: 8.00,
-  250: 8.50,
-  300: 9.00,
-};
-
-const UPFRONT_RATE = 4; // Upfront pay = PRMR × 4
 
 // Helper to format minutes as human readable
 const formatMinutes = (minutes: number): string => {
@@ -62,7 +50,7 @@ const DealTypeCard = ({
   avgPrmr: number; 
   avgTime: number; 
   avgCost: number;
-  roi: { upfront: number; total: number };
+  roi: number;
   difficulty: { easy: number; medium: number; hard: number };
   color: string;
   icon: React.ElementType;
@@ -101,14 +89,10 @@ const DealTypeCard = ({
             <div className="font-semibold">${avgCost.toFixed(0)}</div>
           </div>
         )}
-        {roi.upfront > 0 && (
+        {roi > 0 && (
           <div className="space-y-0.5">
             <div className="text-xs opacity-70">ROI</div>
-            <div className="flex items-center gap-1.5">
-              <span className={`font-semibold text-blue-400`}>{roi.upfront.toFixed(1)}x</span>
-              <span className="text-muted-foreground/60">/</span>
-              <span className={`font-semibold ${roi.total >= 1 ? 'text-success' : ''}`}>{roi.total.toFixed(1)}x</span>
-            </div>
+            <div className={`font-semibold ${roi >= 1 ? 'text-success' : ''}`}>{roi.toFixed(1)}x</div>
           </div>
         )}
       </div>
@@ -177,14 +161,13 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
   const { insights, isLoading } = useCustomerInsights(dateRange);
   const navigate = useNavigate();
   const { goals } = useRepGoals();
-  const { repData } = useRepData();
   const { efpModeEnabled } = useEfpMode();
 
-  // Calculate pay rates based on user's pay level setting (same logic as recaps)
-  const isRookie = repData?.year === 'Rookie';
-  const defaultPayLevel = isRookie ? 60 : 100;
-  const payLevel = goals?.custom_payscale_fp ?? defaultPayLevel;
-  const totalPayRate = PAY_RATES[payLevel] || 6.50;
+  // Calculate ROI at user's pay level
+  const customPayLevel = goals?.custom_payscale_fp ?? null;
+  const targetFpPlus = customPayLevel ?? userCumulativeFpPlus;
+  const currentTier = getTier(targetFpPlus);
+  const payscaleRate = currentTier.rate;
 
   if (isLoading) {
     return (
@@ -225,12 +208,10 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
     );
   }
 
-  // Calculate ROIs - both upfront and total pay
+  // Calculate ROIs
   const totalSpent = insights.totalMoneySpent || 0;
-  const upfrontPay = insights.totalPrmr * UPFRONT_RATE;
-  const totalPay = insights.totalPrmr * totalPayRate;
-  const upfrontRoi = totalSpent > 0 ? upfrontPay / totalSpent : 0;
-  const totalPayRoi = totalSpent > 0 ? totalPay / totalSpent : 0;
+  const totalEarnings = insights.totalPrmr * payscaleRate;
+  const overallRoi = totalSpent > 0 ? totalEarnings / totalSpent : 0;
   
   // Calculate EFP or FP+ total
   const totalEfp = insights.totalPrmr / 85;
@@ -238,22 +219,11 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
     ? (totalEfp > 0 ? totalSpent / totalEfp : 0)
     : (insights.totalFpDeals > 0 ? totalSpent / insights.totalFpDeals : 0);
 
-  // Calculate ROI for FP types (returns both upfront and total pay ROI)
+  // Calculate ROI for FP types
   const getFpTypeRoi = (type: 'fresh' | 'takeover' | 'diy') => {
     const spend = insights.spendByDealType[type];
     const prmr = insights.prmrTotalByDealType[type];
-    const upfront = spend > 0 ? (prmr * UPFRONT_RATE) / spend : 0;
-    const total = spend > 0 ? (prmr * totalPayRate) / spend : 0;
-    return { upfront, total };
-  };
-
-  // Helper for sale type ROI
-  const getSaleTypeRoi = (saleType: 'fp' | 'upgrade') => {
-    const spend = insights.spendBySaleType[saleType];
-    const prmr = insights.prmrTotalBySaleType[saleType];
-    const upfront = spend > 0 ? (prmr * UPFRONT_RATE) / spend : 0;
-    const total = spend > 0 ? (prmr * totalPayRate) / spend : 0;
-    return { upfront, total };
+    return spend > 0 ? (prmr * payscaleRate) / spend : 0;
   };
 
   return (
@@ -283,62 +253,20 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
           <div className="text-2xl font-bold text-success">${insights.totalPrmr.toLocaleString()}</div>
           <div className="text-xs text-muted-foreground">Total PRMR</div>
         </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="p-3 rounded-2xl bg-muted/50 text-center"
-        >
-          <div className="text-xl font-bold text-foreground">${totalSpent.toLocaleString()}</div>
-          <div className="text-xs text-muted-foreground">Invested</div>
-        </motion.div>
+        {insights.hasMoneySpentData && overallRoi > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="p-3 rounded-2xl bg-warning/10 text-center"
+          >
+            <div className={`text-2xl font-bold ${overallRoi >= 1 ? 'text-success' : 'text-warning'}`}>
+              {overallRoi.toFixed(1)}x
+            </div>
+            <div className="text-xs text-muted-foreground">ROI</div>
+          </motion.div>
+        )}
       </div>
-
-      {/* ROI Card - Dual Display */}
-      {insights.hasMoneySpentData && totalSpent > 0 && (
-        <Card className="border-border/40 overflow-hidden">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-primary" />
-              <span className="font-semibold">Return on Investment</span>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              {/* Upfront ROI */}
-              <div className="p-3 rounded-xl bg-blue-500/10 space-y-1">
-                <div className="flex items-center gap-1.5 text-xs text-blue-400">
-                  <Target className="w-3 h-3" />
-                  <span>Upfront (4x)</span>
-                </div>
-                <div className={`text-2xl font-bold ${upfrontRoi >= 1 ? 'text-blue-400' : 'text-muted-foreground'}`}>
-                  {upfrontRoi.toFixed(1)}x
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  ${upfrontPay.toLocaleString(undefined, { maximumFractionDigits: 0 })} pay
-                </div>
-              </div>
-              
-              {/* Total Pay ROI */}
-              <div className="p-3 rounded-xl bg-success/10 border border-success/20 space-y-1">
-                <div className="flex items-center gap-1.5 text-xs text-success">
-                  <Banknote className="w-3 h-3" />
-                  <span>Total ({payLevel} FP+)</span>
-                </div>
-                <div className={`text-2xl font-bold ${totalPayRoi >= 1 ? 'text-success' : 'text-warning'}`}>
-                  {totalPayRoi.toFixed(1)}x
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  ${totalPay.toLocaleString(undefined, { maximumFractionDigits: 0 })} pay
-                </div>
-              </div>
-            </div>
-            
-            <p className="text-[10px] text-muted-foreground text-center">
-              Adjust pay level in Settings → Pay Level for Recaps
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       {/* FP vs Upgrade Split */}
       <Card className="border-border/40 overflow-hidden">
@@ -368,19 +296,14 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
                     <span className="font-medium">${insights.avgCostBySaleType.fp.toFixed(0)}</span>
                   </div>
                 )}
-                {insights.spendBySaleType.fp > 0 && (() => {
-                  const fpRoi = getSaleTypeRoi('fp');
-                  return (
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">ROI</span>
-                      <div className="flex items-center gap-1">
-                        <span className="font-medium text-blue-400">{fpRoi.upfront.toFixed(1)}x</span>
-                        <span className="text-muted-foreground/50">/</span>
-                        <span className={`font-medium ${fpRoi.total >= 1 ? 'text-success' : ''}`}>{fpRoi.total.toFixed(1)}x</span>
-                      </div>
-                    </div>
-                  );
-                })()}
+                {insights.spendBySaleType.fp > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">ROI</span>
+                    <span className={`font-medium ${(insights.prmrTotalBySaleType.fp * payscaleRate / insights.spendBySaleType.fp) >= 1 ? 'text-success' : ''}`}>
+                      {(insights.prmrTotalBySaleType.fp * payscaleRate / insights.spendBySaleType.fp).toFixed(1)}x
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -408,19 +331,14 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
                     <span className="font-medium">${insights.avgCostBySaleType.upgrade.toFixed(0)}</span>
                   </div>
                 )}
-                {insights.spendBySaleType.upgrade > 0 && (() => {
-                  const upgradeRoi = getSaleTypeRoi('upgrade');
-                  return (
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">ROI</span>
-                      <div className="flex items-center gap-1">
-                        <span className="font-medium text-blue-400">{upgradeRoi.upfront.toFixed(1)}x</span>
-                        <span className="text-muted-foreground/50">/</span>
-                        <span className={`font-medium ${upgradeRoi.total >= 1 ? 'text-success' : ''}`}>{upgradeRoi.total.toFixed(1)}x</span>
-                      </div>
-                    </div>
-                  );
-                })()}
+                {insights.spendBySaleType.upgrade > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">ROI</span>
+                    <span className={`font-medium ${(insights.prmrTotalBySaleType.upgrade * payscaleRate / insights.spendBySaleType.upgrade) >= 1 ? 'text-success' : ''}`}>
+                      {(insights.prmrTotalBySaleType.upgrade * payscaleRate / insights.spendBySaleType.upgrade).toFixed(1)}x
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
