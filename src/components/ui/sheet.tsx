@@ -4,8 +4,21 @@ import { X } from "lucide-react";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { hapticLight } from "@/utils/haptics";
 
-const Sheet = SheetPrimitive.Root;
+const Sheet = React.forwardRef<
+  React.ElementRef<typeof SheetPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Root>
+>(({ onOpenChange, ...props }, ref) => (
+  <SheetPrimitive.Root
+    onOpenChange={(open) => {
+      if (open) hapticLight();
+      onOpenChange?.(open);
+    }}
+    {...props}
+  />
+));
+Sheet.displayName = "Sheet";
 
 const SheetTrigger = SheetPrimitive.Trigger;
 

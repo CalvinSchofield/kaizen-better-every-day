@@ -23,6 +23,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import confetti from "canvas-confetti";
 import { toast } from "sonner";
+import { hapticSuccess } from "@/utils/haptics";
 
 // Helper to check if it's before typical end of work day (9 PM local - summer hours)
 const isBeforeSunset = () => {
@@ -604,7 +605,8 @@ const TrackWithLayout = () => {
       updates.break_periods = updatedBreaks;
     }
     
-    // Fire confetti
+    // Fire confetti and haptic
+    hapticSuccess();
     confetti({
       particleCount: 100,
       spread: 70,
