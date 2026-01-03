@@ -88,6 +88,17 @@ export interface CustomerInsightsData {
   cancelRate: number;
   avgDaysToInstall: number;
   
+  // Sales by Hour heatmap data (hour 0-23 -> counts by type)
+  salesByHourAndType: {
+    hour: number;
+    fresh: number;
+    takeover: number;
+    diy: number;
+    upgrade: number;
+    total: number;
+  }[];
+  hasSaleTimeData: boolean;
+  
   // Counts
   totalDeals: number;
   totalFpDeals: number;
@@ -495,6 +506,47 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
     // CRM data count
     const dealsWithCrmData = filteredSales.filter(s => s.customer_name || s.account_number || s.customer_phone).length;
 
+    // Sales by Hour heatmap - parse timestamp from each sale (stored in local time)
+    const salesByHourMap: Record<number, { fresh: number; takeover: number; diy: number; upgrade: number }> = {};
+    
+    // Initialize all hours
+    for (let h = 0; h < 24; h++) {
+      salesByHourMap[h] = { fresh: 0, takeover: 0, diy: 0, upgrade: 0 };
+    }
+    
+    // Count sales by hour and type
+    let salesWithTimestampCount = 0;
+    for (const sale of filteredSales) {
+      if (sale.timestamp) {
+        try {
+          const saleTime = parseISO(sale.timestamp);
+          const hour = saleTime.getHours();
+          salesWithTimestampCount++;
+          
+          if (sale.type === 'upgrade') {
+            salesByHourMap[hour].upgrade++;
+          } else if (sale.deal_type === 'fresh') {
+            salesByHourMap[hour].fresh++;
+          } else if (sale.deal_type === 'takeover') {
+            salesByHourMap[hour].takeover++;
+          } else if (sale.deal_type === 'diy') {
+            salesByHourMap[hour].diy++;
+          } else {
+            // FP without deal_type specified - count as fresh
+            salesByHourMap[hour].fresh++;
+          }
+        } catch {
+          // Skip invalid timestamps
+        }
+      }
+    }
+    
+    const salesByHourAndType = Object.entries(salesByHourMap).map(([hour, counts]) => ({
+      hour: parseInt(hour),
+      ...counts,
+      total: counts.fresh + counts.takeover + counts.diy + counts.upgrade,
+    }));
+
     return {
       avgPrmrPerFp,
       avgPrmrPerUpgrade,
@@ -538,6 +590,8 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       dealsWithTimeData: salesWithTime.length,
       salesWithLocationCount,
       dealsWithCrmData,
+      salesByHourAndType,
+      hasSaleTimeData: salesWithTimestampCount > 0,
       hasTimeData: salesWithTime.length > 0,
       hasDealTypeData: salesWithDealType.length > 0,
       hasMoneySpentData: salesWithMoney.length > 0,

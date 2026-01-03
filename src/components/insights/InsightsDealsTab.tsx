@@ -483,6 +483,123 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
         </Card>
       )}
 
+      {/* Sales Time Heatmap */}
+      {insights.hasSaleTimeData && (
+        <Card className="border-border/40">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-primary" />
+              <span className="font-semibold">When You Close</span>
+            </div>
+            
+            <p className="text-xs text-muted-foreground">
+              Sales by hour of day (your local time)
+            </p>
+            
+            {/* Hour labels row */}
+            <div className="space-y-2">
+              {/* Heatmap grid - show hours with activity */}
+              {(() => {
+                const hoursWithSales = insights.salesByHourAndType.filter(h => h.total > 0);
+                if (hoursWithSales.length === 0) return null;
+                
+                const maxTotal = Math.max(...hoursWithSales.map(h => h.total));
+                
+                // Find min and max hours to show a focused range
+                const hoursActive = hoursWithSales.map(h => h.hour);
+                const minHour = Math.max(0, Math.min(...hoursActive) - 1);
+                const maxHour = Math.min(23, Math.max(...hoursActive) + 1);
+                
+                const displayHours = insights.salesByHourAndType.filter(h => h.hour >= minHour && h.hour <= maxHour);
+                
+                return (
+                  <div className="space-y-3">
+                    {/* Hour grid */}
+                    <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${displayHours.length}, 1fr)` }}>
+                      {displayHours.map(hourData => {
+                        const intensity = hourData.total > 0 ? Math.max(0.15, hourData.total / maxTotal) : 0;
+                        
+                        return (
+                          <div key={hourData.hour} className="text-center">
+                            <div 
+                              className="h-12 rounded-lg flex flex-col items-center justify-center relative overflow-hidden"
+                              style={{ 
+                                backgroundColor: hourData.total > 0 
+                                  ? `hsl(var(--primary) / ${intensity})` 
+                                  : 'hsl(var(--muted) / 0.3)'
+                              }}
+                            >
+                              {hourData.total > 0 && (
+                                <>
+                                  <span className="text-xs font-bold">{hourData.total}</span>
+                                  {/* Stacked bar showing breakdown */}
+                                  <div className="flex h-1.5 w-full absolute bottom-0 left-0">
+                                    {hourData.fresh > 0 && (
+                                      <div 
+                                        className="bg-primary h-full"
+                                        style={{ flex: hourData.fresh }}
+                                      />
+                                    )}
+                                    {hourData.takeover > 0 && (
+                                      <div 
+                                        className="bg-success h-full"
+                                        style={{ flex: hourData.takeover }}
+                                      />
+                                    )}
+                                    {hourData.diy > 0 && (
+                                      <div 
+                                        className="bg-warning h-full"
+                                        style={{ flex: hourData.diy }}
+                                      />
+                                    )}
+                                    {hourData.upgrade > 0 && (
+                                      <div 
+                                        className="bg-muted-foreground h-full"
+                                        style={{ flex: hourData.upgrade }}
+                                      />
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-1">
+                              {hourData.hour === 0 ? '12a' : 
+                               hourData.hour < 12 ? `${hourData.hour}a` : 
+                               hourData.hour === 12 ? '12p' : 
+                               `${hourData.hour - 12}p`}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Legend */}
+                    <div className="flex flex-wrap gap-3 justify-center text-[10px]">
+                      <div className="flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded-sm bg-primary" />
+                        <span className="text-muted-foreground">Fresh</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded-sm bg-success" />
+                        <span className="text-muted-foreground">Takeover</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded-sm bg-warning" />
+                        <span className="text-muted-foreground">DIY</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded-sm bg-muted-foreground" />
+                        <span className="text-muted-foreground">Upgrade</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Install Performance */}
       {insights.hasInstallData && (
         <Card className="border-border/40">
