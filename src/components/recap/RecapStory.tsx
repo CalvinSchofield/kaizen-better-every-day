@@ -11,6 +11,7 @@ import { RecapSummarySlide } from './RecapSummarySlide';
 import { RecapRecordsSlide } from './RecapRecordsSlide';
 import { RecapMeVsMeSlide } from './RecapMeVsMeSlide';
 import { RecapDealBreakdownSlide } from './RecapDealBreakdownSlide';
+import { RecapGoalsPaceSlide } from './RecapGoalsPaceSlide';
 import { useRecapMeVsMeComparison } from '@/hooks/useRecapMeVsMeComparison';
 import { useMeVsMe } from '@/hooks/useMeVsMe';
 import { useEfpMode } from '@/hooks/useEfpMode';
@@ -127,6 +128,11 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
       />
     );
   }
+
+  // Add Goals Pace slide before summary
+  slides.push(
+    <RecapGoalsPaceSlide key="goals-pace" stats={stats} />
+  );
 
   slides.push(
     <RecapSummarySlide key="summary" stats={stats} />
