@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -11,9 +12,13 @@ import { AlumniSection } from "@/components/about/AlumniSection";
 import { CompanyCredibility } from "@/components/about/CompanyCredibility";
 import { LeaderSection } from "@/components/about/LeaderSection";
 import { FinalCTA } from "@/components/about/FinalCTA";
+import { useAboutTeamPrefetch } from "@/hooks/useAboutTeamPrefetch";
 
 const AboutTeam = () => {
   const navigate = useNavigate();
+  
+  // Prefetch all images on mount for snappy loading
+  useAboutTeamPrefetch(true);
   
   return (
     <div className="min-h-screen bg-background">

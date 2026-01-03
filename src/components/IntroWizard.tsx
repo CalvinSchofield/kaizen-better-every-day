@@ -14,6 +14,7 @@ import { CTASlide } from "@/components/intro/CTASlide";
 import { ChevronLeft, ChevronRight, Home, Map, BookOpen, Target, Calendar, Camera, Sparkles, Users } from "lucide-react";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 import { hapticLight, hapticSelection } from "@/utils/haptics";
+import { prefetchAboutTeamImages } from "@/hooks/useAboutTeamPrefetch";
 import { 
   getPreBlitzRookieSlides, 
   getKnockingUserSlides, 
@@ -89,7 +90,12 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
   // Preload all images when wizard mounts
   useEffect(() => {
     preloadImages(slides);
-  }, []);
+    
+    // Pre-blitz rookies will navigate to About Team, so prefetch those images early
+    if (userType === 'pre-blitz-rookie') {
+      prefetchAboutTeamImages();
+    }
+  }, [userType]);
 
   const handleNext = useCallback(() => {
     if (isLastSlide) {

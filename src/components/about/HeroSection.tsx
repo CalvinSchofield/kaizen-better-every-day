@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { heroContent } from "@/data/aboutTeamData";
 import { useEffect, useState } from "react";
+import { BlurImage } from "@/components/ui/BlurImage";
 
 export const HeroSection = () => {
   const [displayValue, setDisplayValue] = useState(0);
@@ -27,10 +28,14 @@ export const HeroSection = () => {
 
   return (
     <section className="relative h-[85vh] min-h-[500px] overflow-hidden">
-      {/* Background Image */}
-      <div 
-        className="absolute inset-0 bg-cover bg-bottom"
-        style={{ backgroundImage: `url(${heroContent.backgroundImage})` }}
+      {/* Background Image with blur-up loading */}
+      <BlurImage
+        src={heroContent.backgroundImage}
+        alt="Kaizen team celebrating"
+        loading="eager"
+        containerClassName="absolute inset-0"
+        className="w-full h-full object-cover object-bottom"
+        showPulse={true}
       />
       
       {/* Dark Overlay with gradient */}
