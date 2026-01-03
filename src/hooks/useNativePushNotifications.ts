@@ -25,7 +25,10 @@ export function useNativePushNotifications() {
 
   const refreshStoredTokenFlag = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+
+      const user = session?.user;
       if (!user) return;
 
       const { data: tokens } = await supabase
@@ -65,9 +68,17 @@ export function useNativePushNotifications() {
           }));
 
           try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError) throw sessionError;
+
+            const user = session?.user;
             if (!user) {
-              console.error('[NativePush] No authenticated user');
+              const msg = 'No authenticated user session';
+              console.error('[NativePush]', msg);
+              setDebug((prev) => ({
+                ...prev,
+                lastTokenStoreError: msg,
+              }));
               return;
             }
 
@@ -211,7 +222,17 @@ export function useNativePushNotifications() {
     if (!isNative) return false;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // Unregister from APNs so the next register produces a fresh token event
+      try {
+        await PushNotifications.unregister();
+      } catch (err) {
+        console.warn('[NativePush] Native unregister failed (continuing):', err);
+      }
+
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+
+      const user = session?.user;
       if (user) {
         await supabase
           .from('apns_device_tokens')

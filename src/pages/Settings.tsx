@@ -1226,36 +1226,54 @@ export default function Settings() {
                       onClick={async () => {
                         setIsSendingTestPush(true);
                         try {
-                          const [webRes, apnsRes] = await Promise.all([
-                            supabase.functions.invoke('test-push-notification', {
-                              body: { targetEmail: 'calvinjschofield@gmail.com' }
-                            }),
-                            supabase.functions.invoke('send-apns-notification', {
-                              body: {
-                                targetEmail: 'calvinjschofield@gmail.com',
-                                title: '🧪 Native Test',
-                                body: 'Test notification from TestFlight!',
-                                type: 'test'
-                              }
-                            })
-                          ]);
+                          // If there's no APNs token stored, calling the APNs sender will return non-2xx.
+                          // So we check first and skip APNs when there's no token yet.
+                          const { count, error: countErr } = await supabase
+                            .from('apns_device_tokens')
+                            .select('id', { count: 'exact', head: true });
+
+                          if (countErr) throw countErr;
+
+                          const tokenCount = count ?? 0;
+                          setApnsTokenCount(tokenCount);
+
+                          const webPromise = supabase.functions.invoke('test-push-notification', {
+                            body: { targetEmail: 'calvinjschofield@gmail.com' },
+                          });
+
+                          const apnsPromise = tokenCount > 0
+                            ? supabase.functions.invoke('send-apns-notification', {
+                                body: {
+                                  targetEmail: 'calvinjschofield@gmail.com',
+                                  title: '🧪 Native Test',
+                                  body: 'Test notification from TestFlight!',
+                                  type: 'test',
+                                },
+                              })
+                            : Promise.resolve({ data: { success: false, error: 'No APNs token stored yet.' }, error: null } as any);
+
+                          const [webRes, apnsRes] = await Promise.all([webPromise, apnsPromise]);
 
                           const webOk = !webRes.error && webRes.data?.success !== false;
-                          const apnsOk = !apnsRes.error && apnsRes.data?.success === true;
+                          const apnsOk = tokenCount > 0 && !apnsRes.error && apnsRes.data?.success === true;
 
                           toast({
                             title: "Test sent",
-                            description: `Web: ${webOk ? '✓' : '✗'} | APNs: ${apnsOk ? '✓' : '✗'}`,
-                            variant: (!webOk || !apnsOk) ? "destructive" : undefined,
+                            description: `Web: ${webOk ? '✓' : '✗'} | APNs: ${apnsOk ? '✓' : tokenCount > 0 ? '✗' : '—'}`,
+                            variant: (!webOk || (tokenCount > 0 && !apnsOk)) ? "destructive" : undefined,
                           });
 
                           const apnsErrorText =
-                            apnsRes.error?.message ||
-                            apnsRes.data?.errors?.[0] ||
-                            apnsRes.data?.error;
+                            tokenCount === 0
+                              ? 'APNs skipped (no token in DB yet). Tap “Re-register & Self-Test Push”.'
+                              : apnsRes.error?.message || apnsRes.data?.errors?.[0] || apnsRes.data?.error;
 
                           if (!apnsOk && apnsErrorText) {
-                            toast({ title: 'APNs error', description: apnsErrorText, variant: 'destructive' });
+                            toast({
+                              title: 'APNs',
+                              description: apnsErrorText,
+                              variant: tokenCount === 0 ? undefined : 'destructive',
+                            });
                           }
                         } catch (err: any) {
                           toast({ title: "Failed", description: err.message, variant: "destructive" });
@@ -1436,8 +1454,11 @@ export default function Settings() {
                             const steps: string[] = [];
 
                             try {
+                              // Step 0: Force an APNs unregister so we get a fresh token event
+                              toast({ title: '0/4 Resetting push registration…' });
+                              await unsubscribe();
+
                               // Step 1: Re-register for push
-                              steps.push('Requesting permission…');
                               toast({ title: '1/4 Requesting permission…' });
 
                               const registered = await subscribe();
@@ -1447,23 +1468,41 @@ export default function Settings() {
                               }
                               steps.push('Registered ✓');
 
-                              // Step 2: Short delay for listener to store token
+                              // Step 2: Wait/poll for token storage
                               toast({ title: '2/4 Waiting for token storage…' });
-                              await new Promise((r) => setTimeout(r, 1500));
+                              const deadline = Date.now() + 12_000;
+                              let tokenCount = 0;
+
+                              while (Date.now() < deadline) {
+                                const { count, error: countErr } = await supabase
+                                  .from('apns_device_tokens')
+                                  .select('id', { count: 'exact', head: true });
+
+                                if (countErr) throw countErr;
+
+                                tokenCount = count ?? 0;
+                                if (tokenCount > 0) break;
+
+                                await new Promise((r) => setTimeout(r, 1000));
+                              }
 
                               // Step 3: Verify token in DB
                               toast({ title: '3/4 Checking token in DB…' });
-                              const { count, error: countErr } = await supabase
-                                .from('apns_device_tokens')
-                                .select('id', { count: 'exact', head: true });
-
-                              if (countErr) throw countErr;
-
-                              const tokenCount = count ?? 0;
                               setApnsTokenCount(tokenCount);
 
                               if (tokenCount === 0) {
-                                toast({ title: 'Token not stored', description: 'Registration succeeded but no token in DB. Check debug info.', variant: 'destructive' });
+                                const hint =
+                                  pushDebug?.lastRegistrationError
+                                    ? `Registration error: ${pushDebug.lastRegistrationError}`
+                                    : pushDebug?.lastTokenStoreError
+                                      ? `Token store error: ${pushDebug.lastTokenStoreError}`
+                                      : 'No token stored yet. (This is usually an iOS capability / provisioning issue.)';
+
+                                toast({
+                                  title: 'Token not stored',
+                                  description: hint,
+                                  variant: 'destructive',
+                                });
                                 return;
                               }
                               steps.push(`Token in DB ✓ (${tokenCount})`);
