@@ -107,3 +107,6 @@ verify_jwt = false
 
 [functions.check-blitz-rsvp-reminders]
 verify_jwt = false
+
+[functions.get-vapid-public-key]
+verify_jwt = false
