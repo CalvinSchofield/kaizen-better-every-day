@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { clearPersistedCache, clearCachedLayoutState } from "@/lib/queryPersister";
+import { hapticSelection } from "@/utils/haptics";
 
 interface AppDrawerProps {
   trigger: React.ReactNode;
@@ -92,6 +93,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   };
 
   const handleToggle = (checked: boolean) => {
+    hapticSelection();
     toggleMode(checked);
   };
 

@@ -16,6 +16,7 @@ import { useMeVsMe } from '@/hooks/useMeVsMe';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
+import { usePastRecaps } from '@/hooks/usePastRecaps';
 
 interface RecapStoryProps {
   stats: RecapStats;
@@ -41,10 +42,12 @@ const gradients = [
 export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [hasTriggeredConfetti, setHasTriggeredConfetti] = useState(false);
+  const [hasSavedRecap, setHasSavedRecap] = useState(false);
   
   const { isEnabled: meVsMeEnabled } = useMeVsMe();
   const { efpModeEnabled } = useEfpMode();
   const { data: meVsMeData } = useRecapMeVsMeComparison(stats.period);
+  const { saveRecap } = usePastRecaps();
 
   // Check if any personal records were set
   const hasRecords = Object.values(stats.records).some(r => r.isRecord);
@@ -130,6 +133,30 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
   );
 
   const totalSlides = slides.length;
+
+  // Save recap to database when reaching the last slide
+  useEffect(() => {
+    const saveRecapToDb = async () => {
+      if (currentSlide === totalSlides - 1 && !hasSavedRecap) {
+        setHasSavedRecap(true);
+        try {
+          await saveRecap({
+            period_type: stats.period,
+            period_start: format(stats.dateRange.start, 'yyyy-MM-dd'),
+            period_end: format(stats.dateRange.end, 'yyyy-MM-dd'),
+            period_label: stats.periodLabel || format(stats.dateRange.start, stats.period === 'week' ? "'Week of' MMM d" : 'MMMM yyyy'),
+            days_worked: stats.daysWorked,
+            total_fp: stats.totalFpPlus,
+            total_prmr: stats.totalPrmr,
+            stats_json: stats,
+          });
+        } catch (error) {
+          console.error('Failed to save recap:', error);
+        }
+      }
+    };
+    saveRecapToDb();
+  }, [currentSlide, totalSlides, hasSavedRecap, saveRecap, stats]);
 
   useEffect(() => {
     if (currentSlide === totalSlides - 1 && !hasTriggeredConfetti && stats.totalFpPlus > 0) {
