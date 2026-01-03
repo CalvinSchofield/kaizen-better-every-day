@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { usePrefetchData } from "@/hooks/usePrefetchData";
+import { PushNotificationInitializer } from "./PushNotificationInitializer";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -61,7 +62,12 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/auth" replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <PushNotificationInitializer />
+      {children}
+    </>
+  );
 };
 
 export default ProtectedRoute;
