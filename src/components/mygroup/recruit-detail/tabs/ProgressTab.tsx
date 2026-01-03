@@ -38,14 +38,35 @@ export const ProgressTab = ({
 }: ProgressTabProps) => {
   const { allBlitzes } = useBlitzes();
   
+  const recruitFirstName = getFirstName(recruit.name);
+  
+  // Use rep data if available, otherwise fall back to recruit data for progress tracking
+  // This ensures recruits without email (no rep record) still show progress
+  const progressData = recruitRepData ?? {
+    year: recruit.year || 'Rookie',
+    onboarding_complete: recruit.onboardingComplete ?? false,
+    trainings_complete: recruit.trainingsComplete ?? false,
+    slack_joined: recruit.slackJoined ?? false,
+    ramp_phase_1_complete: recruit.phase1Complete ?? false,
+    ramp_phase_2_complete: recruit.phase2Complete ?? false,
+    ramp_phase_3_complete: recruit.phase3Complete ?? false,
+    ramp_phase_4_complete: recruit.phase4Complete ?? false,
+    committed_blitzes: recruit.committedBlitzes ?? [] as (string | { id: string })[],
+  };
+  
+  const isRookie = progressData.year === 'Rookie' || !progressData.year;
+  
+  // Get committed blitzes from progressData (works for both rep and recruit fallback)
+  const committedBlitzes = recruitRepData?.committed_blitzes ?? recruit.committedBlitzes ?? [];
+  
   // IMPORTANT: All hooks must be called before any early returns
   // Get closest upcoming blitz from committed blitzes
   const upcomingBlitz = useMemo(() => {
-    if (!recruitRepData?.committed_blitzes || !allBlitzes.length) return null;
+    if (!committedBlitzes.length || !allBlitzes.length) return null;
     
     // Normalize committed blitz IDs
-    const committedIds = (recruitRepData.committed_blitzes as (string | { id: string })[])
-      .map(b => typeof b === 'string' ? b : b.id);
+    const committedIds = (committedBlitzes as (string | { id: string; blitz_id?: string })[])
+      .map(b => typeof b === 'string' ? b : (b.blitz_id || b.id));
     
     if (committedIds.length === 0) return null;
     
@@ -72,10 +93,7 @@ export const ProgressTab = ({
       daysUntil,
       location: closest.location
     };
-  }, [recruitRepData?.committed_blitzes, allBlitzes]);
-  
-  const recruitFirstName = getFirstName(recruit.name);
-  const isRookie = recruitRepData && (recruitRepData.year === 'Rookie' || !recruitRepData.year);
+  }, [committedBlitzes, allBlitzes]);
   
   // Check if recruit is in summer mode
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -121,26 +139,18 @@ export const ProgressTab = ({
       </div>
     );
   }
-  
-  if (!recruitRepData) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        <p className="text-sm">No progress data available</p>
-      </div>
-    );
-  }
 
   // Calculate overall progress
   const onboardingSteps = [
-    recruitRepData.onboarding_complete,
-    recruitRepData.trainings_complete,
-    recruitRepData.slack_joined
+    progressData.onboarding_complete,
+    progressData.trainings_complete,
+    progressData.slack_joined
   ];
   const rampSteps = [
-    recruitRepData.ramp_phase_1_complete,
-    recruitRepData.ramp_phase_2_complete,
-    recruitRepData.ramp_phase_3_complete,
-    recruitRepData.ramp_phase_4_complete
+    progressData.ramp_phase_1_complete,
+    progressData.ramp_phase_2_complete,
+    progressData.ramp_phase_3_complete,
+    progressData.ramp_phase_4_complete
   ];
   
   const onboardingComplete = onboardingSteps.every(Boolean);
@@ -151,13 +161,13 @@ export const ProgressTab = ({
 
   // Determine current active step
   const getCurrentStep = () => {
-    if (!recruitRepData.onboarding_complete) return 'onboarding';
-    if (!recruitRepData.trainings_complete) return 'trainings';
-    if (!recruitRepData.slack_joined) return 'slack';
-    if (!recruitRepData.ramp_phase_1_complete) return 'phase1';
-    if (!recruitRepData.ramp_phase_2_complete) return 'phase2';
-    if (!recruitRepData.ramp_phase_3_complete) return 'phase3';
-    if (!recruitRepData.ramp_phase_4_complete) return 'phase4';
+    if (!progressData.onboarding_complete) return 'onboarding';
+    if (!progressData.trainings_complete) return 'trainings';
+    if (!progressData.slack_joined) return 'slack';
+    if (!progressData.ramp_phase_1_complete) return 'phase1';
+    if (!progressData.ramp_phase_2_complete) return 'phase2';
+    if (!progressData.ramp_phase_3_complete) return 'phase3';
+    if (!progressData.ramp_phase_4_complete) return 'phase4';
     return 'complete';
   };
   
@@ -169,20 +179,20 @@ export const ProgressTab = ({
     { 
       field: 'onboarding_complete', 
       label: 'Basic Onboarding', 
-      complete: recruitRepData.onboarding_complete,
+      complete: progressData.onboarding_complete,
       locked: false // First step is never locked
     },
     { 
       field: 'trainings_complete', 
       label: 'Required Trainings', 
-      complete: recruitRepData.trainings_complete,
-      locked: !recruitRepData.onboarding_complete // Locked until onboarding complete
+      complete: progressData.trainings_complete,
+      locked: !progressData.onboarding_complete // Locked until onboarding complete
     },
     { 
       field: 'slack_joined', 
       label: 'Join Slack', 
-      complete: recruitRepData.slack_joined,
-      locked: !recruitRepData.trainings_complete // Locked until trainings complete
+      complete: progressData.slack_joined,
+      locked: !progressData.trainings_complete // Locked until trainings complete
     },
   ];
 
@@ -190,30 +200,30 @@ export const ProgressTab = ({
     { 
       field: 'ramp_phase_1_complete', 
       label: 'Onboard & Get Ready', 
-      complete: recruitRepData.ramp_phase_1_complete, 
+      complete: progressData.ramp_phase_1_complete, 
       phase: 1,
       locked: !onboardingComplete // Locked until all onboarding complete
     },
     { 
       field: 'ramp_phase_2_complete', 
       label: 'Start Training', 
-      complete: recruitRepData.ramp_phase_2_complete, 
+      complete: progressData.ramp_phase_2_complete, 
       phase: 2,
-      locked: !recruitRepData.ramp_phase_1_complete // Locked until phase 1 complete
+      locked: !progressData.ramp_phase_1_complete // Locked until phase 1 complete
     },
     { 
       field: 'ramp_phase_3_complete', 
       label: 'Practice', 
-      complete: recruitRepData.ramp_phase_3_complete, 
+      complete: progressData.ramp_phase_3_complete, 
       phase: 3,
-      locked: !recruitRepData.ramp_phase_2_complete // Locked until phase 2 complete
+      locked: !progressData.ramp_phase_2_complete // Locked until phase 2 complete
     },
     { 
       field: 'ramp_phase_4_complete', 
       label: 'Saddle Up', 
-      complete: recruitRepData.ramp_phase_4_complete, 
+      complete: progressData.ramp_phase_4_complete, 
       phase: 4,
-      locked: !recruitRepData.ramp_phase_3_complete // Locked until phase 3 complete
+      locked: !progressData.ramp_phase_3_complete // Locked until phase 3 complete
     },
   ];
 
