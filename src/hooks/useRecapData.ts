@@ -2,6 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, format, parseISO } from 'date-fns';
 
+interface DealHighlight {
+  date: string;
+  type: string;
+  prmr: number;
+  moneySpent: number;
+  timeToSell: number;
+  difficulty?: string;
+}
+
 interface DealBreakdown {
   totalDeals: number;
   fpDeals: number;
@@ -12,6 +21,33 @@ interface DealBreakdown {
   avgSpentPerDeal: number;
   hasCrmData: boolean;
   hasDetailedData?: boolean;
+  
+  // Extended analytics
+  totalPrmr: number;
+  avgPrmrPerDeal: number;
+  avgRoiPerDeal: number; // PRMR / cost
+  
+  // By deal type (Fresh/Takeover/DIY for FP, Upgrade)
+  dealTypeBreakdown: {
+    fresh: { count: number; totalPrmr: number; totalCost: number; avgTime: number | null; avgDifficulty: number | null };
+    takeover: { count: number; totalPrmr: number; totalCost: number; avgTime: number | null; avgDifficulty: number | null };
+    diy: { count: number; totalPrmr: number; totalCost: number; avgTime: number | null; avgDifficulty: number | null };
+    upgrade: { count: number; totalPrmr: number; totalCost: number; avgTime: number | null; avgDifficulty: number | null };
+  };
+  
+  // Difficulty distribution
+  difficultyDistribution: { easy: number; medium: number; hard: number };
+  avgDifficultyByType: { fp: number | null; upgrade: number | null };
+  
+  // Highlights
+  fastestDeal: DealHighlight | null;
+  slowestDeal: DealHighlight | null;
+  highestPrmrDeal: DealHighlight | null;
+  mostExpensiveDeal: DealHighlight | null;
+  earliestFpDeal: DealHighlight | null;
+  latestFpDeal: DealHighlight | null;
+  earliestUpgradeDeal: DealHighlight | null;
+  latestUpgradeDeal: DealHighlight | null;
 }
 
 interface InputComparison {
@@ -155,48 +191,70 @@ function formatTimeFromDecimal(decimal: number): string {
   return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
 
-function parseSalesLog(salesLog: any): { type: string; money_spent: number; time_to_sell_minutes: number }[] {
+interface ParsedDeal {
+  type: string;
+  money_spent: number;
+  time_to_sell_minutes: number;
+  prmr: number;
+  difficulty: string;
+  date: string;
+  timestamp: string;
+}
+
+function parseSalesLog(salesLog: any, entryDate: string): ParsedDeal[] {
   if (!salesLog || !Array.isArray(salesLog)) return [];
   return salesLog.map((item: any) => ({
     type: item.type || 'FP',
     money_spent: parseFloat(item.money_spent) || 0,
     time_to_sell_minutes: parseFloat(item.time_to_sell_minutes) || 0,
+    prmr: parseFloat(item.prmr) || 0,
+    difficulty: item.difficulty || 'medium',
+    date: entryDate,
+    timestamp: item.timestamp || entryDate,
   }));
 }
 
+function difficultyToNumber(difficulty: string): number {
+  switch (difficulty?.toLowerCase()) {
+    case 'easy': return 1;
+    case 'medium': return 2;
+    case 'hard': return 3;
+    default: return 2;
+  }
+}
+
 function calculateDealBreakdown(entries: any[]): DealBreakdown | undefined {
-  const allDeals: { type: string; money_spent: number; time_to_sell_minutes: number }[] = [];
+  const allDeals: ParsedDeal[] = [];
   
   for (const entry of entries) {
-    const deals = parseSalesLog(entry.sales_log);
+    const deals = parseSalesLog(entry.sales_log, entry.entry_date);
     allDeals.push(...deals);
   }
   
   // Calculate total fp_plus from entries as fallback
   const totalFpFromEntries = entries.reduce((sum, e) => sum + (e.fp_plus || 0), 0);
+  const totalPrmrFromEntries = entries.reduce((sum, e) => sum + (e.prmr || 0) + (e.upgrade_prmr || 0), 0);
   const totalUpgradePrmr = entries.reduce((sum, e) => sum + (e.upgrade_prmr || 0), 0);
   
-  // If no sales_log data but we have fp_plus, infer basic deal counts
   const hasDetailedData = allDeals.length > 0;
   
   if (!hasDetailedData && totalFpFromEntries === 0) {
     return undefined;
   }
   
-  // Use sales_log data if available, otherwise infer from fp_plus
-  const fpDeals = hasDetailedData 
-    ? allDeals.filter(d => d.type === 'FP' || d.type === 'Fresh' || d.type === 'Takeover')
-    : [];
-  const upgradeDeals = hasDetailedData 
-    ? allDeals.filter(d => d.type === 'Upgrade' || d.type === 'UPG')
-    : [];
+  // Categorize deals
+  const freshDeals = allDeals.filter(d => d.type === 'Fresh' || d.type === 'FP');
+  const takeoverDeals = allDeals.filter(d => d.type === 'Takeover' || d.type === 'TO');
+  const diyDeals = allDeals.filter(d => d.type === 'DIY');
+  const upgradeDeals = allDeals.filter(d => d.type === 'Upgrade' || d.type === 'UPG');
+  const fpDeals = [...freshDeals, ...takeoverDeals, ...diyDeals];
   
-  // If no detailed data, estimate: fp_plus count = FP deals (upgrades tracked via upgrade_prmr)
   const inferredFpDeals = hasDetailedData ? fpDeals.length : totalFpFromEntries;
   const inferredUpgradeDeals = hasDetailedData ? upgradeDeals.length : (totalUpgradePrmr > 0 ? Math.ceil(totalUpgradePrmr / 50) : 0);
   const inferredTotalDeals = hasDetailedData ? allDeals.length : (inferredFpDeals + inferredUpgradeDeals);
   
   const totalMoneySpent = allDeals.reduce((sum, d) => sum + d.money_spent, 0);
+  const totalPrmr = hasDetailedData ? allDeals.reduce((sum, d) => sum + d.prmr, 0) : totalPrmrFromEntries;
   
   const dealsWithTime = allDeals.filter(d => d.time_to_sell_minutes > 0);
   const avgTimeToSell = dealsWithTime.length > 0 
@@ -205,6 +263,58 @@ function calculateDealBreakdown(entries: any[]): DealBreakdown | undefined {
   
   const fpDealsWithTime = fpDeals.filter(d => d.time_to_sell_minutes > 0);
   const upgradeDealsWithTime = upgradeDeals.filter(d => d.time_to_sell_minutes > 0);
+  
+  // Calculate deal type breakdown
+  const calcTypeStats = (deals: ParsedDeal[]) => {
+    const withTime = deals.filter(d => d.time_to_sell_minutes > 0);
+    const withDifficulty = deals.filter(d => d.difficulty);
+    return {
+      count: deals.length,
+      totalPrmr: deals.reduce((sum, d) => sum + d.prmr, 0),
+      totalCost: deals.reduce((sum, d) => sum + d.money_spent, 0),
+      avgTime: withTime.length > 0 ? withTime.reduce((sum, d) => sum + d.time_to_sell_minutes, 0) / withTime.length : null,
+      avgDifficulty: withDifficulty.length > 0 ? withDifficulty.reduce((sum, d) => sum + difficultyToNumber(d.difficulty), 0) / withDifficulty.length : null,
+    };
+  };
+  
+  const dealTypeBreakdown = {
+    fresh: calcTypeStats(freshDeals),
+    takeover: calcTypeStats(takeoverDeals),
+    diy: calcTypeStats(diyDeals),
+    upgrade: calcTypeStats(upgradeDeals),
+  };
+  
+  // Difficulty distribution
+  const difficultyDistribution = {
+    easy: allDeals.filter(d => d.difficulty?.toLowerCase() === 'easy').length,
+    medium: allDeals.filter(d => d.difficulty?.toLowerCase() === 'medium' || !d.difficulty).length,
+    hard: allDeals.filter(d => d.difficulty?.toLowerCase() === 'hard').length,
+  };
+  
+  const fpWithDifficulty = fpDeals.filter(d => d.difficulty);
+  const upgradeWithDifficulty = upgradeDeals.filter(d => d.difficulty);
+  const avgDifficultyByType = {
+    fp: fpWithDifficulty.length > 0 ? fpWithDifficulty.reduce((sum, d) => sum + difficultyToNumber(d.difficulty), 0) / fpWithDifficulty.length : null,
+    upgrade: upgradeWithDifficulty.length > 0 ? upgradeWithDifficulty.reduce((sum, d) => sum + difficultyToNumber(d.difficulty), 0) / upgradeWithDifficulty.length : null,
+  };
+  
+  // Find highlights
+  const toHighlight = (d: ParsedDeal): DealHighlight => ({
+    date: d.date,
+    type: d.type,
+    prmr: d.prmr,
+    moneySpent: d.money_spent,
+    timeToSell: d.time_to_sell_minutes,
+    difficulty: d.difficulty,
+  });
+  
+  const sortedByTime = [...dealsWithTime].sort((a, b) => a.time_to_sell_minutes - b.time_to_sell_minutes);
+  const sortedByPrmr = [...allDeals].filter(d => d.prmr > 0).sort((a, b) => b.prmr - a.prmr);
+  const sortedByCost = [...allDeals].filter(d => d.money_spent > 0).sort((a, b) => b.money_spent - a.money_spent);
+  
+  // Sort FP and Upgrade deals by timestamp/date for earliest/latest
+  const sortedFpByDate = [...fpDeals].sort((a, b) => new Date(a.timestamp || a.date).getTime() - new Date(b.timestamp || b.date).getTime());
+  const sortedUpgradeByDate = [...upgradeDeals].sort((a, b) => new Date(a.timestamp || a.date).getTime() - new Date(b.timestamp || b.date).getTime());
   
   return {
     totalDeals: inferredTotalDeals,
@@ -223,6 +333,25 @@ function calculateDealBreakdown(entries: any[]): DealBreakdown | undefined {
     avgSpentPerDeal: inferredTotalDeals > 0 ? totalMoneySpent / inferredTotalDeals : 0,
     hasCrmData: true,
     hasDetailedData,
+    
+    // Extended analytics
+    totalPrmr,
+    avgPrmrPerDeal: inferredTotalDeals > 0 ? totalPrmr / inferredTotalDeals : 0,
+    avgRoiPerDeal: totalMoneySpent > 0 ? totalPrmr / totalMoneySpent : 0,
+    
+    dealTypeBreakdown,
+    difficultyDistribution,
+    avgDifficultyByType,
+    
+    // Highlights
+    fastestDeal: sortedByTime[0] ? toHighlight(sortedByTime[0]) : null,
+    slowestDeal: sortedByTime.length > 0 ? toHighlight(sortedByTime[sortedByTime.length - 1]) : null,
+    highestPrmrDeal: sortedByPrmr[0] ? toHighlight(sortedByPrmr[0]) : null,
+    mostExpensiveDeal: sortedByCost[0] ? toHighlight(sortedByCost[0]) : null,
+    earliestFpDeal: sortedFpByDate[0] ? toHighlight(sortedFpByDate[0]) : null,
+    latestFpDeal: sortedFpByDate.length > 0 ? toHighlight(sortedFpByDate[sortedFpByDate.length - 1]) : null,
+    earliestUpgradeDeal: sortedUpgradeByDate[0] ? toHighlight(sortedUpgradeByDate[0]) : null,
+    latestUpgradeDeal: sortedUpgradeByDate.length > 0 ? toHighlight(sortedUpgradeByDate[sortedUpgradeByDate.length - 1]) : null,
   };
 }
 
