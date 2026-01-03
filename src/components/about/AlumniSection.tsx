@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { alumniStories } from "@/data/aboutTeamData";
 import { Rocket, User } from "lucide-react";
+import { BlurImage } from "@/components/ui/BlurImage";
 
 export const AlumniSection = () => {
   return (
@@ -30,10 +31,12 @@ export const AlumniSection = () => {
             >
               <div className="flex gap-4">
                 {alumni.photo ? (
-                  <img 
-                    src={alumni.photo} 
+                  <BlurImage
+                    src={alumni.photo}
                     alt={alumni.name}
-                    className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                    loading="lazy"
+                    containerClassName="w-16 h-16 rounded-xl flex-shrink-0"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   <div className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
@@ -54,10 +57,12 @@ export const AlumniSection = () => {
                   
                   {/* Josh Guthrie text screenshot - inline in his card */}
                   {alumni.id === "josh" && (
-                    <img 
+                    <BlurImage
                       src="/images/about-team/josh-text.png"
                       alt="Josh's thank you text"
-                      className="w-full rounded-lg border border-border mt-3"
+                      loading="lazy"
+                      containerClassName="w-full rounded-lg border border-border mt-3"
+                      className="w-full h-auto"
                     />
                   )}
                 </div>

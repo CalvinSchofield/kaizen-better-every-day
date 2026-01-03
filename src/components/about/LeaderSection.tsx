@@ -1,25 +1,7 @@
 import { motion } from "framer-motion";
 import { Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const trackRecord = [
-  "5 years in the field (rookie → vet → leader)",
-  "4× Dream Team Earner 🇺🇸",
-  "Top 3 Earnings Rep out of ~6,000 reps",
-  "Top 3 Upgrade Rep company-wide",
-  "Highest Avg. PRMR among reps with 100+ sales",
-  "#1 Growth in Region",
-  "Sevens Competition Winner",
-  "2× Viper Champion",
-];
-
-const expectations = [
-  "Honest feedback",
-  "Real coaching, not hype",
-  "High standards with real support",
-  "A proven path to get prepared and get paid",
-  "High quality trainings and tech to leverage your attitude and effort",
-];
+import { BlurImage } from "@/components/ui/BlurImage";
 
 const allLeaders = [
   { name: "Calvin Schofield", photo: "/images/about-team/calvin-schofield.jpeg", isAreaDirector: true },
@@ -62,18 +44,20 @@ export const LeaderSection = () => {
           viewport={{ once: true }}
           className="grid grid-cols-3 gap-4"
         >
-          {allLeaders.map((leader, index) => (
+          {allLeaders.map((leader) => (
             <div
               key={leader.name}
               className="text-center"
             >
-              <div className={`w-20 h-20 mx-auto rounded-full overflow-hidden border-2 ${leader.isAreaDirector ? 'border-primary' : 'border-border'} bg-muted`}>
-                <img
-                  src={leader.photo}
-                  alt={leader.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <BlurImage
+                src={leader.photo}
+                alt={leader.name}
+                loading="lazy"
+                containerClassName={`w-20 h-20 mx-auto rounded-full border-2 ${
+                  leader.isAreaDirector ? 'border-primary' : 'border-border'
+                }`}
+                className="w-full h-full object-cover"
+              />
               <p className="text-xs font-medium mt-2 leading-tight">{leader.name}</p>
               <span className="text-[10px] text-muted-foreground">
                 {leader.isAreaDirector ? 'Area Director' : 'Team Lead'}
