@@ -9,7 +9,8 @@ export type TourablePage =
   | 'insights' 
   | 'my-group' 
   | 'customers' 
-  | 'reports';
+  | 'reports'
+  | 'goals';
 
 interface UsePageTourOptions {
   page: TourablePage;

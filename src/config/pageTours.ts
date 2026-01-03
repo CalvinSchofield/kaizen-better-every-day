@@ -161,3 +161,36 @@ export const reportsTourSteps: TourStep[] = [
     position: 'bottom',
   },
 ];
+
+export const goalsTourSteps: TourStep[] = [
+  {
+    target: 'goals-hero-ring',
+    title: 'Your Goal Progress',
+    description: 'This ring shows how close you are to your active goal. During preseason it tracks your preseason target, in summer it shows your focus tier.',
+    position: 'bottom',
+  },
+  {
+    target: 'goals-tier-selector',
+    title: 'Switch Focus Tiers',
+    description: 'Tap any tier to switch your focus. Must Do is the minimum, Will Do is your target, Could Do is the stretch goal.',
+    position: 'bottom',
+  },
+  {
+    target: 'goals-commitment-chips',
+    title: 'Preseason Commitments',
+    description: 'Track blitzes, training hours, and books here. Tap any chip to update your progress.',
+    position: 'bottom',
+  },
+  {
+    target: 'goals-calendar-planning',
+    title: 'Plan Your Work Days',
+    description: 'Expand this to see and plan which days you\'ll work. Your daily goal adjusts based on how many days you have planned.',
+    position: 'top',
+  },
+  {
+    target: 'goals-settings-button',
+    title: 'Edit Your Goals',
+    description: 'Tap here anytime to update your goals, expenses, or summer dates.',
+    position: 'bottom',
+  },
+];
