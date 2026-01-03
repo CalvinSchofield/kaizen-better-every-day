@@ -13,7 +13,9 @@ import {
   LEARNING_CURVE_18_WEEKS, 
   LEARNING_CURVE_24_WEEKS, 
   getClosestLearningCurve,
-  scaleLearningCurve 
+  scaleLearningCurve,
+  getLearningCurvePrincipleMessage,
+  calculatePaceContext
 } from '@/utils/learningCurveData';
 
 type PaceStatus = 'ahead' | 'on-track' | 'behind' | 'no-goal';
@@ -304,13 +306,22 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     };
   }, [goals, seasonConfig, stats, progressData, efpModeEnabled, isRookie]);
   
-  // Get encouraging message based on context
+  // Get encouraging message based on context - using enhanced learning curve principles
   const encouragingMessage = useMemo(() => {
     if (!goalsData) return null;
     
-    const { paceStatus, focusTier, isRookie, weeksIntoSeason, isUserSummerStarted } = goalsData;
+    const { paceStatus, focusTier, isRookie, weeksIntoSeason, isUserSummerStarted, totalKnockingDays } = goalsData;
     const currentStatus = focusTier ? paceStatus[focusTier] : paceStatus.willDo;
     
+    // Calculate pace context for principle-based messaging
+    const paceContext = calculatePaceContext(
+      totalKnockingDays,
+      0, // We don't have remainingDailyNeeded here
+      0, // We don't have currentAverage here  
+      weeksIntoSeason,
+      isRookie
+    );
+
     // Preseason messaging
     if (!isUserSummerStarted) {
       if (currentStatus === 'ahead') {
@@ -319,15 +330,20 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
       return { title: "Building Foundation", message: "Every hour of prep now pays off in summer sales.", icon: Sprout, color: 'text-green-500' };
     }
     
-    // Early season (weeks 1-6) - always encouraging
+    // Use enhanced learning curve principle messages for summer
+    if (totalKnockingDays < 18) {
+      // Not enough data - use principle-based encouragement
+      const message = getLearningCurvePrincipleMessage(weeksIntoSeason, isRookie, 'insufficient-data');
+      return { title: "Building Momentum", message, icon: Sprout, color: 'text-green-500' };
+    }
+    
+    // Early season (weeks 1-6)
     if (weeksIntoSeason <= 6) {
       if (currentStatus === 'ahead') {
         return { title: "Blazing Start!", message: "You're ahead of pace - incredible momentum!", icon: Flame, color: 'text-orange-500' };
       }
-      if (isRookie) {
-        return { title: "Building Momentum", message: "The first weeks are about learning, not leading. Every top performer started exactly where you are.", icon: Sprout, color: 'text-green-500' };
-      }
-      return { title: "Finding Your Rhythm", message: "Early season is about dialing in your process. The acceleration is coming.", icon: Sprout, color: 'text-green-500' };
+      const message = getLearningCurvePrincipleMessage(weeksIntoSeason, isRookie, 'early-season');
+      return { title: "Finding Your Rhythm", message, icon: Sprout, color: 'text-green-500' };
     }
     
     // Mid season (weeks 7-12)
@@ -335,7 +351,8 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
       if (currentStatus === 'ahead' || currentStatus === 'on-track') {
         return { title: "On Track!", message: "Your consistency is paying off. Keep the momentum going!", icon: Target, color: 'text-primary' };
       }
-      return { title: "The Climb Begins", message: "This is when acceleration happens. Your best weeks are still ahead.", icon: Mountain, color: 'text-blue-500' };
+      const message = getLearningCurvePrincipleMessage(weeksIntoSeason, isRookie, 'stretch');
+      return { title: "The Climb Begins", message, icon: Mountain, color: 'text-blue-500' };
     }
     
     // Late season (weeks 13+)
@@ -345,7 +362,8 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     if (currentStatus === 'on-track') {
       return { title: "Strong Finish Ahead", message: "Stay consistent and you'll hit your goal!", icon: Target, color: 'text-primary' };
     }
-    return { title: "Push Time", message: "Time to make your move. You've got the skills - now finish strong.", icon: Zap, color: 'text-purple-500' };
+    const message = getLearningCurvePrincipleMessage(weeksIntoSeason, isRookie, 'very-ambitious');
+    return { title: "Push Time", message, icon: Zap, color: 'text-purple-500' };
   }, [goalsData]);
   
   // Get learning curve data scaled to user's goal
