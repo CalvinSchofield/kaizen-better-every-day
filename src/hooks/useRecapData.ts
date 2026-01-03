@@ -266,7 +266,8 @@ function calculateDealBreakdown(entries: any[], timezone: string = 'America/Los_
   const inferredUpgradeDeals = hasDetailedData ? upgradeDeals.length : (totalUpgradePrmr > 0 ? Math.ceil(totalUpgradePrmr / 50) : 0);
   const inferredTotalDeals = hasDetailedData ? allDeals.length : (inferredFpDeals + inferredUpgradeDeals);
   
-  const totalMoneySpent = allDeals.reduce((sum, d) => sum + d.money_spent, 0);
+  const dealsWithCost = allDeals.filter(d => d.money_spent > 0);
+  const totalMoneySpent = dealsWithCost.reduce((sum, d) => sum + d.money_spent, 0);
   const totalPrmr = hasDetailedData ? allDeals.reduce((sum, d) => sum + d.prmr, 0) : totalPrmrFromEntries;
   
   const dealsWithTime = allDeals.filter(d => d.time_to_sell_minutes > 0);
@@ -389,7 +390,7 @@ function calculateDealBreakdown(entries: any[], timezone: string = 'America/Los_
         : null,
     },
     totalMoneySpent,
-    avgSpentPerDeal: inferredTotalDeals > 0 ? totalMoneySpent / inferredTotalDeals : 0,
+    avgSpentPerDeal: dealsWithCost.length > 0 ? totalMoneySpent / dealsWithCost.length : 0,
     hasCrmData: true,
     hasDetailedData,
     
