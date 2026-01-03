@@ -221,7 +221,7 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
         <X className="w-5 h-5" />
       </button>
 
-      <div className="relative h-full pt-12 pb-8 overflow-hidden">
+      <div className="relative h-full pt-12 pb-8 overflow-y-auto">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentSlide}
@@ -230,19 +230,20 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
             animate="center"
             exit="exit"
             transition={{ duration: 0.3 }}
-            className="h-full overflow-y-auto"
+            className="min-h-full"
           >
             {slides[currentSlide]}
           </motion.div>
         </AnimatePresence>
       </div>
 
+      {/* Touch areas for navigation - only at bottom to not block scrolling */}
       <div 
-        className="absolute left-0 top-0 w-1/3 h-full z-5"
+        className="absolute left-0 bottom-0 w-1/3 h-24 z-5"
         onClick={handlePrev}
       />
       <div 
-        className="absolute right-0 top-0 w-2/3 h-full z-5"
+        className="absolute right-0 bottom-0 w-2/3 h-24 z-5"
         onClick={handleNext}
       />
     </motion.div>
