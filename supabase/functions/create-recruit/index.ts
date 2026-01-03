@@ -44,6 +44,7 @@ serve(async (req) => {
       recruitmentSource,
       teamId,
       mgmtGroupId,
+      stage,
     } = await req.json();
 
     if (!name) {
@@ -69,6 +70,9 @@ serve(async (req) => {
       }
     }
 
+    // Determine stage - default to '100 List' if not provided
+    const finalStage = stage || '100 List';
+
     // Create the recruit in Supabase
     const { data: newRecruit, error: insertError } = await supabase
       .from('recruits')
@@ -78,7 +82,7 @@ serve(async (req) => {
         email: email || null,
         location: location || null,
         recruitment_source: recruitmentSource || null,
-        stage: '100 List',
+        stage: finalStage,
         year: 'Rookie',
         recruiter_user_id: user.id,
         team_id: finalTeamId || null,
@@ -101,7 +105,7 @@ serve(async (req) => {
         recruit_id: newRecruit.id,
         activity_type: 'note',
         logged_by_user_id: user.id,
-        notes: `Added to 100 List`,
+        notes: `Added to ${finalStage}`,
       });
 
     return new Response(JSON.stringify({ 
