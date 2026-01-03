@@ -39,6 +39,18 @@ interface GoalHeroRingProps {
     actualFp: number;
     paceVariance: number; // positive = ahead, negative = behind
   };
+  // NEW: Enhanced pace context props
+  paceContext?: 'insufficient-data' | 'early-season' | 'building-momentum' | 'on-track' | 'stretch' | 'very-ambitious';
+  knockingDaysCompleted?: number;
+  currentAverage?: number;
+  bestDay?: number;
+  projectedFinal?: number;
+  suggestStretchGoal?: number;
+  canAddMoreDays?: boolean;
+  availableDaysToAdd?: number;
+  isRookie?: boolean;
+  weekInSummer?: number;
+  learningCurveMessage?: string;
 }
 
 const tierConfig: Record<GoalTier, { 
@@ -98,10 +110,25 @@ export const GoalHeroRing = ({
   hasAnyPlannedDays = true,
   isUserSummerStarted = false,
   preseasonPaceStatus,
+  // NEW: Enhanced pace context props
+  paceContext,
+  knockingDaysCompleted = 0,
+  currentAverage = 0,
+  bestDay = 0,
+  projectedFinal = 0,
+  suggestStretchGoal,
+  canAddMoreDays = false,
+  availableDaysToAdd = 0,
+  isRookie = false,
+  weekInSummer = 0,
+  learningCurveMessage,
 }: GoalHeroRingProps) => {
   const config = tierConfig[activeTier];
   const Icon = config.icon;
   const metricLabel = efpMode ? 'EFP' : 'FP+';
+  
+  // Determine if we should show enhanced pace messaging (18+ knocking days)
+  const hasEnoughData = knockingDaysCompleted >= 18;
   
   // Only show pace tracking for: preseason tier during preseason, OR summer tiers during summer
   // AND only if today is a planned knocking day
@@ -392,6 +419,77 @@ export const GoalHeroRing = ({
           )}
           {Math.abs(preseasonPaceStatus.paceVariance) < 0.1 && (
             <span>On pace after {preseasonPaceStatus.knockingDays} knocking days</span>
+          )}
+        </motion.div>
+      )}
+
+      {/* Enhanced Pace Context Messaging - Summer tiers with 18+ knocking days */}
+      {activeTier !== 'preseason' && isUserSummerStarted && !isComplete && paceContext && paceContext !== 'insufficient-data' && hasEnoughData && (
+        <motion.div
+          className="mt-4 space-y-2"
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          {/* Pace context badge */}
+          <div className={cn(
+            "px-4 py-2 rounded-xl text-sm font-medium text-center",
+            (paceContext === 'building-momentum' || paceContext === 'on-track') && "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20",
+            paceContext === 'stretch' && "bg-amber-500/10 text-amber-600 border border-amber-500/20",
+            paceContext === 'very-ambitious' && "bg-blue-500/10 text-blue-600 border border-blue-500/20",
+            paceContext === 'early-season' && "bg-primary/10 text-primary border border-primary/20"
+          )}>
+            {(paceContext === 'building-momentum') && (
+              <span>You're crushing it! Projected to hit {projectedFinal.toFixed(0)} {metricLabel}</span>
+            )}
+            {paceContext === 'on-track' && (
+              <span>On pace at {currentAverage.toFixed(2)}/day · need {remainingDailyNeeded?.toFixed(2)}/day</span>
+            )}
+            {paceContext === 'stretch' && (
+              <span>Push time: need {remainingDailyNeeded?.toFixed(2)}/day (avg: {currentAverage.toFixed(2)})</span>
+            )}
+            {paceContext === 'very-ambitious' && (
+              <span>Need {remainingDailyNeeded?.toFixed(2)}/day · best day: {bestDay.toFixed(1)}</span>
+            )}
+            {paceContext === 'early-season' && (
+              <span>Building momentum · week {weekInSummer} of summer</span>
+            )}
+          </div>
+
+          {/* Suggestion for very ambitious: add more days if possible */}
+          {paceContext === 'very-ambitious' && canAddMoreDays && availableDaysToAdd > 0 && (
+            <p className="text-xs text-muted-foreground text-center">
+              Consider adding {Math.min(availableDaysToAdd, 10)} more knocking days to make this more achievable
+            </p>
+          )}
+
+          {/* Learning curve principle message for rookies */}
+          {learningCurveMessage && isRookie && (paceContext === 'stretch' || paceContext === 'very-ambitious' || paceContext === 'early-season') && (
+            <p className="text-xs text-muted-foreground text-center italic">
+              {learningCurveMessage}
+            </p>
+          )}
+
+          {/* Stretch goal suggestion when ahead */}
+          {suggestStretchGoal && (paceContext === 'building-momentum' || paceContext === 'on-track') && (
+            <p className="text-xs text-primary text-center font-medium">
+              Consider stretching your Could Do to {suggestStretchGoal} {metricLabel}!
+            </p>
+          )}
+        </motion.div>
+      )}
+
+      {/* Early season message - before 18 knocking days */}
+      {activeTier !== 'preseason' && isUserSummerStarted && !isComplete && !hasEnoughData && knockingDaysCompleted > 0 && (
+        <motion.div
+          className="mt-4 px-4 py-2 rounded-xl text-sm text-center bg-primary/10 text-primary border border-primary/20"
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <span>Building momentum · {knockingDaysCompleted} knocking days so far</span>
+          {learningCurveMessage && isRookie && (
+            <p className="text-xs text-muted-foreground mt-1 italic">{learningCurveMessage}</p>
           )}
         </motion.div>
       )}

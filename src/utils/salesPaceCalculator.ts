@@ -16,6 +16,11 @@ export interface SalesPaceResult {
   futurePlannedDays: number;
   fundedGoal: number;
   isInPreseason: boolean;
+  // NEW: Enhanced pace context fields
+  projectedFinal?: number;
+  paceContext?: 'insufficient-data' | 'early-season' | 'building-momentum' | 'on-track' | 'stretch' | 'very-ambitious';
+  suggestStretchGoal?: number;
+  canAddMoreDays?: boolean;
 }
 
 export interface SalesPaceInput {

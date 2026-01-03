@@ -80,6 +80,7 @@ export function scaleLearningCurve(
 }
 
 // Get a message about the learning curve based on current week
+// This provides principle-based encouragement, NOT specific number comparisons
 export function getLearningCurveMessage(
   currentWeek: number,
   totalWeeks: number,
@@ -118,4 +119,120 @@ export function getLearningCurveMessage(
     return "You're on track to crush your goal. Keep pushing!";
   }
   return "Time to dig deep. You have the skills - now finish strong.";
+}
+
+/**
+ * Get principle-based learning curve message for pace context.
+ * These messages explain WHY progress isn't always linear, without
+ * comparing to specific numbers from the example curves.
+ */
+export function getLearningCurvePrincipleMessage(
+  weekInSeason: number,
+  isRookie: boolean,
+  paceContext: 'insufficient-data' | 'early-season' | 'building-momentum' | 'on-track' | 'stretch' | 'very-ambitious'
+): string {
+  // Insufficient data - encourage without judgment
+  if (paceContext === 'insufficient-data') {
+    if (isRookie) {
+      return "The first weeks are about building skills. Every top performer started exactly where you are.";
+    }
+    return "Building momentum - progress compounds over time.";
+  }
+
+  // Early season (weeks 1-6)
+  if (weekInSeason <= 6) {
+    if (paceContext === 'building-momentum' || paceContext === 'on-track') {
+      return "You're building strong early momentum! This foundation will compound.";
+    }
+    if (isRookie) {
+      return "Early progress isn't always linear. Top rookies often accelerate in weeks 6-12.";
+    }
+    return "Finding your rhythm. The acceleration is coming.";
+  }
+
+  // Mid season (weeks 7-12) - acceleration phase
+  if (weekInSeason <= 12) {
+    if (paceContext === 'building-momentum' || paceContext === 'on-track') {
+      return "Your consistency is paying off. Keep the momentum going!";
+    }
+    if (paceContext === 'stretch') {
+      return "This is when acceleration typically happens. Your best weeks may still be ahead.";
+    }
+    if (isRookie) {
+      return "Many top rookies hit their stride during weeks 8-12. Stay consistent.";
+    }
+    return "Even top performers have slow stretches. What matters is how you finish.";
+  }
+
+  // Late season (weeks 13+)
+  if (paceContext === 'building-momentum' || paceContext === 'on-track') {
+    return "You're in strong position to crush your goal. Keep pushing!";
+  }
+  if (paceContext === 'stretch') {
+    return "Time to dig deep. You have the skills - now finish strong.";
+  }
+  return "Your best weeks may still be ahead. Channel your best-day energy every day.";
+}
+
+/**
+ * Calculate pace context based on remaining daily needed vs current average.
+ * Only meaningful after 18+ knocking days.
+ */
+export function calculatePaceContext(
+  knockingDaysCompleted: number,
+  remainingDailyNeeded: number,
+  currentAverage: number,
+  weekInSeason: number,
+  isRookie: boolean
+): 'insufficient-data' | 'early-season' | 'building-momentum' | 'on-track' | 'stretch' | 'very-ambitious' {
+  // Not enough data for meaningful analysis
+  if (knockingDaysCompleted < 18) {
+    return 'insufficient-data';
+  }
+
+  // Early season gets special treatment
+  if (weekInSeason <= 6 && isRookie) {
+    return 'early-season';
+  }
+
+  // Calculate ratio of needed vs average
+  const ratio = currentAverage > 0 ? remainingDailyNeeded / currentAverage : 999;
+
+  // Ahead or on pace - building momentum
+  if (ratio <= 1.0) {
+    return 'building-momentum';
+  }
+
+  // Slightly above average - still achievable
+  if (ratio <= 1.2) {
+    return 'on-track';
+  }
+
+  // Push territory - requires stepping up
+  if (ratio <= 1.5) {
+    return 'stretch';
+  }
+
+  // Very ambitious - would require significant increase
+  return 'very-ambitious';
+}
+
+/**
+ * Calculate a suggested stretch goal when user is significantly ahead.
+ * Returns undefined if not significantly ahead.
+ */
+export function calculateSuggestedStretchGoal(
+  projectedFinal: number,
+  couldDoGoal: number,
+  hasEnoughData: boolean
+): number | undefined {
+  if (!hasEnoughData || couldDoGoal <= 0) return undefined;
+
+  // Only suggest stretch if projected to exceed Could Do by 10%+
+  if (projectedFinal > couldDoGoal * 1.1) {
+    // Round to nice number (nearest 5)
+    return Math.ceil(projectedFinal / 5) * 5;
+  }
+
+  return undefined;
 }

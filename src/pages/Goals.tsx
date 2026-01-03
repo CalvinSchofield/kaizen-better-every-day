@@ -9,6 +9,7 @@ import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
+import { usePersonalBenchmarks } from "@/hooks/usePersonalBenchmarks";
 import { GoalSetupWizard } from "@/components/goals/GoalSetupWizard";
 import { GoalHeroRing, GoalTier } from "@/components/goals/GoalHeroRing";
 import { CommitmentChips } from "@/components/goals/CommitmentChips";
@@ -34,6 +35,7 @@ import { parseDateAsLocal } from "@/utils/blitzDateUtils";
 import { usePageTour } from "@/hooks/usePageTour";
 import { PageTour } from "@/components/PageTour";
 import { goalsTourSteps } from "@/config/pageTours";
+import { calculatePaceContext, getLearningCurvePrincipleMessage, calculateSuggestedStretchGoal } from "@/utils/learningCurveData";
 
 interface CommittedBlitz {
   id: string;
@@ -279,7 +281,7 @@ const Goals = () => {
           : (goals?.could_do_fp_goal || 0) * conversionFactor;
     
     if (!activeGoal || activeGoal <= 0) {
-      return { dailyGoal: 0, remainingDailyNeeded: 0 };
+      return { dailyGoal: 0, remainingDailyNeeded: 0, fundedGoalNeeded: 0, totalDays: 0, futurePlannedDays: 0 };
     }
     
     // Apply cancel buffer - need to fund more to hit goal after cancellations
@@ -307,7 +309,7 @@ const Goals = () => {
     const remainingDays = futurePlannedCount + 1; // +1 for today
     const remainingDailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
     
-    return { dailyGoal, remainingDailyNeeded, fundedGoalNeeded, totalDays };
+    return { dailyGoal, remainingDailyNeeded, fundedGoalNeeded, totalDays, futurePlannedDays: futurePlannedCount };
   }, [goals, activeTier, conversionFactor, plannedDays, workedDaysData, currentProgress]);
 
   // Calculate overall preseason pace status
@@ -375,6 +377,51 @@ const Goals = () => {
       complete: currentProgress >= (goals?.could_do_fp_goal || 0) * conversionFactor && (goals?.could_do_fp_goal || 0) > 0,
     },
   }), [goals, conversionFactor, currentProgress]);
+
+  // Personal benchmarks hook for enhanced pace context
+  const { data: benchmarks } = usePersonalBenchmarks({
+    userId: repData?.user_id,
+    personalSummerStart: seasonConfig?.personal_summer_start,
+    personalSummerEnd: seasonConfig?.personal_summer_end,
+    efpModeEnabled,
+    calculateEfp,
+    currentProgress,
+    futurePlannedDays: paceData.futurePlannedDays || 0,
+    fundedGoal: paceData.fundedGoalNeeded || 0,
+  });
+
+  // Calculate enhanced pace context for summer goals
+  const enhancedPaceContext = useMemo(() => {
+    if (!benchmarks || !isUserSummerStarted || activeTier === 'preseason') {
+      return null;
+    }
+
+    const paceContext = calculatePaceContext(
+      benchmarks.knockingDaysCompleted,
+      paceData.remainingDailyNeeded || 0,
+      benchmarks.currentAverage,
+      benchmarks.weekInSummer,
+      isRookie
+    );
+
+    const learningCurveMessage = getLearningCurvePrincipleMessage(
+      benchmarks.weekInSummer,
+      isRookie,
+      paceContext
+    );
+
+    const suggestStretchGoal = calculateSuggestedStretchGoal(
+      benchmarks.projectedFinal,
+      tiers.couldDo.goal,
+      benchmarks.hasEnoughData
+    );
+
+    return {
+      paceContext,
+      learningCurveMessage,
+      suggestStretchGoal,
+    };
+  }, [benchmarks, isUserSummerStarted, activeTier, paceData.remainingDailyNeeded, isRookie, tiers.couldDo.goal]);
 
   // Auto-select appropriate tier based on progress and season
   // This only runs on initial load (no manual selection yet) to pick a sensible default.
@@ -765,6 +812,18 @@ const Goals = () => {
             hasAnyPlannedDays={hasAnyPlannedDays}
             isUserSummerStarted={isUserSummerStarted}
             preseasonPaceStatus={preseasonPaceStatus}
+            // Enhanced pace context props
+            paceContext={enhancedPaceContext?.paceContext}
+            knockingDaysCompleted={benchmarks?.knockingDaysCompleted}
+            currentAverage={benchmarks?.currentAverage}
+            bestDay={benchmarks?.bestDay}
+            projectedFinal={benchmarks?.projectedFinal}
+            suggestStretchGoal={enhancedPaceContext?.suggestStretchGoal}
+            canAddMoreDays={benchmarks?.canAddMoreDays}
+            availableDaysToAdd={benchmarks?.availableDaysToAdd}
+            isRookie={isRookie}
+            weekInSummer={benchmarks?.weekInSummer}
+            learningCurveMessage={enhancedPaceContext?.learningCurveMessage}
           />
         </motion.div>
 
