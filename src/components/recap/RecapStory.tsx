@@ -245,11 +245,11 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
 
       {/* Touch areas for navigation - only at bottom to not block scrolling */}
       <div 
-        className="absolute left-0 bottom-0 w-1/3 h-24 z-5"
+        className="absolute left-0 bottom-0 w-1/3 h-24 z-10"
         onClick={handlePrev}
       />
       <div 
-        className="absolute right-0 bottom-0 w-2/3 h-24 z-5"
+        className="absolute right-0 bottom-0 w-2/3 h-24 z-10"
         onClick={handleNext}
       />
     </motion.div>
