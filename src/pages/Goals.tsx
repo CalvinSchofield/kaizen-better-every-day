@@ -31,6 +31,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isBefore, parseISO, format } from "date-fns";
 import { parseDateAsLocal } from "@/utils/blitzDateUtils";
+import { usePageTour } from "@/hooks/usePageTour";
+import { PageTour } from "@/components/PageTour";
+import { goalsTourSteps } from "@/config/pageTours";
 
 interface CommittedBlitz {
   id: string;
@@ -68,6 +71,16 @@ const Goals = () => {
   const queryClient = useQueryClient();
   const { toast: toastHook } = useToast();
   
+  // Page tour - only show after setup is complete
+  const { 
+    showTour, 
+    completeTour, 
+    skipTour,
+  } = usePageTour({ 
+    page: 'goals', 
+    enabled: goals?.setup_complete === true,
+    delay: 800 
+  });
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showCommitmentEditor, setShowCommitmentEditor] = useState(false);
@@ -713,6 +726,7 @@ const Goals = () => {
               <Calculator className="h-4 w-4" />
             </Button>
             <Button
+              id="goals-settings-button"
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-xl"
@@ -725,6 +739,7 @@ const Goals = () => {
 
         {/* Hero Ring Section */}
         <motion.div 
+          id="goals-hero-ring"
           className="px-4 py-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -753,32 +768,36 @@ const Goals = () => {
           />
         </motion.div>
 
-        {/* Commitment Chips Section */}
-        <motion.div 
-          className="px-4 pb-4"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <CommitmentChips
-            goals={goals}
-            preseasonFpProgress={currentProgress}
-            blitzStats={blitzStats}
-            onEdit={() => setShowCommitmentEditor(true)}
-            onQuickIncrement={handleQuickIncrement}
-            onTrainingClick={() => setShowTrainingTimer(true)}
-            onBlitzClick={() => setShowBlitzEditor(true)}
-            onBooksClick={() => setShowBooksDrawer(true)}
-            isUpdating={isUpdating}
-          />
-        </motion.div>
+        {/* Commitment Chips Section - ONLY show during preseason (before user's summer starts) */}
+        {!isUserSummerStarted && (
+          <motion.div 
+            id="goals-commitment-chips"
+            className="px-4 pb-4"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <CommitmentChips
+              goals={goals}
+              preseasonFpProgress={currentProgress}
+              blitzStats={blitzStats}
+              onEdit={() => setShowCommitmentEditor(true)}
+              onQuickIncrement={handleQuickIncrement}
+              onTrainingClick={() => setShowTrainingTimer(true)}
+              onBlitzClick={() => setShowBlitzEditor(true)}
+              onBooksClick={() => setShowBooksDrawer(true)}
+              isUpdating={isUpdating}
+            />
+          </motion.div>
+        )}
 
         {/* Calendar Planning - Collapsible */}
         <motion.div 
+          id="goals-calendar-planning"
           className="px-4 pb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: isUserSummerStarted ? 0.2 : 0.3 }}
         >
           <Collapsible open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
             <CollapsibleTrigger className="w-full">
@@ -1031,6 +1050,17 @@ const Goals = () => {
         currentProgress={Number(goals.books_progress) || 0}
         onUpdateProgress={(newProgress) => updateGoals({ books_progress: newProgress })}
         onOpenCommitmentEditor={() => setShowCommitmentEditor(true)}
+      />
+
+      {/* Goals Page Tour - filtered to only show relevant steps based on season */}
+      <PageTour
+        steps={isUserSummerStarted 
+          ? goalsTourSteps.filter(s => s.target !== 'goals-commitment-chips')
+          : goalsTourSteps
+        }
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
       />
     </Layout>
   );
