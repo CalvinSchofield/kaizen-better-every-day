@@ -129,8 +129,8 @@ export const getPreBlitzRookieSlides = (firstName: string): IntroSlideConfig[] =
       type: 'cta',
       iconName: 'sparkles',
       title: "You're All Set!",
-      description: "Your journey to becoming a top performer starts now. Let's make this summer legendary.",
-      ctaText: "Get Started",
+      description: "Learn more about the team, the opportunity, and what makes Kaizen different.",
+      ctaText: "Meet the Team",
       showConfetti: true,
     },
   ];
