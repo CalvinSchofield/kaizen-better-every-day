@@ -87,8 +87,8 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     staleTime: 5 * 60 * 1000,
   });
   
-  // Fetch cumulative progress up to and during this period
-  const { data: progressData } = useQuery({
+  // Fetch cumulative progress up to and during this period, plus planned days for pace calculation
+  const { data: progressData, isLoading: progressLoading } = useQuery({
     queryKey: ['cumulative-progress-recap', repData?.user_id, stats.dateRange.start.toISOString(), stats.dateRange.end.toISOString()],
     queryFn: async () => {
       if (!repData?.user_id) return null;
@@ -99,7 +99,7 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
       // Get entries before this period for starting cumulative
       const { data: beforeEntries } = await supabase
         .from('daily_entries')
-        .select('fp_plus, entry_date')
+        .select('fp_plus, entry_date, doors_knocked, work_start_time, work_end_time')
         .eq('user_id', repData.user_id)
         .eq('is_finalized', true)
         .lt('entry_date', startStr);
@@ -107,34 +107,52 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
       // Get entries during this period
       const { data: periodEntries } = await supabase
         .from('daily_entries')
-        .select('fp_plus, entry_date')
+        .select('fp_plus, entry_date, doors_knocked, work_start_time, work_end_time')
         .eq('user_id', repData.user_id)
         .eq('is_finalized', true)
         .gte('entry_date', startStr)
         .lte('entry_date', endStr)
         .order('entry_date', { ascending: true });
       
+      // Get planned work days for proper pace calculation
+      const { data: plannedDays } = await supabase
+        .from('planned_work_days')
+        .select('planned_date')
+        .eq('user_id', repData.user_id);
+      
+      // Helper to check if entry is a knocking day
+      const isKnockingDay = (e: { doors_knocked?: number | null; work_start_time?: string | null; work_end_time?: string | null }) => 
+        (e.doors_knocked || 0) >= 5 && e.work_start_time && e.work_end_time;
+      
       const cumulativeBefore = beforeEntries?.reduce((sum, e) => sum + (e.fp_plus || 0), 0) || 0;
+      const knockingDaysBefore = beforeEntries?.filter(isKnockingDay).length || 0;
       
       return {
         cumulativeBefore,
+        knockingDaysBefore,
         periodEntries: periodEntries || [],
+        plannedDays: plannedDays || [],
+        isKnockingDay,
       };
     },
     enabled: !!repData?.user_id,
     staleTime: 5 * 60 * 1000,
   });
   
-  // Calculate goals pace data
+  // Calculate goals pace data - using knocking days like Insights does
   const goalsData = useMemo((): GoalsPaceData | null => {
-    if (!goals || !seasonConfig) return null;
+    if (!goals || !seasonConfig || !progressData) return null;
     
     const conversionFactor = efpModeEnabled ? (goals.avg_prmr_per_fp || 85) / 85 : 1;
     
-    const preseasonGoal = (goals.preseason_fp_goal || 0) * conversionFactor;
-    const mustDoGoal = (goals.must_do_fp_goal || 0) * conversionFactor;
-    const willDoGoal = (goals.will_do_fp_goal || 0) * conversionFactor;
-    const couldDoGoal = (goals.could_do_fp_goal || 0) * conversionFactor;
+    // Apply cancel buffer - need to fund more to hit goal after cancellations
+    const cancelRate = goals.cancel_rate || 0;
+    const cancelMultiplier = cancelRate > 0 && cancelRate < 1 ? 1 / (1 - cancelRate) : 1;
+    
+    const preseasonGoal = (goals.preseason_fp_goal || 0) * conversionFactor * cancelMultiplier;
+    const mustDoGoal = (goals.must_do_fp_goal || 0) * conversionFactor * cancelMultiplier;
+    const willDoGoal = (goals.will_do_fp_goal || 0) * conversionFactor * cancelMultiplier;
+    const couldDoGoal = (goals.could_do_fp_goal || 0) * conversionFactor * cancelMultiplier;
     
     const personalSummerStart = seasonConfig.personal_summer_start;
     const personalSummerEnd = seasonConfig.personal_summer_end;
@@ -142,11 +160,12 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     const today = new Date();
     const periodStart = stats.dateRange.start;
     const periodEnd = stats.dateRange.end;
+    const todayStr = format(today, 'yyyy-MM-dd');
+    const periodEndStr = format(periodEnd, 'yyyy-MM-dd');
     
     // Determine if summer has started
     const summerStartDate = personalSummerStart ? parseISO(personalSummerStart) : null;
     const isUserSummerStarted = summerStartDate ? today >= summerStartDate : false;
-    const periodInSummer = summerStartDate ? periodEnd >= summerStartDate : false;
     
     // Calculate weeks into season
     let weeksIntoSeason = 0;
@@ -156,59 +175,82 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     
     // Calculate if first half of summer
     const summerEndDate = personalSummerEnd ? parseISO(personalSummerEnd) : null;
-    let totalSummerWeeks = 20; // default
+    let totalSummerWeeks = 20;
     if (summerStartDate && summerEndDate) {
       totalSummerWeeks = differenceInWeeks(summerEndDate, summerStartDate);
     }
     const isFirstHalfOfSummer = weeksIntoSeason <= Math.ceil(totalSummerWeeks / 2);
     
-    // Calculate cumulative data for chart
-    const cumulativeBefore = progressData?.cumulativeBefore || 0;
-    const periodEntries = progressData?.periodEntries || [];
-    
-    // Build daily cumulative data
-    const days = eachDayOfInterval({ start: periodStart, end: periodEnd });
-    let runningCumulative = cumulativeBefore;
-    
-    // Calculate pace lines based on total working days and goals
-    // For simplicity, we'll show linear pace from start of summer to end
-    const totalDaysInPeriod = days.length;
-    
-    // Check if this period is entirely in preseason (period ends BEFORE summer starts)
+    // Check if this period is entirely in preseason
     const periodIsPreseason = summerStartDate ? periodEnd < summerStartDate : true;
     
-    // Calculate what proportion of the preseason/summer this period represents
-    // For preseason: we need to know the total preseason days to calculate expected progress
-    const PRESEASON_START = new Date('2025-09-28'); // Standard preseason start
-    const preseasonEnd = summerStartDate || new Date('2026-04-13');
-    const totalPreseasonDays = differenceInDays(preseasonEnd, PRESEASON_START);
-    const daysIntoPeriodEnd = differenceInDays(periodEnd, PRESEASON_START);
-    const periodEndFraction = totalPreseasonDays > 0 ? Math.min(1, Math.max(0, daysIntoPeriodEnd / totalPreseasonDays)) : 0;
+    // Get knocking day counts from data
+    const periodEntries = progressData.periodEntries || [];
+    const plannedDays = progressData.plannedDays || [];
+    const cumulativeBefore = progressData.cumulativeBefore || 0;
+    const knockingDaysBefore = progressData.knockingDaysBefore || 0;
     
-    // Expected cumulative by end of this period = preseasonGoal * fraction of preseason completed
-    const expectedByEndOfPeriod = periodIsPreseason && preseasonGoal > 0
-      ? preseasonGoal * periodEndFraction
-      : 0; // Summer calculation would go here if needed
+    // Helper: check if entry is a knocking day
+    const isKnockingDay = (e: { doors_knocked?: number | null; work_start_time?: string | null; work_end_time?: string | null }) => 
+      (e.doors_knocked || 0) >= 5 && e.work_start_time && e.work_end_time;
     
-    const dailyCumulativeData = days.map((day, index) => {
+    // Count knocking days in this period
+    const knockingDaysInPeriod = periodEntries.filter(isKnockingDay).length;
+    
+    // Count future planned days (not yet worked) in preseason
+    const workedDatesSet = new Set(periodEntries.map(e => e.entry_date));
+    let futurePreseasonPlannedCount = 0;
+    
+    plannedDays.forEach(p => {
+      if (workedDatesSet.has(p.planned_date) || p.planned_date <= periodEndStr) return;
+      const pDate = parseISO(p.planned_date);
+      if (summerStartDate && pDate < summerStartDate) {
+        futurePreseasonPlannedCount++;
+      }
+    });
+    
+    // Total expected knocking days = worked + future planned (for preseason)
+    const totalPreseasonKnockingDays = knockingDaysBefore + knockingDaysInPeriod + futurePreseasonPlannedCount;
+    
+    // Calculate expected by end of this period based on KNOCKING days, not calendar days
+    // expectedByEndOfPeriod = (knocking days worked up to period end / total planned knocking days) × goal
+    const knockingDaysByPeriodEnd = knockingDaysBefore + knockingDaysInPeriod;
+    const expectedByEndOfPeriod = periodIsPreseason && preseasonGoal > 0 && totalPreseasonKnockingDays > 0
+      ? (knockingDaysByPeriodEnd / totalPreseasonKnockingDays) * preseasonGoal
+      : 0;
+    
+    // Daily pace for preseason (goal / total planned days)
+    const preseasonDailyPace = totalPreseasonKnockingDays > 0 ? preseasonGoal / totalPreseasonKnockingDays : 0;
+    
+    // Build daily cumulative data for chart
+    const days = eachDayOfInterval({ start: periodStart, end: periodEnd });
+    let runningCumulative = cumulativeBefore;
+    let runningKnockingDayCount = knockingDaysBefore;
+    
+    const dailyCumulativeData = days.map((day) => {
       const dateStr = format(day, 'yyyy-MM-dd');
       const entry = periodEntries.find(e => e.entry_date === dateStr);
+      
       if (entry) {
         runningCumulative += entry.fp_plus || 0;
+        if (isKnockingDay(entry)) {
+          runningKnockingDayCount++;
+        }
       }
       
-      // Calculate expected pace at this point 
-      const daysIntoThisDay = differenceInDays(day, PRESEASON_START);
-      const thisDayFraction = totalPreseasonDays > 0 ? Math.min(1, Math.max(0, daysIntoThisDay / totalPreseasonDays)) : 0;
+      // Pace line = knocking days so far × daily pace
+      const preseasonPace = periodIsPreseason && preseasonDailyPace > 0 && runningKnockingDayCount > 0
+        ? runningKnockingDayCount * preseasonDailyPace
+        : undefined;
       
-      // For preseason periods, show linear pace based on where we should be by each day
-      const preseasonPace = periodIsPreseason && preseasonGoal > 0 ? preseasonGoal * thisDayFraction : undefined;
+      // Summer pace lines (similar approach)
+      const summerDailyMustDo = totalSummerWeeks * 5 > 0 ? mustDoGoal / (totalSummerWeeks * 5) : 0;
+      const summerDailyWillDo = totalSummerWeeks * 5 > 0 ? willDoGoal / (totalSummerWeeks * 5) : 0;
+      const summerDailyCouldDo = totalSummerWeeks * 5 > 0 ? couldDoGoal / (totalSummerWeeks * 5) : 0;
       
-      // For summer periods, show pace lines for each tier
-      const dayProgress = (index + 1) / totalDaysInPeriod;
-      const mustDoPace = !periodIsPreseason && mustDoGoal > 0 ? cumulativeBefore + (mustDoGoal - cumulativeBefore) * dayProgress : undefined;
-      const willDoPace = !periodIsPreseason && willDoGoal > 0 ? cumulativeBefore + (willDoGoal - cumulativeBefore) * dayProgress : undefined;
-      const couldDoPace = !periodIsPreseason && couldDoGoal > 0 ? cumulativeBefore + (couldDoGoal - cumulativeBefore) * dayProgress : undefined;
+      const mustDoPace = !periodIsPreseason && mustDoGoal > 0 ? runningKnockingDayCount * summerDailyMustDo : undefined;
+      const willDoPace = !periodIsPreseason && willDoGoal > 0 ? runningKnockingDayCount * summerDailyWillDo : undefined;
+      const couldDoPace = !periodIsPreseason && couldDoGoal > 0 ? runningKnockingDayCount * summerDailyCouldDo : undefined;
       
       return {
         date: dateStr,
@@ -225,10 +267,10 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     const cumulativeProgress = runningCumulative;
     const periodProgress = stats.totalFpPlus;
     
-    // Calculate pace status based on where you should be by end of period vs actual
-    const calculatePaceStatus = (expectedByPeriodEnd: number, actual: number): PaceStatus => {
-      if (expectedByPeriodEnd <= 0) return 'no-goal';
-      const pacePercent = (actual / expectedByPeriodEnd) * 100;
+    // Calculate pace status
+    const calculatePaceStatus = (expected: number, actual: number): PaceStatus => {
+      if (expected <= 0) return 'no-goal';
+      const pacePercent = (actual / expected) * 100;
       if (pacePercent >= 100) return 'ahead';
       if (pacePercent >= 85) return 'on-track';
       return 'behind';
@@ -257,7 +299,7 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
       weeksIntoSeason,
       isFirstHalfOfSummer,
       isRookie: isRookie || false,
-      totalKnockingDays: totalSummerWeeks * 5, // estimate 5 days per week
+      totalKnockingDays: totalSummerWeeks * 5,
       isPeriodPreseason: periodIsPreseason,
     };
   }, [goals, seasonConfig, stats, progressData, efpModeEnabled, isRookie]);
@@ -325,7 +367,21 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     };
   }, [goalsData]);
   
-  if (!goalsData) {
+  // Show loading state while data is being fetched to prevent flash
+  if (progressLoading || !progressData || !goalsData) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full px-6 py-8">
+        <div className="animate-pulse text-center">
+          <Target className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+          <div className="h-5 w-32 bg-muted rounded mx-auto mb-2" />
+          <div className="h-4 w-48 bg-muted rounded mx-auto" />
+        </div>
+      </div>
+    );
+  }
+  
+  // Only show "Set Up Goals" if data is loaded but goals are truly missing
+  if (!goals?.preseason_fp_goal && !goals?.must_do_fp_goal) {
     return (
       <div className="flex flex-col items-center justify-center h-full px-6 py-8">
         <div className="text-center">
