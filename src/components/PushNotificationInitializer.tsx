@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { Geolocation } from '@capacitor/geolocation';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Component that initializes push notifications on app startup for native platforms.
+ * Component that initializes push notifications and location permissions on app startup.
  * This runs after authentication to ensure we have a user to associate the token with.
  */
 export function PushNotificationInitializer() {
@@ -45,7 +46,24 @@ export function PushNotificationInitializer() {
       }
     };
 
-    // Set up registration listener to store token
+    const initializeLocationPermissions = async () => {
+      try {
+        const permStatus = await Geolocation.checkPermissions();
+        console.log('[LocationInit] Permission status:', permStatus.location);
+
+        if (permStatus.location === 'prompt' || permStatus.location === 'prompt-with-rationale') {
+          console.log('[LocationInit] Requesting location permission...');
+          const result = await Geolocation.requestPermissions();
+          console.log('[LocationInit] Permission result:', result.location);
+        } else if (permStatus.location === 'granted') {
+          console.log('[LocationInit] Location permission already granted');
+        }
+      } catch (error) {
+        console.error('[LocationInit] Error requesting location permission:', error);
+      }
+    };
+
+    // Set up push registration listener to store token
     const setupListeners = async () => {
       // Handle registration success
       const registrationListener = await PushNotifications.addListener('registration', async (token) => {
@@ -88,8 +106,13 @@ export function PushNotificationInitializer() {
         console.error('[PushInit] Registration error:', error);
       });
 
-      // Initialize after listeners are set up
+      // Initialize push notifications first, then location
       await initializePushNotifications();
+      
+      // Small delay between permission prompts for better UX
+      setTimeout(async () => {
+        await initializeLocationPermissions();
+      }, 1000);
 
       return () => {
         registrationListener.remove();
