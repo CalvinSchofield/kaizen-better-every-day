@@ -11,6 +11,15 @@ interface DealHighlight {
   difficulty?: string;
 }
 
+interface SalesByHour {
+  hour: number;
+  fresh: number;
+  takeover: number;
+  diy: number;
+  upgrade: number;
+  total: number;
+}
+
 interface DealBreakdown {
   totalDeals: number;
   fpDeals: number;
@@ -48,6 +57,10 @@ interface DealBreakdown {
   latestFpDeal: DealHighlight | null;
   earliestUpgradeDeal: DealHighlight | null;
   latestUpgradeDeal: DealHighlight | null;
+  
+  // Sales by hour for heatmap
+  salesByHourAndType: SalesByHour[];
+  hasSaleTimeData: boolean;
 }
 
 interface InputComparison {
@@ -223,7 +236,7 @@ function difficultyToNumber(difficulty: string): number {
   }
 }
 
-function calculateDealBreakdown(entries: any[]): DealBreakdown | undefined {
+function calculateDealBreakdown(entries: any[], timezone: string = 'America/Los_Angeles'): DealBreakdown | undefined {
   const allDeals: ParsedDeal[] = [];
   
   for (const entry of entries) {
@@ -316,6 +329,52 @@ function calculateDealBreakdown(entries: any[]): DealBreakdown | undefined {
   const sortedFpByDate = [...fpDeals].sort((a, b) => new Date(a.timestamp || a.date).getTime() - new Date(b.timestamp || b.date).getTime());
   const sortedUpgradeByDate = [...upgradeDeals].sort((a, b) => new Date(a.timestamp || a.date).getTime() - new Date(b.timestamp || b.date).getTime());
   
+  // Calculate sales by hour for heatmap
+  const salesByHourAndType: SalesByHour[] = Array.from({ length: 24 }, (_, hour) => ({
+    hour,
+    fresh: 0,
+    takeover: 0,
+    diy: 0,
+    upgrade: 0,
+    total: 0,
+  }));
+  
+  let hasSaleTimeData = false;
+  allDeals.forEach(deal => {
+    if (deal.timestamp) {
+      try {
+        const date = new Date(deal.timestamp);
+        if (!isNaN(date.getTime())) {
+          // Get local hour in user's timezone
+          const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            hour: 'numeric',
+            hour12: false,
+          });
+          const hour = parseInt(formatter.format(date), 10);
+          
+          if (hour >= 0 && hour < 24) {
+            hasSaleTimeData = true;
+            salesByHourAndType[hour].total += 1;
+            
+            const dealType = deal.type.toLowerCase();
+            if (dealType === 'fresh' || dealType === 'fp') {
+              salesByHourAndType[hour].fresh += 1;
+            } else if (dealType === 'takeover' || dealType === 'to') {
+              salesByHourAndType[hour].takeover += 1;
+            } else if (dealType === 'diy') {
+              salesByHourAndType[hour].diy += 1;
+            } else if (dealType === 'upgrade' || dealType === 'upg') {
+              salesByHourAndType[hour].upgrade += 1;
+            }
+          }
+        }
+      } catch {
+        // Invalid timestamp, skip
+      }
+    }
+  });
+  
   return {
     totalDeals: inferredTotalDeals,
     fpDeals: inferredFpDeals,
@@ -352,6 +411,9 @@ function calculateDealBreakdown(entries: any[]): DealBreakdown | undefined {
     latestFpDeal: sortedFpByDate.length > 0 ? toHighlight(sortedFpByDate[sortedFpByDate.length - 1]) : null,
     earliestUpgradeDeal: sortedUpgradeByDate[0] ? toHighlight(sortedUpgradeByDate[0]) : null,
     latestUpgradeDeal: sortedUpgradeByDate.length > 0 ? toHighlight(sortedUpgradeByDate[sortedUpgradeByDate.length - 1]) : null,
+    
+    salesByHourAndType,
+    hasSaleTimeData,
   };
 }
 
@@ -659,7 +721,7 @@ export function useRecapData(period: 'week' | 'month') {
       };
 
       // Calculate deal breakdown if CRM is enabled
-      const dealBreakdown = crmEnabled ? calculateDealBreakdown(currentEntries) : undefined;
+      const dealBreakdown = crmEnabled ? calculateDealBreakdown(currentEntries, timezone) : undefined;
 
       return {
         period,
