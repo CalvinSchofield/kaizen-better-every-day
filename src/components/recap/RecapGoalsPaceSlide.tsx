@@ -35,7 +35,9 @@ interface GoalsPaceData {
     mustDoPace?: number;
     willDoPace?: number;
     couldDoPace?: number;
+    isPeriodPreseason: boolean;
   }>;
+  isPeriodPreseason: boolean;
   paceStatus: {
     preseason: PaceStatus;
     mustDo: PaceStatus;
@@ -170,6 +172,9 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     // For simplicity, we'll show linear pace from start of summer to end
     const totalDaysInPeriod = days.length;
     
+    // Check if this period is entirely in preseason (period ends BEFORE summer starts)
+    const periodIsPreseason = summerStartDate ? periodEnd < summerStartDate : true;
+    
     const dailyCumulativeData = days.map((day, index) => {
       const dateStr = format(day, 'yyyy-MM-dd');
       const entry = periodEntries.find(e => e.entry_date === dateStr);
@@ -177,17 +182,16 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
         runningCumulative += entry.fp_plus || 0;
       }
       
-      // Calculate expected pace at this point
-      // This is simplified - ideally would use planned work days
+      // Calculate expected pace at this point based on days worked
       const dayProgress = (index + 1) / totalDaysInPeriod;
       
-      // For preseason, show linear pace to preseason goal
-      const preseasonPace = periodInSummer ? undefined : preseasonGoal * dayProgress;
+      // For preseason periods, show linear pace to preseason goal
+      const preseasonPace = periodIsPreseason && preseasonGoal > 0 ? preseasonGoal * dayProgress : undefined;
       
-      // For summer, show pace lines for each tier
-      const mustDoPace = periodInSummer && mustDoGoal > 0 ? cumulativeBefore + (mustDoGoal - cumulativeBefore) * dayProgress : undefined;
-      const willDoPace = periodInSummer && willDoGoal > 0 ? cumulativeBefore + (willDoGoal - cumulativeBefore) * dayProgress : undefined;
-      const couldDoPace = periodInSummer && couldDoGoal > 0 ? cumulativeBefore + (couldDoGoal - cumulativeBefore) * dayProgress : undefined;
+      // For summer periods, show pace lines for each tier
+      const mustDoPace = !periodIsPreseason && mustDoGoal > 0 ? cumulativeBefore + (mustDoGoal - cumulativeBefore) * dayProgress : undefined;
+      const willDoPace = !periodIsPreseason && willDoGoal > 0 ? cumulativeBefore + (willDoGoal - cumulativeBefore) * dayProgress : undefined;
+      const couldDoPace = !periodIsPreseason && couldDoGoal > 0 ? cumulativeBefore + (couldDoGoal - cumulativeBefore) * dayProgress : undefined;
       
       return {
         date: dateStr,
@@ -197,6 +201,7 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
         mustDoPace,
         willDoPace,
         couldDoPace,
+        isPeriodPreseason: periodIsPreseason,
       };
     });
     
@@ -235,6 +240,7 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
       isFirstHalfOfSummer,
       isRookie: isRookie || false,
       totalKnockingDays: totalSummerWeeks * 5, // estimate 5 days per week
+      isPeriodPreseason: periodIsPreseason,
     };
   }, [goals, seasonConfig, stats, progressData, efpModeEnabled, isRookie]);
   
@@ -315,16 +321,25 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     );
   }
   
-  const focusGoal = goalsData.focusTier === 'mustDo' 
-    ? goalsData.mustDoGoal 
-    : goalsData.focusTier === 'couldDo' 
-      ? goalsData.couldDoGoal 
-      : goalsData.willDoGoal;
+  // During preseason, show preseason goal; during summer show focus tier goal
+  const isPeriodPreseason = goalsData.isPeriodPreseason;
   
-  const focusPaceStatus = goalsData.focusTier ? goalsData.paceStatus[goalsData.focusTier] : 'no-goal';
+  const focusGoal = isPeriodPreseason 
+    ? goalsData.preseasonGoal
+    : goalsData.focusTier === 'mustDo' 
+      ? goalsData.mustDoGoal 
+      : goalsData.focusTier === 'couldDo' 
+        ? goalsData.couldDoGoal 
+        : goalsData.willDoGoal;
+  
+  const focusPaceStatus = isPeriodPreseason 
+    ? goalsData.paceStatus.preseason
+    : (goalsData.focusTier ? goalsData.paceStatus[goalsData.focusTier] : 'no-goal');
   const progressPercent = focusGoal > 0 ? Math.min(100, (goalsData.cumulativeProgress / focusGoal) * 100) : 0;
   
-  const tierLabel = goalsData.focusTier === 'mustDo' ? 'Must Do' : goalsData.focusTier === 'couldDo' ? 'Could Do' : 'Will Do';
+  const tierLabel = isPeriodPreseason 
+    ? 'Preseason' 
+    : goalsData.focusTier === 'mustDo' ? 'Must Do' : goalsData.focusTier === 'couldDo' ? 'Could Do' : 'Will Do';
   const unit = efpModeEnabled ? 'EFP' : 'FP+';
   
   return (
@@ -373,87 +388,54 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
               />
               
               {/* Pace lines - show different ones based on preseason vs summer */}
-              {!goalsData.isUserSummerStarted && (
+              {isPeriodPreseason && goalsData.preseasonGoal > 0 && (
                 <Line 
                   type="monotone" 
                   dataKey="preseasonPace" 
-                  stroke="hsl(var(--muted-foreground))" 
+                  stroke="hsl(var(--primary))" 
                   strokeDasharray="4 4"
-                  strokeWidth={1}
+                  strokeWidth={2}
                   dot={false}
                   name="Preseason Goal Pace"
                 />
               )}
               
-              {goalsData.isUserSummerStarted && (
+              {!isPeriodPreseason && (
                 <>
-                  {goalsData.focusTier !== 'mustDo' && goalsData.mustDoGoal > 0 && (
+                  {goalsData.mustDoGoal > 0 && (
                     <Line 
                       type="monotone" 
                       dataKey="mustDoPace" 
-                      stroke="hsl(var(--muted-foreground))" 
+                      stroke={goalsData.focusTier === 'mustDo' ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))'} 
                       strokeDasharray="4 4"
-                      strokeWidth={1}
-                      strokeOpacity={0.4}
-                      dot={false}
-                      name="Must Do"
-                    />
-                  )}
-                  {goalsData.focusTier === 'mustDo' && goalsData.mustDoGoal > 0 && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="mustDoPace" 
-                      stroke="hsl(var(--primary))" 
-                      strokeDasharray="4 4"
-                      strokeWidth={2}
+                      strokeWidth={goalsData.focusTier === 'mustDo' ? 2 : 1}
+                      strokeOpacity={goalsData.focusTier === 'mustDo' ? 1 : 0.5}
                       dot={false}
                       name="Must Do"
                     />
                   )}
                   
-                  {goalsData.focusTier !== 'willDo' && goalsData.willDoGoal > 0 && (
+                  {goalsData.willDoGoal > 0 && (
                     <Line 
                       type="monotone" 
                       dataKey="willDoPace" 
-                      stroke="hsl(var(--muted-foreground))" 
+                      stroke={goalsData.focusTier === 'willDo' ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))'} 
                       strokeDasharray="4 4"
-                      strokeWidth={1}
-                      strokeOpacity={0.4}
-                      dot={false}
-                      name="Will Do"
-                    />
-                  )}
-                  {goalsData.focusTier === 'willDo' && goalsData.willDoGoal > 0 && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="willDoPace" 
-                      stroke="hsl(var(--primary))" 
-                      strokeDasharray="4 4"
-                      strokeWidth={2}
+                      strokeWidth={goalsData.focusTier === 'willDo' ? 2 : 1}
+                      strokeOpacity={goalsData.focusTier === 'willDo' ? 1 : 0.5}
                       dot={false}
                       name="Will Do"
                     />
                   )}
                   
-                  {goalsData.focusTier !== 'couldDo' && goalsData.couldDoGoal > 0 && (
+                  {goalsData.couldDoGoal > 0 && (
                     <Line 
                       type="monotone" 
                       dataKey="couldDoPace" 
-                      stroke="hsl(var(--muted-foreground))" 
+                      stroke={goalsData.focusTier === 'couldDo' ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))'} 
                       strokeDasharray="4 4"
-                      strokeWidth={1}
-                      strokeOpacity={0.4}
-                      dot={false}
-                      name="Could Do"
-                    />
-                  )}
-                  {goalsData.focusTier === 'couldDo' && goalsData.couldDoGoal > 0 && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="couldDoPace" 
-                      stroke="hsl(var(--primary))" 
-                      strokeDasharray="4 4"
-                      strokeWidth={2}
+                      strokeWidth={goalsData.focusTier === 'couldDo' ? 2 : 1}
+                      strokeOpacity={goalsData.focusTier === 'couldDo' ? 1 : 0.5}
                       dot={false}
                       name="Could Do"
                     />
@@ -476,15 +458,32 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
         </div>
         
         {/* Legend */}
-        <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-center gap-3 mt-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <div className="w-4 h-0.5 bg-primary rounded" />
             <span>Actual</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-4 h-0.5 border-t-2 border-dashed border-primary" />
-            <span>{tierLabel} Pace</span>
-          </div>
+          {isPeriodPreseason ? (
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-0.5 border-t-2 border-dashed border-primary" />
+              <span>Preseason Pace</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-1.5">
+                <div className={`w-4 h-0.5 border-t-2 border-dashed ${goalsData.focusTier === 'mustDo' ? 'border-primary' : 'border-muted-foreground/50'}`} />
+                <span className={goalsData.focusTier === 'mustDo' ? 'text-foreground font-medium' : ''}>Must Do</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className={`w-4 h-0.5 border-t-2 border-dashed ${goalsData.focusTier === 'willDo' ? 'border-primary' : 'border-muted-foreground/50'}`} />
+                <span className={goalsData.focusTier === 'willDo' ? 'text-foreground font-medium' : ''}>Will Do</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className={`w-4 h-0.5 border-t-2 border-dashed ${goalsData.focusTier === 'couldDo' ? 'border-primary' : 'border-muted-foreground/50'}`} />
+                <span className={goalsData.focusTier === 'couldDo' ? 'text-foreground font-medium' : ''}>Could Do</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
       
@@ -525,8 +524,8 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
         </p>
       </div>
       
-      {/* Goal Tiers Status (only in summer) */}
-      {goalsData.isUserSummerStarted && (
+      {/* Goal Tiers Status (only show when period is in summer) */}
+      {!isPeriodPreseason && (
         <div className="grid grid-cols-3 gap-2 mb-4">
           {[
             { tier: 'mustDo' as FocusTier, label: 'Must Do', goal: goalsData.mustDoGoal },
