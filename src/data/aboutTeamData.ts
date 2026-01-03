@@ -188,11 +188,11 @@ export const transferableSkills: TransferableSkill[] = [
 
 // Earning Stats
 export const earningStats = {
-  teamRookieAverage: 48500,
+  teamRookieAverage: 46394,
   companyRookieAverage: 38000,
   biggestWeek: 11500,
   biggestDay: 5111,
-  percentAboveAverage: 27
+  percentAboveAverage: 22
 };
 
 // Job Comparisons (4-month summer earnings)
