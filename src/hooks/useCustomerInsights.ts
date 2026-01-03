@@ -18,6 +18,16 @@ export interface RoiTrendDataPoint {
   diySpend?: number;
 }
 
+// Deal highlight info
+export interface DealHighlight {
+  name: string;
+  prmr: number;
+  minutes?: number;
+  moneySpent?: number;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  date: string;
+}
+
 export interface CustomerInsightsData {
   // Economics
   avgPrmrPerFp: number;
@@ -30,6 +40,8 @@ export interface CustomerInsightsData {
   // Economics by Deal Type (Fresh, Takeover, DIY)
   spendByDealType: { fresh: number; takeover: number; diy: number };
   prmrTotalByDealType: { fresh: number; takeover: number; diy: number };
+  avgCostByDealType: { fresh: number; takeover: number; diy: number };
+  avgCostBySaleType: { fp: number; upgrade: number };
   
   // Economics by Sale Type (FP vs Upgrade)
   spendBySaleType: { fp: number; upgrade: number };
@@ -44,8 +56,18 @@ export interface CustomerInsightsData {
   avgTimeByDealType: { fresh: number; takeover: number; diy: number };
   avgTimeBySaleType: { fp: number; upgrade: number };
   avgTimeByDifficulty: { easy: number; medium: number; hard: number };
-  fastestSale: { name: string; minutes: number; prmr: number } | null;
-  slowestSale: { name: string; minutes: number; prmr: number } | null;
+  fastestSale: DealHighlight | null;
+  slowestSale: DealHighlight | null;
+  
+  // Earliest/Latest deals by category
+  earliestFpDeal: DealHighlight | null;
+  latestFpDeal: DealHighlight | null;
+  earliestUpgradeDeal: DealHighlight | null;
+  latestUpgradeDeal: DealHighlight | null;
+  highestPrmrDeal: DealHighlight | null;
+  lowestPrmrDeal: DealHighlight | null;
+  mostExpensiveDeal: DealHighlight | null;
+  cheapestDeal: DealHighlight | null;
   
   // Deal Type Distribution
   dealTypeDistribution: { fresh: number; takeover: number; diy: number };
@@ -54,6 +76,11 @@ export interface CustomerInsightsData {
   difficultyBySaleType: { 
     fp: { easy: number; medium: number; hard: number }; 
     upgrade: { easy: number; medium: number; hard: number }; 
+  };
+  difficultyByDealType: {
+    fresh: { easy: number; medium: number; hard: number };
+    takeover: { easy: number; medium: number; hard: number };
+    diy: { easy: number; medium: number; hard: number };
   };
   
   // Install Performance
@@ -200,8 +227,8 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
     };
 
     // Fastest/Slowest sale
-    let fastestSale: CustomerInsightsData['fastestSale'] = null;
-    let slowestSale: CustomerInsightsData['slowestSale'] = null;
+    let fastestSale: DealHighlight | null = null;
+    let slowestSale: DealHighlight | null = null;
     
     if (salesWithTime.length > 0) {
       const sorted = [...salesWithTime].sort((a, b) => (a.time_to_sell_minutes || 0) - (b.time_to_sell_minutes || 0));
@@ -212,13 +239,52 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
         name: fastest.customer_name || 'Sale',
         minutes: fastest.time_to_sell_minutes || 0,
         prmr: fastest.prmr || 0,
+        date: fastest.entry_date,
+        difficulty: fastest.difficulty as 'easy' | 'medium' | 'hard' | undefined,
+        moneySpent: fastest.money_spent,
       };
       slowestSale = {
         name: slowest.customer_name || 'Sale',
         minutes: slowest.time_to_sell_minutes || 0,
         prmr: slowest.prmr || 0,
+        date: slowest.entry_date,
+        difficulty: slowest.difficulty as 'easy' | 'medium' | 'hard' | undefined,
+        moneySpent: slowest.money_spent,
       };
     }
+
+    // Earliest/Latest deals by category
+    const sortedByDate = [...filteredSales].sort((a, b) => 
+      parseISO(a.entry_date).getTime() - parseISO(b.entry_date).getTime()
+    );
+    
+    const fpSalesSorted = sortedByDate.filter(s => s.type === 'fp');
+    const upgradeSalesSorted = sortedByDate.filter(s => s.type === 'upgrade');
+    
+    const createHighlight = (s: SaleWithDate): DealHighlight => ({
+      name: s.customer_name || 'Sale',
+      prmr: s.prmr || 0,
+      minutes: s.time_to_sell_minutes,
+      moneySpent: s.money_spent,
+      difficulty: s.difficulty as 'easy' | 'medium' | 'hard' | undefined,
+      date: s.entry_date,
+    });
+    
+    const earliestFpDeal = fpSalesSorted.length > 0 ? createHighlight(fpSalesSorted[0]) : null;
+    const latestFpDeal = fpSalesSorted.length > 0 ? createHighlight(fpSalesSorted[fpSalesSorted.length - 1]) : null;
+    const earliestUpgradeDeal = upgradeSalesSorted.length > 0 ? createHighlight(upgradeSalesSorted[0]) : null;
+    const latestUpgradeDeal = upgradeSalesSorted.length > 0 ? createHighlight(upgradeSalesSorted[upgradeSalesSorted.length - 1]) : null;
+    
+    // Highest/Lowest PRMR deals
+    const sortedByPrmr = [...filteredSales].sort((a, b) => (b.prmr || 0) - (a.prmr || 0));
+    const highestPrmrDeal = sortedByPrmr.length > 0 ? createHighlight(sortedByPrmr[0]) : null;
+    const lowestPrmrDeal = sortedByPrmr.length > 0 ? createHighlight(sortedByPrmr[sortedByPrmr.length - 1]) : null;
+    
+    // Most/Least expensive deals
+    const salesWithSpend = filteredSales.filter(s => s.money_spent && s.money_spent > 0);
+    const sortedBySpend = [...salesWithSpend].sort((a, b) => (b.money_spent || 0) - (a.money_spent || 0));
+    const mostExpensiveDeal = sortedBySpend.length > 0 ? createHighlight(sortedBySpend[0]) : null;
+    const cheapestDeal = sortedBySpend.length > 0 ? createHighlight(sortedBySpend[sortedBySpend.length - 1]) : null;
 
     // Deal Type Distribution - only for sales with deal_type set
     const salesWithDealType = filteredSales.filter(s => s.deal_type);
@@ -247,6 +313,17 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       takeover: salesWithDealType.filter(s => s.deal_type === 'takeover').reduce((sum, s) => sum + (s.money_spent || 0), 0),
       diy: salesWithDealType.filter(s => s.deal_type === 'diy').reduce((sum, s) => sum + (s.money_spent || 0), 0),
     };
+    
+    // Average cost by deal type
+    const freshWithMoney = salesWithDealType.filter(s => s.deal_type === 'fresh' && s.money_spent && s.money_spent > 0);
+    const takeoverWithMoney = salesWithDealType.filter(s => s.deal_type === 'takeover' && s.money_spent && s.money_spent > 0);
+    const diyWithMoney = salesWithDealType.filter(s => s.deal_type === 'diy' && s.money_spent && s.money_spent > 0);
+    
+    const avgCostByDealType = {
+      fresh: freshWithMoney.length > 0 ? spendByDealType.fresh / freshWithMoney.length : 0,
+      takeover: takeoverWithMoney.length > 0 ? spendByDealType.takeover / takeoverWithMoney.length : 0,
+      diy: diyWithMoney.length > 0 ? spendByDealType.diy / diyWithMoney.length : 0,
+    };
 
     const prmrTotalByDealType = {
       fresh: salesWithDealType.filter(s => s.deal_type === 'fresh').reduce((sum, s) => sum + (s.prmr || 0), 0),
@@ -258,6 +335,15 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
     const spendBySaleType = {
       fp: fpSales.reduce((sum, s) => sum + (s.money_spent || 0), 0),
       upgrade: upgradeSales.reduce((sum, s) => sum + (s.money_spent || 0), 0),
+    };
+    
+    // Average cost by sale type
+    const fpWithMoney = fpSales.filter(s => s.money_spent && s.money_spent > 0);
+    const upgradeWithMoney = upgradeSales.filter(s => s.money_spent && s.money_spent > 0);
+    
+    const avgCostBySaleType = {
+      fp: fpWithMoney.length > 0 ? spendBySaleType.fp / fpWithMoney.length : 0,
+      upgrade: upgradeWithMoney.length > 0 ? spendBySaleType.upgrade / upgradeWithMoney.length : 0,
     };
 
     const prmrTotalBySaleType = {
@@ -337,6 +423,29 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
         hard: upgradeWithDifficulty.filter(s => s.difficulty === 'hard').length,
       },
     };
+    
+    // Difficulty by deal type (Fresh, Takeover, DIY)
+    const freshWithDiff = salesWithDealType.filter(s => s.deal_type === 'fresh' && s.difficulty);
+    const takeoverWithDiff = salesWithDealType.filter(s => s.deal_type === 'takeover' && s.difficulty);
+    const diyWithDiff = salesWithDealType.filter(s => s.deal_type === 'diy' && s.difficulty);
+    
+    const difficultyByDealType = {
+      fresh: {
+        easy: freshWithDiff.filter(s => s.difficulty === 'easy').length,
+        medium: freshWithDiff.filter(s => s.difficulty === 'medium').length,
+        hard: freshWithDiff.filter(s => s.difficulty === 'hard').length,
+      },
+      takeover: {
+        easy: takeoverWithDiff.filter(s => s.difficulty === 'easy').length,
+        medium: takeoverWithDiff.filter(s => s.difficulty === 'medium').length,
+        hard: takeoverWithDiff.filter(s => s.difficulty === 'hard').length,
+      },
+      diy: {
+        easy: diyWithDiff.filter(s => s.difficulty === 'easy').length,
+        medium: diyWithDiff.filter(s => s.difficulty === 'medium').length,
+        hard: diyWithDiff.filter(s => s.difficulty === 'hard').length,
+      },
+    };
 
     // Install Performance
     // A sale is considered same-day if:
@@ -395,6 +504,8 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       totalMoneySpent,
       spendByDealType,
       prmrTotalByDealType,
+      avgCostByDealType,
+      avgCostBySaleType,
       spendBySaleType,
       prmrTotalBySaleType,
       roiTrendData,
@@ -405,10 +516,19 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       avgTimeByDifficulty,
       fastestSale,
       slowestSale,
+      earliestFpDeal,
+      latestFpDeal,
+      earliestUpgradeDeal,
+      latestUpgradeDeal,
+      highestPrmrDeal,
+      lowestPrmrDeal,
+      mostExpensiveDeal,
+      cheapestDeal,
       dealTypeDistribution,
       prmrByDealType,
       difficultyDistribution,
       difficultyBySaleType,
+      difficultyByDealType,
       sameDayInstallRate,
       cancelRate,
       avgDaysToInstall,

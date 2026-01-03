@@ -1,30 +1,31 @@
 import { useState } from 'react';
-import { DollarSign, Clock, PieChart, CalendarCheck, MapPin, TrendingUp, Zap, ChevronDown } from 'lucide-react';
+import { DollarSign, Clock, TrendingUp, Zap, Award, Target, ArrowRight, CalendarCheck, MapPin, Flame, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { useCustomerInsights } from '@/hooks/useCustomerInsights';
+import { useCustomerInsights, DealHighlight } from '@/hooks/useCustomerInsights';
 import { InsightsSectionHeader } from './InsightsSectionHeader';
-import { InsightCollapsible } from './InsightCollapsible';
 import { useNavigate } from 'react-router-dom';
 import { useRepGoals } from '@/hooks/useRepGoals';
-import { getTier, getAllTiers } from '@/utils/payscaleCalculator';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
+import { getTier } from '@/utils/payscaleCalculator';
 import { useEfpMode } from '@/hooks/useEfpMode';
-
-type ExpandedSection = 'economics' | 'time' | 'dealType' | 'install' | null;
-
-// Key payscale tiers for quick selection
-const QUICK_TIER_OPTIONS = [20, 40, 60, 100, 200, 300];
+import { motion } from 'framer-motion';
+import { format, parseISO } from 'date-fns';
 
 // Helper to format minutes as human readable
 const formatMinutes = (minutes: number): string => {
-  if (minutes < 60) return `${Math.round(minutes)} min`;
+  if (minutes < 60) return `${Math.round(minutes)}m`;
   const hours = Math.floor(minutes / 60);
   const mins = Math.round(minutes % 60);
-  if (mins === 0) return `${hours} hr`;
+  if (mins === 0) return `${hours}h`;
   return `${hours}h ${mins}m`;
+};
+
+// Helper to format date
+const formatDate = (dateStr: string): string => {
+  try {
+    return format(parseISO(dateStr), 'MMM d');
+  } catch {
+    return dateStr;
+  }
 };
 
 interface InsightsDealsTabProps {
@@ -32,69 +33,141 @@ interface InsightsDealsTabProps {
   userCumulativeFpPlus: number;
 }
 
+// Deal type card component
+const DealTypeCard = ({ 
+  type, 
+  count, 
+  avgPrmr, 
+  avgTime, 
+  avgCost, 
+  roi,
+  difficulty,
+  color,
+  icon: Icon 
+}: { 
+  type: string; 
+  count: number; 
+  avgPrmr: number; 
+  avgTime: number; 
+  avgCost: number;
+  roi: number;
+  difficulty: { easy: number; medium: number; hard: number };
+  color: string;
+  icon: React.ElementType;
+}) => {
+  const totalDiff = difficulty.easy + difficulty.medium + difficulty.hard;
+  const easyPct = totalDiff > 0 ? Math.round((difficulty.easy / totalDiff) * 100) : 0;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`p-4 rounded-2xl ${color} space-y-3`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon className="w-4 h-4" />
+          <span className="font-semibold capitalize">{type}</span>
+        </div>
+        <span className="text-2xl font-bold">{count}</span>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="space-y-0.5">
+          <div className="text-xs opacity-70">Avg PRMR</div>
+          <div className="font-semibold">${avgPrmr.toFixed(0)}</div>
+        </div>
+        {avgTime > 0 && (
+          <div className="space-y-0.5">
+            <div className="text-xs opacity-70">Avg Time</div>
+            <div className="font-semibold">{formatMinutes(avgTime)}</div>
+          </div>
+        )}
+        {avgCost > 0 && (
+          <div className="space-y-0.5">
+            <div className="text-xs opacity-70">Avg Cost</div>
+            <div className="font-semibold">${avgCost.toFixed(0)}</div>
+          </div>
+        )}
+        {roi > 0 && (
+          <div className="space-y-0.5">
+            <div className="text-xs opacity-70">ROI</div>
+            <div className={`font-semibold ${roi >= 1 ? 'text-success' : ''}`}>{roi.toFixed(1)}x</div>
+          </div>
+        )}
+      </div>
+      
+      {totalDiff > 0 && (
+        <div className="space-y-1">
+          <div className="flex gap-0.5 h-2 rounded-full overflow-hidden bg-black/10">
+            {difficulty.easy > 0 && (
+              <div 
+                className="bg-success/80"
+                style={{ flex: difficulty.easy }}
+              />
+            )}
+            {difficulty.medium > 0 && (
+              <div 
+                className="bg-warning/80"
+                style={{ flex: difficulty.medium }}
+              />
+            )}
+            {difficulty.hard > 0 && (
+              <div 
+                className="bg-destructive/80"
+                style={{ flex: difficulty.hard }}
+              />
+            )}
+          </div>
+          <div className="text-[10px] opacity-70">{easyPct}% easy</div>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+// Highlight card for records
+const HighlightCard = ({ 
+  title, 
+  icon: Icon, 
+  deal, 
+  metric,
+  color = 'bg-muted/50'
+}: { 
+  title: string; 
+  icon: React.ElementType; 
+  deal: DealHighlight; 
+  metric: string;
+  color?: string;
+}) => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.95 }}
+    animate={{ opacity: 1, scale: 1 }}
+    className={`p-3 rounded-xl ${color} space-y-1.5`}
+  >
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <Icon className="w-3 h-3" />
+      <span>{title}</span>
+    </div>
+    <div className="font-semibold truncate">{deal.name}</div>
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-primary font-medium">{metric}</span>
+      <span className="text-xs text-muted-foreground">{formatDate(deal.date)}</span>
+    </div>
+  </motion.div>
+);
+
 export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDealsTabProps) => {
   const { insights, isLoading } = useCustomerInsights(dateRange);
-  const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
   const navigate = useNavigate();
-  const { goals, updateGoals } = useRepGoals();
-  const { toast } = useToast();
-  const [isUpdatingTier, setIsUpdatingTier] = useState(false);
+  const { goals } = useRepGoals();
   const { efpModeEnabled } = useEfpMode();
 
-  const handleSectionToggle = (section: ExpandedSection) => {
-    setExpandedSection(expandedSection === section ? null : section);
-  };
-
-  // Calculate ROI at different pay levels
-  // Use custom pay level if set, otherwise use user's actual cumulative FP+
+  // Calculate ROI at user's pay level
   const customPayLevel = goals?.custom_payscale_fp ?? null;
   const targetFpPlus = customPayLevel ?? userCumulativeFpPlus;
-  const upfrontRate = 4; // $4/PRMR upfront
-  
-  // Get current tier rate based on user's FP+ level
   const currentTier = getTier(targetFpPlus);
   const payscaleRate = currentTier.rate;
-  
-  // Calculate earnings based on total PRMR
-  const upfrontEarnings = insights?.totalPrmr ? insights.totalPrmr * upfrontRate : 0;
-  const payscaleEarnings = insights?.totalPrmr ? insights.totalPrmr * payscaleRate : 0;
-  
-  // Calculate ROI as earnings ÷ cost (not PRMR ÷ cost)
-  const totalSpent = insights?.totalMoneySpent || 0;
-  const payscaleRoi = totalSpent > 0 ? payscaleEarnings / totalSpent : 0;
-  const upfrontRoi = totalSpent > 0 ? upfrontEarnings / totalSpent : 0;
-  
-  // Calculate total EFP or FP+ for avg spent calculation
-  // EFP = Total PRMR / 85
-  // FP+ = just FP deals count
-  const totalEfp = insights ? (insights.totalPrmr / 85) : 0;
-  const totalFpPlus = insights?.totalFpDeals || 0;
-  
-  // Calculate average spent per EFP or FP+
-  const avgSpentPerUnit = efpModeEnabled
-    ? (totalEfp > 0 ? totalSpent / totalEfp : 0)
-    : (totalFpPlus > 0 ? totalSpent / totalFpPlus : 0);
-
-  const handleTierChange = async (newTier: number | null) => {
-    setIsUpdatingTier(true);
-    try {
-      await updateGoals({ custom_payscale_fp: newTier });
-      toast({
-        title: "Pay level updated",
-        description: newTier 
-          ? `Now showing ROI at ${newTier} FP+ payscale`
-          : "Using your current FP+ level",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Failed to update",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdatingTier(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -102,10 +175,10 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
         <InsightsSectionHeader 
           icon={DollarSign} 
           title="Deals" 
-          description="Customer analytics & deal economics"
+          description="Deep dive into your sales performance"
         />
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-card border border-border rounded-xl p-4">
+          <div key={i} className="bg-card border border-border rounded-2xl p-4">
             <div className="h-5 w-32 bg-muted rounded animate-pulse mb-2" />
             <div className="h-4 w-48 bg-muted rounded animate-pulse" />
           </div>
@@ -120,7 +193,7 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
         <InsightsSectionHeader 
           icon={DollarSign} 
           title="Deals" 
-          description="Customer analytics & deal economics"
+          description="Deep dive into your sales performance"
         />
         <Card className="border-border/40">
           <CardContent className="pt-6 text-center">
@@ -135,734 +208,377 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
     );
   }
 
-  // Find highest value deal type
-  const dealTypes = ['fresh', 'takeover', 'diy'] as const;
-  const highestValueType = dealTypes.reduce((a, b) => 
-    insights.prmrByDealType[a] > insights.prmrByDealType[b] ? a : b
-  );
+  // Calculate ROIs
+  const totalSpent = insights.totalMoneySpent || 0;
+  const totalEarnings = insights.totalPrmr * payscaleRate;
+  const overallRoi = totalSpent > 0 ? totalEarnings / totalSpent : 0;
+  
+  // Calculate EFP or FP+ total
+  const totalEfp = insights.totalPrmr / 85;
+  const avgSpentPerUnit = efpModeEnabled
+    ? (totalEfp > 0 ? totalSpent / totalEfp : 0)
+    : (insights.totalFpDeals > 0 ? totalSpent / insights.totalFpDeals : 0);
+
+  // Calculate ROI for FP types
+  const getFpTypeRoi = (type: 'fresh' | 'takeover' | 'diy') => {
+    const spend = insights.spendByDealType[type];
+    const prmr = insights.prmrTotalByDealType[type];
+    return spend > 0 ? (prmr * payscaleRate) / spend : 0;
+  };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <InsightsSectionHeader 
         icon={DollarSign} 
         title="Deals" 
-        description="Customer analytics & deal economics"
+        description="Deep dive into your sales performance"
       />
 
-      {/* Deal Economics */}
-      <InsightCollapsible
-        icon={DollarSign}
-        title="Deal Economics"
-        isOpen={expandedSection === 'economics'}
-        onToggle={() => handleSectionToggle('economics')}
-        preview={
-          <span>
-            <span className="text-primary font-medium">${insights.avgPrmrPerFp.toFixed(0)}</span> avg PRMR per FP
-            {insights.hasMoneySpentData && payscaleRoi > 0 && (
-              <> · <span className="text-success font-medium">{payscaleRoi.toFixed(1)}x</span> ROI</>
-            )}
-          </span>
-        }
-      >
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-xl bg-muted/30">
-              <div className="text-sm text-muted-foreground">Avg PRMR / FP</div>
-              <div className="text-xl font-bold">${insights.avgPrmrPerFp.toFixed(0)}</div>
+      {/* Hero Stats Row */}
+      <div className="grid grid-cols-3 gap-3">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 rounded-2xl bg-primary/10 text-center"
+        >
+          <div className="text-2xl font-bold text-primary">{insights.totalDeals}</div>
+          <div className="text-xs text-muted-foreground">Deals</div>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="p-3 rounded-2xl bg-success/10 text-center"
+        >
+          <div className="text-2xl font-bold text-success">${insights.totalPrmr.toLocaleString()}</div>
+          <div className="text-xs text-muted-foreground">Total PRMR</div>
+        </motion.div>
+        {insights.hasMoneySpentData && overallRoi > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="p-3 rounded-2xl bg-warning/10 text-center"
+          >
+            <div className={`text-2xl font-bold ${overallRoi >= 1 ? 'text-success' : 'text-warning'}`}>
+              {overallRoi.toFixed(1)}x
             </div>
-            {insights.avgPrmrPerUpgrade > 0 && (
-              <div className="p-3 rounded-xl bg-muted/30">
-                <div className="text-sm text-muted-foreground">Avg PRMR / Upgrade</div>
-                <div className="text-xl font-bold">${insights.avgPrmrPerUpgrade.toFixed(0)}</div>
+            <div className="text-xs text-muted-foreground">ROI</div>
+          </motion.div>
+        )}
+      </div>
+
+      {/* FP vs Upgrade Split */}
+      <Card className="border-border/40 overflow-hidden">
+        <CardContent className="p-0">
+          <div className="grid grid-cols-2 divide-x divide-border">
+            {/* FP Column */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-primary" />
+                <span className="font-semibold">FP</span>
               </div>
+              <div className="text-3xl font-bold">{insights.totalFpDeals}</div>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Avg PRMR</span>
+                  <span className="font-medium">${insights.avgPrmrPerFp.toFixed(0)}</span>
+                </div>
+                {insights.avgTimeBySaleType.fp > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Avg Time</span>
+                    <span className="font-medium">{formatMinutes(insights.avgTimeBySaleType.fp)}</span>
+                  </div>
+                )}
+                {insights.avgCostBySaleType.fp > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Avg Cost</span>
+                    <span className="font-medium">${insights.avgCostBySaleType.fp.toFixed(0)}</span>
+                  </div>
+                )}
+                {insights.spendBySaleType.fp > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">ROI</span>
+                    <span className={`font-medium ${(insights.prmrTotalBySaleType.fp * payscaleRate / insights.spendBySaleType.fp) >= 1 ? 'text-success' : ''}`}>
+                      {(insights.prmrTotalBySaleType.fp * payscaleRate / insights.spendBySaleType.fp).toFixed(1)}x
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Upgrade Column */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-success" />
+                <span className="font-semibold">Upgrades</span>
+              </div>
+              <div className="text-3xl font-bold">{insights.totalUpgradeDeals}</div>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Avg PRMR</span>
+                  <span className="font-medium">${insights.avgPrmrPerUpgrade.toFixed(0)}</span>
+                </div>
+                {insights.avgTimeBySaleType.upgrade > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Avg Time</span>
+                    <span className="font-medium">{formatMinutes(insights.avgTimeBySaleType.upgrade)}</span>
+                  </div>
+                )}
+                {insights.avgCostBySaleType.upgrade > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Avg Cost</span>
+                    <span className="font-medium">${insights.avgCostBySaleType.upgrade.toFixed(0)}</span>
+                  </div>
+                )}
+                {insights.spendBySaleType.upgrade > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">ROI</span>
+                    <span className={`font-medium ${(insights.prmrTotalBySaleType.upgrade * payscaleRate / insights.spendBySaleType.upgrade) >= 1 ? 'text-success' : ''}`}>
+                      {(insights.prmrTotalBySaleType.upgrade * payscaleRate / insights.spendBySaleType.upgrade).toFixed(1)}x
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* FP Breakdown by Type (Fresh/Takeover/DIY) */}
+      {insights.hasDealTypeData && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground px-1">FP Breakdown</h3>
+          <div className="grid grid-cols-1 gap-3">
+            {insights.dealTypeDistribution.fresh > 0 && (
+              <DealTypeCard
+                type="Fresh"
+                count={insights.dealTypeDistribution.fresh}
+                avgPrmr={insights.prmrByDealType.fresh}
+                avgTime={insights.avgTimeByDealType.fresh}
+                avgCost={insights.avgCostByDealType.fresh}
+                roi={getFpTypeRoi('fresh')}
+                difficulty={insights.difficultyByDealType.fresh}
+                color="bg-primary/10"
+                icon={Sparkles}
+              />
+            )}
+            {insights.dealTypeDistribution.takeover > 0 && (
+              <DealTypeCard
+                type="Takeover"
+                count={insights.dealTypeDistribution.takeover}
+                avgPrmr={insights.prmrByDealType.takeover}
+                avgTime={insights.avgTimeByDealType.takeover}
+                avgCost={insights.avgCostByDealType.takeover}
+                roi={getFpTypeRoi('takeover')}
+                difficulty={insights.difficultyByDealType.takeover}
+                color="bg-success/10"
+                icon={Target}
+              />
+            )}
+            {insights.dealTypeDistribution.diy > 0 && (
+              <DealTypeCard
+                type="DIY"
+                count={insights.dealTypeDistribution.diy}
+                avgPrmr={insights.prmrByDealType.diy}
+                avgTime={insights.avgTimeByDealType.diy}
+                avgCost={insights.avgCostByDealType.diy}
+                roi={getFpTypeRoi('diy')}
+                difficulty={insights.difficultyByDealType.diy}
+                color="bg-warning/10"
+                icon={Flame}
+              />
             )}
           </div>
-          
-          {insights.hasMoneySpentData && (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-muted/30">
-                  <div className="text-sm text-muted-foreground">
-                    Avg Spent / {efpModeEnabled ? 'EFP' : 'FP+'}
-                  </div>
-                  <div className="text-xl font-bold">${avgSpentPerUnit.toFixed(0)}</div>
-                </div>
-                <div className="p-3 rounded-xl bg-muted/30">
-                  <div className="text-sm text-muted-foreground">Total Spent</div>
-                  <div className="text-xl font-bold">${insights.totalMoneySpent.toLocaleString()}</div>
-                </div>
-              </div>
-              
-              <div className="p-3 rounded-xl bg-primary/10">
-                <div className="text-sm text-muted-foreground mb-2">Total PRMR</div>
-                <div className="text-xl font-bold text-primary">${insights.totalPrmr.toLocaleString()}</div>
-              </div>
-            </>
-          )}
-          
-        {/* Tier Selector */}
-          {insights.totalPrmr > 0 && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Pay Level</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-8 gap-1"
-                    disabled={isUpdatingTier}
-                  >
-                    {customPayLevel ? `${customPayLevel} FP+` : `${Math.round(userCumulativeFpPlus)} FP+ (Current)`}
-                    <ChevronDown className="h-3 w-3" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-48 p-2" align="end">
-                  <div className="space-y-1">
-                    <Button
-                      variant={customPayLevel === null ? "secondary" : "ghost"}
-                      size="sm"
-                      className="w-full justify-start text-xs"
-                      onClick={() => handleTierChange(null)}
-                    >
-                      {Math.round(userCumulativeFpPlus)} FP+ (Current)
-                    </Button>
-                    {QUICK_TIER_OPTIONS.map((tier) => {
-                      const isDisabled = tier < userCumulativeFpPlus;
-                      return (
-                        <Button
-                          key={tier}
-                          variant={customPayLevel === tier ? "secondary" : "ghost"}
-                          size="sm"
-                          className={`w-full justify-start text-xs ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          onClick={() => !isDisabled && handleTierChange(tier)}
-                          disabled={isDisabled}
-                        >
-                          {tier} FP+ (${getTier(tier).rate.toFixed(2)}/PRMR)
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-          )}
-
-          {/* ROI (Earnings ÷ Cost) - Payscale vs Upfront */}
-          {insights.totalPrmr > 0 && insights.hasMoneySpentData && totalSpent > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">ROI (Earnings ÷ Cost)</div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-success/10">
-                  <div className="text-xs text-muted-foreground">
-                    @ {Math.round(targetFpPlus)} FP+ Payscale
-                  </div>
-                  <div className="text-xl font-bold text-success">{payscaleRoi.toFixed(2)}x</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    ${payscaleEarnings.toFixed(0)} ÷ ${totalSpent.toFixed(0)}
-                  </div>
-                </div>
-                <div className="p-3 rounded-xl bg-muted/30">
-                  <div className="text-xs text-muted-foreground">Upfront Only</div>
-                  <div className="text-xl font-bold">{upfrontRoi.toFixed(2)}x</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    ${upfrontEarnings.toFixed(0)} ÷ ${totalSpent.toFixed(0)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Earnings from PRMR - Payscale vs Upfront */}
-          {insights.totalPrmr > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Earnings from PRMR</div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-success/10">
-                  <div className="text-xs text-muted-foreground">
-                    @ {Math.round(targetFpPlus)} FP+ Payscale
-                  </div>
-                  <div className="text-lg font-bold text-success">
-                    ${payscaleEarnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground">
-                    ${insights.totalPrmr.toFixed(0)} × ${payscaleRate.toFixed(2)}
-                  </div>
-                </div>
-                <div className="p-3 rounded-xl bg-muted/30">
-                  <div className="text-xs text-muted-foreground">Upfront Only</div>
-                  <div className="text-lg font-bold">
-                    ${upfrontEarnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground">
-                    ${insights.totalPrmr.toFixed(0)} × $4
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ROI by Deal Type (Fresh, Takeover, DIY) */}
-          {insights.hasDealTypeData && insights.hasMoneySpentData && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">ROI by Deal Type</div>
-              <div className="grid grid-cols-3 gap-2">
-                {(['fresh', 'takeover', 'diy'] as const).map((type) => {
-                  const spend = insights.spendByDealType[type];
-                  const prmr = insights.prmrTotalByDealType[type];
-                  const earnings = prmr * payscaleRate;
-                  const roi = spend > 0 ? earnings / spend : 0;
-                  const hasData = insights.dealTypeDistribution[type] > 0;
-                  
-                  if (!hasData) return null;
-                  
-                  return (
-                    <div key={type} className="p-2 rounded-lg bg-muted/30 text-center">
-                      <div className="text-xs text-muted-foreground capitalize">{type}</div>
-                      <div className={`font-bold ${roi >= 1 ? 'text-success' : 'text-destructive'}`}>
-                        {spend > 0 ? `${roi.toFixed(1)}x` : '—'}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        ${spend.toFixed(0)} spent
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ROI by Sale Type (FP vs Upgrade) */}
-          {insights.hasMoneySpentData && (insights.totalFpDeals > 0 || insights.totalUpgradeDeals > 0) && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">ROI by Sale Type</div>
-              <div className="grid grid-cols-2 gap-3">
-                {insights.totalFpDeals > 0 && (
-                  <div className="p-2 rounded-lg bg-muted/30 text-center">
-                    <div className="text-xs text-muted-foreground">Fresh Pitch (FP)</div>
-                    <div className={`font-bold ${insights.spendBySaleType.fp > 0 && (insights.prmrTotalBySaleType.fp * payscaleRate / insights.spendBySaleType.fp) >= 1 ? 'text-success' : insights.spendBySaleType.fp > 0 ? 'text-destructive' : ''}`}>
-                      {insights.spendBySaleType.fp > 0 
-                        ? `${(insights.prmrTotalBySaleType.fp * payscaleRate / insights.spendBySaleType.fp).toFixed(1)}x`
-                        : '—'}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground">
-                      ${insights.spendBySaleType.fp.toFixed(0)} spent · {insights.totalFpDeals} deals
-                    </div>
-                  </div>
-                )}
-                {insights.totalUpgradeDeals > 0 && (
-                  <div className="p-2 rounded-lg bg-muted/30 text-center">
-                    <div className="text-xs text-muted-foreground">Upgrade</div>
-                    <div className={`font-bold ${insights.spendBySaleType.upgrade > 0 && (insights.prmrTotalBySaleType.upgrade * payscaleRate / insights.spendBySaleType.upgrade) >= 1 ? 'text-success' : insights.spendBySaleType.upgrade > 0 ? 'text-destructive' : ''}`}>
-                      {insights.spendBySaleType.upgrade > 0 
-                        ? `${(insights.prmrTotalBySaleType.upgrade * payscaleRate / insights.spendBySaleType.upgrade).toFixed(1)}x`
-                        : '—'}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground">
-                      ${insights.spendBySaleType.upgrade.toFixed(0)} spent · {insights.totalUpgradeDeals} deals
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ROI Trend Chart - only show if 2+ weeks of data */}
-          {insights.hasEnoughTrendData && insights.roiTrendData.length >= 2 && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">ROI Trend by Deal Type</div>
-              <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart 
-                    data={insights.roiTrendData}
-                    margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
-                  >
-                    <XAxis 
-                      dataKey="period" 
-                      tick={{ fontSize: 10 }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis 
-                      tick={{ fontSize: 10 }}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) => `${value.toFixed(1)}x`}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        fontSize: '12px'
-                      }}
-                      formatter={(value: number, name: string) => [
-                        `${value.toFixed(2)}x`,
-                        name.charAt(0).toUpperCase() + name.slice(1)
-                      ]}
-                    />
-                    <ReferenceLine y={1} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" strokeOpacity={0.5} />
-                    <Legend 
-                      wrapperStyle={{ fontSize: '10px' }}
-                      formatter={(value) => value.charAt(0).toUpperCase() + value.slice(1)}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="fresh" 
-                      stroke="hsl(var(--primary))" 
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      connectNulls
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="takeover" 
-                      stroke="hsl(var(--success))" 
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      connectNulls
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="diy" 
-                      stroke="hsl(var(--warning))" 
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      connectNulls
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <p className="text-[10px] text-muted-foreground text-center">
-                Weekly PRMR ÷ Cost ratio (1.0x = break even)
-              </p>
-            </div>
-          )}
-          
-          <p className="text-xs text-muted-foreground">
-            Based on {insights.totalDeals} deal{insights.totalDeals !== 1 ? 's' : ''} ({insights.totalFpDeals} FP, {insights.totalUpgradeDeals} upgrade)
-          </p>
         </div>
-      </InsightCollapsible>
+      )}
 
-      {/* Time to Sell */}
-      {insights.hasTimeData && (
-        <InsightCollapsible
-          icon={Clock}
-          title="Time to Sell"
-          isOpen={expandedSection === 'time'}
-          onToggle={() => handleSectionToggle('time')}
-          preview={
-            <span>
-              <span className="text-primary font-medium">{formatMinutes(insights.avgTimeToSell)}</span> avg time to close
-            </span>
-          }
-        >
-          <div className="space-y-3">
-            <div className="p-3 rounded-xl bg-primary/10">
-              <div className="text-sm text-muted-foreground">Average Time to Close</div>
-              <div className="text-xl font-bold text-primary">{formatMinutes(insights.avgTimeToSell)}</div>
-              <div className="text-xs text-muted-foreground">From transition to close</div>
-            </div>
-
-            {/* By Deal Type */}
-            {(insights.avgTimeByDealType.fresh > 0 || insights.avgTimeByDealType.takeover > 0 || insights.avgTimeByDealType.diy > 0) && (
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-muted-foreground">By Deal Type</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {insights.avgTimeByDealType.fresh > 0 && (
-                    <div className="p-2 rounded-lg bg-muted/30 text-center">
-                      <div className="text-xs text-muted-foreground">Fresh</div>
-                      <div className="font-bold">{formatMinutes(insights.avgTimeByDealType.fresh)}</div>
-                    </div>
-                  )}
-                  {insights.avgTimeByDealType.takeover > 0 && (
-                    <div className="p-2 rounded-lg bg-muted/30 text-center">
-                      <div className="text-xs text-muted-foreground">Takeover</div>
-                      <div className="font-bold">{formatMinutes(insights.avgTimeByDealType.takeover)}</div>
-                    </div>
-                  )}
-                  {insights.avgTimeByDealType.diy > 0 && (
-                    <div className="p-2 rounded-lg bg-muted/30 text-center">
-                      <div className="text-xs text-muted-foreground">DIY</div>
-                      <div className="font-bold">{formatMinutes(insights.avgTimeByDealType.diy)}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
+      {/* Record Highlights */}
+      {(insights.fastestSale || insights.highestPrmrDeal || insights.earliestFpDeal) && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground px-1">Highlights</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {insights.fastestSale && (
+              <HighlightCard
+                title="Fastest Close"
+                icon={Zap}
+                deal={insights.fastestSale}
+                metric={formatMinutes(insights.fastestSale.minutes || 0)}
+                color="bg-primary/10"
+              />
             )}
+            {insights.slowestSale && (
+              <HighlightCard
+                title="Longest Close"
+                icon={Clock}
+                deal={insights.slowestSale}
+                metric={formatMinutes(insights.slowestSale.minutes || 0)}
+                color="bg-muted/50"
+              />
+            )}
+            {insights.highestPrmrDeal && (
+              <HighlightCard
+                title="Highest PRMR"
+                icon={Award}
+                deal={insights.highestPrmrDeal}
+                metric={`$${insights.highestPrmrDeal.prmr}`}
+                color="bg-success/10"
+              />
+            )}
+            {insights.mostExpensiveDeal && (
+              <HighlightCard
+                title="Most Invested"
+                icon={DollarSign}
+                deal={insights.mostExpensiveDeal}
+                metric={`$${insights.mostExpensiveDeal.moneySpent}`}
+                color="bg-warning/10"
+              />
+            )}
+          </div>
+        </div>
+      )}
 
+      {/* Time to Sell Summary */}
+      {insights.hasTimeData && (
+        <Card className="border-border/40">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-primary" />
+              <span className="font-semibold">Time to Sell</span>
+            </div>
+            
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold">{formatMinutes(insights.avgTimeToSell)}</span>
+              <span className="text-muted-foreground text-sm">average</span>
+            </div>
+            
             {/* By Difficulty */}
             {(insights.avgTimeByDifficulty.easy > 0 || insights.avgTimeByDifficulty.medium > 0 || insights.avgTimeByDifficulty.hard > 0) && (
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-muted-foreground">By Difficulty</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {insights.avgTimeByDifficulty.easy > 0 && (
-                    <div className="p-2 rounded-lg bg-success/10 text-center">
-                      <div className="text-xs text-muted-foreground">Easy</div>
-                      <div className="font-bold text-success">{formatMinutes(insights.avgTimeByDifficulty.easy)}</div>
-                    </div>
-                  )}
-                  {insights.avgTimeByDifficulty.medium > 0 && (
-                    <div className="p-2 rounded-lg bg-warning/10 text-center">
-                      <div className="text-xs text-muted-foreground">Medium</div>
-                      <div className="font-bold text-warning">{formatMinutes(insights.avgTimeByDifficulty.medium)}</div>
-                    </div>
-                  )}
-                  {insights.avgTimeByDifficulty.hard > 0 && (
-                    <div className="p-2 rounded-lg bg-destructive/10 text-center">
-                      <div className="text-xs text-muted-foreground">Hard</div>
-                      <div className="font-bold text-destructive">{formatMinutes(insights.avgTimeByDifficulty.hard)}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Fastest Sale */}
-            {insights.fastestSale && (
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/30">
-                <Zap className="w-5 h-5 text-primary" />
-                <div>
-                  <div className="text-sm text-muted-foreground">Fastest Close</div>
-                  <div className="font-bold">{formatMinutes(insights.fastestSale.minutes)}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {insights.fastestSale.name} · ${insights.fastestSale.prmr} PRMR
+              <div className="grid grid-cols-3 gap-2 pt-2">
+                {insights.avgTimeByDifficulty.easy > 0 && (
+                  <div className="text-center p-2 rounded-xl bg-success/10">
+                    <div className="text-xs text-muted-foreground">Easy</div>
+                    <div className="font-semibold text-success">{formatMinutes(insights.avgTimeByDifficulty.easy)}</div>
                   </div>
-                </div>
+                )}
+                {insights.avgTimeByDifficulty.medium > 0 && (
+                  <div className="text-center p-2 rounded-xl bg-warning/10">
+                    <div className="text-xs text-muted-foreground">Medium</div>
+                    <div className="font-semibold text-warning">{formatMinutes(insights.avgTimeByDifficulty.medium)}</div>
+                  </div>
+                )}
+                {insights.avgTimeByDifficulty.hard > 0 && (
+                  <div className="text-center p-2 rounded-xl bg-destructive/10">
+                    <div className="text-xs text-muted-foreground">Hard</div>
+                    <div className="font-semibold text-destructive">{formatMinutes(insights.avgTimeByDifficulty.hard)}</div>
+                  </div>
+                )}
               </div>
             )}
-
+            
             <p className="text-xs text-muted-foreground">
               Based on {insights.dealsWithTimeData} deals with time data
             </p>
-          </div>
-        </InsightCollapsible>
-      )}
-
-      {/* Deal Type Performance */}
-      {(insights.hasDealTypeData || insights.totalUpgradeDeals > 0) && (
-        <InsightCollapsible
-          icon={PieChart}
-          title="Deal Type Performance"
-          isOpen={expandedSection === 'dealType'}
-          onToggle={() => handleSectionToggle('dealType')}
-          preview={
-            <span>
-              {insights.hasDealTypeData ? (
-                <><span className="text-primary font-medium capitalize">{highestValueType}s</span> are your highest value deals</>
-              ) : (
-                <><span className="text-primary font-medium">{insights.totalFpDeals}</span> FP · <span className="text-success font-medium">{insights.totalUpgradeDeals}</span> upgrades</>
-              )}
-            </span>
-          }
-        >
-          <div className="space-y-4">
-            {/* FP vs Upgrade Comparison */}
-            {(insights.totalFpDeals > 0 || insights.totalUpgradeDeals > 0) && (
-              <div className="space-y-3">
-                <div className="text-sm font-medium text-muted-foreground">FP vs Upgrade</div>
-                
-                {/* Deal Count & PRMR */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-xl bg-primary/10 space-y-1">
-                    <div className="text-xs text-muted-foreground">Fresh Pitch (FP)</div>
-                    <div className="text-2xl font-bold text-primary">{insights.totalFpDeals}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Avg ${insights.avgPrmrPerFp.toFixed(0)} PRMR
-                    </div>
-                  </div>
-                  <div className="p-3 rounded-xl bg-success/10 space-y-1">
-                    <div className="text-xs text-muted-foreground">Upgrade</div>
-                    <div className="text-2xl font-bold text-success">{insights.totalUpgradeDeals}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Avg ${insights.avgPrmrPerUpgrade.toFixed(0)} PRMR
-                    </div>
-                  </div>
-                </div>
-
-                {/* Which is faster? */}
-                {(insights.avgTimeBySaleType.fp > 0 || insights.avgTimeBySaleType.upgrade > 0) && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-muted-foreground">Which is Faster?</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className={`p-2.5 rounded-lg text-center ${
-                        insights.avgTimeBySaleType.fp > 0 && insights.avgTimeBySaleType.upgrade > 0 && 
-                        insights.avgTimeBySaleType.fp < insights.avgTimeBySaleType.upgrade 
-                          ? 'bg-primary/10 ring-1 ring-primary/30' : 'bg-muted/30'
-                      }`}>
-                        <div className="text-xs text-muted-foreground">FP</div>
-                        <div className="font-bold">
-                          {insights.avgTimeBySaleType.fp > 0 ? formatMinutes(insights.avgTimeBySaleType.fp) : '—'}
-                        </div>
-                        {insights.avgTimeBySaleType.fp > 0 && insights.avgTimeBySaleType.upgrade > 0 && 
-                         insights.avgTimeBySaleType.fp < insights.avgTimeBySaleType.upgrade && (
-                          <div className="text-[10px] text-primary font-medium">Faster</div>
-                        )}
-                      </div>
-                      <div className={`p-2.5 rounded-lg text-center ${
-                        insights.avgTimeBySaleType.fp > 0 && insights.avgTimeBySaleType.upgrade > 0 && 
-                        insights.avgTimeBySaleType.upgrade < insights.avgTimeBySaleType.fp 
-                          ? 'bg-success/10 ring-1 ring-success/30' : 'bg-muted/30'
-                      }`}>
-                        <div className="text-xs text-muted-foreground">Upgrade</div>
-                        <div className="font-bold">
-                          {insights.avgTimeBySaleType.upgrade > 0 ? formatMinutes(insights.avgTimeBySaleType.upgrade) : '—'}
-                        </div>
-                        {insights.avgTimeBySaleType.fp > 0 && insights.avgTimeBySaleType.upgrade > 0 && 
-                         insights.avgTimeBySaleType.upgrade < insights.avgTimeBySaleType.fp && (
-                          <div className="text-[10px] text-success font-medium">Faster</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Which is easier? */}
-                {((insights.difficultyBySaleType.fp.easy + insights.difficultyBySaleType.fp.medium + insights.difficultyBySaleType.fp.hard) > 0 ||
-                  (insights.difficultyBySaleType.upgrade.easy + insights.difficultyBySaleType.upgrade.medium + insights.difficultyBySaleType.upgrade.hard) > 0) && (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium text-muted-foreground">Which is Easier?</div>
-                    <div className="grid grid-cols-2 gap-3">
-                      {/* FP Difficulty */}
-                      <div className="p-2.5 rounded-lg bg-muted/30 space-y-1.5">
-                        <div className="text-xs text-muted-foreground text-center">FP</div>
-                        <div className="flex gap-1 h-5 rounded overflow-hidden">
-                          {insights.difficultyBySaleType.fp.easy > 0 && (
-                            <div 
-                              className="bg-success flex items-center justify-center text-[10px] font-medium text-success-foreground"
-                              style={{ flex: insights.difficultyBySaleType.fp.easy }}
-                            >
-                              {insights.difficultyBySaleType.fp.easy}
-                            </div>
-                          )}
-                          {insights.difficultyBySaleType.fp.medium > 0 && (
-                            <div 
-                              className="bg-warning flex items-center justify-center text-[10px] font-medium text-warning-foreground"
-                              style={{ flex: insights.difficultyBySaleType.fp.medium }}
-                            >
-                              {insights.difficultyBySaleType.fp.medium}
-                            </div>
-                          )}
-                          {insights.difficultyBySaleType.fp.hard > 0 && (
-                            <div 
-                              className="bg-destructive flex items-center justify-center text-[10px] font-medium text-destructive-foreground"
-                              style={{ flex: insights.difficultyBySaleType.fp.hard }}
-                            >
-                              {insights.difficultyBySaleType.fp.hard}
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground text-center">
-                          {(() => {
-                            const total = insights.difficultyBySaleType.fp.easy + insights.difficultyBySaleType.fp.medium + insights.difficultyBySaleType.fp.hard;
-                            const easyPct = total > 0 ? Math.round((insights.difficultyBySaleType.fp.easy / total) * 100) : 0;
-                            return `${easyPct}% easy`;
-                          })()}
-                        </div>
-                      </div>
-                      {/* Upgrade Difficulty */}
-                      <div className="p-2.5 rounded-lg bg-muted/30 space-y-1.5">
-                        <div className="text-xs text-muted-foreground text-center">Upgrade</div>
-                        <div className="flex gap-1 h-5 rounded overflow-hidden">
-                          {insights.difficultyBySaleType.upgrade.easy > 0 && (
-                            <div 
-                              className="bg-success flex items-center justify-center text-[10px] font-medium text-success-foreground"
-                              style={{ flex: insights.difficultyBySaleType.upgrade.easy }}
-                            >
-                              {insights.difficultyBySaleType.upgrade.easy}
-                            </div>
-                          )}
-                          {insights.difficultyBySaleType.upgrade.medium > 0 && (
-                            <div 
-                              className="bg-warning flex items-center justify-center text-[10px] font-medium text-warning-foreground"
-                              style={{ flex: insights.difficultyBySaleType.upgrade.medium }}
-                            >
-                              {insights.difficultyBySaleType.upgrade.medium}
-                            </div>
-                          )}
-                          {insights.difficultyBySaleType.upgrade.hard > 0 && (
-                            <div 
-                              className="bg-destructive flex items-center justify-center text-[10px] font-medium text-destructive-foreground"
-                              style={{ flex: insights.difficultyBySaleType.upgrade.hard }}
-                            >
-                              {insights.difficultyBySaleType.upgrade.hard}
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground text-center">
-                          {(() => {
-                            const total = insights.difficultyBySaleType.upgrade.easy + insights.difficultyBySaleType.upgrade.medium + insights.difficultyBySaleType.upgrade.hard;
-                            const easyPct = total > 0 ? Math.round((insights.difficultyBySaleType.upgrade.easy / total) * 100) : 0;
-                            return `${easyPct}% easy`;
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex justify-center gap-4 text-[10px] text-muted-foreground">
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-success" /> Easy</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning" /> Med</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-destructive" /> Hard</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* FP Deal Type Breakdown (Fresh/Takeover/DIY) */}
-            {insights.hasDealTypeData && (
-              <div className="space-y-3 pt-3 border-t border-border/40">
-                <div className="text-sm font-medium text-muted-foreground">FP Deal Types (Fresh, Takeover, DIY)</div>
-                
-                {/* Distribution Bar */}
-                <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">Deal Mix</div>
-                  <div className="flex gap-1 h-8 rounded-lg overflow-hidden">
-                    {insights.dealTypeDistribution.fresh > 0 && (
-                      <div 
-                        className="bg-primary flex items-center justify-center text-xs font-medium text-primary-foreground"
-                        style={{ flex: insights.dealTypeDistribution.fresh }}
-                      >
-                        {insights.dealTypeDistribution.fresh}
-                      </div>
-                    )}
-                    {insights.dealTypeDistribution.takeover > 0 && (
-                      <div 
-                        className="bg-success flex items-center justify-center text-xs font-medium text-success-foreground"
-                        style={{ flex: insights.dealTypeDistribution.takeover }}
-                      >
-                        {insights.dealTypeDistribution.takeover}
-                      </div>
-                    )}
-                    {insights.dealTypeDistribution.diy > 0 && (
-                      <div 
-                        className="bg-warning flex items-center justify-center text-xs font-medium text-warning-foreground"
-                        style={{ flex: insights.dealTypeDistribution.diy }}
-                      >
-                        {insights.dealTypeDistribution.diy}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-primary" /> Fresh
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-success" /> Takeover
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-warning" /> DIY
-                    </span>
-                  </div>
-                </div>
-
-                {/* PRMR by Type */}
-                <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">Avg PRMR by Type</div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className={`p-2 rounded-lg text-center ${highestValueType === 'fresh' ? 'bg-primary/10' : 'bg-muted/30'}`}>
-                      <div className="text-xs text-muted-foreground">Fresh</div>
-                      <div className={`font-bold ${highestValueType === 'fresh' ? 'text-primary' : ''}`}>
-                        ${insights.prmrByDealType.fresh.toFixed(0)}
-                      </div>
-                    </div>
-                    <div className={`p-2 rounded-lg text-center ${highestValueType === 'takeover' ? 'bg-primary/10' : 'bg-muted/30'}`}>
-                      <div className="text-xs text-muted-foreground">Takeover</div>
-                      <div className={`font-bold ${highestValueType === 'takeover' ? 'text-primary' : ''}`}>
-                        ${insights.prmrByDealType.takeover.toFixed(0)}
-                      </div>
-                    </div>
-                    <div className={`p-2 rounded-lg text-center ${highestValueType === 'diy' ? 'bg-primary/10' : 'bg-muted/30'}`}>
-                      <div className="text-xs text-muted-foreground">DIY</div>
-                      <div className={`font-bold ${highestValueType === 'diy' ? 'text-primary' : ''}`}>
-                        ${insights.prmrByDealType.diy.toFixed(0)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Difficulty Distribution (Overall) */}
-            {(insights.difficultyDistribution.easy > 0 || insights.difficultyDistribution.medium > 0 || insights.difficultyDistribution.hard > 0) && (
-              <div className="space-y-2 pt-3 border-t border-border/40">
-                <div className="text-sm font-medium text-muted-foreground">Overall Difficulty</div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="p-2 rounded-lg bg-success/10 text-center">
-                    <div className="text-xs text-muted-foreground">Easy</div>
-                    <div className="font-bold text-success">{insights.difficultyDistribution.easy}</div>
-                  </div>
-                  <div className="p-2 rounded-lg bg-warning/10 text-center">
-                    <div className="text-xs text-muted-foreground">Medium</div>
-                    <div className="font-bold text-warning">{insights.difficultyDistribution.medium}</div>
-                  </div>
-                  <div className="p-2 rounded-lg bg-destructive/10 text-center">
-                    <div className="text-xs text-muted-foreground">Hard</div>
-                    <div className="font-bold text-destructive">{insights.difficultyDistribution.hard}</div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </InsightCollapsible>
+          </CardContent>
+        </Card>
       )}
 
       {/* Install Performance */}
       {insights.hasInstallData && (
-        <InsightCollapsible
-          icon={CalendarCheck}
-          title="Install Performance"
-          isOpen={expandedSection === 'install'}
-          onToggle={() => handleSectionToggle('install')}
-          preview={
-            <span>
-              <span className="text-primary font-medium">{insights.sameDayInstallRate.toFixed(0)}%</span> same-day install rate
-            </span>
-          }
-        >
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-xl bg-success/10">
-                <div className="text-sm text-muted-foreground">Same-Day Installs</div>
-                <div className="text-xl font-bold text-success">{insights.sameDayInstallRate.toFixed(0)}%</div>
-              </div>
-              <div className="p-3 rounded-xl bg-muted/30">
-                <div className="text-sm text-muted-foreground">Avg Days to Install</div>
-                <div className="text-xl font-bold">{insights.avgDaysToInstall.toFixed(1)}</div>
-              </div>
+        <Card className="border-border/40">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <CalendarCheck className="w-4 h-4 text-primary" />
+              <span className="font-semibold">Install Performance</span>
             </div>
             
-            {insights.cancelRate > 0 && (
-              <div className="p-3 rounded-xl bg-destructive/10">
-                <div className="text-sm text-muted-foreground">Cancel Rate</div>
-                <div className="text-xl font-bold text-destructive">{insights.cancelRate.toFixed(1)}%</div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center p-3 rounded-xl bg-success/10">
+                <div className="text-2xl font-bold text-success">{insights.sameDayInstallRate.toFixed(0)}%</div>
+                <div className="text-xs text-muted-foreground">Same-Day</div>
               </div>
-            )}
-          </div>
-        </InsightCollapsible>
+              <div className="text-center p-3 rounded-xl bg-muted/50">
+                <div className="text-2xl font-bold">{insights.avgDaysToInstall.toFixed(1)}</div>
+                <div className="text-xs text-muted-foreground">Avg Days</div>
+              </div>
+              {insights.cancelRate > 0 && (
+                <div className="text-center p-3 rounded-xl bg-destructive/10">
+                  <div className="text-2xl font-bold text-destructive">{insights.cancelRate.toFixed(1)}%</div>
+                  <div className="text-xs text-muted-foreground">Cancel</div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Location Quick Access */}
+      {/* Difficulty Distribution */}
+      {(insights.difficultyDistribution.easy > 0 || insights.difficultyDistribution.medium > 0 || insights.difficultyDistribution.hard > 0) && (
+        <Card className="border-border/40">
+          <CardContent className="p-4 space-y-3">
+            <div className="text-sm font-medium text-muted-foreground">Overall Difficulty</div>
+            
+            <div className="flex gap-1 h-10 rounded-xl overflow-hidden">
+              {insights.difficultyDistribution.easy > 0 && (
+                <div 
+                  className="bg-success flex items-center justify-center text-sm font-semibold text-success-foreground"
+                  style={{ flex: insights.difficultyDistribution.easy }}
+                >
+                  {insights.difficultyDistribution.easy}
+                </div>
+              )}
+              {insights.difficultyDistribution.medium > 0 && (
+                <div 
+                  className="bg-warning flex items-center justify-center text-sm font-semibold text-warning-foreground"
+                  style={{ flex: insights.difficultyDistribution.medium }}
+                >
+                  {insights.difficultyDistribution.medium}
+                </div>
+              )}
+              {insights.difficultyDistribution.hard > 0 && (
+                <div 
+                  className="bg-destructive flex items-center justify-center text-sm font-semibold text-destructive-foreground"
+                  style={{ flex: insights.difficultyDistribution.hard }}
+                >
+                  {insights.difficultyDistribution.hard}
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-center gap-6 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-success" /> Easy
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-warning" /> Medium
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-destructive" /> Hard
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Customer Map Link */}
       {insights.salesWithLocationCount > 0 && (
         <Card 
-          className="border-border/40 cursor-pointer hover:bg-muted/30 transition-colors"
+          className="border-border/40 cursor-pointer hover:bg-muted/30 transition-colors active:scale-[0.98]"
           onClick={() => navigate('/customers')}
         >
           <CardContent className="flex items-center justify-between py-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
+              <div className="p-2.5 rounded-xl bg-primary/10">
                 <MapPin className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <div className="font-medium">Customer Map</div>
+                <div className="font-semibold">Customer Map</div>
                 <div className="text-sm text-muted-foreground">
-                  {insights.salesWithLocationCount} deals with location data
+                  {insights.salesWithLocationCount} deals with location
                 </div>
               </div>
             </div>
-            <TrendingUp className="w-5 h-5 text-muted-foreground" />
+            <ArrowRight className="w-5 h-5 text-muted-foreground" />
           </CardContent>
         </Card>
       )}
