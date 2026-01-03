@@ -239,10 +239,14 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   const [recruitmentSource, setRecruitmentSource] = useState('');
   const [selectedRecruiter, setSelectedRecruiter] = useState('');
   const [selectedTeam, setSelectedTeam] = useState('');
+  const [selectedStage, setSelectedStage] = useState('100 List');
   const [relationship, setRelationship] = useState('');
   const [notes, setNotes] = useState('');
   const [showMySuggestions, setShowMySuggestions] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+
+  // Available stages for new recruits
+  const RECRUIT_STAGES = ['100 List', 'Reached Out', 'Evaluating', 'Signed'] as const;
 
   const queryClient = useQueryClient();
   const submitMutation = useSubmitSuggestion();
@@ -551,6 +555,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       recruitmentSource: string;
       teamId?: string;
       mgmtGroupId?: string;
+      stage?: string;
     }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
@@ -599,6 +604,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     setRecruitmentSource('');
     setSelectedRecruiter('');
     setSelectedTeam('');
+    setSelectedStage('100 List');
     setRelationship('');
     setNotes('');
     setAttemptedSubmit(false);
@@ -727,6 +733,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       location: finalLocation,
       recruitmentSource,
       teamId: selectedTeam || undefined,
+      stage: selectedStage,
     });
   };
 
@@ -926,6 +933,23 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
                 {getFieldError('recruitmentSource') && (
                   <p className="text-xs text-destructive mt-1">Recruitment source is required</p>
                 )}
+              </div>
+
+              {/* Stage Selection */}
+              <div>
+                <Label>Stage</Label>
+                <Select value={selectedStage} onValueChange={setSelectedStage}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select stage" />
+                  </SelectTrigger>
+                  <SelectContent modal={false}>
+                    {RECRUIT_STAGES.map((stage) => (
+                      <SelectItem key={stage} value={stage}>
+                        {stage}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

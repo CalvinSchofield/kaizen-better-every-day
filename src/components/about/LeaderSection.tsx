@@ -96,11 +96,11 @@ export const LeaderSection = () => {
               </div>
               <h3 className="text-2xl font-bold text-white mb-4">Calvin Schofield</h3>
               
-              {/* Contact Buttons - Overlayed */}
-              <div className="flex gap-2">
+              {/* Contact Buttons - Overlayed with high contrast */}
+              <div className="flex gap-3">
                 <Button
                   size="sm"
-                  className="flex-1 h-11 bg-white/95 text-foreground hover:bg-white border-0 font-medium"
+                  className="flex-1 h-12 bg-primary text-primary-foreground hover:bg-primary/90 border-0 font-semibold shadow-lg"
                   asChild
                 >
                   <a href="sms:469-715-7056">
@@ -110,8 +110,7 @@ export const LeaderSection = () => {
                 </Button>
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="flex-1 h-11 bg-transparent text-white border-white/40 hover:bg-white/10 font-medium"
+                  className="flex-1 h-12 bg-white text-foreground hover:bg-white/90 border-0 font-semibold shadow-lg"
                   asChild
                 >
                   <a href="mailto:Calvin.Schofield@vivint.com">
