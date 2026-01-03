@@ -1,8 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-
-// Get VAPID public key from environment
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
 // Convert base64 to Uint8Array for VAPID key
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -25,8 +22,9 @@ export function usePushNotifications() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isLoading, setIsLoading] = useState(true);
+  const vapidKeyRef = useRef<string | null>(null);
 
-  // Check if push notifications are supported
+  // Check if push notifications are supported and fetch VAPID key
   useEffect(() => {
     const checkSupport = async () => {
       const supported = 
@@ -38,6 +36,19 @@ export function usePushNotifications() {
       
       if (supported) {
         setPermission(Notification.permission);
+        
+        // Fetch VAPID public key from edge function
+        try {
+          const { data, error } = await supabase.functions.invoke('get-vapid-public-key');
+          if (!error && data?.vapidPublicKey) {
+            vapidKeyRef.current = data.vapidPublicKey;
+            console.log('VAPID public key loaded');
+          } else {
+            console.error('Failed to fetch VAPID key:', error);
+          }
+        } catch (err) {
+          console.error('Error fetching VAPID key:', err);
+        }
         
         // Check if already subscribed
         try {
@@ -57,7 +68,7 @@ export function usePushNotifications() {
 
   // Subscribe to push notifications
   const subscribe = useCallback(async (): Promise<boolean> => {
-    if (!isSupported || !VAPID_PUBLIC_KEY) {
+    if (!isSupported || !vapidKeyRef.current) {
       console.error('Push notifications not supported or VAPID key missing');
       return false;
     }
@@ -78,7 +89,7 @@ export function usePushNotifications() {
       // Subscribe to push
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource
+        applicationServerKey: urlBase64ToUint8Array(vapidKeyRef.current) as BufferSource
       });
 
       // Extract keys from subscription
