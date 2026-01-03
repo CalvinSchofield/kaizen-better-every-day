@@ -109,10 +109,22 @@ export default function Settings() {
   const [draggedCounter, setDraggedCounter] = useState<string | null>(null);
   
   // Push notifications
-  const { isSupported: notificationsSupported, isSubscribed, permission, subscribe, unsubscribe, isLoading: notificationsLoading, isNative, platform } = useUnifiedPushNotifications();
+  const {
+    isSupported: notificationsSupported,
+    isSubscribed,
+    permission,
+    subscribe,
+    unsubscribe,
+    isLoading: notificationsLoading,
+    isNative,
+    platform,
+    debug: pushDebug,
+  } = useUnifiedPushNotifications();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
   const [isSendingTestPush, setIsSendingTestPush] = useState(false);
+  const [apnsTokenCount, setApnsTokenCount] = useState<number | null>(null);
+  const [isCheckingApnsToken, setIsCheckingApnsToken] = useState(false);
   
   // Collapsible states
   const [isSummerDatesOpen, setIsSummerDatesOpen] = useState(false);
@@ -1214,12 +1226,12 @@ export default function Settings() {
                       onClick={async () => {
                         setIsSendingTestPush(true);
                         try {
-                          const results = await Promise.allSettled([
+                          const [webRes, apnsRes] = await Promise.all([
                             supabase.functions.invoke('test-push-notification', {
                               body: { targetEmail: 'calvinjschofield@gmail.com' }
                             }),
                             supabase.functions.invoke('send-apns-notification', {
-                              body: { 
+                              body: {
                                 targetEmail: 'calvinjschofield@gmail.com',
                                 title: '🧪 Native Test',
                                 body: 'Test notification from TestFlight!',
@@ -1227,12 +1239,24 @@ export default function Settings() {
                               }
                             })
                           ]);
-                          const webSuccess = results[0].status === 'fulfilled' && !(results[0] as any).value?.error;
-                          const apnsSuccess = results[1].status === 'fulfilled' && !(results[1] as any).value?.error;
+
+                          const webOk = !webRes.error && webRes.data?.success !== false;
+                          const apnsOk = !apnsRes.error && apnsRes.data?.success === true;
+
                           toast({
                             title: "Test sent",
-                            description: `Web: ${webSuccess ? '✓' : '✗'} | APNs: ${apnsSuccess ? '✓' : '✗'}`,
+                            description: `Web: ${webOk ? '✓' : '✗'} | APNs: ${apnsOk ? '✓' : '✗'}`,
+                            variant: (!webOk || !apnsOk) ? "destructive" : undefined,
                           });
+
+                          const apnsErrorText =
+                            apnsRes.error?.message ||
+                            apnsRes.data?.errors?.[0] ||
+                            apnsRes.data?.error;
+
+                          if (!apnsOk && apnsErrorText) {
+                            toast({ title: 'APNs error', description: apnsErrorText, variant: 'destructive' });
+                          }
                         } catch (err: any) {
                           toast({ title: "Failed", description: err.message, variant: "destructive" });
                         } finally {
@@ -1329,7 +1353,7 @@ export default function Settings() {
                   {/* Debug Tools */}
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium text-muted-foreground">Debug Tools</h4>
-                    
+
                     <Button
                       variant="outline"
                       size="sm"
@@ -1363,10 +1387,64 @@ export default function Settings() {
                       Force Refresh
                     </Button>
 
-                    <div className="text-xs text-muted-foreground p-2 bg-muted/50 rounded">
+                    {platform === 'native' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        disabled={isCheckingApnsToken}
+                        onClick={async () => {
+                          setIsCheckingApnsToken(true);
+                          try {
+                            const { count, error } = await supabase
+                              .from('apns_device_tokens')
+                              .select('id', { count: 'exact', head: true });
+
+                            if (error) throw error;
+
+                            const c = count ?? 0;
+                            setApnsTokenCount(c);
+
+                            toast({
+                              title: 'APNs token check',
+                              description: c > 0 ? `Found ${c} token(s) stored.` : 'No APNs token stored yet.',
+                              variant: c > 0 ? undefined : 'destructive',
+                            });
+                          } catch (err: any) {
+                            toast({
+                              title: 'APNs token check failed',
+                              description: err.message,
+                              variant: 'destructive',
+                            });
+                          } finally {
+                            setIsCheckingApnsToken(false);
+                          }
+                        }}
+                      >
+                        <Bell className="h-4 w-4 mr-2" />
+                        {isCheckingApnsToken ? 'Checking APNs token…' : 'Check APNs Token In DB'}
+                      </Button>
+                    )}
+
+                    <div className="text-xs text-muted-foreground p-2 bg-muted/50 rounded space-y-1">
                       <p><strong>Platform:</strong> {platform}</p>
                       <p><strong>Push Registered:</strong> {isSubscribed ? 'Yes' : 'No'}</p>
                       <p><strong>Permission:</strong> {permission}</p>
+
+                      {platform === 'native' && (
+                        <>
+                          <p><strong>APNs token in DB:</strong> {apnsTokenCount === null ? 'Unknown' : apnsTokenCount > 0 ? 'Yes' : 'No'}</p>
+                          {pushDebug?.lastTokenPrefix && (
+                            <p><strong>Last token:</strong> {pushDebug.lastTokenPrefix}…</p>
+                          )}
+                          {pushDebug?.lastTokenStoreError && (
+                            <p><strong>Token store error:</strong> {pushDebug.lastTokenStoreError}</p>
+                          )}
+                          {pushDebug?.lastRegistrationError && (
+                            <p><strong>Registration error:</strong> {pushDebug.lastRegistrationError}</p>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>
