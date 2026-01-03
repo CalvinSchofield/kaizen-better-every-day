@@ -233,6 +233,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   // Form state
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [location, setLocation] = useState('');
   const [customLocation, setCustomLocation] = useState('');
   const [showCustomLocation, setShowCustomLocation] = useState(false);
@@ -598,6 +599,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   const resetForm = () => {
     setName('');
     setPhone('');
+    setEmail('');
     setLocation('');
     setCustomLocation('');
     setShowCustomLocation(false);
@@ -674,25 +676,33 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     return true;
   };
 
+  // Signed stage requires email
+  const isSignedStage = selectedStage === 'Signed';
+  const emailRequired = isSignedStage;
+  const isValidEmail = (val: string) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+
   // Check if leader form is valid
   const isLeaderFormValid = useMemo(() => {
     const finalLocation = showCustomLocation ? customLocation.trim() : location;
+    const emailValid = !emailRequired || (email.trim() !== '' && isValidEmail(email));
     return (
       name.trim() !== '' &&
       phone.trim() !== '' &&
       finalLocation !== '' &&
       recruitmentSource !== '' &&
-      (selectedRecruiter || currentRep?.id)
+      (selectedRecruiter || currentRep?.id) &&
+      emailValid
     );
-  }, [name, phone, location, customLocation, showCustomLocation, recruitmentSource, selectedRecruiter, currentRep?.id]);
+  }, [name, phone, email, location, customLocation, showCustomLocation, recruitmentSource, selectedRecruiter, currentRep?.id, emailRequired]);
 
   // Validation helpers
-  const getFieldError = (field: 'name' | 'phone' | 'location' | 'recruitmentSource' | 'recruiter') => {
+  const getFieldError = (field: 'name' | 'phone' | 'email' | 'location' | 'recruitmentSource' | 'recruiter') => {
     if (!attemptedSubmit) return false;
     const finalLocation = showCustomLocation ? customLocation.trim() : location;
     switch (field) {
       case 'name': return !name.trim();
       case 'phone': return !phone.trim();
+      case 'email': return emailRequired && (!email.trim() || !isValidEmail(email));
       case 'location': return !finalLocation;
       case 'recruitmentSource': return !recruitmentSource;
       case 'recruiter': return !(selectedRecruiter || currentRep?.id);
@@ -712,6 +722,14 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     if (!finalLocation) missingFields.push('Location');
     if (!recruitmentSource) missingFields.push('Recruitment source');
     if (!recruiterId) missingFields.push('Recruiter');
+    
+    // Email required for Signed stage
+    if (emailRequired && !email.trim()) {
+      missingFields.push('Email (required for Signed)');
+    } else if (email.trim() && !isValidEmail(email)) {
+      toast.error('Invalid email format');
+      return;
+    }
 
     if (missingFields.length > 0) {
       toast.error('Missing required fields', {
@@ -730,6 +748,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     await createRecruitMutation.mutateAsync({
       name: name.trim(),
       phone: cleanPhone ? `+1${cleanPhone}` : '',
+      email: email.trim() || undefined,
       location: finalLocation,
       recruitmentSource,
       teamId: selectedTeam || undefined,
@@ -888,6 +907,26 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
                 />
                 {getFieldError('phone') && (
                   <p className="text-xs text-destructive mt-1">Phone is required</p>
+                )}
+              </div>
+
+              {/* Email - required for Signed stage */}
+              <div>
+                <Label className={getFieldError('email') ? 'text-destructive' : ''}>
+                  Email {emailRequired ? '*' : ''}
+                </Label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="their.email@example.com"
+                  className={`mt-1 ${getFieldError('email') ? 'border-destructive ring-destructive' : ''}`}
+                />
+                {getFieldError('email') && (
+                  <p className="text-xs text-destructive mt-1">Valid email required for Signed stage</p>
+                )}
+                {!emailRequired && (
+                  <p className="text-xs text-muted-foreground mt-1">Required when moving to Signed</p>
                 )}
               </div>
 

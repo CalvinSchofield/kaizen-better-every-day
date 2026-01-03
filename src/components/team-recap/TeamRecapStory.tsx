@@ -204,15 +204,13 @@ export function TeamRecapStory({ report, onClose, onEditValue }: TeamRecapStoryP
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[60] bg-background"
+      style={{ paddingTop: 'var(--effective-safe-area-top, 0px)' }}
     >
       {/* Gradient background */}
       <div className={`absolute inset-0 bg-gradient-to-b ${gradients[gradientIndex]} transition-all duration-500`} />
 
       {/* Progress dots */}
-      <div 
-        className="absolute left-0 right-0 flex justify-center gap-1 px-4 z-10"
-        style={{ top: 'calc(var(--effective-safe-area-top, 0px) + 16px)' }}
-      >
+      <div className="absolute left-0 right-0 flex justify-center gap-1 px-4 z-20 pt-4">
         {slides.map((_, idx) => (
           <div
             key={idx}
@@ -229,15 +227,21 @@ export function TeamRecapStory({ report, onClose, onEditValue }: TeamRecapStoryP
 
       {/* Close button */}
       <button
-        onClick={onClose}
-        className="absolute right-4 z-10 p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
-        style={{ top: 'calc(var(--effective-safe-area-top, 0px) + 16px)' }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+        className="absolute right-4 z-20 p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
+        style={{ top: '16px' }}
       >
         <X className="w-5 h-5" />
       </button>
 
-      {/* Slide content */}
-      <div className="relative h-full pt-12 pb-8 overflow-y-auto">
+      {/* Slide content - full screen tap target */}
+      <div 
+        className="relative h-full pt-12 pb-8 overflow-y-auto"
+        onClick={handleNext}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={currentSlide}
@@ -253,14 +257,13 @@ export function TeamRecapStory({ report, onClose, onEditValue }: TeamRecapStoryP
         </AnimatePresence>
       </div>
 
-      {/* Touch areas for navigation - only at bottom to not block scrolling */}
+      {/* Left edge tap for previous - narrow strip */}
       <div 
-        className="absolute left-0 bottom-0 w-1/3 h-24 z-10"
-        onClick={handlePrev}
-      />
-      <div 
-        className="absolute right-0 bottom-0 w-2/3 h-24 z-10"
-        onClick={handleNext}
+        className="absolute left-0 top-20 bottom-0 w-16 z-10"
+        onClick={(e) => {
+          e.stopPropagation();
+          handlePrev();
+        }}
       />
     </motion.div>
   );
