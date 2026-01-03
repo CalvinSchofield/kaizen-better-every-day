@@ -9,7 +9,7 @@ import { useNativePushNotifications } from './useNativePushNotifications';
  */
 export function useUnifiedPushNotifications() {
   const isNative = Capacitor.isNativePlatform();
-  
+
   // Use native push for Capacitor apps, web push for browsers
   const webPush = usePushNotifications();
   const nativePush = useNativePushNotifications();
@@ -18,14 +18,18 @@ export function useUnifiedPushNotifications() {
     return {
       isSupported: nativePush.isSupported,
       isSubscribed: nativePush.isRegistered,
-      permission: nativePush.permission === 'granted' ? 'granted' as const : 
-                  nativePush.permission === 'denied' ? 'denied' as const : 
-                  'default' as const,
+      permission:
+        nativePush.permission === 'granted'
+          ? ('granted' as const)
+          : nativePush.permission === 'denied'
+            ? ('denied' as const)
+            : ('default' as const),
       isLoading: nativePush.isLoading,
       subscribe: nativePush.register,
       unsubscribe: nativePush.unregister,
       isNative: true,
-      platform: 'native' as const
+      platform: 'native' as const,
+      debug: nativePush.debug,
     };
   }
 
@@ -37,6 +41,7 @@ export function useUnifiedPushNotifications() {
     subscribe: webPush.subscribe,
     unsubscribe: webPush.unsubscribe,
     isNative: false,
-    platform: 'web' as const
+    platform: 'web' as const,
+    debug: undefined,
   };
 }

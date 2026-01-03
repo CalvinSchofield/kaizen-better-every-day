@@ -94,10 +94,9 @@ async function sendAPNs(
   bundleId: string
 ): Promise<{ success: boolean; error?: string }> {
   // Use production APNs server (use api.sandbox.push.apple.com for development)
-  const isProduction = Deno.env.get('APNS_PRODUCTION') === 'true';
-  const apnsHost = isProduction 
-    ? 'api.push.apple.com' 
-    : 'api.sandbox.push.apple.com';
+  const productionRaw = (Deno.env.get('APNS_PRODUCTION') ?? '').trim().toLowerCase();
+  const isProduction = productionRaw === 'true' || productionRaw === '1' || productionRaw === 'yes';
+  const apnsHost = isProduction ? 'api.push.apple.com' : 'api.sandbox.push.apple.com';
 
   const url = `https://${apnsHost}/3/device/${deviceToken}`;
 
@@ -223,13 +222,15 @@ serve(async (req) => {
       } else if (result.error) {
         errors.push(result.error);
         
-        // Remove invalid tokens
-        if (result.error.includes('BadDeviceToken') || result.error.includes('Unregistered')) {
+        // Remove truly invalid tokens
+        // NOTE: "BadDeviceToken" can also happen when APNS_PRODUCTION is wrong (sandbox vs prod),
+        // so we DO NOT delete tokens on BadDeviceToken.
+        if (result.error.includes('Unregistered') || result.error.startsWith('410:')) {
           await supabase
             .from('apns_device_tokens')
             .delete()
             .eq('device_token', device_token);
-          console.log('Removed invalid token:', device_token.substring(0, 20) + '...');
+          console.log('Removed unregistered token:', device_token.substring(0, 20) + '...');
         }
       }
     }
