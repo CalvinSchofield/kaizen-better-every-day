@@ -54,19 +54,19 @@ const expectations = [
 
 export const LeaderSection = () => {
   const autoplayPlugin = useRef(
-    Autoplay({ delay: 0, stopOnInteraction: false, stopOnMouseEnter: false })
+    Autoplay({ delay: 3000, stopOnInteraction: false, stopOnMouseEnter: false })
   );
   
-  // Auto-expand Track Record on scroll
+  // Auto-expand Track Record when it scrolls into view
   const accordionRef = useRef<HTMLDivElement>(null);
-  const isInView = useInView(accordionRef, { once: true, margin: "-100px" });
+  const isInView = useInView(accordionRef, { once: true, margin: "-50px" });
   const [accordionValue, setAccordionValue] = useState<string | undefined>(undefined);
   
   useEffect(() => {
     if (isInView && !accordionValue) {
       const timer = setTimeout(() => {
         setAccordionValue("track-record");
-      }, 500);
+      }, 400);
       return () => clearTimeout(timer);
     }
   }, [isInView, accordionValue]);
