@@ -1,4 +1,4 @@
-import { Target, ChevronRight, Edit2, Zap } from "lucide-react";
+import { Target, ChevronRight, Edit2, Zap, Lightbulb } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { calculateSalesPace } from "@/utils/salesPaceCalculator";
 import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { getLearningCurvePrincipleMessage, calculatePaceContext } from "@/utils/learningCurveData";
 
 interface DailyFocusCardProps {
   repData: any;
@@ -36,9 +37,9 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
   const [presentationsInput, setPresentationsInput] = useState("2");
   const [fpInput, setFpInput] = useState("1");
 
-  // Calculate daily FP+ goal using centralized pace calculator (same as Calendar)
-  const calculatedDailyFpGoal = useMemo(() => {
-    if (!goals?.setup_complete || !plannedDays) return null;
+  // Calculate daily FP+ goal and pace info using centralized pace calculator (same as Calendar)
+  const { calculatedDailyFpGoal, paceResult } = useMemo(() => {
+    if (!goals?.setup_complete || !plannedDays) return { calculatedDailyFpGoal: null, paceResult: null };
     
     // Use centralized pace calculator for consistency across app
     const result = calculateSalesPace({
@@ -51,11 +52,43 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
       calculateEfp,
     });
     
-    if (!result) return null;
+    if (!result) return { calculatedDailyFpGoal: null, paceResult: null };
     
     // Return the fixed daily goal (same value shown on calendar)
-    return Math.round(result.dailyGoal * 10) / 10;
+    return {
+      calculatedDailyFpGoal: Math.round(result.dailyGoal * 10) / 10,
+      paceResult: result
+    };
   }, [goals, plannedDays, knockingDays, totalFP, totalPRMR, efpModeEnabled, calculateEfp]);
+
+  // Calculate pace context for messaging
+  const paceMessage = useMemo(() => {
+    if (!paceResult || knockingDays < 18) {
+      // Before 18 days, show encouraging principle
+      return "Keep building momentum — progress isn't always linear.";
+    }
+    
+    // Calculate average from current progress / knocking days
+    const currentAverage = knockingDays > 0 ? paceResult.currentProgress / knockingDays : 0;
+    
+    const paceContext = calculatePaceContext(
+      knockingDays,
+      paceResult.remainingDailyNeeded,
+      currentAverage,
+      1, // weekInSummer - simplified for this component
+      false // isRookie - simplified for this component
+    );
+    
+    if (paceContext === 'building-momentum' || paceContext === 'on-track') {
+      return `You're on pace for your ${paceResult.isInPreseason ? 'preseason' : 'focus'} goal!`;
+    } else if (paceContext === 'stretch') {
+      return `Push for your best days — you've got this!`;
+    } else if (paceContext === 'very-ambitious') {
+      return `Your best weeks may still be ahead. Keep pushing!`;
+    }
+    
+    return null;
+  }, [paceResult, knockingDays]);
 
   // Load goals from localStorage on mount (fallback for users without goals)
   useEffect(() => {
@@ -287,6 +320,16 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
               </div>
               <Progress value={presentationsProgress} className="h-3" />
             </div>
+
+            {/* Pace Context Message */}
+            {paceMessage && goals?.setup_complete && (
+              <div className="flex items-start gap-2 pt-2 border-t border-border/50">
+                <Lightbulb className="h-3.5 w-3.5 text-primary flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {paceMessage}
+                </p>
+              </div>
+            )}
           </>
         )}
       </CardContent>

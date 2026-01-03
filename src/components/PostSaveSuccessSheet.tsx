@@ -1,16 +1,19 @@
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Calendar, BarChart3, Target, Sparkles, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { CheckCircle2, Calendar, BarChart3, Target, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useMeVsMe } from "@/hooks/useMeVsMe";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useFocusTier, FocusTier } from "@/hooks/useFocusTier";
+import { usePreseasonFP } from "@/hooks/usePreseasonFP";
+import { useRepData } from "@/hooks/useRepData";
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getSeasonInfo } from "@/utils/seasonWeekUtils";
+import { getLearningCurvePrincipleMessage, calculatePaceContext } from "@/utils/learningCurveData";
 import confetti from "canvas-confetti";
 
 interface PostSaveSuccessSheetProps {
@@ -41,6 +44,8 @@ export const PostSaveSuccessSheet = ({
   const { plannedDays } = usePlannedDays();
   const { isEnabled: meVsMeEnabled } = useMeVsMe();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
+  const { knockingDays, totalFP, totalPRMR } = usePreseasonFP();
+  const { repData } = useRepData();
   
   // Get current season info and comparison year
   const seasonInfo = useMemo(() => getSeasonInfo(new Date()), []);
@@ -237,6 +242,50 @@ export const PostSaveSuccessSheet = ({
   const goalMet = dailyGoal !== null && displayFpValue >= dailyGoal;
   const progressPercent = dailyGoal ? Math.min(100, (displayFpValue / dailyGoal) * 100) : 0;
 
+  // Calculate pace insight message
+  const paceInsight = useMemo(() => {
+    if (!goals?.setup_complete || knockingDays < 1) return null;
+    
+    const isRookie = repData?.year === "Rookie";
+    const currentSeasonProgress = efpModeEnabled ? calculateEfp(totalPRMR) : totalFP;
+    const avgPerDay = knockingDays > 0 ? currentSeasonProgress / knockingDays : 0;
+    
+    // Calculate new average including today
+    const newKnockingDays = knockingDays + 1;
+    const newTotal = currentSeasonProgress + displayFpValue;
+    const newAvg = newTotal / newKnockingDays;
+    
+    // Determine pace context
+    const weekInSummer = seasonInfo?.week || 1;
+    
+    if (knockingDays < 18) {
+      // Before enough data, show encouraging message
+      return {
+        type: 'early',
+        message: getLearningCurvePrincipleMessage(weekInSummer, isRookie, 'insufficient-data'),
+        newAverage: newAvg,
+      };
+    }
+    
+    const paceContext = calculatePaceContext(newKnockingDays, dailyGoal || 1, newAvg, weekInSummer, isRookie);
+    
+    if (paceContext === 'building-momentum' || paceContext === 'on-track') {
+      return {
+        type: 'ahead',
+        message: `Your average is now ${newAvg.toFixed(2)}/day — you're on pace!`,
+        newAverage: newAvg,
+      };
+    } else if (paceContext === 'stretch') {
+      return {
+        type: 'stretch',
+        message: `Your average is ${newAvg.toFixed(2)}/day — push for more days like your best!`,
+        newAverage: newAvg,
+      };
+    }
+    
+    return null;
+  }, [goals, knockingDays, totalFP, totalPRMR, displayFpValue, dailyGoal, efpModeEnabled, calculateEfp, repData, seasonInfo]);
+
   // Trigger confetti when goal is met
   useEffect(() => {
     if (open && goalMet) {
@@ -392,6 +441,18 @@ export const PostSaveSuccessSheet = ({
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Day {dayNumber} of {seasonInfo?.type}
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {/* Pace Insight - Show progress context */}
+        {paceInsight && !goalMet && (
+          <div className="px-4 mb-4">
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-primary/5 border border-primary/10">
+              <Lightbulb className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {paceInsight.message}
               </p>
             </div>
           </div>

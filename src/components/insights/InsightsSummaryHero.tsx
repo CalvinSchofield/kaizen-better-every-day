@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Target, CheckCircle2, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, CheckCircle2, Zap, Rocket } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { useRepGoals } from '@/hooks/useRepGoals';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
@@ -7,6 +7,7 @@ import { useFocusTier, FocusTier } from '@/hooks/useFocusTier';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { calculateSalesPace } from '@/utils/salesPaceCalculator';
+import { calculatePaceContext, calculateSuggestedStretchGoal } from '@/utils/learningCurveData';
 
 interface InsightsSummaryHeroProps {
   totalFp: number;
@@ -68,8 +69,22 @@ export const InsightsSummaryHero = ({
       remainingDailyNeeded: result.remainingDailyNeeded,
       isInPreseason: result.isInPreseason,
       focusTier: isUserSummerStarted ? focusTier : null,
+      projectedFinal: result.projectedFinal,
+      currentAverage: daysWorked > 0 ? (efpModeEnabled ? totalEfp : totalFp) / daysWorked : 0,
     };
   }, [goals, goalsSetUp, plannedDays, totalFp, totalPrmr, totalEfp, efpModeEnabled, daysWorked, calculateEfp, focusTier, isUserSummerStarted]);
+  
+  // Calculate stretch goal suggestion
+  const stretchSuggestion = useMemo(() => {
+    if (!paceStatus || !paceStatus.projectedFinal) return null;
+    
+    const couldDoGoal = allTiers?.couldDo?.goal || paceStatus.targetGoal;
+    return calculateSuggestedStretchGoal(
+      paceStatus.projectedFinal,
+      couldDoGoal,
+      daysWorked >= 18
+    );
+  }, [paceStatus, allTiers, daysWorked]);
   
   // Tier display config
   const tierConfig: Record<FocusTier, { label: string; color: string }> = {
@@ -137,6 +152,23 @@ export const InsightsSummaryHero = ({
                     : 'Could Do'
               }: {paceStatus.targetGoal.toFixed(0)}
             </span>
+          </div>
+        </div>
+      )}
+      
+      {/* Projected Finish Badge - Show when ahead and have enough data */}
+      {paceStatus && paceStatus.projectedFinal && daysWorked >= 18 && paceStatus.isOnTrack && (
+        <div className="flex items-center gap-2 p-3 rounded-lg mb-4 bg-primary/10 border border-primary/20">
+          <Rocket className="w-4 h-4 text-primary" />
+          <div className="flex-1">
+            <span className="text-sm font-medium text-primary">
+              Projected finish: {paceStatus.projectedFinal.toFixed(0)} {efpModeEnabled ? 'EFP' : 'FP+'}
+            </span>
+            {stretchSuggestion && (
+              <span className="text-xs text-muted-foreground ml-2">
+                — Consider stretching to {stretchSuggestion.toFixed(0)}!
+              </span>
+            )}
           </div>
         </div>
       )}
