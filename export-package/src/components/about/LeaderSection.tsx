@@ -54,7 +54,7 @@ const expectations = [
 
 export const LeaderSection = () => {
   const autoplayPlugin = useRef(
-    Autoplay({ delay: 3000, stopOnInteraction: false, stopOnMouseEnter: false })
+    Autoplay({ delay: 1500, stopOnInteraction: false, stopOnMouseEnter: false })
   );
   
   // Auto-expand Track Record when it scrolls into view
