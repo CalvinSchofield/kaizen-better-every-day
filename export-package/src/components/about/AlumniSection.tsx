@@ -108,21 +108,17 @@ const AlumniCard = ({ alumni, index }: AlumniCardProps) => {
           </div>
         </div>
         
-        {/* Expandable toggle for Josh and Misael */}
-        {hasExpandableContent && (
+        {/* Josh - show text screenshot directly */}
+        {isJosh && (
           <>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="w-full px-5 py-3 flex items-center justify-between bg-muted/50 hover:bg-muted transition-colors border-t border-border"
             >
               <div className="flex items-center gap-2">
-                {isJosh ? (
-                  <MessageSquare className="w-4 h-4 text-primary" />
-                ) : (
-                  <Home className="w-4 h-4 text-primary" />
-                )}
+                <MessageSquare className="w-4 h-4 text-primary" />
                 <span className="text-sm font-medium text-foreground">
-                  {isJosh ? "Read Josh's Message" : "See the House"}
+                  See Josh's Text
                 </span>
               </div>
               {isExpanded ? (
@@ -142,40 +138,65 @@ const AlumniCard = ({ alumni, index }: AlumniCardProps) => {
                   className="overflow-hidden"
                 >
                   <div className="px-5 pb-5 pt-3">
-                    {alumni.expandableContent && (
-                      <p className={`text-sm ${isJosh ? "italic text-foreground bg-muted/50 p-3 rounded-xl" : "text-muted-foreground"}`}>
-                        {alumni.expandableContent}
-                      </p>
-                    )}
-                    
-                    {alumni.expandableImage && (
-                      <div 
-                        className="mt-3 cursor-pointer"
-                        onClick={() => setShowImageModal(true)}
-                      >
-                        <BlurImage
-                          src={alumni.expandableImage}
-                          alt={alumni.expandableImageCaption || "Expanded content"}
-                          loading="lazy"
-                          containerClassName="w-full aspect-[4/3] rounded-xl overflow-hidden"
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                        />
-                        <p className="text-xs text-muted-foreground mt-2 text-center">
-                          {alumni.expandableImageCaption} • Tap to expand
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Josh's text screenshot */}
-                    {isJosh && (
+                    <BlurImage
+                      src="/images/about-team/josh-text.png"
+                      alt="Josh's thank you text"
+                      loading="lazy"
+                      containerClassName="w-full rounded-lg border border-border overflow-hidden"
+                      className="w-full h-auto"
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        )}
+        
+        {/* Misael - expandable house image */}
+        {isMisael && alumni.expandableImage && (
+          <>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="w-full px-5 py-3 flex items-center justify-between bg-muted/50 hover:bg-muted transition-colors border-t border-border"
+            >
+              <div className="flex items-center gap-2">
+                <Home className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">
+                  See the House
+                </span>
+              </div>
+              {isExpanded ? (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              )}
+            </button>
+            
+            <AnimatePresence>
+              {isExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-5 pb-5 pt-3">
+                    <div 
+                      className="cursor-pointer"
+                      onClick={() => setShowImageModal(true)}
+                    >
                       <BlurImage
-                        src="/images/about-team/josh-text.png"
-                        alt="Josh's thank you text"
+                        src={alumni.expandableImage}
+                        alt={alumni.expandableImageCaption || "Expanded content"}
                         loading="lazy"
-                        containerClassName="w-full rounded-lg border border-border mt-3 overflow-hidden"
-                        className="w-full h-auto"
+                        containerClassName="w-full aspect-[4/3] rounded-xl overflow-hidden"
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                       />
-                    )}
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        {alumni.expandableImageCaption} • Tap to expand
+                      </p>
+                    </div>
                   </div>
                 </motion.div>
               )}
