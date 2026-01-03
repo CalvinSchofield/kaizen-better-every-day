@@ -17,10 +17,10 @@ export const SuccessStoryCard = ({ story, index }: SuccessStoryCardProps) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 30 }}
+      initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ delay: index * 0.1 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
       className="flex-shrink-0 w-full"
     >
       <div className="bg-card rounded-3xl overflow-hidden border border-border shadow-lg">

@@ -22,7 +22,7 @@ const leaderPhotos = [
   "/images/about-team/jack-mair.png",
   "/images/about-team/ephraim-wilde.jpg",
   "/images/about-team/deandre-abraham.png",
-  "/images/about-team/calder-severson.jpeg",
+  "/images/about-team/calder-severson.png",
 ];
 
 // Preload a single image

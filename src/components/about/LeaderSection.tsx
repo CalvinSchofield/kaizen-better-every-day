@@ -30,7 +30,7 @@ const teamLeads = [
   { name: "Jack Mair", photo: "/images/about-team/jack-mair.png" },
   { name: "Ephraim Wilde", photo: "/images/about-team/ephraim-wilde.jpg" },
   { name: "Deandre Abraham", photo: "/images/about-team/deandre-abraham.png" },
-  { name: "Calder Severson", photo: "/images/about-team/calder-severson.jpeg" },
+  { name: "Calder Severson", photo: "/images/about-team/calder-severson.png" },
 ];
 
 const trackRecord = [
