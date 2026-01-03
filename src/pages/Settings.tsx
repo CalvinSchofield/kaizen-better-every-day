@@ -11,7 +11,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, ChevronRight, Bell, Percent, ClipboardList, RotateCcw, BarChart3, Save, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { useRepData } from "@/hooks/useRepData";
-import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useUnifiedPushNotifications } from "@/hooks/useUnifiedPushNotifications";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
 import { resetAllTours } from "@/hooks/usePageTour";
@@ -109,7 +109,7 @@ export default function Settings() {
   const [draggedCounter, setDraggedCounter] = useState<string | null>(null);
   
   // Push notifications
-  const { isSupported: notificationsSupported, isSubscribed, permission, subscribe, unsubscribe, isLoading: notificationsLoading } = usePushNotifications();
+  const { isSupported: notificationsSupported, isSubscribed, permission, subscribe, unsubscribe, isLoading: notificationsLoading, isNative, platform } = useUnifiedPushNotifications();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
   const [isSendingTestPush, setIsSendingTestPush] = useState(false);
@@ -1198,14 +1198,35 @@ export default function Settings() {
                 onClick={async () => {
                   setIsSendingTestPush(true);
                   try {
-                    const { error } = await supabase.functions.invoke('test-push-notification', {
-                      body: { targetEmail: 'calvinjschofield@gmail.com' }
-                    });
-                    if (error) throw error;
-                    toast({
-                      title: "Test notification sent",
-                      description: "Check your device for the rich notification!",
-                    });
+                    // Try both Web Push and APNs
+                    const results = await Promise.allSettled([
+                      supabase.functions.invoke('test-push-notification', {
+                        body: { targetEmail: 'calvinjschofield@gmail.com' }
+                      }),
+                      supabase.functions.invoke('send-apns-notification', {
+                        body: { 
+                          targetEmail: 'calvinjschofield@gmail.com',
+                          title: '🧪 Native Test',
+                          body: 'This is a test notification from TestFlight!',
+                          type: 'test_native'
+                        }
+                      })
+                    ]);
+                    
+                    const webResult = results[0];
+                    const apnsResult = results[1];
+                    
+                    const webSuccess = webResult.status === 'fulfilled' && !webResult.value.error;
+                    const apnsSuccess = apnsResult.status === 'fulfilled' && !apnsResult.value.error;
+                    
+                    if (webSuccess || apnsSuccess) {
+                      toast({
+                        title: "Test notification sent",
+                        description: `Web Push: ${webSuccess ? '✓' : '✗'} | APNs: ${apnsSuccess ? '✓' : 'Not configured'}`,
+                      });
+                    } else {
+                      throw new Error('Both notification methods failed');
+                    }
                   } catch (err: any) {
                     console.error('Test push error:', err);
                     toast({
@@ -1221,7 +1242,7 @@ export default function Settings() {
                 {isSendingTestPush ? "Sending..." : "🔔 Test Rich Notification"}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
-                Sends a test push notification to your device
+                Tests both Web Push (PWA) and APNs (TestFlight)
               </p>
             </CardContent>
           </Card>

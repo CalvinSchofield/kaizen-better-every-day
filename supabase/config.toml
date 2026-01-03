@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.get-vapid-public-key]
 verify_jwt = false
+
+[functions.send-apns-notification]
+verify_jwt = false
