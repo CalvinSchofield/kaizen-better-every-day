@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { motion } from "framer-motion";
 import { Phone, Mail, Trophy, Target, Handshake, Key, Crown } from "lucide-react";
 import Autoplay from "embla-carousel-autoplay";
@@ -52,6 +53,10 @@ const expectations = [
 ];
 
 export const LeaderSection = () => {
+  const autoplayPlugin = useRef(
+    Autoplay({ delay: 2000, stopOnInteraction: false, stopOnMouseEnter: true })
+  );
+
   return (
     <section className="py-16 bg-muted/30">
       <div className="max-w-lg mx-auto px-4">
@@ -230,13 +235,7 @@ export const LeaderSection = () => {
           dragFree: true,
           loop: true,
         }}
-        plugins={[
-          Autoplay({
-            delay: 2000,
-            stopOnInteraction: false,
-            stopOnMouseEnter: true,
-          }),
-        ]}
+        plugins={[autoplayPlugin.current]}
         className="w-full"
       >
         <CarouselContent className="ml-4">
