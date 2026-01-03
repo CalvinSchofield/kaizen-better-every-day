@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { Phone, Mail, Trophy, Target, Handshake, Key, Crown, ChevronDown } from "lucide-react";
+import { Phone, Mail, Trophy, Target, Handshake, Key, Crown } from "lucide-react";
+import Autoplay from "embla-carousel-autoplay";
 import { Button } from "@/components/ui/button";
 import { BlurImage } from "@/components/ui/BlurImage";
 import {
@@ -230,7 +231,7 @@ export const LeaderSection = () => {
           loop: true,
         }}
         plugins={[
-          require("embla-carousel-autoplay").default({
+          Autoplay({
             delay: 2000,
             stopOnInteraction: false,
             stopOnMouseEnter: true,
