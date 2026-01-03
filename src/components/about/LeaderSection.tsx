@@ -1,5 +1,5 @@
-import { useRef } from "react";
-import { motion } from "framer-motion";
+import { useRef, useState, useEffect } from "react";
+import { motion, useInView } from "framer-motion";
 import { Phone, Mail, Trophy, Target, Handshake, Key, Crown } from "lucide-react";
 import Autoplay from "embla-carousel-autoplay";
 import { Button } from "@/components/ui/button";
@@ -54,8 +54,22 @@ const expectations = [
 
 export const LeaderSection = () => {
   const autoplayPlugin = useRef(
-    Autoplay({ delay: 2000, stopOnInteraction: false, stopOnMouseEnter: true })
+    Autoplay({ delay: 0, stopOnInteraction: false, stopOnMouseEnter: false })
   );
+  
+  // Auto-expand Track Record on scroll
+  const accordionRef = useRef<HTMLDivElement>(null);
+  const isInView = useInView(accordionRef, { once: true, margin: "-100px" });
+  const [accordionValue, setAccordionValue] = useState<string | undefined>(undefined);
+  
+  useEffect(() => {
+    if (isInView && !accordionValue) {
+      const timer = setTimeout(() => {
+        setAccordionValue("track-record");
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isInView, accordionValue]);
 
   return (
     <section className="py-16 bg-muted/30">
@@ -129,7 +143,14 @@ export const LeaderSection = () => {
           </div>
 
           {/* Collapsible Sections */}
-          <Accordion type="single" collapsible defaultValue="track-record" className="w-full">
+          <Accordion 
+            ref={accordionRef}
+            type="single" 
+            collapsible 
+            value={accordionValue} 
+            onValueChange={setAccordionValue}
+            className="w-full"
+          >
             {/* Track Record */}
             <AccordionItem value="track-record" className="border-b border-border">
               <AccordionTrigger className="px-5 py-4 hover:no-underline">

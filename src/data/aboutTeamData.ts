@@ -257,10 +257,9 @@ export const alumniStories: AlumniStory[] = [
   {
     id: "misael",
     name: "Misael Sanchez",
-    photo: "/images/about-team/misael-house.jpg",
+    photo: "/images/about-team/misael-sanchez.png",
     currentRole: "Homeowner & Provider",
     story: "Used his Vivint earnings to buy a house and retire his mom.",
-    expandableContent: "Misael came from humble beginnings and had a clear goal: take care of his family. After just a few seasons with Vivint, he was able to buy a house and give his mom the retirement she deserved. This is what's possible when you commit to the process.",
     expandableImage: "/images/about-team/misael-house.jpg",
     expandableImageCaption: "Misael in front of his new home"
   },
@@ -283,8 +282,7 @@ export const alumniStories: AlumniStory[] = [
     name: "Josh Guthrie",
     photo: "/images/about-team/josh-guthrie.png",
     currentRole: "Medical Device Sales",
-    story: "Wanted to transition to medical sales—the job increased his offer because of the experience he earned with Vivint.",
-    expandableContent: '"Hey Calvin, just wanted to say thank you for bringing me onto the team and teaching me what I needed to learn. I used to think I was a good salesman, but after selling for you I realized I still had a lot to learn. The skills I learned are a big reason I now have this job in medical device sales. It\'s been a game changer for my career."'
+    story: "Wanted to transition to medical sales—the job increased his offer because of the experience he earned with Vivint."
   }
 ];
 
