@@ -93,6 +93,10 @@ serve(async (req) => {
       });
     }
 
+    // Check if moving to Signed or beyond - require email
+    const signedPlusStages = ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
+    const isMovingToSignedPlus = signedPlusStages.some(s => s.toLowerCase() === newStage.toLowerCase());
+
     // Get current recruit info
     let currentRecruit: { id: string; stage: string | null; name: string; email: string | null } | null = null;
     let currentRep: { id: string; stage: string | null; name: string } | null = null;
@@ -108,6 +112,18 @@ serve(async (req) => {
       console.error('[update-recruit-stage] Error fetching recruit:', recruitError);
     }
     currentRecruit = recruit;
+
+    // Validate email requirement for Signed+ stages
+    if (isMovingToSignedPlus && currentRecruit && (!currentRecruit.email || currentRecruit.email.trim() === '')) {
+      console.error('[update-recruit-stage] Email required for Signed stage');
+      return new Response(JSON.stringify({ 
+        error: 'Email is required before moving to Signed stage',
+        requiresEmail: true 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Fallback: in leader views we sometimes only have a rep record
     if (!currentRecruit) {
