@@ -438,7 +438,7 @@ export const LogSaleSheet = ({
           )}
         </DrawerHeader>
 
-        <div className="px-4 pb-6 space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0 max-h-[70dvh]">
+        <div className="px-4 pb-8 space-y-5 overflow-y-auto overflow-x-hidden flex-1 min-h-0 max-h-[70dvh]">
           {/* Sale Type Toggle */}
           <div className="flex gap-2 p-1 bg-muted rounded-xl">
             <button
@@ -783,7 +783,7 @@ export const LogSaleSheet = ({
           )}
 
           {/* Action Buttons */}
-          <div className="space-y-3 pt-2">
+          <div className="space-y-3 pt-4">
             <Button
               onClick={handleSubmit}
               className="w-full h-12 text-base font-semibold"
