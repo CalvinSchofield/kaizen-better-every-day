@@ -34,10 +34,10 @@ const teamLeads = [
 const trackRecord = [
   "5 years in the field (rookie → vet → leader)",
   "4× Dream Team Earner 🇺🇸",
-  "#1 in Regional Growth (2025)",
-  "Top 3 Upgrade Rep company-wide",
   "Top 3 Earnings Rep out of ~6,000 reps",
+  "Top 3 Upgrade Rep company-wide",
   "Highest Avg. PRMR among reps with 100+ sales",
+  "#1 Growth in Region (2025)",
   "2× Viper Champion",
   "Sevens Competition Winner",
 ];
@@ -47,7 +47,7 @@ const expectations = [
   "Real coaching, not hype",
   "High standards with real support",
   "A proven path to get prepared and get paid",
-  "High quality trainings and tech to help you leverage what you can control — your attitude and effort",
+  "Training that actually works and tech no other team has—so you can put all your energy into effort and mindset.",
 ];
 
 export const LeaderSection = () => {
@@ -205,7 +205,7 @@ export const LeaderSection = () => {
                 <Key className="w-4 h-4 text-primary" />
               </div>
               <p className="text-sm font-medium text-foreground leading-relaxed">
-                If you're willing to work, stay coachable, and commit to the process — <span className="text-primary">I'll go to bat for you.</span>
+                If you're willing to work, stay coachable, and commit to the process — you got me in your corner. I don't take it lightly that you are trusting me with your time and effort. <span className="text-primary">Let's get to work 👊</span>
               </p>
             </div>
           </div>
@@ -227,7 +227,15 @@ export const LeaderSection = () => {
         opts={{
           align: "start",
           dragFree: true,
+          loop: true,
         }}
+        plugins={[
+          require("embla-carousel-autoplay").default({
+            delay: 2000,
+            stopOnInteraction: false,
+            stopOnMouseEnter: true,
+          }),
+        ]}
         className="w-full"
       >
         <CarouselContent className="ml-4">
