@@ -25,14 +25,14 @@ export const trackTourSteps: TourStep[] = [
   {
     target: 'track-time-bar',
     title: 'Start Your Day Here',
-    description: "Tap 'Start' when you begin knocking or just start tracking! This will track your hours automatically. Pause when you take a quick lunch break, then continue tracking to resume.",
-    position: 'bottom',
+    description: "Tap 'Start' when you begin knocking. This tracks your hours automatically. Pause for breaks, then resume when you're back.",
+    position: 'auto', // Let it auto-position based on available space
   },
   {
     target: 'track-counter-grid',
     title: 'Count Your Activity',
     description: 'Tap any counter to add one. Swipe down to subtract. Your progress saves automatically.',
-    position: 'bottom',
+    position: 'auto',
   },
   {
     target: 'track-fp-counter',
@@ -43,7 +43,7 @@ export const trackTourSteps: TourStep[] = [
   {
     target: 'track-log-sale-sheet',
     title: 'Capture Deal Details',
-    description: 'After logging a sale, choose between FP or Upgrade. Add your PRMR details here too — this is where you capture everything about the deal!',
+    description: 'After logging a sale, choose between FP or Upgrade. Add your PRMR details here too.',
     position: 'top',
     action: 'openLogSaleSheet',
   },
