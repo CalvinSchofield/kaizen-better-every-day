@@ -83,39 +83,41 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
     const spaceBelow = viewportHeight - rect.bottom;
     const cardHeight = 200; // Approximate card height
     const safeMargin = 24;
+    const bottomNavHeight = 100; // Account for bottom nav + safe area
 
     if (step?.position === 'top') {
+      // Card should appear ABOVE the spotlight element
       setCardPosition('top');
-      // If spotlight is high, push card down to avoid overlap
-      const spotlightBottom = rect.bottom + 8;
-      if (spotlightBottom > 120) {
-        setCardOffset(Math.max(0, spotlightBottom - 100));
-      } else {
-        setCardOffset(0);
-      }
+      setCardOffset(0);
     } else if (step?.position === 'bottom') {
-      setCardPosition('bottom');
-      // If spotlight is low, push card up to avoid overlap
-      const spotlightTop = rect.top - 8;
-      const bottomCardTop = viewportHeight - cardHeight - 40;
-      if (spotlightTop < bottomCardTop + cardHeight) {
-        setCardOffset(Math.max(0, bottomCardTop + cardHeight - spotlightTop + safeMargin));
+      // Card should appear BELOW the spotlight element
+      // Calculate where the card should sit (just below the element)
+      const desiredCardTop = rect.bottom + safeMargin;
+      const availableSpaceBelow = viewportHeight - desiredCardTop - bottomNavHeight;
+      
+      if (availableSpaceBelow >= cardHeight) {
+        // Enough space below element - position card there
+        // We use 'bottom' positioning from viewport bottom, so calculate offset
+        const cardBottomOffset = viewportHeight - desiredCardTop - cardHeight;
+        setCardPosition('bottom');
+        setCardOffset(Math.max(0, cardBottomOffset - 32)); // 32 is base bottom offset
       } else {
+        // Not enough space below - place at bottom of screen
+        setCardPosition('bottom');
         setCardOffset(0);
       }
     } else {
       // Auto: place card where there's more space, with offset if needed
-      if (spaceBelow > spaceAbove && spaceBelow > cardHeight + safeMargin) {
+      if (spaceBelow > spaceAbove && spaceBelow > cardHeight + safeMargin + bottomNavHeight) {
         setCardPosition('bottom');
         setCardOffset(0);
       } else if (spaceAbove > cardHeight + safeMargin) {
         setCardPosition('top');
         setCardOffset(0);
       } else {
-        // Not enough space, use bottom and push up
+        // Default to bottom with no offset
         setCardPosition('bottom');
-        const overlap = cardHeight - spaceBelow + safeMargin;
-        setCardOffset(Math.max(0, overlap));
+        setCardOffset(0);
       }
     }
   };
