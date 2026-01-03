@@ -202,8 +202,11 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
     >
       <div className={`absolute inset-0 bg-gradient-to-b ${gradients[gradientIndex]} transition-all duration-500`} />
 
-      {/* Progress dots */}
-      <div className="absolute left-0 right-0 flex justify-center gap-1.5 px-4 z-20 pt-4">
+      {/* Progress dots - positioned below safe area */}
+      <div 
+        className="absolute left-0 right-0 flex justify-center gap-1.5 px-4 z-20"
+        style={{ top: 'calc(var(--effective-safe-area-top, 0px) + 8px)' }}
+      >
         {slides.map((_, idx) => (
           <div
             key={idx}
@@ -218,14 +221,14 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
         ))}
       </div>
 
-      {/* Close button */}
+      {/* Close button - positioned below safe area */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           onClose();
         }}
         className="absolute right-4 z-20 p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
-        style={{ top: '16px' }}
+        style={{ top: 'calc(var(--effective-safe-area-top, 0px) + 8px)' }}
       >
         <X className="w-5 h-5" />
       </button>
