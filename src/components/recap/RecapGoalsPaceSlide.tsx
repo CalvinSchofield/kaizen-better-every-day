@@ -371,6 +371,8 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     if (!goalsData || !goalsData.isRookie || !goalsData.isFirstHalfOfSummer) return null;
     
     const plannedWeeks = Math.round(goalsData.totalKnockingDays / 5);
+    if (plannedWeeks <= 0) return null; // Prevent division by zero
+    
     const curve = getClosestLearningCurve(plannedWeeks);
     const focusGoal = goalsData.focusTier === 'mustDo' 
       ? goalsData.mustDoGoal 
@@ -378,9 +380,12 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
         ? goalsData.couldDoGoal 
         : goalsData.willDoGoal;
     
+    if (!focusGoal || focusGoal <= 0) return null; // No valid goal to show
+    
     return {
-      curve: scaleLearningCurve(curve, focusGoal || 100),
+      curve: scaleLearningCurve(curve, focusGoal),
       plannedWeeks,
+      focusGoal, // Store for display
       isUsing18Week: plannedWeeks < 21,
     };
   }, [goalsData]);
@@ -692,7 +697,7 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
           <CollapsibleContent>
             <div className="mt-2 p-4 bg-card rounded-xl border border-border">
               <p className="text-sm text-muted-foreground mb-3">
-                Here's what a typical path to {Math.round(goalsData.preseasonGoal)} {unit} looks like over {learningCurveData.plannedWeeks} weeks. 
+                Here's what a typical path to {Math.round(learningCurveData.focusGoal || 0)} {unit} looks like over {learningCurveData.plannedWeeks} weeks. 
                 Notice how sales accelerate as you gain experience:
               </p>
               
@@ -728,7 +733,7 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
               <div className="bg-muted/50 rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">
                   <strong className="text-foreground">Key insight:</strong> At the midpoint (week {Math.round(learningCurveData.plannedWeeks / 2)}), 
-                  you'd only be at ~{Math.round(goalsData.preseasonGoal * 0.35)}/{Math.round(goalsData.preseasonGoal)}. That's normal! 
+                  you'd only be at ~{Math.round((learningCurveData.focusGoal || 0) * 0.35)}/{Math.round(learningCurveData.focusGoal || 0)}. That's normal! 
                   What matters is consistent effort, not whether you start hot.
                 </p>
               </div>

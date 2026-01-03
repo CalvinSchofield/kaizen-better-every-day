@@ -151,15 +151,32 @@ export const SalesLoggerCard = ({
     return null; // Don't show card if no sales
   }
 
+  // Label for which goal tier is being tracked
+  const tierLabel = (() => {
+    if (!goalsSetUp || dailyGoal <= 0) return null;
+    if (!isUserSummerStarted) return 'Preseason Goal';
+    switch (focusTier) {
+      case 'mustDo': return 'Must Do Goal';
+      case 'willDo': return 'Will Do Goal';
+      case 'couldDo': return 'Could Do Goal';
+      default: return 'Daily Goal';
+    }
+  })();
+
   return (
     <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
       <CardContent className="p-4 space-y-3">
         {/* Header with totals */}
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <span className="text-lg">💰</span>
-            Today's Sales
-          </h3>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <span className="text-lg">💰</span>
+              Today's Sales
+            </h3>
+            {tierLabel && (
+              <span className="text-[10px] text-muted-foreground ml-7">{tierLabel}</span>
+            )}
+          </div>
           <div className="text-right">
             {efpModeEnabled ? (
               <>
