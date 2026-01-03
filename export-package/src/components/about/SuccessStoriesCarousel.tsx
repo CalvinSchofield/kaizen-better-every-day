@@ -15,6 +15,7 @@ export const SuccessStoriesCarousel = () => {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
         >
           <h2 className="text-2xl font-bold mb-2">Real Rookie Stories</h2>
           <p className="text-muted-foreground">

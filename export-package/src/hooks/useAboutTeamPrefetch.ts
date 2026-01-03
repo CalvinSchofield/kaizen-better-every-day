@@ -22,7 +22,7 @@ const leaderPhotos = [
   "/images/about-team/jack-mair.png",
   "/images/about-team/ephraim-wilde.jpg",
   "/images/about-team/deandre-abraham.png",
-  "/images/about-team/calder-severson.jpeg",
+  "/images/about-team/calder-severson.png",
 ];
 
 // Preload a single image
@@ -57,15 +57,21 @@ const getAllAboutTeamImages = (): string[] => {
     images.push(photo.src);
   });
   
-  // Alumni photos
+  // Alumni photos and expandable images
   alumniStories.forEach(alumni => {
     if (alumni.photo) {
       images.push(alumni.photo);
+    }
+    if (alumni.expandableImage) {
+      images.push(alumni.expandableImage);
     }
   });
   
   // Josh's text screenshot
   images.push("/images/about-team/josh-text.png");
+  
+  // Misael's house photo
+  images.push("/images/about-team/misael-house.jpg");
   
   return [...new Set(images)]; // Remove duplicates
 };

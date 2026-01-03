@@ -46,7 +46,7 @@ export const CultureGallery = () => {
                   src={photo.src}
                   alt={photo.alt}
                   loading="lazy"
-                  aspectRatio="aspect-[4/3]"
+                  containerClassName="aspect-[4/3]"
                   className="w-full h-full object-cover"
                 />
                 {photo.caption && (
