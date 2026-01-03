@@ -239,7 +239,6 @@ export const SwipeableRecruitItem = ({
           className="flex items-start justify-between gap-2"
           onClick={() => {
             onRecruitClick(item.recruit);
-            onDrawerClose();
           }}
         >
           <div className="flex-1 min-w-0">

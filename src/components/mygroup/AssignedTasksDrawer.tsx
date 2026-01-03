@@ -95,7 +95,6 @@ export const AssignedTasksDrawer = ({
                       onClick={() => {
                         if (task.recruit && onRecruitClick) {
                           onRecruitClick(task.recruit_id);
-                          onOpenChange(false);
                         }
                       }}
                     >
