@@ -50,11 +50,14 @@ interface DealBreakdown {
   fastestDeal: DealHighlight | null;
   slowestDeal: DealHighlight | null;
   highestPrmrDeal: DealHighlight | null;
+  lowestPrmrDeal: DealHighlight | null;
   mostExpensiveDeal: DealHighlight | null;
   earliestFpDeal: DealHighlight | null;
   latestFpDeal: DealHighlight | null;
   earliestUpgradeDeal: DealHighlight | null;
   latestUpgradeDeal: DealHighlight | null;
+  earliestFpPlusDeal: DealHighlight | null;
+  latestFpPlusDeal: DealHighlight | null;
   
   // Sales by hour for heatmap
   salesByHourAndType: SalesByHour[];
@@ -235,9 +238,14 @@ function calculateDealBreakdown(entries: any[], timezone: string = 'America/Los_
   
   const sortedByTime = [...dealsWithTime].sort((a, b) => a.time_to_sell_minutes - b.time_to_sell_minutes);
   const sortedByPrmr = [...allDeals].filter(d => d.prmr > 0).sort((a, b) => b.prmr - a.prmr);
+  const sortedByPrmrAsc = [...allDeals].filter(d => d.prmr > 0).sort((a, b) => a.prmr - b.prmr);
   const sortedByCost = [...allDeals].filter(d => d.money_spent > 0).sort((a, b) => b.money_spent - a.money_spent);
   const sortedFpByDate = [...fpDeals].sort((a, b) => new Date(a.timestamp || a.date).getTime() - new Date(b.timestamp || b.date).getTime());
   const sortedUpgradeByDate = [...upgradeDeals].sort((a, b) => new Date(a.timestamp || a.date).getTime() - new Date(b.timestamp || b.date).getTime());
+  
+  // FP+ deals = FP deals + Upgrades with PRMR >= 85
+  const fpPlusDeals = [...fpDeals, ...upgradeDeals.filter(d => d.prmr >= 85)];
+  const sortedFpPlusByDate = fpPlusDeals.sort((a, b) => new Date(a.timestamp || a.date).getTime() - new Date(b.timestamp || b.date).getTime());
   
   // Calculate sales by hour for heatmap
   const salesByHourAndType: SalesByHour[] = Array.from({ length: 24 }, (_, hour) => ({
@@ -314,11 +322,14 @@ function calculateDealBreakdown(entries: any[], timezone: string = 'America/Los_
     fastestDeal: sortedByTime[0] ? toHighlight(sortedByTime[0]) : null,
     slowestDeal: sortedByTime.length > 0 ? toHighlight(sortedByTime[sortedByTime.length - 1]) : null,
     highestPrmrDeal: sortedByPrmr[0] ? toHighlight(sortedByPrmr[0]) : null,
+    lowestPrmrDeal: sortedByPrmrAsc[0] ? toHighlight(sortedByPrmrAsc[0]) : null,
     mostExpensiveDeal: sortedByCost[0] ? toHighlight(sortedByCost[0]) : null,
     earliestFpDeal: sortedFpByDate[0] ? toHighlight(sortedFpByDate[0]) : null,
     latestFpDeal: sortedFpByDate.length > 0 ? toHighlight(sortedFpByDate[sortedFpByDate.length - 1]) : null,
     earliestUpgradeDeal: sortedUpgradeByDate[0] ? toHighlight(sortedUpgradeByDate[0]) : null,
     latestUpgradeDeal: sortedUpgradeByDate.length > 0 ? toHighlight(sortedUpgradeByDate[sortedUpgradeByDate.length - 1]) : null,
+    earliestFpPlusDeal: sortedFpPlusByDate[0] ? toHighlight(sortedFpPlusByDate[0]) : null,
+    latestFpPlusDeal: sortedFpPlusByDate.length > 0 ? toHighlight(sortedFpPlusByDate[sortedFpPlusByDate.length - 1]) : null,
     
     salesByHourAndType,
     hasSaleTimeData,

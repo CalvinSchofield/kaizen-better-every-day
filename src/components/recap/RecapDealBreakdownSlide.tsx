@@ -51,11 +51,14 @@ interface DealBreakdownData {
   fastestDeal?: DealHighlight | null;
   slowestDeal?: DealHighlight | null;
   highestPrmrDeal?: DealHighlight | null;
+  lowestPrmrDeal?: DealHighlight | null;
   mostExpensiveDeal?: DealHighlight | null;
   earliestFpDeal?: DealHighlight | null;
   latestFpDeal?: DealHighlight | null;
   earliestUpgradeDeal?: DealHighlight | null;
   latestUpgradeDeal?: DealHighlight | null;
+  earliestFpPlusDeal?: DealHighlight | null;
+  latestFpPlusDeal?: DealHighlight | null;
   
   // Sales by hour for heatmap
   salesByHourAndType?: SalesByHour[];
@@ -165,8 +168,8 @@ export function RecapDealBreakdownSlide({ dealBreakdown }: RecapDealBreakdownSli
   const { 
     totalDeals, fpDeals, upgradeDeals, avgTimeToSell, totalMoneySpent, avgSpentPerDeal, hasDetailedData,
     totalPrmr, avgPrmrPerDeal, dealTypeBreakdown, difficultyDistribution,
-    fastestDeal, slowestDeal, highestPrmrDeal, mostExpensiveDeal, earliestFpDeal, latestFpDeal,
-    earliestUpgradeDeal, latestUpgradeDeal, salesByHourAndType, hasSaleTimeData
+    fastestDeal, slowestDeal, highestPrmrDeal, mostExpensiveDeal, 
+    earliestFpPlusDeal, latestFpPlusDeal, salesByHourAndType, hasSaleTimeData
   } = dealBreakdown;
   
   // Calculate pay-based ROI using user's pay level setting
@@ -285,41 +288,101 @@ export function RecapDealBreakdownSlide({ dealBreakdown }: RecapDealBreakdownSli
           </motion.div>
         )}
 
-        {/* FP Type Breakdown */}
-        {hasDetailedData && dealTypeBreakdown && (dealTypeBreakdown.fresh.count > 0 || dealTypeBreakdown.takeover.count > 0 || dealTypeBreakdown.diy.count > 0) && (
+        {/* Deal Type Breakdown with ROI, Time, Difficulty */}
+        {hasDetailedData && dealTypeBreakdown && (dealTypeBreakdown.fresh.count > 0 || dealTypeBreakdown.takeover.count > 0 || dealTypeBreakdown.diy.count > 0 || dealTypeBreakdown.upgrade.count > 0) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.45 }}
             className="bg-muted/30 rounded-2xl p-4"
           >
-            <p className="text-xs text-muted-foreground mb-3">FP Breakdown</p>
-            <div className="grid grid-cols-3 gap-2">
+            <p className="text-xs text-muted-foreground mb-3">Deal Type Breakdown</p>
+            <div className="space-y-2">
+              {/* Fresh */}
               {dealTypeBreakdown.fresh.count > 0 && (
-                <div className="bg-green-500/10 rounded-xl p-2.5 text-center">
-                  <p className="text-[10px] text-green-400 mb-0.5">Fresh</p>
-                  <p className="font-bold text-sm">{dealTypeBreakdown.fresh.count}</p>
-                  {dealTypeBreakdown.fresh.totalPrmr > 0 && (
-                    <p className="text-[10px] text-muted-foreground">${dealTypeBreakdown.fresh.totalPrmr}</p>
-                  )}
+                <div className="bg-green-500/10 rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-green-400">Fresh</span>
+                    <span className="font-bold text-sm">{dealTypeBreakdown.fresh.count}</span>
+                  </div>
+                  <div className="flex gap-3 text-[10px] text-muted-foreground">
+                    <span>${dealTypeBreakdown.fresh.totalPrmr} PRMR</span>
+                    {dealTypeBreakdown.fresh.totalCost > 0 && (
+                      <span>{(dealTypeBreakdown.fresh.totalPrmr / dealTypeBreakdown.fresh.totalCost).toFixed(1)}x ROI</span>
+                    )}
+                    {dealTypeBreakdown.fresh.avgTime && <span>{Math.round(dealTypeBreakdown.fresh.avgTime)}m avg</span>}
+                    {dealTypeBreakdown.fresh.avgDifficulty && (
+                      <span className={dealTypeBreakdown.fresh.avgDifficulty < 1.5 ? 'text-green-400' : dealTypeBreakdown.fresh.avgDifficulty > 2.5 ? 'text-red-400' : 'text-yellow-400'}>
+                        {dealTypeBreakdown.fresh.avgDifficulty < 1.5 ? 'Easy' : dealTypeBreakdown.fresh.avgDifficulty > 2.5 ? 'Hard' : 'Med'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
+              
+              {/* Takeover */}
               {dealTypeBreakdown.takeover.count > 0 && (
-                <div className="bg-amber-500/10 rounded-xl p-2.5 text-center">
-                  <p className="text-[10px] text-amber-400 mb-0.5">Takeover</p>
-                  <p className="font-bold text-sm">{dealTypeBreakdown.takeover.count}</p>
-                  {dealTypeBreakdown.takeover.totalPrmr > 0 && (
-                    <p className="text-[10px] text-muted-foreground">${dealTypeBreakdown.takeover.totalPrmr}</p>
-                  )}
+                <div className="bg-amber-500/10 rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-amber-400">Takeover</span>
+                    <span className="font-bold text-sm">{dealTypeBreakdown.takeover.count}</span>
+                  </div>
+                  <div className="flex gap-3 text-[10px] text-muted-foreground">
+                    <span>${dealTypeBreakdown.takeover.totalPrmr} PRMR</span>
+                    {dealTypeBreakdown.takeover.totalCost > 0 && (
+                      <span>{(dealTypeBreakdown.takeover.totalPrmr / dealTypeBreakdown.takeover.totalCost).toFixed(1)}x ROI</span>
+                    )}
+                    {dealTypeBreakdown.takeover.avgTime && <span>{Math.round(dealTypeBreakdown.takeover.avgTime)}m avg</span>}
+                    {dealTypeBreakdown.takeover.avgDifficulty && (
+                      <span className={dealTypeBreakdown.takeover.avgDifficulty < 1.5 ? 'text-green-400' : dealTypeBreakdown.takeover.avgDifficulty > 2.5 ? 'text-red-400' : 'text-yellow-400'}>
+                        {dealTypeBreakdown.takeover.avgDifficulty < 1.5 ? 'Easy' : dealTypeBreakdown.takeover.avgDifficulty > 2.5 ? 'Hard' : 'Med'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
+              
+              {/* DIY */}
               {dealTypeBreakdown.diy.count > 0 && (
-                <div className="bg-cyan-500/10 rounded-xl p-2.5 text-center">
-                  <p className="text-[10px] text-cyan-400 mb-0.5">DIY</p>
-                  <p className="font-bold text-sm">{dealTypeBreakdown.diy.count}</p>
-                  {dealTypeBreakdown.diy.totalPrmr > 0 && (
-                    <p className="text-[10px] text-muted-foreground">${dealTypeBreakdown.diy.totalPrmr}</p>
-                  )}
+                <div className="bg-cyan-500/10 rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-cyan-400">DIY</span>
+                    <span className="font-bold text-sm">{dealTypeBreakdown.diy.count}</span>
+                  </div>
+                  <div className="flex gap-3 text-[10px] text-muted-foreground">
+                    <span>${dealTypeBreakdown.diy.totalPrmr} PRMR</span>
+                    {dealTypeBreakdown.diy.totalCost > 0 && (
+                      <span>{(dealTypeBreakdown.diy.totalPrmr / dealTypeBreakdown.diy.totalCost).toFixed(1)}x ROI</span>
+                    )}
+                    {dealTypeBreakdown.diy.avgTime && <span>{Math.round(dealTypeBreakdown.diy.avgTime)}m avg</span>}
+                    {dealTypeBreakdown.diy.avgDifficulty && (
+                      <span className={dealTypeBreakdown.diy.avgDifficulty < 1.5 ? 'text-green-400' : dealTypeBreakdown.diy.avgDifficulty > 2.5 ? 'text-red-400' : 'text-yellow-400'}>
+                        {dealTypeBreakdown.diy.avgDifficulty < 1.5 ? 'Easy' : dealTypeBreakdown.diy.avgDifficulty > 2.5 ? 'Hard' : 'Med'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Upgrade */}
+              {dealTypeBreakdown.upgrade.count > 0 && (
+                <div className="bg-blue-500/10 rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-blue-400">Upgrade</span>
+                    <span className="font-bold text-sm">{dealTypeBreakdown.upgrade.count}</span>
+                  </div>
+                  <div className="flex gap-3 text-[10px] text-muted-foreground">
+                    <span>${dealTypeBreakdown.upgrade.totalPrmr} PRMR</span>
+                    {dealTypeBreakdown.upgrade.totalCost > 0 && (
+                      <span>{(dealTypeBreakdown.upgrade.totalPrmr / dealTypeBreakdown.upgrade.totalCost).toFixed(1)}x ROI</span>
+                    )}
+                    {dealTypeBreakdown.upgrade.avgTime && <span>{Math.round(dealTypeBreakdown.upgrade.avgTime)}m avg</span>}
+                    {dealTypeBreakdown.upgrade.avgDifficulty && (
+                      <span className={dealTypeBreakdown.upgrade.avgDifficulty < 1.5 ? 'text-green-400' : dealTypeBreakdown.upgrade.avgDifficulty > 2.5 ? 'text-red-400' : 'text-yellow-400'}>
+                        {dealTypeBreakdown.upgrade.avgDifficulty < 1.5 ? 'Easy' : dealTypeBreakdown.upgrade.avgDifficulty > 2.5 ? 'Hard' : 'Med'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -571,42 +634,32 @@ export function RecapDealBreakdownSlide({ dealBreakdown }: RecapDealBreakdownSli
           </motion.div>
         )}
 
-        {/* First & Last Deals */}
-        {hasDetailedData && (earliestFpDeal || latestFpDeal || earliestUpgradeDeal || latestUpgradeDeal) && (
+        {/* First & Last FP+ Deals */}
+        {hasDetailedData && (earliestFpPlusDeal || latestFpPlusDeal) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
             className="bg-muted/30 rounded-2xl p-4"
           >
-            <p className="text-xs text-muted-foreground mb-3">First & Last Deals</p>
+            <p className="text-xs text-muted-foreground mb-3">First & Last FP+</p>
             <div className="grid grid-cols-2 gap-2 text-[10px]">
-              {earliestFpDeal && (
-                <div className="bg-emerald-500/10 rounded-lg p-2">
-                  <p className="text-emerald-400 mb-0.5">First FP</p>
-                  <p className="font-semibold">{formatDate(earliestFpDeal.date)}</p>
-                  {earliestFpDeal.prmr > 0 && <p className="text-muted-foreground">${earliestFpDeal.prmr}</p>}
+              {earliestFpPlusDeal && (
+                <div className="bg-primary/10 rounded-lg p-2">
+                  <p className="text-primary mb-0.5">First FP+</p>
+                  <p className="font-semibold">{formatDate(earliestFpPlusDeal.date)}</p>
+                  <p className="text-muted-foreground">
+                    {earliestFpPlusDeal.type} {earliestFpPlusDeal.prmr > 0 && `• $${earliestFpPlusDeal.prmr}`}
+                  </p>
                 </div>
               )}
-              {latestFpDeal && latestFpDeal.date !== earliestFpDeal?.date && (
-                <div className="bg-emerald-500/10 rounded-lg p-2">
-                  <p className="text-emerald-400 mb-0.5">Last FP</p>
-                  <p className="font-semibold">{formatDate(latestFpDeal.date)}</p>
-                  {latestFpDeal.prmr > 0 && <p className="text-muted-foreground">${latestFpDeal.prmr}</p>}
-                </div>
-              )}
-              {earliestUpgradeDeal && (
-                <div className="bg-blue-500/10 rounded-lg p-2">
-                  <p className="text-blue-400 mb-0.5">First Upgrade</p>
-                  <p className="font-semibold">{formatDate(earliestUpgradeDeal.date)}</p>
-                  {earliestUpgradeDeal.prmr > 0 && <p className="text-muted-foreground">${earliestUpgradeDeal.prmr}</p>}
-                </div>
-              )}
-              {latestUpgradeDeal && latestUpgradeDeal.date !== earliestUpgradeDeal?.date && (
-                <div className="bg-blue-500/10 rounded-lg p-2">
-                  <p className="text-blue-400 mb-0.5">Last Upgrade</p>
-                  <p className="font-semibold">{formatDate(latestUpgradeDeal.date)}</p>
-                  {latestUpgradeDeal.prmr > 0 && <p className="text-muted-foreground">${latestUpgradeDeal.prmr}</p>}
+              {latestFpPlusDeal && latestFpPlusDeal.date !== earliestFpPlusDeal?.date && (
+                <div className="bg-primary/10 rounded-lg p-2">
+                  <p className="text-primary mb-0.5">Last FP+</p>
+                  <p className="font-semibold">{formatDate(latestFpPlusDeal.date)}</p>
+                  <p className="text-muted-foreground">
+                    {latestFpPlusDeal.type} {latestFpPlusDeal.prmr > 0 && `• $${latestFpPlusDeal.prmr}`}
+                  </p>
                 </div>
               )}
             </div>
