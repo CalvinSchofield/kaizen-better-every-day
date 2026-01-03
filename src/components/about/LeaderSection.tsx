@@ -1,7 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { motion, useInView } from "framer-motion";
 import { Phone, Mail, Trophy, Target, Handshake, Key, Crown } from "lucide-react";
-import Autoplay from "embla-carousel-autoplay";
 import { Button } from "@/components/ui/button";
 import { BlurImage } from "@/components/ui/BlurImage";
 import {
@@ -10,11 +9,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-} from "@/components/ui/carousel";
 
 const teamLeads = [
   { name: "Christian Fabian", photo: "/images/about-team/christian-fabian.png" },
@@ -53,10 +47,6 @@ const expectations = [
 ];
 
 export const LeaderSection = () => {
-  const autoplayPlugin = useRef(
-    Autoplay({ delay: 1000, stopOnInteraction: false, stopOnMouseEnter: false })
-  );
-  
   // Auto-expand Track Record when it scrolls into view (only once)
   const accordionRef = useRef<HTMLDivElement>(null);
   const hasAutoExpanded = useRef(false);
@@ -72,6 +62,9 @@ export const LeaderSection = () => {
       return () => clearTimeout(timer);
     }
   }, [isInView]);
+
+  // Duplicate team leads for seamless infinite scroll
+  const duplicatedLeads = [...teamLeads, ...teamLeads];
 
   return (
     <section className="py-16 bg-muted/30">
@@ -251,33 +244,28 @@ export const LeaderSection = () => {
         </motion.p>
       </div>
 
-      {/* Team Leads Carousel */}
-      <Carousel
-        opts={{
-          align: "start",
-          dragFree: true,
-          loop: true,
-        }}
-        plugins={[autoplayPlugin.current]}
-        className="w-full"
-      >
-        <CarouselContent className="ml-4">
-          {teamLeads.map((leader) => (
-            <CarouselItem key={leader.name} className="basis-auto pl-0 pr-3">
-              <div className="text-center w-20">
-                <BlurImage
-                  src={leader.photo}
-                  alt={leader.name}
-                  loading="lazy"
-                  containerClassName="w-16 h-16 mx-auto rounded-full border-2 border-border overflow-hidden"
-                  className="w-full h-full object-cover"
-                />
-                <p className="text-xs font-medium mt-2 leading-tight">{leader.name}</p>
-              </div>
-            </CarouselItem>
+      {/* Team Leads - CSS Infinite Scroll */}
+      <div className="w-full overflow-hidden">
+        <div 
+          className="flex gap-3 animate-scroll-left"
+          style={{
+            width: 'max-content',
+          }}
+        >
+          {duplicatedLeads.map((leader, index) => (
+            <div key={`${leader.name}-${index}`} className="text-center w-20 flex-shrink-0">
+              <BlurImage
+                src={leader.photo}
+                alt={leader.name}
+                loading="lazy"
+                containerClassName="w-16 h-16 mx-auto rounded-full border-2 border-border overflow-hidden"
+                className="w-full h-full object-cover"
+              />
+              <p className="text-xs font-medium mt-2 leading-tight">{leader.name}</p>
+            </div>
           ))}
-        </CarouselContent>
-      </Carousel>
+        </div>
+      </div>
     </section>
   );
 };
