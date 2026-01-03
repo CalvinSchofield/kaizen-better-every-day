@@ -1,4 +1,5 @@
 import { useState, useCallback, ReactNode, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { IntroSlide } from "@/components/intro/IntroSlide";
@@ -78,6 +79,7 @@ const getSlides = (userType: UserType, firstName: string): IntroSlideConfig[] =>
 };
 
 export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProps) => {
+  const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
   const slides = getSlides(userType, firstName);
   const totalSlides = slides.length;
@@ -91,11 +93,17 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
 
   const handleNext = useCallback(() => {
     if (isLastSlide) {
-      onComplete();
+      // Pre-blitz rookies go to About Team to learn more about the opportunity
+      if (userType === 'pre-blitz-rookie') {
+        onComplete();
+        navigate('/about-team');
+      } else {
+        onComplete();
+      }
     } else {
       setCurrentSlide(prev => prev + 1);
     }
-  }, [isLastSlide, onComplete]);
+  }, [isLastSlide, onComplete, userType, navigate]);
 
   const handlePrev = useCallback(() => {
     if (currentSlide > 0) {
@@ -302,7 +310,7 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
           }}
           className="px-8 h-12 rounded-full font-semibold pointer-events-auto"
         >
-          {isLastSlide ? "Get Started" : "Next"}
+          {isLastSlide ? (userType === 'pre-blitz-rookie' ? "Meet the Team" : "Get Started") : "Next"}
           {!isLastSlide && <ChevronRight className="w-5 h-5 ml-1" />}
         </Button>
       </div>
