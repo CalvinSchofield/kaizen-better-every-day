@@ -31,10 +31,11 @@ export const HeroSection = () => {
       {/* Background Image with blur-up loading */}
       <BlurImage
         src={heroContent.backgroundImage}
-        alt="Team background"
+        alt="Kaizen team celebrating"
         loading="eager"
         containerClassName="absolute inset-0"
         className="w-full h-full object-cover object-bottom"
+        showPulse={true}
       />
       
       {/* Dark Overlay with gradient */}
