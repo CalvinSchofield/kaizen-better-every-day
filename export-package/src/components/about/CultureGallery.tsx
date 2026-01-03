@@ -6,6 +6,7 @@ import {
   CarouselContent,
   CarouselItem,
 } from "@/components/ui/carousel";
+import { BlurImage } from "@/components/ui/BlurImage";
 
 export const CultureGallery = () => {
   return (
@@ -39,11 +40,13 @@ export const CultureGallery = () => {
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className="relative aspect-[4/3] rounded-2xl overflow-hidden"
+                className="relative rounded-2xl overflow-hidden"
               >
-                <img 
-                  src={photo.src} 
+                <BlurImage
+                  src={photo.src}
                   alt={photo.alt}
+                  loading="lazy"
+                  aspectRatio="aspect-[4/3]"
                   className="w-full h-full object-cover"
                 />
                 {photo.caption && (

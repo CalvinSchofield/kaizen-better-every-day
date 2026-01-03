@@ -13,10 +13,13 @@ Create a new blank Lovable project
 
 1. **`public/images/about-team/`** - All image assets (copy entire folder)
 2. **`public/videos/`** - Video assets (copy entire folder)
-3. **`src/data/aboutTeamData.ts`** - All page data
-4. **`src/components/ui/carousel.tsx`** - Carousel component (if not already in project)
-5. **`src/components/about/`** - All section components (copy entire folder)
-6. **`src/pages/Index.tsx`** - Main page (replaces default Index.tsx)
+3. **`src/lib/utils.ts`** - Utility functions (cn helper)
+4. **`src/data/aboutTeamData.ts`** - All page data
+5. **`src/components/ui/carousel.tsx`** - Carousel component (if not already in project)
+6. **`src/components/ui/BlurImage.tsx`** - Blur-up image loading component
+7. **`src/hooks/useAboutTeamPrefetch.ts`** - Image preloading hook
+8. **`src/components/about/`** - All section components (copy entire folder)
+9. **`src/pages/Index.tsx`** - Main page (replaces default Index.tsx)
 
 ### 3. Update App.tsx Routes
 
@@ -45,6 +48,8 @@ These should already be in a fresh Lovable project, but verify:
 - `lucide-react`
 - `recharts`
 - `embla-carousel-react`
+- `clsx`
+- `tailwind-merge`
 
 ## File Structure
 
@@ -52,9 +57,15 @@ These should already be in a fresh Lovable project, but verify:
 export-package/
 ├── README.md (this file)
 ├── src/
+│   ├── lib/
+│   │   └── utils.ts (cn utility)
 │   ├── pages/
 │   │   └── Index.tsx (main entry point)
+│   ├── hooks/
+│   │   └── useAboutTeamPrefetch.ts (image preloading)
 │   ├── components/
+│   │   ├── ui/
+│   │   │   └── BlurImage.tsx (blur-up image component)
 │   │   └── about/
 │   │       ├── HeroSection.tsx
 │   │       ├── QuickStatsBar.tsx
@@ -70,9 +81,20 @@ export-package/
 │   └── data/
 │       └── aboutTeamData.ts
 └── public/
-    └── images/
-        └── about-team/ (your images)
+    ├── images/
+    │   └── about-team/ (your images)
+    └── videos/
+        └── ding-dong-ditch.mov
 ```
+
+## Performance Features
+
+This export package includes performance optimizations:
+
+- **BlurImage Component**: Shows blur placeholder while images load, then fades in smoothly
+- **Image Prefetching**: Critical above-fold images preload first, then remaining images load in background
+- **Lazy Loading**: Below-fold images use `loading="lazy"` for faster initial load
+- **Eager Loading**: Hero background uses `loading="eager"` for instant display
 
 ## Customization
 

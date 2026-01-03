@@ -1,6 +1,3 @@
-import { ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { HeroSection } from "@/components/about/HeroSection";
 import { QuickStatsBar } from "@/components/about/QuickStatsBar";
 import { SuccessStoriesCarousel } from "@/components/about/SuccessStoriesCarousel";
@@ -11,8 +8,12 @@ import { AlumniSection } from "@/components/about/AlumniSection";
 import { CompanyCredibility } from "@/components/about/CompanyCredibility";
 import { LeaderSection } from "@/components/about/LeaderSection";
 import { FinalCTA } from "@/components/about/FinalCTA";
+import { useAboutTeamPrefetch } from "@/hooks/useAboutTeamPrefetch";
 
 const Index = () => {
+  // Start preloading images on mount
+  useAboutTeamPrefetch(true);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Page sections */}
