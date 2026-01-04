@@ -31,7 +31,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   // Collapsed nav state
   const [isNavCollapsed, setIsNavCollapsed] = useState(false);
   const lastScrollY = useRef(0);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastScrollEl = useRef<HTMLElement | Window | null>(null);
+  const scrollContainerRef = useRef<HTMLElement | null>(null);
   const SCROLL_THRESHOLD = 80;
   
   // Get cached layout state for instant rendering (prevents flash)
@@ -96,31 +97,74 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   // Scroll detection for collapse/expand
   useEffect(() => {
     let ticking = false;
+    let lastTouchY = 0;
 
-    const getScrollY = () => {
-      const main = scrollContainerRef.current;
-      if (main && main.scrollHeight > main.clientHeight + 4) {
-        return main.scrollTop;
+    const isScrollable = (el: HTMLElement) => el.scrollHeight > el.clientHeight + 4;
+
+    const findScrollableAncestor = (start: HTMLElement | null) => {
+      let el: HTMLElement | null = start;
+      while (el && el !== document.body) {
+        if (isScrollable(el)) return el;
+        el = el.parentElement;
       }
-      return window.scrollY || document.documentElement.scrollTop;
+      return null;
     };
 
-    const handleScroll = () => {
+    const resolveScrollContext = (evtTarget: EventTarget | null) => {
+      const targetEl = evtTarget instanceof HTMLElement ? evtTarget : null;
+      const scrollableTarget = targetEl ? findScrollableAncestor(targetEl) : null;
+      if (scrollableTarget) {
+        return { el: scrollableTarget, y: scrollableTarget.scrollTop };
+      }
+
+      const main = scrollContainerRef.current;
+      if (main && isScrollable(main)) {
+        return { el: main, y: main.scrollTop };
+      }
+
+      return { el: window, y: window.scrollY || document.documentElement.scrollTop };
+    };
+
+    const applyDelta = (deltaY: number, evtTarget: EventTarget | null) => {
+      const { el, y: currentScrollY } = resolveScrollContext(evtTarget);
+
+      // If the scroll container changed (nested scroll areas), re-seed to avoid jitter.
+      if (lastScrollEl.current !== el) {
+        lastScrollEl.current = el;
+        lastScrollY.current = currentScrollY;
+        return;
+      }
+
+      if (deltaY > 8 && currentScrollY > SCROLL_THRESHOLD) {
+        setIsNavCollapsed(true);
+      } else if (deltaY < -8) {
+        setIsNavCollapsed(false);
+      }
+
+      lastScrollY.current = currentScrollY;
+    };
+
+    const handleScroll = (e: Event) => {
       if (ticking) return;
       ticking = true;
 
       window.requestAnimationFrame(() => {
-        const currentScrollY = getScrollY();
-        const scrollDiff = currentScrollY - lastScrollY.current;
+        const { el, y: currentScrollY } = resolveScrollContext(e.target);
 
-        // Only react to meaningful scroll amounts
+        if (lastScrollEl.current !== el) {
+          lastScrollEl.current = el;
+          lastScrollY.current = currentScrollY;
+          ticking = false;
+          return;
+        }
+
+        const scrollDiff = currentScrollY - lastScrollY.current;
         if (Math.abs(scrollDiff) > 10) {
           if (scrollDiff > 0 && currentScrollY > SCROLL_THRESHOLD) {
             setIsNavCollapsed(true);
           } else if (scrollDiff < 0) {
             setIsNavCollapsed(false);
           }
-
           lastScrollY.current = currentScrollY;
         }
 
@@ -128,22 +172,45 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
       });
     };
 
-    // Seed initial position
-    lastScrollY.current = getScrollY();
+    const handleWheel = (e: WheelEvent) => {
+      // Wheel/touch are the most reliable signals when pages use nested overflow containers.
+      applyDelta(e.deltaY, e.target);
+    };
 
-    // Listen to the scroll container (most pages) AND document/window (fallback)
+    const handleTouchStart = (e: TouchEvent) => {
+      lastTouchY = e.touches[0]?.clientY ?? 0;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const y = e.touches[0]?.clientY ?? lastTouchY;
+      const deltaY = lastTouchY - y; // positive = scrolling down
+      lastTouchY = y;
+      applyDelta(deltaY, e.target);
+    };
+
+    // Seed initial position
+    const seeded = resolveScrollContext(null);
+    lastScrollEl.current = seeded.el;
+    lastScrollY.current = seeded.y;
+
     const main = scrollContainerRef.current;
-    main?.addEventListener('scroll', handleScroll, { passive: true });
-    document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    main?.addEventListener("scroll", handleScroll, { passive: true });
+    document.addEventListener("scroll", handleScroll, { passive: true, capture: true });
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    document.addEventListener("wheel", handleWheel, { passive: true });
+    document.addEventListener("touchstart", handleTouchStart, { passive: true });
+    document.addEventListener("touchmove", handleTouchMove, { passive: true });
 
     return () => {
-      main?.removeEventListener('scroll', handleScroll);
-      document.removeEventListener('scroll', handleScroll, { capture: true } as any);
-      window.removeEventListener('scroll', handleScroll);
+      main?.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("wheel", handleWheel);
+      document.removeEventListener("touchstart", handleTouchStart);
+      document.removeEventListener("touchmove", handleTouchMove);
     };
   }, []);
-  
+
   // Dynamic navigation based on mode and user type - use effective values
   const getNavItems = () => {
     const isVetOrSoph = effectiveYear === "Vet" || effectiveYear === "Sophomore";
@@ -240,8 +307,10 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   const isHomePage = location.pathname === "/";
   
   // Get currently active tab for collapsed state
-  const activeItem = [...navItems, actionButton].find(item => item.path === location.pathname);
-  
+  const activeItem = [...navItems, actionButton].find((item) => item.path === location.pathname);
+  const CollapsedActiveIcon =
+    activeItem && activeItem.path !== actionButton.path ? activeItem.icon : Home;
+
   // Get page title based on current route
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -351,147 +420,133 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         style={{ paddingBottom: 'var(--nav-padding-bottom)' }}
       >
         <div className="px-4 pb-2">
-          <AnimatePresence initial={false}>
-            {isNavCollapsed ? (
-              // COLLAPSED STATE: Just active tab bubble + action button
-              <motion.div
-                key="collapsed"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                className="flex items-center justify-between mx-auto"
-                style={{ maxWidth: '380px' }}
-              >
-                {/* Collapsed bubble with active tab */}
-                <motion.button
-                  onClick={() => {
-                    hapticLight();
-                    setIsNavCollapsed(false);
-                  }}
-                  className="flex items-center justify-center bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-full p-3"
-                  whileTap={{ scale: 0.95 }}
-                >
-                  {activeItem && activeItem.path !== actionButton.path && (
-                    <activeItem.icon 
-                      className="w-6 h-6 text-foreground" 
-                      strokeWidth={2.5}
-                      fill="currentColor"
-                    />
-                  )}
-                  {(!activeItem || activeItem.path === actionButton.path) && (
-                    <Home 
-                      className="w-6 h-6 text-foreground" 
-                      strokeWidth={2.5}
-                      fill="currentColor"
-                    />
-                  )}
-                </motion.button>
-                
-                {/* Action button - always visible */}
-                <Link
-                  to={actionButton.path}
-                  onClick={() => hapticLight()}
-                  className="relative"
-                >
-                  <motion.div
-                    whileTap={{ scale: 0.9 }}
-                    className={`flex items-center justify-center rounded-full p-3 shadow-xl ${
-                      location.pathname === actionButton.path
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-primary/90 text-primary-foreground"
-                    }`}
-                  >
-                    <actionButton.icon 
-                      className="w-6 h-6" 
-                      strokeWidth={location.pathname === actionButton.path ? 2.5 : 2}
-                      fill={location.pathname === actionButton.path ? "currentColor" : "none"}
-                    />
-                    {actionButton.isLocked && (
-                      <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5">
-                        <Lock className="w-2.5 h-2.5 text-primary" />
-                      </div>
-                    )}
-                  </motion.div>
-                </Link>
-              </motion.div>
-            ) : (
-              // EXPANDED STATE: Full nav with separated action button
-              <motion.div
-                key="expanded"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                data-tour="bottom-nav"
-                className="flex items-center gap-2 mx-auto"
-                style={{ maxWidth: '380px' }}
-              >
-                {/* Main nav tabs */}
-                <div className="flex items-center justify-around flex-1 bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-[32px] py-2">
-                  {navItems.map((item) => {
-                    const isActive = location.pathname === item.path;
-                    const Icon = item.icon;
-                    
-                    return (
-                      <Link
-                        key={item.path}
-                        to={item.path}
-                        onClick={() => hapticLight()}
-                        className="relative flex flex-col items-center justify-center flex-1 py-1 active:scale-90 transition-transform duration-150"
-                      >
-                        <motion.div 
-                          className={`flex flex-col items-center gap-0.5 ${
-                            isActive ? "text-foreground" : "text-muted-foreground"
-                          }`}
-                          whileTap={{ scale: 0.9 }}
-                        >
-                          <Icon 
-                            className="w-6 h-6" 
-                            strokeWidth={isActive ? 2.5 : 1.5}
-                            fill={isActive ? "currentColor" : "none"}
-                          />
-                          <span className={`text-[11px] ${isActive ? "font-semibold" : "font-normal"}`}>
-                            {item.label}
-                          </span>
-                        </motion.div>
-                      </Link>
-                    );
-                  })}
-                </div>
-                
-                {/* Separated action button */}
-                <Link
-                  to={actionButton.path}
-                  onClick={() => hapticLight()}
-                  className="relative"
-                >
-                  <motion.div
-                    whileTap={{ scale: 0.9 }}
-                    className={`flex flex-col items-center justify-center rounded-full px-4 py-2 shadow-xl ${
-                      location.pathname === actionButton.path
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-primary/90 text-primary-foreground"
-                    }`}
-                  >
-                    <actionButton.icon 
-                      className="w-6 h-6" 
-                      strokeWidth={location.pathname === actionButton.path ? 2.5 : 2}
-                      fill={location.pathname === actionButton.path ? "currentColor" : "none"}
-                    />
-                    <span className="text-[11px] font-semibold">
-                      {actionButton.label}
-                    </span>
-                    {actionButton.isLocked && (
-                      <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5">
-                        <Lock className="w-2.5 h-2.5 text-primary" />
-                      </div>
-                    )}
-                  </motion.div>
-                </Link>
-              </motion.div>
-            )}
-          </AnimatePresence>
+           <AnimatePresence initial={false}>
+             {isNavCollapsed ? (
+               // COLLAPSED STATE: Active tab bubble + stationary action button
+               <motion.div
+                 key="collapsed"
+                 initial={false}
+                 animate={{ opacity: 1, scale: 1 }}
+                 exit={{ opacity: 0, scale: 0.98 }}
+                 transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                 className="mx-auto grid items-center gap-2"
+                 style={{ maxWidth: "380px", gridTemplateColumns: "1fr auto" }}
+               >
+                 {/* Collapsed bubble with active tab */}
+                 <motion.button
+                   onClick={() => {
+                     hapticLight();
+                     setIsNavCollapsed(false);
+                   }}
+                   className="justify-self-start"
+                   whileTap={{ scale: 0.96 }}
+                   aria-label="Expand navigation"
+                 >
+                   <div className="bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-full p-1">
+                     <div className="w-14 h-14 rounded-full bg-accent/70 ring-1 ring-primary/25 shadow-sm flex items-center justify-center">
+                       <CollapsedActiveIcon
+                         className="w-7 h-7 text-foreground"
+                         strokeWidth={2.5}
+                         fill="currentColor"
+                       />
+                     </div>
+                   </div>
+                 </motion.button>
+
+                 {/* Action button - perfectly stationary */}
+                 <Link to={actionButton.path} onClick={() => hapticLight()} className="justify-self-end">
+                   <motion.div
+                     whileTap={{ scale: 0.92 }}
+                     className={`relative w-16 h-16 rounded-full shadow-xl flex items-center justify-center ${
+                       location.pathname === actionButton.path
+                         ? "bg-primary text-primary-foreground"
+                         : "bg-primary/90 text-primary-foreground"
+                     }`}
+                   >
+                     <actionButton.icon
+                       className="w-7 h-7"
+                       strokeWidth={location.pathname === actionButton.path ? 2.5 : 2}
+                       fill={location.pathname === actionButton.path ? "currentColor" : "none"}
+                     />
+                     {actionButton.isLocked && (
+                       <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5">
+                         <Lock className="w-2.5 h-2.5 text-primary" />
+                       </div>
+                     )}
+                   </motion.div>
+                 </Link>
+               </motion.div>
+             ) : (
+               // EXPANDED STATE: Full nav with separated action button (stationary)
+               <motion.div
+                 key="expanded"
+                 initial={false}
+                 animate={{ opacity: 1, scale: 1 }}
+                 exit={{ opacity: 0, scale: 0.98 }}
+                 transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                 data-tour="bottom-nav"
+                 className="mx-auto grid items-end gap-2"
+                 style={{ maxWidth: "380px", gridTemplateColumns: "1fr auto" }}
+               >
+                 {/* Main nav tabs */}
+                 <div className="flex items-center justify-around bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-[32px] py-2">
+                   {navItems.map((item) => {
+                     const isActive = location.pathname === item.path;
+                     const Icon = item.icon;
+
+                     return (
+                       <Link
+                         key={item.path}
+                         to={item.path}
+                         onClick={() => hapticLight()}
+                         className="relative flex flex-col items-center justify-center flex-1 py-1 active:scale-90 transition-transform duration-150"
+                       >
+                         <motion.div
+                           className={`flex flex-col items-center gap-0.5 ${
+                             isActive ? "text-foreground" : "text-muted-foreground"
+                           }`}
+                           whileTap={{ scale: 0.9 }}
+                         >
+                           <Icon
+                             className="w-6 h-6"
+                             strokeWidth={isActive ? 2.5 : 1.5}
+                             fill={isActive ? "currentColor" : "none"}
+                           />
+                           <span className={`text-[11px] ${isActive ? "font-semibold" : "font-normal"}`}>
+                             {item.label}
+                           </span>
+                         </motion.div>
+                       </Link>
+                     );
+                   })}
+                 </div>
+
+                 {/* Separated action button - stationary */}
+                 <Link to={actionButton.path} onClick={() => hapticLight()} className="justify-self-end">
+                   <motion.div
+                     whileTap={{ scale: 0.92 }}
+                     className={`relative w-16 h-16 rounded-full shadow-xl flex flex-col items-center justify-center gap-0.5 ${
+                       location.pathname === actionButton.path
+                         ? "bg-primary text-primary-foreground"
+                         : "bg-primary/90 text-primary-foreground"
+                     }`}
+                   >
+                     <actionButton.icon
+                       className="w-6 h-6"
+                       strokeWidth={location.pathname === actionButton.path ? 2.5 : 2}
+                       fill={location.pathname === actionButton.path ? "currentColor" : "none"}
+                     />
+                     <span className="text-[11px] font-semibold leading-none">{actionButton.label}</span>
+                     {actionButton.isLocked && (
+                       <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5">
+                         <Lock className="w-2.5 h-2.5 text-primary" />
+                       </div>
+                     )}
+                   </motion.div>
+                 </Link>
+               </motion.div>
+             )}
+           </AnimatePresence>
         </div>
       </nav>
     </div>
