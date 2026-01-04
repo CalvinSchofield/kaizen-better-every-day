@@ -456,93 +456,51 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
               aria-label={isNavCollapsed ? "Expand navigation" : undefined}
               data-tour={isNavCollapsed ? undefined : "bottom-nav"}
             >
-              <div className="flex items-center h-16">
-                {/* Icon container - slides to the left when collapsed */}
-                <motion.div
-                  className="flex-shrink-0 p-1"
-                  animate={{
-                    x: isNavCollapsed ? 0 : 0,
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 280,
-                    damping: 22,
-                  }}
-                >
-                  <AnimatePresence mode="wait" initial={false}>
-                    {isNavCollapsed && (
-                      <motion.div
-                        key="collapsed-icon"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        transition={{
-                          type: "spring",
-                          stiffness: 400,
-                          damping: 25,
-                        }}
-                        className="w-14 h-14 rounded-full bg-accent/70 ring-1 ring-primary/25 shadow-sm flex items-center justify-center"
-                      >
-                        <CollapsedActiveIcon
-                          className="w-7 h-7 text-foreground"
-                          strokeWidth={2.5}
-                          fill="currentColor"
-                        />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
+              <div className="flex items-center justify-center h-16 w-full">
+                {isNavCollapsed ? (
+                  // COLLAPSED: Just the icon, no background ring
+                  <div className="flex items-center justify-center w-full h-full">
+                    <CollapsedActiveIcon
+                      className="w-7 h-7 text-foreground"
+                      strokeWidth={2.5}
+                      fill="currentColor"
+                    />
+                  </div>
+                ) : (
+                  // EXPANDED: Full nav tabs - no AnimatePresence to avoid flicker
+                  <div className="flex items-center justify-around py-2 w-full">
+                    {navItems.map((item) => {
+                      const isActive = location.pathname === item.path;
+                      const Icon = item.icon;
 
-                {/* Expanded nav tabs */}
-                <AnimatePresence mode="wait" initial={false}>
-                  {!isNavCollapsed && (
-                    <motion.div
-                      key="expanded-tabs"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{
-                        opacity: { duration: 0.15, delay: isNavCollapsed ? 0 : 0.05 }
-                      }}
-                      className="flex items-center justify-around py-2 w-full"
-                    >
-                      {navItems.map((item) => {
-                        const isActive = location.pathname === item.path;
-                        const Icon = item.icon;
-
-                        return (
-                          <Link
-                            key={item.path}
-                            to={item.path}
-                            onClick={() => hapticLight()}
-                            className="relative flex flex-col items-center justify-center flex-1 py-1"
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => hapticLight()}
+                          className="relative flex flex-col items-center justify-center flex-1 py-1"
+                        >
+                          <motion.div
+                            className={`flex flex-col items-center gap-0.5 ${
+                              isActive ? "text-foreground" : "text-muted-foreground"
+                            }`}
+                            whileTap={{ scale: 0.88 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
                           >
-                            <motion.div
-                              className={`flex flex-col items-center gap-0.5 ${
-                                isActive ? "text-foreground" : "text-muted-foreground"
-                              }`}
-                              whileTap={{ scale: 0.88 }}
-                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                            >
-                              <Icon
-                                className="w-6 h-6"
-                                strokeWidth={isActive ? 2.5 : 1.5}
-                                fill={isActive ? "currentColor" : "none"}
-                              />
-                              <motion.span 
-                                initial={false}
-                                animate={{ opacity: 1 }}
-                                className={`text-[11px] ${isActive ? "font-semibold" : "font-normal"}`}
-                              >
-                                {item.label}
-                              </motion.span>
-                            </motion.div>
-                          </Link>
-                        );
-                      })}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                            <Icon
+                              className="w-6 h-6"
+                              strokeWidth={isActive ? 2.5 : 1.5}
+                              fill={isActive ? "currentColor" : "none"}
+                            />
+                            <span className={`text-[11px] ${isActive ? "font-semibold" : "font-normal"}`}>
+                              {item.label}
+                            </span>
+                          </motion.div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </motion.div>
 
