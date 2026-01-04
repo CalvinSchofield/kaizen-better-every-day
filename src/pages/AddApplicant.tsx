@@ -139,7 +139,12 @@ export default function AddApplicant() {
       });
 
       if (error) throw error;
-      if (data.error) throw new Error(data.error);
+      
+      // Handle duplicate email error specifically
+      if (data?.duplicateEmail) {
+        throw new Error(data.error);
+      }
+      if (data?.error) throw new Error(data.error);
 
       // Update the recruiter_user_id if different from current user
       if (selectedRecruiterId && data.recruitId) {
@@ -156,7 +161,9 @@ export default function AddApplicant() {
       return data;
     },
     onSuccess: () => {
+      // Invalidate and refetch group-recruits immediately
       queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
+      queryClient.refetchQueries({ queryKey: ["group-recruits"] });
       setIsSuccess(true);
       toast.success(`${name} added successfully!`);
     },
