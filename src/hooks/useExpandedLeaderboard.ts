@@ -10,7 +10,23 @@ export interface TimingEntry {
   isSaturday?: boolean;
 }
 
+export interface TimingSet {
+  earliestDoor: TimingEntry | null;
+  latestDoor: TimingEntry | null;
+  earliestDM: TimingEntry | null;
+  latestDM: TimingEntry | null;
+  earliestPitch: TimingEntry | null;
+  latestPitch: TimingEntry | null;
+  earliestTransition: TimingEntry | null;
+  latestTransition: TimingEntry | null;
+  earliestPresentation: TimingEntry | null;
+  latestPresentation: TimingEntry | null;
+  earliestClose: TimingEntry | null;
+  latestClose: TimingEntry | null;
+}
+
 export interface GritAwards {
+  // Combined (all days) - for backward compatibility and single-day views
   earliestDoor: TimingEntry | null;
   latestDoor: TimingEntry | null;
   earliestDM: TimingEntry | null;
@@ -25,6 +41,12 @@ export interface GritAwards {
   latestClose: TimingEntry | null;
   mostHoursWorked: { userId: string; name: string; value: number } | null;
   isSamePersonEarliestLatestDoor: boolean;
+  
+  // Separated by day type
+  weekday: TimingSet;
+  saturday: TimingSet;
+  hasWeekdayData: boolean;
+  hasSaturdayData: boolean;
 }
 
 export interface ActivityLeaders {
@@ -102,7 +124,6 @@ const getDateRange = (timeframe: TimeframeType): { start: string; end: string } 
       return { start: getLocalDateString(firstOfMonth), end: getLocalDateString(today) };
     }
     case 'season': {
-      // Preseason: Sept 28, 2025 - April 12, 2026
       return { start: '2025-09-28', end: getLocalDateString(today) };
     }
     case 'ytd': {
@@ -112,9 +133,23 @@ const getDateRange = (timeframe: TimeframeType): { start: string; end: string } 
   }
 };
 
+const createEmptyTimingSet = (): TimingSet => ({
+  earliestDoor: null, latestDoor: null,
+  earliestDM: null, latestDM: null,
+  earliestPitch: null, latestPitch: null,
+  earliestTransition: null, latestTransition: null,
+  earliestPresentation: null, latestPresentation: null,
+  earliestClose: null, latestClose: null,
+});
+
+interface UserTimingStats {
+  mins: number;
+  ts: string;
+  date: string;
+  isSaturday: boolean;
+}
+
 export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: string) => {
-  const isLive = timeframe === 'live';
-  
   return useQuery({
     queryKey: ["expanded-leaderboard", timeframe, filterByYear],
     queryFn: async () => {
@@ -132,8 +167,7 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         timezone: r.timezone || 'America/Los_Angeles'
       }]) || []);
 
-      // For live view, include unfinalized entries. For historical views, prefer finalized.
-      let query = supabase
+      const query = supabase
         .from("daily_entries")
         .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone, is_finalized, sales_log")
         .gte("entry_date", start)
@@ -148,7 +182,13 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         filteredEntries = filteredEntries.filter(e => repsMap.get(e.user_id)?.year === filterByYear);
       }
 
-      // Aggregate by user
+      // Helper to check if a date is Saturday
+      const isSaturdayDate = (dateStr: string): boolean => {
+        const dateObj = new Date(dateStr + 'T12:00:00');
+        return dateObj.getDay() === 6;
+      };
+
+      // Aggregate by user - now tracking weekday and Saturday separately
       const userStats = new Map<string, {
         doors: number;
         dms: number;
@@ -160,20 +200,71 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         prmr: number;
         upgradeFp: number;
         hoursWorked: number;
-        earliestDoor: { mins: number; ts: string; date: string } | null;
-        latestDoor: { mins: number; ts: string } | null;
-        earliestDM: { mins: number; ts: string } | null;
-        latestDM: { mins: number; ts: string } | null;
-        earliestPitch: { mins: number; ts: string } | null;
-        latestPitch: { mins: number; ts: string } | null;
-        earliestTransition: { mins: number; ts: string } | null;
-        latestTransition: { mins: number; ts: string } | null;
-        earliestPresentation: { mins: number; ts: string } | null;
-        latestPresentation: { mins: number; ts: string } | null;
-        earliestClose: { mins: number; ts: string } | null;
-        latestClose: { mins: number; ts: string } | null;
+        // Combined timing
+        earliestDoor: UserTimingStats | null;
+        latestDoor: UserTimingStats | null;
+        earliestDM: UserTimingStats | null;
+        latestDM: UserTimingStats | null;
+        earliestPitch: UserTimingStats | null;
+        latestPitch: UserTimingStats | null;
+        earliestTransition: UserTimingStats | null;
+        latestTransition: UserTimingStats | null;
+        earliestPresentation: UserTimingStats | null;
+        latestPresentation: UserTimingStats | null;
+        earliestClose: UserTimingStats | null;
+        latestClose: UserTimingStats | null;
+        // Weekday timing
+        weekdayEarliestDoor: UserTimingStats | null;
+        weekdayLatestDoor: UserTimingStats | null;
+        weekdayEarliestDM: UserTimingStats | null;
+        weekdayLatestDM: UserTimingStats | null;
+        weekdayEarliestPitch: UserTimingStats | null;
+        weekdayLatestPitch: UserTimingStats | null;
+        weekdayEarliestTransition: UserTimingStats | null;
+        weekdayLatestTransition: UserTimingStats | null;
+        weekdayEarliestPresentation: UserTimingStats | null;
+        weekdayLatestPresentation: UserTimingStats | null;
+        weekdayEarliestClose: UserTimingStats | null;
+        weekdayLatestClose: UserTimingStats | null;
+        // Saturday timing
+        saturdayEarliestDoor: UserTimingStats | null;
+        saturdayLatestDoor: UserTimingStats | null;
+        saturdayEarliestDM: UserTimingStats | null;
+        saturdayLatestDM: UserTimingStats | null;
+        saturdayEarliestPitch: UserTimingStats | null;
+        saturdayLatestPitch: UserTimingStats | null;
+        saturdayEarliestTransition: UserTimingStats | null;
+        saturdayLatestTransition: UserTimingStats | null;
+        saturdayEarliestPresentation: UserTimingStats | null;
+        saturdayLatestPresentation: UserTimingStats | null;
+        saturdayEarliestClose: UserTimingStats | null;
+        saturdayLatestClose: UserTimingStats | null;
         timezone: string;
       }>();
+
+      const createEmptyUserStats = (timezone: string) => ({
+        doors: 0, dms: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0,
+        fp: 0, prmr: 0, upgradeFp: 0, hoursWorked: 0,
+        earliestDoor: null, latestDoor: null,
+        earliestDM: null, latestDM: null,
+        earliestPitch: null, latestPitch: null,
+        earliestTransition: null, latestTransition: null,
+        earliestPresentation: null, latestPresentation: null,
+        earliestClose: null, latestClose: null,
+        weekdayEarliestDoor: null, weekdayLatestDoor: null,
+        weekdayEarliestDM: null, weekdayLatestDM: null,
+        weekdayEarliestPitch: null, weekdayLatestPitch: null,
+        weekdayEarliestTransition: null, weekdayLatestTransition: null,
+        weekdayEarliestPresentation: null, weekdayLatestPresentation: null,
+        weekdayEarliestClose: null, weekdayLatestClose: null,
+        saturdayEarliestDoor: null, saturdayLatestDoor: null,
+        saturdayEarliestDM: null, saturdayLatestDM: null,
+        saturdayEarliestPitch: null, saturdayLatestPitch: null,
+        saturdayEarliestTransition: null, saturdayLatestTransition: null,
+        saturdayEarliestPresentation: null, saturdayLatestPresentation: null,
+        saturdayEarliestClose: null, saturdayLatestClose: null,
+        timezone
+      });
 
       const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number; upgradeFp: number } => {
         if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0, upgradeFp: 0 };
@@ -202,17 +293,8 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         if (!repInfo) return;
 
         const userTimezone = entry.timezone || repInfo.timezone;
-        const existing = userStats.get(entry.user_id) || {
-          doors: 0, dms: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0,
-          fp: 0, prmr: 0, upgradeFp: 0, hoursWorked: 0,
-          earliestDoor: null, latestDoor: null,
-          earliestDM: null, latestDM: null,
-          earliestPitch: null, latestPitch: null,
-          earliestTransition: null, latestTransition: null,
-          earliestPresentation: null, latestPresentation: null,
-          earliestClose: null, latestClose: null,
-          timezone: userTimezone
-        };
+        const existing = userStats.get(entry.user_id) || createEmptyUserStats(userTimezone);
+        const isSaturday = isSaturdayDate(entry.entry_date);
 
         // Activity counts
         existing.doors += entry.doors_knocked || 0;
@@ -267,32 +349,78 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         if (timestamps) {
           const processTimestamps = (
             key: string,
-            earliestField: keyof typeof existing,
-            latestField: keyof typeof existing
+            combinedEarliest: keyof typeof existing,
+            combinedLatest: keyof typeof existing,
+            weekdayEarliest: keyof typeof existing,
+            weekdayLatest: keyof typeof existing,
+            saturdayEarliest: keyof typeof existing,
+            saturdayLatest: keyof typeof existing
           ) => {
             const tsArray = timestamps[key];
             if (!tsArray || !Array.isArray(tsArray) || tsArray.length === 0) return;
 
             tsArray.forEach((ts: string) => {
               const mins = getLocalMinutesOfDay(ts, userTimezone);
+              const timingData: UserTimingStats = { mins, ts, date: entry.entry_date, isSaturday };
               
-              const currentEarliest = existing[earliestField] as { mins: number; ts: string; date?: string } | null;
-              if (!currentEarliest || mins < currentEarliest.mins) {
-                (existing[earliestField] as any) = { mins, ts, date: entry.entry_date };
+              // Update combined
+              const currentCombinedEarliest = existing[combinedEarliest] as UserTimingStats | null;
+              if (!currentCombinedEarliest || mins < currentCombinedEarliest.mins) {
+                (existing[combinedEarliest] as any) = timingData;
+              }
+              const currentCombinedLatest = existing[combinedLatest] as UserTimingStats | null;
+              if (!currentCombinedLatest || mins > currentCombinedLatest.mins) {
+                (existing[combinedLatest] as any) = timingData;
               }
               
-              const currentLatest = existing[latestField] as { mins: number; ts: string } | null;
-              if (!currentLatest || mins > currentLatest.mins) {
-                (existing[latestField] as any) = { mins, ts };
+              // Update day-specific
+              if (isSaturday) {
+                const currentSatEarliest = existing[saturdayEarliest] as UserTimingStats | null;
+                if (!currentSatEarliest || mins < currentSatEarliest.mins) {
+                  (existing[saturdayEarliest] as any) = timingData;
+                }
+                const currentSatLatest = existing[saturdayLatest] as UserTimingStats | null;
+                if (!currentSatLatest || mins > currentSatLatest.mins) {
+                  (existing[saturdayLatest] as any) = timingData;
+                }
+              } else {
+                const currentWkdEarliest = existing[weekdayEarliest] as UserTimingStats | null;
+                if (!currentWkdEarliest || mins < currentWkdEarliest.mins) {
+                  (existing[weekdayEarliest] as any) = timingData;
+                }
+                const currentWkdLatest = existing[weekdayLatest] as UserTimingStats | null;
+                if (!currentWkdLatest || mins > currentWkdLatest.mins) {
+                  (existing[weekdayLatest] as any) = timingData;
+                }
               }
             });
           };
 
-          processTimestamps('doors_knocked', 'earliestDoor', 'latestDoor');
-          processTimestamps('decision_makers', 'earliestDM', 'latestDM');
-          processTimestamps('pitches', 'earliestPitch', 'latestPitch');
-          processTimestamps('transitions', 'earliestTransition', 'latestTransition');
-          processTimestamps('presentations', 'earliestPresentation', 'latestPresentation');
+          processTimestamps('doors_knocked', 
+            'earliestDoor', 'latestDoor',
+            'weekdayEarliestDoor', 'weekdayLatestDoor',
+            'saturdayEarliestDoor', 'saturdayLatestDoor'
+          );
+          processTimestamps('decision_makers',
+            'earliestDM', 'latestDM',
+            'weekdayEarliestDM', 'weekdayLatestDM',
+            'saturdayEarliestDM', 'saturdayLatestDM'
+          );
+          processTimestamps('pitches',
+            'earliestPitch', 'latestPitch',
+            'weekdayEarliestPitch', 'weekdayLatestPitch',
+            'saturdayEarliestPitch', 'saturdayLatestPitch'
+          );
+          processTimestamps('transitions',
+            'earliestTransition', 'latestTransition',
+            'weekdayEarliestTransition', 'weekdayLatestTransition',
+            'saturdayEarliestTransition', 'saturdayLatestTransition'
+          );
+          processTimestamps('presentations',
+            'earliestPresentation', 'latestPresentation',
+            'weekdayEarliestPresentation', 'weekdayLatestPresentation',
+            'saturdayEarliestPresentation', 'saturdayLatestPresentation'
+          );
         }
 
         // Process sales_log for close timestamps
@@ -301,12 +429,31 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
           salesLog.forEach((sale: any) => {
             if (sale.timestamp) {
               const mins = getLocalMinutesOfDay(sale.timestamp, userTimezone);
+              const timingData: UserTimingStats = { mins, ts: sale.timestamp, date: entry.entry_date, isSaturday };
               
+              // Combined
               if (!existing.earliestClose || mins < existing.earliestClose.mins) {
-                existing.earliestClose = { mins, ts: sale.timestamp };
+                existing.earliestClose = timingData;
               }
               if (!existing.latestClose || mins > existing.latestClose.mins) {
-                existing.latestClose = { mins, ts: sale.timestamp };
+                existing.latestClose = timingData;
+              }
+              
+              // Day-specific
+              if (isSaturday) {
+                if (!existing.saturdayEarliestClose || mins < existing.saturdayEarliestClose.mins) {
+                  existing.saturdayEarliestClose = timingData;
+                }
+                if (!existing.saturdayLatestClose || mins > existing.saturdayLatestClose.mins) {
+                  existing.saturdayLatestClose = timingData;
+                }
+              } else {
+                if (!existing.weekdayEarliestClose || mins < existing.weekdayEarliestClose.mins) {
+                  existing.weekdayEarliestClose = timingData;
+                }
+                if (!existing.weekdayLatestClose || mins > existing.weekdayLatestClose.mins) {
+                  existing.weekdayLatestClose = timingData;
+                }
               }
             }
           });
@@ -325,7 +472,11 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
           earliestPresentation: null, latestPresentation: null,
           earliestClose: null, latestClose: null,
           mostHoursWorked: null,
-          isSamePersonEarliestLatestDoor: false
+          isSamePersonEarliestLatestDoor: false,
+          weekday: createEmptyTimingSet(),
+          saturday: createEmptyTimingSet(),
+          hasWeekdayData: false,
+          hasSaturdayData: false,
         },
         activityLeaders: {
           mostDoors: null, mostDMs: null, mostPitches: null,
@@ -333,6 +484,33 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         },
         salesLeaders: {
           mostFP: null, mostPRMR: null, mostUpgradeFP: null
+        }
+      };
+
+      const processGritAward = (
+        statsField: UserTimingStats | null,
+        targetSet: TimingSet | GritAwards,
+        fieldName: keyof TimingSet,
+        isEarliest: boolean,
+        userId: string,
+        name: string,
+        timezone: string
+      ) => {
+        if (!statsField) return;
+        
+        const current = targetSet[fieldName] as TimingEntry | null;
+        const isBetter = isEarliest 
+          ? (!current || statsField.mins < current.value)
+          : (!current || statsField.mins > current.value);
+        
+        if (isBetter) {
+          (targetSet[fieldName] as TimingEntry) = {
+            userId,
+            name,
+            value: statsField.mins,
+            timeValue: formatTime(statsField.ts, timezone),
+            isSaturday: statsField.isSaturday
+          };
         }
       };
 
@@ -378,48 +556,47 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
           result.gritAwards.mostHoursWorked = { userId, name, value: stats.hoursWorked };
         }
 
-        // Grit awards (timing)
-        const processGritAward = (
-          statsField: { mins: number; ts: string; date?: string } | null,
-          resultField: keyof GritAwards,
-          isEarliest: boolean
-        ) => {
-          if (!statsField) return;
-          
-          const current = result.gritAwards[resultField] as TimingEntry | null;
-          const isBetter = isEarliest 
-            ? (!current || statsField.mins < current.value)
-            : (!current || statsField.mins > current.value);
-          
-          if (isBetter) {
-            let isSaturday = false;
-            if (statsField.date) {
-              const dateObj = new Date(statsField.date + 'T12:00:00');
-              isSaturday = dateObj.getDay() === 6;
-            }
-            
-            (result.gritAwards[resultField] as TimingEntry) = {
-              userId,
-              name,
-              value: statsField.mins,
-              timeValue: formatTime(statsField.ts, stats.timezone),
-              isSaturday
-            };
-          }
-        };
+        // Combined grit awards
+        processGritAward(stats.earliestDoor, result.gritAwards, 'earliestDoor', true, userId, name, stats.timezone);
+        processGritAward(stats.latestDoor, result.gritAwards, 'latestDoor', false, userId, name, stats.timezone);
+        processGritAward(stats.earliestDM, result.gritAwards, 'earliestDM', true, userId, name, stats.timezone);
+        processGritAward(stats.latestDM, result.gritAwards, 'latestDM', false, userId, name, stats.timezone);
+        processGritAward(stats.earliestPitch, result.gritAwards, 'earliestPitch', true, userId, name, stats.timezone);
+        processGritAward(stats.latestPitch, result.gritAwards, 'latestPitch', false, userId, name, stats.timezone);
+        processGritAward(stats.earliestTransition, result.gritAwards, 'earliestTransition', true, userId, name, stats.timezone);
+        processGritAward(stats.latestTransition, result.gritAwards, 'latestTransition', false, userId, name, stats.timezone);
+        processGritAward(stats.earliestPresentation, result.gritAwards, 'earliestPresentation', true, userId, name, stats.timezone);
+        processGritAward(stats.latestPresentation, result.gritAwards, 'latestPresentation', false, userId, name, stats.timezone);
+        processGritAward(stats.earliestClose, result.gritAwards, 'earliestClose', true, userId, name, stats.timezone);
+        processGritAward(stats.latestClose, result.gritAwards, 'latestClose', false, userId, name, stats.timezone);
 
-        processGritAward(stats.earliestDoor, 'earliestDoor', true);
-        processGritAward(stats.latestDoor, 'latestDoor', false);
-        processGritAward(stats.earliestDM, 'earliestDM', true);
-        processGritAward(stats.latestDM, 'latestDM', false);
-        processGritAward(stats.earliestPitch, 'earliestPitch', true);
-        processGritAward(stats.latestPitch, 'latestPitch', false);
-        processGritAward(stats.earliestTransition, 'earliestTransition', true);
-        processGritAward(stats.latestTransition, 'latestTransition', false);
-        processGritAward(stats.earliestPresentation, 'earliestPresentation', true);
-        processGritAward(stats.latestPresentation, 'latestPresentation', false);
-        processGritAward(stats.earliestClose, 'earliestClose', true);
-        processGritAward(stats.latestClose, 'latestClose', false);
+        // Weekday grit awards
+        processGritAward(stats.weekdayEarliestDoor, result.gritAwards.weekday, 'earliestDoor', true, userId, name, stats.timezone);
+        processGritAward(stats.weekdayLatestDoor, result.gritAwards.weekday, 'latestDoor', false, userId, name, stats.timezone);
+        processGritAward(stats.weekdayEarliestDM, result.gritAwards.weekday, 'earliestDM', true, userId, name, stats.timezone);
+        processGritAward(stats.weekdayLatestDM, result.gritAwards.weekday, 'latestDM', false, userId, name, stats.timezone);
+        processGritAward(stats.weekdayEarliestPitch, result.gritAwards.weekday, 'earliestPitch', true, userId, name, stats.timezone);
+        processGritAward(stats.weekdayLatestPitch, result.gritAwards.weekday, 'latestPitch', false, userId, name, stats.timezone);
+        processGritAward(stats.weekdayEarliestTransition, result.gritAwards.weekday, 'earliestTransition', true, userId, name, stats.timezone);
+        processGritAward(stats.weekdayLatestTransition, result.gritAwards.weekday, 'latestTransition', false, userId, name, stats.timezone);
+        processGritAward(stats.weekdayEarliestPresentation, result.gritAwards.weekday, 'earliestPresentation', true, userId, name, stats.timezone);
+        processGritAward(stats.weekdayLatestPresentation, result.gritAwards.weekday, 'latestPresentation', false, userId, name, stats.timezone);
+        processGritAward(stats.weekdayEarliestClose, result.gritAwards.weekday, 'earliestClose', true, userId, name, stats.timezone);
+        processGritAward(stats.weekdayLatestClose, result.gritAwards.weekday, 'latestClose', false, userId, name, stats.timezone);
+
+        // Saturday grit awards
+        processGritAward(stats.saturdayEarliestDoor, result.gritAwards.saturday, 'earliestDoor', true, userId, name, stats.timezone);
+        processGritAward(stats.saturdayLatestDoor, result.gritAwards.saturday, 'latestDoor', false, userId, name, stats.timezone);
+        processGritAward(stats.saturdayEarliestDM, result.gritAwards.saturday, 'earliestDM', true, userId, name, stats.timezone);
+        processGritAward(stats.saturdayLatestDM, result.gritAwards.saturday, 'latestDM', false, userId, name, stats.timezone);
+        processGritAward(stats.saturdayEarliestPitch, result.gritAwards.saturday, 'earliestPitch', true, userId, name, stats.timezone);
+        processGritAward(stats.saturdayLatestPitch, result.gritAwards.saturday, 'latestPitch', false, userId, name, stats.timezone);
+        processGritAward(stats.saturdayEarliestTransition, result.gritAwards.saturday, 'earliestTransition', true, userId, name, stats.timezone);
+        processGritAward(stats.saturdayLatestTransition, result.gritAwards.saturday, 'latestTransition', false, userId, name, stats.timezone);
+        processGritAward(stats.saturdayEarliestPresentation, result.gritAwards.saturday, 'earliestPresentation', true, userId, name, stats.timezone);
+        processGritAward(stats.saturdayLatestPresentation, result.gritAwards.saturday, 'latestPresentation', false, userId, name, stats.timezone);
+        processGritAward(stats.saturdayEarliestClose, result.gritAwards.saturday, 'earliestClose', true, userId, name, stats.timezone);
+        processGritAward(stats.saturdayLatestClose, result.gritAwards.saturday, 'latestClose', false, userId, name, stats.timezone);
       });
 
       // Check for Ironman award
@@ -427,6 +604,10 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         result.gritAwards.earliestDoor !== null && 
         result.gritAwards.latestDoor !== null &&
         result.gritAwards.earliestDoor.userId === result.gritAwards.latestDoor.userId;
+
+      // Check if we have data for weekday/Saturday
+      result.gritAwards.hasWeekdayData = result.gritAwards.weekday.earliestDoor !== null;
+      result.gritAwards.hasSaturdayData = result.gritAwards.saturday.earliestDoor !== null;
 
       return result;
     },
