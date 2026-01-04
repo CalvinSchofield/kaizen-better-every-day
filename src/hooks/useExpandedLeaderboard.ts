@@ -10,6 +10,14 @@ export interface TimingEntry {
   isSaturday?: boolean;
 }
 
+export interface TimingAward {
+  userId: string;
+  name: string;
+  value: number; // minutes since midnight
+  timeValue: string; // formatted time string
+  actionType: string; // e.g. "First FP+", "Earliest Presentation"
+}
+
 export interface TimingSet {
   earliestDoor: TimingEntry | null;
   latestDoor: TimingEntry | null;
@@ -47,6 +55,12 @@ export interface GritAwards {
   saturday: TimingSet;
   hasWeekdayData: boolean;
   hasSaturdayData: boolean;
+
+  // NEW: Early Bird & Night Owl awards with fallback logic
+  earlyBirdWeekday: TimingAward | null;
+  earlyBirdSaturday: TimingAward | null;
+  nightOwlWeekday: TimingAward | null;
+  nightOwlSaturday: TimingAward | null;
 }
 
 export interface ActivityLeaders {
@@ -149,6 +163,11 @@ interface UserTimingStats {
   isSaturday: boolean;
 }
 
+// Time thresholds in minutes since midnight
+const WEEKDAY_EARLY_CUTOFF = 15 * 60; // 3:00 PM = 900 minutes
+const SATURDAY_EARLY_CUTOFF = 10 * 60; // 10:00 AM = 600 minutes
+const NIGHT_OWL_CUTOFF = 19 * 60; // 7:00 PM = 1140 minutes
+
 export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: string) => {
   return useQuery({
     queryKey: ["expanded-leaderboard", timeframe, filterByYear],
@@ -239,6 +258,11 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         saturdayLatestPresentation: UserTimingStats | null;
         saturdayEarliestClose: UserTimingStats | null;
         saturdayLatestClose: UserTimingStats | null;
+        // FP+ timing (for Early Bird / Night Owl)
+        weekdayEarliestFPPlus: UserTimingStats | null;
+        weekdayLatestFPPlus: UserTimingStats | null;
+        saturdayEarliestFPPlus: UserTimingStats | null;
+        saturdayLatestFPPlus: UserTimingStats | null;
         timezone: string;
       }>();
 
@@ -263,6 +287,8 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         saturdayEarliestTransition: null, saturdayLatestTransition: null,
         saturdayEarliestPresentation: null, saturdayLatestPresentation: null,
         saturdayEarliestClose: null, saturdayLatestClose: null,
+        weekdayEarliestFPPlus: null, weekdayLatestFPPlus: null,
+        saturdayEarliestFPPlus: null, saturdayLatestFPPlus: null,
         timezone
       });
 
@@ -286,6 +312,13 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         }
         
         return { fp, prmr, upgradeFp };
+      };
+
+      // Check if a sale qualifies as FP+ (type='fp' OR upgrade with prmr >= 85)
+      const isFPPlus = (sale: any): boolean => {
+        if (sale.type === 'fp') return true;
+        if (sale.type === 'upgrade' && Number(sale.prmr) >= 85) return true;
+        return false;
       };
 
       filteredEntries.forEach(entry => {
@@ -423,7 +456,7 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
           );
         }
 
-        // Process sales_log for close timestamps
+        // Process sales_log for close timestamps AND FP+ timestamps
         const salesLog = entry.sales_log as any[] | null;
         if (salesLog && Array.isArray(salesLog)) {
           salesLog.forEach((sale: any) => {
@@ -431,7 +464,7 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
               const mins = getLocalMinutesOfDay(sale.timestamp, userTimezone);
               const timingData: UserTimingStats = { mins, ts: sale.timestamp, date: entry.entry_date, isSaturday };
               
-              // Combined
+              // Combined close timing
               if (!existing.earliestClose || mins < existing.earliestClose.mins) {
                 existing.earliestClose = timingData;
               }
@@ -439,7 +472,7 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
                 existing.latestClose = timingData;
               }
               
-              // Day-specific
+              // Day-specific close timing
               if (isSaturday) {
                 if (!existing.saturdayEarliestClose || mins < existing.saturdayEarliestClose.mins) {
                   existing.saturdayEarliestClose = timingData;
@@ -453,6 +486,25 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
                 }
                 if (!existing.weekdayLatestClose || mins > existing.weekdayLatestClose.mins) {
                   existing.weekdayLatestClose = timingData;
+                }
+              }
+
+              // FP+ timing (for Early Bird / Night Owl)
+              if (isFPPlus(sale)) {
+                if (isSaturday) {
+                  if (!existing.saturdayEarliestFPPlus || mins < existing.saturdayEarliestFPPlus.mins) {
+                    existing.saturdayEarliestFPPlus = timingData;
+                  }
+                  if (!existing.saturdayLatestFPPlus || mins > existing.saturdayLatestFPPlus.mins) {
+                    existing.saturdayLatestFPPlus = timingData;
+                  }
+                } else {
+                  if (!existing.weekdayEarliestFPPlus || mins < existing.weekdayEarliestFPPlus.mins) {
+                    existing.weekdayEarliestFPPlus = timingData;
+                  }
+                  if (!existing.weekdayLatestFPPlus || mins > existing.weekdayLatestFPPlus.mins) {
+                    existing.weekdayLatestFPPlus = timingData;
+                  }
                 }
               }
             }
@@ -477,6 +529,10 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
           saturday: createEmptyTimingSet(),
           hasWeekdayData: false,
           hasSaturdayData: false,
+          earlyBirdWeekday: null,
+          earlyBirdSaturday: null,
+          nightOwlWeekday: null,
+          nightOwlSaturday: null,
         },
         activityLeaders: {
           mostDoors: null, mostDMs: null, mostPitches: null,
@@ -513,6 +569,22 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
           };
         }
       };
+
+      // For Early Bird / Night Owl computation
+      // Fallback order: FP+ → Presentation → Transition → Pitch → DM → Door
+      interface EarlyBirdCandidate {
+        userId: string;
+        name: string;
+        mins: number;
+        ts: string;
+        actionType: string;
+        timezone: string;
+      }
+
+      const earlyBirdWeekdayCandidates: EarlyBirdCandidate[] = [];
+      const earlyBirdSaturdayCandidates: EarlyBirdCandidate[] = [];
+      const nightOwlWeekdayCandidates: EarlyBirdCandidate[] = [];
+      const nightOwlSaturdayCandidates: EarlyBirdCandidate[] = [];
 
       userStats.forEach((stats, userId) => {
         const repInfo = repsMap.get(userId);
@@ -597,7 +669,123 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         processGritAward(stats.saturdayLatestPresentation, result.gritAwards.saturday, 'latestPresentation', false, userId, name, stats.timezone);
         processGritAward(stats.saturdayEarliestClose, result.gritAwards.saturday, 'earliestClose', true, userId, name, stats.timezone);
         processGritAward(stats.saturdayLatestClose, result.gritAwards.saturday, 'latestClose', false, userId, name, stats.timezone);
+
+        // Early Bird / Night Owl candidates (with fallback priority)
+        // Fallback order: FP+ → Presentation → Transition → Pitch → DM → Door
+        const addEarlyBirdCandidate = (
+          candidates: EarlyBirdCandidate[],
+          timing: UserTimingStats | null,
+          actionType: string,
+          cutoff: number
+        ) => {
+          if (timing && timing.mins < cutoff) {
+            candidates.push({
+              userId,
+              name,
+              mins: timing.mins,
+              ts: timing.ts,
+              actionType,
+              timezone: stats.timezone
+            });
+          }
+        };
+
+        const addNightOwlCandidate = (
+          candidates: EarlyBirdCandidate[],
+          timing: UserTimingStats | null,
+          actionType: string
+        ) => {
+          if (timing && timing.mins >= NIGHT_OWL_CUTOFF) {
+            candidates.push({
+              userId,
+              name,
+              mins: timing.mins,
+              ts: timing.ts,
+              actionType,
+              timezone: stats.timezone
+            });
+          }
+        };
+
+        // Weekday Early Bird (before 3 PM)
+        addEarlyBirdCandidate(earlyBirdWeekdayCandidates, stats.weekdayEarliestFPPlus, 'First FP+', WEEKDAY_EARLY_CUTOFF);
+        addEarlyBirdCandidate(earlyBirdWeekdayCandidates, stats.weekdayEarliestPresentation, 'First Presentation', WEEKDAY_EARLY_CUTOFF);
+        addEarlyBirdCandidate(earlyBirdWeekdayCandidates, stats.weekdayEarliestTransition, 'First Transition', WEEKDAY_EARLY_CUTOFF);
+        addEarlyBirdCandidate(earlyBirdWeekdayCandidates, stats.weekdayEarliestPitch, 'First Pitch', WEEKDAY_EARLY_CUTOFF);
+        addEarlyBirdCandidate(earlyBirdWeekdayCandidates, stats.weekdayEarliestDM, 'First DM', WEEKDAY_EARLY_CUTOFF);
+        addEarlyBirdCandidate(earlyBirdWeekdayCandidates, stats.weekdayEarliestDoor, 'First Door', WEEKDAY_EARLY_CUTOFF);
+
+        // Saturday Early Bird (before 10 AM)
+        addEarlyBirdCandidate(earlyBirdSaturdayCandidates, stats.saturdayEarliestFPPlus, 'First FP+', SATURDAY_EARLY_CUTOFF);
+        addEarlyBirdCandidate(earlyBirdSaturdayCandidates, stats.saturdayEarliestPresentation, 'First Presentation', SATURDAY_EARLY_CUTOFF);
+        addEarlyBirdCandidate(earlyBirdSaturdayCandidates, stats.saturdayEarliestTransition, 'First Transition', SATURDAY_EARLY_CUTOFF);
+        addEarlyBirdCandidate(earlyBirdSaturdayCandidates, stats.saturdayEarliestPitch, 'First Pitch', SATURDAY_EARLY_CUTOFF);
+        addEarlyBirdCandidate(earlyBirdSaturdayCandidates, stats.saturdayEarliestDM, 'First DM', SATURDAY_EARLY_CUTOFF);
+        addEarlyBirdCandidate(earlyBirdSaturdayCandidates, stats.saturdayEarliestDoor, 'First Door', SATURDAY_EARLY_CUTOFF);
+
+        // Weekday Night Owl (after 7 PM)
+        addNightOwlCandidate(nightOwlWeekdayCandidates, stats.weekdayLatestFPPlus, 'Latest FP+');
+        addNightOwlCandidate(nightOwlWeekdayCandidates, stats.weekdayLatestPresentation, 'Latest Presentation');
+        addNightOwlCandidate(nightOwlWeekdayCandidates, stats.weekdayLatestTransition, 'Latest Transition');
+        addNightOwlCandidate(nightOwlWeekdayCandidates, stats.weekdayLatestPitch, 'Latest Pitch');
+        addNightOwlCandidate(nightOwlWeekdayCandidates, stats.weekdayLatestDM, 'Latest DM');
+        addNightOwlCandidate(nightOwlWeekdayCandidates, stats.weekdayLatestDoor, 'Latest Door');
+
+        // Saturday Night Owl (after 7 PM)
+        addNightOwlCandidate(nightOwlSaturdayCandidates, stats.saturdayLatestFPPlus, 'Latest FP+');
+        addNightOwlCandidate(nightOwlSaturdayCandidates, stats.saturdayLatestPresentation, 'Latest Presentation');
+        addNightOwlCandidate(nightOwlSaturdayCandidates, stats.saturdayLatestTransition, 'Latest Transition');
+        addNightOwlCandidate(nightOwlSaturdayCandidates, stats.saturdayLatestPitch, 'Latest Pitch');
+        addNightOwlCandidate(nightOwlSaturdayCandidates, stats.saturdayLatestDM, 'Latest DM');
+        addNightOwlCandidate(nightOwlSaturdayCandidates, stats.saturdayLatestDoor, 'Latest Door');
       });
+
+      // Select Early Bird / Night Owl winners with fallback priority
+      const actionPriority = ['First FP+', 'First Presentation', 'First Transition', 'First Pitch', 'First DM', 'First Door'];
+      const nightOwlPriority = ['Latest FP+', 'Latest Presentation', 'Latest Transition', 'Latest Pitch', 'Latest DM', 'Latest Door'];
+
+      const selectEarlyBirdWinner = (candidates: EarlyBirdCandidate[]): TimingAward | null => {
+        // Group by action type, prioritize by fallback order
+        for (const actionType of actionPriority) {
+          const matching = candidates.filter(c => c.actionType === actionType);
+          if (matching.length > 0) {
+            // Find earliest among matching
+            const earliest = matching.reduce((a, b) => a.mins < b.mins ? a : b);
+            return {
+              userId: earliest.userId,
+              name: earliest.name,
+              value: earliest.mins,
+              timeValue: formatTime(earliest.ts, earliest.timezone),
+              actionType: earliest.actionType
+            };
+          }
+        }
+        return null;
+      };
+
+      const selectNightOwlWinner = (candidates: EarlyBirdCandidate[]): TimingAward | null => {
+        // Group by action type, prioritize by fallback order
+        for (const actionType of nightOwlPriority) {
+          const matching = candidates.filter(c => c.actionType === actionType);
+          if (matching.length > 0) {
+            // Find latest among matching
+            const latest = matching.reduce((a, b) => a.mins > b.mins ? a : b);
+            return {
+              userId: latest.userId,
+              name: latest.name,
+              value: latest.mins,
+              timeValue: formatTime(latest.ts, latest.timezone),
+              actionType: latest.actionType
+            };
+          }
+        }
+        return null;
+      };
+
+      result.gritAwards.earlyBirdWeekday = selectEarlyBirdWinner(earlyBirdWeekdayCandidates);
+      result.gritAwards.earlyBirdSaturday = selectEarlyBirdWinner(earlyBirdSaturdayCandidates);
+      result.gritAwards.nightOwlWeekday = selectNightOwlWinner(nightOwlWeekdayCandidates);
+      result.gritAwards.nightOwlSaturday = selectNightOwlWinner(nightOwlSaturdayCandidates);
 
       // Check for Ironman award
       result.gritAwards.isSamePersonEarliestLatestDoor = 

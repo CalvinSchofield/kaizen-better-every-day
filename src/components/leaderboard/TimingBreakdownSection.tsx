@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { GritAwards, TimingEntry, TimingSet } from "@/hooks/useExpandedLeaderboard";
+import type { GritAwards, TimingEntry } from "@/hooks/useExpandedLeaderboard";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface TimingBreakdownSectionProps {
@@ -9,53 +9,54 @@ interface TimingBreakdownSectionProps {
   currentUserId: string | null;
 }
 
-type DayFilter = 'all' | 'weekday' | 'saturday';
-
 export const TimingBreakdownSection = ({ gritAwards, currentUserId }: TimingBreakdownSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [dayFilter, setDayFilter] = useState<DayFilter>('all');
 
-  const { hasWeekdayData, hasSaturdayData } = gritAwards;
-  const showDayFilter = hasWeekdayData && hasSaturdayData;
+  const { weekday, saturday, hasWeekdayData, hasSaturdayData } = gritAwards;
 
-  // Get the timing set based on filter
-  const getTimingSet = (): TimingSet => {
-    if (dayFilter === 'weekday') return gritAwards.weekday;
-    if (dayFilter === 'saturday') return gritAwards.saturday;
-    return {
-      earliestDoor: gritAwards.earliestDoor,
-      latestDoor: gritAwards.latestDoor,
-      earliestDM: gritAwards.earliestDM,
-      latestDM: gritAwards.latestDM,
-      earliestPitch: gritAwards.earliestPitch,
-      latestPitch: gritAwards.latestPitch,
-      earliestTransition: gritAwards.earliestTransition,
-      latestTransition: gritAwards.latestTransition,
-      earliestPresentation: gritAwards.earliestPresentation,
-      latestPresentation: gritAwards.latestPresentation,
-      earliestClose: gritAwards.earliestClose,
-      latestClose: gritAwards.latestClose,
-    };
-  };
-
-  const timingSet = getTimingSet();
-
-  const timingRows: { action: string; earliest: TimingEntry | null; latest: TimingEntry | null }[] = [
-    { action: 'Door Knock', earliest: timingSet.earliestDoor, latest: timingSet.latestDoor },
-    { action: 'Decision Maker', earliest: timingSet.earliestDM, latest: timingSet.latestDM },
-    { action: 'Pitch', earliest: timingSet.earliestPitch, latest: timingSet.latestPitch },
-    { action: 'Transition', earliest: timingSet.earliestTransition, latest: timingSet.latestTransition },
-    { action: 'Presentation', earliest: timingSet.earliestPresentation, latest: timingSet.latestPresentation },
-    { action: 'Close', earliest: timingSet.earliestClose, latest: timingSet.latestClose },
-  ];
-
-  const hasAnyTiming = timingRows.some(row => row.earliest || row.latest);
-
-  // Check if we have any timing data at all (across all filters)
-  const hasAnyData = gritAwards.earliestDoor || gritAwards.latestDoor;
+  const hasAnyData = hasWeekdayData || hasSaturdayData;
   if (!hasAnyData) {
     return null;
   }
+
+  const timingRows: { 
+    action: string; 
+    weekdayEarliest: TimingEntry | null; 
+    weekdayLatest: TimingEntry | null;
+    saturdayEarliest: TimingEntry | null;
+    saturdayLatest: TimingEntry | null;
+  }[] = [
+    { 
+      action: 'Door Knock', 
+      weekdayEarliest: weekday.earliestDoor, weekdayLatest: weekday.latestDoor,
+      saturdayEarliest: saturday.earliestDoor, saturdayLatest: saturday.latestDoor 
+    },
+    { 
+      action: 'Decision Maker', 
+      weekdayEarliest: weekday.earliestDM, weekdayLatest: weekday.latestDM,
+      saturdayEarliest: saturday.earliestDM, saturdayLatest: saturday.latestDM 
+    },
+    { 
+      action: 'Pitch', 
+      weekdayEarliest: weekday.earliestPitch, weekdayLatest: weekday.latestPitch,
+      saturdayEarliest: saturday.earliestPitch, saturdayLatest: saturday.latestPitch 
+    },
+    { 
+      action: 'Transition', 
+      weekdayEarliest: weekday.earliestTransition, weekdayLatest: weekday.latestTransition,
+      saturdayEarliest: saturday.earliestTransition, saturdayLatest: saturday.latestTransition 
+    },
+    { 
+      action: 'Presentation', 
+      weekdayEarliest: weekday.earliestPresentation, weekdayLatest: weekday.latestPresentation,
+      saturdayEarliest: saturday.earliestPresentation, saturdayLatest: saturday.latestPresentation 
+    },
+    { 
+      action: 'Close', 
+      weekdayEarliest: weekday.earliestClose, weekdayLatest: weekday.latestClose,
+      saturdayEarliest: saturday.earliestClose, saturdayLatest: saturday.latestClose 
+    },
+  ];
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -74,102 +75,65 @@ export const TimingBreakdownSection = ({ gritAwards, currentUserId }: TimingBrea
       </CollapsibleTrigger>
       
       <CollapsibleContent>
-        <div className="mt-3 space-y-3">
-          {/* Day Filter Toggle */}
-          {showDayFilter && (
-            <div className="flex justify-end">
-              <div className="flex items-center gap-0.5 bg-secondary/50 rounded-full p-0.5">
-                <button
-                  onClick={() => setDayFilter('all')}
-                  className={cn(
-                    "px-2.5 py-1 rounded-full text-xs font-medium transition-all",
-                    dayFilter === 'all'
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  All Days
-                </button>
-                <button
-                  onClick={() => setDayFilter('weekday')}
-                  className={cn(
-                    "px-2.5 py-1 rounded-full text-xs font-medium transition-all",
-                    dayFilter === 'weekday'
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  Mon-Fri
-                </button>
-                <button
-                  onClick={() => setDayFilter('saturday')}
-                  className={cn(
-                    "px-2.5 py-1 rounded-full text-xs font-medium transition-all",
-                    dayFilter === 'saturday'
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  Saturday
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="rounded-lg border border-border overflow-hidden">
-            {/* Header */}
-            <div className="grid grid-cols-3 bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
-              <span>Action</span>
-              <span className="text-center">🌅 Earliest</span>
-              <span className="text-center">🌙 Latest</span>
-            </div>
-
-            {/* Rows */}
-            {hasAnyTiming ? (
-              timingRows.map((row) => (
-                <div 
-                  key={row.action} 
-                  className="grid grid-cols-3 px-3 py-2 border-t border-border text-sm"
-                >
-                  <span className="text-muted-foreground">{row.action}</span>
-                  <TimingCell entry={row.earliest} currentUserId={currentUserId} showDay={dayFilter === 'all'} />
-                  <TimingCell entry={row.latest} currentUserId={currentUserId} showDay={dayFilter === 'all'} />
-                </div>
-              ))
-            ) : (
-              <div className="py-6 text-center text-muted-foreground text-sm">
-                No {dayFilter === 'saturday' ? 'Saturday' : dayFilter === 'weekday' ? 'weekday' : ''} timing data yet
-              </div>
-            )}
+        <div className="mt-3 rounded-lg border border-border overflow-hidden">
+          {/* Header */}
+          <div className="grid grid-cols-5 bg-muted/50 px-2 py-2 text-[10px] font-medium text-muted-foreground">
+            <span className="col-span-1"></span>
+            <span className="col-span-2 text-center border-l border-border">Mon-Fri</span>
+            <span className="col-span-2 text-center border-l border-border">Saturday</span>
           </div>
+          <div className="grid grid-cols-5 bg-muted/30 px-2 py-1.5 text-[9px] font-medium text-muted-foreground">
+            <span className="col-span-1">Action</span>
+            <span className="text-center border-l border-border">🌅 Early</span>
+            <span className="text-center">🌙 Late</span>
+            <span className="text-center border-l border-border">🌅 Early</span>
+            <span className="text-center">🌙 Late</span>
+          </div>
+
+          {/* Rows */}
+          {timingRows.map((row) => (
+            <div 
+              key={row.action} 
+              className="grid grid-cols-5 px-2 py-2 border-t border-border text-xs"
+            >
+              <span className="text-muted-foreground text-[11px]">{row.action}</span>
+              <TimingCell entry={row.weekdayEarliest} currentUserId={currentUserId} />
+              <TimingCell entry={row.weekdayLatest} currentUserId={currentUserId} />
+              <TimingCell entry={row.saturdayEarliest} currentUserId={currentUserId} className="border-l border-border" />
+              <TimingCell entry={row.saturdayLatest} currentUserId={currentUserId} />
+            </div>
+          ))}
         </div>
       </CollapsibleContent>
     </Collapsible>
   );
 };
 
-const TimingCell = ({ entry, currentUserId, showDay }: { entry: TimingEntry | null; currentUserId: string | null; showDay?: boolean }) => {
+const TimingCell = ({ 
+  entry, 
+  currentUserId,
+  className 
+}: { 
+  entry: TimingEntry | null; 
+  currentUserId: string | null;
+  className?: string;
+}) => {
   if (!entry) {
-    return <span className="text-center text-muted-foreground">—</span>;
+    return <span className={cn("text-center text-muted-foreground", className)}>—</span>;
   }
 
   const isCurrentUser = currentUserId === entry.userId;
   const firstName = entry.name.split(' ')[0];
 
   return (
-    <div className="text-center">
+    <div className={cn("text-center", className)}>
       <p className={cn(
-        "font-medium text-xs",
+        "font-medium text-[10px]",
         isCurrentUser ? "text-primary" : "text-foreground"
       )}>
         {isCurrentUser ? 'You' : firstName}
       </p>
-      <p className="text-xs text-muted-foreground">
-        {entry.timeValue}
-        {showDay && entry.isSaturday && (
-          <span className="ml-1 text-[9px] text-amber-600 dark:text-amber-400">(Sat)</span>
-        )}
-      </p>
+      <p className="text-[9px] text-muted-foreground">{entry.timeValue}</p>
     </div>
   );
 };
