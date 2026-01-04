@@ -1,4 +1,4 @@
-// Application entry point - Kaizen App
+// Application entry point - Kaizen App v2
 import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "next-themes";
 import App from "./App.tsx";
