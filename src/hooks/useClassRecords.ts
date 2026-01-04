@@ -126,8 +126,10 @@ export const useClassRecords = () => {
       const year = rep.year as keyof ClassRecordsData;
       if (year !== 'Rookie' && year !== 'Sophomore' && year !== 'Vet') return;
 
-      // Strip emojis from name
-      const cleanName = rep.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
+      // Strip emojis from name - use comprehensive regex that catches all emoji types
+      const cleanName = rep.name
+        .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2300}-\u{23FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '')
+        .trim() || rep.name.charAt(0) || 'Unknown';
 
       const dayBest = userDayBests.get(rep.user_id);
       const weekBest = userWeekBests.get(rep.user_id);
