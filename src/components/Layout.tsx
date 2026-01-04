@@ -95,24 +95,42 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   
   // Scroll detection for collapse/expand
   useEffect(() => {
+    let ticking = false;
+    
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      const scrollDiff = currentScrollY - lastScrollY.current;
-      
-      // Scrolling down past threshold - collapse
-      if (scrollDiff > 10 && currentScrollY > SCROLL_THRESHOLD) {
-        setIsNavCollapsed(true);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY || document.documentElement.scrollTop;
+          const scrollDiff = currentScrollY - lastScrollY.current;
+          
+          // Only react to meaningful scroll amounts
+          if (Math.abs(scrollDiff) > 10) {
+            // Scrolling down past threshold - collapse
+            if (scrollDiff > 0 && currentScrollY > SCROLL_THRESHOLD) {
+              setIsNavCollapsed(true);
+            }
+            // Scrolling up - expand
+            else if (scrollDiff < 0) {
+              setIsNavCollapsed(false);
+            }
+            
+            lastScrollY.current = currentScrollY;
+          }
+          
+          ticking = false;
+        });
+        ticking = true;
       }
-      // Scrolling up - expand
-      else if (scrollDiff < -10) {
-        setIsNavCollapsed(false);
-      }
-      
-      lastScrollY.current = currentScrollY;
     };
     
+    // Use document scroll with capture to catch all scrolls
+    document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    
+    return () => {
+      document.removeEventListener('scroll', handleScroll, { capture: true });
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
   
   // Dynamic navigation based on mode and user type - use effective values
