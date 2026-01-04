@@ -7,6 +7,7 @@ import { ActivityLeadersSection } from "@/components/leaderboard/ActivityLeaders
 import { GritAwardsSection } from "@/components/leaderboard/GritAwardsSection";
 import { TimingBreakdownSection } from "@/components/leaderboard/TimingBreakdownSection";
 import { RecordsSection } from "@/components/leaderboard/RecordsSection";
+import { LiveRaceSection } from "@/components/leaderboard/LiveRaceSection";
 import { useExpandedLeaderboard } from "@/hooks/useExpandedLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
@@ -133,24 +134,36 @@ const Leaderboard = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Sales Leaders */}
-            <SalesLeadersSection
-              mostFP={expandedLeaderboard.salesLeaders.mostFP}
-              mostPRMR={expandedLeaderboard.salesLeaders.mostPRMR}
-              mostUpgradeFP={expandedLeaderboard.salesLeaders.mostUpgradeFP}
-              mostCloses={expandedLeaderboard.activityLeaders.mostCloses}
-              currentUserId={currentUserId}
-            />
+            {/* Live Race - Only show for live timeframe */}
+            {timeFilter === 'live' && (
+              <LiveRaceSection
+                currentUserId={currentUserId}
+                filterByYear={filterByYear}
+              />
+            )}
 
-            {/* Activity Leaders */}
-            <ActivityLeadersSection
-              mostDoors={expandedLeaderboard.activityLeaders.mostDoors}
-              mostDMs={expandedLeaderboard.activityLeaders.mostDMs}
-              mostPitches={expandedLeaderboard.activityLeaders.mostPitches}
-              mostTransitions={expandedLeaderboard.activityLeaders.mostTransitions}
-              mostPresentations={expandedLeaderboard.activityLeaders.mostPresentations}
-              currentUserId={currentUserId}
-            />
+            {/* Sales Leaders - Show for non-live timeframes OR as secondary for live */}
+            {timeFilter !== 'live' && (
+              <SalesLeadersSection
+                mostFP={expandedLeaderboard.salesLeaders.mostFP}
+                mostPRMR={expandedLeaderboard.salesLeaders.mostPRMR}
+                mostUpgradeFP={expandedLeaderboard.salesLeaders.mostUpgradeFP}
+                mostCloses={expandedLeaderboard.activityLeaders.mostCloses}
+                currentUserId={currentUserId}
+              />
+            )}
+
+            {/* Activity Leaders - Show for non-live timeframes */}
+            {timeFilter !== 'live' && (
+              <ActivityLeadersSection
+                mostDoors={expandedLeaderboard.activityLeaders.mostDoors}
+                mostDMs={expandedLeaderboard.activityLeaders.mostDMs}
+                mostPitches={expandedLeaderboard.activityLeaders.mostPitches}
+                mostTransitions={expandedLeaderboard.activityLeaders.mostTransitions}
+                mostPresentations={expandedLeaderboard.activityLeaders.mostPresentations}
+                currentUserId={currentUserId}
+              />
+            )}
 
             {/* Grit Awards */}
             <GritAwardsSection
