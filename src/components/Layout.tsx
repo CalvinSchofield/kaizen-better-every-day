@@ -425,18 +425,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
             style={{ maxWidth: "380px", gridTemplateColumns: "1fr auto" }}
           >
             {/* Main nav container - morphs between collapsed bubble and expanded bar */}
-            <motion.div
-              layout
-              className="relative"
-              transition={{ 
-                layout: { 
-                  type: "spring", 
-                  stiffness: 280, 
-                  damping: 22,
-                  mass: 0.9
-                }
-              }}
-            >
+            <AnimatePresence mode="wait" initial={false}>
               {isNavCollapsed ? (
                 // COLLAPSED STATE: Active tab bubble
                 <motion.button
@@ -446,11 +435,16 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                     setIsNavCollapsed(false);
                   }}
                   className="justify-self-start"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
-                  whileTap={{ scale: 0.96 }}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 400,
+                    damping: 30,
+                    mass: 0.8
+                  }}
+                  whileTap={{ scale: 0.94 }}
                   aria-label="Expand navigation"
                 >
                   <div className="bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-full p-1">
@@ -467,10 +461,15 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                 // EXPANDED STATE: Full nav tabs
                 <motion.div
                   key="expanded-tabs"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 4 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 350,
+                    damping: 28,
+                    mass: 0.9
+                  }}
                   data-tour="bottom-nav"
                   className="flex items-center justify-around bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-[32px] py-2"
                 >
@@ -483,13 +482,14 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                         key={item.path}
                         to={item.path}
                         onClick={() => hapticLight()}
-                        className="relative flex flex-col items-center justify-center flex-1 py-1 active:scale-90 transition-transform duration-150"
+                        className="relative flex flex-col items-center justify-center flex-1 py-1"
                       >
                         <motion.div
                           className={`flex flex-col items-center gap-0.5 ${
                             isActive ? "text-foreground" : "text-muted-foreground"
                           }`}
-                          whileTap={{ scale: 0.9 }}
+                          whileTap={{ scale: 0.88 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
                         >
                           <Icon
                             className="w-6 h-6"
@@ -505,19 +505,18 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                   })}
                 </motion.div>
               )}
-            </motion.div>
+            </AnimatePresence>
 
             {/* Separated action button - always stationary */}
             <Link to={actionButton.path} onClick={() => hapticLight()} className="justify-self-end">
               <motion.div
-                layout
-                whileTap={{ scale: 0.92 }}
+                whileTap={{ scale: 0.9 }}
                 transition={{ 
-                  layout: { type: "spring", stiffness: 300, damping: 30 }
+                  type: "spring",
+                  stiffness: 500,
+                  damping: 30
                 }}
-                className={`relative rounded-full shadow-xl flex flex-col items-center justify-center ${
-                  isNavCollapsed ? "w-16 h-16" : "w-16 h-16"
-                } ${
+                className={`relative rounded-full shadow-xl flex flex-col items-center justify-center w-16 h-16 ${
                   location.pathname === actionButton.path
                     ? "bg-primary text-primary-foreground"
                     : "bg-primary/90 text-primary-foreground"
@@ -528,13 +527,17 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                   strokeWidth={location.pathname === actionButton.path ? 2.5 : 2}
                   fill={location.pathname === actionButton.path ? "currentColor" : "none"}
                 />
-                <AnimatePresence>
+                <AnimatePresence mode="wait" initial={false}>
                   {!isNavCollapsed && (
                     <motion.span 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.15, ease: "easeOut" }}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 2 }}
+                      transition={{ 
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 25
+                      }}
                       className="text-[11px] font-semibold leading-none"
                     >
                       {actionButton.label}
