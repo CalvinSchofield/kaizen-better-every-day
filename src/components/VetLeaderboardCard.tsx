@@ -43,10 +43,7 @@ export const VetLeaderboardCard = ({ isOnActiveBlitz }: VetLeaderboardCardProps)
     );
   }
 
-  // If weekly leaderboard has no data, hide card entirely
-  if (!isOnActiveBlitz && !leaderboard) {
-    return null;
-  }
+  // Card always renders - empty state shown when no data
 
   const isUserTopPerformer = currentUserId && (
     leaderboard?.mostDecisionMakers?.userId === currentUserId ||
@@ -139,7 +136,9 @@ export const VetLeaderboardCard = ({ isOnActiveBlitz }: VetLeaderboardCardProps)
 
         {!leaderboard?.mostDecisionMakers && !leaderboard?.mostFP && !leaderboard?.mostPRMR && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No data from yesterday yet. Time to set the bar!
+            {filter === 'rookies' 
+              ? "No rookies knocking yet — try switching to All!"
+              : "No one knocking yet. Time to set the bar!"}
           </p>
         )}
 
