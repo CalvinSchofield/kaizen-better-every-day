@@ -4,29 +4,18 @@ import { ThemeProvider } from "next-themes";
 import App from "./App.tsx";
 import "./index.css";
 
-// Service worker: disable on Lovable preview host to avoid stale-cache blank screens
+// Register service worker for PWA with update handling (production only)
 const isLovablePreviewHost =
   typeof window !== "undefined" &&
   window.location.hostname.includes("lovableproject.com");
 
-if (isLovablePreviewHost && "serviceWorker" in navigator) {
-  const didReset = sessionStorage.getItem("__sw_reset__") === "1";
-  if (!didReset) {
-    sessionStorage.setItem("__sw_reset__", "1");
-    navigator.serviceWorker
-      .getRegistrations()
-      .then((regs) => Promise.all(regs.map((r) => r.unregister())))
-      .finally(() => window.location.reload());
-  }
-} else if (import.meta.env.PROD && "serviceWorker" in navigator) {
-  // Register service worker for PWA with update handling (production only)
+if (import.meta.env.PROD && !isLovablePreviewHost && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch(() => {
       // Service worker registration failed, app still works
     });
   });
 
-  // Show notification when service worker updates
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     const notification = document.createElement("div");
     notification.className =

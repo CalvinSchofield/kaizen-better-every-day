@@ -38,6 +38,49 @@
 
   <body>
     <div id="root"></div>
+
+    <!-- Prevent stale service-worker cache issues on Lovable preview host -->
+    <script>
+      (function () {
+        try {
+          var host = window.location.hostname || "";
+          if (!host.includes("lovableproject.com")) return;
+          if (!("serviceWorker" in navigator)) return;
+
+          // Only attempt reset a few times, and only if a SW is actually controlling/registered.
+          var countKey = "__lovable_cache_reset_count__";
+          var count = parseInt(sessionStorage.getItem(countKey) || "0", 10);
+          if (count >= 3) return;
+
+          Promise.all([
+            navigator.serviceWorker.getRegistrations(),
+            Promise.resolve(window.caches ? caches.keys() : []),
+          ]).then(function (results) {
+            var regs = results[0] || [];
+            var cacheKeys = results[1] || [];
+
+            var hasController = !!navigator.serviceWorker.controller;
+            if (!hasController && regs.length === 0) return;
+
+            sessionStorage.setItem(countKey, String(count + 1));
+
+            var clearSW = Promise.all(regs.map(function (r) { return r.unregister(); }));
+            var clearCaches = window.caches
+              ? Promise.all(cacheKeys.map(function (k) { return caches.delete(k); }))
+              : Promise.resolve();
+
+            Promise.all([clearSW, clearCaches]).finally(function () {
+              var url = new URL(window.location.href);
+              url.searchParams.set("__nocache", String(Date.now()));
+              window.location.replace(url.toString());
+            });
+          });
+        } catch (e) {
+          // no-op
+        }
+      })();
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
