@@ -6,13 +6,11 @@ import { SalesLeadersSection } from "@/components/leaderboard/SalesLeadersSectio
 import { ActivityLeadersSection } from "@/components/leaderboard/ActivityLeadersSection";
 import { GritAwardsSection } from "@/components/leaderboard/GritAwardsSection";
 import { TimingBreakdownSection } from "@/components/leaderboard/TimingBreakdownSection";
-import { PersonalBestsSection } from "@/components/leaderboard/PersonalBestsSection";
-import { ClassRecordsSection } from "@/components/leaderboard/ClassRecordsSection";
+import { RecordsSection } from "@/components/leaderboard/RecordsSection";
 import { useExpandedLeaderboard } from "@/hooks/useExpandedLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const LeaderboardSkeleton = () => (
@@ -101,12 +99,6 @@ const Leaderboard = () => {
   return (
     <Layout>
       <div className="p-4 space-y-6 pb-24">
-        {/* Personal Bests */}
-        <PersonalBestsSection userId={currentUserId} />
-
-        {/* Class Records */}
-        <ClassRecordsSection currentUserId={currentUserId} />
-
         {/* Hero Banner - Personal Achievement */}
         <LeaderboardHeroBanner 
           userId={currentUserId} 
@@ -174,6 +166,9 @@ const Leaderboard = () => {
             />
           </div>
         )}
+
+        {/* Records Section (Collapsible) - Personal Bests & Class Records */}
+        <RecordsSection userId={currentUserId} />
       </div>
     </Layout>
   );
