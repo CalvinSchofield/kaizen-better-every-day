@@ -96,39 +96,50 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   // Scroll detection for collapse/expand
   useEffect(() => {
     let ticking = false;
-    
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const currentScrollY = window.scrollY || document.documentElement.scrollTop;
-          const scrollDiff = currentScrollY - lastScrollY.current;
-          
-          // Only react to meaningful scroll amounts
-          if (Math.abs(scrollDiff) > 10) {
-            // Scrolling down past threshold - collapse
-            if (scrollDiff > 0 && currentScrollY > SCROLL_THRESHOLD) {
-              setIsNavCollapsed(true);
-            }
-            // Scrolling up - expand
-            else if (scrollDiff < 0) {
-              setIsNavCollapsed(false);
-            }
-            
-            lastScrollY.current = currentScrollY;
-          }
-          
-          ticking = false;
-        });
-        ticking = true;
+
+    const getScrollY = () => {
+      const main = scrollContainerRef.current;
+      if (main && main.scrollHeight > main.clientHeight + 4) {
+        return main.scrollTop;
       }
+      return window.scrollY || document.documentElement.scrollTop;
     };
-    
-    // Use document scroll with capture to catch all scrolls
+
+    const handleScroll = () => {
+      if (ticking) return;
+      ticking = true;
+
+      window.requestAnimationFrame(() => {
+        const currentScrollY = getScrollY();
+        const scrollDiff = currentScrollY - lastScrollY.current;
+
+        // Only react to meaningful scroll amounts
+        if (Math.abs(scrollDiff) > 10) {
+          if (scrollDiff > 0 && currentScrollY > SCROLL_THRESHOLD) {
+            setIsNavCollapsed(true);
+          } else if (scrollDiff < 0) {
+            setIsNavCollapsed(false);
+          }
+
+          lastScrollY.current = currentScrollY;
+        }
+
+        ticking = false;
+      });
+    };
+
+    // Seed initial position
+    lastScrollY.current = getScrollY();
+
+    // Listen to the scroll container (most pages) AND document/window (fallback)
+    const main = scrollContainerRef.current;
+    main?.addEventListener('scroll', handleScroll, { passive: true });
     document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
     window.addEventListener('scroll', handleScroll, { passive: true });
-    
+
     return () => {
-      document.removeEventListener('scroll', handleScroll, { capture: true });
+      main?.removeEventListener('scroll', handleScroll);
+      document.removeEventListener('scroll', handleScroll, { capture: true } as any);
       window.removeEventListener('scroll', handleScroll);
     };
   }, []);
@@ -340,7 +351,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         style={{ paddingBottom: 'var(--nav-padding-bottom)' }}
       >
         <div className="px-4 pb-2">
-          <AnimatePresence mode="wait">
+          <AnimatePresence initial={false}>
             {isNavCollapsed ? (
               // COLLAPSED STATE: Just active tab bubble + action button
               <motion.div
