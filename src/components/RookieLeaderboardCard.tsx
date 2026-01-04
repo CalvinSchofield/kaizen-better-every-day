@@ -43,10 +43,7 @@ export const RookieLeaderboardCard = ({ isOnActiveBlitz }: RookieLeaderboardCard
     );
   }
 
-  // If weekly leaderboard has no data, hide card entirely
-  if (!isOnActiveBlitz && !leaderboard) {
-    return null;
-  }
+  // Card always renders - empty state shown when no data
 
   const isUserTopPerformer = currentUserId && (
     leaderboard?.mostDoors?.userId === currentUserId ||
@@ -150,7 +147,9 @@ export const RookieLeaderboardCard = ({ isOnActiveBlitz }: RookieLeaderboardCard
 
         {!leaderboard?.mostDoors && !leaderboard?.mostDecisionMakers && !leaderboard?.mostFP && !leaderboard?.mostPRMR && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No data from yesterday yet. Be the first to log!
+            {filter === 'rookies' 
+              ? "No rookies knocking yet — try switching to All!"
+              : "No one knocking yet. Be the first to set the pace!"}
           </p>
         )}
 
