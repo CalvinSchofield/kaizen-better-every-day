@@ -138,11 +138,13 @@ const getDateRange = (timeframe: TimeframeType): { start: string; end: string } 
       return { start: getLocalDateString(firstOfMonth), end: getLocalDateString(today) };
     }
     case 'season': {
-      return { start: '2025-09-28', end: getLocalDateString(today) };
+      // Preseason only: Sept 28, 2025 to April 12, 2026
+      return { start: '2025-09-28', end: '2026-04-12' };
     }
     case 'ytd': {
-      const firstOfYear = new Date(today.getFullYear(), 0, 1);
-      return { start: getLocalDateString(firstOfYear), end: getLocalDateString(today) };
+      // YTD = all seasons combined (preseason + summer + extension)
+      // Start from preseason 2025-09-28, end today
+      return { start: '2025-09-28', end: getLocalDateString(today) };
     }
   }
 };

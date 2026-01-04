@@ -17,7 +17,7 @@ const timeLabels: Record<TimeFilter, string> = {
   yesterday: 'Yesterday',
   week: 'Week',
   month: 'Month',
-  season: 'Season',
+  season: 'Preseason',
   ytd: 'YTD',
 };
 
