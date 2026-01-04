@@ -426,7 +426,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
           >
             {/* Main nav container - morphs between collapsed bubble and expanded bar */}
             <motion.div
-              layout
+              layout="position"
               onClick={isNavCollapsed ? () => {
                 hapticLight();
                 setIsNavCollapsed(false);
@@ -439,17 +439,25 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
               }}
               animate={{
                 width: isNavCollapsed ? 64 : "100%",
+                scale: isNavCollapsed ? 1 : [0.98, 1.02, 1],
               }}
               transition={{
-                layout: {
-                  type: "spring",
-                  stiffness: 280,
-                  damping: 22,
-                },
                 width: {
                   type: "spring",
-                  stiffness: 280,
-                  damping: 22,
+                  stiffness: 180,
+                  damping: 24,
+                  mass: 1,
+                },
+                scale: {
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 20,
+                  delay: 0.05,
+                },
+                borderRadius: {
+                  type: "spring",
+                  stiffness: 180,
+                  damping: 24,
                 }
               }}
               whileTap={isNavCollapsed ? { scale: 0.95 } : undefined}
@@ -467,7 +475,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                     />
                   </div>
                 ) : (
-                  // EXPANDED: Full nav tabs - no AnimatePresence to avoid flicker
+                  // EXPANDED: Full nav tabs
                   <div className="flex items-center justify-around py-2 w-full">
                     {navItems.map((item) => {
                       const isActive = location.pathname === item.path;
@@ -485,7 +493,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                               isActive ? "text-foreground" : "text-muted-foreground"
                             }`}
                             whileTap={{ scale: 0.88 }}
-                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 25 }}
                           >
                             <Icon
                               className="w-6 h-6"
