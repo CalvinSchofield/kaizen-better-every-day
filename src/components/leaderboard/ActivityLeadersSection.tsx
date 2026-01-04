@@ -29,7 +29,7 @@ export const ActivityLeadersSection = ({
     { data: mostDMs, label: 'Most DMs', icon: '🗣️' },
     { data: mostPitches, label: 'Most Pitches', icon: '🎤' },
     { data: mostTransitions, label: 'Most Transitions', icon: '🏠' },
-    { data: mostPresentations, label: 'Most Sits', icon: '🪑' },
+    { data: mostPresentations, label: 'Most Presentations', icon: '🪑' },
   ].filter(a => a.data);
 
   if (activities.length === 0) {
