@@ -56,6 +56,47 @@ serve(async (req) => {
 
     console.log(`Creating recruit in Supabase: ${name}, phone: ${phone}, location: ${location}`);
 
+    // Check for duplicate email if provided
+    if (email && email.trim()) {
+      const normalizedEmail = email.trim().toLowerCase();
+      
+      // Check in recruits table
+      const { data: existingRecruit } = await supabase
+        .from('recruits')
+        .select('id, name')
+        .ilike('email', normalizedEmail)
+        .maybeSingle();
+
+      if (existingRecruit) {
+        console.log(`Duplicate email found in recruits: ${normalizedEmail} -> ${existingRecruit.name}`);
+        return new Response(JSON.stringify({ 
+          error: `A recruit with this email already exists: ${existingRecruit.name}`,
+          duplicateEmail: true,
+        }), {
+          status: 409,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Check in reps table
+      const { data: existingRep } = await supabase
+        .from('reps')
+        .select('id, name')
+        .ilike('email', normalizedEmail)
+        .maybeSingle();
+
+      if (existingRep) {
+        console.log(`Duplicate email found in reps: ${normalizedEmail} -> ${existingRep.name}`);
+        return new Response(JSON.stringify({ 
+          error: `A rep with this email already exists: ${existingRep.name}`,
+          duplicateEmail: true,
+        }), {
+          status: 409,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // Get current user's team info if not provided
     let finalTeamId = teamId;
     let finalMgmtGroupId = mgmtGroupId;
@@ -79,7 +120,7 @@ serve(async (req) => {
       .insert({
         name,
         phone: phone || null,
-        email: email || null,
+        email: email?.trim() || null,
         location: location || null,
         recruitment_source: recruitmentSource || null,
         stage: finalStage,

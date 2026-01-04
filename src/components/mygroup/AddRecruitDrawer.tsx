@@ -567,13 +567,22 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       });
 
       if (error) throw error;
+      
+      // Handle duplicate email error specifically
+      if (data?.duplicateEmail) {
+        throw new Error(data.error);
+      }
+      if (data?.error) throw new Error(data.error);
+      
       return data;
     },
     onSuccess: (data) => {
       toast.success('Recruit added!', {
         description: `${data.name} has been added to your pipeline`,
       });
+      // Invalidate and refetch immediately
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.refetchQueries({ queryKey: ['group-recruits'] });
       
       // If this was from a suggestion, notify parent to mark it approved
       if (suggestionPrefill && onSuggestionApproved) {
@@ -591,7 +600,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     onError: (error) => {
       console.error('Failed to create recruit:', error);
       toast.error('Failed to add recruit', {
-        description: 'Please try again',
+        description: error instanceof Error ? error.message : 'Please try again',
       });
     },
   });

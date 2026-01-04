@@ -346,6 +346,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     isRefreshing,
     hasData,
     refetch: refetchAttendance,
+    setOptimisticUpdate,
+    clearOptimisticUpdate,
   } = useBlitzAttendance(attendanceScope, {
     mgmtGroupId: selectedMgmtGroupId,
     teamId: selectedTeamId,
@@ -547,8 +549,16 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       ? member.committedBlitzes.filter((id) => id !== blitzId)
       : [...member.committedBlitzes, blitzId];
 
+    // Close dialog immediately for snappy UX
+    setCommitDialogOpen(false);
+    const commitMember = memberToCommit;
+    setMemberToCommit(null);
+
+    // Apply optimistic update to local team members state
+    setOptimisticUpdate(`member-${member.id}`, { committedBlitzes: newCommittedBlitzes });
+
     try {
-      // Recruits are committed via recruit_blitzes (drives the “attending” list)
+      // Recruits are committed via recruit_blitzes (drives the "attending" list)
       if (member.recruitId) {
         // Find the Supabase blitz ID (recruit_blitzes FK) from allBlitzes
         const blitzData = allBlitzes.find((b: BlitzEvent) => b.id === blitzId);
@@ -598,23 +608,22 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         }));
       }
 
-      // Refetch to get updated team member data
-      refetchAttendance();
-
       toast({
         title: isCommitted ? 'Uncommitted' : 'Committed',
         description: `${member.name} has been ${isCommitted ? 'removed from' : 'added to'} this blitz`,
       });
+
+      // Refetch in background after success (clears optimistic state)
+      setTimeout(() => refetchAttendance(), 500);
     } catch (error) {
       console.error('Error toggling member commitment:', error);
+      // Clear optimistic update on error
+      clearOptimisticUpdate(`member-${member.id}`);
       toast({
         title: 'Update failed',
         description: 'Could not update team member commitment',
         variant: 'destructive',
       });
-    } finally {
-      setCommitDialogOpen(false);
-      setMemberToCommit(null);
     }
   };
 
