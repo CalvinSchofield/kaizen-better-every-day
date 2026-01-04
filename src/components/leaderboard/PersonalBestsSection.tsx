@@ -1,3 +1,4 @@
+import type { ElementType } from "react";
 import { Trophy, Calendar, CalendarDays, CalendarRange } from "lucide-react";
 import { usePersonalRecords } from "@/hooks/useRecordsTracking";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -6,15 +7,15 @@ interface PersonalBestsSectionProps {
   userId: string | null;
 }
 
-const RecordCard = ({ 
-  icon: Icon, 
-  label, 
-  value, 
-  sublabel 
-}: { 
-  icon: React.ElementType; 
-  label: string; 
-  value: number; 
+const RecordCard = ({
+  icon: Icon,
+  label,
+  value,
+  sublabel,
+}: {
+  icon: ElementType;
+  label: string;
+  value: number;
   sublabel: string;
 }) => (
   <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
