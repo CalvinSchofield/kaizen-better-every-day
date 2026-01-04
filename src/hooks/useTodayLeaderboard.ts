@@ -6,6 +6,7 @@ interface RankingEntry {
   name: string;
   value: number;
   isWorking?: boolean;
+  profilePhotoUrl?: string | null;
 }
 
 interface TodayLeaderboard {
@@ -47,14 +48,15 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
       // Fetch reps with timezone info
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, year, timezone");
+        .select("user_id, name, year, timezone, profile_photo_url");
 
       if (repsError) throw repsError;
 
       const repsMap = new Map(repsData?.map(r => [r.user_id, { 
         name: r.name, 
         year: r.year,
-        timezone: r.timezone 
+        timezone: r.timezone,
+        profilePhotoUrl: r.profile_photo_url
       }]) || []);
 
       // Fetch recent entries (RLS allows last 2 days for timezone coverage)
@@ -104,7 +106,7 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
               (entry.presentations ?? 0) > 0 ||
               (entry.fp_plus ?? 0) > 0
             );
-            return { userId: entry.user_id, name: cleanName, value, isWorking };
+            return { userId: entry.user_id, name: cleanName, value, isWorking, profilePhotoUrl: repInfo.profilePhotoUrl };
           })
           .filter((e): e is NonNullable<typeof e> => e !== null)
           .sort((a, b) => b.value - a.value);
@@ -179,7 +181,7 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
               (entry.presentations ?? 0) > 0 ||
               value > 0
             );
-            return { userId: entry.user_id, name: cleanName, value, isWorking };
+            return { userId: entry.user_id, name: cleanName, value, isWorking, profilePhotoUrl: repInfo.profilePhotoUrl };
           })
           .filter((e): e is NonNullable<typeof e> => e !== null)
           .sort((a, b) => {
@@ -222,7 +224,7 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
               (entry.presentations ?? 0) > 0 ||
               value > 0
             );
-            return { userId: entry.user_id, name: cleanName, value, isWorking };
+            return { userId: entry.user_id, name: cleanName, value, isWorking, profilePhotoUrl: repInfo.profilePhotoUrl };
           })
           .filter((e): e is NonNullable<typeof e> => e !== null)
           .sort((a, b) => b.value - a.value);
