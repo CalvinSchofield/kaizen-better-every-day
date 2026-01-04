@@ -948,6 +948,7 @@ const MyGroup = () => {
                 onSkipForNow={(recruit) => skipForNow(recruit.id)}
                 onSkipToday={(recruit) => skipToday(recruit.id)}
                 heroOverdueItem={overdueScheduledFallback}
+                heroTodayItem={todayScheduledItem}
               />
             </div>
 

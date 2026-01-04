@@ -68,6 +68,11 @@ interface OverdueScheduledItem {
   daysOverdue: number;
 }
 
+interface TodayScheduledItem {
+  recruit: Recruit;
+  activity: RecruitActivity;
+}
+
 interface WeekPlannerSectionProps {
   recruits: Recruit[];
   activities: RecruitActivity[];
@@ -83,6 +88,8 @@ interface WeekPlannerSectionProps {
   onSkipToday?: (recruit: Recruit) => void;
   // Hero's overdue item to exclude from the overdue list
   heroOverdueItem?: OverdueScheduledItem | null;
+  // Hero's today item to exclude from the today list
+  heroTodayItem?: TodayScheduledItem | null;
 }
 
 export const WeekPlannerSection = ({ 
@@ -97,6 +104,7 @@ export const WeekPlannerSection = ({
   onSkipForNow,
   onSkipToday,
   heroOverdueItem,
+  heroTodayItem,
 }: WeekPlannerSectionProps) => {
   const [showSwipeHint, setShowSwipeHint] = useState(true);
   const handleDemoComplete = useCallback(() => setShowSwipeHint(false), []);
@@ -248,9 +256,15 @@ export const WeekPlannerSection = ({
     return format(selectedWeekStart, 'MMM d') + ' - ' + format(endOfWeek(selectedWeekStart, { weekStartsOn: 0 }), 'MMM d');
   }, [selectedWeekStart]);
 
-  // Get today's tasks
+  // Get today's tasks (excluding hero item if present)
   const todayKey = format(new Date(), 'yyyy-MM-dd');
-  const todayTasks = scheduledTasks.get(todayKey) || [];
+  const todayTasksRaw = scheduledTasks.get(todayKey) || [];
+  const todayTasks = useMemo(() => {
+    if (!heroTodayItem) return todayTasksRaw;
+    return todayTasksRaw.filter(({ recruit, activity }) => 
+      !(recruit.id === heroTodayItem.recruit.id && activity.id === heroTodayItem.activity.id)
+    );
+  }, [todayTasksRaw, heroTodayItem]);
 
   // Handle local clicks - open OUR drawer only, don't call parent's onRecruitClick
   // The parent onRecruitClick would open a SECOND drawer, causing duplicates
