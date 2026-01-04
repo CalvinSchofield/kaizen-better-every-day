@@ -442,252 +442,282 @@ export const LeaderboardCard = () => {
           </div>
           
           {/* Today Leaderboard - Full Rankings with User Position */}
-          {timeFilter === 'today' && todayBoard && (
+          {timeFilter === 'today' && (
             <div className="px-6 pb-4 space-y-4">
-              {/* Top FP+ and PRMR - Same format as other timeframes */}
-              {(() => {
-                const topFP = todayBoard.rankings.fp_plus[0];
-                const topPRMR = todayBoard.rankings.prmr[0];
-                const topCategories = [
-                  { entry: topFP, label: 'Highest FP+', format: (v: number) => `${v.toFixed(1)} FP+` },
-                  { entry: topPRMR, label: 'Highest PRMR', format: (v: number) => `$${v.toFixed(0)}` },
-                ].filter(c => c.entry && c.entry.value > 0);
+              {/* Check if there's any data at all */}
+              {(!todayBoard || (
+                todayBoard.rankings.fp_plus.filter(r => r.value > 0).length === 0 &&
+                todayBoard.rankings.prmr.filter(r => r.value > 0).length === 0 &&
+                todayBoard.rankings.presentations.filter(r => r.value > 0).length === 0 &&
+                todayBoard.rankings.transitions.filter(r => r.value > 0).length === 0 &&
+                todayBoard.rankings.pitches.filter(r => r.value > 0).length === 0 &&
+                todayBoard.rankings.doors_knocked.filter(r => r.value > 0).length === 0
+              )) ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {scopeFilter === 'rookies' 
+                    ? "No rookies knocking yet — try switching to All!"
+                    : "No one knocking yet. Be the first to set the pace!"}
+                </p>
+              ) : (
+                <>
+                  {/* Top FP+ and PRMR - Same format as other timeframes */}
+                  {(() => {
+                    const topFP = todayBoard.rankings.fp_plus[0];
+                    const topPRMR = todayBoard.rankings.prmr[0];
+                    const topCategories = [
+                      { entry: topFP, label: 'Highest FP+', format: (v: number) => `${v.toFixed(1)} FP+` },
+                      { entry: topPRMR, label: 'Highest PRMR', format: (v: number) => `$${v.toFixed(0)}` },
+                    ].filter(c => c.entry && c.entry.value > 0);
 
-                if (topCategories.length === 0) return null;
+                    if (topCategories.length === 0) return null;
 
-                return (
-                  <div className="space-y-3 border-b border-border pb-4 mb-2">
-                    {topCategories.map(({ entry, label, format }) => {
-                      const isCurrentUser = currentUserId && entry.userId === currentUserId;
-                      return (
-                        <div key={label} className="flex items-center justify-between py-2">
-                          <div className="flex items-center gap-3">
-                            <span className="text-xl">🥇</span>
-                            <span className="text-foreground text-sm font-medium">{label}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-sm font-semibold flex items-center ${isCurrentUser ? 'text-primary' : 'text-foreground'}`}>
-                              {isCurrentUser ? 'You' : entry.name} {isCurrentUser && '⭐'}
-                              <WorkingIndicator 
-                                isWorking={entry.isWorking || false}
-                                isCurrentUser={isCurrentUser || false}
-                              />
-                            </span>
-                            <span className={`text-sm font-bold ${label.includes('PRMR') ? 'text-green-700 dark:text-green-500' : ''}`}>
-                              {format(entry.value)}
-                            </span>
-                          </div>
+                    return (
+                      <div className="space-y-3 border-b border-border pb-4 mb-2">
+                        {topCategories.map(({ entry, label, format }) => {
+                          const isCurrentUser = currentUserId && entry.userId === currentUserId;
+                          return (
+                            <div key={label} className="flex items-center justify-between py-2">
+                              <div className="flex items-center gap-3">
+                                <span className="text-xl">🥇</span>
+                                <span className="text-foreground text-sm font-medium">{label}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-sm font-semibold flex items-center ${isCurrentUser ? 'text-primary' : 'text-foreground'}`}>
+                                  {isCurrentUser ? 'You' : entry.name} {isCurrentUser && '⭐'}
+                                  <WorkingIndicator 
+                                    isWorking={entry.isWorking || false}
+                                    isCurrentUser={isCurrentUser || false}
+                                  />
+                                </span>
+                                <span className={`text-sm font-bold ${label.includes('PRMR') ? 'text-green-700 dark:text-green-500' : ''}`}>
+                                  {format(entry.value)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Combined FP+ & PRMR Rankings */}
+                  {(() => {
+                    const fpRankings = todayBoard.rankings.fp_plus.filter(r => r.value > 0);
+                    const prmrMap = new Map(todayBoard.rankings.prmr.map(r => [r.userId, r.value]));
+                    
+                    if (fpRankings.length === 0) return null;
+                    
+                    const userRank = fpRankings.findIndex(r => r.userId === currentUserId) + 1;
+                    const userEntry = fpRankings.find(r => r.userId === currentUserId);
+                    const userPrmr = userEntry ? prmrMap.get(userEntry.userId) || 0 : 0;
+                    
+                    return (
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-semibold text-muted-foreground">Sales</h3>
+                        <div className="space-y-1">
+                          {fpRankings.slice(0, 5).map((entry, idx) => {
+                            const prmr = prmrMap.get(entry.userId) || 0;
+                            const clickable = canClickRep(entry.userId);
+                            return (
+                              <div 
+                                key={entry.userId}
+                                onClick={() => clickable && handleRepClick(entry.userId, entry.name)}
+                                className={`flex items-center justify-between py-2 px-3 rounded-lg transition-colors ${
+                                  entry.userId === currentUserId ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/30'
+                                } ${clickable ? 'cursor-pointer hover:bg-accent/20' : ''}`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className="text-sm font-medium text-muted-foreground w-6">#{idx + 1}</span>
+                                  {entry.userId === currentUserId && <span className="text-primary">⭐</span>}
+                                  <span className={`text-sm flex items-center ${entry.userId === currentUserId ? 'font-bold text-primary' : 'font-medium'}`}>
+                                    {entry.userId === currentUserId ? 'You' : entry.name}
+                                    <WorkingIndicator 
+                                      isWorking={entry.isWorking || false} 
+                                      isCurrentUser={entry.userId === currentUserId}
+                                    />
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold">{entry.value.toFixed(1)} FP+</span>
+                                  {prmr > 0 && (
+                                    <span className="text-sm font-bold text-green-700 dark:text-green-500">${prmr.toFixed(0)}</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {userRank > 5 && userEntry && (
+                            <>
+                              <div className="text-center text-xs text-muted-foreground py-1">···</div>
+                              <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-primary/10 border border-primary/20">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-sm font-medium text-muted-foreground w-6">#{userRank}</span>
+                                  <span className="text-primary">⭐</span>
+                                  <span className="text-sm font-bold text-primary">You</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold">{userEntry.value.toFixed(1)} FP+</span>
+                                  {userPrmr > 0 && (
+                                    <span className="text-sm font-bold text-green-700 dark:text-green-500">${userPrmr.toFixed(0)}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
+                      </div>
+                    );
+                  })()}
 
-              {/* Combined FP+ & PRMR Rankings */}
-              {(() => {
-                const fpRankings = todayBoard.rankings.fp_plus.filter(r => r.value > 0);
-                const prmrMap = new Map(todayBoard.rankings.prmr.map(r => [r.userId, r.value]));
-                
-                if (fpRankings.length === 0) return null;
-                
-                const userRank = fpRankings.findIndex(r => r.userId === currentUserId) + 1;
-                const userEntry = fpRankings.find(r => r.userId === currentUserId);
-                const userPrmr = userEntry ? prmrMap.get(userEntry.userId) || 0 : 0;
-                
-                return (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold text-muted-foreground">Sales</h3>
-                    <div className="space-y-1">
-                      {fpRankings.slice(0, 5).map((entry, idx) => {
-                        const prmr = prmrMap.get(entry.userId) || 0;
-                        const clickable = canClickRep(entry.userId);
-                        return (
-                          <div 
-                            key={entry.userId}
-                            onClick={() => clickable && handleRepClick(entry.userId, entry.name)}
-                            className={`flex items-center justify-between py-2 px-3 rounded-lg transition-colors ${
-                              entry.userId === currentUserId ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/30'
-                            } ${clickable ? 'cursor-pointer hover:bg-accent/20' : ''}`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-medium text-muted-foreground w-6">#{idx + 1}</span>
-                              {entry.userId === currentUserId && <span className="text-primary">⭐</span>}
-                              <span className={`text-sm flex items-center ${entry.userId === currentUserId ? 'font-bold text-primary' : 'font-medium'}`}>
-                                {entry.userId === currentUserId ? 'You' : entry.name}
-                                <WorkingIndicator 
-                                  isWorking={entry.isWorking || false} 
-                                  isCurrentUser={entry.userId === currentUserId}
-                                />
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold">{entry.value.toFixed(1)} FP+</span>
-                              {prmr > 0 && (
-                                <span className="text-sm font-bold text-green-700 dark:text-green-500">${prmr.toFixed(0)}</span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {userRank > 5 && userEntry && (
-                        <>
-                          <div className="text-center text-xs text-muted-foreground py-1">···</div>
-                          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-primary/10 border border-primary/20">
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-medium text-muted-foreground w-6">#{userRank}</span>
-                              <span className="text-primary">⭐</span>
-                              <span className="text-sm font-bold text-primary">You</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold">{userEntry.value.toFixed(1)} FP+</span>
-                              {userPrmr > 0 && (
-                                <span className="text-sm font-bold text-green-700 dark:text-green-500">${userPrmr.toFixed(0)}</span>
-                              )}
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
+                  {/* Activity Rankings */}
+                  {[
+                    { key: 'presentations', label: 'Presentations', format: (v: number) => v.toString() },
+                    { key: 'transitions', label: 'Transitions', format: (v: number) => v.toString() },
+                    { key: 'pitches', label: 'Pitches', format: (v: number) => v.toString() },
+                    { key: 'doors_knocked', label: 'Doors Knocked', format: (v: number) => v.toString() },
+                  ].map(({ key, label, format }) => {
+                    const rankings = todayBoard.rankings[key as keyof typeof todayBoard.rankings];
+                    if (rankings.length === 0) return null;
 
-              {/* Activity Rankings */}
-              {[
-                { key: 'presentations', label: 'Presentations', format: (v: number) => v.toString() },
-                { key: 'transitions', label: 'Transitions', format: (v: number) => v.toString() },
-                { key: 'pitches', label: 'Pitches', format: (v: number) => v.toString() },
-                { key: 'doors_knocked', label: 'Doors Knocked', format: (v: number) => v.toString() },
-              ].map(({ key, label, format }) => {
-                const rankings = todayBoard.rankings[key as keyof typeof todayBoard.rankings];
-                if (rankings.length === 0) return null;
+                    const userRank = rankings.findIndex(r => r.userId === currentUserId) + 1;
+                    const userEntry = rankings.find(r => r.userId === currentUserId);
+                    const leader = rankings[0];
+                    const gap = leader && userEntry ? leader.value - userEntry.value : 0;
 
-                const userRank = rankings.findIndex(r => r.userId === currentUserId) + 1;
-                const userEntry = rankings.find(r => r.userId === currentUserId);
-                const leader = rankings[0];
-                const gap = leader && userEntry ? leader.value - userEntry.value : 0;
+                    // Only show encouraging message when within striking distance (rank 2-3)
+                    const getEncouragement = () => {
+                      if (userRank === 2 && gap > 0) return `${gap.toFixed(0)} behind — you got this!`;
+                      if (userRank === 3) return "Top 3! Keep pushing! 💪";
+                      return null;
+                    };
 
-                // Only show encouraging message when within striking distance (rank 2-3)
-                const getEncouragement = () => {
-                  if (userRank === 2 && gap > 0) return `${gap.toFixed(0)} behind — you got this!`;
-                  if (userRank === 3) return "Top 3! Keep pushing! 💪";
-                  return null;
-                };
-
-                return (
-                  <div key={key} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-muted-foreground">{label}</h3>
-                      {userRank > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          {getEncouragement()}
-                        </span>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      {rankings.slice(0, 3).map((entry, idx) => {
-                        const clickable = canClickRep(entry.userId);
-                        return (
-                          <div 
-                            key={entry.userId}
-                            onClick={() => clickable && handleRepClick(entry.userId, entry.name)}
-                            className={`flex items-center justify-between py-2 px-3 rounded-lg transition-colors ${
-                              entry.userId === currentUserId ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/30'
-                            } ${clickable ? 'cursor-pointer hover:bg-accent/20' : ''}`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-medium text-muted-foreground w-6">#{idx + 1}</span>
-                              {entry.userId === currentUserId && <span className="text-primary">⭐</span>}
-                              <span className={`text-sm flex items-center ${entry.userId === currentUserId ? 'font-bold text-primary' : 'font-medium'}`}>
-                                {entry.userId === currentUserId ? 'You' : entry.name}
-                                <WorkingIndicator 
-                                  isWorking={entry.isWorking || false} 
-                                  isCurrentUser={entry.userId === currentUserId}
-                                />
-                              </span>
-                            </div>
-                            <span className="text-sm font-bold">{format(entry.value)}</span>
-                          </div>
-                        );
-                      })}
-                      {/* Show user's position if not in top 3 */}
-                      {userRank > 3 && userEntry && (
-                        <>
-                          <div className="text-center text-xs text-muted-foreground py-1">···</div>
-                          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-primary/10 border border-primary/20">
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-medium text-muted-foreground w-6">#{userRank}</span>
-                              <span className="text-primary">⭐</span>
-                              <span className="text-sm font-bold text-primary">You</span>
-                            </div>
-                            <span className="text-sm font-bold">{format(userEntry.value)}</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                    return (
+                      <div key={key} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-semibold text-muted-foreground">{label}</h3>
+                          {userRank > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              {getEncouragement()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          {rankings.slice(0, 3).map((entry, idx) => {
+                            const clickable = canClickRep(entry.userId);
+                            return (
+                              <div 
+                                key={entry.userId}
+                                onClick={() => clickable && handleRepClick(entry.userId, entry.name)}
+                                className={`flex items-center justify-between py-2 px-3 rounded-lg transition-colors ${
+                                  entry.userId === currentUserId ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/30'
+                                } ${clickable ? 'cursor-pointer hover:bg-accent/20' : ''}`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className="text-sm font-medium text-muted-foreground w-6">#{idx + 1}</span>
+                                  {entry.userId === currentUserId && <span className="text-primary">⭐</span>}
+                                  <span className={`text-sm flex items-center ${entry.userId === currentUserId ? 'font-bold text-primary' : 'font-medium'}`}>
+                                    {entry.userId === currentUserId ? 'You' : entry.name}
+                                    <WorkingIndicator 
+                                      isWorking={entry.isWorking || false} 
+                                      isCurrentUser={entry.userId === currentUserId}
+                                    />
+                                  </span>
+                                </div>
+                                <span className="text-sm font-bold">{format(entry.value)}</span>
+                              </div>
+                            );
+                          })}
+                          {/* Show user's position if not in top 3 */}
+                          {userRank > 3 && userEntry && (
+                            <>
+                              <div className="text-center text-xs text-muted-foreground py-1">···</div>
+                              <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-primary/10 border border-primary/20">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-sm font-medium text-muted-foreground w-6">#{userRank}</span>
+                                  <span className="text-primary">⭐</span>
+                                  <span className="text-sm font-bold text-primary">You</span>
+                                </div>
+                                <span className="text-sm font-bold">{format(userEntry.value)}</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           )}
 
           {/* Standard Leaderboard Categories */}
           {timeFilter !== 'today' && (
             <div className="px-6 pb-4 space-y-3">
-              {categories.map(({ key, label, format }) => {
+              {/* Check if there's any data at all */}
+              {(!currentBoard || !categories.some(({ key }) => {
                 const entry = currentBoard?.[key as keyof typeof currentBoard] as any;
-                
-                if (!entry || entry.value <= 0) {
-                  return (
-                    <div key={key} className="flex items-center justify-between py-2">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">🥇</span>
-                        <span className="text-muted-foreground text-sm">{label}</span>
+                return entry && entry.value > 0;
+              })) ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {scopeFilter === 'rookies' 
+                    ? "No rookies knocking yet — try switching to All!"
+                    : "No one knocking yet. Be the first to set the pace!"}
+                </p>
+              ) : (
+                categories.map(({ key, label, format }) => {
+                  const entry = currentBoard?.[key as keyof typeof currentBoard] as any;
+                  
+                  if (!entry || entry.value <= 0) {
+                    return (
+                      <div key={key} className="flex items-center justify-between py-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">🥇</span>
+                          <span className="text-muted-foreground text-sm">{label}</span>
+                        </div>
+                        <span className="text-muted-foreground text-sm">No data yet</span>
                       </div>
-                      <span className="text-muted-foreground text-sm">No data yet</span>
+                    );
+                  }
+
+                  const isCurrentUser = currentUserId && entry.userId === currentUserId;
+                  
+                  // Check if this leader has a weekly streak for this metric
+                  const hasStreak = timeFilter === 'week' && weeklyStreaks.get(entry.userId)?.includes(key);
+                  
+                  // Check if this person is currently working TODAY (cross-reference)
+                  const userWorkingStatus = workingStatus?.get(entry.userId);
+
+                  return (
+                    <div key={key} className="space-y-1">
+                      <div className="flex items-center justify-between py-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">🥇</span>
+                          <span className="text-foreground text-sm font-medium">{label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {hasStreak && (
+                            <span className="flex items-center gap-0.5 text-xs text-orange-500 font-medium bg-orange-500/10 px-1.5 py-0.5 rounded-full">
+                              <Flame className="w-3 h-3" />
+                              2 weeks
+                            </span>
+                          )}
+                          <span className={`text-sm font-semibold flex items-center ${isCurrentUser ? 'text-primary' : 'text-foreground'}`}>
+                            {isCurrentUser ? 'You' : entry.name} {isCurrentUser && '⭐'}
+                            <WorkingIndicator 
+                              isWorking={userWorkingStatus?.isWorking || false}
+                              hasForgottenEntry={userWorkingStatus?.hasForgottenEntry}
+                              isCurrentUser={!!isCurrentUser}
+                            />
+                          </span>
+                          <span className="text-muted-foreground text-sm">
+                            {format(entry.value, entry.timeValue)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   );
-                }
-
-                const isCurrentUser = currentUserId && entry.userId === currentUserId;
-                
-                // Check if this leader has a weekly streak for this metric
-                const hasStreak = timeFilter === 'week' && weeklyStreaks.get(entry.userId)?.includes(key);
-                
-                // Check if this person is currently working TODAY (cross-reference)
-                const userWorkingStatus = workingStatus?.get(entry.userId);
-
-                return (
-                  <div key={key} className="space-y-1">
-                    <div className="flex items-center justify-between py-2">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">🥇</span>
-                        <span className="text-foreground text-sm font-medium">{label}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {hasStreak && (
-                          <span className="flex items-center gap-0.5 text-xs text-orange-500 font-medium bg-orange-500/10 px-1.5 py-0.5 rounded-full">
-                            <Flame className="w-3 h-3" />
-                            2 weeks
-                          </span>
-                        )}
-                        <span className={`text-sm font-semibold flex items-center ${isCurrentUser ? 'text-primary' : 'text-foreground'}`}>
-                          {isCurrentUser ? 'You' : entry.name} {isCurrentUser && '⭐'}
-                          <WorkingIndicator 
-                            isWorking={userWorkingStatus?.isWorking || false}
-                            hasForgottenEntry={userWorkingStatus?.hasForgottenEntry}
-                            isCurrentUser={!!isCurrentUser}
-                          />
-                        </span>
-                        <span className="text-muted-foreground text-sm">
-                          {format(entry.value, entry.timeValue)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                })
+              )}
             </div>
           )}
         </div>
