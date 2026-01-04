@@ -453,13 +453,11 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                 {isNavCollapsed ? (
                   // COLLAPSED: Just the icon, no background ring
                   <div className="flex items-center justify-center w-full h-full">
-                    <motion.div layoutId="active-nav-icon">
-                      <CollapsedActiveIcon
-                        className="w-7 h-7 text-foreground"
-                        strokeWidth={2.5}
-                        fill="currentColor"
-                      />
-                    </motion.div>
+                    <CollapsedActiveIcon
+                      className="w-7 h-7 text-foreground"
+                      strokeWidth={2.5}
+                      fill="currentColor"
+                    />
                   </div>
                 ) : (
                   // EXPANDED: Full nav tabs
@@ -482,21 +480,11 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                             whileTap={{ scale: 0.88 }}
                             transition={{ type: "spring", stiffness: 500, damping: 30 }}
                           >
-                            {isActive ? (
-                              <motion.div layoutId="active-nav-icon">
-                                <Icon
-                                  className="w-6 h-6"
-                                  strokeWidth={2.5}
-                                  fill="currentColor"
-                                />
-                              </motion.div>
-                            ) : (
-                              <Icon
-                                className="w-6 h-6"
-                                strokeWidth={1.5}
-                                fill="none"
-                              />
-                            )}
+                            <Icon
+                              className="w-6 h-6"
+                              strokeWidth={isActive ? 2.5 : 1.5}
+                              fill={isActive ? "currentColor" : "none"}
+                            />
                             <span className={`text-[11px] ${isActive ? "font-semibold" : "font-normal"}`}>
                               {item.label}
                             </span>
