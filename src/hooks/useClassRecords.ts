@@ -126,18 +126,21 @@ export const useClassRecords = () => {
       const year = rep.year as keyof ClassRecordsData;
       if (year !== 'Rookie' && year !== 'Sophomore' && year !== 'Vet') return;
 
+      // Strip emojis from name
+      const cleanName = rep.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
+
       const dayBest = userDayBests.get(rep.user_id);
       const weekBest = userWeekBests.get(rep.user_id);
       const monthBest = userMonthBests.get(rep.user_id);
 
       if (dayBest && (!records[year].day || dayBest.value > records[year].day!.value)) {
-        records[year].day = { userId: rep.user_id, name: rep.name, value: dayBest.value, date: dayBest.date };
+        records[year].day = { userId: rep.user_id, name: cleanName, value: dayBest.value, date: dayBest.date };
       }
       if (weekBest && (!records[year].week || weekBest.value > records[year].week!.value)) {
-        records[year].week = { userId: rep.user_id, name: rep.name, value: weekBest.value, date: weekBest.date };
+        records[year].week = { userId: rep.user_id, name: cleanName, value: weekBest.value, date: weekBest.date };
       }
       if (monthBest && (!records[year].month || monthBest.value > records[year].month!.value)) {
-        records[year].month = { userId: rep.user_id, name: rep.name, value: monthBest.value, date: monthBest.date };
+        records[year].month = { userId: rep.user_id, name: cleanName, value: monthBest.value, date: monthBest.date };
       }
     });
 
