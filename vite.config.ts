@@ -15,6 +15,9 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
+      // We'll register the service worker manually (see src/main.tsx) so we can
+      // disable it on Lovable preview hosts and avoid stale-cache blank screens.
+      injectRegister: false,
       includeAssets: ["favicon.png", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "sw-custom.js"],
       devOptions: {
         enabled: false
