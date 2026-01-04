@@ -947,6 +947,7 @@ const MyGroup = () => {
                 recommendations={recommendations.slice(1)}
                 onSkipForNow={(recruit) => skipForNow(recruit.id)}
                 onSkipToday={(recruit) => skipToday(recruit.id)}
+                heroOverdueItem={overdueScheduledFallback}
               />
             </div>
 
