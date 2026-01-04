@@ -427,13 +427,13 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
             {/* Main nav container - morphs between collapsed bubble and expanded bar */}
             <motion.div
               layout
-              className="relative overflow-hidden"
+              className="relative"
               transition={{ 
                 layout: { 
                   type: "spring", 
-                  stiffness: 300, 
-                  damping: 30,
-                  mass: 0.8
+                  stiffness: 280, 
+                  damping: 22,
+                  mass: 0.9
                 }
               }}
             >
