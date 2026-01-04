@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { TrendingUp as UpgradeIcon } from "lucide-react";
 import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield, TrendingUp, Wallet, ClipboardCheck, Instagram, Info, ChevronDown, MessageSquare, GraduationCap } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,7 +44,7 @@ const Tools = () => {
   const navigate = useNavigate();
 
   // Smart link handler - opens Notion links in app
-  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+  const handleLinkClick = (e: MouseEvent<HTMLAnchorElement>, href: string) => {
     // Check if it's a Notion link and try to open in Notion app
     if (href.includes('notion.so') || href.includes('notion.site')) {
       e.preventDefault();
