@@ -1,4 +1,4 @@
-import { Target, ChevronRight, Edit2, Zap, Lightbulb } from "lucide-react";
+import { Target, ChevronRight, Edit2, Zap, Lightbulb, Settings2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -29,19 +29,16 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
   const { totalFP, totalPRMR, knockingDays } = usePreseasonFP();
   const [isEditing, setIsEditing] = useState(false);
 
-  // Get goals from localStorage with defaults (fallback if no goals set)
+  // Activity goals from localStorage (user-editable)
   const [transitionsGoal, setTransitionsGoal] = useState(3);
   const [presentationsGoal, setPresentationsGoal] = useState(2);
-  const [fpGoal, setFpGoal] = useState(1);
   const [transitionsInput, setTransitionsInput] = useState("3");
   const [presentationsInput, setPresentationsInput] = useState("2");
-  const [fpInput, setFpInput] = useState("1");
 
-  // Calculate daily FP+ goal and pace info using centralized pace calculator (same as Calendar)
+  // Calculate daily FP+ goal from pace calculator (read-only, derived from Goals setup)
   const { calculatedDailyFpGoal, paceResult } = useMemo(() => {
     if (!goals?.setup_complete || !plannedDays) return { calculatedDailyFpGoal: null, paceResult: null };
     
-    // Use centralized pace calculator for consistency across app
     const result = calculateSalesPace({
       goals,
       plannedDays,
@@ -54,7 +51,6 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
     
     if (!result) return { calculatedDailyFpGoal: null, paceResult: null };
     
-    // Return the fixed daily goal (same value shown on calendar)
     return {
       calculatedDailyFpGoal: Math.round(result.dailyGoal * 10) / 10,
       paceResult: result
@@ -64,19 +60,17 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
   // Calculate pace context for messaging
   const paceMessage = useMemo(() => {
     if (!paceResult || knockingDays < 18) {
-      // Before 18 days, show encouraging principle
       return "Keep building momentum — progress isn't always linear.";
     }
     
-    // Calculate average from current progress / knocking days
     const currentAverage = knockingDays > 0 ? paceResult.currentProgress / knockingDays : 0;
     
     const paceContext = calculatePaceContext(
       knockingDays,
       paceResult.remainingDailyNeeded,
       currentAverage,
-      1, // weekInSummer - simplified for this component
-      false // isRookie - simplified for this component
+      1,
+      false
     );
     
     if (paceContext === 'building-momentum' || paceContext === 'on-track') {
@@ -90,11 +84,10 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
     return null;
   }, [paceResult, knockingDays]);
 
-  // Load goals from localStorage on mount (fallback for users without goals)
+  // Load activity goals from localStorage on mount
   useEffect(() => {
     const savedTransitions = localStorage.getItem('daily_transitions_goal');
     const savedPresentations = localStorage.getItem('daily_presentations_goal');
-    const savedFp = localStorage.getItem('daily_fp_goal');
     
     if (savedTransitions) {
       const val = parseInt(savedTransitions);
@@ -106,44 +99,26 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
       setPresentationsGoal(val);
       setPresentationsInput(String(val));
     }
-    if (savedFp) {
-      const val = parseFloat(savedFp);
-      setFpGoal(val);
-      setFpInput(String(val));
-    }
   }, []);
 
-  // Auto-update FP goal when calculated goal is available
-  useEffect(() => {
-    if (calculatedDailyFpGoal !== null) {
-      setFpGoal(calculatedDailyFpGoal);
-      setFpInput(String(calculatedDailyFpGoal));
-    }
-  }, [calculatedDailyFpGoal]);
-
-  // Calculate today's progress - always use sales_log as source of truth
+  // Calculate today's progress from sales_log
   const todayTransitions = entry?.transitions || 0;
   const todayPresentations = entry?.presentations || 0;
   
-  // Calculate FP+ and PRMR from sales_log (source of truth for the day)
-  // This prevents jumps when entry becomes finalized with different stored values
   const { todayFP, todayPRMR } = useMemo(() => {
     if (!entry) return { todayFP: 0, todayPRMR: 0 };
     
-    // Always try to calculate from sales_log first for accuracy
     const salesLog = entry.sales_log as Array<{ fp?: number; prmr?: number; upgrade_prmr?: number }> | null;
     if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
       let totalFP = 0;
       let totalPRMR = 0;
       salesLog.forEach(sale => {
-        // FP+ = FP + (upgrade_prmr / 85)
         totalFP += (sale.fp || 0) + ((sale.upgrade_prmr || 0) / 85);
         totalPRMR += (sale.prmr || 0) + (sale.upgrade_prmr || 0);
       });
       return { todayFP: totalFP, todayPRMR: totalPRMR };
     }
     
-    // Fallback to stored values only if no sales_log
     const entryAny = entry as any;
     return { 
       todayFP: entry.fp_plus || 0, 
@@ -151,9 +126,9 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
     };
   }, [entry]);
   
-  // For EFP mode, show EFP instead of FP+
   const displayValue = efpModeEnabled ? calculateEfp(todayPRMR) : todayFP;
   const displayLabel = efpModeEnabled ? "EFP" : "FP+";
+  const fpGoal = calculatedDailyFpGoal ?? 1;
 
   const transitionsProgress = transitionsGoal > 0 ? Math.min((todayTransitions / transitionsGoal) * 100, 100) : 0;
   const presentationsProgress = presentationsGoal > 0 ? Math.min((todayPresentations / presentationsGoal) * 100, 100) : 0;
@@ -162,27 +137,23 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
   const handleSaveGoals = () => {
     const transVal = parseInt(transitionsInput) || 3;
     const presVal = parseInt(presentationsInput) || 2;
-    const fpVal = parseFloat(fpInput) || 1;
     
     setTransitionsGoal(transVal);
     setPresentationsGoal(presVal);
-    setFpGoal(fpVal);
     
     localStorage.setItem('daily_transitions_goal', String(transVal));
     localStorage.setItem('daily_presentations_goal', String(presVal));
-    localStorage.setItem('daily_fp_goal', String(fpVal));
     
     setIsEditing(false);
     toast({
-      title: "Goals updated",
-      description: "Your daily goals have been saved.",
+      title: "Activity targets updated",
+      description: "Your daily activity targets have been saved.",
     });
   };
 
   const handleCancelEdit = () => {
     setTransitionsInput(String(transitionsGoal));
     setPresentationsInput(String(presentationsGoal));
-    setFpInput(String(fpGoal));
     setIsEditing(false);
   };
 
@@ -264,18 +235,32 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
                 className="h-11"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="fp-goal">{displayLabel} Goal</Label>
-              <Input
-                id="fp-goal"
-                type="number"
-                step="0.1"
-                value={fpInput}
-                onChange={(e) => setFpInput(e.target.value)}
-                className="h-11"
-              />
-            </div>
-            <div className="flex gap-2">
+            
+            {/* EFP Goal - read-only, from Goals setup */}
+            {goals?.setup_complete && (
+              <div className="space-y-2 pt-2 border-t border-border/50">
+                <div className="flex items-center justify-between">
+                  <Label className="text-muted-foreground">{displayLabel} Goal</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate('/goals')}
+                    className="h-6 px-2 text-xs text-primary hover:text-primary"
+                  >
+                    <Settings2 className="h-3 w-3 mr-1" />
+                    Edit in Goals
+                  </Button>
+                </div>
+                <div className="h-11 px-3 flex items-center bg-muted/50 rounded-md border border-input">
+                  <span className="text-muted-foreground">{fpGoal.toFixed(1)}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Calculated from your preseason goal ÷ planned days
+                </p>
+              </div>
+            )}
+            
+            <div className="flex gap-2 pt-2">
               <Button
                 variant="outline"
                 className="flex-1"
@@ -287,16 +272,23 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
                 className="flex-1"
                 onClick={handleSaveGoals}
               >
-                Save Goals
+                Save
               </Button>
             </div>
           </div>
         ) : (
           <>
-            {/* FP+ / EFP - Primary metric */}
+            {/* FP+ / EFP - Primary metric (from Goals) */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{displayLabel}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">{displayLabel}</span>
+                  {goals?.setup_complete && (
+                    <span className="text-[10px] text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded">
+                      from goals
+                    </span>
+                  )}
+                </div>
                 <span className="font-semibold text-lg">{displayValue.toFixed(1)} / {fpGoal.toFixed(1)}</span>
               </div>
               <Progress 
