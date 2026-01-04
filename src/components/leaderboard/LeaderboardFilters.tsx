@@ -1,36 +1,39 @@
 import { cn } from "@/lib/utils";
+import type { TimeframeType } from "@/hooks/useExpandedLeaderboard";
 
-export type TimeFilter = 'live' | 'yesterday' | 'week' | 'month' | 'season' | 'ytd';
+export type TimeFilter = TimeframeType;
 export type ScopeFilter = 'all' | 'rookies';
 
 interface LeaderboardFiltersProps {
   timeFilter: TimeFilter;
   scopeFilter: ScopeFilter;
+  availablePresets: TimeFilter[];
   onTimeFilterChange: (filter: TimeFilter) => void;
   onScopeFilterChange: (filter: ScopeFilter) => void;
 }
 
+const timeLabels: Record<TimeFilter, string> = {
+  live: 'Live',
+  yesterday: 'Yesterday',
+  week: 'Week',
+  month: 'Month',
+  season: 'Season',
+  ytd: 'YTD',
+};
+
 export const LeaderboardFilters = ({
   timeFilter,
   scopeFilter,
+  availablePresets,
   onTimeFilterChange,
   onScopeFilterChange,
 }: LeaderboardFiltersProps) => {
-  const timeOptions: { key: TimeFilter; label: string; isLive?: boolean }[] = [
-    { key: 'live', label: 'Live', isLive: true },
-    { key: 'yesterday', label: 'Yesterday' },
-    { key: 'week', label: 'Week' },
-    { key: 'month', label: 'Month' },
-    { key: 'season', label: 'Season' },
-    { key: 'ytd', label: 'YTD' },
-  ];
-
   return (
     <div className="space-y-3">
       {/* Time Filter Pills */}
       <div className="overflow-x-auto scrollbar-hide -mx-4 px-4">
         <div className="flex gap-2 min-w-max">
-          {timeOptions.map(({ key, label, isLive }) => (
+          {availablePresets.map((key) => (
             <button
               key={key}
               onClick={() => onTimeFilterChange(key)}
@@ -41,8 +44,8 @@ export const LeaderboardFilters = ({
                   : "bg-secondary/60 text-secondary-foreground hover:bg-secondary"
               )}
             >
-              {label}
-              {isLive && (
+              {timeLabels[key]}
+              {key === 'live' && (
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                   <span className={cn(

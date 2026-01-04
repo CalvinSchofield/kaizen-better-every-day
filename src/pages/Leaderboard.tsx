@@ -6,17 +6,46 @@ import { SalesLeadersSection } from "@/components/leaderboard/SalesLeadersSectio
 import { ActivityLeadersSection } from "@/components/leaderboard/ActivityLeadersSection";
 import { GritAwardsSection } from "@/components/leaderboard/GritAwardsSection";
 import { TimingBreakdownSection } from "@/components/leaderboard/TimingBreakdownSection";
-import { LiveLeaderboardSection } from "@/components/leaderboard/LiveLeaderboardSection";
 import { useExpandedLeaderboard } from "@/hooks/useExpandedLeaderboard";
+import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const LeaderboardSkeleton = () => (
+  <div className="p-4 space-y-6">
+    <Skeleton className="h-24 rounded-xl" />
+    <div className="flex gap-2 overflow-hidden">
+      <Skeleton className="h-10 w-16 rounded-full" />
+      <Skeleton className="h-10 w-24 rounded-full" />
+      <Skeleton className="h-10 w-16 rounded-full" />
+      <Skeleton className="h-10 w-16 rounded-full" />
+    </div>
+    <div className="grid grid-cols-2 gap-3">
+      <Skeleton className="h-28 rounded-xl" />
+      <Skeleton className="h-28 rounded-xl" />
+    </div>
+    <Skeleton className="h-40 rounded-xl" />
+    <Skeleton className="h-32 rounded-xl" />
+  </div>
+);
 
 const Leaderboard = () => {
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('live');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter | null>(null);
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('all');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isUserInitialized, setIsUserInitialized] = useState(false);
+
+  // Get available presets based on actual data
+  const { availablePresets, autoSelectedPreset, isLoading: presetsLoading } = useAvailableLeaderboardPresets();
+
+  // Auto-select best preset when data loads
+  useEffect(() => {
+    if (!presetsLoading && timeFilter === null) {
+      setTimeFilter(autoSelectedPreset);
+    }
+  }, [presetsLoading, autoSelectedPreset, timeFilter]);
 
   // Fetch current user info
   useEffect(() => {
@@ -33,34 +62,36 @@ const Leaderboard = () => {
         
         if (repData) {
           setCurrentUserYear(repData.year);
-          // Set default scope based on user's year
           setScopeFilter(repData.year === 'Rookie' ? 'rookies' : 'all');
         }
       }
-      setIsInitialized(true);
+      setIsUserInitialized(true);
     };
     
     fetchUser();
   }, []);
 
-  // Convert timeFilter to hook format
-  const hookTimeframe = timeFilter === 'live' ? 'yesterday' : timeFilter === 'season' ? 'season' : timeFilter;
   const filterByYear = scopeFilter === 'rookies' ? 'Rookie' : undefined;
 
   const { data: expandedLeaderboard, isLoading } = useExpandedLeaderboard(
-    hookTimeframe as 'yesterday' | 'week' | 'month' | 'season' | 'ytd',
+    timeFilter ?? 'live',
     filterByYear
   );
 
-  if (!isInitialized) {
+  // Show skeleton during initial load
+  if (!isUserInitialized || presetsLoading || timeFilter === null) {
     return (
       <Layout>
-        <div className="flex items-center justify-center h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <LeaderboardSkeleton />
       </Layout>
     );
   }
+
+  const hasNoData = !expandedLeaderboard || (
+    !expandedLeaderboard.salesLeaders.mostFP && 
+    !expandedLeaderboard.activityLeaders.mostDoors && 
+    !expandedLeaderboard.gritAwards.earliestDoor
+  );
 
   return (
     <Layout>
@@ -75,23 +106,29 @@ const Leaderboard = () => {
         <LeaderboardFilters
           timeFilter={timeFilter}
           scopeFilter={scopeFilter}
+          availablePresets={availablePresets}
           onTimeFilterChange={setTimeFilter}
           onScopeFilterChange={setScopeFilter}
         />
 
-        {/* Content based on time filter */}
-        {timeFilter === 'live' ? (
-          <LiveLeaderboardSection 
-            filterByYear={filterByYear}
-            currentUserId={currentUserId}
-          />
-        ) : isLoading ? (
+        {/* Content */}
+        {isLoading ? (
           <div className="space-y-4 animate-pulse">
             <div className="h-24 bg-muted rounded-xl" />
             <div className="h-32 bg-muted rounded-xl" />
             <div className="h-24 bg-muted rounded-xl" />
           </div>
-        ) : expandedLeaderboard ? (
+        ) : hasNoData ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <p className="text-lg font-medium">
+              {scopeFilter === 'rookies' 
+                ? "No rookies knocking yet — try switching to All!"
+                : timeFilter === 'live'
+                  ? "No one knocking yet. Be the first to set the pace!"
+                  : "No data for this timeframe yet."}
+            </p>
+          </div>
+        ) : (
           <div className="space-y-6">
             {/* Sales Leaders */}
             <SalesLeadersSection
@@ -123,27 +160,6 @@ const Leaderboard = () => {
               gritAwards={expandedLeaderboard.gritAwards}
               currentUserId={currentUserId}
             />
-
-            {/* Empty state */}
-            {!expandedLeaderboard.salesLeaders.mostFP && 
-             !expandedLeaderboard.activityLeaders.mostDoors && 
-             !expandedLeaderboard.gritAwards.earliestDoor && (
-              <div className="text-center py-12 text-muted-foreground">
-                <p className="text-lg font-medium">
-                  {scopeFilter === 'rookies' 
-                    ? "No rookies knocking yet — try switching to All!"
-                    : "No data for this timeframe yet."}
-                </p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="text-center py-12 text-muted-foreground">
-            <p className="text-lg font-medium">
-              {scopeFilter === 'rookies' 
-                ? "No rookies knocking yet — try switching to All!"
-                : "No data for this timeframe yet."}
-            </p>
           </div>
         )}
       </div>
