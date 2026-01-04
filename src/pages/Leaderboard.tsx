@@ -7,6 +7,7 @@ import { ActivityLeadersSection } from "@/components/leaderboard/ActivityLeaders
 import { GritAwardsSection } from "@/components/leaderboard/GritAwardsSection";
 import { TimingBreakdownSection } from "@/components/leaderboard/TimingBreakdownSection";
 import { PersonalBestsSection } from "@/components/leaderboard/PersonalBestsSection";
+import { ClassRecordsSection } from "@/components/leaderboard/ClassRecordsSection";
 import { useExpandedLeaderboard } from "@/hooks/useExpandedLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
@@ -102,6 +103,9 @@ const Leaderboard = () => {
       <div className="p-4 space-y-6 pb-24">
         {/* Personal Bests */}
         <PersonalBestsSection userId={currentUserId} />
+
+        {/* Class Records */}
+        <ClassRecordsSection currentUserId={currentUserId} />
 
         {/* Hero Banner - Personal Achievement */}
         <LeaderboardHeroBanner 
