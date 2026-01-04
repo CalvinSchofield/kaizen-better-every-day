@@ -1,13 +1,20 @@
-import { Flame, Sun, Moon } from "lucide-react";
+import { Flame, Sun, Moon, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GritAwards, TimingAward } from "@/hooks/useExpandedLeaderboard";
+import type { AwardStreak } from "@/hooks/useAwardStreaks";
 
 interface GritAwardsSectionProps {
   gritAwards: GritAwards;
   currentUserId: string | null;
+  streaks?: {
+    earlyBirdStreak: AwardStreak | null;
+    nightOwlStreak: AwardStreak | null;
+    ironmanStreak: AwardStreak | null;
+    workhorseStreak: AwardStreak | null;
+  };
 }
 
-export const GritAwardsSection = ({ gritAwards, currentUserId }: GritAwardsSectionProps) => {
+export const GritAwardsSection = ({ gritAwards, currentUserId, streaks }: GritAwardsSectionProps) => {
   const {
     mostHoursWorked,
     earlyBirdWeekday,
@@ -37,6 +44,12 @@ export const GritAwardsSection = ({ gritAwards, currentUserId }: GritAwardsSecti
     return null;
   }
 
+  // Get relevant streak for each award
+  const ironmanStreakCount = streaks?.ironmanStreak?.currentStreak;
+  const earlyBirdStreakCount = streaks?.earlyBirdStreak?.currentStreak;
+  const nightOwlStreakCount = streaks?.nightOwlStreak?.currentStreak;
+  const workhorseStreakCount = streaks?.workhorseStreak?.currentStreak;
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -51,12 +64,17 @@ export const GritAwardsSection = ({ gritAwards, currentUserId }: GritAwardsSecti
         {/* Ironman Award - Special! */}
         {hasIronman && (
           <div className="bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/30 rounded-xl p-4 animate-fade-in">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-2xl">🦾</span>
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-bold text-orange-600 dark:text-orange-400">IRONMAN AWARD</p>
-                <span className="text-xs bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full">Special!</span>
+                <span className="text-2xl">🦾</span>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-orange-600 dark:text-orange-400">IRONMAN AWARD</p>
+                  <span className="text-xs bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full">Special!</span>
+                </div>
               </div>
+              {ironmanStreakCount && ironmanStreakCount >= 2 && (
+                <StreakBadge count={ironmanStreakCount} />
+              )}
             </div>
             <p className="text-[10px] text-muted-foreground mb-2 italic">Early Bird + Night Owl = First to fight, last to leave!</p>
             
@@ -117,6 +135,7 @@ export const GritAwardsSection = ({ gritAwards, currentUserId }: GritAwardsSecti
             currentUserId={currentUserId}
             weekdayLabel="Mon-Fri (before 3 PM)"
             saturdayLabel="Saturday (before 10 AM)"
+            streakCount={earlyBirdStreakCount}
           />
         )}
 
@@ -131,6 +150,7 @@ export const GritAwardsSection = ({ gritAwards, currentUserId }: GritAwardsSecti
             currentUserId={currentUserId}
             weekdayLabel="Mon-Fri (after 7 PM)"
             saturdayLabel="Saturday (after 7 PM)"
+            streakCount={nightOwlStreakCount}
           />
         )}
 
@@ -145,7 +165,12 @@ export const GritAwardsSection = ({ gritAwards, currentUserId }: GritAwardsSecti
             <div className="flex items-center gap-3">
               <span className="text-xl">⏱️</span>
               <div>
-                <p className="text-sm font-semibold">Workhorse</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold">Workhorse</p>
+                  {workhorseStreakCount && workhorseStreakCount >= 2 && (
+                    <StreakBadge count={workhorseStreakCount} />
+                  )}
+                </div>
                 <p className={cn(
                   "text-xs",
                   currentUserId === mostHoursWorked.userId ? "text-primary" : "text-muted-foreground"
@@ -165,6 +190,14 @@ export const GritAwardsSection = ({ gritAwards, currentUserId }: GritAwardsSecti
   );
 };
 
+// Streak badge component
+const StreakBadge = ({ count }: { count: number }) => (
+  <div className="flex items-center gap-1 bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full">
+    <Zap className="h-3 w-3" />
+    <span className="text-xs font-medium">{count} day streak!</span>
+  </div>
+);
+
 interface DualAwardCardProps {
   icon: React.ReactNode;
   emoji: string;
@@ -174,6 +207,7 @@ interface DualAwardCardProps {
   currentUserId: string | null;
   weekdayLabel: string;
   saturdayLabel: string;
+  streakCount?: number;
 }
 
 const DualAwardCard = ({ 
@@ -183,7 +217,8 @@ const DualAwardCard = ({
   saturdayEntry, 
   currentUserId,
   weekdayLabel,
-  saturdayLabel 
+  saturdayLabel,
+  streakCount
 }: DualAwardCardProps) => {
   const isWeekdayCurrentUser = weekdayEntry && currentUserId === weekdayEntry.userId;
   const isSaturdayCurrentUser = saturdayEntry && currentUserId === saturdayEntry.userId;
@@ -197,9 +232,14 @@ const DualAwardCard = ({
         : "bg-muted/50 border border-border"
     )}>
       {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-xl">{emoji}</span>
-        <p className="text-sm font-semibold">{title}</p>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">{emoji}</span>
+          <p className="text-sm font-semibold">{title}</p>
+        </div>
+        {streakCount && streakCount >= 2 && (
+          <StreakBadge count={streakCount} />
+        )}
       </div>
 
       {/* Dual columns */}
