@@ -76,12 +76,16 @@ const formatTime = (timestamp: string, timezone: string): string => {
   }
 };
 
-type TimeframeType = 'yesterday' | 'week' | 'month' | 'season' | 'ytd';
+export type TimeframeType = 'live' | 'yesterday' | 'week' | 'month' | 'season' | 'ytd';
 
 const getDateRange = (timeframe: TimeframeType): { start: string; end: string } => {
   const today = new Date();
   
   switch (timeframe) {
+    case 'live': {
+      const str = getLocalDateString(today);
+      return { start: str, end: str };
+    }
     case 'yesterday': {
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
@@ -98,10 +102,8 @@ const getDateRange = (timeframe: TimeframeType): { start: string; end: string } 
       return { start: getLocalDateString(firstOfMonth), end: getLocalDateString(today) };
     }
     case 'season': {
-      // Preseason: roughly April 1 to May 31
-      const year = today.getFullYear();
-      const preseasonStart = new Date(year, 3, 1); // April 1
-      return { start: getLocalDateString(preseasonStart), end: getLocalDateString(today) };
+      // Preseason: Sept 28, 2025 - April 12, 2026
+      return { start: '2025-09-28', end: getLocalDateString(today) };
     }
     case 'ytd': {
       const firstOfYear = new Date(today.getFullYear(), 0, 1);
@@ -111,6 +113,8 @@ const getDateRange = (timeframe: TimeframeType): { start: string; end: string } 
 };
 
 export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: string) => {
+  const isLive = timeframe === 'live';
+  
   return useQuery({
     queryKey: ["expanded-leaderboard", timeframe, filterByYear],
     queryFn: async () => {
@@ -128,11 +132,14 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         timezone: r.timezone || 'America/Los_Angeles'
       }]) || []);
 
-      const { data: entries, error } = await supabase
+      // For live view, include unfinalized entries. For historical views, prefer finalized.
+      let query = supabase
         .from("daily_entries")
         .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone, is_finalized, sales_log")
         .gte("entry_date", start)
         .lte("entry_date", end);
+
+      const { data: entries, error } = await query;
 
       if (error) throw error;
 
