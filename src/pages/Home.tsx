@@ -1798,6 +1798,8 @@ const Home = () => {
           scrollbar-width: none;
         }
       `}</style>
-    </div>;
+    </div>
+  );
 };
+
 export default Home;
