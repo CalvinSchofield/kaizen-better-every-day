@@ -7,6 +7,7 @@ import { ActivityLeadersSection } from "@/components/leaderboard/ActivityLeaders
 import { GritAwardsSection } from "@/components/leaderboard/GritAwardsSection";
 import { TimingBreakdownSection } from "@/components/leaderboard/TimingBreakdownSection";
 import { useExpandedLeaderboard } from "@/hooks/useExpandedLeaderboard";
+import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
@@ -77,6 +78,8 @@ const Leaderboard = () => {
     timeFilter ?? 'live',
     filterByYear
   );
+
+  const { data: streakData } = useAwardStreaks(filterByYear);
 
   // Show skeleton during initial load
   if (!isUserInitialized || presetsLoading || timeFilter === null) {
@@ -153,6 +156,7 @@ const Leaderboard = () => {
             <GritAwardsSection
               gritAwards={expandedLeaderboard.gritAwards}
               currentUserId={currentUserId}
+              streaks={streakData}
             />
 
             {/* Timing Breakdown (Collapsible) */}
