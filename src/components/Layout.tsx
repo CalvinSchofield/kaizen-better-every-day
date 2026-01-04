@@ -425,29 +425,48 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
             style={{ maxWidth: "380px", gridTemplateColumns: "1fr auto" }}
           >
             {/* Main nav container - morphs between collapsed bubble and expanded bar */}
-            <AnimatePresence mode="wait" initial={false}>
-              {isNavCollapsed ? (
-                // COLLAPSED STATE: Active tab bubble
-                <motion.button
-                  key="collapsed-bubble"
-                  onClick={() => {
-                    hapticLight();
-                    setIsNavCollapsed(false);
-                  }}
-                  className="justify-self-start"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ 
+            <motion.div
+              layout
+              onClick={isNavCollapsed ? () => {
+                hapticLight();
+                setIsNavCollapsed(false);
+              } : undefined}
+              className={`justify-self-start bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl overflow-hidden ${
+                isNavCollapsed ? "cursor-pointer" : ""
+              }`}
+              style={{ 
+                borderRadius: isNavCollapsed ? 9999 : 32,
+              }}
+              transition={{
+                layout: {
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 28,
+                  mass: 0.9
+                }
+              }}
+              whileTap={isNavCollapsed ? { scale: 0.95 } : undefined}
+              aria-label={isNavCollapsed ? "Expand navigation" : undefined}
+              data-tour={isNavCollapsed ? undefined : "bottom-nav"}
+            >
+              <motion.div
+                layout
+                className="flex items-center"
+                transition={{
+                  layout: {
                     type: "spring",
-                    stiffness: 400,
-                    damping: 30,
-                    mass: 0.8
-                  }}
-                  whileTap={{ scale: 0.94 }}
-                  aria-label="Expand navigation"
-                >
-                  <div className="bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-full p-1">
+                    stiffness: 300,
+                    damping: 28,
+                    mass: 0.9
+                  }
+                }}
+              >
+                {isNavCollapsed ? (
+                  // COLLAPSED STATE: Just the active icon in a circle
+                  <motion.div 
+                    className="p-1"
+                    layout
+                  >
                     <div className="w-14 h-14 rounded-full bg-accent/70 ring-1 ring-primary/25 shadow-sm flex items-center justify-center">
                       <CollapsedActiveIcon
                         className="w-7 h-7 text-foreground"
@@ -455,57 +474,52 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                         fill="currentColor"
                       />
                     </div>
-                  </div>
-                </motion.button>
-              ) : (
-                // EXPANDED STATE: Full nav tabs
-                <motion.div
-                  key="expanded-tabs"
-                  initial={{ opacity: 0, scale: 0.95, y: 8 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 4 }}
-                  transition={{ 
-                    type: "spring",
-                    stiffness: 350,
-                    damping: 28,
-                    mass: 0.9
-                  }}
-                  data-tour="bottom-nav"
-                  className="flex items-center justify-around bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-[32px] py-2"
-                >
-                  {navItems.map((item) => {
-                    const isActive = location.pathname === item.path;
-                    const Icon = item.icon;
+                  </motion.div>
+                ) : (
+                  // EXPANDED STATE: Full nav tabs
+                  <motion.div
+                    layout
+                    className="flex items-center justify-around py-2 w-full"
+                    style={{ minWidth: 260 }}
+                  >
+                    {navItems.map((item) => {
+                      const isActive = location.pathname === item.path;
+                      const Icon = item.icon;
 
-                    return (
-                      <Link
-                        key={item.path}
-                        to={item.path}
-                        onClick={() => hapticLight()}
-                        className="relative flex flex-col items-center justify-center flex-1 py-1"
-                      >
-                        <motion.div
-                          className={`flex flex-col items-center gap-0.5 ${
-                            isActive ? "text-foreground" : "text-muted-foreground"
-                          }`}
-                          whileTap={{ scale: 0.88 }}
-                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => hapticLight()}
+                          className="relative flex flex-col items-center justify-center flex-1 py-1"
                         >
-                          <Icon
-                            className="w-6 h-6"
-                            strokeWidth={isActive ? 2.5 : 1.5}
-                            fill={isActive ? "currentColor" : "none"}
-                          />
-                          <span className={`text-[11px] ${isActive ? "font-semibold" : "font-normal"}`}>
-                            {item.label}
-                          </span>
-                        </motion.div>
-                      </Link>
-                    );
-                  })}
-                </motion.div>
-              )}
-            </AnimatePresence>
+                          <motion.div
+                            className={`flex flex-col items-center gap-0.5 ${
+                              isActive ? "text-foreground" : "text-muted-foreground"
+                            }`}
+                            whileTap={{ scale: 0.88 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          >
+                            <Icon
+                              className="w-6 h-6"
+                              strokeWidth={isActive ? 2.5 : 1.5}
+                              fill={isActive ? "currentColor" : "none"}
+                            />
+                            <motion.span 
+                              initial={false}
+                              animate={{ opacity: 1 }}
+                              className={`text-[11px] ${isActive ? "font-semibold" : "font-normal"}`}
+                            >
+                              {item.label}
+                            </motion.span>
+                          </motion.div>
+                        </Link>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </motion.div>
+            </motion.div>
 
             {/* Separated action button - always stationary */}
             <Link to={actionButton.path} onClick={() => hapticLight()} className="justify-self-end">
