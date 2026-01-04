@@ -426,7 +426,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
           >
             {/* Main nav container - morphs between collapsed bubble and expanded bar */}
             <motion.div
-              layout
+              layout="size"
               onClick={isNavCollapsed ? () => {
                 hapticLight();
                 setIsNavCollapsed(false);
@@ -441,16 +441,9 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                 width: isNavCollapsed ? 64 : "100%",
               }}
               transition={{
-                layout: {
-                  type: "spring",
-                  stiffness: 280,
-                  damping: 22,
-                },
-                width: {
-                  type: "spring",
-                  stiffness: 280,
-                  damping: 22,
-                }
+                type: "spring",
+                stiffness: 400,
+                damping: 30,
               }}
               whileTap={isNavCollapsed ? { scale: 0.95 } : undefined}
               aria-label={isNavCollapsed ? "Expand navigation" : undefined}
@@ -467,7 +460,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                     />
                   </div>
                 ) : (
-                  // EXPANDED: Full nav tabs - no AnimatePresence to avoid flicker
+                  // EXPANDED: Full nav tabs
                   <div className="flex items-center justify-around py-2 w-full">
                     {navItems.map((item) => {
                       const isActive = location.pathname === item.path;
