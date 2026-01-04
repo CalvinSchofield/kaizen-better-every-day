@@ -62,6 +62,12 @@ interface RepData {
   committed_blitzes: any;
 }
 
+interface OverdueScheduledItem {
+  recruit: Recruit;
+  activity: RecruitActivity;
+  daysOverdue: number;
+}
+
 interface WeekPlannerSectionProps {
   recruits: Recruit[];
   activities: RecruitActivity[];
@@ -75,6 +81,8 @@ interface WeekPlannerSectionProps {
   // Skip handlers from parent
   onSkipForNow?: (recruit: Recruit) => void;
   onSkipToday?: (recruit: Recruit) => void;
+  // Hero's overdue item to exclude from the overdue list
+  heroOverdueItem?: OverdueScheduledItem | null;
 }
 
 export const WeekPlannerSection = ({ 
@@ -88,6 +96,7 @@ export const WeekPlannerSection = ({
   recommendations: passedRecommendations,
   onSkipForNow,
   onSkipToday,
+  heroOverdueItem,
 }: WeekPlannerSectionProps) => {
   const [showSwipeHint, setShowSwipeHint] = useState(true);
   const handleDemoComplete = useCallback(() => setShowSwipeHint(false), []);
@@ -172,17 +181,25 @@ export const WeekPlannerSection = ({
     return tasksMap;
   }, [activities, filteredRecruits]);
 
-  // Count overdue tasks
+  // Count overdue tasks (excluding hero item if present)
   const overdueCount = useMemo(() => {
     let count = 0;
     scheduledTasks.forEach((tasks, dateStr) => {
       const date = parseISO(dateStr);
       if (isPast(date) && !isDateToday(date)) {
-        count += tasks.length;
+        tasks.forEach(({ recruit, activity }) => {
+          // Skip the item already shown in hero
+          if (heroOverdueItem && 
+              recruit.id === heroOverdueItem.recruit.id && 
+              activity.id === heroOverdueItem.activity.id) {
+            return;
+          }
+          count++;
+        });
       }
     });
     return count;
-  }, [scheduledTasks]);
+  }, [scheduledTasks, heroOverdueItem]);
 
   // Count this week's tasks
   const weekTaskCount = useMemo(() => {
@@ -442,18 +459,28 @@ export const WeekPlannerSection = ({
                   })
                   .sort(([a], [b]) => parseISO(a).getTime() - parseISO(b).getTime())
                   .flatMap(([dateStr, tasks]) => 
-                    tasks.map(({ recruit, activity }) => (
-                      <SwipeableTaskItem
-                        key={`overdue-${recruit.id}-${activity.id}`}
-                        recruit={recruit}
-                        activity={activity}
-                        onRecruitClick={handleLocalRecruitClick}
-                        onContact={handleSwipeContact}
-                        onSchedule={handleSwipeSchedule}
-                        onReschedule={handleSwipeReschedule}
-                        isOverdue
-                      />
-                    ))
+                    tasks
+                      .filter(({ recruit, activity }) => {
+                        // Exclude the item already shown in hero
+                        if (heroOverdueItem && 
+                            recruit.id === heroOverdueItem.recruit.id && 
+                            activity.id === heroOverdueItem.activity.id) {
+                          return false;
+                        }
+                        return true;
+                      })
+                      .map(({ recruit, activity }) => (
+                        <SwipeableTaskItem
+                          key={`overdue-${recruit.id}-${activity.id}`}
+                          recruit={recruit}
+                          activity={activity}
+                          onRecruitClick={handleLocalRecruitClick}
+                          onContact={handleSwipeContact}
+                          onSchedule={handleSwipeSchedule}
+                          onReschedule={handleSwipeReschedule}
+                          isOverdue
+                        />
+                      ))
                   )}
               </div>
             </div>
