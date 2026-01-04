@@ -1,6 +1,6 @@
 import { useMemo, useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, TrendingUp, Flame, ChevronUp, ChevronDown, Footprints, Users, Presentation, ArrowRightLeft, Target } from "lucide-react";
+import { Trophy, TrendingUp, Flame, ChevronUp, ChevronDown, Footprints, Users, Presentation, ArrowRightLeft, Target, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 
@@ -9,32 +9,51 @@ interface LiveRaceSectionProps {
   filterByYear?: string;
 }
 
-type MetricKey = 'fp_plus' | 'doors_knocked' | 'presentations' | 'decision_makers' | 'pitches' | 'transitions';
+type MetricKey = 'fp_plus' | 'prmr' | 'doors_knocked' | 'presentations' | 'decision_makers' | 'pitches' | 'transitions';
 
-const metricConfig: Record<MetricKey, { label: string; shortLabel: string; icon: typeof Trophy; unit: string }> = {
-  fp_plus: { label: 'FP+', shortLabel: 'FP+', icon: Trophy, unit: 'FP+' },
-  doors_knocked: { label: 'Doors', shortLabel: 'Doors', icon: Footprints, unit: '' },
-  presentations: { label: 'Presentations', shortLabel: 'Pres', icon: Presentation, unit: '' },
-  decision_makers: { label: 'DMs', shortLabel: 'DMs', icon: Users, unit: '' },
-  pitches: { label: 'Pitches', shortLabel: 'Pitches', icon: Target, unit: '' },
-  transitions: { label: 'Transitions', shortLabel: 'Trans', icon: ArrowRightLeft, unit: '' },
+const metricConfig: Record<MetricKey, { label: string; shortLabel: string; icon: typeof Trophy; unit: string; priority: number }> = {
+  fp_plus: { label: 'FP+', shortLabel: 'FP+', icon: Trophy, unit: 'FP+', priority: 1 },
+  prmr: { label: 'PRMR', shortLabel: 'PRMR', icon: DollarSign, unit: '', priority: 2 },
+  presentations: { label: 'Presentations', shortLabel: 'Pres', icon: Presentation, unit: '', priority: 3 },
+  doors_knocked: { label: 'Doors', shortLabel: 'Doors', icon: Footprints, unit: '', priority: 4 },
+  decision_makers: { label: 'DMs', shortLabel: 'DMs', icon: Users, unit: '', priority: 5 },
+  pitches: { label: 'Pitches', shortLabel: 'Pitches', icon: Target, unit: '', priority: 6 },
+  transitions: { label: 'Transitions', shortLabel: 'Trans', icon: ArrowRightLeft, unit: '', priority: 7 },
 };
 
-const metricOrder: MetricKey[] = ['fp_plus', 'doors_knocked', 'presentations', 'decision_makers', 'pitches', 'transitions'];
+// Display order in the toggle (sales first, then activity)
+const metricOrder: MetricKey[] = ['fp_plus', 'prmr', 'doors_knocked', 'presentations', 'decision_makers', 'pitches', 'transitions'];
+
+// Priority order for auto-selection (highest value metric first)
+const metricPriority: MetricKey[] = ['fp_plus', 'prmr', 'presentations', 'doors_knocked', 'decision_makers', 'pitches', 'transitions'];
 
 export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSectionProps) => {
-  const [selectedMetric, setSelectedMetric] = useState<MetricKey>('fp_plus');
+  const [selectedMetric, setSelectedMetric] = useState<MetricKey | null>(null);
   const [prevRankings, setPrevRankings] = useState<Map<string, number>>(new Map());
   const [rankChanges, setRankChanges] = useState<Map<string, 'up' | 'down' | null>>(new Map());
   
   const { data: leaderboard, isLoading } = useTodayLeaderboard(filterByYear);
   const userRowRef = useRef<HTMLDivElement>(null);
 
+  // Auto-select highest priority metric with data
+  const autoSelectedMetric = useMemo(() => {
+    if (!leaderboard?.rankings) return 'doors_knocked';
+    for (const metric of metricPriority) {
+      if ((leaderboard.rankings[metric]?.length ?? 0) > 0) {
+        return metric;
+      }
+    }
+    return 'doors_knocked';
+  }, [leaderboard]);
+
+  // Use auto-selected if user hasn't manually chosen
+  const activeMetric = selectedMetric ?? autoSelectedMetric;
+
   // Get rankings for selected metric
   const rankings = useMemo(() => {
     if (!leaderboard?.rankings) return [];
-    return leaderboard.rankings[selectedMetric] || [];
-  }, [leaderboard, selectedMetric]);
+    return leaderboard.rankings[activeMetric] || [];
+  }, [leaderboard, activeMetric]);
 
   // Track ranking changes for animations
   useEffect(() => {
@@ -80,7 +99,7 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
     }
   }, [userIndex, rankings.length]);
 
-  const config = metricConfig[selectedMetric];
+  const config = metricConfig[activeMetric];
 
   if (isLoading) {
     return (
@@ -131,8 +150,8 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
         <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
           {metricOrder.map(metric => {
             const cfg = metricConfig[metric];
-            const isActive = metric === selectedMetric;
-            const hasData = leaderboard?.rankings?.[metric]?.length ?? 0 > 0;
+            const isActive = metric === activeMetric;
+            const hasData = (leaderboard?.rankings?.[metric]?.length ?? 0) > 0;
             
             return (
               <button
@@ -177,7 +196,9 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
               : 0;
 
             const formatValue = (val: number) => {
-              return selectedMetric === 'fp_plus' ? val.toFixed(1) : val.toString();
+              if (activeMetric === 'fp_plus') return val.toFixed(1);
+              if (activeMetric === 'prmr') return `$${val.toLocaleString()}`;
+              return val.toString();
             };
 
             return (
