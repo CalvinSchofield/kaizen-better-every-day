@@ -414,139 +414,141 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         {children}
       </main>
       
-      {/* Bottom Navigation - GitHub-style with collapse animation */}
+      {/* Bottom Navigation - GitHub-style with smooth collapse animation */}
       <nav 
         className="fixed bottom-0 left-0 right-0 z-50"
         style={{ paddingBottom: 'var(--nav-padding-bottom)' }}
       >
         <div className="px-4 pb-2">
-           <AnimatePresence initial={false}>
-             {isNavCollapsed ? (
-               // COLLAPSED STATE: Active tab bubble + stationary action button
-               <motion.div
-                 key="collapsed"
-                 initial={false}
-                 animate={{ opacity: 1, scale: 1 }}
-                 exit={{ opacity: 0, scale: 0.98 }}
-                 transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                 className="mx-auto grid items-center gap-2"
-                 style={{ maxWidth: "380px", gridTemplateColumns: "1fr auto" }}
-               >
-                 {/* Collapsed bubble with active tab */}
-                 <motion.button
-                   onClick={() => {
-                     hapticLight();
-                     setIsNavCollapsed(false);
-                   }}
-                   className="justify-self-start"
-                   whileTap={{ scale: 0.96 }}
-                   aria-label="Expand navigation"
-                 >
-                   <div className="bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-full p-1">
-                     <div className="w-14 h-14 rounded-full bg-accent/70 ring-1 ring-primary/25 shadow-sm flex items-center justify-center">
-                       <CollapsedActiveIcon
-                         className="w-7 h-7 text-foreground"
-                         strokeWidth={2.5}
-                         fill="currentColor"
-                       />
-                     </div>
-                   </div>
-                 </motion.button>
+          <motion.div
+            className="mx-auto grid items-center gap-2"
+            style={{ maxWidth: "380px", gridTemplateColumns: "1fr auto" }}
+          >
+            {/* Main nav container - morphs between collapsed bubble and expanded bar */}
+            <motion.div
+              layout
+              className="relative overflow-hidden"
+              transition={{ 
+                layout: { 
+                  type: "spring", 
+                  stiffness: 300, 
+                  damping: 30,
+                  mass: 0.8
+                }
+              }}
+            >
+              {isNavCollapsed ? (
+                // COLLAPSED STATE: Active tab bubble
+                <motion.button
+                  key="collapsed-bubble"
+                  onClick={() => {
+                    hapticLight();
+                    setIsNavCollapsed(false);
+                  }}
+                  className="justify-self-start"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  whileTap={{ scale: 0.96 }}
+                  aria-label="Expand navigation"
+                >
+                  <div className="bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-full p-1">
+                    <div className="w-14 h-14 rounded-full bg-accent/70 ring-1 ring-primary/25 shadow-sm flex items-center justify-center">
+                      <CollapsedActiveIcon
+                        className="w-7 h-7 text-foreground"
+                        strokeWidth={2.5}
+                        fill="currentColor"
+                      />
+                    </div>
+                  </div>
+                </motion.button>
+              ) : (
+                // EXPANDED STATE: Full nav tabs
+                <motion.div
+                  key="expanded-tabs"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  data-tour="bottom-nav"
+                  className="flex items-center justify-around bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-[32px] py-2"
+                >
+                  {navItems.map((item) => {
+                    const isActive = location.pathname === item.path;
+                    const Icon = item.icon;
 
-                 {/* Action button - perfectly stationary */}
-                 <Link to={actionButton.path} onClick={() => hapticLight()} className="justify-self-end">
-                   <motion.div
-                     whileTap={{ scale: 0.92 }}
-                     className={`relative w-16 h-16 rounded-full shadow-xl flex items-center justify-center ${
-                       location.pathname === actionButton.path
-                         ? "bg-primary text-primary-foreground"
-                         : "bg-primary/90 text-primary-foreground"
-                     }`}
-                   >
-                     <actionButton.icon
-                       className="w-7 h-7"
-                       strokeWidth={location.pathname === actionButton.path ? 2.5 : 2}
-                       fill={location.pathname === actionButton.path ? "currentColor" : "none"}
-                     />
-                     {actionButton.isLocked && (
-                       <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5">
-                         <Lock className="w-2.5 h-2.5 text-primary" />
-                       </div>
-                     )}
-                   </motion.div>
-                 </Link>
-               </motion.div>
-             ) : (
-               // EXPANDED STATE: Full nav with separated action button (stationary)
-               <motion.div
-                 key="expanded"
-                 initial={false}
-                 animate={{ opacity: 1, scale: 1 }}
-                 exit={{ opacity: 0, scale: 0.98 }}
-                 transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                 data-tour="bottom-nav"
-                 className="mx-auto grid items-end gap-2"
-                 style={{ maxWidth: "380px", gridTemplateColumns: "1fr auto" }}
-               >
-                 {/* Main nav tabs */}
-                 <div className="flex items-center justify-around bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-[32px] py-2">
-                   {navItems.map((item) => {
-                     const isActive = location.pathname === item.path;
-                     const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => hapticLight()}
+                        className="relative flex flex-col items-center justify-center flex-1 py-1 active:scale-90 transition-transform duration-150"
+                      >
+                        <motion.div
+                          className={`flex flex-col items-center gap-0.5 ${
+                            isActive ? "text-foreground" : "text-muted-foreground"
+                          }`}
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          <Icon
+                            className="w-6 h-6"
+                            strokeWidth={isActive ? 2.5 : 1.5}
+                            fill={isActive ? "currentColor" : "none"}
+                          />
+                          <span className={`text-[11px] ${isActive ? "font-semibold" : "font-normal"}`}>
+                            {item.label}
+                          </span>
+                        </motion.div>
+                      </Link>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </motion.div>
 
-                     return (
-                       <Link
-                         key={item.path}
-                         to={item.path}
-                         onClick={() => hapticLight()}
-                         className="relative flex flex-col items-center justify-center flex-1 py-1 active:scale-90 transition-transform duration-150"
-                       >
-                         <motion.div
-                           className={`flex flex-col items-center gap-0.5 ${
-                             isActive ? "text-foreground" : "text-muted-foreground"
-                           }`}
-                           whileTap={{ scale: 0.9 }}
-                         >
-                           <Icon
-                             className="w-6 h-6"
-                             strokeWidth={isActive ? 2.5 : 1.5}
-                             fill={isActive ? "currentColor" : "none"}
-                           />
-                           <span className={`text-[11px] ${isActive ? "font-semibold" : "font-normal"}`}>
-                             {item.label}
-                           </span>
-                         </motion.div>
-                       </Link>
-                     );
-                   })}
-                 </div>
-
-                 {/* Separated action button - stationary */}
-                 <Link to={actionButton.path} onClick={() => hapticLight()} className="justify-self-end">
-                   <motion.div
-                     whileTap={{ scale: 0.92 }}
-                     className={`relative w-16 h-16 rounded-full shadow-xl flex flex-col items-center justify-center gap-0.5 ${
-                       location.pathname === actionButton.path
-                         ? "bg-primary text-primary-foreground"
-                         : "bg-primary/90 text-primary-foreground"
-                     }`}
-                   >
-                     <actionButton.icon
-                       className="w-6 h-6"
-                       strokeWidth={location.pathname === actionButton.path ? 2.5 : 2}
-                       fill={location.pathname === actionButton.path ? "currentColor" : "none"}
-                     />
-                     <span className="text-[11px] font-semibold leading-none">{actionButton.label}</span>
-                     {actionButton.isLocked && (
-                       <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5">
-                         <Lock className="w-2.5 h-2.5 text-primary" />
-                       </div>
-                     )}
-                   </motion.div>
-                 </Link>
-               </motion.div>
-             )}
-           </AnimatePresence>
+            {/* Separated action button - always stationary */}
+            <Link to={actionButton.path} onClick={() => hapticLight()} className="justify-self-end">
+              <motion.div
+                layout
+                whileTap={{ scale: 0.92 }}
+                transition={{ 
+                  layout: { type: "spring", stiffness: 300, damping: 30 }
+                }}
+                className={`relative rounded-full shadow-xl flex flex-col items-center justify-center ${
+                  isNavCollapsed ? "w-16 h-16" : "w-16 h-16"
+                } ${
+                  location.pathname === actionButton.path
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-primary/90 text-primary-foreground"
+                }`}
+              >
+                <actionButton.icon
+                  className="w-6 h-6"
+                  strokeWidth={location.pathname === actionButton.path ? 2.5 : 2}
+                  fill={location.pathname === actionButton.path ? "currentColor" : "none"}
+                />
+                <AnimatePresence>
+                  {!isNavCollapsed && (
+                    <motion.span 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                      className="text-[11px] font-semibold leading-none"
+                    >
+                      {actionButton.label}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+                {actionButton.isLocked && (
+                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5">
+                    <Lock className="w-2.5 h-2.5 text-primary" />
+                  </div>
+                )}
+              </motion.div>
+            </Link>
+          </motion.div>
         </div>
       </nav>
     </div>
