@@ -1,8 +1,12 @@
 import { useMemo, useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, TrendingUp, Flame, ChevronUp, ChevronDown, Footprints, Users, Presentation, ArrowRightLeft, Target, DollarSign } from "lucide-react";
+import { Trophy, TrendingUp, Flame, ChevronUp, ChevronDown, Footprints, Users, Presentation, ArrowRightLeft, Target, DollarSign, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { hapticSuccess, hapticWarning } from "@/utils/haptics";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 
 interface LiveRaceSectionProps {
   currentUserId: string | null;
@@ -31,6 +35,7 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
   const [selectedMetric, setSelectedMetric] = useState<MetricKey | null>(null);
   const [prevRankings, setPrevRankings] = useState<Map<string, number>>(new Map());
   const [rankChanges, setRankChanges] = useState<Map<string, 'up' | 'down' | null>>(new Map());
+  const [showPhotoUpload, setShowPhotoUpload] = useState<string | null>(null);
   
   const { data: leaderboard, isLoading } = useTodayLeaderboard(filterByYear);
   const userRowRef = useRef<HTMLDivElement>(null);
@@ -76,13 +81,22 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
       
       if (changes.size > 0) {
         setRankChanges(changes);
+        
+        // Haptic feedback for rank changes
+        const currentUserChange = changes.get(currentUserId || '');
+        if (currentUserChange === 'up') {
+          hapticSuccess();
+        } else if (currentUserChange === 'down') {
+          hapticWarning();
+        }
+        
         // Clear changes after animation
         setTimeout(() => setRankChanges(new Map()), 2000);
       }
     }
     
     setPrevRankings(newRankMap);
-  }, [rankings]);
+  }, [rankings, currentUserId]);
 
   // Find current user's position
   const userIndex = useMemo(() => {
@@ -255,21 +269,47 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
                     )}
                   </AnimatePresence>
 
-                  {/* Rank */}
+                  {/* Rank Badge */}
                   <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
+                    "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
                     isLeader && "bg-amber-500 text-white",
                     index === 1 && !isCurrentUser && "bg-slate-400 text-white",
                     index === 2 && !isCurrentUser && "bg-amber-700 text-white",
                     index > 2 && !isCurrentUser && "bg-muted text-muted-foreground",
                     isCurrentUser && "bg-primary text-primary-foreground"
                   )}>
-                    {isLeader ? <Trophy className="h-4 w-4" /> : `#${index + 1}`}
+                    {isLeader ? <Trophy className="h-3 w-3" /> : `${index + 1}`}
+                  </div>
+
+                  {/* Avatar */}
+                  <div className="relative shrink-0">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={entry.profilePhotoUrl || undefined} alt={entry.name} />
+                      <AvatarFallback className="bg-muted text-muted-foreground text-sm font-medium">
+                        {entry.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    {/* Show camera icon for current user if no photo */}
+                    {isCurrentUser && !entry.profilePhotoUrl && (
+                      <button 
+                        onClick={() => setShowPhotoUpload(entry.userId)}
+                        className="absolute -bottom-0.5 -right-0.5 h-4 w-4 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
+                      >
+                        <Camera className="h-2.5 w-2.5" />
+                      </button>
+                    )}
+                    {/* Working indicator on avatar */}
+                    {entry.isWorking && (
+                      <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500 border border-background"></span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Name */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <span className={cn(
                         "font-medium truncate",
                         isCurrentUser && "text-primary font-semibold"
@@ -279,12 +319,6 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
                       {isCurrentUser && (
                         <span className="text-[10px] font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded">
                           YOU
-                        </span>
-                      )}
-                      {entry.isWorking && (
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                         </span>
                       )}
                     </div>
@@ -335,6 +369,26 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
           </span>
         </div>
       )}
+
+      {/* Photo Upload Dialog */}
+      <Dialog open={!!showPhotoUpload} onOpenChange={(open) => !open && setShowPhotoUpload(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add Your Photo</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <ProfilePhotoUpload 
+              currentPhotoUrl={rankings.find(r => r.userId === showPhotoUpload)?.profilePhotoUrl || null}
+              name={rankings.find(r => r.userId === showPhotoUpload)?.name || 'U'}
+              size="lg"
+              onPhotoUpdated={() => setShowPhotoUpload(null)}
+            />
+            <p className="text-sm text-muted-foreground text-center">
+              Tap the avatar to upload your profile photo
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
