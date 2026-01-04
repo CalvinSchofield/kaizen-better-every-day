@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useEffect } from "react";
+import { ReactNode, useMemo, useEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, BookOpen, Wrench, Target, Calendar, Menu, Lock, Save, RotateCcw, BarChart3, Trophy, UserPlus } from "lucide-react";
 import { hapticLight } from "@/utils/haptics";
@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { AppDrawer } from "@/components/AppDrawer";
 import { useAppMode } from "@/hooks/useAppMode";
 import { useRepData } from "@/hooks/useRepData";
-import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useHeader } from "@/contexts/HeaderContext";
 import { getCachedLayoutState, setCachedLayoutState } from "@/lib/queryPersister";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface LayoutProps {
   children: ReactNode;
@@ -25,9 +25,14 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   const location = useLocation();
   const { repData } = useRepData();
   const { isKnockingMode } = useAppMode(repData);
-  const isNavVisible = useScrollDirection();
   const { data: teamAccess } = useTeamAccess();
   const { customTitle, customRightContent } = useHeader();
+  
+  // Collapsed nav state
+  const [isNavCollapsed, setIsNavCollapsed] = useState(false);
+  const lastScrollY = useRef(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const SCROLL_THRESHOLD = 80;
   
   // Get cached layout state for instant rendering (prevents flash)
   const cachedState = useMemo(() => getCachedLayoutState(), []);
@@ -82,39 +87,33 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
 
   const isTrackLocked = isRookie && !hasAttendedBlitz;
   
-  // Determine if Track tab should be visible
-  const shouldShowTrack = () => {
-    if (!repData) return false;
-    
-    const isVetOrSoph = effectiveYear === "Vet" || effectiveYear === "Sophomore";
-    
-    // For Rookies: check if post-blitz OR currently on a blitz
-    if (effectiveYear === "Rookie") {
-      const phase4Complete = repData.ramp_phase_4_complete === true;
-      const committedBlitzes = (repData.committed_blitzes as any[]) || [];
+  // Reset collapsed state on route change
+  useEffect(() => {
+    setIsNavCollapsed(false);
+    lastScrollY.current = 0;
+  }, [location.pathname]);
+  
+  // Scroll detection for collapse/expand
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollDiff = currentScrollY - lastScrollY.current;
       
-      // Check if attended at least one blitz (end date in past)
-      const hasAttendedBlitz = committedBlitzes.some((blitz: any) => {
-        if (!blitz?.endDate) return false;
-        const endDate = new Date(blitz.endDate);
-        return endDate < new Date();
-      });
-    // Always show for Vets and Sophomores
-    if (isVetOrSoph) return true;
-      // Check if currently on a blitz (between start and end date)
-      const isOnBlitzNow = committedBlitzes.some((blitz: any) => {
-        if (!blitz?.startDate || !blitz?.endDate) return false;
-        const now = new Date();
-        const startDate = new Date(blitz.startDate);
-        const endDate = new Date(blitz.endDate);
-        return now >= startDate && now <= endDate;
-      });
+      // Scrolling down past threshold - collapse
+      if (scrollDiff > 10 && currentScrollY > SCROLL_THRESHOLD) {
+        setIsNavCollapsed(true);
+      }
+      // Scrolling up - expand
+      else if (scrollDiff < -10) {
+        setIsNavCollapsed(false);
+      }
       
-      return (phase4Complete && hasAttendedBlitz) || isOnBlitzNow;
-    }
+      lastScrollY.current = currentScrollY;
+    };
     
-    return false;
-  };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
   
   // Dynamic navigation based on mode and user type - use effective values
   const getNavItems = () => {
@@ -125,69 +124,94 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
 
     if (effectiveIsKnockingMode) {
       // KNOCKING MODE ON
-      if (isVetOrSoph) {
-        // Vets/Sophomores: HOME, INSIGHTS, CALENDAR, TRACK
+      if (isVetOrSoph || effectiveIsLeader) {
+        // Vets/Sophomores/Leaders: Home, Leaderboard, Insights, Calendar
         return [
           { path: "/", icon: Home, label: "Home" },
+          { path: "/leaderboard", icon: Trophy, label: "Leaderboard" },
           { path: "/insights", icon: BarChart3, label: "Insights" },
           { path: "/calendar", icon: Calendar, label: "Calendar" },
-          { path: "/track", icon: Target, label: "Track" },
         ];
       } else if (isPostBlitzRookie) {
-        // Post-blitz Rookies: HOME, TOOLS, CALENDAR, TRACK
+        // Post-blitz Rookies: Home, Leaderboard, Tools, Calendar
         return [
           { path: "/", icon: Home, label: "Home" },
+          { path: "/leaderboard", icon: Trophy, label: "Leaderboard" },
           { path: "/tools", icon: Wrench, label: "Tools" },
           { path: "/calendar", icon: Calendar, label: "Calendar" },
-          { path: "/track", icon: Target, label: "Track" },
         ];
       }
     }
 
     // KNOCKING MODE OFF (Preseason)
-    if (isVetOrSoph || isPostBlitzRookie) {
-      // Leaders: HOME, TOOLS, MY GROUP, GOALS
-      if (effectiveIsLeader) {
-        return [
-          { path: "/", icon: Home, label: "Home" },
-          { path: "/tools", icon: Wrench, label: "Tools" },
-          { path: "/my-group", icon: UserPlus, label: "My Group" },
-          { path: "/goals", icon: Trophy, label: "Goals" },
-        ];
-      }
-      // Non-leaders: HOME, TRAINING, TOOLS, GOALS
+    if (effectiveIsLeader) {
+      // Leaders: Home, Tools, Calendar, Goals (action: My Group)
       return [
         { path: "/", icon: Home, label: "Home" },
-        { path: "/training", icon: BookOpen, label: "Training" },
         { path: "/tools", icon: Wrench, label: "Tools" },
+        { path: "/calendar", icon: Calendar, label: "Calendar" },
+        { path: "/goals", icon: Trophy, label: "Goals" },
+      ];
+    }
+    
+    if (isVetOrSoph || isPostBlitzRookie) {
+      // Non-leader Vets/Sophs/Post-blitz: Home, Tools, Calendar, Goals (action: Training)
+      return [
+        { path: "/", icon: Home, label: "Home" },
+        { path: "/tools", icon: Wrench, label: "Tools" },
+        { path: "/calendar", icon: Calendar, label: "Calendar" },
         { path: "/goals", icon: Trophy, label: "Goals" },
       ];
     }
 
     // Pre-blitz Rookies
-    if (isPreBlitzRookie && hasCompletedPhase1) {
-      // Phase 1 complete: HOME, TRAINING, TOOLS, GOALS
+    if (isPreBlitzRookie) {
+      // Home, Tools, Calendar, Goals (action: Training)
       return [
         { path: "/", icon: Home, label: "Home" },
-        { path: "/training", icon: BookOpen, label: "Training" },
         { path: "/tools", icon: Wrench, label: "Tools" },
+        { path: "/calendar", icon: Calendar, label: "Calendar" },
         { path: "/goals", icon: Trophy, label: "Goals" },
       ];
     }
 
-    // Pre-blitz Rookies (Phase 1 not complete): HOME, TRAINING, TOOLS
+    // Default fallback
     return [
       { path: "/", icon: Home, label: "Home" },
-      { path: "/training", icon: BookOpen, label: "Training" },
       { path: "/tools", icon: Wrench, label: "Tools" },
+      { path: "/calendar", icon: Calendar, label: "Calendar" },
+      { path: "/goals", icon: Trophy, label: "Goals" },
     ];
+  };
+  
+  // Get the action button based on mode and user type
+  const getActionButton = () => {
+    const isVetOrSoph = effectiveYear === "Vet" || effectiveYear === "Sophomore";
+    const isPostBlitzRookie = effectiveYear === "Rookie" && hasAttendedBlitz;
+    
+    if (effectiveIsKnockingMode) {
+      // KNOCKING MODE: Track is always the action
+      return { path: "/track", icon: Target, label: "Track", isLocked: isTrackLocked };
+    }
+    
+    // KNOCKING MODE OFF
+    if (effectiveIsLeader) {
+      return { path: "/my-group", icon: UserPlus, label: "My Group", isLocked: false };
+    }
+    
+    // Non-leaders get Training
+    return { path: "/training", icon: BookOpen, label: "Training", isLocked: false };
   };
 
   const navItems = getNavItems();
+  const actionButton = getActionButton();
   const firstName = repData?.name?.split(' ')[0];
   
   // Determine if we're on the home page to match header color
   const isHomePage = location.pathname === "/";
+  
+  // Get currently active tab for collapsed state
+  const activeItem = [...navItems, actionButton].find(item => item.path === location.pathname);
   
   // Get page title based on current route
   const getPageTitle = () => {
@@ -214,6 +238,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         return "My Group";
       case "/customers":
         return "Customers";
+      case "/leaderboard":
+        return "Leaderboard";
       default:
         return "Kaizen";
     }
@@ -286,58 +312,157 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         </div>
       </header>
 
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto" ref={scrollContainerRef}>
         {children}
       </main>
       
-      {/* Bottom Navigation - iOS-style floating tab bar like GitHub app */}
+      {/* Bottom Navigation - GitHub-style with collapse animation */}
       <nav 
-        className={`fixed bottom-0 left-0 right-0 z-50 transition-transform duration-300 ${
-          isNavVisible ? 'translate-y-0' : 'translate-y-full'
-        }`}
+        className="fixed bottom-0 left-0 right-0 z-50"
         style={{ paddingBottom: 'var(--nav-padding-bottom)' }}
       >
         <div className="px-4 pb-2">
-          <div 
-            data-tour="bottom-nav"
-            className="flex items-center justify-around mx-auto bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-[32px] py-2"
-            style={{ maxWidth: '380px' }}
-          >
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              const Icon = item.icon;
-              const isLocked = item.path === "/track" && isTrackLocked;
-              
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => hapticLight()}
-                  className="relative flex flex-col items-center justify-center flex-1 py-1 active:scale-90 transition-transform duration-150"
+          <AnimatePresence mode="wait">
+            {isNavCollapsed ? (
+              // COLLAPSED STATE: Just active tab bubble + action button
+              <motion.div
+                key="collapsed"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                className="flex items-center justify-between mx-auto"
+                style={{ maxWidth: '380px' }}
+              >
+                {/* Collapsed bubble with active tab */}
+                <motion.button
+                  onClick={() => {
+                    hapticLight();
+                    setIsNavCollapsed(false);
+                  }}
+                  className="flex items-center justify-center bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-full p-3"
+                  whileTap={{ scale: 0.95 }}
                 >
-                  <div className={`flex flex-col items-center gap-0.5 ${
-                    isActive ? "text-foreground" : "text-muted-foreground"
-                  }`}>
-                    <div className="relative">
-                      <Icon 
-                        className="w-6 h-6" 
-                        strokeWidth={isActive ? 2.5 : 1.5}
-                        fill={isActive ? "currentColor" : "none"}
-                      />
-                      {isLocked && (
-                        <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                          <Lock className="w-2.5 h-2.5 text-primary" />
-                        </div>
-                      )}
-                    </div>
-                    <span className={`text-[11px] ${isActive ? "font-semibold" : "font-normal"}`}>
-                      {item.label}
-                    </span>
-                  </div>
+                  {activeItem && activeItem.path !== actionButton.path && (
+                    <activeItem.icon 
+                      className="w-6 h-6 text-foreground" 
+                      strokeWidth={2.5}
+                      fill="currentColor"
+                    />
+                  )}
+                  {(!activeItem || activeItem.path === actionButton.path) && (
+                    <Home 
+                      className="w-6 h-6 text-foreground" 
+                      strokeWidth={2.5}
+                      fill="currentColor"
+                    />
+                  )}
+                </motion.button>
+                
+                {/* Action button - always visible */}
+                <Link
+                  to={actionButton.path}
+                  onClick={() => hapticLight()}
+                  className="relative"
+                >
+                  <motion.div
+                    whileTap={{ scale: 0.9 }}
+                    className={`flex items-center justify-center rounded-full p-3 shadow-xl ${
+                      location.pathname === actionButton.path
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-primary/90 text-primary-foreground"
+                    }`}
+                  >
+                    <actionButton.icon 
+                      className="w-6 h-6" 
+                      strokeWidth={location.pathname === actionButton.path ? 2.5 : 2}
+                      fill={location.pathname === actionButton.path ? "currentColor" : "none"}
+                    />
+                    {actionButton.isLocked && (
+                      <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5">
+                        <Lock className="w-2.5 h-2.5 text-primary" />
+                      </div>
+                    )}
+                  </motion.div>
                 </Link>
-              );
-            })}
-          </div>
+              </motion.div>
+            ) : (
+              // EXPANDED STATE: Full nav with separated action button
+              <motion.div
+                key="expanded"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                data-tour="bottom-nav"
+                className="flex items-center gap-2 mx-auto"
+                style={{ maxWidth: '380px' }}
+              >
+                {/* Main nav tabs */}
+                <div className="flex items-center justify-around flex-1 bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-[32px] py-2">
+                  {navItems.map((item) => {
+                    const isActive = location.pathname === item.path;
+                    const Icon = item.icon;
+                    
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => hapticLight()}
+                        className="relative flex flex-col items-center justify-center flex-1 py-1 active:scale-90 transition-transform duration-150"
+                      >
+                        <motion.div 
+                          className={`flex flex-col items-center gap-0.5 ${
+                            isActive ? "text-foreground" : "text-muted-foreground"
+                          }`}
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          <Icon 
+                            className="w-6 h-6" 
+                            strokeWidth={isActive ? 2.5 : 1.5}
+                            fill={isActive ? "currentColor" : "none"}
+                          />
+                          <span className={`text-[11px] ${isActive ? "font-semibold" : "font-normal"}`}>
+                            {item.label}
+                          </span>
+                        </motion.div>
+                      </Link>
+                    );
+                  })}
+                </div>
+                
+                {/* Separated action button */}
+                <Link
+                  to={actionButton.path}
+                  onClick={() => hapticLight()}
+                  className="relative"
+                >
+                  <motion.div
+                    whileTap={{ scale: 0.9 }}
+                    className={`flex flex-col items-center justify-center rounded-full px-4 py-2 shadow-xl ${
+                      location.pathname === actionButton.path
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-primary/90 text-primary-foreground"
+                    }`}
+                  >
+                    <actionButton.icon 
+                      className="w-6 h-6" 
+                      strokeWidth={location.pathname === actionButton.path ? 2.5 : 2}
+                      fill={location.pathname === actionButton.path ? "currentColor" : "none"}
+                    />
+                    <span className="text-[11px] font-semibold">
+                      {actionButton.label}
+                    </span>
+                    {actionButton.isLocked && (
+                      <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5">
+                        <Lock className="w-2.5 h-2.5 text-primary" />
+                      </div>
+                    )}
+                  </motion.div>
+                </Link>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </nav>
     </div>

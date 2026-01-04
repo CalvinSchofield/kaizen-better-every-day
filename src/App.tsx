@@ -27,6 +27,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 import Goals from "./pages/Goals";
 import MyGroup from "./pages/MyGroup";
+import Leaderboard from "./pages/Leaderboard";
 import Customers from "./pages/Customers";
 import Objections from "./pages/Objections";
 import RampToBlitz from "./pages/RampToBlitz";
@@ -186,6 +187,14 @@ const App = () => {
                   <Layout>
                     <Insights />
                   </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/leaderboard"
+              element={
+                <ProtectedRoute>
+                  <Leaderboard />
                 </ProtectedRoute>
               }
             />
