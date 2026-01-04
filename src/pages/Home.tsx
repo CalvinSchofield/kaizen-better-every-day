@@ -1076,7 +1076,8 @@ const Home = () => {
     return <Circle className="w-6 h-6 text-muted-foreground" />;
   };
 
-  return <div ref={containerRef} className="min-h-screen bg-gradient-to-b from-background to-secondary/30 overflow-y-auto">
+  return (
+    <div ref={containerRef} className="min-h-screen bg-gradient-to-b from-background to-secondary/30 overflow-y-auto">
       {/* Pull to refresh hint */}
       <div 
         className="fixed top-0 left-0 right-0 flex justify-center pt-2 z-50 transition-opacity duration-200 pointer-events-none"
@@ -1798,7 +1799,8 @@ const Home = () => {
           scrollbar-width: none;
         }
       `}</style>
-    </div>;
+    </div>
+  );
 };
 
 export default Home;
