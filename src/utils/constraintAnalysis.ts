@@ -149,8 +149,12 @@ export const analyzeFunnelBottleneck = (metrics: TeamMetrics): FunnelStage | nul
 export const detectPrimaryConstraint = (metrics: TeamMetrics): ConstraintResult => {
   const effortBenchmark = metrics.doorsPerHourBenchmark || EFFORT_BENCHMARK_DOORS_PER_HOUR;
   
-  // 1. Check effort first (doors per hour)
-  if (metrics.avgDoorsPerHour < effortBenchmark * 0.75) {
+  // Skip effort analysis if we don't have valid time tracking data
+  // (avgDoorsPerHour = 0 when no work_start_time/work_end_time data exists)
+  const hasValidTimeData = metrics.avgDoorsPerHour > 0 || metrics.totalDoors === 0;
+  
+  // 1. Check effort first (doors per hour) - only if we have valid time data
+  if (hasValidTimeData && metrics.avgDoorsPerHour < effortBenchmark * 0.75) {
     const percentBelow = ((effortBenchmark - metrics.avgDoorsPerHour) / effortBenchmark * 100).toFixed(0);
     return {
       type: 'effort',
@@ -161,7 +165,7 @@ export const detectPrimaryConstraint = (metrics: TeamMetrics): ConstraintResult 
     };
   }
   
-  if (metrics.avgDoorsPerHour < effortBenchmark * 0.90) {
+  if (hasValidTimeData && metrics.avgDoorsPerHour < effortBenchmark * 0.90) {
     return {
       type: 'effort',
       severity: 'warning',
