@@ -212,7 +212,7 @@ export const UpgradePrmrCalculator = ({
       onOpenChange(isOpen);
       if (!isOpen) resetChat();
     }}>
-      <DrawerContent className="h-[85dvh] max-h-[85dvh]">
+      <DrawerContent data-tour="track-upgrade-calculator" className="h-[85dvh] max-h-[85dvh]">
         <div className="flex flex-col h-full overflow-hidden">
           <DrawerHeader className="pb-2 flex-shrink-0">
             <DrawerTitle className="flex items-center gap-2">

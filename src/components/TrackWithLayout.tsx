@@ -90,6 +90,8 @@ const TrackWithLayout = () => {
   const [pendingCloseIncrement, setPendingCloseIncrement] = useState(false);
   const [isDeleteSalePickerOpen, setIsDeleteSalePickerOpen] = useState(false);
   const [isTourDemoMode, setIsTourDemoMode] = useState(false); // Prevents real data changes during tour
+  const [tourForceUpgrade, setTourForceUpgrade] = useState(false); // Force upgrade mode in sale sheet
+  const [tourForceCalculatorOpen, setTourForceCalculatorOpen] = useState(false); // Force calculator open
   
   // Local backup for data recovery
   const userId = getCurrentUserId();
@@ -798,6 +800,8 @@ const TrackWithLayout = () => {
           if (!open) {
             setPendingCloseIncrement(false);
             setEditingSale(null);
+            setTourForceUpgrade(false);
+            setTourForceCalculatorOpen(false);
           }
         }}
         onLogSale={handleLogSale}
@@ -808,6 +812,8 @@ const TrackWithLayout = () => {
         crmEnabled={(repData as any)?.crm_enabled || false}
         crmDetailedEnabled={(repData as any)?.crm_detailed_enabled || false}
         counterTimestamps={entry.counter_timestamps}
+        tourForceUpgrade={tourForceUpgrade}
+        tourForceCalculatorOpen={tourForceCalculatorOpen}
       />
 
       {/* Delete Sale Picker Sheet */}
@@ -927,19 +933,32 @@ const TrackWithLayout = () => {
         steps={trackTourSteps}
         isOpen={showTour}
         onComplete={() => {
+          // Reset all tour state
           setIsTourDemoMode(false);
           setIsLogSaleSheetOpen(false);
+          setTourForceUpgrade(false);
+          setTourForceCalculatorOpen(false);
           completeTour();
         }}
         onSkip={() => {
+          // Reset all tour state
           setIsTourDemoMode(false);
           setIsLogSaleSheetOpen(false);
+          setTourForceUpgrade(false);
+          setTourForceCalculatorOpen(false);
           skipTour();
         }}
         onStepAction={(action) => {
           if (action === 'openLogSaleSheet') {
             setIsTourDemoMode(true);
+            setTourForceUpgrade(false);
+            setTourForceCalculatorOpen(false);
             setIsLogSaleSheetOpen(true);
+          } else if (action === 'switchToUpgradeAndShowHelp') {
+            setTourForceUpgrade(true);
+          } else if (action === 'openUpgradeCalculator') {
+            setTourForceUpgrade(true);
+            setTourForceCalculatorOpen(true);
           }
         }}
       />

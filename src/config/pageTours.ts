@@ -26,7 +26,7 @@ export const trackTourSteps: TourStep[] = [
     target: 'track-time-bar',
     title: 'Start Your Day Here',
     description: "Tap 'Start' when you begin knocking. This tracks your hours automatically. Pause for breaks, then resume when you're back.",
-    position: 'auto', // Let it auto-position based on available space
+    position: 'auto',
   },
   {
     target: 'track-counter-grid',
@@ -41,11 +41,28 @@ export const trackTourSteps: TourStep[] = [
     position: 'top',
   },
   {
-    target: 'track-log-sale-sheet',
-    title: 'Capture Deal Details',
-    description: 'After logging a sale, choose between FP or Upgrade. Add your PRMR details here too.',
+    target: 'track-sale-type-toggle',
+    title: 'FP or Upgrade?',
+    description: "Choose 'FP' for new accounts or 'Upgrade' when you add equipment to an existing customer.",
     position: 'top',
     action: 'openLogSaleSheet',
+    lightOverlay: true,
+  },
+  {
+    target: 'track-prmr-help-button',
+    title: 'Need Help with PRMR?',
+    description: "Tap the ? icon anytime. For upgrades, it opens a calculator that adds up your equipment automatically.",
+    position: 'top',
+    action: 'switchToUpgradeAndShowHelp',
+    lightOverlay: true,
+  },
+  {
+    target: 'track-upgrade-calculator',
+    title: 'Chat to Calculate PRMR',
+    description: "Example: '2 outdoor cameras, 1 replacement doorbell, 2 spotlights, 24/7 playback' = $46.32 PRMR. Just type what you sold!",
+    position: 'top',
+    action: 'openUpgradeCalculator',
+    lightOverlay: true,
   },
 ];
 
