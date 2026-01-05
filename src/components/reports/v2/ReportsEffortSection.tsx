@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, Clock, Footprints } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EffortResult, EffortFlag, TeamEffortSummary } from "@/utils/effortScore";
+import { EffortThresholdSettings } from "./EffortThresholdSettings";
 
 interface RepWithEffort {
   userId: string;
@@ -21,6 +22,8 @@ interface ReportsEffortSectionProps {
   summary: TeamEffortSummary;
   onRepClick?: (userId: string) => void;
   isLoading?: boolean;
+  teamId?: string;
+  mgmtGroupId?: string;
 }
 
 export const ReportsEffortSection = ({
@@ -28,6 +31,8 @@ export const ReportsEffortSection = ({
   summary,
   onRepClick,
   isLoading,
+  teamId,
+  mgmtGroupId,
 }: ReportsEffortSectionProps) => {
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
     outstanding: false,
@@ -188,8 +193,8 @@ export const ReportsEffortSection = ({
           </p>
         </div>
         
-        {/* Quick summary badges */}
-        <div className="flex gap-2">
+        {/* Quick summary badges + settings */}
+        <div className="flex items-center gap-2">
           {summary.outstandingCount > 0 && (
             <Badge variant="outline" className="border-green-500/50 text-green-600 dark:text-green-400">
               {summary.outstandingCount} ⭐
@@ -199,6 +204,9 @@ export const ReportsEffortSection = ({
             <Badge variant="outline" className="border-destructive/50 text-destructive">
               {summary.needsImprovementCount} ⚠️
             </Badge>
+          )}
+          {(teamId || mgmtGroupId) && (
+            <EffortThresholdSettings teamId={teamId} mgmtGroupId={mgmtGroupId} />
           )}
         </div>
       </div>

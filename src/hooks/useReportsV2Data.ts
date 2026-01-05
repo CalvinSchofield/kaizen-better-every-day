@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, subDays } from "date-fns";
+import { format, subDays, startOfYear } from "date-fns";
 import { useTeamLiveData } from "./useTeamLiveData";
 import { useTeamInsightsData } from "./useTeamInsightsData";
 import { 
@@ -12,6 +12,7 @@ import {
   EffortResult,
   TeamEffortSummary,
   DEFAULT_EFFORT_THRESHOLDS,
+  EffortThresholds,
 } from "@/utils/effortScore";
 import {
   detectPrimaryConstraint,
@@ -31,12 +32,17 @@ import {
   TeamBaseline,
   RepBaseline,
 } from "@/utils/baselineCalculations";
+import {
+  calculateTeamGoalPace,
+  RepGoalData,
+} from "@/utils/goalPaceCalculations";
 
 interface UseReportsV2DataParams {
   userIds: string[];
   dateRange: { start: string; end: string };
   excludeUserIds?: string[];
   isLiveView?: boolean; // true for "Today" view
+  customThresholds?: EffortThresholds; // Optional custom thresholds from leader settings
 }
 
 export interface RepWithEffort {
@@ -104,7 +110,11 @@ export const useReportsV2Data = ({
   dateRange,
   excludeUserIds = [],
   isLiveView = false,
+  customThresholds,
 }: UseReportsV2DataParams): ReportsV2Data => {
+  // Use custom thresholds or defaults
+  const effortThresholds = customThresholds || DEFAULT_EFFORT_THRESHOLDS;
+
   // Fetch live data (for today view)
   const liveQuery = useTeamLiveData({
     userIds,
@@ -123,6 +133,7 @@ export const useReportsV2Data = ({
   const fourteenDaysAgo = format(subDays(today, 14), 'yyyy-MM-dd');
   const yesterday = format(subDays(today, 1), 'yyyy-MM-dd');
   const todayStr = format(today, 'yyyy-MM-dd');
+  const yearStart = format(startOfYear(today), 'yyyy-MM-dd');
 
   const baselineQuery = useQuery({
     queryKey: ['team-baseline', userIds, fourteenDaysAgo],
@@ -162,6 +173,43 @@ export const useReportsV2Data = ({
     staleTime: 60000, // 1 minute
   });
 
+  // Fetch rep_goals for team goal pace calculation
+  const goalsQuery = useQuery({
+    queryKey: ['team-rep-goals', userIds],
+    queryFn: async () => {
+      if (userIds.length === 0) return null;
+
+      // Fetch rep_goals for all team members
+      const { data: goals, error: goalsError } = await supabase
+        .from('rep_goals')
+        .select('user_id, preseason_fp_goal, must_do_fp_goal, will_do_fp_goal, could_do_fp_goal, focus_tier, setup_complete')
+        .in('user_id', userIds);
+
+      if (goalsError) throw goalsError;
+
+      // Fetch rep names for goals
+      const { data: reps, error: repsError } = await supabase
+        .from('reps')
+        .select('user_id, name')
+        .in('user_id', userIds);
+
+      if (repsError) throw repsError;
+
+      // Fetch year-to-date FP for progress
+      const { data: ytdEntries, error: ytdError } = await supabase
+        .from('daily_entries')
+        .select('user_id, fp_plus')
+        .in('user_id', userIds)
+        .gte('entry_date', yearStart);
+
+      if (ytdError) throw ytdError;
+
+      return { goals, reps, ytdEntries };
+    },
+    enabled: userIds.length > 0,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
   const isLoading = isLiveView ? liveQuery.isLoading : insightsQuery.isLoading;
 
   // Process data into unified format
@@ -196,7 +244,7 @@ export const useReportsV2Data = ({
           avgDoorsLast14Days: rep.avgDoorsPerHour,
         };
         
-        const effort = calculateEffortScore(effortData, DEFAULT_EFFORT_THRESHOLDS);
+        const effort = calculateEffortScore(effortData, effortThresholds);
         
         return {
           userId: rep.userId,
@@ -285,14 +333,71 @@ export const useReportsV2Data = ({
       }));
       const actions = generateLeaderActions(repPerformanceData, constraint);
       
-      // Team goal status - for live view, we don't have goal data yet
-      // This would need a separate query to get rep_goals for all team members
-      const teamGoalStatus: TeamGoalStatus = {
+      // Calculate team goal status from goals query data
+      let teamGoalStatus: TeamGoalStatus = {
         onPace: [],
         atRisk: [],
         behind: [],
-        noGoals: repsWithEffort.map(r => r.name), // Placeholder - goals query not implemented for live view
+        noGoals: repsWithEffort.map(r => r.name),
       };
+      
+      if (goalsQuery.data) {
+        const { goals, reps, ytdEntries } = goalsQuery.data;
+        
+        // Calculate YTD FP per rep
+        const ytdFPByUser = ytdEntries.reduce((acc, e) => {
+          acc[e.user_id] = (acc[e.user_id] || 0) + (e.fp_plus || 0);
+          return acc;
+        }, {} as Record<string, number>);
+        
+        // Map reps to names
+        const nameMap = new Map(reps.map(r => [r.user_id, r.name]));
+        
+        // Build goal data with names
+        const goalsWithNames: RepGoalData[] = goals.map(g => ({
+          user_id: g.user_id,
+          name: nameMap.get(g.user_id) || 'Unknown',
+          preseason_fp_goal: g.preseason_fp_goal,
+          must_do_fp_goal: g.must_do_fp_goal,
+          will_do_fp_goal: g.will_do_fp_goal,
+          could_do_fp_goal: g.could_do_fp_goal,
+          focus_tier: g.focus_tier,
+          setup_complete: g.setup_complete,
+        }));
+        
+        // Add reps without goals
+        const repsWithGoals = new Set(goals.map(g => g.user_id));
+        const repsWithoutGoals = reps
+          .filter(r => r.user_id && !repsWithGoals.has(r.user_id))
+          .map(r => ({
+            user_id: r.user_id!,
+            name: r.name,
+            preseason_fp_goal: null,
+            must_do_fp_goal: null,
+            will_do_fp_goal: null,
+            could_do_fp_goal: null,
+            focus_tier: null,
+            setup_complete: null,
+          }));
+        
+        const allGoalsData = [...goalsWithNames, ...repsWithoutGoals];
+        
+        // Calculate progress data
+        const progressData = allGoalsData.map(g => ({
+          userId: g.user_id,
+          currentFP: ytdFPByUser[g.user_id] || 0,
+        }));
+        
+        // Calculate goal pace for each rep
+        const paceResults = calculateTeamGoalPace(allGoalsData, progressData);
+        
+        teamGoalStatus = {
+          onPace: paceResults.filter(r => r.status === 'on_pace').map(r => r.name),
+          atRisk: paceResults.filter(r => r.status === 'at_risk').map(r => r.name),
+          behind: paceResults.filter(r => r.status === 'behind').map(r => r.name),
+          noGoals: paceResults.filter(r => r.status === 'no_goals').map(r => r.name),
+        };
+      }
       
       // Calculate team baseline from 14-day data
       let teamBaseline: TeamBaseline | undefined;
@@ -366,7 +471,7 @@ export const useReportsV2Data = ({
           hoursWorked: rep.hoursWorked,
         };
         
-        const effort = calculateEffortScore(effortData, DEFAULT_EFFORT_THRESHOLDS);
+        const effort = calculateEffortScore(effortData, effortThresholds);
         
         return {
           userId: rep.userId,
@@ -429,13 +534,64 @@ export const useReportsV2Data = ({
       }));
       const actions = generateLeaderActions(repPerformanceData, constraint);
       
-      // Team goal status - placeholder for now
-      const teamGoalStatus: TeamGoalStatus = {
+      // Calculate team goal status from goals query data
+      let teamGoalStatus: TeamGoalStatus = {
         onPace: [],
         atRisk: [],
         behind: [],
         noGoals: repsWithEffort.map(r => r.name),
       };
+      
+      if (goalsQuery.data) {
+        const { goals, reps, ytdEntries } = goalsQuery.data;
+        
+        const ytdFPByUser = ytdEntries.reduce((acc, e) => {
+          acc[e.user_id] = (acc[e.user_id] || 0) + (e.fp_plus || 0);
+          return acc;
+        }, {} as Record<string, number>);
+        
+        const nameMap = new Map(reps.map(r => [r.user_id, r.name]));
+        
+        const goalsWithNames: RepGoalData[] = goals.map(g => ({
+          user_id: g.user_id,
+          name: nameMap.get(g.user_id) || 'Unknown',
+          preseason_fp_goal: g.preseason_fp_goal,
+          must_do_fp_goal: g.must_do_fp_goal,
+          will_do_fp_goal: g.will_do_fp_goal,
+          could_do_fp_goal: g.could_do_fp_goal,
+          focus_tier: g.focus_tier,
+          setup_complete: g.setup_complete,
+        }));
+        
+        const repsWithGoals = new Set(goals.map(g => g.user_id));
+        const repsWithoutGoals = reps
+          .filter(r => r.user_id && !repsWithGoals.has(r.user_id))
+          .map(r => ({
+            user_id: r.user_id!,
+            name: r.name,
+            preseason_fp_goal: null,
+            must_do_fp_goal: null,
+            will_do_fp_goal: null,
+            could_do_fp_goal: null,
+            focus_tier: null,
+            setup_complete: null,
+          }));
+        
+        const allGoalsData = [...goalsWithNames, ...repsWithoutGoals];
+        const progressData = allGoalsData.map(g => ({
+          userId: g.user_id,
+          currentFP: ytdFPByUser[g.user_id] || 0,
+        }));
+        
+        const paceResults = calculateTeamGoalPace(allGoalsData, progressData);
+        
+        teamGoalStatus = {
+          onPace: paceResults.filter(r => r.status === 'on_pace').map(r => r.name),
+          atRisk: paceResults.filter(r => r.status === 'at_risk').map(r => r.name),
+          behind: paceResults.filter(r => r.status === 'behind').map(r => r.name),
+          noGoals: paceResults.filter(r => r.status === 'no_goals').map(r => r.name),
+        };
+      }
       
       return {
         totalFP: data.totalFP,

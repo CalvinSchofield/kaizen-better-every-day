@@ -349,6 +349,63 @@ export type Database = {
         }
         Relationships: []
       }
+      effort_thresholds: {
+        Row: {
+          created_at: string
+          created_by: string
+          doors_per_hour_rookie: number
+          doors_per_hour_vet: number
+          early_end_minutes: number
+          id: string
+          late_start_minutes: number
+          mgmt_group_id: string | null
+          min_hours_worked: number
+          team_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          doors_per_hour_rookie?: number
+          doors_per_hour_vet?: number
+          early_end_minutes?: number
+          id?: string
+          late_start_minutes?: number
+          mgmt_group_id?: string | null
+          min_hours_worked?: number
+          team_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          doors_per_hour_rookie?: number
+          doors_per_hour_vet?: number
+          early_end_minutes?: number
+          id?: string
+          late_start_minutes?: number
+          mgmt_group_id?: string | null
+          min_hours_worked?: number
+          team_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "effort_thresholds_mgmt_group_id_fkey"
+            columns: ["mgmt_group_id"]
+            isOneToOne: true
+            referencedRelation: "mgmt_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "effort_thresholds_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historical_entries: {
         Row: {
           closes: number | null
