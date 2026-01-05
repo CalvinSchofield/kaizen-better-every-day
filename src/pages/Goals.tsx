@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -93,6 +93,13 @@ const Goals = () => {
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
+
+  const handleTourStepAction = useCallback((action: string) => {
+    if (action === 'openGoalsCalendarPlanning') {
+      setIsCalendarOpen(true);
+    }
+  }, []);
+
   
   // Confirmation drawer states for blitz commit/uncommit
   const [confirmCommitBlitz, setConfirmCommitBlitz] = useState<{ id: string; name: string; date: string; endDate?: string | null; location?: string | null } | null>(null);
@@ -1124,6 +1131,7 @@ const Goals = () => {
         isOpen={showTour}
         onComplete={completeTour}
         onSkip={skipTour}
+        onStepAction={handleTourStepAction}
       />
     </Layout>
   );

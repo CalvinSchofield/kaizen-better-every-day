@@ -186,6 +186,7 @@ export const goalsTourSteps: TourStep[] = [
     title: 'Plan Your Work Days',
     description: 'Tap any date to mark it as a knocking day, or tap the blitz button to commit to a blitz. Your daily goal adjusts based on planned days.',
     position: 'top',
+    action: 'openGoalsCalendarPlanning',
   },
   {
     target: 'goals-settings-button',

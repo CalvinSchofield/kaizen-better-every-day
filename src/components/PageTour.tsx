@@ -42,38 +42,43 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
   const updateSpotlight = useCallback(() => {
     if (!step) return;
 
-    const element = document.querySelector(`[data-tour="${step.target}"]`);
+    const element = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`);
     if (!element) {
       setSpotlightRect(null);
       return;
     }
 
-    const rect = element.getBoundingClientRect();
     const padding = 8;
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+
+    const applyRect = (r: DOMRect) => {
+      setSpotlightRect({
+        x: r.left - padding,
+        y: r.top - padding,
+        width: r.width + padding * 2,
+        height: r.height + padding * 2,
+      });
+      calculateCardPosition(r, viewportHeight);
+    };
+
+    const rect = element.getBoundingClientRect();
 
     // Scroll element into view if needed
-    const viewportHeight = window.innerHeight;
-    if (rect.top < 100 || rect.bottom > viewportHeight - 200) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Recalculate after scroll
-      setTimeout(() => {
-        const newRect = element.getBoundingClientRect();
-        setSpotlightRect({
-          x: newRect.left - padding,
-          y: newRect.top - padding,
-          width: newRect.width + padding * 2,
-          height: newRect.height + padding * 2,
-        });
-        calculateCardPosition(newRect, viewportHeight);
-      }, 300);
+    const needsScroll =
+      rect.top < 100 ||
+      rect.bottom > viewportHeight - 200 ||
+      rect.left < 0 ||
+      rect.right > viewportWidth;
+
+    if (needsScroll) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+
+      // Recalculate after scroll settles (smooth scroll duration varies by device)
+      window.setTimeout(() => applyRect(element.getBoundingClientRect()), 450);
+      window.setTimeout(() => applyRect(element.getBoundingClientRect()), 900);
     } else {
-      setSpotlightRect({
-        x: rect.left - padding,
-        y: rect.top - padding,
-        width: rect.width + padding * 2,
-        height: rect.height + padding * 2,
-      });
-      calculateCardPosition(rect, viewportHeight);
+      applyRect(rect);
     }
   }, [step]);
 
@@ -123,13 +128,21 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
   };
 
   useLayoutEffect(() => {
-    if (isOpen) {
-      updateSpotlight();
-      // Trigger step action if present
-      if (step?.action && onStepAction) {
-        onStepAction(step.action);
-      }
+    if (!isOpen) return;
+
+    updateSpotlight();
+
+    let recalcTimer: number | undefined;
+
+    // Trigger step action if present (e.g., open a drawer/collapsible), then recalc spotlight
+    if (step?.action && onStepAction) {
+      onStepAction(step.action);
+      recalcTimer = window.setTimeout(() => updateSpotlight(), 450);
     }
+
+    return () => {
+      if (recalcTimer) window.clearTimeout(recalcTimer);
+    };
   }, [isOpen, currentStep, updateSpotlight, step?.action, onStepAction]);
 
   // Recalculate on resize
@@ -199,7 +212,15 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
         {/* SVG Mask for spotlight effect */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none">
           <defs>
-            <mask id="spotlight-mask">
+            <mask
+              id="spotlight-mask"
+              maskUnits="userSpaceOnUse"
+              maskContentUnits="userSpaceOnUse"
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+            >
               <rect x="0" y="0" width="100%" height="100%" fill="white" />
               {spotlightRect && (
                 <motion.rect
