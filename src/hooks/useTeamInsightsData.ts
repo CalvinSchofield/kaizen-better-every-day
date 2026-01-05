@@ -372,16 +372,24 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
           const end = new Date(entry.work_end_time);
           let minutes = differenceInMinutes(end, start);
           
-          // Subtract break periods
-          if (entry.break_periods && Array.isArray(entry.break_periods)) {
-            entry.break_periods.forEach((breakPeriod: any) => {
-              const breakStart = new Date(breakPeriod.start);
-              const breakEnd = new Date(breakPeriod.end);
-              minutes -= differenceInMinutes(breakEnd, breakStart);
-            });
+          // Skip entries with corrupted time data (end before start)
+          if (minutes <= 0) {
+            // Don't add negative or zero minutes
+          } else {
+            // Subtract break periods
+            if (entry.break_periods && Array.isArray(entry.break_periods)) {
+              entry.break_periods.forEach((breakPeriod: any) => {
+                const breakStart = new Date(breakPeriod.start);
+                const breakEnd = new Date(breakPeriod.end);
+                const breakMinutes = differenceInMinutes(breakEnd, breakStart);
+                if (breakMinutes > 0) {
+                  minutes -= breakMinutes;
+                }
+              });
+            }
+            
+            acc.totalMinutes += Math.max(0, minutes);
           }
-          
-          acc.totalMinutes += minutes;
         }
         
         // Parse sales_log for FP count and PRMR averages (only funded sales)
@@ -435,15 +443,21 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
           const end = new Date(entry.work_end_time);
           let minutes = differenceInMinutes(end, start);
           
-          if (entry.break_periods && Array.isArray(entry.break_periods)) {
-            entry.break_periods.forEach((breakPeriod: any) => {
-              const breakStart = new Date(breakPeriod.start);
-              const breakEnd = new Date(breakPeriod.end);
-              minutes -= differenceInMinutes(breakEnd, breakStart);
-            });
+          // Skip entries with corrupted time data (end before start)
+          if (minutes > 0) {
+            if (entry.break_periods && Array.isArray(entry.break_periods)) {
+              entry.break_periods.forEach((breakPeriod: any) => {
+                const breakStart = new Date(breakPeriod.start);
+                const breakEnd = new Date(breakPeriod.end);
+                const breakMinutes = differenceInMinutes(breakEnd, breakStart);
+                if (breakMinutes > 0) {
+                  minutes -= breakMinutes;
+                }
+              });
+            }
+            
+            acc.totalMinutes += Math.max(0, minutes);
           }
-          
-          acc.totalMinutes += minutes;
         }
         
         return acc;
@@ -724,13 +738,19 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
           const end = new Date(entry.work_end_time);
           let minutes = differenceInMinutes(end, start);
           
-          if (entry.break_periods && Array.isArray(entry.break_periods)) {
-            entry.break_periods.forEach((bp: any) => {
-              minutes -= differenceInMinutes(new Date(bp.end), new Date(bp.start));
-            });
+          // Skip entries with corrupted time data (end before start)
+          if (minutes > 0) {
+            if (entry.break_periods && Array.isArray(entry.break_periods)) {
+              entry.break_periods.forEach((bp: any) => {
+                const breakMinutes = differenceInMinutes(new Date(bp.end), new Date(bp.start));
+                if (breakMinutes > 0) {
+                  minutes -= breakMinutes;
+                }
+              });
+            }
+            
+            day.totalMinutes += Math.max(0, minutes);
           }
-          
-          day.totalMinutes += minutes;
         }
         
         day.count += 1;
@@ -873,13 +893,19 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
             const end = new Date(e.work_end_time);
             let minutes = differenceInMinutes(end, start);
             
+            // Skip entries with corrupted time data (end before start)
+            if (minutes <= 0) return acc;
+            
             if (e.break_periods && Array.isArray(e.break_periods)) {
               e.break_periods.forEach((bp: any) => {
-                minutes -= differenceInMinutes(new Date(bp.end), new Date(bp.start));
+                const breakMinutes = differenceInMinutes(new Date(bp.end), new Date(bp.start));
+                if (breakMinutes > 0) {
+                  minutes -= breakMinutes;
+                }
               });
             }
             
-            return acc + (minutes / 60);
+            return acc + Math.max(0, minutes / 60);
           }
           return acc;
         }, 0);
