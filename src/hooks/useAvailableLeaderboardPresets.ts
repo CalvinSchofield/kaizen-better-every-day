@@ -98,10 +98,28 @@ export const useAvailableLeaderboardPresets = () => {
     return available;
   };
 
-  // Auto-select: ALWAYS prefer live first - the Live Race section handles empty states gracefully
-  // Live is the most engaging view and should be the default during active work hours
+  // Auto-select: prefer live if there's today's data, otherwise fall back to most relevant preset
   const getAutoSelectedPreset = (): TimeframeType => {
-    // Always default to live - it shows real-time data and handles empty states well
+    const available = getAvailablePresets();
+    const now = new Date();
+    const todayStr = format(now, 'yyyy-MM-dd');
+    
+    // Check if there's any activity today
+    const entryDates = toEntryDateSet(boundary?.entryDates ?? []);
+    const hasToday = entryDates.has(todayStr);
+    
+    // Only default to live if there's actually data today
+    if (hasToday) {
+      return 'live';
+    }
+    
+    // Otherwise use the most recent/relevant timeframe with data
+    if (available.includes('yesterday')) return 'yesterday';
+    if (available.includes('week')) return 'week';
+    if (available.includes('month')) return 'month';
+    if (available.includes('season')) return 'season';
+    
+    // Fallback to live (will show empty state)
     return 'live';
   };
 
