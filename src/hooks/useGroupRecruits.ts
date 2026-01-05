@@ -810,7 +810,13 @@ export const useUpdateRecruitStage = () => {
 
       if (error) {
         console.error("Error updating recruit stage:", error);
-        throw error;
+        throw new Error(error.message || "Failed to update stage");
+      }
+
+      // Edge function may return error in response body (not thrown)
+      if (data?.error) {
+        console.error("Edge function returned error:", data.error);
+        throw new Error(data.error);
       }
 
       return { recruitId, recruitNotionId, newStage, previousStage: data?.previousStage ?? null };
