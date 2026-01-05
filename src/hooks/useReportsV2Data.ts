@@ -21,6 +21,7 @@ import {
   FunnelStage,
   RepPerformanceData,
 } from "@/utils/constraintAnalysis";
+import { TeamGoalStatus } from "@/components/reports/v2/TeamGoalSummary";
 
 interface UseReportsV2DataParams {
   userIds: string[];
@@ -65,6 +66,9 @@ export interface ReportsV2Data {
   effortSummary: TeamEffortSummary;
   skillBottleneck: FunnelStage | null;
   impactPotential: string | null;
+  
+  // Team goal status
+  teamGoalStatus: TeamGoalStatus;
   
   // Rep-level data
   repsWithEffort: RepWithEffort[];
@@ -225,6 +229,15 @@ export const useReportsV2Data = ({
       }));
       const actions = generateLeaderActions(repPerformanceData, constraint);
       
+      // Team goal status - for live view, we don't have goal data yet
+      // This would need a separate query to get rep_goals for all team members
+      const teamGoalStatus: TeamGoalStatus = {
+        onPace: [],
+        atRisk: [],
+        behind: [],
+        noGoals: repsWithEffort.map(r => r.name), // Placeholder - goals query not implemented for live view
+      };
+      
       return {
         totalFP: totals.fp,
         totalPRMR: totals.prmr,
@@ -235,6 +248,7 @@ export const useReportsV2Data = ({
         effortSummary,
         skillBottleneck,
         impactPotential,
+        teamGoalStatus,
         repsWithEffort,
         funnelData: {
           doors: totals.doors,
@@ -323,6 +337,14 @@ export const useReportsV2Data = ({
       }));
       const actions = generateLeaderActions(repPerformanceData, constraint);
       
+      // Team goal status - placeholder for now
+      const teamGoalStatus: TeamGoalStatus = {
+        onPace: [],
+        atRisk: [],
+        behind: [],
+        noGoals: repsWithEffort.map(r => r.name),
+      };
+      
       return {
         totalFP: data.totalFP,
         totalPRMR: data.totalPRMR,
@@ -333,6 +355,7 @@ export const useReportsV2Data = ({
         effortSummary,
         skillBottleneck,
         impactPotential,
+        teamGoalStatus,
         repsWithEffort,
         funnelData: {
           doors: data.totalDoors,
@@ -367,6 +390,12 @@ export const useReportsV2Data = ({
       },
       skillBottleneck: null,
       impactPotential: null,
+      teamGoalStatus: {
+        onPace: [],
+        atRisk: [],
+        behind: [],
+        noGoals: [],
+      },
       repsWithEffort: [],
       funnelData: {
         doors: 0,

@@ -227,6 +227,8 @@ export const RepDrillDownDrawer = ({
               couldGoal={extendedData.goals.couldGoal}
               currentFP={extendedData.totalSeasonFP}
               focusTier={extendedData.goals.focusTier}
+              goalPace={extendedData.goalPace}
+              isPreseason={extendedData.isPreseason}
             />
           ) : !isLoadingExtended && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
@@ -239,7 +241,12 @@ export const RepDrillDownDrawer = ({
 
           {/* Work Timeline Section */}
           {extendedData?.last14DaysEntries && extendedData.last14DaysEntries.length > 0 ? (
-            <RepWorkTimeline entries={extendedData.last14DaysEntries} />
+            <RepWorkTimeline 
+              entries={extendedData.last14DaysEntries}
+              avgDoorsPerDay={extendedData.avgDoorsPerDay}
+              avgFPPerDay={extendedData.avgFPPerDay}
+              daysAboveAvg={extendedData.daysAboveAvg}
+            />
           ) : !isLoadingExtended && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
               <Clock className="w-4 h-4 text-muted-foreground" />
