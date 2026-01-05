@@ -38,6 +38,7 @@ import AdminBlitzes from "./pages/AdminBlitzes";
 import RecruitingContent from "./pages/RecruitingContent";
 import AboutTeam from "./pages/AboutTeam";
 import AddApplicant from "./pages/AddApplicant";
+import ReportsV2 from "./pages/ReportsV2";
 import { queryPersister } from "./lib/queryPersister";
 
 const queryClient = new QueryClient({
@@ -290,6 +291,16 @@ const App = () => {
           element={
             <ProtectedRoute>
               <AddApplicant />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports-v2"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <ReportsV2 />
+              </Layout>
             </ProtectedRoute>
           }
         />
