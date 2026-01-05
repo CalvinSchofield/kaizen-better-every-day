@@ -48,15 +48,11 @@ import { usePageTour } from "@/hooks/usePageTour";
 import { PageTour } from "@/components/PageTour";
 import { myGroupTourSteps } from "@/config/pageTours";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 
 // Floating Add Button with scroll hide
 const FloatingAddButton = ({ visible, onClick }: { visible: boolean; onClick: () => void }) => {
@@ -1124,36 +1120,45 @@ const MyGroup = () => {
         onComplete={handleScheduleComplete}
       />
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deletingSuggestionId} onOpenChange={(open) => !open && setDeletingSuggestionId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete suggestion?</AlertDialogTitle>
-            <AlertDialogDescription>
+      {/* Delete Confirmation Drawer */}
+      <Drawer open={!!deletingSuggestionId} onOpenChange={(open) => !open && setDeletingSuggestionId(null)}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Delete suggestion?</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
               This will permanently remove this recruit suggestion. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={async () => {
-                if (deletingSuggestionId) {
-                  try {
-                    await deleteMutation.mutateAsync(deletingSuggestionId);
-                    toast.success('Suggestion deleted');
-                  } catch {
-                    toast.error('Failed to delete');
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setDeletingSuggestionId(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={async () => {
+                  if (deletingSuggestionId) {
+                    try {
+                      await deleteMutation.mutateAsync(deletingSuggestionId);
+                      toast.success('Suggestion deleted');
+                    } catch {
+                      toast.error('Failed to delete');
+                    }
+                    setDeletingSuggestionId(null);
                   }
-                  setDeletingSuggestionId(null);
-                }
-              }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Assigned Tasks Drawer */}
       <AssignedTasksDrawer

@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Trophy, Upload, Trash2, FileSpreadsheet, Calendar, Loader2, ChevronDown } from 'lucide-react';
 import { useMeVsMe } from '@/hooks/useMeVsMe';
 import { MeVsMeUpload } from './MeVsMeUpload';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,7 @@ interface MeVsMeSettingsProps {
 export const MeVsMeSettings = ({ isOpen, onOpenChange }: MeVsMeSettingsProps) => {
   const { isEnabled, isLoading, dataSummary, toggleEnabled, isToggling, deleteAllData, isDeleting } = useMeVsMe();
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const getSummaryText = () => {
     if (!isEnabled) return "Disabled";
@@ -128,39 +129,19 @@ export const MeVsMeSettings = ({ isOpen, onOpenChange }: MeVsMeSettingsProps) =>
             </Button>
 
             {dataSummary && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4 mr-2" />
-                    )}
-                    Delete All Data
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete all historical data?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently delete all {dataSummary.totalDays} days of imported historical data. This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDeleteAll}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <Button
+                variant="ghost"
+                className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                disabled={isDeleting}
+                onClick={() => setDeleteConfirmOpen(true)}
+              >
+                {isDeleting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Delete All Data
+              </Button>
             )}
             </div>
           </CardContent>
@@ -169,6 +150,39 @@ export const MeVsMeSettings = ({ isOpen, onOpenChange }: MeVsMeSettingsProps) =>
     </Card>
 
       <MeVsMeUpload open={uploadOpen} onClose={() => setUploadOpen(false)} />
+
+      {/* Delete Confirmation Drawer */}
+      <Drawer open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Delete all historical data?</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This will permanently delete all {dataSummary?.totalDays} days of imported historical data. This action cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setDeleteConfirmOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={() => {
+                  handleDeleteAll();
+                  setDeleteConfirmOpen(false);
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };
