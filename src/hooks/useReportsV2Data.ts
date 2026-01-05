@@ -25,7 +25,7 @@ import {
   FunnelStage,
   RepPerformanceData,
 } from "@/utils/constraintAnalysis";
-import { TeamGoalStatus } from "@/components/reports/v2/TeamGoalSummary";
+import { TeamGoalStatus, TeamGoalStatusWithDetails } from "@/components/reports/v2/TeamGoalSummary";
 import { 
   calculateRepBaseline,
   calculateTeamBaseline,
@@ -35,6 +35,7 @@ import {
 import {
   calculateTeamGoalPace,
   RepGoalData,
+  GoalPaceResult,
 } from "@/utils/goalPaceCalculations";
 
 interface UseReportsV2DataParams {
@@ -84,6 +85,7 @@ export interface ReportsV2Data {
   
   // Team goal status
   teamGoalStatus: TeamGoalStatus;
+  teamGoalStatusDetails?: TeamGoalStatusWithDetails;
   
   // Team baseline
   teamBaseline?: TeamBaseline;
@@ -340,6 +342,7 @@ export const useReportsV2Data = ({
         behind: [],
         noGoals: repsWithEffort.map(r => r.name),
       };
+      let teamGoalStatusDetails: TeamGoalStatusWithDetails | undefined;
       
       if (goalsQuery.data) {
         const { goals, reps, ytdEntries } = goalsQuery.data;
@@ -397,6 +400,14 @@ export const useReportsV2Data = ({
           behind: paceResults.filter(r => r.status === 'behind').map(r => r.name),
           noGoals: paceResults.filter(r => r.status === 'no_goals').map(r => r.name),
         };
+        
+        // Store full details for tier breakdown
+        teamGoalStatusDetails = {
+          onPace: paceResults.filter(r => r.status === 'on_pace'),
+          atRisk: paceResults.filter(r => r.status === 'at_risk'),
+          behind: paceResults.filter(r => r.status === 'behind'),
+          noGoals: paceResults.filter(r => r.status === 'no_goals'),
+        };
       }
       
       // Calculate team baseline from 14-day data
@@ -445,6 +456,7 @@ export const useReportsV2Data = ({
         skillBottleneck,
         impactPotential,
         teamGoalStatus,
+        teamGoalStatusDetails,
         teamBaseline,
         repsWithEffort,
         funnelData: {
@@ -541,6 +553,7 @@ export const useReportsV2Data = ({
         behind: [],
         noGoals: repsWithEffort.map(r => r.name),
       };
+      let teamGoalStatusDetails: TeamGoalStatusWithDetails | undefined;
       
       if (goalsQuery.data) {
         const { goals, reps, ytdEntries } = goalsQuery.data;
@@ -591,6 +604,14 @@ export const useReportsV2Data = ({
           behind: paceResults.filter(r => r.status === 'behind').map(r => r.name),
           noGoals: paceResults.filter(r => r.status === 'no_goals').map(r => r.name),
         };
+        
+        // Store full details for tier breakdown
+        teamGoalStatusDetails = {
+          onPace: paceResults.filter(r => r.status === 'on_pace'),
+          atRisk: paceResults.filter(r => r.status === 'at_risk'),
+          behind: paceResults.filter(r => r.status === 'behind'),
+          noGoals: paceResults.filter(r => r.status === 'no_goals'),
+        };
       }
       
       return {
@@ -604,6 +625,7 @@ export const useReportsV2Data = ({
         skillBottleneck,
         impactPotential,
         teamGoalStatus,
+        teamGoalStatusDetails,
         repsWithEffort,
         funnelData: {
           doors: data.totalDoors,
