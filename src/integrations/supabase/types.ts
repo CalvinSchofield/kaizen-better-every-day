@@ -1070,6 +1070,9 @@ export type Database = {
           other_books_read: Json | null
           prep_score_history: Json | null
           preseason_fp_goal: number | null
+          purpose_answers: Json | null
+          purpose_statement: string | null
+          purpose_updated_at: string | null
           recruits_with_sale_goal: number | null
           recruits_with_sale_progress: number | null
           rent_type: string | null
@@ -1114,6 +1117,9 @@ export type Database = {
           other_books_read?: Json | null
           prep_score_history?: Json | null
           preseason_fp_goal?: number | null
+          purpose_answers?: Json | null
+          purpose_statement?: string | null
+          purpose_updated_at?: string | null
           recruits_with_sale_goal?: number | null
           recruits_with_sale_progress?: number | null
           rent_type?: string | null
@@ -1158,6 +1164,9 @@ export type Database = {
           other_books_read?: Json | null
           prep_score_history?: Json | null
           preseason_fp_goal?: number | null
+          purpose_answers?: Json | null
+          purpose_statement?: string | null
+          purpose_updated_at?: string | null
           recruits_with_sale_goal?: number | null
           recruits_with_sale_progress?: number | null
           rent_type?: string | null

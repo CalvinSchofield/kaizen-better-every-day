@@ -25,6 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { useBlitzes } from "@/hooks/useBlitzes";
+import { PurposeDisplayCard } from "@/components/goals/PurposeDisplayCard";
 
 interface Rep {
   id: string;
@@ -135,7 +136,7 @@ export const EditRepOrgDrawer = ({
       if (!linkedUserId) return null;
       const { data } = await supabase
         .from("rep_goals")
-        .select("will_do_fp_goal, must_do_fp_goal, could_do_fp_goal, preseason_fp_goal, setup_complete, training_hours_goal, books_goal, monday_night_lights_goal, role_plays_goal, blitzes_goal, recruits_with_sale_goal")
+        .select("will_do_fp_goal, must_do_fp_goal, could_do_fp_goal, preseason_fp_goal, setup_complete, training_hours_goal, books_goal, monday_night_lights_goal, role_plays_goal, blitzes_goal, recruits_with_sale_goal, purpose_statement, purpose_updated_at")
         .eq("user_id", linkedUserId)
         .maybeSingle();
       return data;
@@ -486,6 +487,16 @@ export const EditRepOrgDrawer = ({
                         {repGoals?.setup_complete ? "Yes" : "No"}
                       </Badge>
                     </div>
+
+                    {/* Purpose Statement */}
+                    {repGoals?.purpose_statement && (
+                      <PurposeDisplayCard
+                        purposeStatement={repGoals.purpose_statement}
+                        purposeUpdatedAt={repGoals.purpose_updated_at}
+                        title="Their Purpose"
+                        className="my-3"
+                      />
+                    )}
 
                     {/* FP Goals Section */}
                     {repGoals?.setup_complete && (

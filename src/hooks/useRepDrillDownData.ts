@@ -54,6 +54,9 @@ interface RepDrillDownExtendedData {
   };
   // Is currently in preseason?
   isPreseason: boolean;
+  // Purpose statement
+  purposeStatement?: string | null;
+  purposeUpdatedAt?: string | null;
 }
 
 // Season date constants
@@ -88,10 +91,10 @@ export const useRepDrillDownData = (userId: string | undefined) => {
           .lte('entry_date', endDate)
           .order('entry_date', { ascending: true }),
         
-        // Goals
+        // Goals (including purpose)
         supabase
           .from('rep_goals')
-          .select('preseason_fp_goal, must_do_fp_goal, will_do_fp_goal, could_do_fp_goal, focus_tier')
+          .select('preseason_fp_goal, must_do_fp_goal, will_do_fp_goal, could_do_fp_goal, focus_tier, purpose_statement, purpose_updated_at')
           .eq('user_id', userId)
           .maybeSingle(),
         
@@ -236,6 +239,8 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         daysAboveAvg,
         goalPace,
         isPreseason,
+        purposeStatement: goalsResult.data?.purpose_statement || null,
+        purposeUpdatedAt: goalsResult.data?.purpose_updated_at || null,
       };
     },
     enabled: !!userId,

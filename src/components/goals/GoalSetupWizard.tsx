@@ -19,6 +19,7 @@ import { useBlitzes } from "@/hooks/useBlitzes";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
+import { PurposeWizardStep } from "./PurposeWizardStep";
 
 // Parse date string as local date (not UTC) to avoid timezone offset issues
 const parseLocalDate = (dateString: string): Date => {
@@ -43,6 +44,8 @@ const HOUSING_OPTIONS = [
 interface GoalSetupWizardProps {
   isRookie: boolean;
   committedBlitzIds?: string[];
+  initialPurposeStatement?: string;
+  initialPurposeAnswers?: Record<string, string>;
   onComplete: (goals: {
     monthlyExpenses: number;
     monthsOff: number;
@@ -56,12 +59,25 @@ interface GoalSetupWizardProps {
     summerEnd: string;
     preseasonFpGoal: number;
     selectedBlitzIds?: string[];
+    purposeStatement?: string;
+    purposeAnswers?: Record<string, string>;
   }) => void;
   onCancel?: () => void;
 }
 
-export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, onCancel }: GoalSetupWizardProps) => {
+export const GoalSetupWizard = ({ 
+  isRookie, 
+  committedBlitzIds = [], 
+  initialPurposeStatement,
+  initialPurposeAnswers,
+  onComplete, 
+  onCancel 
+}: GoalSetupWizardProps) => {
   const [step, setStep] = useState(1);
+  
+  // Purpose state
+  const [purposeStatement, setPurposeStatement] = useState<string>(initialPurposeStatement || '');
+  const [purposeAnswers, setPurposeAnswers] = useState<Record<string, string>>(initialPurposeAnswers || {});
   
   // Blitz data for rookie commitment step
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
@@ -74,12 +90,12 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
   // Check if it's currently summer (after April 12, 2026)
   const isCurrentlySummer = new Date() >= SUMMER_START_MIN;
   
-  // Calculate total steps - skip preseason step if already in summer
-  // Rookies: Expenses → Dates → Goals → [Preseason if not summer] → Blitzes → Review
-  // Vets: Dates → Goals → [Preseason if not summer] → Review
+  // Calculate total steps - Purpose step is first for everyone
+  // Rookies: Purpose → Expenses → Dates → Goals → [Preseason if not summer] → Blitzes → Review
+  // Vets: Purpose → Dates → Goals → [Preseason if not summer] → Review
   const totalSteps = isRookie 
-    ? (isCurrentlySummer ? 5 : 6) 
-    : (isCurrentlySummer ? 3 : 4);
+    ? (isCurrentlySummer ? 6 : 7) 
+    : (isCurrentlySummer ? 4 : 5);
 
   // Form state - no prefilled values for goals except preseason defaults to 5
   const [monthlyExpenses, setMonthlyExpenses] = useState<string>('');
@@ -143,43 +159,44 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
   };
 
   const getStepTitle = () => {
+    // Step 1 is Purpose for everyone
+    if (step === 1) return "Your Why";
+    
     if (isRookie) {
       if (isCurrentlySummer) {
-        // Skip preseason step
         switch (step) {
-          case 1: return "Monthly Expenses";
-          case 2: return "Summer Dates";
-          case 3: return "Summer Goals";
-          case 4: return "Commit to Blitzes";
-          case 5: return "Review";
+          case 2: return "Monthly Expenses";
+          case 3: return "Summer Dates";
+          case 4: return "Summer Goals";
+          case 5: return "Commit to Blitzes";
+          case 6: return "Review";
           default: return "";
         }
       } else {
         switch (step) {
-          case 1: return "Monthly Expenses";
-          case 2: return "Summer Dates";
-          case 3: return "Summer Goals";
-          case 4: return "Preseason Goal";
-          case 5: return "Commit to Blitzes";
-          case 6: return "Review";
+          case 2: return "Monthly Expenses";
+          case 3: return "Summer Dates";
+          case 4: return "Summer Goals";
+          case 5: return "Preseason Goal";
+          case 6: return "Commit to Blitzes";
+          case 7: return "Review";
           default: return "";
         }
       }
     } else {
       if (isCurrentlySummer) {
-        // Skip preseason step
         switch (step) {
-          case 1: return "Summer Dates";
-          case 2: return "Summer Goals";
-          case 3: return "Review";
+          case 2: return "Summer Dates";
+          case 3: return "Summer Goals";
+          case 4: return "Review";
           default: return "";
         }
       } else {
         switch (step) {
-          case 1: return "Summer Dates";
-          case 2: return "Summer Goals";
-          case 3: return "Preseason Goal";
-          case 4: return "Review";
+          case 2: return "Summer Dates";
+          case 3: return "Summer Goals";
+          case 4: return "Preseason Goal";
+          case 5: return "Review";
           default: return "";
         }
       }
@@ -205,40 +222,64 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
       summerEnd: summerEnd ? format(summerEnd, 'yyyy-MM-dd') : '2026-09-27',
       preseasonFpGoal: Number(preseasonFpGoal) || 0,
       selectedBlitzIds: isRookie ? selectedBlitzIds : undefined,
+      purposeStatement: purposeStatement || undefined,
+      purposeAnswers: Object.keys(purposeAnswers).length > 0 ? purposeAnswers : undefined,
     });
   };
 
+  const handlePurposeComplete = (statement: string, answers: Record<string, string>) => {
+    setPurposeStatement(statement);
+    setPurposeAnswers(answers);
+    setStep(2);
+  };
+
+  const renderPurposeStep = () => {
+    return (
+      <PurposeWizardStep
+        initialStatement={purposeStatement}
+        initialAnswers={purposeAnswers}
+        onComplete={handlePurposeComplete}
+        onSkip={() => setStep(2)}
+      />
+    );
+  };
+
   const renderStep = () => {
+    // Step 1 is always Purpose for everyone
+    if (step === 1) {
+      return renderPurposeStep();
+    }
+    
     if (isRookie) {
       if (isCurrentlySummer) {
         // Skip preseason step flow
         switch (step) {
-          case 1:
-            return renderExpensesStep();
           case 2:
-            return renderDateSettings();
+            return renderExpensesStep();
           case 3:
-            return renderGoalInputs();
+            return renderDateSettings();
           case 4:
-            return renderBlitzCommitment();
+            return renderGoalInputs();
           case 5:
+            return renderBlitzCommitment();
+          case 6:
             return renderReview();
           default:
             return null;
         }
       } else {
         switch (step) {
-          case 1:
-            return renderExpensesStep();
           case 2:
-            return renderDateSettings();
+            return renderExpensesStep();
           case 3:
-            return renderGoalInputs();
+            return renderDateSettings();
           case 4:
-            return renderPreseasonGoal();
+            return renderGoalInputs();
           case 5:
-            return renderBlitzCommitment();
+            return renderPreseasonGoal();
           case 6:
+            return renderBlitzCommitment();
+          case 7:
             return renderReview();
           default:
             return null;
@@ -248,24 +289,24 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
       if (isCurrentlySummer) {
         // Skip preseason step flow
         switch (step) {
-          case 1:
-            return renderDateSettings();
           case 2:
-            return renderGoalInputs();
+            return renderDateSettings();
           case 3:
+            return renderGoalInputs();
+          case 4:
             return renderReview();
           default:
             return null;
         }
       } else {
         switch (step) {
-          case 1:
-            return renderDateSettings();
           case 2:
-            return renderGoalInputs();
+            return renderDateSettings();
           case 3:
-            return renderPreseasonGoal();
+            return renderGoalInputs();
           case 4:
+            return renderPreseasonGoal();
+          case 5:
             return renderReview();
           default:
             return null;
