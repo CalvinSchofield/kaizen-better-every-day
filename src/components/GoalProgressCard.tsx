@@ -5,7 +5,7 @@ import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useFocusTier, FocusTier } from "@/hooks/useFocusTier";
 import { usePersonalBenchmarks } from "@/hooks/usePersonalBenchmarks";
-import { Target, Flame, Zap, Trophy, TrendingDown, Lightbulb, TrendingUp } from "lucide-react";
+import { Target, Flame, Zap, Trophy, TrendingDown, Lightbulb, TrendingUp, Heart } from "lucide-react";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -524,16 +524,29 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
             </p>
           </div>
         ) : !isOnPaceForPeriod && daysWorkedInPeriod > 0 ? (
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-            <TrendingDown className="h-4 w-4 text-amber-500 flex-shrink-0" />
-            <p className="text-sm text-amber-700 dark:text-amber-300">
-              <span className="font-semibold">{Math.abs(periodPaceDiff).toFixed(1)} behind pace</span>
-              {remainingDaysInPeriod > 0 && fixedDailyGoal > 0 && (
-                <span className="text-muted-foreground">
-                  {' '}· Need {fixedDailyGoal.toFixed(1)}/day to catch up
-                </span>
-              )}
-            </p>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              <TrendingDown className="h-4 w-4 text-amber-500 flex-shrink-0" />
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                <span className="font-semibold">{Math.abs(periodPaceDiff).toFixed(1)} behind pace</span>
+                {remainingDaysInPeriod > 0 && fixedDailyGoal > 0 && (
+                  <span className="text-muted-foreground">
+                    {' '}· Need {fixedDailyGoal.toFixed(1)}/day to catch up
+                  </span>
+                )}
+              </p>
+            </div>
+            {/* Purpose reminder when behind */}
+            {goals.purpose_statement && (
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                <Heart className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground leading-relaxed italic">
+                  Remember: "{goals.purpose_statement.length > 80 
+                    ? goals.purpose_statement.substring(0, 80) + '...' 
+                    : goals.purpose_statement}"
+                </p>
+              </div>
+            )}
           </div>
         ) : remainingForPeriod > 0 && remainingDaysInPeriod > 0 ? (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-accent/30 border border-border/50">
