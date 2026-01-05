@@ -14,6 +14,7 @@ import { EffortResult } from "@/utils/effortScore";
 import { RepWorkTimeline } from "./RepWorkTimeline";
 import { RepGoalPaceCard } from "./RepGoalPaceCard";
 import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
+import { PurposeDisplayCard } from "@/components/goals/PurposeDisplayCard";
 
 interface RepDrillDownData {
   userId: string;
@@ -255,6 +256,17 @@ export const RepDrillDownDrawer = ({
           )}
 
           <Separator />
+
+          {/* Their Purpose / Why */}
+          {extendedData?.purposeStatement && (
+            <>
+              <PurposeDisplayCard
+                purposeStatement={extendedData.purposeStatement}
+                purposeUpdatedAt={extendedData.purposeUpdatedAt}
+              />
+              <Separator />
+            </>
+          )}
 
           {/* Coaching Recommendation */}
           <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">

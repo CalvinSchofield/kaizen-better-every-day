@@ -56,6 +56,10 @@ export interface RepGoals {
   custom_payscale_fp: number | null;
   // Focus tier for summer goals (mustDo, willDo, couldDo)
   focus_tier: string | null;
+  // Purpose statement - the "why" behind their goals
+  purpose_statement: string | null;
+  purpose_answers: Record<string, string> | null;
+  purpose_updated_at: string | null;
 }
 
 // Get the start of the current week (Sunday) in user's local timezone
