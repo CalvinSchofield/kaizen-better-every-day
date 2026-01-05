@@ -341,7 +341,22 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                 {/* KNOCKING MODE ON */}
                 {isKnockingMode && (
                   <>
-                    {/* Goals - show first in knocking mode */}
+                    {/* Insights - moved from nav bar to menu for all users */}
+                    <Link
+                      to="/insights"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <BarChart3 className="w-5 h-5 text-primary" />
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="font-semibold text-sm">Insights</span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          Track performance
+                        </span>
+                      </div>
+                    </Link>
+
+                    {/* Goals */}
                     <Link
                       to="/goals"
                       onClick={() => setOpen(false)}
@@ -373,68 +388,20 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                       </Link>
                     )}
 
-                    {/* For VETS: Tools, Training. For Post-Blitz Rookies: Insights, Training */}
-                    {isVetOrSoph ? (
-                      <>
-                        <Link
-                          to="/tools"
-                          onClick={() => setOpen(false)}
-                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                        >
-                          <Wrench className="w-5 h-5 text-primary" />
-                          <div className="flex flex-col flex-1 min-w-0">
-                            <span className="font-semibold text-sm">Tools</span>
-                            <span className="text-xs text-muted-foreground truncate">
-                              Quick-access resources
-                            </span>
-                          </div>
-                        </Link>
-
-                        <Link
-                          to="/training"
-                          onClick={() => setOpen(false)}
-                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                        >
-                          <BookOpen className="w-5 h-5 text-primary" />
-                          <div className="flex flex-col flex-1 min-w-0">
-                            <span className="font-semibold text-sm">Training</span>
-                            <span className="text-xs text-muted-foreground truncate">
-                              Review resources
-                            </span>
-                          </div>
-                        </Link>
-                      </>
-                    ) : (
-                      <>
-                        <Link
-                          to="/insights"
-                          onClick={() => setOpen(false)}
-                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                        >
-                          <BarChart3 className="w-5 h-5 text-primary" />
-                          <div className="flex flex-col flex-1 min-w-0">
-                            <span className="font-semibold text-sm">Insights</span>
-                            <span className="text-xs text-muted-foreground truncate">
-                              Track performance
-                            </span>
-                          </div>
-                        </Link>
-
-                        <Link
-                          to="/training"
-                          onClick={() => setOpen(false)}
-                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                        >
-                          <BookOpen className="w-5 h-5 text-primary" />
-                          <div className="flex flex-col flex-1 min-w-0">
-                            <span className="font-semibold text-sm">Training</span>
-                            <span className="text-xs text-muted-foreground truncate">
-                              Review resources
-                            </span>
-                          </div>
-                        </Link>
-                      </>
-                    )}
+                    {/* Training - available for everyone */}
+                    <Link
+                      to="/training"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <BookOpen className="w-5 h-5 text-primary" />
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="font-semibold text-sm">Training</span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          Review resources
+                        </span>
+                      </div>
+                    </Link>
                   </>
                 )}
               </>

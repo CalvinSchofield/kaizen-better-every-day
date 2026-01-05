@@ -25,11 +25,11 @@ const metricConfig: Record<MetricKey, { label: string; shortLabel: string; icon:
   transitions: { label: 'Transitions', shortLabel: 'Trans', icon: ArrowRightLeft, unit: '', priority: 7 },
 };
 
-// Display order in the toggle (highest value first: FP+ → PRMR → Presentations → Transitions → DMs → Pitches → Doors)
-const metricOrder: MetricKey[] = ['fp_plus', 'prmr', 'presentations', 'transitions', 'decision_makers', 'pitches', 'doors_knocked'];
+// Display order in the toggle (highest value first: FP+ → PRMR → Presentations → Transitions → Pitches → DMs → Doors)
+const metricOrder: MetricKey[] = ['fp_plus', 'prmr', 'presentations', 'transitions', 'pitches', 'decision_makers', 'doors_knocked'];
 
 // Priority order for auto-selection (highest value metric first)
-const metricPriority: MetricKey[] = ['fp_plus', 'prmr', 'presentations', 'transitions', 'decision_makers', 'pitches', 'doors_knocked'];
+const metricPriority: MetricKey[] = ['fp_plus', 'prmr', 'presentations', 'transitions', 'pitches', 'decision_makers', 'doors_knocked'];
 
 export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSectionProps) => {
   const [selectedMetric, setSelectedMetric] = useState<MetricKey | null>(null);
