@@ -6,4 +6,7 @@ export { RepWorkTimeline } from './RepWorkTimeline';
 export { RepGoalPaceCard } from './RepGoalPaceCard';
 export { TeamGoalSummary } from './TeamGoalSummary';
 export { EffortThresholdSettings } from './EffortThresholdSettings';
+export { ReportsDateRangeSheet } from './ReportsDateRangeSheet';
+export { ReportsTeamFilter } from './ReportsTeamFilter';
+export type { TeamFilter } from './ReportsTeamFilter';
 export type { TeamGoalStatus } from './TeamGoalSummary';
