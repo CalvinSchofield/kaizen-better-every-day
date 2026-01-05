@@ -774,6 +774,7 @@ const Goals = () => {
             </Button>
             <Button
               id="goals-settings-button"
+              data-tour="goals-settings-button"
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-xl"
@@ -787,6 +788,7 @@ const Goals = () => {
         {/* Hero Ring Section */}
         <motion.div 
           id="goals-hero-ring"
+          data-tour="goals-hero-ring"
           className="px-4 py-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -831,6 +833,7 @@ const Goals = () => {
         {!isUserSummerStarted && (
           <motion.div 
             id="goals-commitment-chips"
+            data-tour="goals-commitment-chips"
             className="px-4 pb-4"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -853,6 +856,7 @@ const Goals = () => {
         {/* Calendar Planning - Collapsible */}
         <motion.div 
           id="goals-calendar-planning"
+          data-tour="goals-calendar-planning"
           className="px-4 pb-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
