@@ -495,7 +495,8 @@ export const LogSaleSheet = ({
               <label className="text-sm font-medium text-muted-foreground">
                 PRMR Amount
               </label>
-              {showPrmrHelper && (
+              {/* Show help icon for FP only if showPrmrHelper is true, but ALWAYS show for upgrades */}
+              {(showPrmrHelper || saleType === 'upgrade') && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
