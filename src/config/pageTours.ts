@@ -201,9 +201,15 @@ export const goalsTourSteps: TourStep[] = [
   {
     target: 'goals-calendar-planning',
     title: 'Plan Your Work Days',
-    description: 'Tap any date to mark it as a knocking day, or tap the blitz button to commit to a blitz. Your daily goal adjusts based on planned days.',
+    description: 'This is where you mark your knocking days. The more days you plan, the lower your daily goal becomes.',
     position: 'top',
     action: 'openGoalsCalendarPlanning',
+  },
+  {
+    target: 'goals-date-grid',
+    title: 'Tap Days to Plan',
+    description: 'Tap any Mon–Sat to mark it as a knocking day. Blitzes show in blue—tap those dates to commit and auto-add all those days!',
+    position: 'top',
   },
   {
     target: 'goals-settings-button',
