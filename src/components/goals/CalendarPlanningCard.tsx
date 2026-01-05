@@ -1469,6 +1469,7 @@ export const CalendarPlanningCard = ({
                     size="sm"
                     className="mt-2"
                     onClick={() => setShowBlitzDrawer(true)}
+                    data-tour="goals-blitz-button"
                   >
                     <Plane className="h-4 w-4 mr-1.5" />
                     Commit to a Blitz

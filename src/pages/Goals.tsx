@@ -1122,12 +1122,22 @@ const Goals = () => {
         onOpenCommitmentEditor={() => setShowCommitmentEditor(true)}
       />
 
-      {/* Goals Page Tour - filtered to only show relevant steps based on season */}
+      {/* Goals Page Tour - filtered to only show relevant steps based on season and available blitzes */}
       <PageTour
-        steps={isUserSummerStarted 
-          ? goalsTourSteps.filter(s => s.target !== 'goals-commitment-chips')
-          : goalsTourSteps
-        }
+        steps={goalsTourSteps.filter(s => {
+          // Hide commitment chips during summer
+          if (isUserSummerStarted && s.target === 'goals-commitment-chips') return false;
+          // Hide blitz button step if no future blitzes
+          const hasAnyFutureBlitzes = allBlitzes.some(blitz => {
+            const blitzStart = new Date(blitz.date);
+            blitzStart.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return blitzStart >= today;
+          });
+          if (!hasAnyFutureBlitzes && s.target === 'goals-blitz-button') return false;
+          return true;
+        })}
         isOpen={showTour}
         onComplete={completeTour}
         onSkip={skipTour}

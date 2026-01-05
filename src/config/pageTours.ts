@@ -201,14 +201,20 @@ export const goalsTourSteps: TourStep[] = [
   {
     target: 'goals-calendar-planning',
     title: 'Plan Your Work Days',
-    description: 'This is where you mark your knocking days. The more days you plan, the lower your daily goal becomes.',
+    description: 'This is where you mark your knocking days. Adding more planned days lowers your daily goal—and adding off-days during summer is how you request time off!',
     position: 'top',
     action: 'openGoalsCalendarPlanning',
   },
   {
     target: 'goals-date-grid',
     title: 'Tap Days to Plan',
-    description: 'Tap any Mon–Sat to mark it as a knocking day. Blitzes show in blue—tap those dates to commit and auto-add all those days!',
+    description: 'Tap any Mon–Sat to mark it as a knocking day. During summer, tap a planned day again to request time off. Blitzes show in blue on the calendar!',
+    position: 'top',
+  },
+  {
+    target: 'goals-blitz-button',
+    title: 'Commit to a Blitz',
+    description: 'Tap here to see available blitz trips and commit. When you commit, all those dates auto-add to your planned days!',
     position: 'top',
   },
   {
