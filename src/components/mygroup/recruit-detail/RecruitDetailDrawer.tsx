@@ -1253,43 +1253,53 @@ export const RecruitDetailDrawer = ({
         </DrawerContent>
       </Drawer>
 
-      {/* Delete Activity Confirm */}
-      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Activity?</AlertDialogTitle>
-            <AlertDialogDescription>
+      {/* Delete Activity Confirm Drawer */}
+      <Drawer open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Delete Activity?</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
               This will permanently delete this activity log. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (!selectedActivity) return;
-                setIsDeleting(true);
-                deleteActivityMutation.mutate(selectedActivity.id, {
-                  onSuccess: () => {
-                    toast.success('Activity deleted');
-                    setDeleteConfirmOpen(false);
-                    setEditActivityOpen(false);
-                    setSelectedActivity(null);
-                    setIsDeleting(false);
-                    queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
-                  },
-                  onError: () => {
-                    toast.error("Couldn't delete activity");
-                    setIsDeleting(false);
-                  },
-                });
-              }}
-            >
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </p>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                className="flex-1" 
+                onClick={() => setDeleteConfirmOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                disabled={isDeleting}
+                onClick={() => {
+                  if (!selectedActivity) return;
+                  setIsDeleting(true);
+                  deleteActivityMutation.mutate(selectedActivity.id, {
+                    onSuccess: () => {
+                      toast.success('Activity deleted');
+                      setDeleteConfirmOpen(false);
+                      setEditActivityOpen(false);
+                      setSelectedActivity(null);
+                      setIsDeleting(false);
+                      queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
+                    },
+                    onError: () => {
+                      toast.error("Couldn't delete activity");
+                      setIsDeleting(false);
+                    },
+                  });
+                }}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Phase Verification Drawer - supports both verify and undo modes */}
       {recruit && recruitRepData && pendingPhaseVerification && (
