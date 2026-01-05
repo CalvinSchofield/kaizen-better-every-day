@@ -77,22 +77,40 @@ export const TeamGoalSummary = ({ status, statusDetails, baseline, className }: 
       }];
     }
 
-    // During summer, we'd ideally group by focus_tier
-    // For now, show as "Active Goals" since we have the tier in the result
-    return [{
-      tierName: 'Summer Goals',
-      tierColor: 'border-green-400',
-      onPace: statusDetails.onPace.length,
-      atRisk: statusDetails.atRisk.length,
-      behind: statusDetails.behind.length,
-      reps: allResults.map(r => ({
-        name: r.name,
-        status: r.status,
-        progress: r.currentProgress,
-        goal: r.activeGoal,
-        percent: r.percentOfExpected,
-      })),
-    }];
+    // During summer, group by focus_tier (Must Do, Will Do, Could Do)
+    const tierConfig = [
+      { key: 'mustDo', name: 'Must Do', color: 'border-red-400' },
+      { key: 'willDo', name: 'Will Do', color: 'border-blue-400' },
+      { key: 'couldDo', name: 'Could Do', color: 'border-green-400' },
+    ] as const;
+
+    const breakdowns: TierBreakdown[] = [];
+
+    for (const tier of tierConfig) {
+      const tierOnPace = statusDetails.onPace.filter(r => r.focusTier === tier.key);
+      const tierAtRisk = statusDetails.atRisk.filter(r => r.focusTier === tier.key);
+      const tierBehind = statusDetails.behind.filter(r => r.focusTier === tier.key);
+      const tierReps = [...tierOnPace, ...tierAtRisk, ...tierBehind];
+
+      if (tierReps.length > 0) {
+        breakdowns.push({
+          tierName: tier.name,
+          tierColor: tier.color,
+          onPace: tierOnPace.length,
+          atRisk: tierAtRisk.length,
+          behind: tierBehind.length,
+          reps: tierReps.map(r => ({
+            name: r.name,
+            status: r.status,
+            progress: r.currentProgress,
+            goal: r.activeGoal,
+            percent: r.percentOfExpected,
+          })),
+        });
+      }
+    }
+
+    return breakdowns;
   };
 
   const tierBreakdowns = getTierBreakdowns();
