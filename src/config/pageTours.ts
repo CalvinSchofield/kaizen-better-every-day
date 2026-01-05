@@ -166,14 +166,14 @@ export const goalsTourSteps: TourStep[] = [
   {
     target: 'goals-hero-ring',
     title: 'Your Goal Progress',
-    description: 'This ring shows how close you are to your active goal. During preseason it tracks your preseason target, in summer it shows your focus tier.',
+    description: 'This ring shows how close you are to hitting your active goal, plus your projected take-home pay.',
     position: 'bottom',
   },
   {
     target: 'goals-tier-selector',
-    title: 'Switch Focus Tiers',
-    description: 'Tap any tier to switch your focus. Must Do is the minimum, Will Do is your target, Could Do is the stretch goal.',
-    position: 'bottom',
+    title: 'Focus Tiers',
+    description: 'Must Do = your minimum to cover expenses. Will Do = your real target. Could Do = your stretch goal. Tap any to switch focus.',
+    position: 'top',
   },
   {
     target: 'goals-commitment-chips',
@@ -184,7 +184,7 @@ export const goalsTourSteps: TourStep[] = [
   {
     target: 'goals-calendar-planning',
     title: 'Plan Your Work Days',
-    description: 'Expand this to see and plan which days you\'ll work. Your daily goal adjusts based on how many days you have planned.',
+    description: 'Tap any date to mark it as a knocking day, or tap the blitz button to commit to a blitz. Your daily goal adjusts based on planned days.',
     position: 'top',
   },
   {
