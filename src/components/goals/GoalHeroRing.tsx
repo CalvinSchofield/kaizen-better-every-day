@@ -366,7 +366,7 @@ export const GoalHeroRing = ({
       )}
 
       {/* Tier Pills */}
-      <div className="flex gap-2 mt-6">
+      <div id="goals-tier-selector" className="flex gap-2 mt-6">
         {availableTiers.map((tier) => {
           const tierConf = tierConfig[tier];
           const TierIcon = tierConf.icon;
