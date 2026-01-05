@@ -87,13 +87,22 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
     const spaceAbove = rect.top;
     const spaceBelow = viewportHeight - rect.bottom;
     const cardHeight = 200; // Approximate card height
-    const safeMargin = 24;
+    const safeMargin = 32;
     const bottomNavHeight = 100; // Account for bottom nav + safe area
 
     if (step?.position === 'top') {
       // Card should appear ABOVE the spotlight element
-      setCardPosition('top');
-      setCardOffset(0);
+      // Check if element is too high, push card down accordingly
+      const desiredCardBottom = rect.top - safeMargin;
+      if (desiredCardBottom < cardHeight + 80) {
+        // Not enough space above - position at top of screen
+        setCardPosition('top');
+        setCardOffset(0);
+      } else {
+        // Calculate offset to position card just above the element
+        setCardPosition('top');
+        setCardOffset(Math.max(0, desiredCardBottom - cardHeight - 80));
+      }
     } else if (step?.position === 'bottom') {
       // Card should appear BELOW the spotlight element
       // Calculate where the card should sit (just below the element)
@@ -101,11 +110,10 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
       const availableSpaceBelow = viewportHeight - desiredCardTop - bottomNavHeight;
       
       if (availableSpaceBelow >= cardHeight) {
-        // Enough space below element - position card there
-        // We use 'bottom' positioning from viewport bottom, so calculate offset
-        const cardBottomOffset = viewportHeight - desiredCardTop - cardHeight;
+        // Enough space below element - position card just below it
+        const cardBottomFromViewport = viewportHeight - desiredCardTop - cardHeight;
         setCardPosition('bottom');
-        setCardOffset(Math.max(0, cardBottomOffset - 32)); // 32 is base bottom offset
+        setCardOffset(Math.max(0, cardBottomFromViewport - 32));
       } else {
         // Not enough space below - place at bottom of screen
         setCardPosition('bottom');
