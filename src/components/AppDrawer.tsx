@@ -305,7 +305,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                     {/* Team Reports - Leaders only */}
                     {isLeader && (
                       <Link
-                        to="/team-reports"
+                        to="/reports-v2"
                         onClick={() => setOpen(false)}
                         className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
                       >
@@ -359,7 +359,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                     {/* Team Reports - Leaders only */}
                     {isLeader && (
                       <Link
-                        to="/team-reports"
+                        to="/reports-v2"
                         onClick={() => setOpen(false)}
                         className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
                       >
