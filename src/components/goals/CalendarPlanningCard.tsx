@@ -1027,7 +1027,12 @@ export const CalendarPlanningCard = ({
       </div>
 
       {/* Calendar Grid - Rendered by week rows for blitz range highlighting */}
-      <div className="space-y-1" style={swipeStyle} {...swipeHandlers}>
+      <div 
+        className="space-y-1" 
+        style={swipeStyle} 
+        {...swipeHandlers}
+        data-tour="goals-date-grid"
+      >
         {(() => {
           // Build week rows with empty cells for offset
           const allCells: (Date | null)[] = [
