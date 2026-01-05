@@ -19,6 +19,7 @@ import { CanceledStatsCard } from "@/components/goals/CanceledStatsCard";
 import { TrainingTimer } from "@/components/goals/TrainingTimer";
 import { BooksCompletionDrawer } from "@/components/goals/BooksSelectionDrawer";
 import { CommitmentEditorDrawer } from "@/components/goals/CommitmentEditorDrawer";
+import { PurposeCard } from "@/components/goals/PurposeCard";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
@@ -791,6 +792,23 @@ const Goals = () => {
             </Button>
           </div>
         </div>
+
+        {/* Purpose Card - Your Why */}
+        {goals.purpose_statement && (
+          <motion.div 
+            className="px-4 pt-4"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <PurposeCard
+              purposeStatement={goals.purpose_statement}
+              purposeUpdatedAt={goals.purpose_updated_at}
+              onEdit={() => setShowSetupWizard(true)}
+              variant="compact"
+            />
+          </motion.div>
+        )}
 
         {/* Hero Ring Section */}
         <motion.div 
