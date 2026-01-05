@@ -71,13 +71,14 @@ interface IssueRowProps {
   onOkay: () => void;
   onEdit: () => void;
   onFixEndTime: (issue: DataIssue) => void;
+  onFixCorruptedTime: (issue: DataIssue) => void;
   onClearActivity: (issue: DataIssue) => void;
   onRemoveRapidTaps: (issue: DataIssue) => void;
   isFixing: boolean;
   fixingIssueId: string | null;
 }
 
-const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, onRemoveRapidTaps, isFixing, fixingIssueId }: IssueRowProps) => {
+const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onFixCorruptedTime, onClearActivity, onRemoveRapidTaps, isFixing, fixingIssueId }: IssueRowProps) => {
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   
   const getSeverityColor = () => {
@@ -99,6 +100,8 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, onRemo
         return <AlertTriangle className="w-4 h-4 text-amber-500" />;
       case 'rapid_tapping':
         return <Zap className="w-4 h-4 text-purple-500" />;
+      case 'corrupted_time':
+        return <Clock className="w-4 h-4 text-destructive" />;
       default:
         return <AlertTriangle className="w-4 h-4" />;
     }
@@ -115,6 +118,9 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, onRemo
   
   // For rapid tapping, show timeline toggle
   const isRapidTapping = issue.issueType === 'rapid_tapping' && issue.rapidTapInfo;
+  
+  // For corrupted time, show fix +24h button
+  const isCorruptedTime = issue.issueType === 'corrupted_time';
 
   return (
     <Collapsible open={isTimelineOpen} onOpenChange={setIsTimelineOpen}>
@@ -208,6 +214,25 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, onRemo
                   <Loader2 className="w-3 h-3 animate-spin" />
                 ) : (
                   'Fix'
+                )}
+              </Button>
+            )}
+            {isCorruptedTime && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onFixCorruptedTime(issue);
+                }}
+                disabled={isThisFixing}
+                title="Add 24 hours to end time to fix negative duration"
+              >
+                {isThisFixing ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  '+24h'
                 )}
               </Button>
             )}
@@ -324,6 +349,51 @@ export const AdminDataReviewCard = () => {
       toast({
         title: 'Error',
         description: 'Failed to update end time',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsFixingEndTime(false);
+      setFixingIssueId(null);
+    }
+  };
+
+  const handleFixCorruptedTime = async (issue: DataIssue) => {
+    if (!issue.entryData.work_end_time) return;
+
+    setIsFixingEndTime(true);
+    setFixingIssueId(issue.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Add 24 hours to the end time
+      const currentEndTime = new Date(issue.entryData.work_end_time);
+      const fixedEndTime = new Date(currentEndTime.getTime() + 24 * 60 * 60 * 1000);
+
+      const { error } = await supabase.functions.invoke('update-rep-entry', {
+        body: {
+          entryId: issue.entryId,
+          adminEmail: user.email,
+          updates: {
+            work_end_time: fixedEndTime.toISOString(),
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Time corrected',
+        description: `Added 24h to ${issue.repName}'s end time`,
+      });
+
+      dismissIssue(issue.id, issue.entryId);
+      refetch();
+    } catch (error) {
+      console.error('Error fixing corrupted time:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fix corrupted time',
         variant: 'destructive',
       });
     } finally {
@@ -559,6 +629,7 @@ export const AdminDataReviewCard = () => {
                 onOkay={() => handleOkayClick(issue)}
                 onEdit={() => handleEditIssue(issue)}
                 onFixEndTime={handleFixEndTime}
+                onFixCorruptedTime={handleFixCorruptedTime}
                 onClearActivity={handleClearActivity}
                 onRemoveRapidTaps={handleRemoveRapidTaps}
                 isFixing={isFixingEndTime}
@@ -588,6 +659,7 @@ export const AdminDataReviewCard = () => {
                           onOkay={() => handleOkayClick(issue)}
                           onEdit={() => handleEditIssue(issue)}
                           onFixEndTime={handleFixEndTime}
+                          onFixCorruptedTime={handleFixCorruptedTime}
                           onClearActivity={handleClearActivity}
                           onRemoveRapidTaps={handleRemoveRapidTaps}
                           isFixing={isFixingEndTime}
