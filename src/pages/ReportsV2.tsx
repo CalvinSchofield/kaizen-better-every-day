@@ -65,6 +65,7 @@ export const ReportsV2Page = () => {
     skillBottleneck,
     impactPotential,
     teamGoalStatus,
+    teamGoalStatusDetails,
     teamBaseline,
     repsWithEffort,
     funnelData,
@@ -166,6 +167,7 @@ export const ReportsV2Page = () => {
         constraint={constraint}
         actions={actions}
         teamGoalStatus={teamGoalStatus}
+        teamGoalStatusDetails={teamGoalStatusDetails}
         teamBaseline={teamBaseline}
         isLoading={isLoading}
       />

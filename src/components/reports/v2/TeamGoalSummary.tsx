@@ -1,8 +1,9 @@
 import { cn } from "@/lib/utils";
-import { Target, TrendingUp, AlertTriangle, XCircle, HelpCircle, Users, ChevronDown } from "lucide-react";
+import { Target, TrendingUp, AlertTriangle, XCircle, HelpCircle, Users, ChevronDown, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { TeamBaseline } from "@/utils/baselineCalculations";
+import { GoalPaceResult, isPreseason } from "@/utils/goalPaceCalculations";
 
 export interface TeamGoalStatus {
   onPace: string[];      // Rep names on pace
@@ -11,16 +12,35 @@ export interface TeamGoalStatus {
   noGoals: string[];     // Rep names with no goals configured
 }
 
+export interface TeamGoalStatusWithDetails {
+  onPace: GoalPaceResult[];
+  atRisk: GoalPaceResult[];
+  behind: GoalPaceResult[];
+  noGoals: GoalPaceResult[];
+}
+
 interface TeamGoalSummaryProps {
   status: TeamGoalStatus;
+  statusDetails?: TeamGoalStatusWithDetails; // Enhanced data for tier breakdown
   baseline?: TeamBaseline;
   className?: string;
 }
 
-export const TeamGoalSummary = ({ status, baseline, className }: TeamGoalSummaryProps) => {
+interface TierBreakdown {
+  tierName: string;
+  tierColor: string;
+  onPace: number;
+  atRisk: number;
+  behind: number;
+  reps: { name: string; status: string; progress: number; goal: number; percent: number }[];
+}
+
+export const TeamGoalSummary = ({ status, statusDetails, baseline, className }: TeamGoalSummaryProps) => {
   const [expandedSection, setExpandedSection] = useState<keyof TeamGoalStatus | null>(null);
   const [showBaselineDetails, setShowBaselineDetails] = useState(false);
+  const [showTierBreakdown, setShowTierBreakdown] = useState(false);
 
+  const inPreseason = isPreseason();
   const totalReps = status.onPace.length + status.atRisk.length + status.behind.length + status.noGoals.length;
   
   if (totalReps === 0 && !baseline) {
@@ -29,12 +49,61 @@ export const TeamGoalSummary = ({ status, baseline, className }: TeamGoalSummary
 
   const getFirstName = (name: string) => name.split(' ')[0];
 
+  // Calculate tier breakdown from statusDetails
+  const getTierBreakdowns = (): TierBreakdown[] => {
+    if (!statusDetails) return [];
+
+    const allResults = [
+      ...statusDetails.onPace,
+      ...statusDetails.atRisk,
+      ...statusDetails.behind,
+    ];
+
+    if (inPreseason) {
+      // During preseason, all reps are on preseason goals
+      return [{
+        tierName: 'Preseason',
+        tierColor: 'border-blue-400',
+        onPace: statusDetails.onPace.length,
+        atRisk: statusDetails.atRisk.length,
+        behind: statusDetails.behind.length,
+        reps: allResults.map(r => ({
+          name: r.name,
+          status: r.status,
+          progress: r.currentProgress,
+          goal: r.activeGoal,
+          percent: r.percentOfExpected,
+        })),
+      }];
+    }
+
+    // During summer, we'd ideally group by focus_tier
+    // For now, show as "Active Goals" since we have the tier in the result
+    return [{
+      tierName: 'Summer Goals',
+      tierColor: 'border-green-400',
+      onPace: statusDetails.onPace.length,
+      atRisk: statusDetails.atRisk.length,
+      behind: statusDetails.behind.length,
+      reps: allResults.map(r => ({
+        name: r.name,
+        status: r.status,
+        progress: r.currentProgress,
+        goal: r.activeGoal,
+        percent: r.percentOfExpected,
+      })),
+    }];
+  };
+
+  const tierBreakdowns = getTierBreakdowns();
+
   const sections = [
     {
       key: 'onPace' as const,
       label: 'On Pace',
       count: status.onPace.length,
       names: status.onPace,
+      details: statusDetails?.onPace,
       icon: <TrendingUp className="w-3 h-3" />,
       color: 'text-green-600 dark:text-green-400',
       bgColor: 'bg-green-500/10 border-green-500/30',
@@ -44,6 +113,7 @@ export const TeamGoalSummary = ({ status, baseline, className }: TeamGoalSummary
       label: 'At Risk',
       count: status.atRisk.length,
       names: status.atRisk,
+      details: statusDetails?.atRisk,
       icon: <AlertTriangle className="w-3 h-3" />,
       color: 'text-yellow-600 dark:text-yellow-400',
       bgColor: 'bg-yellow-500/10 border-yellow-500/30',
@@ -53,6 +123,7 @@ export const TeamGoalSummary = ({ status, baseline, className }: TeamGoalSummary
       label: 'Behind',
       count: status.behind.length,
       names: status.behind,
+      details: statusDetails?.behind,
       icon: <XCircle className="w-3 h-3" />,
       color: 'text-red-600 dark:text-red-400',
       bgColor: 'bg-red-500/10 border-red-500/30',
@@ -62,6 +133,7 @@ export const TeamGoalSummary = ({ status, baseline, className }: TeamGoalSummary
       label: 'No Goals',
       count: status.noGoals.length,
       names: status.noGoals,
+      details: statusDetails?.noGoals,
       icon: <HelpCircle className="w-3 h-3" />,
       color: 'text-muted-foreground',
       bgColor: 'bg-muted/50 border-muted',
@@ -77,10 +149,78 @@ export const TeamGoalSummary = ({ status, baseline, className }: TeamGoalSummary
       {/* Goal Pace Section */}
       {sections.length > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Target className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Goal Pace</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Goal Pace</span>
+            </div>
+            {statusDetails && tierBreakdowns.length > 0 && (
+              <button
+                onClick={() => setShowTierBreakdown(!showTierBreakdown)}
+                className="flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <Layers className="w-3 h-3" />
+                {showTierBreakdown ? 'Hide' : 'Show'} Breakdown
+                <ChevronDown className={cn(
+                  "w-3 h-3 transition-transform",
+                  showTierBreakdown && "rotate-180"
+                )} />
+              </button>
+            )}
           </div>
+
+          {/* Tier Breakdown Panel */}
+          {showTierBreakdown && tierBreakdowns.length > 0 && (
+            <div className="bg-muted/30 rounded-lg p-3 space-y-3">
+              {tierBreakdowns.map((tier, idx) => (
+                <div key={idx} className={cn("border-l-2 pl-3", tier.tierColor)}>
+                  <div className="text-xs font-medium text-muted-foreground mb-2">
+                    {tier.tierName}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center mb-2">
+                    <div className="bg-green-500/10 rounded p-1.5">
+                      <div className="text-sm font-bold text-green-600 dark:text-green-400">{tier.onPace}</div>
+                      <div className="text-[10px] text-green-600/70">On Pace</div>
+                    </div>
+                    <div className="bg-yellow-500/10 rounded p-1.5">
+                      <div className="text-sm font-bold text-yellow-600 dark:text-yellow-400">{tier.atRisk}</div>
+                      <div className="text-[10px] text-yellow-600/70">At Risk</div>
+                    </div>
+                    <div className="bg-red-500/10 rounded p-1.5">
+                      <div className="text-sm font-bold text-red-600 dark:text-red-400">{tier.behind}</div>
+                      <div className="text-[10px] text-red-600/70">Behind</div>
+                    </div>
+                  </div>
+                  {/* Rep details within tier */}
+                  <div className="space-y-1">
+                    {tier.reps.slice(0, 5).map((rep, repIdx) => (
+                      <div key={repIdx} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{getFirstName(rep.name)}</span>
+                        <span className={cn(
+                          "font-medium",
+                          rep.status === 'on_pace' && "text-green-600 dark:text-green-400",
+                          rep.status === 'at_risk' && "text-yellow-600 dark:text-yellow-400",
+                          rep.status === 'behind' && "text-red-600 dark:text-red-400",
+                        )}>
+                          {rep.progress.toFixed(1)}/{rep.goal} ({rep.percent.toFixed(0)}%)
+                        </span>
+                      </div>
+                    ))}
+                    {tier.reps.length > 5 && (
+                      <div className="text-[10px] text-muted-foreground text-center pt-1">
+                        +{tier.reps.length - 5} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {status.noGoals.length > 0 && (
+                <div className="text-xs text-muted-foreground pt-1 border-t border-muted">
+                  {status.noGoals.length} rep{status.noGoals.length !== 1 ? 's' : ''} without goals set
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Compact badge row */}
           <div className="flex flex-wrap gap-2">
@@ -103,17 +243,35 @@ export const TeamGoalSummary = ({ status, baseline, className }: TeamGoalSummary
             ))}
           </div>
 
-          {/* Expanded name list */}
+          {/* Expanded name list with progress */}
           {expandedSection && (
-            <div className="p-2 rounded-lg bg-muted/30 text-sm">
-              <div className="flex flex-wrap gap-1">
-                {sections.find(s => s.key === expandedSection)?.names.map((name, idx) => (
-                  <span key={idx} className="text-muted-foreground">
-                    {getFirstName(name)}
-                    {idx < (sections.find(s => s.key === expandedSection)?.names.length ?? 0) - 1 && ','}
-                  </span>
-                ))}
-              </div>
+            <div className="p-2 rounded-lg bg-muted/30 text-sm space-y-1">
+              {sections.find(s => s.key === expandedSection)?.details ? (
+                // Show detailed progress if available
+                sections.find(s => s.key === expandedSection)?.details?.map((rep, idx) => (
+                  <div key={idx} className="flex items-center justify-between">
+                    <span className="text-muted-foreground">{getFirstName(rep.name)}</span>
+                    {rep.activeGoal > 0 && (
+                      <span className="text-xs font-medium">
+                        {rep.currentProgress.toFixed(1)}/{rep.activeGoal} FP+
+                        <span className="text-muted-foreground/60 ml-1">
+                          ({rep.percentOfExpected.toFixed(0)}%)
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                ))
+              ) : (
+                // Fallback to just names
+                <div className="flex flex-wrap gap-1">
+                  {sections.find(s => s.key === expandedSection)?.names.map((name, idx) => (
+                    <span key={idx} className="text-muted-foreground">
+                      {getFirstName(name)}
+                      {idx < (sections.find(s => s.key === expandedSection)?.names.length ?? 0) - 1 && ','}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Users, AlertTriangle, CheckCircle2, Target, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConstraintResult, LeaderAction } from "@/utils/constraintAnalysis";
-import { TeamGoalSummary, TeamGoalStatus } from "./TeamGoalSummary";
+import { TeamGoalSummary, TeamGoalStatus, TeamGoalStatusWithDetails } from "./TeamGoalSummary";
 import { TeamBaseline } from "@/utils/baselineCalculations";
 
 interface ReportsExecutiveSnapshotProps {
@@ -25,6 +25,7 @@ interface ReportsExecutiveSnapshotProps {
   
   // Team goal status
   teamGoalStatus?: TeamGoalStatus;
+  teamGoalStatusDetails?: TeamGoalStatusWithDetails;
   
   // Team baseline
   teamBaseline?: TeamBaseline;
@@ -42,6 +43,7 @@ export const ReportsExecutiveSnapshot = ({
   actions,
   fpChange,
   teamGoalStatus,
+  teamGoalStatusDetails,
   teamBaseline,
   isLoading,
 }: ReportsExecutiveSnapshotProps) => {
@@ -142,7 +144,11 @@ export const ReportsExecutiveSnapshot = ({
 
         {/* Team Goal Status */}
         {teamGoalStatus && (
-          <TeamGoalSummary status={teamGoalStatus} baseline={teamBaseline} />
+          <TeamGoalSummary 
+            status={teamGoalStatus} 
+            statusDetails={teamGoalStatusDetails}
+            baseline={teamBaseline} 
+          />
         )}
         {/* Leader Actions */}
         {actions.length > 0 && (
