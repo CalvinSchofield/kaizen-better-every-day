@@ -16,7 +16,7 @@ export interface DataIssue {
   entryId: string;
   repName: string;
   repId: string;
-  issueType: 'unsaved' | 'late_end_time' | 'late_save' | 'abnormal_metric' | 'impossible_ratio' | 'rapid_tapping';
+  issueType: 'unsaved' | 'late_end_time' | 'late_save' | 'abnormal_metric' | 'impossible_ratio' | 'rapid_tapping' | 'corrupted_time';
   rapidTapInfo?: RapidTapInfo;
   description: string;
   severity: 'warning' | 'error';
@@ -320,6 +320,26 @@ export const useAdminDataReview = () => {
               entryDate: entry.entry_date,
               entryData,
               rapidTapInfo,
+            });
+          }
+        }
+
+        // Issue 6: Corrupted time data (end time before start time)
+        if (entryData.work_start_time && entryData.work_end_time) {
+          const startTime = new Date(entryData.work_start_time);
+          const endTime = new Date(entryData.work_end_time);
+          if (endTime < startTime) {
+            const minutesDiff = Math.abs((startTime.getTime() - endTime.getTime()) / (1000 * 60));
+            detectedIssues.push({
+              id: `corrupted-time-${entry.id}`,
+              entryId: entry.id,
+              repName: rep.name,
+              repId: entry.user_id,
+              issueType: 'corrupted_time',
+              description: `End time is ${Math.round(minutesDiff)} min before start (negative duration)`,
+              severity: 'error',
+              entryDate: entry.entry_date,
+              entryData,
             });
           }
         }
