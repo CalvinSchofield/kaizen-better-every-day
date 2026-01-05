@@ -7,6 +7,7 @@ export type TourablePage =
   | 'track' 
   | 'calendar' 
   | 'insights' 
+  | 'leaderboard'
   | 'my-group' 
   | 'customers' 
   | 'reports'

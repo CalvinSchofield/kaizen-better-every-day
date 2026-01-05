@@ -11,6 +11,9 @@ import { LiveRaceSection } from "@/components/leaderboard/LiveRaceSection";
 import { useExpandedLeaderboard } from "@/hooks/useExpandedLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
+import { usePageTour } from "@/hooks/usePageTour";
+import { PageTour } from "@/components/PageTour";
+import { leaderboardTourSteps } from "@/config/pageTours";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -38,6 +41,13 @@ const Leaderboard = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
   const [isUserInitialized, setIsUserInitialized] = useState(false);
+
+  // Page tour
+  const { showTour, completeTour, skipTour } = usePageTour({
+    page: 'leaderboard',
+    enabled: isUserInitialized,
+    delay: 600,
+  });
 
   // Get available presets based on actual data
   const { availablePresets, autoSelectedPreset, isLoading: presetsLoading } = useAvailableLeaderboardPresets();
@@ -101,19 +111,23 @@ const Leaderboard = () => {
     <Layout>
       <div className="p-4 space-y-6 pb-24">
         {/* Hero Banner - Personal Achievement */}
-        <LeaderboardHeroBanner 
-          userId={currentUserId} 
-          filterByYear={filterByYear} 
-        />
+        <div data-tour="leaderboard-hero">
+          <LeaderboardHeroBanner 
+            userId={currentUserId} 
+            filterByYear={filterByYear} 
+          />
+        </div>
 
         {/* Filters */}
-        <LeaderboardFilters
-          timeFilter={timeFilter}
-          scopeFilter={scopeFilter}
-          availablePresets={availablePresets}
-          onTimeFilterChange={setTimeFilter}
-          onScopeFilterChange={setScopeFilter}
-        />
+        <div data-tour="leaderboard-filters">
+          <LeaderboardFilters
+            timeFilter={timeFilter}
+            scopeFilter={scopeFilter}
+            availablePresets={availablePresets}
+            onTimeFilterChange={setTimeFilter}
+            onScopeFilterChange={setScopeFilter}
+          />
+        </div>
 
         {/* Content */}
         {isLoading ? (
@@ -144,13 +158,15 @@ const Leaderboard = () => {
 
             {/* Sales Leaders - Show for non-live timeframes OR as secondary for live */}
             {timeFilter !== 'live' && (
-              <SalesLeadersSection
-                mostFP={expandedLeaderboard.salesLeaders.mostFP}
-                mostPRMR={expandedLeaderboard.salesLeaders.mostPRMR}
-                mostUpgradeFP={expandedLeaderboard.salesLeaders.mostUpgradeFP}
-                mostCloses={expandedLeaderboard.activityLeaders.mostCloses}
-                currentUserId={currentUserId}
-              />
+              <div data-tour="leaderboard-sales">
+                <SalesLeadersSection
+                  mostFP={expandedLeaderboard.salesLeaders.mostFP}
+                  mostPRMR={expandedLeaderboard.salesLeaders.mostPRMR}
+                  mostUpgradeFP={expandedLeaderboard.salesLeaders.mostUpgradeFP}
+                  mostCloses={expandedLeaderboard.activityLeaders.mostCloses}
+                  currentUserId={currentUserId}
+                />
+              </div>
             )}
 
             {/* Activity Leaders - Show for non-live timeframes */}
@@ -166,11 +182,13 @@ const Leaderboard = () => {
             )}
 
             {/* Grit Awards */}
-            <GritAwardsSection
-              gritAwards={expandedLeaderboard.gritAwards}
-              currentUserId={currentUserId}
-              streaks={streakData}
-            />
+            <div data-tour="leaderboard-grit">
+              <GritAwardsSection
+                gritAwards={expandedLeaderboard.gritAwards}
+                currentUserId={currentUserId}
+                streaks={streakData}
+              />
+            </div>
 
             {/* Timing Breakdown (Collapsible) */}
             <TimingBreakdownSection
@@ -183,6 +201,14 @@ const Leaderboard = () => {
         {/* Records Section (Collapsible) - Personal Bests & Class Records */}
         <RecordsSection userId={currentUserId} />
       </div>
+
+      {/* Page Tour */}
+      <PageTour
+        steps={leaderboardTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+      />
     </Layout>
   );
 };

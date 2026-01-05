@@ -85,20 +85,47 @@ export const insightsTourSteps: TourStep[] = [
   {
     target: 'insights-date-range',
     title: 'Pick Your Time Range',
-    description: 'Filter your data by this week, last week, month, or the whole summer.',
+    description: 'Filter your data by this week, last week, month, or custom dates. The app auto-selects the most recent period with data.',
     position: 'bottom',
   },
   {
     target: 'insights-tabs',
     title: 'Explore Your Data',
-    description: 'Switch between Overview, Performance, and Patterns to see different angles of your stats.',
+    description: 'Switch between Overview, Performance, Patterns, and Deals to see different angles of your stats.',
     position: 'bottom',
   },
   {
     target: 'insights-metrics',
     title: 'Key Numbers',
-    description: 'These cards show your most important metrics at a glance. Tap any card for more detail.',
+    description: 'Your most important metrics at a glance—tap any card for more detail!',
     position: 'bottom',
+  },
+];
+
+export const leaderboardTourSteps: TourStep[] = [
+  {
+    target: 'leaderboard-hero',
+    title: 'Your Standing',
+    description: "See how you rank and what awards you've earned. This updates in real-time during knocking hours!",
+    position: 'bottom',
+  },
+  {
+    target: 'leaderboard-filters',
+    title: 'Change Timeframe',
+    description: 'Switch between Live (today), Yesterday, This Week, and more. Live mode shows real-time rankings!',
+    position: 'bottom',
+  },
+  {
+    target: 'leaderboard-sales',
+    title: 'Sales Leaders',
+    description: "Who's closing the most deals? See top performers for FP+, PRMR, and more.",
+    position: 'bottom',
+  },
+  {
+    target: 'leaderboard-grit',
+    title: 'Grit Awards',
+    description: 'Early Bird, Night Owl, Workhorse - special recognition for those who go the extra mile!',
+    position: 'top',
   },
 ];
 
