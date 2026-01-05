@@ -4,6 +4,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { RepRankingData } from "@/hooks/useTeamAggregatedRankings";
+import { getFirstName } from "@/components/mygroup/recruit-detail/utils";
 
 interface RookieCohortCardProps {
   reps: RepRankingData[];
@@ -84,7 +85,7 @@ export const RookieCohortCard = ({ reps, onRepClick }: RookieCohortCardProps) =>
               >
                 <span className="truncate font-medium flex items-center gap-1">
                   {idx === 0 && <Crown className="w-3 h-3 text-amber-500" />}
-                  {r.name.split(' ')[0]}
+                  {getFirstName(r.name)}
                 </span>
                 <span className="text-center text-muted-foreground">{r.daysWorked}</span>
                 <span className="text-center">{r.stats.fp.toFixed(1)}</span>

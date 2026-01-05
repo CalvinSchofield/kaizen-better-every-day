@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { ConstraintResult, LeaderAction } from "@/utils/constraintAnalysis";
 import { TeamGoalSummary, TeamGoalStatus, TeamGoalStatusWithDetails } from "./TeamGoalSummary";
 import { TeamBaseline } from "@/utils/baselineCalculations";
+import { getFirstName } from "@/components/mygroup/recruit-detail/utils";
 
 interface ReportsExecutiveSnapshotProps {
   // Team Status
@@ -69,8 +70,6 @@ export const ReportsExecutiveSnapshot = ({
     if (constraint.severity === 'critical') return <AlertTriangle className="w-4 h-4" />;
     return <Target className="w-4 h-4" />;
   };
-
-  const getFirstName = (name: string) => name.split(' ')[0];
 
   return (
     <Card className="relative overflow-hidden">
