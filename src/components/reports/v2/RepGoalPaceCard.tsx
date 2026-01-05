@@ -1,12 +1,20 @@
 import { cn } from "@/lib/utils";
-import { Target, TrendingUp, TrendingDown, Minus, CheckCircle2 } from "lucide-react";
+import { Target, TrendingUp, TrendingDown, Minus, CheckCircle2, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+
+interface GoalPaceInfo {
+  daysElapsed: number;
+  totalPlannedDays: number;
+  expectedAtThisPoint: number;
+  pacePercent: number;
+  status: 'on_pace' | 'at_risk' | 'behind';
+}
 
 interface GoalTier {
   label: string;
   goal: number;
   current: number;
-  pacePercent: number;
+  paceInfo?: GoalPaceInfo;
   isFocused?: boolean;
 }
 
@@ -19,6 +27,14 @@ interface RepGoalPaceCardProps {
   currentFP: number;
   focusTier?: string | null;
   className?: string;
+  // Time-aware pace info
+  goalPace?: {
+    preseason?: GoalPaceInfo;
+    mustDo?: GoalPaceInfo;
+    willDo?: GoalPaceInfo;
+    couldDo?: GoalPaceInfo;
+  };
+  isPreseason?: boolean;
 }
 
 export const RepGoalPaceCard = ({
@@ -30,32 +46,28 @@ export const RepGoalPaceCard = ({
   currentFP,
   focusTier,
   className,
+  goalPace,
+  isPreseason = false,
 }: RepGoalPaceCardProps) => {
-  // Calculate pace for each tier
-  const calculatePace = (goal: number | undefined, current: number): number => {
-    if (!goal || goal === 0) return 0;
-    return (current / goal) * 100;
-  };
-
   const tiers: GoalTier[] = [];
 
-  // Add preseason goal if exists
+  // Add preseason goal if exists and we're in preseason
   if (preseasonGoal && preseasonGoal > 0) {
     tiers.push({
       label: 'Preseason',
       goal: preseasonGoal,
       current: preseasonProgress,
-      pacePercent: calculatePace(preseasonGoal, preseasonProgress),
+      paceInfo: goalPace?.preseason,
     });
   }
 
-  // Add summer goals
+  // Add summer goals (show all tiers for visibility)
   if (mustGoal && mustGoal > 0) {
     tiers.push({
       label: 'Must Do',
       goal: mustGoal,
       current: currentFP,
-      pacePercent: calculatePace(mustGoal, currentFP),
+      paceInfo: goalPace?.mustDo,
       isFocused: focusTier === 'mustDo',
     });
   }
@@ -64,7 +76,7 @@ export const RepGoalPaceCard = ({
       label: 'Will Do',
       goal: willGoal,
       current: currentFP,
-      pacePercent: calculatePace(willGoal, currentFP),
+      paceInfo: goalPace?.willDo,
       isFocused: focusTier === 'willDo',
     });
   }
@@ -73,7 +85,7 @@ export const RepGoalPaceCard = ({
       label: 'Could Do',
       goal: couldGoal,
       current: currentFP,
-      pacePercent: calculatePace(couldGoal, currentFP),
+      paceInfo: goalPace?.couldDo,
       isFocused: focusTier === 'couldDo',
     });
   }
@@ -91,6 +103,11 @@ export const RepGoalPaceCard = ({
       <div className="flex items-center gap-2">
         <Target className="w-4 h-4 text-muted-foreground" />
         <h4 className="text-sm font-medium">Goal Progress</h4>
+        {isPreseason && (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+            Preseason
+          </Badge>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -103,27 +120,44 @@ export const RepGoalPaceCard = ({
 };
 
 const GoalTierRow = ({ tier }: { tier: GoalTier }) => {
-  const { label, goal, current, pacePercent, isFocused } = tier;
+  const { label, goal, current, paceInfo, isFocused } = tier;
   
-  // Determine status
+  // Use time-aware pace if available, otherwise fall back to simple percentage
+  const pacePercent = paceInfo?.pacePercent ?? (goal > 0 ? (current / goal) * 100 : 0);
+  const expectedProgress = paceInfo?.expectedAtThisPoint;
+  
+  // Determine status based on pace info or simple comparison
   const isComplete = current >= goal;
-  const isOnPace = pacePercent >= 85;
-  const isAtRisk = pacePercent < 70;
+  const isOnPace = paceInfo ? paceInfo.status === 'on_pace' : pacePercent >= 85;
+  const isAtRisk = paceInfo ? paceInfo.status === 'at_risk' : (pacePercent < 85 && pacePercent >= 70);
+  const isBehind = paceInfo ? paceInfo.status === 'behind' : pacePercent < 70;
   
   // Get status icon and color
   const getStatusIcon = () => {
     if (isComplete) return <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />;
     if (isOnPace) return <TrendingUp className="w-3.5 h-3.5 text-green-500" />;
-    if (isAtRisk) return <TrendingDown className="w-3.5 h-3.5 text-red-500" />;
+    if (isBehind) return <TrendingDown className="w-3.5 h-3.5 text-red-500" />;
     return <Minus className="w-3.5 h-3.5 text-yellow-500" />;
   };
 
   const getProgressColor = () => {
     if (isComplete) return "bg-green-500";
     if (isOnPace) return "bg-green-500";
-    if (isAtRisk) return "bg-red-500";
+    if (isBehind) return "bg-red-500";
     return "bg-yellow-500";
   };
+
+  const getStatusLabel = () => {
+    if (isComplete) return 'Complete';
+    if (isOnPace) return 'On Pace';
+    if (isAtRisk) return 'At Risk';
+    return 'Behind';
+  };
+
+  // Calculate how far ahead/behind in FP
+  const fpDifference = expectedProgress !== undefined 
+    ? current - expectedProgress 
+    : null;
 
   return (
     <div className={cn(
@@ -142,13 +176,13 @@ const GoalTierRow = ({ tier }: { tier: GoalTier }) => {
         <div className="flex items-center gap-1.5">
           {getStatusIcon()}
           <span className={cn(
-            "text-xs font-medium tabular-nums",
+            "text-xs font-medium",
             isComplete && "text-green-600",
             isOnPace && !isComplete && "text-green-600",
-            isAtRisk && "text-red-600",
-            !isOnPace && !isAtRisk && !isComplete && "text-yellow-600"
+            isBehind && "text-red-600",
+            isAtRisk && "text-yellow-600"
           )}>
-            {pacePercent.toFixed(0)}%
+            {getStatusLabel()}
           </span>
         </div>
       </div>
@@ -157,19 +191,47 @@ const GoalTierRow = ({ tier }: { tier: GoalTier }) => {
       <div className="h-1.5 bg-muted rounded-full overflow-hidden">
         <div 
           className={cn("h-full transition-all duration-300 rounded-full", getProgressColor())}
-          style={{ width: `${Math.min(100, pacePercent)}%` }}
+          style={{ width: `${Math.min(100, (current / goal) * 100)}%` }}
         />
       </div>
       
-      {/* Progress text */}
+      {/* Progress text with time-aware context */}
       <div className="flex items-center justify-between mt-1">
         <span className="text-[10px] text-muted-foreground tabular-nums">
           {current.toFixed(1)} / {goal.toFixed(0)} FP+
         </span>
-        <span className="text-[10px] text-muted-foreground">
-          {isComplete ? '✓ Complete' : `${(goal - current).toFixed(1)} to go`}
-        </span>
+        {fpDifference !== null && !isComplete && (
+          <span className={cn(
+            "text-[10px] font-medium tabular-nums",
+            fpDifference >= 0 ? "text-green-600" : "text-red-600"
+          )}>
+            {fpDifference >= 0 ? '+' : ''}{fpDifference.toFixed(1)} vs expected
+          </span>
+        )}
+        {isComplete && (
+          <span className="text-[10px] text-green-600 font-medium">
+            ✓ Complete
+          </span>
+        )}
+        {fpDifference === null && !isComplete && (
+          <span className="text-[10px] text-muted-foreground">
+            {(goal - current).toFixed(1)} to go
+          </span>
+        )}
       </div>
+
+      {/* Days context when pace info is available */}
+      {paceInfo && !isComplete && (
+        <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
+          <Calendar className="w-3 h-3" />
+          <span>
+            Day {Math.round(paceInfo.daysElapsed)} of {paceInfo.totalPlannedDays}
+            {expectedProgress !== undefined && (
+              <> • Expected: {expectedProgress.toFixed(1)} FP+</>
+            )}
+          </span>
+        </div>
+      )}
     </div>
   );
 };

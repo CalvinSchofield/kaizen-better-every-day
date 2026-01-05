@@ -64,6 +64,7 @@ export const ReportsV2Page = () => {
     effortSummary,
     skillBottleneck,
     impactPotential,
+    teamGoalStatus,
     repsWithEffort,
     funnelData,
     getRepById,
@@ -163,6 +164,7 @@ export const ReportsV2Page = () => {
         periodLabel={getPeriodLabel()}
         constraint={constraint}
         actions={actions}
+        teamGoalStatus={teamGoalStatus}
         isLoading={isLoading}
       />
 

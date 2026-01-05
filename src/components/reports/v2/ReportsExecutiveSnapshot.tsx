@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Users, AlertTriangle, CheckCircle2, Target, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConstraintResult, LeaderAction } from "@/utils/constraintAnalysis";
+import { TeamGoalSummary, TeamGoalStatus } from "./TeamGoalSummary";
 
 interface ReportsExecutiveSnapshotProps {
   // Team Status
@@ -21,6 +22,9 @@ interface ReportsExecutiveSnapshotProps {
   // Optional comparison
   fpChange?: number;
   
+  // Team goal status
+  teamGoalStatus?: TeamGoalStatus;
+  
   isLoading?: boolean;
 }
 
@@ -33,6 +37,7 @@ export const ReportsExecutiveSnapshot = ({
   constraint,
   actions,
   fpChange,
+  teamGoalStatus,
   isLoading,
 }: ReportsExecutiveSnapshotProps) => {
   if (isLoading) {
@@ -130,6 +135,10 @@ export const ReportsExecutiveSnapshot = ({
           </div>
         )}
 
+        {/* Team Goal Status */}
+        {teamGoalStatus && (
+          <TeamGoalSummary status={teamGoalStatus} />
+        )}
         {/* Leader Actions */}
         {actions.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">

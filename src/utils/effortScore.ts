@@ -29,7 +29,7 @@ export const DEFAULT_EFFORT_THRESHOLDS: EffortThresholds = {
 };
 
 export interface EffortFlag {
-  type: 'low_doors' | 'late_start' | 'early_end' | 'volume_dropping';
+  type: 'low_doors' | 'late_start' | 'early_end' | 'volume_dropping' | 'output_below_capability';
   label: string;
   severity: 'warning' | 'critical';
 }
@@ -43,6 +43,10 @@ export interface RepEffortData {
   startTimeMinutes?: number; // Minutes from midnight in local time
   endTimeMinutes?: number;   // Minutes from midnight in local time
   avgDoorsLast14Days?: number; // For trend comparison
+  // Personal FP rate comparison
+  avgFpPerDoor14Days?: number; // Their historical efficiency
+  todayFp?: number;            // Today's FP
+  todayDoors?: number;         // Today's doors (for calculating today's rate)
 }
 
 export interface EffortResult {
@@ -171,6 +175,27 @@ export const calculateEffortScore = (
       flags.push({
         type: 'volume_dropping',
         label: `${Math.abs(percentChange).toFixed(0)}% below your average`,
+        severity: 'warning',
+      });
+    }
+  }
+  
+  // Output below capability: compare FP/door rate to personal average
+  if (
+    rep.avgFpPerDoor14Days !== undefined && 
+    rep.avgFpPerDoor14Days > 0 && 
+    rep.todayDoors !== undefined && 
+    rep.todayDoors >= 20 && // Only flag if enough doors to be meaningful
+    rep.todayFp !== undefined
+  ) {
+    const todayFpPerDoor = rep.todayDoors > 0 ? rep.todayFp / rep.todayDoors : 0;
+    const percentOfAvg = (todayFpPerDoor / rep.avgFpPerDoor14Days) * 100;
+    
+    if (percentOfAvg < 70) {
+      score -= 10;
+      flags.push({
+        type: 'output_below_capability',
+        label: `Output ${Math.round(100 - percentOfAvg)}% below your usual rate`,
         severity: 'warning',
       });
     }
