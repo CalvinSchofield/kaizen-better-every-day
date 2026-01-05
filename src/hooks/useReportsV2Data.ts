@@ -1,4 +1,7 @@
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { format, subDays } from "date-fns";
 import { useTeamLiveData } from "./useTeamLiveData";
 import { useTeamInsightsData } from "./useTeamInsightsData";
 import { 
@@ -22,6 +25,12 @@ import {
   RepPerformanceData,
 } from "@/utils/constraintAnalysis";
 import { TeamGoalStatus } from "@/components/reports/v2/TeamGoalSummary";
+import { 
+  calculateRepBaseline,
+  calculateTeamBaseline,
+  TeamBaseline,
+  RepBaseline,
+} from "@/utils/baselineCalculations";
 
 interface UseReportsV2DataParams {
   userIds: string[];
@@ -70,6 +79,9 @@ export interface ReportsV2Data {
   // Team goal status
   teamGoalStatus: TeamGoalStatus;
   
+  // Team baseline
+  teamBaseline?: TeamBaseline;
+  
   // Rep-level data
   repsWithEffort: RepWithEffort[];
   
@@ -104,6 +116,50 @@ export const useReportsV2Data = ({
     userIds,
     dateRange,
     excludeUserIds,
+  });
+
+  // Fetch 14-day entries for baseline calculation
+  const today = new Date();
+  const fourteenDaysAgo = format(subDays(today, 14), 'yyyy-MM-dd');
+  const yesterday = format(subDays(today, 1), 'yyyy-MM-dd');
+  const todayStr = format(today, 'yyyy-MM-dd');
+
+  const baselineQuery = useQuery({
+    queryKey: ['team-baseline', userIds, fourteenDaysAgo],
+    queryFn: async () => {
+      if (userIds.length === 0) return null;
+
+      // Fetch 14-day entries for all reps
+      const { data: entries, error: entriesError } = await supabase
+        .from('daily_entries')
+        .select('user_id, entry_date, doors_knocked, fp_plus, prmr, work_start_time, work_end_time')
+        .in('user_id', userIds)
+        .gte('entry_date', fourteenDaysAgo)
+        .lte('entry_date', yesterday);
+
+      if (entriesError) throw entriesError;
+
+      // Fetch planned work days for today
+      const { data: plannedDays, error: plannedError } = await supabase
+        .from('planned_work_days')
+        .select('user_id, planned_date')
+        .in('user_id', userIds)
+        .eq('planned_date', todayStr);
+
+      if (plannedError) throw plannedError;
+
+      // Fetch rep names
+      const { data: reps, error: repsError } = await supabase
+        .from('reps')
+        .select('user_id, name')
+        .in('user_id', userIds);
+
+      if (repsError) throw repsError;
+
+      return { entries, plannedDays, reps };
+    },
+    enabled: userIds.length > 0 && isLiveView,
+    staleTime: 60000, // 1 minute
   });
 
   const isLoading = isLiveView ? liveQuery.isLoading : insightsQuery.isLoading;
@@ -238,6 +294,41 @@ export const useReportsV2Data = ({
         noGoals: repsWithEffort.map(r => r.name), // Placeholder - goals query not implemented for live view
       };
       
+      // Calculate team baseline from 14-day data
+      let teamBaseline: TeamBaseline | undefined;
+      if (baselineQuery.data) {
+        const { entries, plannedDays, reps } = baselineQuery.data;
+        
+        // Build per-rep baselines
+        const repBaselines: RepBaseline[] = reps
+          .filter(r => r.user_id)
+          .map(rep => {
+            const repEntries = entries
+              .filter(e => e.user_id === rep.user_id)
+              .map(e => ({
+                entry_date: e.entry_date,
+                doors_knocked: e.doors_knocked,
+                fp_plus: e.fp_plus,
+                prmr: e.prmr,
+                work_start_time: e.work_start_time,
+                work_end_time: e.work_end_time,
+              }));
+            
+            const isWorkingToday = plannedDays.some(
+              p => p.user_id === rep.user_id
+            );
+            
+            return calculateRepBaseline(
+              rep.user_id!,
+              rep.name,
+              repEntries,
+              isWorkingToday
+            );
+          });
+        
+        teamBaseline = calculateTeamBaseline(repBaselines);
+      }
+      
       return {
         totalFP: totals.fp,
         totalPRMR: totals.prmr,
@@ -249,6 +340,7 @@ export const useReportsV2Data = ({
         skillBottleneck,
         impactPotential,
         teamGoalStatus,
+        teamBaseline,
         repsWithEffort,
         funnelData: {
           doors: totals.doors,
@@ -396,6 +488,7 @@ export const useReportsV2Data = ({
         behind: [],
         noGoals: [],
       },
+      teamBaseline: undefined,
       repsWithEffort: [],
       funnelData: {
         doors: 0,
@@ -406,7 +499,7 @@ export const useReportsV2Data = ({
         closes: 0,
       },
     };
-  }, [isLiveView, liveQuery.data, insightsQuery.data]);
+  }, [isLiveView, liveQuery.data, insightsQuery.data, baselineQuery.data]);
 
   // Helper to get rep by ID
   const getRepById = (userId: string): RepWithEffort | undefined => {
