@@ -7,9 +7,13 @@ import {
 } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { X, TrendingUp, TrendingDown, Clock, Footprints, Target, MessageSquare } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { X, Clock, Footprints, Target, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EffortResult } from "@/utils/effortScore";
+import { RepWorkTimeline } from "./RepWorkTimeline";
+import { RepGoalPaceCard } from "./RepGoalPaceCard";
+import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
 
 interface RepDrillDownData {
   userId: string;
@@ -32,13 +36,6 @@ interface RepDrillDownData {
   // Effort analysis
   effort: EffortResult;
   
-  // Goal progress (optional)
-  goalPace?: {
-    mustGoal?: number;
-    currentFP?: number;
-    pacePercent?: number;
-  };
-  
   // Timeline data (optional)
   workStartTime?: string;
   workEndTime?: string;
@@ -60,6 +57,11 @@ export const RepDrillDownDrawer = ({
   onClose,
   onSendSms,
 }: RepDrillDownDrawerProps) => {
+  // Fetch extended data (timeline + goals)
+  const { data: extendedData, isLoading: isLoadingExtended } = useRepDrillDownData(
+    isOpen && rep ? rep.userId : undefined
+  );
+
   if (!rep) return null;
 
   const getFirstName = (name: string) => name.split(' ')[0];
@@ -128,14 +130,9 @@ export const RepDrillDownDrawer = ({
   const conversionOk = hasActivity ? (rep.fp / rep.doors > 0.01 || rep.presentations > 0) : true;
   const skillStatus = conversionOk ? 'good' : 'warning';
 
-  // Goal pace status
-  const paceStatus = rep.goalPace?.pacePercent !== undefined 
-    ? (rep.goalPace.pacePercent >= 90 ? 'good' : rep.goalPace.pacePercent >= 70 ? 'warning' : 'bad')
-    : 'good';
-
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent className="max-h-[92vh]">
         <DrawerHeader className="border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -168,13 +165,6 @@ export const RepDrillDownDrawer = ({
               status={skillStatus}
               detail={conversionOk ? 'On track' : 'Review funnel'}
             />
-            {rep.goalPace && (
-              <StatusIndicator 
-                label="Goal Pace" 
-                status={paceStatus}
-                detail={`${rep.goalPace.pacePercent?.toFixed(0) || 0}%`}
-              />
-            )}
           </div>
 
           {/* Today's Stats */}
@@ -224,6 +214,40 @@ export const RepDrillDownDrawer = ({
               </div>
             </div>
           )}
+
+          <Separator />
+
+          {/* Goal Pace Section */}
+          {extendedData?.goals ? (
+            <RepGoalPaceCard
+              preseasonGoal={extendedData.goals.preseasonGoal}
+              preseasonProgress={extendedData.preseasonFP}
+              mustGoal={extendedData.goals.mustGoal}
+              willGoal={extendedData.goals.willGoal}
+              couldGoal={extendedData.goals.couldGoal}
+              currentFP={extendedData.totalSeasonFP}
+              focusTier={extendedData.goals.focusTier}
+            />
+          ) : !isLoadingExtended && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+              <Target className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">No goals configured</span>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Work Timeline Section */}
+          {extendedData?.last14DaysEntries && extendedData.last14DaysEntries.length > 0 ? (
+            <RepWorkTimeline entries={extendedData.last14DaysEntries} />
+          ) : !isLoadingExtended && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">No recent activity</span>
+            </div>
+          )}
+
+          <Separator />
 
           {/* Coaching Recommendation */}
           <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
