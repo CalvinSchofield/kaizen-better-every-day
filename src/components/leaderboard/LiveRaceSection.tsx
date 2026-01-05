@@ -37,7 +37,7 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
   const [rankChanges, setRankChanges] = useState<Map<string, 'up' | 'down' | null>>(new Map());
   const [showPhotoUpload, setShowPhotoUpload] = useState<string | null>(null);
   
-  const { data: leaderboard, isLoading } = useTodayLeaderboard(filterByYear);
+  const { data: leaderboard, isLoading, isFetching } = useTodayLeaderboard(filterByYear);
   const userRowRef = useRef<HTMLDivElement>(null);
 
   // Auto-select highest priority metric with data
@@ -149,8 +149,17 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
             <span className="font-semibold">Live Race</span>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              Live
+            <span className="relative text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              {isFetching && (
+                <span className="absolute inset-0 rounded-full animate-ping bg-primary/40" />
+              )}
+              <span className="relative flex items-center gap-1">
+                <span className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  isFetching ? "bg-primary animate-pulse" : "bg-green-500"
+                )} />
+                Live
+              </span>
             </span>
           </div>
           {userIndex >= 0 && (
