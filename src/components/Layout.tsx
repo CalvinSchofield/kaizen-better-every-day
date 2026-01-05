@@ -219,24 +219,13 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
     const hasCompletedPhase1 = repData?.ramp_phase_1_complete === true;
 
     if (effectiveIsKnockingMode) {
-      // KNOCKING MODE ON
-      if (isVetOrSoph || effectiveIsLeader) {
-        // Vets/Sophomores/Leaders: Home, Leaderboard, Insights, Calendar
-        return [
-          { path: "/", icon: Home, label: "Home" },
-          { path: "/leaderboard", icon: Trophy, label: "Leaderboard" },
-          { path: "/insights", icon: BarChart3, label: "Insights" },
-          { path: "/calendar", icon: Calendar, label: "Calendar" },
-        ];
-      } else if (isPostBlitzRookie) {
-        // Post-blitz Rookies: Home, Leaderboard, Tools, Calendar
-        return [
-          { path: "/", icon: Home, label: "Home" },
-          { path: "/leaderboard", icon: Trophy, label: "Leaderboard" },
-          { path: "/tools", icon: Wrench, label: "Tools" },
-          { path: "/calendar", icon: Calendar, label: "Calendar" },
-        ];
-      }
+      // KNOCKING MODE ON - ALL users get: Home, Leaderboard, Tools, Calendar
+      return [
+        { path: "/", icon: Home, label: "Home" },
+        { path: "/leaderboard", icon: Trophy, label: "Leaderboard" },
+        { path: "/tools", icon: Wrench, label: "Tools" },
+        { path: "/calendar", icon: Calendar, label: "Calendar" },
+      ];
     }
 
     // KNOCKING MODE OFF (Preseason)
