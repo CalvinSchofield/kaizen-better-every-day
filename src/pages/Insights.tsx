@@ -8,6 +8,9 @@ import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { useCumulativeFP } from '@/hooks/useCumulativeFP';
 import { useAvailableInsightsPresets, InsightsDatePreset, PRESEASON_START, SUMMER_START } from '@/hooks/useAvailableDatePresets';
+import { usePageTour } from '@/hooks/usePageTour';
+import { PageTour } from '@/components/PageTour';
+import { insightsTourSteps } from '@/config/pageTours';
 
 import { Calendar as CalendarIcon, Lock, BarChart3 } from 'lucide-react';
 import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
@@ -74,6 +77,13 @@ export default function Insights() {
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
+  
+  // Page tour
+  const { showTour, completeTour, skipTour } = usePageTour({
+    page: 'insights',
+    enabled: !presetsLoading && hasAnyData,
+    delay: 600,
+  });
   
   // Set initial preset to first available (smallest range) once presets are known.
   useEffect(() => {
@@ -245,7 +255,7 @@ export default function Insights() {
       {/* Sticky Header with Date Selector + Tabs */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50">
         {/* Date Range Buttons */}
-        <div className="px-4 py-3 overflow-x-auto scrollbar-hide">
+        <div className="px-4 py-3 overflow-x-auto scrollbar-hide" data-tour="insights-date-range">
           <div className="flex gap-2">
             {(['yesterday', 'week', 'lastWeek', 'month', 'lastMonth', 'preseason'] as DatePreset[])
               .filter(preset => availablePresets.includes(preset))
@@ -283,7 +293,7 @@ export default function Insights() {
         </div>
 
         {/* Tab Navigation - Hide Deals tab if CRM not enabled */}
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-3" data-tour="insights-tabs">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as InsightsTab)}>
             <TabsList className={cn("grid w-full h-10", crmEnabled ? "grid-cols-4" : "grid-cols-3")}>
               <TabsTrigger value="overview" className="text-xs">📊 Overview</TabsTrigger>
@@ -298,7 +308,7 @@ export default function Insights() {
       </div>
 
       {/* Tab Content */}
-      <div className="max-w-lg mx-auto px-4 pt-4">
+      <div className="max-w-lg mx-auto px-4 pt-4" data-tour="insights-metrics">
         {isLoading ? (
           <div className="space-y-4">
             <div className="bg-card border border-border rounded-xl p-5">
@@ -429,6 +439,14 @@ export default function Insights() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Page Tour */}
+      <PageTour
+        steps={insightsTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+      />
     </div>
   );
 }
