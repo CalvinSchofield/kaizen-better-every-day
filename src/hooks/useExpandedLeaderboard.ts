@@ -112,9 +112,14 @@ const formatTime = (timestamp: string, timezone: string): string => {
   }
 };
 
-export type TimeframeType = 'live' | 'yesterday' | 'week' | 'month' | 'season' | 'ytd';
+export type TimeframeType = 'live' | 'yesterday' | 'week' | 'month' | 'season' | 'ytd' | 'custom';
 
-const getDateRange = (timeframe: TimeframeType): { start: string; end: string } => {
+export interface CustomDateRange {
+  start: string;
+  end: string;
+}
+
+const getDateRange = (timeframe: TimeframeType, customRange?: CustomDateRange): { start: string; end: string } => {
   const today = new Date();
   
   switch (timeframe) {
@@ -146,6 +151,14 @@ const getDateRange = (timeframe: TimeframeType): { start: string; end: string } 
       // Start from preseason 2025-09-28, end today
       return { start: '2025-09-28', end: getLocalDateString(today) };
     }
+    case 'custom': {
+      if (customRange) {
+        return customRange;
+      }
+      // Fallback to today if no custom range provided
+      const str = getLocalDateString(today);
+      return { start: str, end: str };
+    }
   }
 };
 
@@ -170,11 +183,11 @@ const WEEKDAY_EARLY_CUTOFF = 15 * 60; // 3:00 PM = 900 minutes
 const SATURDAY_EARLY_CUTOFF = 10 * 60; // 10:00 AM = 600 minutes
 const NIGHT_OWL_CUTOFF = 19 * 60; // 7:00 PM = 1140 minutes
 
-export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: string) => {
+export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: string, customRange?: CustomDateRange) => {
   return useQuery({
-    queryKey: ["expanded-leaderboard", timeframe, filterByYear],
+    queryKey: ["expanded-leaderboard", timeframe, filterByYear, customRange?.start, customRange?.end],
     queryFn: async () => {
-      const { start, end } = getDateRange(timeframe);
+      const { start, end } = getDateRange(timeframe, customRange);
 
       const { data: repsData, error: repsError } = await supabase
         .from("reps")

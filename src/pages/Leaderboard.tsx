@@ -8,7 +8,7 @@ import { GritAwardsSection } from "@/components/leaderboard/GritAwardsSection";
 import { TimingBreakdownSection } from "@/components/leaderboard/TimingBreakdownSection";
 import { RecordsSection } from "@/components/leaderboard/RecordsSection";
 import { LiveRaceSection } from "@/components/leaderboard/LiveRaceSection";
-import { useExpandedLeaderboard } from "@/hooks/useExpandedLeaderboard";
+import { useExpandedLeaderboard, CustomDateRange } from "@/hooks/useExpandedLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
 import { usePageTour } from "@/hooks/usePageTour";
@@ -38,6 +38,7 @@ const LeaderboardSkeleton = () => (
 const Leaderboard = () => {
   const [timeFilter, setTimeFilter] = useState<TimeFilter | null>(null);
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('all');
+  const [customDateRange, setCustomDateRange] = useState<CustomDateRange | undefined>(undefined);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
   const [isUserInitialized, setIsUserInitialized] = useState(false);
@@ -87,7 +88,8 @@ const Leaderboard = () => {
 
   const { data: expandedLeaderboard, isLoading } = useExpandedLeaderboard(
     timeFilter ?? 'live',
-    filterByYear
+    filterByYear,
+    timeFilter === 'custom' ? customDateRange : undefined
   );
 
   const { data: streakData } = useAwardStreaks(filterByYear);
@@ -124,8 +126,10 @@ const Leaderboard = () => {
             timeFilter={timeFilter}
             scopeFilter={scopeFilter}
             availablePresets={availablePresets}
+            customDateRange={customDateRange}
             onTimeFilterChange={setTimeFilter}
             onScopeFilterChange={setScopeFilter}
+            onCustomDateRangeChange={setCustomDateRange}
           />
         </div>
 
