@@ -444,7 +444,7 @@ export const RecruitDetailDrawer = ({
           onExitStage(recruit.id);
         }
       },
-      onError: () => { toast.error("Couldn't update stage"); setStageShake(true); setTimeout(() => setStageShake(false), 500); setStageConfirmOpen(false); setPendingStage(null); }
+      onError: (err) => { toast.error(err instanceof Error ? err.message : "Couldn't update stage"); setStageShake(true); setTimeout(() => setStageShake(false), 500); setStageConfirmOpen(false); setPendingStage(null); }
     });
   };
 
@@ -484,8 +484,8 @@ export const RecruitDetailDrawer = ({
           }
         });
       },
-      onError: () => { 
-        toast.error("Couldn't update stage"); 
+      onError: (err) => { 
+        toast.error(err instanceof Error ? err.message : "Couldn't update stage"); 
         setStageShake(true); 
         setTimeout(() => setStageShake(false), 500); 
       }
