@@ -1,16 +1,21 @@
 import { cn } from "@/lib/utils";
-import { Calendar, ChevronDown } from "lucide-react";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import type { TimeframeType, CustomDateRange } from "@/hooks/useExpandedLeaderboard";
 import { useState } from "react";
-import { DateRange } from "react-day-picker";
 
 export type TimeFilter = TimeframeType;
 export type ScopeFilter = 'all' | 'rookies';
@@ -44,21 +49,21 @@ export const LeaderboardFilters = ({
   onScopeFilterChange,
   onCustomDateRangeChange,
 }: LeaderboardFiltersProps) => {
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [tempRange, setTempRange] = useState<DateRange | undefined>(
-    customDateRange 
-      ? { from: new Date(customDateRange.start + 'T12:00:00'), to: new Date(customDateRange.end + 'T12:00:00') }
-      : undefined
+  const [showCustomSheet, setShowCustomSheet] = useState(false);
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(
+    customDateRange ? new Date(customDateRange.start + 'T12:00:00') : undefined
+  );
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(
+    customDateRange ? new Date(customDateRange.end + 'T12:00:00') : undefined
   );
 
-  const handleDateSelect = (range: DateRange | undefined) => {
-    setTempRange(range);
-    if (range?.from && range?.to && onCustomDateRangeChange) {
-      const start = format(range.from, 'yyyy-MM-dd');
-      const end = format(range.to, 'yyyy-MM-dd');
+  const handleApplyCustomRange = () => {
+    if (customStartDate && customEndDate && onCustomDateRangeChange) {
+      const start = format(customStartDate, 'yyyy-MM-dd');
+      const end = format(customEndDate, 'yyyy-MM-dd');
       onCustomDateRangeChange({ start, end });
       onTimeFilterChange('custom');
-      setDatePickerOpen(false);
+      setShowCustomSheet(false);
     }
   };
 
@@ -103,33 +108,19 @@ export const LeaderboardFilters = ({
             </button>
           ))}
           
-          {/* Custom Date Range Picker */}
-          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-            <PopoverTrigger asChild>
-              <button
-                className={cn(
-                  "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1.5",
-                  timeFilter === 'custom'
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "bg-secondary/60 text-secondary-foreground hover:bg-secondary"
-                )}
-              >
-                <Calendar className="h-3.5 w-3.5" />
-                {getCustomLabel()}
-                <ChevronDown className="h-3 w-3" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <CalendarComponent
-                mode="range"
-                selected={tempRange}
-                onSelect={handleDateSelect}
-                numberOfMonths={1}
-                disabled={(date) => date > new Date()}
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
+          {/* Custom Date Range Button */}
+          <button
+            onClick={() => setShowCustomSheet(true)}
+            className={cn(
+              "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1.5",
+              timeFilter === 'custom'
+                ? "bg-primary text-primary-foreground shadow-md"
+                : "bg-secondary/60 text-secondary-foreground hover:bg-secondary"
+            )}
+          >
+            <CalendarIcon className="h-3.5 w-3.5" />
+            {getCustomLabel()}
+          </button>
         </div>
       </div>
 
@@ -160,6 +151,70 @@ export const LeaderboardFilters = ({
           </button>
         </div>
       </div>
+
+      {/* Custom Date Range Sheet */}
+      <Sheet open={showCustomSheet} onOpenChange={setShowCustomSheet}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader>
+            <SheetTitle>Select Custom Date Range</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Start Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {customStartDate ? format(customStartDate, 'PPP') : 'Pick start date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={customStartDate}
+                    onSelect={setCustomStartDate}
+                    disabled={(date) => date > new Date()}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-2 block">End Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {customEndDate ? format(customEndDate, 'PPP') : 'Pick end date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={customEndDate}
+                    onSelect={setCustomEndDate}
+                    disabled={(date) => 
+                      date > new Date() || (customStartDate ? date < customStartDate : false)
+                    }
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <Button 
+              onClick={handleApplyCustomRange}
+              className="w-full"
+              disabled={!customStartDate || !customEndDate}
+            >
+              Apply Date Range
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
