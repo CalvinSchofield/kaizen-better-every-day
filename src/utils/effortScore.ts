@@ -29,7 +29,7 @@ export const DEFAULT_EFFORT_THRESHOLDS: EffortThresholds = {
 };
 
 export interface EffortFlag {
-  type: 'low_doors' | 'late_start' | 'early_end' | 'volume_dropping' | 'output_below_capability';
+  type: 'low_doors' | 'late_start' | 'early_end' | 'volume_dropping' | 'output_below_capability' | 'below_personal_baseline';
   label: string;
   severity: 'warning' | 'critical';
 }
@@ -47,6 +47,9 @@ export interface RepEffortData {
   avgFpPerDoor14Days?: number; // Their historical efficiency
   todayFp?: number;            // Today's FP
   todayDoors?: number;         // Today's doors (for calculating today's rate)
+  // Personal baseline comparison
+  avgFPPerWorkDay?: number;    // Their 2-week rolling FP/work day average
+  avgDoorsPerWorkDay?: number; // Their 2-week rolling doors/work day average
 }
 
 export interface EffortResult {
@@ -196,6 +199,25 @@ export const calculateEffortScore = (
       flags.push({
         type: 'output_below_capability',
         label: `Output ${Math.round(100 - percentOfAvg)}% below your usual rate`,
+        severity: 'warning',
+      });
+    }
+  }
+  
+  // Below personal baseline: compare today's FP to their 2-week average FP/day
+  if (
+    rep.avgFPPerWorkDay !== undefined &&
+    rep.avgFPPerWorkDay > 0 &&
+    rep.todayFp !== undefined &&
+    rep.hoursWorked >= 4 // Only flag if significant work day
+  ) {
+    const percentOfBaseline = (rep.todayFp / rep.avgFPPerWorkDay) * 100;
+    
+    if (percentOfBaseline < 60) {
+      score -= 10;
+      flags.push({
+        type: 'below_personal_baseline',
+        label: `FP ${Math.round(100 - percentOfBaseline)}% below your daily average`,
         severity: 'warning',
       });
     }

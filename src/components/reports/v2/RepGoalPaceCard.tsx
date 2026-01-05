@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Target, TrendingUp, TrendingDown, Minus, CheckCircle2, Calendar } from "lucide-react";
+import { Target, TrendingUp, TrendingDown, Minus, CheckCircle2, Calendar, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface GoalPaceInfo {
@@ -35,6 +35,11 @@ interface RepGoalPaceCardProps {
     couldDo?: GoalPaceInfo;
   };
   isPreseason?: boolean;
+  // Personal baseline comparison
+  personalBaseline?: {
+    avgFPPerWorkDay: number;
+    workDaysIn14: number;
+  };
 }
 
 export const RepGoalPaceCard = ({
@@ -48,6 +53,7 @@ export const RepGoalPaceCard = ({
   className,
   goalPace,
   isPreseason = false,
+  personalBaseline,
 }: RepGoalPaceCardProps) => {
   const tiers: GoalTier[] = [];
 
@@ -112,14 +118,24 @@ export const RepGoalPaceCard = ({
 
       <div className="space-y-2">
         {tiers.map((tier) => (
-          <GoalTierRow key={tier.label} tier={tier} />
+          <GoalTierRow 
+            key={tier.label} 
+            tier={tier} 
+            personalBaseline={personalBaseline}
+          />
         ))}
       </div>
     </div>
   );
 };
 
-const GoalTierRow = ({ tier }: { tier: GoalTier }) => {
+const GoalTierRow = ({ 
+  tier, 
+  personalBaseline 
+}: { 
+  tier: GoalTier;
+  personalBaseline?: { avgFPPerWorkDay: number; workDaysIn14: number };
+}) => {
   const { label, goal, current, paceInfo, isFocused } = tier;
   
   // Use time-aware pace if available, otherwise fall back to simple percentage
@@ -131,6 +147,17 @@ const GoalTierRow = ({ tier }: { tier: GoalTier }) => {
   const isOnPace = paceInfo ? paceInfo.status === 'on_pace' : pacePercent >= 85;
   const isAtRisk = paceInfo ? paceInfo.status === 'at_risk' : (pacePercent < 85 && pacePercent >= 70);
   const isBehind = paceInfo ? paceInfo.status === 'behind' : pacePercent < 70;
+  
+  // Calculate baseline comparison (how current performance compares to personal average)
+  const baselineComparison = personalBaseline && personalBaseline.workDaysIn14 > 0 && paceInfo
+    ? {
+        // How much they would have at this point based on their personal average
+        expectedByBaseline: personalBaseline.avgFPPerWorkDay * paceInfo.daysElapsed,
+        percentOfBaseline: personalBaseline.avgFPPerWorkDay > 0 
+          ? (current / (personalBaseline.avgFPPerWorkDay * paceInfo.daysElapsed)) * 100
+          : 0,
+      }
+    : null;
   
   // Get status icon and color
   const getStatusIcon = () => {
@@ -158,6 +185,27 @@ const GoalTierRow = ({ tier }: { tier: GoalTier }) => {
   const fpDifference = expectedProgress !== undefined 
     ? current - expectedProgress 
     : null;
+
+  // Interpretation: Is goal ambitious relative to their baseline?
+  const getInterpretation = () => {
+    if (!baselineComparison || !paceInfo) return null;
+    
+    const behindOnGoal = isBehind || isAtRisk;
+    const performingNormally = baselineComparison.percentOfBaseline >= 90;
+    
+    if (behindOnGoal && performingNormally) {
+      return { text: "Goal may be ambitious", color: "text-muted-foreground" };
+    }
+    if (behindOnGoal && !performingNormally) {
+      return { text: "Below your capability", color: "text-red-600" };
+    }
+    if (!behindOnGoal && !performingNormally) {
+      return { text: "Exceeding baseline", color: "text-green-600" };
+    }
+    return null;
+  };
+
+  const interpretation = getInterpretation();
 
   return (
     <div className={cn(
@@ -230,6 +278,29 @@ const GoalTierRow = ({ tier }: { tier: GoalTier }) => {
               <> • Expected: {expectedProgress.toFixed(1)} FP+</>
             )}
           </span>
+        </div>
+      )}
+
+      {/* Personal baseline comparison */}
+      {baselineComparison && !isComplete && (
+        <div className="mt-1.5 pt-1.5 border-t border-border/50">
+          <div className="flex items-center gap-1 text-[10px]">
+            <User className="w-3 h-3 text-muted-foreground" />
+            <span className="text-muted-foreground">vs Baseline:</span>
+            <span className={cn(
+              "font-medium",
+              baselineComparison.percentOfBaseline >= 100 ? "text-green-600" :
+              baselineComparison.percentOfBaseline >= 90 ? "text-muted-foreground" :
+              "text-yellow-600"
+            )}>
+              {baselineComparison.percentOfBaseline.toFixed(0)}% of your avg
+            </span>
+          </div>
+          {interpretation && (
+            <p className={cn("text-[10px] mt-0.5 italic", interpretation.color)}>
+              → {interpretation.text}
+            </p>
+          )}
         </div>
       )}
     </div>

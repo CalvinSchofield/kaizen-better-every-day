@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, Users, AlertTriangle, CheckCircle2, Target, Z
 import { cn } from "@/lib/utils";
 import { ConstraintResult, LeaderAction } from "@/utils/constraintAnalysis";
 import { TeamGoalSummary, TeamGoalStatus } from "./TeamGoalSummary";
+import { TeamBaseline } from "@/utils/baselineCalculations";
 
 interface ReportsExecutiveSnapshotProps {
   // Team Status
@@ -25,6 +26,9 @@ interface ReportsExecutiveSnapshotProps {
   // Team goal status
   teamGoalStatus?: TeamGoalStatus;
   
+  // Team baseline
+  teamBaseline?: TeamBaseline;
+  
   isLoading?: boolean;
 }
 
@@ -38,6 +42,7 @@ export const ReportsExecutiveSnapshot = ({
   actions,
   fpChange,
   teamGoalStatus,
+  teamBaseline,
   isLoading,
 }: ReportsExecutiveSnapshotProps) => {
   if (isLoading) {
@@ -137,7 +142,7 @@ export const ReportsExecutiveSnapshot = ({
 
         {/* Team Goal Status */}
         {teamGoalStatus && (
-          <TeamGoalSummary status={teamGoalStatus} />
+          <TeamGoalSummary status={teamGoalStatus} baseline={teamBaseline} />
         )}
         {/* Leader Actions */}
         {actions.length > 0 && (
