@@ -5,4 +5,5 @@ export { RepDrillDownDrawer } from './RepDrillDownDrawer';
 export { RepWorkTimeline } from './RepWorkTimeline';
 export { RepGoalPaceCard } from './RepGoalPaceCard';
 export { TeamGoalSummary } from './TeamGoalSummary';
+export { EffortThresholdSettings } from './EffortThresholdSettings';
 export type { TeamGoalStatus } from './TeamGoalSummary';
