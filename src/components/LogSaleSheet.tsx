@@ -57,6 +57,9 @@ interface LogSaleSheetProps {
   crmDetailedEnabled?: boolean;
   // Counter timestamps for time-to-sell calculation
   counterTimestamps?: Record<string, string[]>;
+  // Tour control props - for external control during tours
+  tourForceUpgrade?: boolean;
+  tourForceCalculatorOpen?: boolean;
 }
 
 // Helper to calculate minutes between two timestamps
@@ -86,6 +89,8 @@ export const LogSaleSheet = ({
   crmEnabled = false,
   crmDetailedEnabled = false,
   counterTimestamps,
+  tourForceUpgrade = false,
+  tourForceCalculatorOpen = false,
 }: LogSaleSheetProps) => {
   const [saleType, setSaleType] = useState<'fp' | 'upgrade'>('fp');
   const [prmr, setPrmr] = useState("");
@@ -124,6 +129,19 @@ export const LogSaleSheet = ({
   // Calculated times from counter timestamps
   const [sinceTransitionMinutes, setSinceTransitionMinutes] = useState<number | null>(null);
   const [sinceDoorMinutes, setSinceDoorMinutes] = useState<number | null>(null);
+
+  // Tour-controlled overrides
+  useEffect(() => {
+    if (tourForceUpgrade) {
+      setSaleType('upgrade');
+    }
+  }, [tourForceUpgrade]);
+
+  useEffect(() => {
+    if (tourForceCalculatorOpen && saleType === 'upgrade') {
+      setShowCalculator(true);
+    }
+  }, [tourForceCalculatorOpen, saleType]);
 
   // Fetch Mapbox token on mount
   useEffect(() => {
@@ -440,7 +458,7 @@ export const LogSaleSheet = ({
 
         <div className="px-4 pb-8 space-y-5 overflow-y-auto overflow-x-hidden flex-1 min-h-0 max-h-[70dvh]">
           {/* Sale Type Toggle */}
-          <div className="flex gap-2 p-1 bg-muted rounded-xl">
+          <div data-tour="track-sale-type-toggle" className="flex gap-2 p-1 bg-muted rounded-xl">
             <button
               type="button"
               onClick={() => {
@@ -483,6 +501,7 @@ export const LogSaleSheet = ({
                     <TooltipTrigger asChild>
                       <button
                         type="button"
+                        data-tour="track-prmr-help-button"
                         onClick={handleHelperClick}
                         className="text-muted-foreground hover:text-foreground transition-colors"
                       >
