@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1364,6 +1365,23 @@ export default function Settings() {
                     >
                       📊 Preseason Accountability
                     </Button>
+                  </div>
+
+                  <Separator />
+
+                  {/* Legacy Reports Link */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">Legacy Tools</h4>
+                    
+                    <Link to="/team-reports" className="block">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                      >
+                        📊 Reports V1 (Legacy)
+                      </Button>
+                    </Link>
                   </div>
 
                   <Separator />
