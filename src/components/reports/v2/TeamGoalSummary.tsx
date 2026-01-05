@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { TeamBaseline } from "@/utils/baselineCalculations";
 import { GoalPaceResult, isPreseason } from "@/utils/goalPaceCalculations";
+import { getFirstName } from "@/components/mygroup/recruit-detail/utils";
 
 export interface TeamGoalStatus {
   onPace: string[];      // Rep names on pace
@@ -46,8 +47,6 @@ export const TeamGoalSummary = ({ status, statusDetails, baseline, className }: 
   if (totalReps === 0 && !baseline) {
     return null;
   }
-
-  const getFirstName = (name: string) => name.split(' ')[0];
 
   // Calculate tier breakdown from statusDetails
   const getTierBreakdowns = (): TierBreakdown[] => {

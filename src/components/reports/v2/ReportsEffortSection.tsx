@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, Clock, Footprints 
 import { cn } from "@/lib/utils";
 import { EffortResult, EffortFlag, TeamEffortSummary } from "@/utils/effortScore";
 import { EffortThresholdSettings } from "./EffortThresholdSettings";
+import { getFirstName } from "@/components/mygroup/recruit-detail/utils";
 
 interface RepWithEffort {
   userId: string;
@@ -64,8 +65,6 @@ export const ReportsEffortSection = ({
       [category]: !prev[category],
     }));
   };
-
-  const getFirstName = (name: string) => name.split(' ')[0];
 
   const getFlagIcon = (type: EffortFlag['type']) => {
     switch (type) {
