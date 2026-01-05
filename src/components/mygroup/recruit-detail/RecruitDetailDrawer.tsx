@@ -121,6 +121,8 @@ export const RecruitDetailDrawer = ({
   const [activityShake, setActivityShake] = useState(false);
   const [scheduledActionSheetOpen, setScheduledActionSheetOpen] = useState(false);
   const [scheduledActivityForAction, setScheduledActivityForAction] = useState<RecruitActivity | null>(null);
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
 
   const updateStageMutation = useUpdateRecruitStage();
   const logActivityMutation = useLogRecruitActivity();
@@ -431,6 +433,49 @@ export const RecruitDetailDrawer = ({
     }
   };
 
+  // Stages that require email
+  const SIGNED_PLUS_STAGES = ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
+  const needsEmailForStage = (stage: string | null) => 
+    stage && SIGNED_PLUS_STAGES.some(s => s.toLowerCase() === stage.toLowerCase());
+  
+  const pendingStageNeedsEmail = needsEmailForStage(pendingStage) && !recruit?.email;
+
+  const handleSaveEmailAndConfirm = async () => {
+    if (!pendingEmail.trim() || !recruit) return;
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(pendingEmail.trim())) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    
+    setIsSavingEmail(true);
+    try {
+      const { error } = await supabase
+        .from('recruits')
+        .update({ email: pendingEmail.trim() })
+        .eq('id', recruit.id);
+      
+      if (error) throw error;
+      
+      // Invalidate queries to refresh recruit data
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-detail-live', recruit.id] });
+      
+      toast.success('Email saved');
+      setPendingEmail('');
+      
+      // Now proceed with stage change
+      handleConfirmStageChange();
+    } catch (err) {
+      console.error('Failed to save email:', err);
+      toast.error('Failed to save email');
+    } finally {
+      setIsSavingEmail(false);
+    }
+  };
+
   const handleConfirmStageChange = () => {
     if (!pendingStage) return;
     const isExitStage = EXIT_STAGES.includes(pendingStage);
@@ -439,12 +484,13 @@ export const RecruitDetailDrawer = ({
         toast.success(`Moved to ${pendingStage}`); 
         setStageConfirmOpen(false); 
         setPendingStage(null);
+        setPendingEmail('');
         // For exit stages, notify parent to dismiss the card
         if (isExitStage && onExitStage) {
           onExitStage(recruit.id);
         }
       },
-      onError: (err) => { toast.error(err instanceof Error ? err.message : "Couldn't update stage"); setStageShake(true); setTimeout(() => setStageShake(false), 500); setStageConfirmOpen(false); setPendingStage(null); }
+      onError: (err) => { toast.error(err instanceof Error ? err.message : "Couldn't update stage"); setStageShake(true); setTimeout(() => setStageShake(false), 500); setStageConfirmOpen(false); setPendingStage(null); setPendingEmail(''); }
     });
   };
 
@@ -906,7 +952,7 @@ export const RecruitDetailDrawer = ({
       </Drawer>
 
       {/* Stage Confirm Drawer */}
-      <Drawer open={stageConfirmOpen} onOpenChange={setStageConfirmOpen}>
+      <Drawer open={stageConfirmOpen} onOpenChange={(open) => { setStageConfirmOpen(open); if (!open) { setPendingStage(null); setPendingEmail(''); } }}>
         <DrawerContent>
           <DrawerHeader><DrawerTitle>Confirm Stage Change</DrawerTitle></DrawerHeader>
           <div className="p-4 space-y-4">
@@ -914,13 +960,48 @@ export const RecruitDetailDrawer = ({
               <p className="text-sm font-medium mb-1">Move {recruitFirstName} to: <span className="text-primary">{pendingStage}</span></p>
               <p className="text-sm text-muted-foreground">{pendingStage && getStageDescription(pendingStage)}</p>
             </div>
+            
+            {pendingStageNeedsEmail && (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Email Required</p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                      {recruitFirstName} needs an email to move to {pendingStage}. Add it below.
+                    </p>
+                  </div>
+                </div>
+                <Input
+                  type="email"
+                  placeholder="Enter email address..."
+                  value={pendingEmail}
+                  onChange={(e) => setPendingEmail(e.target.value)}
+                  className="bg-background"
+                />
+              </div>
+            )}
+            
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => { setStageConfirmOpen(false); setPendingStage(null); }}>Cancel</Button>
-              <Button className="flex-1" onClick={handleConfirmStageChange} disabled={updateStageMutation.isPending}>{updateStageMutation.isPending ? 'Saving...' : 'Confirm'}</Button>
+              <Button variant="outline" className="flex-1" onClick={() => { setStageConfirmOpen(false); setPendingStage(null); setPendingEmail(''); }}>Cancel</Button>
+              {pendingStageNeedsEmail ? (
+                <Button 
+                  className="flex-1" 
+                  onClick={handleSaveEmailAndConfirm} 
+                  disabled={isSavingEmail || updateStageMutation.isPending || !pendingEmail.trim()}
+                >
+                  {isSavingEmail ? 'Saving...' : updateStageMutation.isPending ? 'Moving...' : 'Save & Confirm'}
+                </Button>
+              ) : (
+                <Button className="flex-1" onClick={handleConfirmStageChange} disabled={updateStageMutation.isPending}>
+                  {updateStageMutation.isPending ? 'Saving...' : 'Confirm'}
+                </Button>
+              )}
             </div>
           </div>
         </DrawerContent>
       </Drawer>
+
 
       {/* Potential Follow Up Drawer - requires date selection */}
       <Drawer open={potentialFollowUpOpen} onOpenChange={(open) => {
