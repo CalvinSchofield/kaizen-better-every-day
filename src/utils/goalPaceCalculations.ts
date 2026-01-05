@@ -33,6 +33,7 @@ export interface GoalPaceResult {
   currentProgress: number;
   expectedAtThisPoint: number;
   percentOfExpected: number;
+  focusTier: 'preseason' | 'mustDo' | 'willDo' | 'couldDo' | null;
 }
 
 /**
@@ -100,27 +101,33 @@ export const calculateGoalPaceStatus = (
       currentProgress: currentFP,
       expectedAtThisPoint: 0,
       percentOfExpected: 0,
+      focusTier: null,
     };
   }
 
   // Determine active goal based on season and focus tier
   let activeGoal: number;
+  let focusTier: 'preseason' | 'mustDo' | 'willDo' | 'couldDo' | null = null;
   
   if (isPreseason(currentDate)) {
     activeGoal = goalData.preseason_fp_goal || 0;
+    focusTier = 'preseason';
   } else {
     // Summer season - use focus tier
     const tier = goalData.focus_tier || 'willDo';
     switch (tier) {
       case 'mustDo':
         activeGoal = goalData.must_do_fp_goal || 0;
+        focusTier = 'mustDo';
         break;
       case 'couldDo':
         activeGoal = goalData.could_do_fp_goal || 0;
+        focusTier = 'couldDo';
         break;
       case 'willDo':
       default:
         activeGoal = goalData.will_do_fp_goal || 0;
+        focusTier = 'willDo';
     }
   }
 
@@ -134,6 +141,7 @@ export const calculateGoalPaceStatus = (
       currentProgress: currentFP,
       expectedAtThisPoint: 0,
       percentOfExpected: 0,
+      focusTier,
     };
   }
 
@@ -163,6 +171,7 @@ export const calculateGoalPaceStatus = (
     currentProgress: currentFP,
     expectedAtThisPoint,
     percentOfExpected,
+    focusTier,
   };
 };
 
