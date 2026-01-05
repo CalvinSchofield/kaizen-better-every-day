@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 interface PurposeQuestionCardProps {
@@ -22,17 +21,15 @@ export const PurposeQuestionCard = ({
 
   return (
     <div className="space-y-4">
-      {/* Progress indicator */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">
-          Question {questionNumber} of {totalQuestions}
+      {/* Question number badge + question */}
+      <div className="space-y-2">
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-medium">
+          {questionNumber}
         </span>
+        <p className="text-lg font-medium leading-relaxed">
+          {question}
+        </p>
       </div>
-
-      {/* Question */}
-      <Label className="text-lg font-medium leading-relaxed block">
-        {question}
-      </Label>
 
       {/* Answer input */}
       <Textarea
@@ -49,7 +46,7 @@ export const PurposeQuestionCard = ({
 
       {/* Helper text */}
       <p className="text-xs text-muted-foreground">
-        {value.trim() ? `${value.trim().split(/\s+/).length} words` : "Optional, but your answers help create a more personal purpose statement"}
+        {value.trim() ? `${value.trim().split(/\s+/).length} words` : "Optional, but helps personalize your purpose"}
       </p>
     </div>
   );
