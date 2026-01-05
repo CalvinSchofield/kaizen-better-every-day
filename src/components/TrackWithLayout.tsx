@@ -756,7 +756,34 @@ const TrackWithLayout = () => {
     if (field === 'start') {
       updateCounter({ work_start_time: time });
     } else {
-      updateCounter({ work_end_time: time });
+      // Fix timezone/day rollover: if end time is before start time, 
+      // the user likely worked past midnight and we need to ensure proper ordering
+      const startTime = entry.work_start_time;
+      let endTime = new Date(time);
+      
+      if (startTime) {
+        const start = new Date(startTime);
+        
+        // If end time appears to be before start time, it means the time picker
+        // set the time on the wrong day. Add 24 hours to fix it.
+        if (endTime < start) {
+          endTime = new Date(endTime.getTime() + 24 * 60 * 60 * 1000);
+        }
+        
+        // Also handle the reverse case: if end time is MORE than 24 hours after start,
+        // the user probably meant the same day (subtract 24 hours)
+        const hoursDiff = (endTime.getTime() - start.getTime()) / (1000 * 60 * 60);
+        if (hoursDiff > 18) {
+          // If they worked "18+ hours", they probably meant same day - subtract a day
+          const sameDayEnd = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+          // Only use same-day if it's still after start
+          if (sameDayEnd > start) {
+            endTime = sameDayEnd;
+          }
+        }
+      }
+      
+      updateCounter({ work_end_time: endTime.toISOString() });
     }
   };
 
