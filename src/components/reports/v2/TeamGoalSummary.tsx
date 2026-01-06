@@ -240,7 +240,7 @@ export const TeamGoalSummary = ({ status, statusDetails, baseline, isLiveView, p
                           rep.status === 'at_risk' && "text-yellow-600 dark:text-yellow-400",
                           rep.status === 'behind' && "text-red-600 dark:text-red-400",
                         )}>
-                          {rep.progress.toFixed(1)}/{rep.goal} ({rep.percent.toFixed(0)}%)
+                          {rep.progress.toFixed(2)}/{rep.goal.toFixed(2)} ({rep.percent.toFixed(0)}%)
                         </span>
                       </div>
                     ))}
@@ -291,7 +291,7 @@ export const TeamGoalSummary = ({ status, statusDetails, baseline, isLiveView, p
                     <span className="text-muted-foreground">{getFirstName(rep.name)}</span>
                     {rep.activeGoal > 0 && (
                       <span className="text-xs font-medium">
-                        {rep.currentProgress.toFixed(1)}/{rep.activeGoal} FP+
+                        {rep.currentProgress.toFixed(2)}/{rep.activeGoal.toFixed(2)} FP+
                         <span className="text-muted-foreground/60 ml-1">
                           ({rep.percentOfExpected.toFixed(0)}%)
                         </span>
