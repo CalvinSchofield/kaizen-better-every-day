@@ -41,7 +41,7 @@ export const useTeamAccess = () => {
         throw new Error('Not authenticated');
       }
 
-      const CACHE_KEY = `team-access-cache:v3:${session.user.id}`;
+      const CACHE_KEY = `team-access-cache:v4:${session.user.id}`;
 
       // Try to load from cache first (scoped per user)
       const cachedData = localStorage.getItem(CACHE_KEY);
