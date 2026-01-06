@@ -26,7 +26,7 @@ export const PayscalePickerDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="select-none">
+      <DrawerContent className="select-none [-webkit-touch-callout:none] [-webkit-user-select:none]">
         <DrawerHeader>
           <DrawerTitle className="text-center">Select Payscale Tier</DrawerTitle>
         </DrawerHeader>
