@@ -252,12 +252,12 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
         description="Deep dive into your sales performance"
       />
 
-      {/* Hero Stats Row */}
+      {/* Hero Stats Grid - Uniform sizing */}
       <div className="grid grid-cols-2 gap-3">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-3 rounded-2xl bg-primary/10 text-center"
+          className="p-3 rounded-2xl bg-primary/10 text-center flex flex-col justify-center"
         >
           <div className="text-2xl font-bold text-primary">{insights.totalDeals}</div>
           <div className="text-xs text-muted-foreground">Deals</div>
@@ -266,21 +266,21 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="p-3 rounded-2xl bg-success/10 text-center"
+          className="p-3 rounded-2xl bg-success/10 text-center flex flex-col justify-center"
         >
           <div className="text-2xl font-bold text-success">${insights.totalPrmr.toLocaleString()}</div>
           <div className="text-xs text-muted-foreground">Total PRMR</div>
         </motion.div>
       </div>
 
-      {/* Cost and ROI Stats */}
+      {/* Cost and ROI Stats - Uniform sizing */}
       {insights.hasMoneySpentData && (
         <div className="grid grid-cols-2 gap-3">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="p-4 rounded-2xl bg-muted/50 text-center"
+            className="p-3 rounded-2xl bg-muted/50 text-center flex flex-col justify-center"
           >
             <div className="text-2xl font-bold">
               ${(efpModeEnabled ? insights.avgCostPerEfp : insights.avgCostPerFpPlus).toFixed(2)}

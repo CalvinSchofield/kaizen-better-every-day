@@ -52,14 +52,14 @@ export const CompactROICard = ({
     }
   }, [goals?.preferred_roi_mode]);
   
-  // Get payscale rate
+  // Get payscale rate (for total pay)
   const customPayLevel = goals?.custom_payscale_fp ?? null;
   const targetFpPlus = customPayLevel ?? userCumulativeFpPlus;
   const currentTier = getTier(targetFpPlus);
   const payscaleRate = currentTier.rate;
   
   // Calculate ROI
-  // Upfront is always 4x for all reps, Total varies by tier
+  // Upfront is always $4/FP+ for all reps, Total varies by tier
   const effectiveRate = roiMode === 'upfront' ? UPFRONT_MULTIPLIER : payscaleRate;
   const totalEarnings = totalPrmr * effectiveRate;
   const roi = totalSpent > 0 ? totalEarnings / totalSpent : 0;
@@ -110,25 +110,22 @@ export const CompactROICard = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
         whileTap={{ scale: 0.92 }}
-        className={`p-4 rounded-2xl bg-warning/10 text-center cursor-pointer touch-manipulation ${showHint ? 'animate-pulse-ring' : ''}`}
+        className={`p-3 rounded-2xl bg-warning/10 text-center cursor-pointer touch-manipulation flex flex-col justify-center ${showHint ? 'animate-pulse-ring' : ''}`}
         {...longPressHandlers}
       >
         <AnimatePresence mode="wait">
           <motion.div
-            key={`${roiMode}-${payscaleRate}`}
+            key={`${roiMode}-${effectiveRate}`}
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
           >
-            <div className={`text-3xl font-bold ${roi >= 1 ? 'text-success' : 'text-warning'}`}>
+            <div className={`text-2xl font-bold ${roi >= 1 ? 'text-success' : 'text-warning'}`}>
               {roi.toFixed(1)}x
             </div>
-            <div className="text-sm font-medium mt-0.5">
+            <div className="text-xs text-muted-foreground">
               {roiMode === 'upfront' ? 'Upfront' : 'Total'} ROI
-            </div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              @ ${effectiveRate}/FP+
             </div>
           </motion.div>
         </AnimatePresence>
