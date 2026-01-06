@@ -1,6 +1,6 @@
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { getAllTiers, getTier } from '@/utils/payscaleCalculator';
-import { Check, Lock } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PayscalePickerDrawerProps {
@@ -20,6 +20,9 @@ export const PayscalePickerDrawer = ({
 }: PayscalePickerDrawerProps) => {
   const allTiers = getAllTiers();
   const currentTier = getTier(currentFp);
+  
+  // Only show tiers at or above user's current tier
+  const availableTiers = allTiers.filter(tier => tier.min >= currentTier.min);
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -28,9 +31,8 @@ export const PayscalePickerDrawer = ({
           <DrawerTitle className="text-center">Select Payscale Tier</DrawerTitle>
         </DrawerHeader>
         <div className="p-4 space-y-2 pb-8 max-h-[60vh] overflow-y-auto">
-          {allTiers.map((tier) => {
+          {availableTiers.map((tier) => {
             const isCurrentTier = tier.min === currentTier.min;
-            const isBelow = tier.min < currentTier.min;
             const isSelected = tier.min === selectedFp || (isCurrentTier && selectedFp === 0);
             
             return (
@@ -40,18 +42,14 @@ export const PayscalePickerDrawer = ({
                   onSelect(tier.min);
                   onOpenChange(false);
                 }}
-                disabled={isBelow}
                 className={cn(
                   "w-full flex items-center justify-between p-4 rounded-xl transition-colors",
                   isSelected && "bg-primary/10 border-2 border-primary",
-                  !isSelected && !isBelow && "bg-muted/50 hover:bg-muted",
-                  isBelow && "bg-muted/30 opacity-50 cursor-not-allowed",
+                  !isSelected && "bg-muted/50 hover:bg-muted",
                 )}
               >
                 <div className="flex items-center gap-3">
-                  {isBelow ? (
-                    <Lock className="w-4 h-4 text-muted-foreground" />
-                  ) : isSelected ? (
+                  {isSelected ? (
                     <Check className="w-4 h-4 text-primary" />
                   ) : (
                     <div className="w-4 h-4" />
