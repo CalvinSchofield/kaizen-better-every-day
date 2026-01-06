@@ -192,7 +192,7 @@ export const SalesLoggerCard = ({
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {fpCount} FP+
+                  {totalFPPlus.toFixed(totalFPPlus % 1 === 0 ? 0 : 2)} FP+
                 </div>
               </>
             ) : (
