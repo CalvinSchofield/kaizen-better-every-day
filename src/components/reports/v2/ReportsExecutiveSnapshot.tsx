@@ -12,8 +12,11 @@ interface ReportsExecutiveSnapshotProps {
   totalFP: number;
   totalPRMR: number;
   activeReps: number;
+  workingCount?: number; // Currently working (unfinalized entries)
+  workingNames?: string[]; // Names of reps currently working
   expectedReps?: number;
   periodLabel: string;
+  isLiveView?: boolean;
   
   // Constraint Analysis
   constraint: ConstraintResult;
@@ -38,8 +41,11 @@ export const ReportsExecutiveSnapshot = ({
   totalFP,
   totalPRMR,
   activeReps,
+  workingCount,
+  workingNames,
   expectedReps,
   periodLabel,
+  isLiveView,
   constraint,
   actions,
   fpChange,
@@ -121,13 +127,33 @@ export const ReportsExecutiveSnapshot = ({
           </div>
         </div>
 
-        {/* Reps Count */}
+        {/* Reps Count - show working names in live view */}
         <div className="flex items-center gap-2 text-sm">
           <Users className="w-4 h-4 text-muted-foreground" />
-          <span className="font-medium">{activeReps}</span>
-          <span className="text-muted-foreground">
-            reps{expectedReps ? ` of ${expectedReps} expected` : ''}
-          </span>
+          {isLiveView && workingCount !== undefined ? (
+            <>
+              <span className="font-medium">{workingCount}</span>
+              <span className="text-muted-foreground">
+                working{workingNames && workingNames.length > 0 && workingNames.length <= 5 && (
+                  <span className="ml-1 opacity-70">
+                    ({workingNames.map(n => getFirstName(n)).join(', ')})
+                  </span>
+                )}
+                {workingNames && workingNames.length > 5 && (
+                  <span className="ml-1 opacity-70">
+                    ({workingNames.slice(0, 3).map(n => getFirstName(n)).join(', ')} +{workingNames.length - 3})
+                  </span>
+                )}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="font-medium">{activeReps}</span>
+              <span className="text-muted-foreground">
+                reps{expectedReps ? ` of ${expectedReps} expected` : ''}
+              </span>
+            </>
+          )}
         </div>
 
         {/* Primary Constraint Insight */}
@@ -146,7 +172,8 @@ export const ReportsExecutiveSnapshot = ({
           <TeamGoalSummary 
             status={teamGoalStatus} 
             statusDetails={teamGoalStatusDetails}
-            baseline={teamBaseline} 
+            baseline={teamBaseline}
+            isLiveView={isLiveView}
           />
         )}
         {/* Leader Actions */}

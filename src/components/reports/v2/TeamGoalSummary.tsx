@@ -24,6 +24,7 @@ interface TeamGoalSummaryProps {
   status: TeamGoalStatus;
   statusDetails?: TeamGoalStatusWithDetails; // Enhanced data for tier breakdown
   baseline?: TeamBaseline;
+  isLiveView?: boolean; // True for "today" view - shows daily goals
   className?: string;
 }
 
@@ -36,7 +37,7 @@ interface TierBreakdown {
   reps: { name: string; status: string; progress: number; goal: number; percent: number }[];
 }
 
-export const TeamGoalSummary = ({ status, statusDetails, baseline, className }: TeamGoalSummaryProps) => {
+export const TeamGoalSummary = ({ status, statusDetails, baseline, isLiveView, className }: TeamGoalSummaryProps) => {
   const [expandedSection, setExpandedSection] = useState<keyof TeamGoalStatus | null>(null);
   const [showBaselineDetails, setShowBaselineDetails] = useState(false);
   const [showTierBreakdown, setShowTierBreakdown] = useState(false);
@@ -57,6 +58,24 @@ export const TeamGoalSummary = ({ status, statusDetails, baseline, className }: 
       ...statusDetails.atRisk,
       ...statusDetails.behind,
     ];
+
+    // For live view, show "Daily Goal" instead of "Preseason"
+    if (isLiveView) {
+      return [{
+        tierName: 'Daily Goal',
+        tierColor: 'border-primary',
+        onPace: statusDetails.onPace.length,
+        atRisk: statusDetails.atRisk.length,
+        behind: statusDetails.behind.length,
+        reps: allResults.map(r => ({
+          name: r.name,
+          status: r.status,
+          progress: r.currentProgress,
+          goal: r.activeGoal,
+          percent: r.percentOfExpected,
+        })),
+      }];
+    }
 
     if (inPreseason) {
       // During preseason, all reps are on preseason goals

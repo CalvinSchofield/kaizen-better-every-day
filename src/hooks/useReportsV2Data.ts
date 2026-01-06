@@ -75,6 +75,7 @@ export interface ReportsV2Data {
   totalPRMR: number;
   activeReps: number;
   workingCount: number;
+  workingNames: string[]; // Names of reps currently working (for live view)
   
   // Analysis results
   constraint: ConstraintResult;
@@ -336,6 +337,7 @@ export const useReportsV2Data = ({
       const actions = generateLeaderActions(repPerformanceData, constraint);
       
       // Calculate team goal status from goals query data
+      // For live view: show daily goals for reps working TODAY only
       let teamGoalStatus: TeamGoalStatus = {
         onPace: [],
         atRisk: [],
@@ -345,68 +347,89 @@ export const useReportsV2Data = ({
       let teamGoalStatusDetails: TeamGoalStatusWithDetails | undefined;
       
       if (goalsQuery.data) {
-        const { goals, reps, ytdEntries } = goalsQuery.data;
+        const { goals, reps: allReps } = goalsQuery.data;
         
-        // Calculate YTD FP per rep
-        const ytdFPByUser = ytdEntries.reduce((acc, e) => {
-          acc[e.user_id] = (acc[e.user_id] || 0) + (e.fp_plus || 0);
-          return acc;
-        }, {} as Record<string, number>);
+        // Map goals by user_id for quick lookup
+        const goalsMap = new Map(goals.map(g => [g.user_id, g]));
         
-        // Map reps to names
-        const nameMap = new Map(reps.map(r => [r.user_id, r.name]));
+        // For live view: only show reps who are currently working today
+        // Calculate their daily goal and today's progress
+        const dailyPaceResults: GoalPaceResult[] = [];
         
-        // Build goal data with names
-        const goalsWithNames: RepGoalData[] = goals.map(g => ({
-          user_id: g.user_id,
-          name: nameMap.get(g.user_id) || 'Unknown',
-          preseason_fp_goal: g.preseason_fp_goal,
-          must_do_fp_goal: g.must_do_fp_goal,
-          will_do_fp_goal: g.will_do_fp_goal,
-          could_do_fp_goal: g.could_do_fp_goal,
-          focus_tier: g.focus_tier,
-          setup_complete: g.setup_complete,
-        }));
-        
-        // Add reps without goals
-        const repsWithGoals = new Set(goals.map(g => g.user_id));
-        const repsWithoutGoals = reps
-          .filter(r => r.user_id && !repsWithGoals.has(r.user_id))
-          .map(r => ({
-            user_id: r.user_id!,
-            name: r.name,
-            preseason_fp_goal: null,
-            must_do_fp_goal: null,
-            will_do_fp_goal: null,
-            could_do_fp_goal: null,
-            focus_tier: null,
-            setup_complete: null,
-          }));
-        
-        const allGoalsData = [...goalsWithNames, ...repsWithoutGoals];
-        
-        // Calculate progress data
-        const progressData = allGoalsData.map(g => ({
-          userId: g.user_id,
-          currentFP: ytdFPByUser[g.user_id] || 0,
-        }));
-        
-        // Calculate goal pace for each rep
-        const paceResults = calculateTeamGoalPace(allGoalsData, progressData);
+        for (const rep of repsWithEffort) {
+          const goal = goalsMap.get(rep.userId);
+          const todayFP = rep.fp; // Today's FP from live data
+          
+          if (!goal || !goal.setup_complete) {
+            dailyPaceResults.push({
+              userId: rep.userId,
+              name: rep.name,
+              status: 'no_goals',
+              activeGoal: 0,
+              currentProgress: todayFP,
+              expectedAtThisPoint: 0,
+              percentOfExpected: 0,
+              focusTier: null,
+            });
+            continue;
+          }
+          
+          // Calculate daily goal from preseason goal
+          // Assume ~70 knocking days in preseason (14 weeks * 5 days)
+          const preseasonGoal = goal.preseason_fp_goal || 0;
+          const dailyGoal = preseasonGoal > 0 ? preseasonGoal / 70 : 0;
+          
+          if (dailyGoal <= 0) {
+            dailyPaceResults.push({
+              userId: rep.userId,
+              name: rep.name,
+              status: 'no_goals',
+              activeGoal: 0,
+              currentProgress: todayFP,
+              expectedAtThisPoint: 0,
+              percentOfExpected: 0,
+              focusTier: 'preseason',
+            });
+            continue;
+          }
+          
+          const percentOfDaily = (todayFP / dailyGoal) * 100;
+          
+          // Determine status based on today's progress vs daily goal
+          let status: 'on_pace' | 'at_risk' | 'behind' | 'no_goals';
+          if (percentOfDaily >= 90) {
+            status = 'on_pace';
+          } else if (percentOfDaily >= 50) {
+            status = 'at_risk';
+          } else {
+            status = 'behind';
+          }
+          
+          dailyPaceResults.push({
+            userId: rep.userId,
+            name: rep.name,
+            status,
+            activeGoal: dailyGoal,
+            currentProgress: todayFP,
+            expectedAtThisPoint: dailyGoal,
+            percentOfExpected: percentOfDaily,
+            focusTier: 'preseason',
+          });
+        }
         
         teamGoalStatus = {
-          onPace: paceResults.filter(r => r.status === 'on_pace').map(r => r.name),
-          atRisk: paceResults.filter(r => r.status === 'at_risk').map(r => r.name),
-          behind: paceResults.filter(r => r.status === 'behind').map(r => r.name),
-          noGoals: paceResults.filter(r => r.status === 'no_goals').map(r => r.name),
+          onPace: dailyPaceResults.filter(r => r.status === 'on_pace').map(r => r.name),
+          atRisk: dailyPaceResults.filter(r => r.status === 'at_risk').map(r => r.name),
+          behind: dailyPaceResults.filter(r => r.status === 'behind').map(r => r.name),
+          noGoals: dailyPaceResults.filter(r => r.status === 'no_goals').map(r => r.name),
         };
         
         // Store full details for tier breakdown
         teamGoalStatusDetails = {
-          onPace: paceResults.filter(r => r.status === 'on_pace'),
-          atRisk: paceResults.filter(r => r.status === 'at_risk'),
-          behind: paceResults.filter(r => r.status === 'behind'),
-          noGoals: paceResults.filter(r => r.status === 'no_goals'),
+          onPace: dailyPaceResults.filter(r => r.status === 'on_pace'),
+          atRisk: dailyPaceResults.filter(r => r.status === 'at_risk'),
+          behind: dailyPaceResults.filter(r => r.status === 'behind'),
+          noGoals: dailyPaceResults.filter(r => r.status === 'no_goals'),
         };
       }
       
@@ -445,11 +468,17 @@ export const useReportsV2Data = ({
         teamBaseline = calculateTeamBaseline(repBaselines);
       }
       
+      // Get names of reps currently working (unfinalized entries)
+      const workingNames = liveQuery.data.liveReps
+        .filter(r => r.isWorking)
+        .map(r => r.name);
+      
       return {
         totalFP: totals.fp,
         totalPRMR: totals.prmr,
         activeReps: repsWithEffort.length,
         workingCount,
+        workingNames,
         constraint,
         actions,
         effortSummary,
@@ -619,6 +648,7 @@ export const useReportsV2Data = ({
         totalPRMR: data.totalPRMR,
         activeReps: data.uniqueRepsWorked,
         workingCount: 0,
+        workingNames: [],
         constraint,
         actions,
         effortSummary,
@@ -644,6 +674,7 @@ export const useReportsV2Data = ({
       totalPRMR: 0,
       activeReps: 0,
       workingCount: 0,
+      workingNames: [],
       constraint: {
         type: 'on_track' as const,
         severity: 'info' as const,
@@ -677,7 +708,7 @@ export const useReportsV2Data = ({
         closes: 0,
       },
     };
-  }, [isLiveView, liveQuery.data, insightsQuery.data, baselineQuery.data]);
+  }, [isLiveView, liveQuery.data, insightsQuery.data, baselineQuery.data, goalsQuery.data, effortThresholds]);
 
   // Helper to get rep by ID
   const getRepById = (userId: string): RepWithEffort | undefined => {
