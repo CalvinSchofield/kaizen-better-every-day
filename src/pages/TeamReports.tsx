@@ -194,10 +194,14 @@ const TeamReports = () => {
     excludeUserIds,
   });
 
+  // For today views, include unfinalized entries so leaders can see in-progress work
+  const isLiveView = datePreset === 'today';
+
   const { data: insightsData, isLoading: insightsLoading } = useTeamInsightsData({
     userIds: effectiveUserIds,
     dateRange: dateRange || { start: '', end: '' },
     excludeUserIds,
+    includeLive: isLiveView,
   });
 
   const { data: teamCumulativeData, isLoading: cumulativeLoading } = useTeamCumulativeFP({

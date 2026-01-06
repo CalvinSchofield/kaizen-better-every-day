@@ -265,6 +265,7 @@ interface UseTeamInsightsDataParams {
   userIds: string[];
   dateRange: { start: string; end: string };
   excludeUserIds?: string[];
+  includeLive?: boolean;
 }
 
 const calculateLocalTime = (utcTimestamp: string, timezone: string): { hour: number; minute: number } => {
@@ -292,9 +293,9 @@ const decimalToTime = (decimal: number): string => {
   return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
 };
 
-export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }: UseTeamInsightsDataParams) => {
+export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], includeLive = false }: UseTeamInsightsDataParams) => {
   return useQuery({
-    queryKey: ['team-insights', userIds, dateRange, excludeUserIds],
+    queryKey: ['team-insights', userIds, dateRange, excludeUserIds, includeLive],
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     retry: 1,
@@ -314,6 +315,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
           userIds,
           dateRange,
           excludeUserIds,
+          includeLive,
         },
       });
 
