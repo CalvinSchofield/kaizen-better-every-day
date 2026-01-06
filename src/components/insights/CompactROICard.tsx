@@ -14,7 +14,6 @@ interface CompactROICardProps {
 
 // Upfront pay is always 4x for all reps
 const UPFRONT_MULTIPLIER = 4;
-const HINT_STORAGE_KEY = 'hasSeenROIHint';
 
 export const CompactROICard = ({
   totalSpent,
@@ -29,21 +28,6 @@ export const CompactROICard = ({
     (goals?.preferred_roi_mode as 'upfront' | 'total') || 'upfront'
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [showHint, setShowHint] = useState(false);
-  
-  // Check if user has seen the hint
-  useEffect(() => {
-    const hasSeen = localStorage.getItem(HINT_STORAGE_KEY);
-    if (!hasSeen) {
-      setShowHint(true);
-      // Mark as seen after animation completes
-      const timer = setTimeout(() => {
-        localStorage.setItem(HINT_STORAGE_KEY, 'true');
-        setShowHint(false);
-      }, 4500); // 3 pulses × 1.5s each
-      return () => clearTimeout(timer);
-    }
-  }, []);
   
   // Sync roiMode when goals load
   useEffect(() => {
@@ -110,7 +94,7 @@ export const CompactROICard = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
         whileTap={{ scale: 0.92 }}
-        className={`p-3 h-full rounded-2xl bg-warning/10 text-center cursor-pointer touch-manipulation flex flex-col justify-center ${showHint ? 'animate-pulse-ring' : ''}`}
+        className="p-3 h-full rounded-2xl bg-warning/10 text-center cursor-pointer touch-manipulation flex flex-col justify-center"
         {...longPressHandlers}
       >
         <AnimatePresence mode="wait">
