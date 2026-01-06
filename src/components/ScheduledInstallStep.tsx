@@ -213,7 +213,12 @@ export const ScheduledInstallStep = ({
                               mode="single"
                               selected={schedDate}
                               onSelect={(date) => handleDateSelect(sale.id, date)}
-                              disabled={(date) => date <= new Date()}
+                              disabled={(date) => {
+                                // Allow today (for same-day scheduled installs) but not past dates
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                return date < today;
+                              }}
                               initialFocus
                               className={cn("p-3 pointer-events-auto")}
                             />
@@ -224,6 +229,13 @@ export const ScheduledInstallStep = ({
                   </div>
                 );
               })}
+
+              {/* Helper text when button is disabled */}
+              {selectedSaleIds.size > 0 && [...selectedSaleIds].some(id => !scheduledDates[id]) && (
+                <p className="text-sm text-amber-600 dark:text-amber-400 text-center">
+                  Select install dates for all scheduled sales
+                </p>
+              )}
 
               <Button
                 className="w-full mt-4"
