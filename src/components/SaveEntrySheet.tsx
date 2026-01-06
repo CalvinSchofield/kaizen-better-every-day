@@ -438,9 +438,10 @@ export const SaveEntrySheet = ({
     }
     
     // If there are sales, show install confirmation step for unmarked sales
-    const salesToCheck = salesLog.length > 0 ? salesLog : localSales;
-    if (salesToCheck.length > 0) {
-      const hasUnmarkedSales = salesToCheck.some(s => s.install_status === undefined);
+    // CRITICAL: Check ALL sales - both existing DB sales AND newly added local sales
+    const allSalesToCheck = [...salesLog, ...localSales];
+    if (allSalesToCheck.length > 0) {
+      const hasUnmarkedSales = allSalesToCheck.some(s => s.install_status === undefined);
       if (hasUnmarkedSales) {
         setShowInstallStep(true);
         return;
@@ -1207,7 +1208,7 @@ export const SaveEntrySheet = ({
       <ScheduledInstallStep
         open={showInstallStep}
         onOpenChange={setShowInstallStep}
-        salesLog={salesLog.length > 0 ? salesLog : localSales}
+        salesLog={[...salesLog, ...localSales]}
         onConfirm={handleInstallConfirm}
       />
     </>
