@@ -25,6 +25,7 @@ interface TeamGoalSummaryProps {
   statusDetails?: TeamGoalStatusWithDetails; // Enhanced data for tier breakdown
   baseline?: TeamBaseline;
   isLiveView?: boolean; // True for "today" view - shows daily goals
+  periodLabel?: string; // e.g., "Daily", "Weekly", "Period" - defaults based on isLiveView
   className?: string;
 }
 
@@ -37,7 +38,7 @@ interface TierBreakdown {
   reps: { name: string; status: string; progress: number; goal: number; percent: number }[];
 }
 
-export const TeamGoalSummary = ({ status, statusDetails, baseline, isLiveView, className }: TeamGoalSummaryProps) => {
+export const TeamGoalSummary = ({ status, statusDetails, baseline, isLiveView, periodLabel, className }: TeamGoalSummaryProps) => {
   const [expandedSection, setExpandedSection] = useState<keyof TeamGoalStatus | null>(null);
   const [showBaselineDetails, setShowBaselineDetails] = useState(false);
   const [showTierBreakdown, setShowTierBreakdown] = useState(false);
@@ -59,10 +60,11 @@ export const TeamGoalSummary = ({ status, statusDetails, baseline, isLiveView, c
       ...statusDetails.behind,
     ];
 
-    // For live view, show "Daily Goal" instead of "Preseason"
-    if (isLiveView) {
+    // For live/period view, show period-specific label
+    if (isLiveView || periodLabel) {
+      const label = periodLabel || 'Daily Goal';
       return [{
-        tierName: 'Daily Goal',
+        tierName: label,
         tierColor: 'border-primary',
         onPace: statusDetails.onPace.length,
         atRisk: statusDetails.atRisk.length,

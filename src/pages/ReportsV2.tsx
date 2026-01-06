@@ -154,7 +154,7 @@ export const ReportsV2Page = () => {
     isLiveView: effectivePreset === 'today',
   });
 
-  // Get period label
+  // Get period label for display
   const getPeriodLabel = () => {
     if (effectivePreset === 'custom' && customStartDate && customEndDate) {
       return `${format(customStartDate, 'MMM d')} - ${format(customEndDate, 'MMM d')}`;
@@ -172,6 +172,16 @@ export const ReportsV2Page = () => {
     };
     
     return labels[effectivePreset] || 'Today';
+  };
+
+  // Get goal-specific period label for TeamGoalSummary
+  const getGoalPeriodLabel = () => {
+    if (effectivePreset === 'today') return 'Daily Goal';
+    if (effectivePreset === 'yesterday') return 'Daily Goal';
+    if (effectivePreset === 'week' || effectivePreset === 'lastWeek') return 'Weekly Goal';
+    if (effectivePreset === 'month' || effectivePreset === 'lastMonth') return 'Monthly Goal';
+    if (effectivePreset === 'custom' && customStartDate && customEndDate) return 'Period Goal';
+    return undefined; // Use default (preseason) label
   };
 
   // Handle custom date range apply
@@ -301,6 +311,7 @@ export const ReportsV2Page = () => {
         workingCount={workingCount}
         workingNames={workingNames}
         periodLabel={getPeriodLabel()}
+        goalPeriodLabel={getGoalPeriodLabel()}
         isLiveView={effectivePreset === 'today'}
         constraint={constraint}
         actions={actions}

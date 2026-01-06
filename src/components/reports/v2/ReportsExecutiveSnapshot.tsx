@@ -16,6 +16,7 @@ interface ReportsExecutiveSnapshotProps {
   workingNames?: string[]; // Names of reps currently working
   expectedReps?: number;
   periodLabel: string;
+  goalPeriodLabel?: string; // e.g., "Daily Goal", "Weekly Goal" for TeamGoalSummary
   isLiveView?: boolean;
   
   // Constraint Analysis
@@ -45,6 +46,7 @@ export const ReportsExecutiveSnapshot = ({
   workingNames,
   expectedReps,
   periodLabel,
+  goalPeriodLabel,
   isLiveView,
   constraint,
   actions,
@@ -174,6 +176,7 @@ export const ReportsExecutiveSnapshot = ({
             statusDetails={teamGoalStatusDetails}
             baseline={teamBaseline}
             isLiveView={isLiveView}
+            periodLabel={goalPeriodLabel}
           />
         )}
         {/* Leader Actions */}
