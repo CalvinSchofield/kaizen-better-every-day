@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths, startOfYear } from "date-fns";
+import { cn } from "@/lib/utils";
 
 // Preseason dates
 const PRESEASON_START = new Date(2025, 8, 28); // Sept 28, 2025
@@ -33,11 +34,11 @@ export const ReportsV2Page = () => {
   
   const allUserIds = teamAccess?.accessibleUserIds || [];
   
-  // Get available presets based on team data
-  const { availablePresets, isLoading: presetsLoading } = useAvailableTeamReportsPresets(allUserIds);
+  // Get available presets based on team data with smart auto-selection
+  const { availablePresets, autoSelectedPreset, isLoading: presetsLoading, isFetching } = useAvailableTeamReportsPresets(allUserIds);
 
-  // Auto-select first available preset
-  const effectivePreset = datePreset ?? (availablePresets.length > 0 ? availablePresets[0] : 'today');
+  // Use auto-selected preset when user hasn't manually selected
+  const effectivePreset = datePreset ?? autoSelectedPreset;
 
   // Filter userIds based on team filter
   const filteredUserIds = useMemo(() => {
@@ -190,9 +191,9 @@ export const ReportsV2Page = () => {
     window.open(smsUrl);
   };
 
-  // Preset button config
-  const presetConfig: { key: ReportsDatePreset; label: string }[] = [
-    { key: 'today', label: 'Today' },
+  // Preset button config with Live indicator for today
+  const presetConfig: { key: ReportsDatePreset; label: string; isLive?: boolean }[] = [
+    { key: 'today', label: 'Live', isLive: true },
     { key: 'yesterday', label: 'Yest' },
     { key: 'week', label: 'Week' },
     { key: 'lastWeek', label: 'Last Wk' },
@@ -263,9 +264,15 @@ export const ReportsV2Page = () => {
                 variant={effectivePreset === preset.key ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setDatePreset(preset.key)}
-                className="flex-shrink-0"
+                className="flex-shrink-0 gap-1.5"
               >
                 {preset.label}
+                {preset.isLive && effectivePreset === 'today' && (
+                  <span className={cn(
+                    "h-2 w-2 rounded-full",
+                    isFetching ? "bg-primary-foreground animate-pulse" : "bg-green-500"
+                  )} />
+                )}
               </Button>
             ))}
           
