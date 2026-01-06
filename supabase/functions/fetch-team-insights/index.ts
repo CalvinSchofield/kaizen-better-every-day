@@ -85,6 +85,11 @@ Deno.serve(async (req) => {
         allowedUserIds = [...new Set(matchingReps.map(r => r.user_id).filter(Boolean) as string[])];
       }
     }
+
+    // Reports should be able to include the leader (self) in results
+    if (user.id && !allowedUserIds.includes(user.id)) {
+      allowedUserIds.push(user.id);
+    }
     
     // Filter requested userIds to only those the caller is allowed to access
     const validatedUserIds = userIds.filter((id: string) => allowedUserIds.includes(id));
