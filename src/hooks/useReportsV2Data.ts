@@ -143,10 +143,12 @@ export const useReportsV2Data = ({
   });
   
   // Fetch aggregated data (for date range views)
+  // For today/live views, include unfinalized entries
   const insightsQuery = useTeamInsightsData({
     userIds,
     dateRange,
     excludeUserIds,
+    includeLive: isLiveView,
   });
 
   // Fetch 14-day entries for baseline calculation

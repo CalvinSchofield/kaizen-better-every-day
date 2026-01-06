@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { userIds, dateRange, excludeUserIds = [] } = await req.json();
+    const { userIds, dateRange, excludeUserIds = [], includeLive = false } = await req.json();
 
     if (!userIds || !Array.isArray(userIds)) {
       throw new Error('userIds array is required');
@@ -118,8 +118,12 @@ Deno.serve(async (req) => {
         let query = supabase
           .from('daily_entries')
           .select('*')
-          .in('user_id', filteredUserIds)
-          .eq('is_finalized', true);
+          .in('user_id', filteredUserIds);
+
+        // For Live/Today view, include unfinalized entries; otherwise only finalized
+        if (!includeLive) {
+          query = query.eq('is_finalized', true);
+        }
 
         if (dateRange?.start) {
           query = query.gte('entry_date', dateRange.start);
