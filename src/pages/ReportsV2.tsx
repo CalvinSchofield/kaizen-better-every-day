@@ -63,24 +63,34 @@ export const ReportsV2Page = () => {
   // Filter userIds based on team filter
   const filteredUserIds = useMemo(() => {
     if (!teamAccess) return [];
-    if (teamFilter === 'all') return teamAccess.accessibleUserIds;
-    
-    if (teamFilter.type === 'team') {
-      return teamAccess.accessibleReps
+
+    let ids: string[] = [];
+
+    if (teamFilter === 'all') {
+      ids = allUserIds;
+    } else if (teamFilter.type === 'team') {
+      ids = teamAccess.accessibleReps
         ?.filter(r => r.teamId === teamFilter.id)
-        .map(r => r.userId) || [];
-    }
-    
-    if (teamFilter.type === 'mgmt_group') {
+        .map(r => r.userId)
+        .filter((id): id is string => !!id) || [];
+    } else if (teamFilter.type === 'mgmt_group') {
       const group = teamAccess.mgmtGroups?.find(g => g.id === teamFilter.id);
       const teamIds = group?.teamIds || [];
-      return teamAccess.accessibleReps
-        ?.filter(r => teamIds.includes(r.teamId))
-        .map(r => r.userId) || [];
+      ids = teamAccess.accessibleReps
+        ?.filter(r => r.teamId && teamIds.includes(r.teamId))
+        .map(r => r.userId)
+        .filter((id): id is string => !!id) || [];
+    } else {
+      ids = allUserIds;
     }
-    
-    return teamAccess.accessibleUserIds;
-  }, [teamAccess, teamFilter]);
+
+    // Reports should include the leader viewing it (self)
+    if (currentUserId && teamAccess.accessLevel !== 'none' && !ids.includes(currentUserId)) {
+      ids = [currentUserId, ...ids];
+    }
+
+    return ids;
+  }, [teamAccess, teamFilter, allUserIds, currentUserId]);
 
   // Calculate date range based on preset
   const getDateRange = () => {
