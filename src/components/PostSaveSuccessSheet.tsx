@@ -10,10 +10,12 @@ import { useFocusTier, FocusTier } from "@/hooks/useFocusTier";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useRepData } from "@/hooks/useRepData";
 import { useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getSeasonInfo } from "@/utils/seasonWeekUtils";
 import { getLearningCurvePrincipleMessage, calculatePaceContext } from "@/utils/learningCurveData";
+import { calculateSalesPace } from "@/utils/salesPaceCalculator";
+import { format } from "date-fns";
 import confetti from "canvas-confetti";
 
 interface PostSaveSuccessSheetProps {
@@ -40,6 +42,7 @@ export const PostSaveSuccessSheet = ({
   onKeepWorking,
 }: PostSaveSuccessSheetProps) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { goals } = useRepGoals();
   const { plannedDays } = usePlannedDays();
   const { isEnabled: meVsMeEnabled } = useMeVsMe();
@@ -57,6 +60,23 @@ export const PostSaveSuccessSheet = ({
     return (seasonInfo.week - 1) * 7 + seasonInfo.dayOfWeek;
   }, [seasonInfo]);
   
+  // Fetch user's personal summer start for proper season filtering
+  const { data: seasonConfig } = useQuery({
+    queryKey: ['season-config-post-save', repData?.user_id],
+    queryFn: async () => {
+      if (!repData?.user_id) return null;
+      const { data, error } = await supabase
+        .from('season_config')
+        .select('personal_summer_start')
+        .eq('user_id', repData.user_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!repData?.user_id,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Fetch historical entry for the same day number
   const { data: historicalEntry } = useQuery({
     queryKey: ['historical-day-comparison', comparisonYear, seasonInfo?.type, dayNumber],
@@ -205,39 +225,31 @@ export const PostSaveSuccessSheet = ({
     couldDo: 'Could Do',
   };
   
-  // Calculate daily goal based on remaining planned days
-  // For preseason: use preseason goal; for summer: use focus tier goal
+  // Calculate daily goal using centralized pace calculator
+  // This properly filters planned days by season (preseason vs summer)
   const dailyGoal = useMemo(() => {
     if (!goals?.setup_complete || !plannedDays) return null;
     
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    // Use the centralized calculator which correctly handles:
+    // 1. Filtering planned days by season (preseason ends April 11)
+    // 2. Cancel rate buffer
+    // 3. EFP conversion
+    const result = calculateSalesPace({
+      goals,
+      plannedDays,
+      knockingDays,
+      currentFpPlus: totalFP,
+      currentPrmr: totalPRMR,
+      efpModeEnabled,
+      calculateEfp,
+      activeTier: isUserSummerStarted ? focusTier : 'preseason',
+      personalSummerStart: seasonConfig?.personal_summer_start || undefined,
+    });
     
-    // Get remaining planned days from today onwards (including today)
-    const remainingPlannedDays = plannedDays.filter(d => d.planned_date >= todayStr);
+    if (!result) return null;
     
-    if (remainingPlannedDays.length === 0) return null;
-    
-    // Use the focused tier goal for summer, preseason goal for preseason
-    let targetGoal: number;
-    if (isUserSummerStarted) {
-      targetGoal = fundedFocusTierGoal;
-    } else {
-      // Preseason goal with cancel rate buffer
-      const cancelRate = goals.cancel_rate || 0;
-      const preseasonGoal = goals.preseason_fp_goal || 0;
-      const fundedPreseasonGoal = cancelRate > 0 && cancelRate < 1 
-        ? preseasonGoal / (1 - cancelRate) 
-        : preseasonGoal;
-      const conversionFactor = efpModeEnabled ? (goals.avg_prmr_per_fp || 85) / 85 : 1;
-      targetGoal = fundedPreseasonGoal * conversionFactor;
-    }
-    
-    // Simple daily target based on planned days
-    const dailyTarget = targetGoal / remainingPlannedDays.length;
-    
-    return Math.max(Math.round(dailyTarget * 10) / 10, 0.5);
-  }, [goals, plannedDays, fundedFocusTierGoal, isUserSummerStarted, efpModeEnabled]);
+    return Math.max(Math.round(result.dailyGoal * 10) / 10, 0.5);
+  }, [goals, plannedDays, knockingDays, totalFP, totalPRMR, efpModeEnabled, calculateEfp, isUserSummerStarted, focusTier, seasonConfig?.personal_summer_start]);
 
   const goalMet = dailyGoal !== null && displayFpValue >= dailyGoal;
   const progressPercent = dailyGoal ? Math.min(100, (displayFpValue / dailyGoal) * 100) : 0;
@@ -305,13 +317,20 @@ export const PostSaveSuccessSheet = ({
     onOpenChange(false);
   };
 
-  const handleViewCalendar = () => {
+  const handleViewCalendar = async () => {
     onOpenChange(false);
+    // Refetch to ensure Calendar shows fresh data after save
+    await queryClient.refetchQueries({ queryKey: ['all-daily-entries'] });
+    await queryClient.refetchQueries({ queryKey: ['preseason-fp-total'] });
     navigate('/calendar');
   };
 
-  const handleViewInsights = () => {
+  const handleViewInsights = async () => {
     onOpenChange(false);
+    // Refetch to ensure Insights shows fresh data after save
+    await queryClient.refetchQueries({ queryKey: ['all-daily-entries'] });
+    await queryClient.refetchQueries({ queryKey: ['preseason-fp-total'] });
+    await queryClient.refetchQueries({ queryKey: ['insights-data'] });
     navigate('/insights');
   };
   
