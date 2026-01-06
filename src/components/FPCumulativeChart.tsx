@@ -685,12 +685,12 @@ const ChartView = ({
         <Tooltip content={<CustomTooltip />} />
         <defs>
           <linearGradient id="cumulativeGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
+            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.15} />
             <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
           </linearGradient>
           <linearGradient id="highlightGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
-            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
+            <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.6} />
+            <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0.15} />
           </linearGradient>
         </defs>
         
@@ -709,11 +709,11 @@ const ChartView = ({
           <Area
             type="monotone"
             dataKey="highlightCumulative"
-            stroke="hsl(var(--primary))"
+            stroke="hsl(var(--success))"
             strokeWidth={3}
             fill="url(#highlightGradient)"
-            dot={{ fill: "hsl(var(--primary))", r: 4 }}
-            activeDot={{ r: 6 }}
+            dot={{ fill: "hsl(var(--success))", r: 4 }}
+            activeDot={{ r: 6, fill: "hsl(var(--success))" }}
             connectNulls={false}
           />
         )}
