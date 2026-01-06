@@ -12,8 +12,8 @@ interface CompactROICardProps {
   onRateChange?: (rate: number, roiMode: 'upfront' | 'total') => void;
 }
 
-// Total pay multiplier (rough estimate of final commission value vs upfront)
-const TOTAL_PAY_MULTIPLIER = 2.5;
+// Upfront pay is always 4x for all reps
+const UPFRONT_MULTIPLIER = 4;
 
 export const CompactROICard = ({
   totalSpent,
@@ -29,6 +29,13 @@ export const CompactROICard = ({
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
   
+  // Sync roiMode when goals load
+  useEffect(() => {
+    if (goals?.preferred_roi_mode) {
+      setRoiMode(goals.preferred_roi_mode as 'upfront' | 'total');
+    }
+  }, [goals?.preferred_roi_mode]);
+  
   // Get payscale rate
   const customPayLevel = goals?.custom_payscale_fp ?? null;
   const targetFpPlus = customPayLevel ?? userCumulativeFpPlus;
@@ -36,7 +43,8 @@ export const CompactROICard = ({
   const payscaleRate = currentTier.rate;
   
   // Calculate ROI
-  const effectiveRate = roiMode === 'total' ? payscaleRate * TOTAL_PAY_MULTIPLIER : payscaleRate;
+  // Upfront is always 4x for all reps, Total varies by tier
+  const effectiveRate = roiMode === 'upfront' ? UPFRONT_MULTIPLIER : payscaleRate;
   const totalEarnings = totalPrmr * effectiveRate;
   const roi = totalSpent > 0 ? totalEarnings / totalSpent : 0;
   
@@ -85,31 +93,29 @@ export const CompactROICard = ({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        className="p-4 rounded-2xl bg-warning/10 text-center cursor-pointer active:scale-[0.98] transition-transform touch-manipulation"
+        whileTap={{ scale: 0.95 }}
+        className="p-4 rounded-2xl bg-warning/10 text-center cursor-pointer touch-manipulation"
         {...longPressHandlers}
       >
         <AnimatePresence mode="wait">
           <motion.div
             key={`${roiMode}-${payscaleRate}`}
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            transition={{ duration: 0.15 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
           >
             <div className={`text-3xl font-bold ${roi >= 1 ? 'text-success' : 'text-warning'}`}>
               {roi.toFixed(1)}x
             </div>
             <div className="text-sm font-medium mt-0.5">
-              {roiMode === 'upfront' ? 'Upfront' : 'Total (~2.5x)'} ROI
+              {roiMode === 'upfront' ? 'Upfront' : 'Total'} ROI
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              @ ${payscaleRate}/FP+
+              @ ${effectiveRate}/FP+
             </div>
           </motion.div>
         </AnimatePresence>
-        <div className="text-[10px] text-muted-foreground mt-2 opacity-60">
-          Tap to toggle • Hold to change tier
-        </div>
       </motion.div>
 
       <PayscalePickerDrawer
