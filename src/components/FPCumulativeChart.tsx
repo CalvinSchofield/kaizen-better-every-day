@@ -1,9 +1,9 @@
-import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useMemo, useCallback } from "react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ComposedChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Area } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
-import { format, parseISO, startOfWeek, startOfMonth, isBefore, isAfter, differenceInDays } from "date-fns";
+import { format, parseISO, startOfWeek, startOfMonth, isBefore, isAfter } from "date-fns";
 import { useCumulativeFP, CumulativeDataPoint } from "@/hooks/useCumulativeFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useRepGoals } from "@/hooks/useRepGoals";
@@ -11,14 +11,15 @@ import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useMeVsMe } from "@/hooks/useMeVsMe";
 import { useHistoricalCumulativeData } from "@/hooks/useHistoricalComparison";
 import { getSeasonInfo } from "@/utils/seasonWeekUtils";
-import { TrendingUp, TrendingDown, ChevronDown, Target, History } from "lucide-react";
+import { TrendingUp, TrendingDown, ChevronDown, Settings2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Carousel, CarouselContent, CarouselItem, CarouselApi } from "@/components/ui/carousel";
+import { motion, AnimatePresence } from "framer-motion";
 
 type GroupBy = 'day' | 'week' | 'month';
-type MetricType = 'primary' | 'secondary'; // primary = FP+ or EFP, secondary = PRMR or FP+
+type MetricType = 'primary' | 'secondary';
 type GoalLineType = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
 
-// Season date constants - match CalendarPlanningCard
 const PRESEASON_START = '2025-09-28';
 const PRESEASON_END = '2026-04-11';
 const SUMMER_START = '2026-04-12';
@@ -47,6 +48,8 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
   const [showGoalLine, setShowGoalLine] = useState(true);
   const [selectedGoalLine, setSelectedGoalLine] = useState<GoalLineType>('preseason');
   const [showHistoricalLine, setShowHistoricalLine] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   
   const { data: personalData, isLoading: personalLoading } = useCumulativeFP();
   const { efpModeEnabled } = useEfpMode();
@@ -54,38 +57,47 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
   const { plannedDays } = usePlannedDays();
   const { isEnabled: meVsMeEnabled, dataSummary } = useMeVsMe();
   
-  // Fetch historical data for comparison (2025)
   const comparisonYear = 2025;
-  const { data: historicalData, isLoading: historicalLoading } = useHistoricalCumulativeData(
+  const { data: historicalData } = useHistoricalCumulativeData(
     comparisonYear, 
     meVsMeEnabled && showHistoricalLine
   );
   
-  // Check if we have historical data available
   const hasHistoricalData = meVsMeEnabled && (dataSummary?.totalDays || 0) > 0;
-
-  // Use team data if provided, otherwise use personal data
   const cumulativeData = teamData || personalData;
   const isLoading = isTeamLoading !== undefined ? isTeamLoading : personalLoading;
 
-  // Determine if we're in preseason or summer
   const today = getLocalToday();
-  const preseasonEnd = parseLocalDate(PRESEASON_END);
   const summerStart = parseLocalDate(SUMMER_START);
   const isPreseason = isBefore(today, summerStart);
   const isSummer = !isPreseason;
 
-  // Calculate goal pace data
+  // Handle carousel slide change
+  const handleSlideChange = useCallback(() => {
+    if (!carouselApi) return;
+    const index = carouselApi.selectedScrollSnap();
+    const views: GroupBy[] = ['day', 'week', 'month'];
+    setGroupBy(views[index] || 'day');
+  }, [carouselApi]);
+
+  // Set up carousel event listener
+  useState(() => {
+    if (!carouselApi) return;
+    carouselApi.on('select', handleSlideChange);
+    return () => {
+      carouselApi.off('select', handleSlideChange);
+    };
+  });
+
+  // Goal pace calculation
   const goalPaceData = useMemo(() => {
     if (!goals || !cumulativeData || cumulativeData.length === 0) return null;
 
-    // Get raw goals - these are in FP+ units
     const preseasonGoalRaw = goals.preseason_fp_goal || 0;
     const mustDoGoalRaw = goals.must_do_fp_goal || 0;
     const willDoGoalRaw = goals.will_do_fp_goal || 0;
     const couldDoGoalRaw = goals.could_do_fp_goal || 0;
     
-    // Apply cancel buffer - need to fund more to hit goal after cancellations
     const cancelRate = goals.cancel_rate || 0;
     const cancelMultiplier = cancelRate > 0 && cancelRate < 1 ? 1 / (1 - cancelRate) : 1;
     
@@ -94,11 +106,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     const fundedWillDoGoal = willDoGoalRaw * cancelMultiplier;
     const fundedCouldDoGoal = couldDoGoalRaw * cancelMultiplier;
 
-    // Count ONLY actual knocking days from cumulative data
-    // This matches the standardized definition: doors >= 5 AND work_start_time AND work_end_time set
-    const totalKnockingDays = cumulativeData.filter(d => d.isKnockingDay).length;
-    
-    // Also count planned future days that haven't happened yet
     const plannedDatesSet = new Set(plannedDays?.map(p => p.planned_date) || []);
     const workedDatesSet = new Set(cumulativeData.map(d => d.date));
     const todayStr = format(today, 'yyyy-MM-dd');
@@ -107,14 +114,11 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     const preseasonEndDate = parseLocalDate(PRESEASON_END);
     const summerEndDate = parseLocalDate(SUMMER_END);
     
-    // Count future planned days (not yet worked)
     let futurePreseasonPlannedCount = 0;
     let futureSummerPlannedCount = 0;
     
     plannedDays?.forEach(p => {
-      // Skip if already worked or in the past
       if (workedDatesSet.has(p.planned_date) || p.planned_date <= todayStr) return;
-      
       const pDate = parseLocalDate(p.planned_date);
       if (!isBefore(pDate, preseasonStartDate) && !isAfter(pDate, preseasonEndDate)) {
         futurePreseasonPlannedCount++;
@@ -124,7 +128,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
       }
     });
 
-    // Count knocking days in preseason vs summer from actual data
     let preseasonKnockingDays = 0;
     let summerKnockingDays = 0;
     
@@ -139,18 +142,14 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
       }
     });
 
-    // Total expected knocking days = worked + future planned
     const totalPreseasonDays = preseasonKnockingDays + futurePreseasonPlannedCount;
     const totalSummerDays = summerKnockingDays + futureSummerPlannedCount;
 
-    // Calculate daily pace based on total expected days
     const preseasonDailyPace = totalPreseasonDays > 0 ? fundedPreseasonGoal / totalPreseasonDays : 0;
     const mustDoDailyPace = totalSummerDays > 0 ? fundedMustDoGoal / totalSummerDays : 0;
     const willDoDailyPace = totalSummerDays > 0 ? fundedWillDoGoal / totalSummerDays : 0;
     const couldDoDailyPace = totalSummerDays > 0 ? fundedCouldDoGoal / totalSummerDays : 0;
 
-    // Generate pace line data points matching chart data dates
-    // Track knocking days separately for preseason and summer
     let preseasonKnockingCount = 0;
     let summerKnockingCount = 0;
     
@@ -159,7 +158,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
       const isInPreseason = !isBefore(pointDate, preseasonStartDate) && !isAfter(pointDate, preseasonEndDate);
       const isInSummer = !isBefore(pointDate, summerStart);
 
-      // Only count this point if it's a knocking day
       if (point.isKnockingDay) {
         if (isInPreseason) preseasonKnockingCount++;
         if (isInSummer) summerKnockingCount++;
@@ -188,58 +186,35 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
       mustDoDailyPace,
       willDoDailyPace,
       couldDoDailyPace,
-      preseasonPlannedCount: totalPreseasonDays,
-      summerPlannedCount: totalSummerDays,
     };
-  }, [goals, cumulativeData, plannedDays, today]);
+  }, [goals, cumulativeData, plannedDays, today, summerStart]);
 
-  // Build a map of historical data by "days since season start" for proper alignment
-  // This uses the day number within the season (0-indexed) to match current year to historical
-  // NOTE: This hook must be called before any early returns to maintain hook order
+  // Historical data map
   const historicalByDayNumber = useMemo(() => {
-    if (!historicalData || historicalData.length === 0) {
-      return new Map<number, number>();
-    }
+    if (!historicalData || historicalData.length === 0) return new Map<number, number>();
     const map = new Map<number, number>();
     historicalData.forEach(entry => {
-      // Calculate day number from season start: (week-1)*7 + dayOfWeek
       const dayNumber = (entry.seasonWeek - 1) * 7 + entry.dayOfWeek;
       const value = metricType === 'primary' ? entry.cumulativeFp : entry.cumulativePrmr;
       map.set(dayNumber, value);
     });
     return map;
   }, [historicalData, metricType]);
-  
-  // Get cumulative historical value for a given day number (carries forward last known value)
+
   const getHistoricalCumulativeForDay = (dayNumber: number): number | undefined => {
     if (historicalByDayNumber.size === 0) return undefined;
-    
-    // If exact match exists, use it
-    if (historicalByDayNumber.has(dayNumber)) {
-      return historicalByDayNumber.get(dayNumber);
-    }
-    
-    // Otherwise find the last known value before this day
-    let lastValue: number | undefined;
+    if (historicalByDayNumber.has(dayNumber)) return historicalByDayNumber.get(dayNumber);
     for (let d = dayNumber - 1; d >= 0; d--) {
-      if (historicalByDayNumber.has(d)) {
-        lastValue = historicalByDayNumber.get(d);
-        break;
-      }
+      if (historicalByDayNumber.has(d)) return historicalByDayNumber.get(d);
     }
-    return lastValue;
+    return undefined;
   };
 
-  // Determine which grouping options are available based on data length
   const hasEnoughForWeek = (cumulativeData?.length || 0) >= 7;
   const hasEnoughForMonth = (cumulativeData?.length || 0) >= 14;
-
-  // Determine labels based on mode and metric type
   const primaryLabel = efpModeEnabled ? "EFP" : "FP+";
   const secondaryLabel = efpModeEnabled ? "FP+" : "PRMR";
-  const currentMetricLabel = metricType === 'primary' ? primaryLabel : secondaryLabel;
 
-  // Helper to check if a date is within highlight range
   const isInHighlightRange = (dateStr: string): boolean => {
     if (!highlightDateRange) return false;
     const date = parseLocalDate(dateStr);
@@ -248,29 +223,60 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     return !isBefore(date, start) && !isAfter(date, end);
   };
 
+  // Rolling averages calculation
+  const rollingAverages = useMemo(() => {
+    if (!cumulativeData || cumulativeData.length === 0) return null;
+    
+    const knockingDays = cumulativeData.filter(d => d.isKnockingDay);
+    if (knockingDays.length < 2) return null;
+    
+    const dailyValues = knockingDays.map((d, i) => {
+      const prevCumulative = i > 0 ? knockingDays[i - 1].cumulative : 0;
+      return metricType === 'primary' 
+        ? d.cumulative - prevCumulative
+        : (efpModeEnabled 
+            ? (d.cumulativeFp ?? 0) - (knockingDays[i - 1]?.cumulativeFp ?? 0)
+            : (d.cumulativePrmr ?? 0) - (knockingDays[i - 1]?.cumulativePrmr ?? 0));
+    });
+    
+    const last6Days = dailyValues.slice(-6);
+    const avg6Day = last6Days.length > 0 ? last6Days.reduce((sum, v) => sum + v, 0) / last6Days.length : 0;
+    
+    const last12Days = dailyValues.slice(-12);
+    const avg12Day = last12Days.length > 0 ? last12Days.reduce((sum, v) => sum + v, 0) / last12Days.length : 0;
+    
+    let dailyGoalPace = 0;
+    if (goalPaceData) {
+      if (isPreseason) {
+        dailyGoalPace = goalPaceData.preseasonDailyPace || 0;
+      } else {
+        if (selectedGoalLine === 'mustDo') dailyGoalPace = goalPaceData.mustDoDailyPace || 0;
+        else if (selectedGoalLine === 'willDo') dailyGoalPace = goalPaceData.willDoDailyPace || 0;
+        else if (selectedGoalLine === 'couldDo') dailyGoalPace = goalPaceData.couldDoDailyPace || 0;
+        else dailyGoalPace = goalPaceData.preseasonDailyPace || 0;
+      }
+    }
+    
+    return { avg6Day, avg12Day, dailyGoalPace };
+  }, [cumulativeData, metricType, efpModeEnabled, goalPaceData, isPreseason, selectedGoalLine]);
+
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" />
-            Progress Over Time
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64 flex items-center justify-center text-muted-foreground">
-            Loading...
-          </div>
-        </CardContent>
+      <Card className="p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="w-5 h-5" />
+          <h2 className="text-lg font-semibold">Progress Over Time</h2>
+        </div>
+        <div className="h-64 flex items-center justify-center text-muted-foreground">
+          Loading...
+        </div>
       </Card>
     );
   }
 
-  if (!cumulativeData || cumulativeData.length === 0) {
-    return null;
-  }
+  if (!cumulativeData || cumulativeData.length === 0) return null;
 
-  // Group data by day/week/month
+  // Chart data grouping
   const groupedData = () => {
     if (groupBy === 'day') {
       return cumulativeData.map((point, idx) => {
@@ -280,7 +286,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
           ? point.cumulative 
           : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
         
-        // Get matching historical value by day number within season
         const seasonInfo = getSeasonInfo(parseLocalDate(point.date));
         let historicalCumulative: number | undefined;
         if (showHistoricalLine && seasonInfo && historicalByDayNumber.size > 0) {
@@ -303,7 +308,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
       });
     }
 
-    // Group by week or month
     const grouped: Record<string, any> = {};
     cumulativeData.forEach((point, idx) => {
       const date = parseISO(point.date);
@@ -317,7 +321,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
         ? point.cumulative 
         : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
       
-      // Get matching historical value by day number within season
       const seasonInfo = getSeasonInfo(parseLocalDate(point.date));
       let historicalCumulative: number | undefined;
       if (showHistoricalLine && seasonInfo && historicalByDayNumber.size > 0) {
@@ -328,12 +331,9 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
       if (!grouped[key]) {
         grouped[key] = {
           date: key,
-          displayDate: groupBy === 'week' 
-            ? format(parseISO(key), "MMM d")
-            : format(parseISO(key), "MMM"),
+          displayDate: groupBy === 'week' ? format(parseISO(key), "MMM d") : format(parseISO(key), "MMM"),
           cumulative: cumValue,
           highlightCumulative: inRange ? cumValue : undefined,
-          inHighlightRange: inRange,
           preseasonPace: pacePoint?.preseasonPace,
           mustDoPace: pacePoint?.mustDoPace,
           willDoPace: pacePoint?.willDoPace,
@@ -342,17 +342,11 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
         };
       } else {
         grouped[key].cumulative = cumValue;
-        // Mark as in range if any day in the group is in range
-        if (inRange) {
-          grouped[key].highlightCumulative = cumValue;
-          grouped[key].inHighlightRange = true;
-        }
-        // Keep the latest pace values for the group
+        if (inRange) grouped[key].highlightCumulative = cumValue;
         if (pacePoint?.preseasonPace !== undefined) grouped[key].preseasonPace = pacePoint.preseasonPace;
         if (pacePoint?.mustDoPace !== undefined) grouped[key].mustDoPace = pacePoint.mustDoPace;
         if (pacePoint?.willDoPace !== undefined) grouped[key].willDoPace = pacePoint.willDoPace;
         if (pacePoint?.couldDoPace !== undefined) grouped[key].couldDoPace = pacePoint.couldDoPace;
-        // Keep the latest historical value for the group
         if (historicalCumulative !== undefined) grouped[key].historicalCumulative = historicalCumulative;
       }
     });
@@ -361,63 +355,14 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
   };
 
   const chartData = groupedData();
+  const totalForMode = metricType === 'primary' 
+    ? cumulativeData[cumulativeData.length - 1].cumulative
+    : (efpModeEnabled ? cumulativeData[cumulativeData.length - 1].cumulativeFp : cumulativeData[cumulativeData.length - 1].cumulativePrmr);
 
-  // Calculate rolling averages (6-day and 12-day working day averages)
-  const calculateRollingAverages = () => {
-    if (!cumulativeData || cumulativeData.length === 0) return null;
-    
-    // Only consider knocking days for rolling average
-    const knockingDays = cumulativeData.filter(d => d.isKnockingDay);
-    if (knockingDays.length < 2) return null;
-    
-    // Get daily production values (not cumulative) for each knocking day
-    const dailyValues = knockingDays.map((d, i) => {
-      const prevCumulative = i > 0 ? knockingDays[i - 1].cumulative : 0;
-      return metricType === 'primary' 
-        ? d.cumulative - prevCumulative
-        : (efpModeEnabled 
-            ? (d.cumulativeFp ?? 0) - (knockingDays[i - 1]?.cumulativeFp ?? 0)
-            : (d.cumulativePrmr ?? 0) - (knockingDays[i - 1]?.cumulativePrmr ?? 0));
-    });
-    
-    // Calculate 6-day rolling average (last 6 knocking days)
-    const last6Days = dailyValues.slice(-6);
-    const avg6Day = last6Days.length > 0 
-      ? last6Days.reduce((sum, v) => sum + v, 0) / last6Days.length 
-      : 0;
-    
-    // Calculate 12-day rolling average (last 12 knocking days)  
-    const last12Days = dailyValues.slice(-12);
-    const avg12Day = last12Days.length > 0
-      ? last12Days.reduce((sum, v) => sum + v, 0) / last12Days.length
-      : 0;
-    
-    // Get daily goal pace
-    let dailyGoalPace = 0;
-    if (goalPaceData) {
-      if (isPreseason) {
-        dailyGoalPace = goalPaceData.preseasonDailyPace || 0;
-      } else {
-        // Use selected goal line for summer
-        if (selectedGoalLine === 'mustDo') dailyGoalPace = goalPaceData.mustDoDailyPace || 0;
-        else if (selectedGoalLine === 'willDo') dailyGoalPace = goalPaceData.willDoDailyPace || 0;
-        else if (selectedGoalLine === 'couldDo') dailyGoalPace = goalPaceData.couldDoDailyPace || 0;
-        else dailyGoalPace = goalPaceData.preseasonDailyPace || 0;
-      }
-    }
-    
-    return {
-      avg6Day,
-      avg12Day,
-      dailyGoalPace,
-      has6DayData: last6Days.length >= 6,
-      has12DayData: last12Days.length >= 12,
-    };
-  };
+  const hasPreseasonGoal = (goals?.preseason_fp_goal || 0) > 0;
+  const hasSummerGoals = (goals?.must_do_fp_goal || 0) > 0;
+  const canShowGoalLine = metricType === 'primary' && (hasPreseasonGoal || hasSummerGoals);
 
-  const rollingAverages = calculateRollingAverages();
-
-  // Get the active goal line key
   const getGoalLineKey = (): string => {
     if (isPreseason || selectedGoalLine === 'preseason') return 'preseasonPace';
     if (selectedGoalLine === 'mustDo') return 'mustDoPace';
@@ -426,63 +371,38 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     return 'preseasonPace';
   };
 
-  const getGoalLineLabel = (): string => {
-    if (isPreseason || selectedGoalLine === 'preseason') return 'Preseason Goal';
-    if (selectedGoalLine === 'mustDo') return 'Must Do';
-    if (selectedGoalLine === 'willDo') return 'Will Do';
-    if (selectedGoalLine === 'couldDo') return 'Could Do';
-    return 'Goal';
-  };
-
   const chartConfig = {
-    cumulative: {
-      label: `Total ${currentMetricLabel}`,
-      color: "hsl(var(--primary))",
-    },
-    goalPace: {
-      label: getGoalLineLabel(),
-      color: "hsl(var(--muted-foreground))",
-    },
+    cumulative: { label: `Total ${primaryLabel}`, color: "hsl(var(--primary))" },
+    goalPace: { label: "Goal", color: "hsl(var(--muted-foreground))" },
   };
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (!active || !payload || payload.length === 0) return null;
-
     const data = payload[0].payload;
     const goalLineKey = getGoalLineKey();
     const goalPaceValue = data[goalLineKey];
     
     return (
       <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
-        <p className="font-semibold text-sm mb-2">
-          {format(parseISO(data.date), "MMM d, yyyy")}
-        </p>
+        <p className="font-semibold text-sm mb-2">{format(parseISO(data.date), "MMM d, yyyy")}</p>
         <div className="text-xs space-y-1">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">{new Date().getFullYear()} {currentMetricLabel}:</span>
+            <span className="text-muted-foreground">{primaryLabel}:</span>
             <span className="font-semibold" style={{ color: chartConfig.cumulative.color }}>
-              {metricType === 'secondary' && !efpModeEnabled
-                ? `$${data.cumulative.toFixed(0)}`
-                : (efpModeEnabled && metricType === 'primary')
-                  ? data.cumulative.toFixed(2)
-                  : data.cumulative.toFixed(1)}
+              {efpModeEnabled && metricType === 'primary' ? data.cumulative.toFixed(2) : data.cumulative.toFixed(1)}
             </span>
           </div>
           {showHistoricalLine && data.historicalCumulative != null && (
             <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">{comparisonYear} {currentMetricLabel}:</span>
+              <span className="text-muted-foreground">{comparisonYear}:</span>
               <span className="font-medium text-amber-600 dark:text-amber-400">
-                {metricType === 'secondary' && !efpModeEnabled
-                  ? `$${data.historicalCumulative.toFixed(0)}`
-                  : (efpModeEnabled && metricType === 'primary')
-                    ? data.historicalCumulative.toFixed(2)
-                    : data.historicalCumulative.toFixed(1)}
+                {efpModeEnabled && metricType === 'primary' ? data.historicalCumulative.toFixed(2) : data.historicalCumulative.toFixed(1)}
               </span>
             </div>
           )}
           {showGoalLine && goalPaceValue != null && metricType === 'primary' && (
             <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">{getGoalLineLabel()} Pace:</span>
+              <span className="text-muted-foreground">Goal Pace:</span>
               <span className="font-medium text-muted-foreground">
                 {efpModeEnabled ? goalPaceValue.toFixed(2) : goalPaceValue.toFixed(1)}
               </span>
@@ -493,20 +413,18 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     );
   };
 
-  const totalForMode = metricType === 'primary' 
-    ? cumulativeData[cumulativeData.length - 1].cumulative  // EFP or FP+ depending on mode
-    : (efpModeEnabled
-        ? cumulativeData[cumulativeData.length - 1].cumulativeFp  // FP+ when in EFP mode secondary
-        : cumulativeData[cumulativeData.length - 1].cumulativePrmr);  // PRMR when in FP+ mode secondary
+  // Determine if above/below goal
+  const isAboveGoal = rollingAverages && rollingAverages.dailyGoalPace > 0 
+    ? rollingAverages.avg6Day >= rollingAverages.dailyGoalPace 
+    : true;
 
-  // Check if goal line should be available (for primary metric when there's a goal set)
-  const hasPreseasonGoal = (goals?.preseason_fp_goal || 0) > 0;
-  const hasSummerGoals = (goals?.must_do_fp_goal || 0) > 0;
-  const canShowGoalLine = metricType === 'primary' && (hasPreseasonGoal || hasSummerGoals);
+  const paceGap = rollingAverages && rollingAverages.dailyGoalPace > 0
+    ? Math.abs(rollingAverages.avg6Day - rollingAverages.dailyGoalPace)
+    : 0;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <Card>
+      <Card className="overflow-hidden">
         <div className="p-4">
           <CollapsibleTrigger className="w-full">
             <div className="flex items-center justify-between">
@@ -516,374 +434,316 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
               </div>
               <ChevronDown className={`w-5 h-5 transition-transform text-muted-foreground ${isOpen ? "rotate-180" : ""}`} />
             </div>
-            {!isOpen && (
-              <div className="mt-2 text-left text-sm text-muted-foreground">
-                {metricType === 'primary' 
-                  ? (efpModeEnabled 
-                      ? `${totalForMode.toFixed(2)} EFP total`
-                      : `${totalForMode.toFixed(1)} FP+ total`)
-                  : (efpModeEnabled
-                      ? `${totalForMode.toFixed(1)} FP+ total`
-                      : `$${totalForMode.toFixed(0)} PRMR total`)}
-              </div>
-            )}
           </CollapsibleTrigger>
 
           <CollapsibleContent>
-            <div className="pt-3 space-y-3">
-              {/* All Controls in One Row */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Group By */}
-                <div className="flex items-center gap-1 border border-border rounded-lg p-1">
-                  <Button
-                    variant={groupBy === 'day' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setGroupBy('day')}
-                    className="text-xs h-7 px-2"
-                  >
-                    Day
-                  </Button>
-                  {hasEnoughForWeek && (
-                    <Button
-                      variant={groupBy === 'week' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setGroupBy('week')}
-                      className="text-xs h-7 px-2"
-                    >
-                      Week
-                    </Button>
-                  )}
-                  {hasEnoughForMonth && (
-                    <Button
-                      variant={groupBy === 'month' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setGroupBy('month')}
-                      className="text-xs h-7 px-2"
-                    >
-                      Month
-                    </Button>
-                  )}
-                </div>
-
-                {/* Metric Toggle (EFP/FP+ when in EFP mode) */}
-                <div className="flex items-center gap-1 border border-border rounded-lg p-1">
-                  <Button
-                    variant={metricType === 'primary' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setMetricType('primary')}
-                    className="text-xs h-7 px-2"
-                  >
-                    {primaryLabel}
-                  </Button>
-                  <Button
-                    variant={metricType === 'secondary' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setMetricType('secondary')}
-                    className="text-xs h-7 px-2"
-                  >
-                    {secondaryLabel}
-                  </Button>
-                </div>
-
-                {/* Goal Line Toggle */}
-                {canShowGoalLine && (
-                  <Button
-                    variant={showGoalLine ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setShowGoalLine(!showGoalLine)}
-                    className="text-xs h-7 px-2 gap-1"
-                  >
-                    <Target className="w-3 h-3" />
-                    Goal
-                  </Button>
-                )}
-
-                {/* Historical Line Toggle */}
-                {hasHistoricalData && (
-                  <Button
-                    variant={showHistoricalLine ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setShowHistoricalLine(!showHistoricalLine)}
-                    className="text-xs h-7 px-2 gap-1"
-                  >
-                    <History className="w-3 h-3" />
-                    {comparisonYear}
-                  </Button>
-                )}
-              </div>
-
-              {/* Summer Goal Selector (only show in summer when goal line is on) */}
-              {canShowGoalLine && showGoalLine && isSummer && (
-                <div className="flex items-center gap-1 border border-border rounded-lg p-1 w-fit">
-                  <Button
-                    variant={selectedGoalLine === 'mustDo' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setSelectedGoalLine('mustDo')}
-                    className="text-xs h-6 px-2"
-                  >
-                    Must Do
-                  </Button>
-                  <Button
-                    variant={selectedGoalLine === 'willDo' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setSelectedGoalLine('willDo')}
-                    className="text-xs h-6 px-2"
-                  >
-                    Will Do
-                  </Button>
-                  <Button
-                    variant={selectedGoalLine === 'couldDo' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setSelectedGoalLine('couldDo')}
-                    className="text-xs h-6 px-2"
-                  >
-                    Could Do
-                  </Button>
-                </div>
-              )}
-
-              {/* Rolling Averages */}
-              {rollingAverages && metricType === 'primary' && (
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center gap-4">
-                    {/* 6-Day Average */}
-                    <div className="flex items-center gap-1.5">
-                      {rollingAverages.avg6Day >= rollingAverages.dailyGoalPace ? (
-                        <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-                      ) : (
-                        <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
-                      )}
-                      <span className={rollingAverages.avg6Day >= rollingAverages.dailyGoalPace ? "text-green-600 dark:text-green-400 font-medium" : "text-red-600 dark:text-red-400 font-medium"}>
-                        {efpModeEnabled ? rollingAverages.avg6Day.toFixed(2) : rollingAverages.avg6Day.toFixed(1)}
-                      </span>
-                      <span className="text-muted-foreground">
-                        6-day avg
-                      </span>
-                    </div>
-                    
-                    {/* 12-Day Average */}
-                    <div className="flex items-center gap-1.5">
-                      {rollingAverages.avg12Day >= rollingAverages.dailyGoalPace ? (
-                        <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-                      ) : (
-                        <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
-                      )}
-                      <span className={rollingAverages.avg12Day >= rollingAverages.dailyGoalPace ? "text-green-600 dark:text-green-400 font-medium" : "text-red-600 dark:text-red-400 font-medium"}>
-                        {efpModeEnabled ? rollingAverages.avg12Day.toFixed(2) : rollingAverages.avg12Day.toFixed(1)}
-                      </span>
-                      <span className="text-muted-foreground">
-                        12-day avg
-                      </span>
-                    </div>
+            {/* Hero Section */}
+            <div className="mt-4 text-center">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={totalForMode}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="text-4xl font-bold">
+                    {metricType === 'primary' 
+                      ? (efpModeEnabled ? totalForMode.toFixed(2) : totalForMode.toFixed(1))
+                      : (efpModeEnabled ? totalForMode.toFixed(1) : `$${totalForMode.toFixed(0)}`)}
                   </div>
-                  
-                  {rollingAverages.dailyGoalPace > 0 && (
-                    <div className="text-muted-foreground">
-                      Goal: {efpModeEnabled ? rollingAverages.dailyGoalPace.toFixed(2) : rollingAverages.dailyGoalPace.toFixed(1)} {efpModeEnabled ? 'EFP' : 'FP+'}/day needed
-                    </div>
-                  )}
+                  <div className="text-sm text-muted-foreground mt-1">
+                    {metricType === 'primary' ? primaryLabel : secondaryLabel}
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Summary Line */}
+              {rollingAverages && metricType === 'primary' && rollingAverages.dailyGoalPace > 0 && (
+                <div className={`mt-2 text-sm font-medium flex items-center justify-center gap-1.5 ${isAboveGoal ? 'text-success' : 'text-destructive'}`}>
+                  {isAboveGoal ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                  <span>
+                    {efpModeEnabled ? rollingAverages.avg6Day.toFixed(2) : rollingAverages.avg6Day.toFixed(1)}/day
+                  </span>
+                  <span className="text-muted-foreground">•</span>
+                  <span>
+                    {efpModeEnabled ? paceGap.toFixed(2) : paceGap.toFixed(1)} {isAboveGoal ? 'above' : 'below'} goal
+                  </span>
                 </div>
               )}
             </div>
           </CollapsibleContent>
         </div>
+
         <CollapsibleContent>
+          {/* Chart with Swipe Navigation */}
+          <div className="px-4 pb-2">
+            <Carousel
+              setApi={setCarouselApi}
+              opts={{ startIndex: groupBy === 'day' ? 0 : groupBy === 'week' ? 1 : 2 }}
+              className="w-full"
+            >
+              <CarouselContent>
+                {/* Day View */}
+                <CarouselItem>
+                  <ChartView
+                    chartData={chartData}
+                    chartConfig={chartConfig}
+                    CustomTooltip={CustomTooltip}
+                    canShowGoalLine={canShowGoalLine}
+                    showGoalLine={showGoalLine}
+                    getGoalLineKey={getGoalLineKey}
+                    showHistoricalLine={showHistoricalLine}
+                    highlightDateRange={highlightDateRange}
+                  />
+                </CarouselItem>
+                {/* Week View */}
+                {hasEnoughForWeek && (
+                  <CarouselItem>
+                    <ChartView
+                      chartData={chartData}
+                      chartConfig={chartConfig}
+                      CustomTooltip={CustomTooltip}
+                      canShowGoalLine={canShowGoalLine}
+                      showGoalLine={showGoalLine}
+                      getGoalLineKey={getGoalLineKey}
+                      showHistoricalLine={showHistoricalLine}
+                      highlightDateRange={highlightDateRange}
+                    />
+                  </CarouselItem>
+                )}
+                {/* Month View */}
+                {hasEnoughForMonth && (
+                  <CarouselItem>
+                    <ChartView
+                      chartData={chartData}
+                      chartConfig={chartConfig}
+                      CustomTooltip={CustomTooltip}
+                      canShowGoalLine={canShowGoalLine}
+                      showGoalLine={showGoalLine}
+                      getGoalLineKey={getGoalLineKey}
+                      showHistoricalLine={showHistoricalLine}
+                      highlightDateRange={highlightDateRange}
+                    />
+                  </CarouselItem>
+                )}
+              </CarouselContent>
+            </Carousel>
+
+            {/* View Indicators */}
+            <div className="flex items-center justify-center gap-2 mt-3">
+              {(['day', 'week', 'month'] as const).filter((v, i) => 
+                i === 0 || (i === 1 && hasEnoughForWeek) || (i === 2 && hasEnoughForMonth)
+              ).map((view) => (
+                <button
+                  key={view}
+                  onClick={() => {
+                    setGroupBy(view);
+                    const idx = view === 'day' ? 0 : view === 'week' ? 1 : 2;
+                    carouselApi?.scrollTo(idx);
+                  }}
+                  className={`text-xs px-3 py-1 rounded-full transition-colors ${
+                    groupBy === view 
+                      ? 'bg-primary text-primary-foreground' 
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {view.charAt(0).toUpperCase() + view.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Collapsible Options */}
           <div className="px-4 pb-4">
-        <ChartContainer config={chartConfig} className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <XAxis
-                dataKey="displayDate"
-                tick={{ fontSize: 12 }}
-                tickMargin={8}
-                stroke="hsl(var(--muted-foreground))"
-              />
-              <YAxis
-                tick={{ fontSize: 12 }}
-                tickMargin={8}
-                stroke="hsl(var(--muted-foreground))"
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <defs>
-                <linearGradient id="cumulativeGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="highlightGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
-                </linearGradient>
-              </defs>
-              
-              <Area
-                type="monotone"
-                dataKey="cumulative"
-                stroke="hsl(var(--muted-foreground))"
-                strokeWidth={2}
-                strokeOpacity={0.4}
-                fill="url(#cumulativeGradient)"
-                dot={false}
-                activeDot={{ r: 6 }}
-                animationDuration={800}
-                animationEasing="ease-out"
-              />
-              
-              {/* Highlighted date range overlay */}
-              {highlightDateRange && (
-                <Area
-                  type="monotone"
-                  dataKey="highlightCumulative"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={3}
-                  fill="url(#highlightGradient)"
-                  dot={{ fill: "hsl(var(--primary))", r: 4 }}
-                  activeDot={{ r: 6 }}
-                  animationDuration={800}
-                  animationEasing="ease-out"
-                  connectNulls={false}
-                />
-              )}
-              
-              {/* Goal Pace Line - rendered after Area so it's on top */}
-              {canShowGoalLine && showGoalLine && (
-                <Line
-                  type="linear"
-                  dataKey={getGoalLineKey()}
-                  stroke="hsl(var(--foreground))"
-                  strokeWidth={2}
-                  strokeDasharray="6 4"
-                  dot={false}
-                  connectNulls={true}
-                  animationDuration={800}
-                />
-              )}
-              
-              {/* Historical Pace Line */}
-              {showHistoricalLine && (
-                <Line
-                  type="monotone"
-                  dataKey="historicalCumulative"
-                  stroke="hsl(38, 92%, 50%)"
-                  strokeWidth={2}
-                  strokeOpacity={0.8}
-                  dot={false}
-                  connectNulls={true}
-                  animationDuration={800}
-                />
-              )}
-            </ComposedChart>
-          </ResponsiveContainer>
-          </ChartContainer>
-          
-          {/* Legend with daily pace info */}
-          {canShowGoalLine && showGoalLine && goalPaceData && (
-            <div className="flex flex-col items-center gap-1 pt-2">
-              {/* Daily pace label */}
-              <div className="text-xs text-muted-foreground">
-                {isPreseason ? (
-                  goalPaceData.preseasonDailyPace > 0 && (
-                    <span>
-                      {efpModeEnabled 
-                        ? `${goalPaceData.preseasonDailyPace.toFixed(2)} EFP/day`
-                        : `${goalPaceData.preseasonDailyPace.toFixed(2)} FP+/day`}
-                      {' to fund '}
-                      {efpModeEnabled 
-                        ? `${goalPaceData.preseasonGoal.toFixed(1)} EFP`
-                        : `${goalPaceData.preseasonGoal.toFixed(1)} FP+`}
-                      {' over '}
-                      {goalPaceData.preseasonPlannedCount} days
-                    </span>
-                  )
-                ) : (
-                  (() => {
-                    const dailyPace = selectedGoalLine === 'mustDo' ? goalPaceData.mustDoDailyPace
-                      : selectedGoalLine === 'willDo' ? goalPaceData.willDoDailyPace
-                      : goalPaceData.couldDoDailyPace;
-                    const goalAmount = selectedGoalLine === 'mustDo' ? goalPaceData.mustDoGoal
-                      : selectedGoalLine === 'willDo' ? goalPaceData.willDoGoal
-                      : goalPaceData.couldDoGoal;
-                    return dailyPace > 0 && (
-                      <span>
-                        {efpModeEnabled 
-                          ? `${dailyPace.toFixed(2)} EFP/day`
-                          : `${dailyPace.toFixed(2)} FP+/day`}
-                        {' to fund '}
-                        {efpModeEnabled 
-                          ? `${goalAmount.toFixed(1)} EFP`
-                          : `${goalAmount.toFixed(1)} FP+`}
-                        {' over '}
-                        {goalPaceData.summerPlannedCount} days
-                      </span>
-                    );
-                  })()
-                )}
-              </div>
-              {/* Legend icons */}
-              <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground flex-wrap">
-                {highlightDateRange && (
-                  <>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-4 h-0.5 rounded bg-muted-foreground/40" />
-                      All Time
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-4 h-0.5 rounded bg-primary" />
-                      Selected Period
-                    </span>
-                  </>
-                )}
-                {!highlightDateRange && (
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-4 h-0.5 rounded bg-primary" />
-                    {new Date().getFullYear()} Actual
-                  </span>
-                )}
-                <span className="flex items-center gap-1.5">
-                  <span className="w-4 h-0.5 rounded bg-muted-foreground border-dashed" style={{ borderBottom: '1.5px dashed' }} />
-                  {getGoalLineLabel()} Pace
-                </span>
-                {showHistoricalLine && (
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-4 h-0.5 rounded" style={{ backgroundColor: 'hsl(38, 92%, 50%)' }} />
-                    {comparisonYear} Actual
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-          
-          {/* Legend when only highlight is shown (no goal line) */}
-          {highlightDateRange && !(canShowGoalLine && showGoalLine) && (
-            <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground pt-2 flex-wrap">
-              <span className="flex items-center gap-1.5">
-                <span className="w-4 h-0.5 rounded bg-primary" />
-                Selected Period
-              </span>
-              {showHistoricalLine && (
-                <span className="flex items-center gap-1.5">
-                  <span className="w-4 h-0.5 rounded" style={{ backgroundColor: 'hsl(38, 92%, 50%)' }} />
-                  {comparisonYear} Actual
-                </span>
-              )}
-            </div>
-          )}
-          
-          {/* Legend when only historical line is shown (no goal line, no highlight) */}
-          {showHistoricalLine && !(canShowGoalLine && showGoalLine) && !highlightDateRange && (
-            <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground pt-2">
-              <span className="flex items-center gap-1.5">
-                <span className="w-4 h-0.5 rounded bg-primary" />
-                {new Date().getFullYear()} Actual
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-4 h-0.5 rounded" style={{ backgroundColor: 'hsl(38, 92%, 50%)' }} />
-                {comparisonYear} Actual
-              </span>
-            </div>
-          )}
-        </div>
-      </CollapsibleContent>
-    </Card>
+            <Collapsible open={showOptions} onOpenChange={setShowOptions}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-full text-muted-foreground gap-2">
+                  <Settings2 className="w-4 h-4" />
+                  Options
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showOptions ? 'rotate-180' : ''}`} />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="pt-3 space-y-3">
+                  {/* Metric Toggle */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Metric:</span>
+                    <div className="flex items-center gap-1 border border-border rounded-lg p-1">
+                      <Button
+                        variant={metricType === 'primary' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setMetricType('primary')}
+                        className="text-xs h-7 px-2"
+                      >
+                        {primaryLabel}
+                      </Button>
+                      <Button
+                        variant={metricType === 'secondary' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setMetricType('secondary')}
+                        className="text-xs h-7 px-2"
+                      >
+                        {secondaryLabel}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Goal Toggle */}
+                  {canShowGoalLine && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Goal Line:</span>
+                      <Button
+                        variant={showGoalLine ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setShowGoalLine(!showGoalLine)}
+                        className="text-xs h-7 px-2"
+                      >
+                        {showGoalLine ? 'On' : 'Off'}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Summer Goal Selector */}
+                  {canShowGoalLine && showGoalLine && isSummer && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Goal:</span>
+                      <div className="flex items-center gap-1 border border-border rounded-lg p-1">
+                        {(['mustDo', 'willDo', 'couldDo'] as const).map((tier) => (
+                          <Button
+                            key={tier}
+                            variant={selectedGoalLine === tier ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setSelectedGoalLine(tier)}
+                            className="text-xs h-6 px-2"
+                          >
+                            {tier === 'mustDo' ? 'Must' : tier === 'willDo' ? 'Will' : 'Could'}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Historical Toggle */}
+                  {hasHistoricalData && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{comparisonYear} Data:</span>
+                      <Button
+                        variant={showHistoricalLine ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setShowHistoricalLine(!showHistoricalLine)}
+                        className="text-xs h-7 px-2"
+                      >
+                        {showHistoricalLine ? 'Showing' : 'Hidden'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        </CollapsibleContent>
+      </Card>
     </Collapsible>
   );
 };
+
+// Chart View Component
+interface ChartViewProps {
+  chartData: any[];
+  chartConfig: any;
+  CustomTooltip: React.ComponentType<any>;
+  canShowGoalLine: boolean;
+  showGoalLine: boolean;
+  getGoalLineKey: () => string;
+  showHistoricalLine: boolean;
+  highlightDateRange?: { start: Date; end: Date };
+}
+
+const ChartView = ({
+  chartData,
+  chartConfig,
+  CustomTooltip,
+  canShowGoalLine,
+  showGoalLine,
+  getGoalLineKey,
+  showHistoricalLine,
+  highlightDateRange,
+}: ChartViewProps) => (
+  <ChartContainer config={chartConfig} className="h-56 w-full">
+    <ResponsiveContainer width="100%" height="100%">
+      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+        <XAxis
+          dataKey="displayDate"
+          tick={{ fontSize: 10 }}
+          tickMargin={8}
+          stroke="hsl(var(--muted-foreground))"
+          axisLine={false}
+          tickLine={false}
+        />
+        <YAxis hide />
+        <Tooltip content={<CustomTooltip />} />
+        <defs>
+          <linearGradient id="cumulativeGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
+            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id="highlightGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
+            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
+          </linearGradient>
+        </defs>
+        
+        <Area
+          type="monotone"
+          dataKey="cumulative"
+          stroke="hsl(var(--primary))"
+          strokeWidth={2}
+          fill="url(#cumulativeGradient)"
+          dot={false}
+          activeDot={{ r: 6 }}
+          animationDuration={600}
+        />
+        
+        {highlightDateRange && (
+          <Area
+            type="monotone"
+            dataKey="highlightCumulative"
+            stroke="hsl(var(--primary))"
+            strokeWidth={3}
+            fill="url(#highlightGradient)"
+            dot={{ fill: "hsl(var(--primary))", r: 4 }}
+            activeDot={{ r: 6 }}
+            connectNulls={false}
+          />
+        )}
+        
+        {canShowGoalLine && showGoalLine && (
+          <Line
+            type="linear"
+            dataKey={getGoalLineKey()}
+            stroke="hsl(var(--foreground))"
+            strokeWidth={1.5}
+            strokeDasharray="4 4"
+            dot={false}
+            connectNulls={true}
+            animationDuration={600}
+          />
+        )}
+        
+        {showHistoricalLine && (
+          <Line
+            type="monotone"
+            dataKey="historicalCumulative"
+            stroke="hsl(38, 92%, 50%)"
+            strokeWidth={2}
+            strokeOpacity={0.8}
+            dot={false}
+            connectNulls={true}
+            animationDuration={600}
+          />
+        )}
+      </ComposedChart>
+    </ResponsiveContainer>
+  </ChartContainer>
+);
