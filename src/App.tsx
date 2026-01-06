@@ -40,8 +40,6 @@ import AboutTeam from "./pages/AboutTeam";
 import AddApplicant from "./pages/AddApplicant";
 import ReportsV2 from "./pages/ReportsV2";
 import { queryPersister } from "./lib/queryPersister";
-import { useVersionCheck } from "./hooks/useVersionCheck";
-import { APP_VERSION } from "./lib/appVersion";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,8 +59,6 @@ const App = () => {
   // Apply safe area fallback for iOS PWA mode when env() fails
   useSafeAreaFallback();
   
-  // Check for app version changes and clear cache if needed
-  useVersionCheck();
 
   // Service worker registration is handled in main.tsx
 
@@ -73,7 +69,7 @@ const App = () => {
       persistOptions={{ 
         persister: queryPersister,
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        buster: APP_VERSION, // Auto-invalidates when version changes
+        buster: 'v1', // Bump this to invalidate all cached data
       }}
     >
       <HeaderProvider>
