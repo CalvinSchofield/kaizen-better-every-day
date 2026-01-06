@@ -139,14 +139,35 @@ serve(async (req) => {
       currentRep = repById;
     }
 
-    // Try to find linked rep by email
-    if (currentRecruit?.email && !currentRep) {
-      const { data: repByEmail } = await supabase
-        .from('reps')
-        .select('id, stage, name')
-        .ilike('email', currentRecruit.email)
-        .maybeSingle();
-      currentRep = repByEmail;
+    // Try to find linked rep by email first, then by name
+    if (currentRecruit && !currentRep) {
+      if (currentRecruit.email) {
+        const { data: repByEmail } = await supabase
+          .from('reps')
+          .select('id, stage, name, user_id')
+          .ilike('email', currentRecruit.email)
+          .maybeSingle();
+        currentRep = repByEmail;
+      }
+      
+      // If still no rep found, try matching by normalized name
+      if (!currentRep && currentRecruit.name) {
+        const normalizedName = currentRecruit.name.toLowerCase().trim().replace(/[^\w\s]/g, '');
+        const { data: reps } = await supabase
+          .from('reps')
+          .select('id, stage, name, user_id');
+        
+        if (reps) {
+          const matchedRep = reps.find(r => {
+            const repNormalizedName = r.name?.toLowerCase().trim().replace(/[^\w\s]/g, '') || '';
+            return repNormalizedName === normalizedName;
+          });
+          if (matchedRep) {
+            currentRep = matchedRep;
+            console.log(`[update-recruit-stage] Found matching rep by name: ${matchedRep.name} (id: ${matchedRep.id})`);
+          }
+        }
+      }
     }
 
     // We need at least the recruit or rep to proceed
