@@ -15,6 +15,7 @@ import { RepWorkTimeline } from "./RepWorkTimeline";
 import { RepGoalPaceCard } from "./RepGoalPaceCard";
 import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
 import { PurposeDisplayCard } from "@/components/goals/PurposeDisplayCard";
+import { formatHoursMinutes } from "@/lib/formatters";
 
 interface RepDrillDownData {
   userId: string;
@@ -193,7 +194,7 @@ export const RepDrillDownDrawer = ({
             />
             <StatBox 
               label="Hours" 
-              value={rep.hoursWorked.toFixed(1)}
+              value={formatHoursMinutes(rep.hoursWorked)}
             />
           </div>
 

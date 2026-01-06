@@ -33,3 +33,19 @@ export const formatPRMR = (value: number | null | undefined): string => {
     maximumFractionDigits: 2,
   });
 };
+
+/**
+ * Formats decimal hours to hours and minutes.
+ * Examples: 7.6 → "7 hr 36 min", 2.0 → "2 hr", 0.5 → "30 min"
+ */
+export const formatHoursMinutes = (hours: number | null | undefined): string => {
+  if (hours === null || hours === undefined || isNaN(hours) || hours <= 0) return "0 min";
+  
+  const totalMinutes = Math.round(hours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h} hr`;
+  return `${h} hr ${m} min`;
+};

@@ -33,7 +33,7 @@ export const useCalendarHistorical = (
 
   // Fetch historical entries for the comparison period
   const { data: historicalData, isLoading } = useQuery({
-    queryKey: ['calendar-historical', comparisonYear, viewMode, format(currentDate, 'yyyy-MM')],
+    queryKey: ['calendar-historical', comparisonYear, format(currentDate, 'yyyy-MM')],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;

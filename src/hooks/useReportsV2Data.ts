@@ -674,7 +674,7 @@ export const useReportsV2Data = ({
       let teamGoalStatusDetails: TeamGoalStatusWithDetails | undefined;
       
       if (goalsQuery.data && repsWithEffort.length > 0) {
-        const { goals, reps: _reps } = goalsQuery.data;
+        const { goals, reps: _reps, ytdEntries, allPlannedDays, seasonConfigs } = goalsQuery.data;
         
         // Calculate number of days in the selected period
         const startDate = new Date(dateRange.start);
@@ -683,6 +683,26 @@ export const useReportsV2Data = ({
         
         // Map goals by user_id for quick lookup
         const goalsMap = new Map(goals.map(g => [g.user_id, g]));
+        
+        // Build planned days map for calculateSalesPace
+        const plannedDaysMap = new Map<string, Array<{ planned_date: string }>>();
+        (allPlannedDays || []).forEach(p => {
+          if (!plannedDaysMap.has(p.user_id)) {
+            plannedDaysMap.set(p.user_id, []);
+          }
+          plannedDaysMap.get(p.user_id)!.push({ planned_date: p.planned_date });
+        });
+        const seasonConfigMap = new Map(
+          (seasonConfigs || []).map(c => [c.user_id, c.personal_summer_start])
+        );
+        
+        // Calculate knocking days (days with 5+ doors) per user from YTD entries
+        const knockingDaysMap = new Map<string, number>();
+        (ytdEntries || []).forEach(e => {
+          if ((e.doors_knocked || 0) >= 5) {
+            knockingDaysMap.set(e.user_id, (knockingDaysMap.get(e.user_id) || 0) + 1);
+          }
+        });
         
         // Calculate period-specific goal pacing for each active rep
         const periodPaceResults: GoalPaceResult[] = [];
@@ -705,10 +725,42 @@ export const useReportsV2Data = ({
             continue;
           }
           
-          // Calculate period goal from preseason goal
-          // Assume ~70 knocking days in preseason
-          const preseasonGoal = goal.preseason_fp_goal || 0;
-          const dailyGoal = preseasonGoal > 0 ? preseasonGoal / 70 : 0;
+          // Use calculateSalesPace for proper daily goal calculation
+          const personalSummerStart = seasonConfigMap.get(rep.userId);
+          const plannedDays = plannedDaysMap.get(rep.userId) || [];
+          const knockingDays = knockingDaysMap.get(rep.userId) || 0;
+
+          const summerTier = (
+            goal.focus_tier === 'mustDo' || goal.focus_tier === 'willDo' || goal.focus_tier === 'couldDo'
+              ? goal.focus_tier
+              : 'willDo'
+          ) as 'mustDo' | 'willDo' | 'couldDo';
+
+          const baseInput = {
+            goals: {
+              preseason_fp_goal: goal.preseason_fp_goal,
+              must_do_fp_goal: goal.must_do_fp_goal,
+              will_do_fp_goal: goal.will_do_fp_goal,
+              could_do_fp_goal: goal.could_do_fp_goal,
+              cancel_rate: goal.cancel_rate,
+              setup_complete: true,
+            },
+            plannedDays,
+            knockingDays,
+            currentFpPlus: 0,
+            currentPrmr: 0,
+            efpModeEnabled: false,
+            calculateEfp: (prmr: number) => prmr / 85,
+            personalSummerStart,
+          };
+
+          let paceResult = calculateSalesPace(baseInput);
+          if (paceResult && !paceResult.isInPreseason) {
+            paceResult = calculateSalesPace({ ...baseInput, activeTier: summerTier });
+          }
+
+          const dailyGoal = paceResult?.dailyGoal || 0;
+          const focusTier = paceResult?.isInPreseason ? 'preseason' : summerTier;
           const periodGoal = dailyGoal * periodDays;
           
           if (periodGoal <= 0) {
@@ -720,7 +772,7 @@ export const useReportsV2Data = ({
               currentProgress: periodFP,
               expectedAtThisPoint: 0,
               percentOfExpected: 0,
-              focusTier: 'preseason',
+              focusTier,
             });
             continue;
           }
@@ -745,7 +797,7 @@ export const useReportsV2Data = ({
             currentProgress: periodFP,
             expectedAtThisPoint: periodGoal,
             percentOfExpected: percentOfPeriodGoal,
-            focusTier: 'preseason',
+            focusTier,
           });
         }
         
