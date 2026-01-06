@@ -83,9 +83,9 @@ const DealTypeCard = ({
             <div className="font-semibold">{formatMinutes(avgTime)}</div>
           </div>
         )}
-        {avgCost > 0 && (
+        {count > 0 && (
           <div className="space-y-0.5">
-            <div className="text-xs opacity-70">Avg Cost</div>
+            <div className="text-xs opacity-70">Avg Cost/Deal</div>
             <div className="font-semibold">${avgCost.toFixed(0)}</div>
           </div>
         )}
@@ -235,7 +235,7 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
       />
 
       {/* Hero Stats Row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -253,20 +253,39 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
           <div className="text-2xl font-bold text-success">${insights.totalPrmr.toLocaleString()}</div>
           <div className="text-xs text-muted-foreground">Total PRMR</div>
         </motion.div>
-        {insights.hasMoneySpentData && overallRoi > 0 && (
+      </div>
+
+      {/* Cost and ROI Stats */}
+      {insights.hasMoneySpentData && (
+        <div className="grid grid-cols-2 gap-3">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="p-3 rounded-2xl bg-warning/10 text-center"
+            className="p-3 rounded-2xl bg-muted/50 text-center"
           >
-            <div className={`text-2xl font-bold ${overallRoi >= 1 ? 'text-success' : 'text-warning'}`}>
-              {overallRoi.toFixed(1)}x
+            <div className="text-2xl font-bold">
+              ${(efpModeEnabled ? insights.avgCostPerEfp : insights.avgCostPerFpPlus).toFixed(2)}
             </div>
-            <div className="text-xs text-muted-foreground">ROI</div>
+            <div className="text-xs text-muted-foreground">
+              Avg Cost / {efpModeEnabled ? 'EFP' : 'FP+'}
+            </div>
           </motion.div>
-        )}
-      </div>
+          {overallRoi > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="p-3 rounded-2xl bg-warning/10 text-center"
+            >
+              <div className={`text-2xl font-bold ${overallRoi >= 1 ? 'text-success' : 'text-warning'}`}>
+                {overallRoi.toFixed(1)}x
+              </div>
+              <div className="text-xs text-muted-foreground">ROI @ ${payscaleRate}/FP+</div>
+            </motion.div>
+          )}
+        </div>
+      )}
 
       {/* FP vs Upgrade Split */}
       <Card className="border-border/40 overflow-hidden">
@@ -290,9 +309,9 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
                     <span className="font-medium">{formatMinutes(insights.avgTimeBySaleType.fp)}</span>
                   </div>
                 )}
-                {insights.avgCostBySaleType.fp > 0 && (
+                {insights.totalFpDeals > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Avg Cost</span>
+                    <span className="text-muted-foreground">Avg Cost/Deal</span>
                     <span className="font-medium">${insights.avgCostBySaleType.fp.toFixed(0)}</span>
                   </div>
                 )}
@@ -325,9 +344,9 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
                     <span className="font-medium">{formatMinutes(insights.avgTimeBySaleType.upgrade)}</span>
                   </div>
                 )}
-                {insights.avgCostBySaleType.upgrade > 0 && (
+                {insights.totalUpgradeDeals > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Avg Cost</span>
+                    <span className="text-muted-foreground">Avg Cost/Deal</span>
                     <span className="font-medium">${insights.avgCostBySaleType.upgrade.toFixed(0)}</span>
                   </div>
                 )}

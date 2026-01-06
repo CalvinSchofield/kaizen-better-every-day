@@ -42,6 +42,8 @@ export interface CustomerInsightsData {
   prmrTotalByDealType: { fresh: number; takeover: number; diy: number };
   avgCostByDealType: { fresh: number; takeover: number; diy: number };
   avgCostBySaleType: { fp: number; upgrade: number };
+  avgCostPerEfp: number;
+  avgCostPerFpPlus: number;
   
   // Economics by Sale Type (FP vs Upgrade)
   spendBySaleType: { fp: number; upgrade: number };
@@ -301,49 +303,45 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
     const mostExpensiveDeal = sortedBySpend.length > 0 ? createHighlight(sortedBySpend[0]) : null;
     const cheapestDeal = sortedBySpend.length > 0 ? createHighlight(sortedBySpend[sortedBySpend.length - 1]) : null;
 
-    // Deal Type Distribution - only for sales with deal_type set
-    const salesWithDealType = filteredSales.filter(s => s.deal_type);
+    // Deal Type Distribution - only for FP sales with deal_type set (not upgrades)
+    const fpSalesWithDealType = fpSales.filter(s => s.deal_type);
     const dealTypeDistribution = {
-      fresh: salesWithDealType.filter(s => s.deal_type === 'fresh').length,
-      takeover: salesWithDealType.filter(s => s.deal_type === 'takeover').length,
-      diy: salesWithDealType.filter(s => s.deal_type === 'diy').length,
+      fresh: fpSalesWithDealType.filter(s => s.deal_type === 'fresh').length,
+      takeover: fpSalesWithDealType.filter(s => s.deal_type === 'takeover').length,
+      diy: fpSalesWithDealType.filter(s => s.deal_type === 'diy').length,
     };
 
-    // PRMR by deal type (average)
+    // PRMR by deal type (average) - only FP sales
     const prmrByDealType = {
       fresh: dealTypeDistribution.fresh > 0 
-        ? salesWithDealType.filter(s => s.deal_type === 'fresh').reduce((sum, s) => sum + (s.prmr || 0), 0) / dealTypeDistribution.fresh
+        ? fpSalesWithDealType.filter(s => s.deal_type === 'fresh').reduce((sum, s) => sum + (s.prmr || 0), 0) / dealTypeDistribution.fresh
         : 0,
       takeover: dealTypeDistribution.takeover > 0
-        ? salesWithDealType.filter(s => s.deal_type === 'takeover').reduce((sum, s) => sum + (s.prmr || 0), 0) / dealTypeDistribution.takeover
+        ? fpSalesWithDealType.filter(s => s.deal_type === 'takeover').reduce((sum, s) => sum + (s.prmr || 0), 0) / dealTypeDistribution.takeover
         : 0,
       diy: dealTypeDistribution.diy > 0
-        ? salesWithDealType.filter(s => s.deal_type === 'diy').reduce((sum, s) => sum + (s.prmr || 0), 0) / dealTypeDistribution.diy
+        ? fpSalesWithDealType.filter(s => s.deal_type === 'diy').reduce((sum, s) => sum + (s.prmr || 0), 0) / dealTypeDistribution.diy
         : 0,
     };
 
-    // Spend and PRMR totals by deal type (for ROI calculation)
+    // Spend and PRMR totals by deal type (for ROI calculation) - only FP sales
     const spendByDealType = {
-      fresh: salesWithDealType.filter(s => s.deal_type === 'fresh').reduce((sum, s) => sum + (s.money_spent || 0), 0),
-      takeover: salesWithDealType.filter(s => s.deal_type === 'takeover').reduce((sum, s) => sum + (s.money_spent || 0), 0),
-      diy: salesWithDealType.filter(s => s.deal_type === 'diy').reduce((sum, s) => sum + (s.money_spent || 0), 0),
+      fresh: fpSalesWithDealType.filter(s => s.deal_type === 'fresh').reduce((sum, s) => sum + (s.money_spent || 0), 0),
+      takeover: fpSalesWithDealType.filter(s => s.deal_type === 'takeover').reduce((sum, s) => sum + (s.money_spent || 0), 0),
+      diy: fpSalesWithDealType.filter(s => s.deal_type === 'diy').reduce((sum, s) => sum + (s.money_spent || 0), 0),
     };
     
-    // Average cost by deal type
-    const freshWithMoney = salesWithDealType.filter(s => s.deal_type === 'fresh' && s.money_spent && s.money_spent > 0);
-    const takeoverWithMoney = salesWithDealType.filter(s => s.deal_type === 'takeover' && s.money_spent && s.money_spent > 0);
-    const diyWithMoney = salesWithDealType.filter(s => s.deal_type === 'diy' && s.money_spent && s.money_spent > 0);
-    
+    // Average cost per deal by deal type (total spend / total deals, including $0 deals)
     const avgCostByDealType = {
-      fresh: freshWithMoney.length > 0 ? spendByDealType.fresh / freshWithMoney.length : 0,
-      takeover: takeoverWithMoney.length > 0 ? spendByDealType.takeover / takeoverWithMoney.length : 0,
-      diy: diyWithMoney.length > 0 ? spendByDealType.diy / diyWithMoney.length : 0,
+      fresh: dealTypeDistribution.fresh > 0 ? spendByDealType.fresh / dealTypeDistribution.fresh : 0,
+      takeover: dealTypeDistribution.takeover > 0 ? spendByDealType.takeover / dealTypeDistribution.takeover : 0,
+      diy: dealTypeDistribution.diy > 0 ? spendByDealType.diy / dealTypeDistribution.diy : 0,
     };
 
     const prmrTotalByDealType = {
-      fresh: salesWithDealType.filter(s => s.deal_type === 'fresh').reduce((sum, s) => sum + (s.prmr || 0), 0),
-      takeover: salesWithDealType.filter(s => s.deal_type === 'takeover').reduce((sum, s) => sum + (s.prmr || 0), 0),
-      diy: salesWithDealType.filter(s => s.deal_type === 'diy').reduce((sum, s) => sum + (s.prmr || 0), 0),
+      fresh: fpSalesWithDealType.filter(s => s.deal_type === 'fresh').reduce((sum, s) => sum + (s.prmr || 0), 0),
+      takeover: fpSalesWithDealType.filter(s => s.deal_type === 'takeover').reduce((sum, s) => sum + (s.prmr || 0), 0),
+      diy: fpSalesWithDealType.filter(s => s.deal_type === 'diy').reduce((sum, s) => sum + (s.prmr || 0), 0),
     };
 
     // Spend and PRMR totals by sale type (FP vs Upgrade)
@@ -352,14 +350,17 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       upgrade: upgradeSales.reduce((sum, s) => sum + (s.money_spent || 0), 0),
     };
     
-    // Average cost by sale type
-    const fpWithMoney = fpSales.filter(s => s.money_spent && s.money_spent > 0);
-    const upgradeWithMoney = upgradeSales.filter(s => s.money_spent && s.money_spent > 0);
-    
+    // Average cost per deal by sale type (total spend / total deals, including $0 deals)
     const avgCostBySaleType = {
-      fp: fpWithMoney.length > 0 ? spendBySaleType.fp / fpWithMoney.length : 0,
-      upgrade: upgradeWithMoney.length > 0 ? spendBySaleType.upgrade / upgradeWithMoney.length : 0,
+      fp: fpSales.length > 0 ? spendBySaleType.fp / fpSales.length : 0,
+      upgrade: upgradeSales.length > 0 ? spendBySaleType.upgrade / upgradeSales.length : 0,
     };
+    
+    // Average cost per unit (EFP or FP+)
+    const totalEfp = totalPrmr / 85;
+    const avgCostPerEfp = totalEfp > 0 ? totalMoneySpent / totalEfp : 0;
+    const totalFpPlus = fpSales.length + (upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0) / 85);
+    const avgCostPerFpPlus = totalFpPlus > 0 ? totalMoneySpent / totalFpPlus : 0;
 
     const prmrTotalBySaleType = {
       fp: fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0),
@@ -439,10 +440,10 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       },
     };
     
-    // Difficulty by deal type (Fresh, Takeover, DIY)
-    const freshWithDiff = salesWithDealType.filter(s => s.deal_type === 'fresh' && s.difficulty);
-    const takeoverWithDiff = salesWithDealType.filter(s => s.deal_type === 'takeover' && s.difficulty);
-    const diyWithDiff = salesWithDealType.filter(s => s.deal_type === 'diy' && s.difficulty);
+    // Difficulty by deal type (Fresh, Takeover, DIY) - only FP sales
+    const freshWithDiff = fpSalesWithDealType.filter(s => s.deal_type === 'fresh' && s.difficulty);
+    const takeoverWithDiff = fpSalesWithDealType.filter(s => s.deal_type === 'takeover' && s.difficulty);
+    const diyWithDiff = fpSalesWithDealType.filter(s => s.deal_type === 'diy' && s.difficulty);
     
     const difficultyByDealType = {
       fresh: {
@@ -588,6 +589,8 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       sameDayInstallRate,
       cancelRate,
       avgDaysToInstall,
+      avgCostPerEfp,
+      avgCostPerFpPlus,
       totalDeals: filteredSales.length,
       totalFpDeals: fpSales.length,
       totalUpgradeDeals: upgradeSales.length,
@@ -597,7 +600,7 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       salesByHourAndType,
       hasSaleTimeData: salesWithTimestampCount > 0,
       hasTimeData: salesWithTime.length > 0,
-      hasDealTypeData: salesWithDealType.length > 0,
+      hasDealTypeData: fpSalesWithDealType.length > 0,
       hasMoneySpentData: salesWithMoney.length > 0,
       hasInstallData: filteredSales.length > 0,
     };
