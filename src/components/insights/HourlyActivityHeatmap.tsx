@@ -47,14 +47,16 @@ export const HourlyActivityHeatmap = ({ hourlyActivity, peakHours, hourRange }: 
     { key: 'closes', label: 'Closes', data: hourlyActivity.closes, peak: peakHours.closes },
   ];
 
-  // Find max value for normalization
-  const maxValue = Math.max(
-    ...activities.flatMap(activity => Object.values(activity.data))
-  );
+  // Calculate max value PER ACTIVITY (row) for proper row-based normalization
+  // This ensures doors compare to doors, pitches compare to pitches, etc.
+  const getMaxPerActivity = (data: Record<number, number>) => {
+    const values = Object.values(data);
+    return values.length > 0 ? Math.max(...values) : 0;
+  };
 
-  const getIntensity = (count: number) => {
-    if (count === 0) return 'bg-muted/20';
-    const intensity = count / maxValue;
+  const getIntensity = (count: number, activityMax: number) => {
+    if (count === 0 || activityMax === 0) return 'bg-muted/20';
+    const intensity = count / activityMax;
     if (intensity < 0.25) return 'bg-primary/20';
     if (intensity < 0.5) return 'bg-primary/40';
     if (intensity < 0.75) return 'bg-primary/60';
@@ -186,36 +188,39 @@ export const HourlyActivityHeatmap = ({ hourlyActivity, peakHours, hourRange }: 
             </div>
 
             {/* Activity rows */}
-            {activities.map(activity => (
-              <div key={activity.key} className="flex items-center mb-2">
-                <div className="w-28 flex-shrink-0 text-sm font-medium pr-3 text-right">
-                  {activity.label}
+            {activities.map(activity => {
+              const activityMax = getMaxPerActivity(activity.data);
+              return (
+                <div key={activity.key} className="flex items-center mb-2">
+                  <div className="w-28 flex-shrink-0 text-sm font-medium pr-3 text-right">
+                    {activity.label}
+                  </div>
+                  <div className="flex flex-1 gap-1">
+                    {hours.map(hour => {
+                      const count = activity.data[hour] || 0;
+                      const isPeak = activity.peak === hour;
+                      return (
+                        <div
+                          key={hour}
+                          className={cn(
+                            "w-6 h-6 rounded transition-all hover:scale-110 cursor-pointer relative group",
+                            getIntensity(count, activityMax),
+                            isPeak && "ring-2 ring-primary"
+                          )}
+                          title={`${formatHour(hour)}: ${count} ${activity.label.toLowerCase()}`}
+                        >
+                          {count > 0 && (
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <span className="text-xs font-semibold text-foreground">{count}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="flex flex-1 gap-1">
-                  {hours.map(hour => {
-                    const count = activity.data[hour] || 0;
-                    const isPeak = activity.peak === hour;
-                    return (
-                      <div
-                        key={hour}
-                        className={cn(
-                          "w-6 h-6 rounded transition-all hover:scale-110 cursor-pointer relative group",
-                          getIntensity(count),
-                          isPeak && "ring-2 ring-primary"
-                        )}
-                        title={`${formatHour(hour)}: ${count} ${activity.label.toLowerCase()}`}
-                      >
-                        {count > 0 && (
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span className="text-xs font-semibold text-foreground">{count}</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

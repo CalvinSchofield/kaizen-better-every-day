@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sale } from '@/components/LogSaleSheet';
-import { isWithinInterval, parseISO, differenceInDays, format, startOfWeek, endOfWeek } from 'date-fns';
+import { isWithinInterval, parseISO, differenceInDays, format, startOfWeek, endOfWeek, startOfDay, endOfDay } from 'date-fns';
 
 interface SaleWithDate extends Sale {
   entry_date: string;
@@ -157,9 +157,13 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
     if (!allSales || allSales.length === 0) return null;
 
     // Filter sales by date range
+    // Use startOfDay and endOfDay to ensure entire day is included for single-day ranges
     const filteredSales = allSales.filter(sale => {
       const saleDate = parseISO(sale.entry_date);
-      return isWithinInterval(saleDate, { start: dateRange.start, end: dateRange.end });
+      return isWithinInterval(saleDate, { 
+        start: startOfDay(dateRange.start), 
+        end: endOfDay(dateRange.end) 
+      });
     });
 
     if (filteredSales.length === 0) return null;
