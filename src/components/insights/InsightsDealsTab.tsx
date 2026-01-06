@@ -158,8 +158,6 @@ const HighlightCard = ({
   </motion.div>
 );
 
-// Total pay multiplier (rough estimate of final commission value vs upfront)
-const TOTAL_PAY_MULTIPLIER = 2.5;
 
 export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDealsTabProps) => {
   const { insights, isLoading } = useCustomerInsights(dateRange);
@@ -183,10 +181,8 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
   const targetFpPlus = customPayLevel ?? userCumulativeFpPlus;
   const currentTier = getTier(targetFpPlus);
   
-  // Apply total pay multiplier if in total mode
-  const effectiveRate = currentRoiState.mode === 'total' 
-    ? currentRoiState.rate * TOTAL_PAY_MULTIPLIER 
-    : currentRoiState.rate;
+  // Use the rate directly from CompactROICard (it already handles upfront vs total mode)
+  const effectiveRate = currentRoiState.rate;
 
   if (isLoading) {
     return (
