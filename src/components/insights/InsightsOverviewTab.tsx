@@ -25,6 +25,7 @@ export const InsightsOverviewTab = ({
         totalDoors={insights.totalDoors}
         totalCloses={insights.totalCloses}
         efpModeEnabled={efpModeEnabled}
+        dateRange={dateRange}
       />
 
       {/* Cancelled Stats */}
