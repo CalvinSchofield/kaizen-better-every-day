@@ -15,14 +15,14 @@ interface LiveRaceSectionProps {
 
 type MetricKey = 'fp_plus' | 'prmr' | 'doors_knocked' | 'presentations' | 'decision_makers' | 'pitches' | 'transitions';
 
-const metricConfig: Record<MetricKey, { label: string; shortLabel: string; icon: typeof Trophy; unit: string; priority: number }> = {
-  fp_plus: { label: 'FP+', shortLabel: 'FP+', icon: Trophy, unit: 'FP+', priority: 1 },
-  prmr: { label: 'PRMR', shortLabel: 'PRMR', icon: DollarSign, unit: '', priority: 2 },
-  presentations: { label: 'Presentations', shortLabel: 'Pres', icon: Presentation, unit: '', priority: 3 },
-  doors_knocked: { label: 'Doors', shortLabel: 'Doors', icon: Footprints, unit: '', priority: 4 },
-  decision_makers: { label: 'DMs', shortLabel: 'DMs', icon: Users, unit: '', priority: 5 },
-  pitches: { label: 'Pitches', shortLabel: 'Pitches', icon: Target, unit: '', priority: 6 },
-  transitions: { label: 'Transitions', shortLabel: 'Trans', icon: ArrowRightLeft, unit: '', priority: 7 },
+const metricConfig: Record<MetricKey, { label: string; shortLabel: string; icon: typeof Trophy; gapUnit: string; priority: number }> = {
+  fp_plus: { label: 'FP+', shortLabel: 'FP+', icon: Trophy, gapUnit: 'FP+', priority: 1 },
+  prmr: { label: 'PRMR', shortLabel: 'RMR', icon: DollarSign, gapUnit: '', priority: 2 },
+  presentations: { label: 'Presentations', shortLabel: 'Pres', icon: Presentation, gapUnit: 'pres', priority: 3 },
+  doors_knocked: { label: 'Doors', shortLabel: 'Doors', icon: Footprints, gapUnit: 'doors', priority: 4 },
+  decision_makers: { label: 'DMs', shortLabel: 'DMs', icon: Users, gapUnit: 'DMs', priority: 5 },
+  pitches: { label: 'Pitches', shortLabel: 'Pitches', icon: Target, gapUnit: 'pitches', priority: 6 },
+  transitions: { label: 'Transitions', shortLabel: 'Trans', icon: ArrowRightLeft, gapUnit: 'trans', priority: 7 },
 };
 
 // Display order in the toggle (highest value first: FP+ → PRMR → Presentations → Transitions → Pitches → DMs → Doors)
@@ -238,7 +238,7 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
                   <div className="flex items-center gap-2 px-4 py-1.5 bg-muted/50">
                     <ChevronUp className="h-3 w-3 text-amber-500" />
                     <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                      +{formatValue(gapToAhead)} {config.unit} to catch
+                      {formatValue(gapToAhead)} {config.gapUnit} to catch
                     </span>
                   </div>
                 )}
@@ -349,9 +349,6 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
                     isCurrentUser && "text-primary font-semibold"
                   )}>
                     <span className="font-bold">{formatValue(entry.value)}</span>
-                    {config.unit && (
-                      <span className="text-xs text-muted-foreground ml-1">{config.unit}</span>
-                    )}
                   </div>
                 </motion.div>
 
@@ -360,7 +357,7 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
                   <div className="flex items-center gap-2 px-4 py-1.5 bg-muted/50">
                     <ChevronDown className="h-3 w-3 text-green-500" />
                     <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                      +{formatValue(gapBehind)} {config.unit} ahead
+                      {formatValue(gapBehind)} {config.gapUnit} ahead
                     </span>
                   </div>
                 )}
