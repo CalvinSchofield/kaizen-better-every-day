@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useReportsV2Data } from "@/hooks/useReportsV2Data";
 import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAvailableDatePresets";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   ReportsExecutiveSnapshot, 
   ReportsEffortSection, 
@@ -32,7 +34,25 @@ export const ReportsV2Page = () => {
   // Get team access
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
   
-  const allUserIds = teamAccess?.accessibleUserIds || [];
+  // Get current user's ID to include self in reports
+  const { data: currentUserId } = useQuery({
+    queryKey: ['current-user-id'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user?.id || null;
+    },
+    staleTime: Infinity,
+  });
+  
+  // Include current user in the accessible user IDs for reports (self is excluded by fetch-team-access)
+  const allUserIds = useMemo(() => {
+    const ids = teamAccess?.accessibleUserIds || [];
+    // Add current user if they're a leader and not already included
+    if (currentUserId && teamAccess?.accessLevel !== 'none' && !ids.includes(currentUserId)) {
+      return [currentUserId, ...ids];
+    }
+    return ids;
+  }, [teamAccess?.accessibleUserIds, teamAccess?.accessLevel, currentUserId]);
   
   // Get available presets based on team data with smart auto-selection
   const { availablePresets, autoSelectedPreset, isLoading: presetsLoading, isFetching } = useAvailableTeamReportsPresets(allUserIds);
