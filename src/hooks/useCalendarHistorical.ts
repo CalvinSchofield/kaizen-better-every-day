@@ -145,6 +145,7 @@ export const useCalendarHistorical = (
   }, [entries, historicalData]);
 
   // Calculate period historical totals (this week vs same week last year)
+  // IMPORTANT: Only compare "through today" - don't compare partial week/month against full historical period
   const periodHistoricalTotals = useMemo(() => {
     if (!historicalData || historicalData.length === 0) return null;
 
@@ -156,35 +157,60 @@ export const useCalendarHistorical = (
     const startSeasonInfo = getSeasonInfo(viewStart);
     if (!startSeasonInfo) return null;
 
+    // Get today's position in the week/month for fair comparison
+    const today = new Date();
+    const todayDayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+    const todayDayOfMonth = today.getDate(); // 1-31
+
+    // Check if we're viewing the current period (need to limit historical comparison)
+    const isCurrentWeek = viewMode === 'week' && 
+      today >= startOfWeek(currentDate) && today <= endOfWeek(currentDate);
+    const isCurrentMonth = viewMode === 'month' && 
+      today.getMonth() === currentDate.getMonth() && today.getFullYear() === currentDate.getFullYear();
+
     if (viewMode === 'week') {
-      // Week comparison: same season week
+      // Week comparison: same season week, but only through today's day of week if current week
       const weekTotal = historicalData
-        .filter(e => e.season_type === startSeasonInfo.type && e.season_week === startSeasonInfo.week)
+        .filter(e => {
+          if (e.season_type !== startSeasonInfo.type || e.season_week !== startSeasonInfo.week) return false;
+          // If viewing current week, only count historical days up through today's day of week
+          if (isCurrentWeek && e.day_of_week > todayDayOfWeek) return false;
+          return true;
+        })
         .reduce((sum, e) => sum + (e.fp_plus || 0), 0);
       
       const weekPrmr = historicalData
-        .filter(e => e.season_type === startSeasonInfo.type && e.season_week === startSeasonInfo.week)
+        .filter(e => {
+          if (e.season_type !== startSeasonInfo.type || e.season_week !== startSeasonInfo.week) return false;
+          if (isCurrentWeek && e.day_of_week > todayDayOfWeek) return false;
+          return true;
+        })
         .reduce((sum, e) => sum + (e.prmr || 0), 0);
 
-      return { fpPlus: weekTotal, prmr: weekPrmr, week: startSeasonInfo.week };
+      return { fpPlus: weekTotal, prmr: weekPrmr, week: startSeasonInfo.week, throughToday: isCurrentWeek };
     } else {
-      // Month comparison: same calendar month
+      // Month comparison: same calendar month, but only through today's day of month if current month
       const monthNum = currentDate.getMonth();
       const monthTotal = historicalData
         .filter(e => {
           const originalDate = new Date(e.original_date + 'T12:00:00');
-          return originalDate.getMonth() === monthNum;
+          if (originalDate.getMonth() !== monthNum) return false;
+          // If viewing current month, only count historical days up through today's day of month
+          if (isCurrentMonth && originalDate.getDate() > todayDayOfMonth) return false;
+          return true;
         })
         .reduce((sum, e) => sum + (e.fp_plus || 0), 0);
       
       const monthPrmr = historicalData
         .filter(e => {
           const originalDate = new Date(e.original_date + 'T12:00:00');
-          return originalDate.getMonth() === monthNum;
+          if (originalDate.getMonth() !== monthNum) return false;
+          if (isCurrentMonth && originalDate.getDate() > todayDayOfMonth) return false;
+          return true;
         })
         .reduce((sum, e) => sum + (e.prmr || 0), 0);
 
-      return { fpPlus: monthTotal, prmr: monthPrmr };
+      return { fpPlus: monthTotal, prmr: monthPrmr, throughToday: isCurrentMonth };
     }
   }, [historicalData, currentDate, viewMode]);
 
