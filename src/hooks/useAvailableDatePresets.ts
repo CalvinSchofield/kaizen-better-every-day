@@ -215,7 +215,7 @@ export const useAvailableReportsPresets = () => {
   };
 };
 
-// Team version - checks data for team members
+// Team version - checks data for team members (finalized only - for historical presets)
 export const useTeamDataBoundary = (userIds: string[]) => {
   return useQuery({
     // v3 busts persisted cache from older non-serializable shapes (Set/Date)
@@ -256,77 +256,130 @@ export const useTeamDataBoundary = (userIds: string[]) => {
   });
 };
 
+// Team version for LIVE data - includes unfinalized entries for "today" detection
+export const useTeamLiveDataBoundary = (userIds: string[]) => {
+  return useQuery({
+    queryKey: ['team-live-data-boundary', userIds],
+    queryFn: async (): Promise<DataBoundary> => {
+      if (!userIds.length) {
+        return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: [] };
+      }
+
+      // Include unfinalized entries for live/today detection - any activity counts
+      const { data: entries, error } = await supabase
+        .from('daily_entries')
+        .select('entry_date')
+        .in('user_id', userIds)
+        .or('doors_knocked.gte.1,fp_plus.gte.1,prmr.gte.1')
+        .order('entry_date', { ascending: true });
+
+      if (error || !entries || entries.length === 0) {
+        return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: [] };
+      }
+
+      const entryDates = Array.from(new Set(entries.map(e => e.entry_date)));
+      return {
+        earliestDate: entryDates[0],
+        latestDate: entryDates[entryDates.length - 1],
+        hasAnyData: true,
+        entryDates,
+      };
+    },
+    enabled: userIds.length > 0,
+    staleTime: 1000 * 60 * 2, // 2 minutes for more responsive live updates
+  });
+};
+
 export const useAvailableTeamReportsPresets = (userIds: string[]) => {
-  const { data: boundary, isLoading } = useTeamDataBoundary(userIds);
+  const { data: liveBoundary, isFetching: liveFetching } = useTeamLiveDataBoundary(userIds);
+  const { data: finalizedBoundary, isLoading, isFetching } = useTeamDataBoundary(userIds);
 
   const getAvailablePresets = (): ReportsDatePreset[] => {
-    if (!boundary?.hasAnyData) {
-      return ['preseason'];
-    }
-
-    const entryDatesRaw = Array.isArray(boundary.entryDates) ? boundary.entryDates : [];
-    if (entryDatesRaw.length === 0) {
-      return ['preseason'];
-    }
-
     const now = new Date();
-    const entryDates = toEntryDateSet(entryDatesRaw);
+    const todayStr = format(now, 'yyyy-MM-dd');
+    
+    // Use live boundary to check for today's data
+    const liveEntryDates = toEntryDateSet(liveBoundary?.entryDates ?? []);
+    // Use finalized boundary for historical data
+    const finalizedEntryDates = toEntryDateSet(finalizedBoundary?.entryDates ?? []);
 
     // Order from smallest to largest
     const available: ReportsDatePreset[] = [];
 
-    // Today - only if we have entries today
-    if (entryDates.has(format(now, 'yyyy-MM-dd'))) {
+    // Today/Live - check live boundary (includes unfinalized)
+    if (liveEntryDates.has(todayStr)) {
       available.push('today');
     }
 
-    // Yesterday - only if we have entries yesterday
+    // Yesterday - check finalized boundary
     const yesterday = subDays(now, 1);
-    if (entryDates.has(format(yesterday, 'yyyy-MM-dd'))) {
+    if (finalizedEntryDates.has(format(yesterday, 'yyyy-MM-dd'))) {
       available.push('yesterday');
     }
 
-    // This week - only if we have entries this week
+    // This week - check finalized boundary
     const weekStart = startOfWeek(now, { weekStartsOn: 0 });
     const weekEnd = endOfWeek(now, { weekStartsOn: 0 });
-    if (hasEntriesInRange(entryDates, weekStart, weekEnd)) {
+    if (hasEntriesInRange(finalizedEntryDates, weekStart, weekEnd)) {
       available.push('week');
     }
 
-    // Last week - only if we have entries last week
+    // Last week
     const lastWeekStart = subDays(weekStart, 7);
     const lastWeekEnd = subDays(weekStart, 1);
-    if (hasEntriesInRange(entryDates, lastWeekStart, lastWeekEnd)) {
+    if (hasEntriesInRange(finalizedEntryDates, lastWeekStart, lastWeekEnd)) {
       available.push('lastWeek');
     }
 
-    // This month - only if we have entries this month
+    // This month
     const monthStart = startOfMonth(now);
-    if (hasEntriesInRange(entryDates, monthStart, now)) {
+    if (hasEntriesInRange(finalizedEntryDates, monthStart, now)) {
       available.push('month');
     }
 
-    // Last month - only if we have entries last month
+    // Last month
     const lastMonthDate = subMonths(now, 1);
     const lastMonthStart = startOfMonth(lastMonthDate);
     const lastMonthEnd = endOfMonth(lastMonthDate);
-    if (hasEntriesInRange(entryDates, lastMonthStart, lastMonthEnd)) {
+    if (hasEntriesInRange(finalizedEntryDates, lastMonthStart, lastMonthEnd)) {
       available.push('lastMonth');
     }
 
     // Preseason - always available if any data exists
-    available.push('preseason');
+    if (finalizedBoundary?.hasAnyData || liveBoundary?.hasAnyData) {
+      available.push('preseason');
+    }
 
     // YTD - always available if any data exists
-    available.push('ytd');
+    if (finalizedBoundary?.hasAnyData || liveBoundary?.hasAnyData) {
+      available.push('ytd');
+    }
 
     return available;
   };
 
+  // Smart auto-selection logic - prioritize live if available, then fall back
+  const getAutoSelectedPreset = (): ReportsDatePreset => {
+    const available = getAvailablePresets();
+    
+    // Priority order: today (live) > yesterday > week > lastWeek > month > lastMonth > preseason
+    const priority: ReportsDatePreset[] = ['today', 'yesterday', 'week', 'lastWeek', 'month', 'lastMonth', 'preseason', 'ytd'];
+    
+    for (const preset of priority) {
+      if (available.includes(preset)) {
+        return preset;
+      }
+    }
+    
+    return 'preseason';
+  };
+
   return {
     availablePresets: getAvailablePresets(),
-    hasAnyData: boundary?.hasAnyData ?? false,
+    autoSelectedPreset: getAutoSelectedPreset(),
+    hasAnyData: finalizedBoundary?.hasAnyData || liveBoundary?.hasAnyData || false,
     isLoading,
-    earliestDate: boundary?.earliestDate,
+    isFetching: isFetching || liveFetching,
+    earliestDate: finalizedBoundary?.earliestDate,
   };
 };
