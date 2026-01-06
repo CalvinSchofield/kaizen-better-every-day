@@ -181,6 +181,16 @@ All colors MUST be HSL.
     font-feature-settings: "rlig" 1, "calt" 1;
     overflow-x: hidden;
     overscroll-behavior: none;
+    /* Disable text selection for better gesture support */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  
+  /* Allow selection in input elements */
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
   }
   
   html, body {

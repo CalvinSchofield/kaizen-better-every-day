@@ -60,6 +60,8 @@ export interface RepGoals {
   purpose_statement: string | null;
   purpose_answers: Record<string, string> | null;
   purpose_updated_at: string | null;
+  // Preferred ROI display mode (upfront or total)
+  preferred_roi_mode: 'upfront' | 'total' | null;
 }
 
 // Get the start of the current week (Sunday) in user's local timezone

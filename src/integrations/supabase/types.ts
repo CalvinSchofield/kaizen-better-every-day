@@ -1068,6 +1068,7 @@ export type Database = {
           must_do_fp_goal: number | null
           other_books_committed: Json | null
           other_books_read: Json | null
+          preferred_roi_mode: string | null
           prep_score_history: Json | null
           preseason_fp_goal: number | null
           purpose_answers: Json | null
@@ -1115,6 +1116,7 @@ export type Database = {
           must_do_fp_goal?: number | null
           other_books_committed?: Json | null
           other_books_read?: Json | null
+          preferred_roi_mode?: string | null
           prep_score_history?: Json | null
           preseason_fp_goal?: number | null
           purpose_answers?: Json | null
@@ -1162,6 +1164,7 @@ export type Database = {
           must_do_fp_goal?: number | null
           other_books_committed?: Json | null
           other_books_read?: Json | null
+          preferred_roi_mode?: string | null
           prep_score_history?: Json | null
           preseason_fp_goal?: number | null
           purpose_answers?: Json | null
