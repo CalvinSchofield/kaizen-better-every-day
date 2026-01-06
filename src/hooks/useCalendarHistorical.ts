@@ -145,7 +145,7 @@ export const useCalendarHistorical = (
   }, [entries, historicalData]);
 
   // Calculate period historical totals (this week vs same week last year)
-  // IMPORTANT: Only compare "through today" - don't compare partial week/month against full historical period
+  // IMPORTANT: Use latest FINALIZED entry date, not calendar date - saving signals day complete
   const periodHistoricalTotals = useMemo(() => {
     if (!historicalData || historicalData.length === 0) return null;
 
@@ -153,28 +153,50 @@ export const useCalendarHistorical = (
     const viewStart = viewMode === 'week' 
       ? startOfWeek(currentDate)
       : startOfMonth(currentDate);
+    const viewEnd = viewMode === 'week'
+      ? endOfWeek(currentDate)
+      : endOfMonth(currentDate);
     
     const startSeasonInfo = getSeasonInfo(viewStart);
     if (!startSeasonInfo) return null;
 
-    // Get today's position in the week/month for fair comparison
+    // Find the latest FINALIZED entry within the current view period
+    // This determines "through which day" we compare - finalization signals day complete
     const today = new Date();
-    const todayDayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
-    const todayDayOfMonth = today.getDate(); // 1-31
-
-    // Check if we're viewing the current period (need to limit historical comparison)
     const isCurrentWeek = viewMode === 'week' && 
       today >= startOfWeek(currentDate) && today <= endOfWeek(currentDate);
     const isCurrentMonth = viewMode === 'month' && 
       today.getMonth() === currentDate.getMonth() && today.getFullYear() === currentDate.getFullYear();
 
+    // Get finalized entries in the current view period
+    const periodFinalizedEntries = entries.filter(e => {
+      if (!e.is_finalized) return false;
+      const entryDate = new Date(e.entry_date + 'T12:00:00');
+      return entryDate >= viewStart && entryDate <= viewEnd;
+    });
+
+    // Find the latest finalized date in this period
+    let latestFinalizedDate: Date | null = null;
+    if (periodFinalizedEntries.length > 0) {
+      const sortedEntries = [...periodFinalizedEntries].sort((a, b) => 
+        new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime()
+      );
+      latestFinalizedDate = new Date(sortedEntries[0].entry_date + 'T12:00:00');
+    }
+
+    // Determine the cutoff for historical comparison
+    // If viewing current period: use latest finalized entry's day position
+    // If viewing past period: include all days (full comparison)
+    const throughDayOfWeek = latestFinalizedDate ? latestFinalizedDate.getDay() : -1; // -1 means no finalized entries
+    const throughDayOfMonth = latestFinalizedDate ? latestFinalizedDate.getDate() : 0;
+
     if (viewMode === 'week') {
-      // Week comparison: same season week, but only through today's day of week if current week
+      // Week comparison: same season week, but only through latest finalized day if current week
       const weekTotal = historicalData
         .filter(e => {
           if (e.season_type !== startSeasonInfo.type || e.season_week !== startSeasonInfo.week) return false;
-          // If viewing current week, only count historical days up through today's day of week
-          if (isCurrentWeek && e.day_of_week > todayDayOfWeek) return false;
+          // If viewing current week, only count historical days up through latest finalized day
+          if (isCurrentWeek && e.day_of_week > throughDayOfWeek) return false;
           return true;
         })
         .reduce((sum, e) => sum + (e.fp_plus || 0), 0);
@@ -182,21 +204,27 @@ export const useCalendarHistorical = (
       const weekPrmr = historicalData
         .filter(e => {
           if (e.season_type !== startSeasonInfo.type || e.season_week !== startSeasonInfo.week) return false;
-          if (isCurrentWeek && e.day_of_week > todayDayOfWeek) return false;
+          if (isCurrentWeek && e.day_of_week > throughDayOfWeek) return false;
           return true;
         })
         .reduce((sum, e) => sum + (e.prmr || 0), 0);
 
-      return { fpPlus: weekTotal, prmr: weekPrmr, week: startSeasonInfo.week, throughToday: isCurrentWeek };
+      return { 
+        fpPlus: weekTotal, 
+        prmr: weekPrmr, 
+        week: startSeasonInfo.week, 
+        throughToday: isCurrentWeek,
+        latestFinalizedDate 
+      };
     } else {
-      // Month comparison: same calendar month, but only through today's day of month if current month
+      // Month comparison: same calendar month, but only through latest finalized day if current month
       const monthNum = currentDate.getMonth();
       const monthTotal = historicalData
         .filter(e => {
           const originalDate = new Date(e.original_date + 'T12:00:00');
           if (originalDate.getMonth() !== monthNum) return false;
-          // If viewing current month, only count historical days up through today's day of month
-          if (isCurrentMonth && originalDate.getDate() > todayDayOfMonth) return false;
+          // If viewing current month, only count historical days up through latest finalized day
+          if (isCurrentMonth && originalDate.getDate() > throughDayOfMonth) return false;
           return true;
         })
         .reduce((sum, e) => sum + (e.fp_plus || 0), 0);
@@ -205,14 +233,19 @@ export const useCalendarHistorical = (
         .filter(e => {
           const originalDate = new Date(e.original_date + 'T12:00:00');
           if (originalDate.getMonth() !== monthNum) return false;
-          if (isCurrentMonth && originalDate.getDate() > todayDayOfMonth) return false;
+          if (isCurrentMonth && originalDate.getDate() > throughDayOfMonth) return false;
           return true;
         })
         .reduce((sum, e) => sum + (e.prmr || 0), 0);
 
-      return { fpPlus: monthTotal, prmr: monthPrmr, throughToday: isCurrentMonth };
+      return { 
+        fpPlus: monthTotal, 
+        prmr: monthPrmr, 
+        throughToday: isCurrentMonth,
+        latestFinalizedDate 
+      };
     }
-  }, [historicalData, currentDate, viewMode]);
+  }, [historicalData, currentDate, viewMode, entries]);
 
   return {
     historicalByDate,
