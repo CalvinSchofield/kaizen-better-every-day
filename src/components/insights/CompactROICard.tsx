@@ -14,6 +14,7 @@ interface CompactROICardProps {
 
 // Upfront pay is always 4x for all reps
 const UPFRONT_MULTIPLIER = 4;
+const HINT_STORAGE_KEY = 'hasSeenROIHint';
 
 export const CompactROICard = ({
   totalSpent,
@@ -28,6 +29,21 @@ export const CompactROICard = ({
     (goals?.preferred_roi_mode as 'upfront' | 'total') || 'upfront'
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  
+  // Check if user has seen the hint
+  useEffect(() => {
+    const hasSeen = localStorage.getItem(HINT_STORAGE_KEY);
+    if (!hasSeen) {
+      setShowHint(true);
+      // Mark as seen after animation completes
+      const timer = setTimeout(() => {
+        localStorage.setItem(HINT_STORAGE_KEY, 'true');
+        setShowHint(false);
+      }, 4500); // 3 pulses × 1.5s each
+      return () => clearTimeout(timer);
+    }
+  }, []);
   
   // Sync roiMode when goals load
   useEffect(() => {
@@ -93,17 +109,17 @@ export const CompactROICard = ({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        whileTap={{ scale: 0.95 }}
-        className="p-4 rounded-2xl bg-warning/10 text-center cursor-pointer touch-manipulation"
+        whileTap={{ scale: 0.92 }}
+        className={`p-4 rounded-2xl bg-warning/10 text-center cursor-pointer touch-manipulation ${showHint ? 'animate-pulse-ring' : ''}`}
         {...longPressHandlers}
       >
         <AnimatePresence mode="wait">
           <motion.div
             key={`${roiMode}-${payscaleRate}`}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
           >
             <div className={`text-3xl font-bold ${roi >= 1 ? 'text-success' : 'text-warning'}`}>
               {roi.toFixed(1)}x
