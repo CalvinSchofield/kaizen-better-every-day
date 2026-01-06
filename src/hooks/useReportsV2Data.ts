@@ -32,13 +32,29 @@ import {
   TeamBaseline,
   RepBaseline,
 } from "@/utils/baselineCalculations";
-import {
-  calculateTeamGoalPace,
-  RepGoalData,
-  GoalPaceResult,
-  isPreseason,
-} from "@/utils/goalPaceCalculations";
-import { calculateSalesPace, SalesPaceInput } from "@/utils/salesPaceCalculator";
+import { GoalPaceResult } from "@/utils/goalPaceCalculations";
+import { calculateSalesPace } from "@/utils/salesPaceCalculator";
+
+type RepGoalsLike = {
+  preseason_fp_goal: number | null;
+  must_do_fp_goal: number | null;
+  will_do_fp_goal: number | null;
+  could_do_fp_goal: number | null;
+  cancel_rate: number | null;
+  focus_tier: string | null;
+  setup_complete: boolean | null;
+};
+
+const hasConfiguredGoals = (g: RepGoalsLike | undefined | null): boolean => {
+  if (!g) return false;
+  if (g.setup_complete === true) return true;
+  return (
+    (g.preseason_fp_goal ?? 0) > 0 ||
+    (g.must_do_fp_goal ?? 0) > 0 ||
+    (g.will_do_fp_goal ?? 0) > 0 ||
+    (g.could_do_fp_goal ?? 0) > 0
+  );
+};
 
 interface UseReportsV2DataParams {
   userIds: string[];
@@ -365,7 +381,7 @@ export const useReportsV2Data = ({
       let teamGoalStatusDetails: TeamGoalStatusWithDetails | undefined;
       
       if (goalsQuery.data) {
-        const { goals, reps: allReps, ytdEntries, allPlannedDays, seasonConfigs } = goalsQuery.data;
+        const { goals, reps: _reps, ytdEntries, allPlannedDays, seasonConfigs } = goalsQuery.data;
         
         // Map data by user_id for quick lookup
         const goalsMap = new Map(goals.map(g => [g.user_id, g]));
@@ -393,10 +409,10 @@ export const useReportsV2Data = ({
         const dailyPaceResults: GoalPaceResult[] = [];
         
         for (const rep of repsWithEffort) {
-          const goal = goalsMap.get(rep.userId);
+          const goal = goalsMap.get(rep.userId) as RepGoalsLike | undefined;
           const todayFP = rep.fp; // Today's FP from live data
-          
-          if (!goal || !goal.setup_complete) {
+
+          if (!hasConfiguredGoals(goal)) {
             dailyPaceResults.push({
               userId: rep.userId,
               name: rep.name,
@@ -409,35 +425,45 @@ export const useReportsV2Data = ({
             });
             continue;
           }
-          
+
           // Use calculateSalesPace for proper daily goal calculation
           const personalSummerStart = seasonConfigMap.get(rep.userId);
           const plannedDays = plannedDaysMap.get(rep.userId) || [];
           const knockingDays = knockingDaysMap.get(rep.userId) || 0;
-          
-          const paceResult = calculateSalesPace({
+
+          const summerTier = (
+            goal.focus_tier === 'mustDo' || goal.focus_tier === 'willDo' || goal.focus_tier === 'couldDo'
+              ? goal.focus_tier
+              : 'willDo'
+          ) as 'mustDo' | 'willDo' | 'couldDo';
+
+          const baseInput = {
             goals: {
               preseason_fp_goal: goal.preseason_fp_goal,
               must_do_fp_goal: goal.must_do_fp_goal,
               will_do_fp_goal: goal.will_do_fp_goal,
               could_do_fp_goal: goal.could_do_fp_goal,
               cancel_rate: goal.cancel_rate,
-              setup_complete: goal.setup_complete,
+              setup_complete: true,
             },
             plannedDays,
             knockingDays,
             currentFpPlus: 0, // We only need the daily goal
             currentPrmr: 0,
             efpModeEnabled: false,
-            calculateEfp: (prmr) => prmr / 85,
-            activeTier: isPreseason() ? 'preseason' : (goal.focus_tier as 'mustDo' | 'willDo' | 'couldDo') || 'willDo',
+            calculateEfp: (prmr: number) => prmr / 85,
             personalSummerStart,
-          });
-          
+          };
+
+          // 1) Let the shared calculator decide if this rep is still preseason (personal summer start aware)
+          // 2) If they're in summer, rerun with the rep's focus tier
+          let paceResult = calculateSalesPace(baseInput);
+          if (paceResult && !paceResult.isInPreseason) {
+            paceResult = calculateSalesPace({ ...baseInput, activeTier: summerTier });
+          }
+
           const dailyGoal = paceResult?.dailyGoal || 0;
-          const focusTier = paceResult?.isInPreseason 
-            ? 'preseason' 
-            : (goal.focus_tier as 'mustDo' | 'willDo' | 'couldDo') || 'willDo';
+          const focusTier = paceResult?.isInPreseason ? 'preseason' : summerTier;
           
           if (dailyGoal <= 0) {
             dailyPaceResults.push({
@@ -648,7 +674,7 @@ export const useReportsV2Data = ({
       let teamGoalStatusDetails: TeamGoalStatusWithDetails | undefined;
       
       if (goalsQuery.data && repsWithEffort.length > 0) {
-        const { goals, reps } = goalsQuery.data;
+        const { goals, reps: _reps } = goalsQuery.data;
         
         // Calculate number of days in the selected period
         const startDate = new Date(dateRange.start);
@@ -657,16 +683,15 @@ export const useReportsV2Data = ({
         
         // Map goals by user_id for quick lookup
         const goalsMap = new Map(goals.map(g => [g.user_id, g]));
-        const nameMap = new Map(reps.map(r => [r.user_id, r.name]));
         
         // Calculate period-specific goal pacing for each active rep
         const periodPaceResults: GoalPaceResult[] = [];
         
         for (const rep of repsWithEffort) {
-          const goal = goalsMap.get(rep.userId);
+          const goal = goalsMap.get(rep.userId) as RepGoalsLike | undefined;
           const periodFP = rep.fp; // FP earned in this period
           
-          if (!goal || !goal.setup_complete) {
+          if (!hasConfiguredGoals(goal)) {
             periodPaceResults.push({
               userId: rep.userId,
               name: rep.name,
