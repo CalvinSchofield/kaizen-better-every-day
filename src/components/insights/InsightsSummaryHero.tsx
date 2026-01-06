@@ -8,6 +8,10 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { calculateSalesPace } from '@/utils/salesPaceCalculator';
 import { calculatePaceContext, calculateSuggestedStretchGoal } from '@/utils/learningCurveData';
+import { parseISO, isAfter } from 'date-fns';
+
+// Preseason ends April 11, 2026
+const PRESEASON_END = new Date(2026, 3, 11);
 
 interface InsightsSummaryHeroProps {
   totalFp: number;
@@ -17,6 +21,7 @@ interface InsightsSummaryHeroProps {
   totalDoors: number;
   totalCloses: number;
   efpModeEnabled: boolean;
+  dateRange?: { start: Date; end: Date };
 }
 
 export const InsightsSummaryHero = ({
@@ -26,7 +31,8 @@ export const InsightsSummaryHero = ({
   daysWorked,
   totalCloses,
   totalDoors,
-  efpModeEnabled
+  efpModeEnabled,
+  dateRange,
 }: InsightsSummaryHeroProps) => {
   const navigate = useNavigate();
   const { goals } = useRepGoals();
@@ -42,6 +48,13 @@ export const InsightsSummaryHero = ({
   
   const fpPerDay = daysWorked > 0 ? (efpModeEnabled ? totalEfp : totalFp) / daysWorked : 0;
   
+  // Determine if the selected date range is in preseason
+  // If the date range ends before or on preseason end, it's preseason data
+  const isViewingPreseasonData = useMemo(() => {
+    if (!dateRange) return !isUserSummerStarted; // Fallback to current season
+    return !isAfter(dateRange.end, PRESEASON_END);
+  }, [dateRange, isUserSummerStarted]);
+  
   // Calculate pace status using centralized calculator with focus tier
   const paceStatus = useMemo(() => {
     if (!goalsSetUp) return null;
@@ -54,8 +67,8 @@ export const InsightsSummaryHero = ({
       currentPrmr: totalPrmr,
       efpModeEnabled,
       calculateEfp,
-      // Use focus tier when user's summer has started
-      activeTier: isUserSummerStarted ? focusTier : 'preseason',
+      // Use preseason if viewing preseason data, otherwise use focus tier
+      activeTier: isViewingPreseasonData ? 'preseason' : focusTier,
     });
     
     if (!result) return null;
@@ -67,12 +80,12 @@ export const InsightsSummaryHero = ({
       expectedAtThisPoint: result.expectedAtThisPoint,
       originalDailyGoal: result.dailyGoal,
       remainingDailyNeeded: result.remainingDailyNeeded,
-      isInPreseason: result.isInPreseason,
-      focusTier: isUserSummerStarted ? focusTier : null,
+      isInPreseason: isViewingPreseasonData,
+      focusTier: isViewingPreseasonData ? null : focusTier,
       projectedFinal: result.projectedFinal,
       currentAverage: daysWorked > 0 ? (efpModeEnabled ? totalEfp : totalFp) / daysWorked : 0,
     };
-  }, [goals, goalsSetUp, plannedDays, totalFp, totalPrmr, totalEfp, efpModeEnabled, daysWorked, calculateEfp, focusTier, isUserSummerStarted]);
+  }, [goals, goalsSetUp, plannedDays, totalFp, totalPrmr, totalEfp, efpModeEnabled, daysWorked, calculateEfp, focusTier, isViewingPreseasonData]);
   
   // Calculate stretch goal suggestion
   const stretchSuggestion = useMemo(() => {
@@ -173,8 +186,8 @@ export const InsightsSummaryHero = ({
         </div>
       )}
 
-      {/* Summer Tier Goals - Only show when summer has started */}
-      {isUserSummerStarted && allTiers && (
+      {/* Summer Tier Goals - Only show when viewing summer data and summer has started */}
+      {!isViewingPreseasonData && isUserSummerStarted && allTiers && (
         <div className="flex items-center gap-2 mb-4 p-1.5 rounded-xl bg-muted/30">
           {(['mustDo', 'willDo', 'couldDo'] as FocusTier[]).map((tier) => {
             const isActive = focusTier === tier;
