@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { formatFP } from "@/lib/formatters";
 import { Target, TrendingUp, AlertTriangle, XCircle, HelpCircle, Users, ChevronDown, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
@@ -240,7 +241,7 @@ export const TeamGoalSummary = ({ status, statusDetails, baseline, isLiveView, p
                           rep.status === 'at_risk' && "text-yellow-600 dark:text-yellow-400",
                           rep.status === 'behind' && "text-red-600 dark:text-red-400",
                         )}>
-                          {rep.progress.toFixed(2)}/{rep.goal.toFixed(2)} ({rep.percent.toFixed(0)}%)
+                          {formatFP(rep.progress)}/{formatFP(rep.goal)} ({Math.round(rep.percent)}%)
                         </span>
                       </div>
                     ))}
@@ -291,9 +292,9 @@ export const TeamGoalSummary = ({ status, statusDetails, baseline, isLiveView, p
                     <span className="text-muted-foreground">{getFirstName(rep.name)}</span>
                     {rep.activeGoal > 0 && (
                       <span className="text-xs font-medium">
-                        {rep.currentProgress.toFixed(2)}/{rep.activeGoal.toFixed(2)} FP+
+                        {formatFP(rep.currentProgress)}/{formatFP(rep.activeGoal)} FP+
                         <span className="text-muted-foreground/60 ml-1">
-                          ({rep.percentOfExpected.toFixed(0)}%)
+                          ({Math.round(rep.percentOfExpected)}%)
                         </span>
                       </span>
                     )}
