@@ -457,13 +457,24 @@ export const useReportsV2Data = ({
 
           // 1) Let the shared calculator decide if this rep is still preseason (personal summer start aware)
           // 2) If they're in summer, rerun with the rep's focus tier
+          let usedTier: 'preseason' | 'mustDo' | 'willDo' | 'couldDo' = 'preseason';
           let paceResult = calculateSalesPace(baseInput);
-          if (paceResult && !paceResult.isInPreseason) {
+
+          // 1) Let the shared calculator decide if this rep is still preseason (personal summer start aware)
+          // 2) If they're in summer, rerun with the rep's focus tier
+          // 3) If preseason goal is missing, fall back to the rep's focus tier so they don't show as "No Goals"
+          if (paceResult) {
+            if (!paceResult.isInPreseason) {
+              usedTier = summerTier;
+              paceResult = calculateSalesPace({ ...baseInput, activeTier: summerTier });
+            }
+          } else {
+            usedTier = summerTier;
             paceResult = calculateSalesPace({ ...baseInput, activeTier: summerTier });
           }
 
           const dailyGoal = paceResult?.dailyGoal || 0;
-          const focusTier = paceResult?.isInPreseason ? 'preseason' : summerTier;
+          const focusTier = usedTier;
           
           if (dailyGoal <= 0) {
             dailyPaceResults.push({
@@ -754,13 +765,21 @@ export const useReportsV2Data = ({
             personalSummerStart,
           };
 
+          let usedTier: 'preseason' | 'mustDo' | 'willDo' | 'couldDo' = 'preseason';
           let paceResult = calculateSalesPace(baseInput);
-          if (paceResult && !paceResult.isInPreseason) {
+
+          if (paceResult) {
+            if (!paceResult.isInPreseason) {
+              usedTier = summerTier;
+              paceResult = calculateSalesPace({ ...baseInput, activeTier: summerTier });
+            }
+          } else {
+            usedTier = summerTier;
             paceResult = calculateSalesPace({ ...baseInput, activeTier: summerTier });
           }
 
           const dailyGoal = paceResult?.dailyGoal || 0;
-          const focusTier = paceResult?.isInPreseason ? 'preseason' : summerTier;
+          const focusTier = usedTier;
           const periodGoal = dailyGoal * periodDays;
           
           if (periodGoal <= 0) {
