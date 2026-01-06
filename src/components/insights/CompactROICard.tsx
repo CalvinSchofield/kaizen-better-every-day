@@ -110,7 +110,7 @@ export const CompactROICard = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
         whileTap={{ scale: 0.92 }}
-        className={`p-3 rounded-2xl bg-warning/10 text-center cursor-pointer touch-manipulation flex flex-col justify-center ${showHint ? 'animate-pulse-ring' : ''}`}
+        className={`p-3 h-full rounded-2xl bg-warning/10 text-center cursor-pointer touch-manipulation flex flex-col justify-center ${showHint ? 'animate-pulse-ring' : ''}`}
         {...longPressHandlers}
       >
         <AnimatePresence mode="wait">
@@ -126,6 +126,11 @@ export const CompactROICard = ({
             </div>
             <div className="text-xs text-muted-foreground">
               {roiMode === 'upfront' ? 'Upfront' : 'Total'} ROI
+            </div>
+            <div className="mt-1 flex justify-center">
+              <span className="px-2 py-0.5 rounded-full bg-background/60 text-[10px] font-medium text-muted-foreground border border-border/40">
+                ${effectiveRate.toFixed(0)}/FP+
+              </span>
             </div>
           </motion.div>
         </AnimatePresence>
