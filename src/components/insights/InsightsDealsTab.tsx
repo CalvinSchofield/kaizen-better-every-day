@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { DollarSign, Clock, TrendingUp, Zap, Award, Target, ArrowRight, CalendarCheck, MapPin, Flame, Sparkles } from 'lucide-react';
+import { DollarSign, Clock, TrendingUp, Zap, Award, Target, ArrowRight, CalendarCheck, MapPin, Flame, Sparkles, ChevronDown } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCustomerInsights, DealHighlight } from '@/hooks/useCustomerInsights';
 import { InsightsSectionHeader } from './InsightsSectionHeader';
 import { useNavigate } from 'react-router-dom';
 import { useRepGoals } from '@/hooks/useRepGoals';
-import { getTier } from '@/utils/payscaleCalculator';
+import { getTier, getAllTiers } from '@/utils/payscaleCalculator';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Helper to format minutes as human readable
 const formatMinutes = (minutes: number): string => {
@@ -157,17 +159,36 @@ const HighlightCard = ({
   </motion.div>
 );
 
+// Total pay multiplier (rough estimate of final commission value vs upfront)
+const TOTAL_PAY_MULTIPLIER = 2.5;
+
+type RoiMode = 'upfront' | 'total';
+type PayscaleMode = 'current' | 'custom';
+
 export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDealsTabProps) => {
   const { insights, isLoading } = useCustomerInsights(dateRange);
   const navigate = useNavigate();
   const { goals } = useRepGoals();
   const { efpModeEnabled } = useEfpMode();
+  
+  const [roiMode, setRoiMode] = useState<RoiMode>('upfront');
+  const [payscaleMode, setPayscaleMode] = useState<PayscaleMode>('current');
+  const [customTierFp, setCustomTierFp] = useState<number>(100);
+
+  // Get all tiers for dropdown
+  const allTiers = getAllTiers();
 
   // Calculate ROI at user's pay level
   const customPayLevel = goals?.custom_payscale_fp ?? null;
   const targetFpPlus = customPayLevel ?? userCumulativeFpPlus;
   const currentTier = getTier(targetFpPlus);
-  const payscaleRate = currentTier.rate;
+  
+  // Determine which rate to use based on payscale mode
+  const selectedTier = payscaleMode === 'current' ? currentTier : getTier(customTierFp);
+  const payscaleRate = selectedTier.rate;
+  
+  // Apply total pay multiplier if in total mode
+  const effectiveRate = roiMode === 'total' ? payscaleRate * TOTAL_PAY_MULTIPLIER : payscaleRate;
 
   if (isLoading) {
     return (
@@ -208,9 +229,9 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
     );
   }
 
-  // Calculate ROIs
+  // Calculate ROIs using effective rate (includes upfront/total multiplier)
   const totalSpent = insights.totalMoneySpent || 0;
-  const totalEarnings = insights.totalPrmr * payscaleRate;
+  const totalEarnings = insights.totalPrmr * effectiveRate;
   const overallRoi = totalSpent > 0 ? totalEarnings / totalSpent : 0;
   
   // Calculate EFP or FP+ total
@@ -223,7 +244,14 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
   const getFpTypeRoi = (type: 'fresh' | 'takeover' | 'diy') => {
     const spend = insights.spendByDealType[type];
     const prmr = insights.prmrTotalByDealType[type];
-    return spend > 0 ? (prmr * payscaleRate) / spend : 0;
+    return spend > 0 ? (prmr * effectiveRate) / spend : 0;
+  };
+  
+  // Calculate ROI for sale types (FP vs Upgrade)
+  const getSaleTypeRoi = (saleType: 'fp' | 'upgrade') => {
+    const spend = insights.spendBySaleType[saleType];
+    const prmr = insights.prmrTotalBySaleType[saleType];
+    return spend > 0 ? (prmr * effectiveRate) / spend : 0;
   };
 
   return (
@@ -255,6 +283,80 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
         </motion.div>
       </div>
 
+      {/* ROI Controls */}
+      {insights.hasMoneySpentData && (
+        <Card className="border-border/40">
+          <CardContent className="p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">ROI Settings</span>
+            </div>
+            
+            {/* Upfront vs Total Toggle */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground w-16">Pay Type:</span>
+              <div className="flex items-center gap-1 border border-border rounded-lg p-1 flex-1">
+                <Button
+                  variant={roiMode === 'upfront' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setRoiMode('upfront')}
+                  className="text-xs h-7 px-3 flex-1"
+                >
+                  Upfront
+                </Button>
+                <Button
+                  variant={roiMode === 'total' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setRoiMode('total')}
+                  className="text-xs h-7 px-3 flex-1"
+                >
+                  Total (~2.5x)
+                </Button>
+              </div>
+            </div>
+            
+            {/* Payscale Tier Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground w-16">Tier:</span>
+              <div className="flex items-center gap-1 border border-border rounded-lg p-1 flex-1">
+                <Button
+                  variant={payscaleMode === 'current' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setPayscaleMode('current')}
+                  className="text-xs h-7 px-2"
+                >
+                  Current (${currentTier.rate})
+                </Button>
+                <Button
+                  variant={payscaleMode === 'custom' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setPayscaleMode('custom')}
+                  className="text-xs h-7 px-2"
+                >
+                  Custom
+                </Button>
+              </div>
+              {payscaleMode === 'custom' && (
+                <Select 
+                  value={customTierFp.toString()} 
+                  onValueChange={(v) => setCustomTierFp(parseInt(v))}
+                >
+                  <SelectTrigger className="w-24 h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allTiers.map((tier) => (
+                      <SelectItem key={tier.min} value={tier.min.toString()}>
+                        ${tier.rate}/FP+
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Cost and ROI Stats */}
       {insights.hasMoneySpentData && (
         <div className="grid grid-cols-2 gap-3">
@@ -281,7 +383,9 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
               <div className={`text-2xl font-bold ${overallRoi >= 1 ? 'text-success' : 'text-warning'}`}>
                 {overallRoi.toFixed(1)}x
               </div>
-              <div className="text-xs text-muted-foreground">ROI @ ${payscaleRate}/FP+</div>
+              <div className="text-xs text-muted-foreground">
+                {roiMode === 'upfront' ? 'Upfront' : 'Total'} ROI @ ${selectedTier.rate}/FP+
+              </div>
             </motion.div>
           )}
         </div>
@@ -318,8 +422,8 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
                 {insights.spendBySaleType.fp > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">ROI</span>
-                    <span className={`font-medium ${(insights.prmrTotalBySaleType.fp * payscaleRate / insights.spendBySaleType.fp) >= 1 ? 'text-success' : ''}`}>
-                      {(insights.prmrTotalBySaleType.fp * payscaleRate / insights.spendBySaleType.fp).toFixed(1)}x
+                    <span className={`font-medium ${getSaleTypeRoi('fp') >= 1 ? 'text-success' : ''}`}>
+                      {getSaleTypeRoi('fp').toFixed(1)}x
                     </span>
                   </div>
                 )}
@@ -353,8 +457,8 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
                 {insights.spendBySaleType.upgrade > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">ROI</span>
-                    <span className={`font-medium ${(insights.prmrTotalBySaleType.upgrade * payscaleRate / insights.spendBySaleType.upgrade) >= 1 ? 'text-success' : ''}`}>
-                      {(insights.prmrTotalBySaleType.upgrade * payscaleRate / insights.spendBySaleType.upgrade).toFixed(1)}x
+                    <span className={`font-medium ${getSaleTypeRoi('upgrade') >= 1 ? 'text-success' : ''}`}>
+                      {getSaleTypeRoi('upgrade').toFixed(1)}x
                     </span>
                   </div>
                 )}

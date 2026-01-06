@@ -362,26 +362,60 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
 
   const chartData = groupedData();
 
-  // Calculate comparison metrics
-  const calculateComparison = () => {
-    if (chartData.length < 2) return null;
-
-    const current = chartData[chartData.length - 1];
-    const previous = chartData[chartData.length - 2];
+  // Calculate rolling averages (6-day and 12-day working day averages)
+  const calculateRollingAverages = () => {
+    if (!cumulativeData || cumulativeData.length === 0) return null;
     
-    const change = current.cumulative - previous.cumulative;
-    const percentChange = previous.cumulative > 0 
-      ? ((change / previous.cumulative) * 100)
+    // Only consider knocking days for rolling average
+    const knockingDays = cumulativeData.filter(d => d.isKnockingDay);
+    if (knockingDays.length < 2) return null;
+    
+    // Get daily production values (not cumulative) for each knocking day
+    const dailyValues = knockingDays.map((d, i) => {
+      const prevCumulative = i > 0 ? knockingDays[i - 1].cumulative : 0;
+      return metricType === 'primary' 
+        ? d.cumulative - prevCumulative
+        : (efpModeEnabled 
+            ? (d.cumulativeFp ?? 0) - (knockingDays[i - 1]?.cumulativeFp ?? 0)
+            : (d.cumulativePrmr ?? 0) - (knockingDays[i - 1]?.cumulativePrmr ?? 0));
+    });
+    
+    // Calculate 6-day rolling average (last 6 knocking days)
+    const last6Days = dailyValues.slice(-6);
+    const avg6Day = last6Days.length > 0 
+      ? last6Days.reduce((sum, v) => sum + v, 0) / last6Days.length 
       : 0;
-
+    
+    // Calculate 12-day rolling average (last 12 knocking days)  
+    const last12Days = dailyValues.slice(-12);
+    const avg12Day = last12Days.length > 0
+      ? last12Days.reduce((sum, v) => sum + v, 0) / last12Days.length
+      : 0;
+    
+    // Get daily goal pace
+    let dailyGoalPace = 0;
+    if (goalPaceData) {
+      if (isPreseason) {
+        dailyGoalPace = goalPaceData.preseasonDailyPace || 0;
+      } else {
+        // Use selected goal line for summer
+        if (selectedGoalLine === 'mustDo') dailyGoalPace = goalPaceData.mustDoDailyPace || 0;
+        else if (selectedGoalLine === 'willDo') dailyGoalPace = goalPaceData.willDoDailyPace || 0;
+        else if (selectedGoalLine === 'couldDo') dailyGoalPace = goalPaceData.couldDoDailyPace || 0;
+        else dailyGoalPace = goalPaceData.preseasonDailyPace || 0;
+      }
+    }
+    
     return {
-      change,
-      percentChange,
-      isPositive: change >= 0,
+      avg6Day,
+      avg12Day,
+      dailyGoalPace,
+      has6DayData: last6Days.length >= 6,
+      has12DayData: last12Days.length >= 12,
     };
   };
 
-  const comparison = calculateComparison();
+  const rollingAverages = calculateRollingAverages();
 
   // Get the active goal line key
   const getGoalLineKey = (): string => {
@@ -608,28 +642,46 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
                 </div>
               )}
 
-              {/* Comparison Metrics */}
-              {comparison && (
-                <div className="flex items-center gap-4 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    {comparison.isPositive ? (
-                      <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    ) : (
-                      <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
-                    )}
-                    <span className={comparison.isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
-                      {comparison.isPositive ? '+' : ''}
-                      {metricType === 'secondary' && !efpModeEnabled
-                        ? `$${comparison.change.toFixed(0)}`
-                        : comparison.change.toFixed(efpModeEnabled && metricType === 'primary' ? 2 : 1)}
-                    </span>
-                    <span className="text-muted-foreground">
-                      ({comparison.percentChange.toFixed(1)}%)
-                    </span>
+              {/* Rolling Averages */}
+              {rollingAverages && metricType === 'primary' && (
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center gap-4">
+                    {/* 6-Day Average */}
+                    <div className="flex items-center gap-1.5">
+                      {rollingAverages.avg6Day >= rollingAverages.dailyGoalPace ? (
+                        <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      ) : (
+                        <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
+                      )}
+                      <span className={rollingAverages.avg6Day >= rollingAverages.dailyGoalPace ? "text-green-600 dark:text-green-400 font-medium" : "text-red-600 dark:text-red-400 font-medium"}>
+                        {efpModeEnabled ? rollingAverages.avg6Day.toFixed(2) : rollingAverages.avg6Day.toFixed(1)}
+                      </span>
+                      <span className="text-muted-foreground">
+                        6-day avg
+                      </span>
+                    </div>
+                    
+                    {/* 12-Day Average */}
+                    <div className="flex items-center gap-1.5">
+                      {rollingAverages.avg12Day >= rollingAverages.dailyGoalPace ? (
+                        <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      ) : (
+                        <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
+                      )}
+                      <span className={rollingAverages.avg12Day >= rollingAverages.dailyGoalPace ? "text-green-600 dark:text-green-400 font-medium" : "text-red-600 dark:text-red-400 font-medium"}>
+                        {efpModeEnabled ? rollingAverages.avg12Day.toFixed(2) : rollingAverages.avg12Day.toFixed(1)}
+                      </span>
+                      <span className="text-muted-foreground">
+                        12-day avg
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-muted-foreground">
-                    vs previous {groupBy}
-                  </span>
+                  
+                  {rollingAverages.dailyGoalPace > 0 && (
+                    <div className="text-muted-foreground">
+                      Goal: {efpModeEnabled ? rollingAverages.dailyGoalPace.toFixed(2) : rollingAverages.dailyGoalPace.toFixed(1)} {efpModeEnabled ? 'EFP' : 'FP+'}/day needed
+                    </div>
+                  )}
                 </div>
               )}
             </div>
