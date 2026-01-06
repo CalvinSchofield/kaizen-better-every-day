@@ -40,6 +40,9 @@ export interface SalesPaceInput {
   calculateEfp: (prmr: number) => number;
   activeTier?: 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
   personalSummerStart?: string | null;
+  // Optional: latest finalized entry date - if provided, use this as "through date" instead of today
+  // This allows calculations to update immediately when user saves, not wait for calendar rollover
+  latestFinalizedDate?: string | null;
 }
 
 /**
@@ -67,11 +70,16 @@ export function calculateSalesPace(input: SalesPaceInput): SalesPaceResult | nul
     calculateEfp,
     activeTier,
     personalSummerStart,
+    latestFinalizedDate,
   } = input;
 
   if (!goals?.setup_complete) return null;
 
   const today = startOfDay(new Date());
+  // Use latest finalized date as "through date" if provided, otherwise fall back to today
+  // This allows pace calculations to update immediately when user saves
+  const throughDate = latestFinalizedDate ? parseISO(latestFinalizedDate) : today;
+  const throughDateStr = format(throughDate, 'yyyy-MM-dd');
   const todayStr = format(today, 'yyyy-MM-dd');
   
   // Determine if we're in preseason based on today's date
@@ -112,10 +120,11 @@ export function calculateSalesPace(input: SalesPaceInput): SalesPaceResult | nul
   const seasonEndStr = isInPreseason ? PRESEASON_END : SUMMER_END;
   const seasonEndDate = parseISO(seasonEndStr);
   
-  // Count future planned days (not including today, within season)
+  // Count future planned days (after the "through date", within season)
+  // If using finalized date as through date, days after that are "future"
   const futurePlannedDays = plannedDays?.filter(d => {
     const date = parseISO(d.planned_date);
-    return d.planned_date > todayStr && !isAfter(date, seasonEndDate);
+    return d.planned_date > throughDateStr && !isAfter(date, seasonEndDate);
   }).length || 0;
   
   // Total days = knocking days already done + future planned
@@ -139,8 +148,12 @@ export function calculateSalesPace(input: SalesPaceInput): SalesPaceResult | nul
   
   // Remaining needed = (funded goal - current progress) / remaining days
   const remaining = Math.max(0, fundedGoal - currentProgress);
-  const remainingDays = futurePlannedDays + 1; // +1 for today
-  const remainingDailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
+  // If through date is before today, include days from through date to today in remaining
+  // Otherwise just future planned days (through date == today means today is done)
+  const daysAfterThrough = throughDateStr < todayStr 
+    ? futurePlannedDays + 1 // +1 for today since it's not done yet
+    : futurePlannedDays;
+  const remainingDailyNeeded = daysAfterThrough > 0 ? remaining / daysAfterThrough : 0;
   
   return {
     dailyGoal,

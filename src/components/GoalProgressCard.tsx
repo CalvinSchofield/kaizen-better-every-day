@@ -41,8 +41,24 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const { plannedDays } = usePlannedDays();
   const { repData } = useRepData();
   const today = getLocalToday();
+  const todayStr = format(today, 'yyyy-MM-dd');
 
-  // Fetch user's personal summer dates
+  // Find the latest finalized entry date - this is the "through date" for pace calculations
+  // Finalization signals day complete, not the calendar date
+  const latestFinalizedDate = useMemo(() => {
+    const finalizedEntries = entries.filter(e => e.is_finalized);
+    if (finalizedEntries.length === 0) return null;
+    
+    const sortedEntries = [...finalizedEntries].sort((a, b) => 
+      new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime()
+    );
+    return sortedEntries[0].entry_date as string;
+  }, [entries]);
+
+  // The "through date" for calculations - use latest finalized entry or null if none
+  const throughDate = latestFinalizedDate ? parseLocalDate(latestFinalizedDate) : null;
+  const throughDateStr = latestFinalizedDate || '';
+
   const { data: seasonConfig } = useQuery({
     queryKey: ['season-config-for-goal-card', repData?.user_id],
     queryFn: async () => {
@@ -108,7 +124,8 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     }, { fpPlus: 0, prmr: 0 });
   }, [entries, currentDate, viewMode]);
 
-  // Count days in period: WORKED (from entries) + REMAINING PLANNED (today or future, not yet worked)
+  // Count days in period: WORKED (finalized entries) + REMAINING PLANNED (after latest finalized, not yet worked)
+  // IMPORTANT: Use finalization as the trigger for "day complete", not calendar date
   const { daysWorkedInPeriod, totalDaysInPeriod } = useMemo(() => {
     const periodStart = viewMode === "month" 
       ? startOfMonth(currentDate) 
@@ -119,35 +136,42 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     
     const periodStartStr = format(periodStart, 'yyyy-MM-dd');
     const periodEndStr = format(periodEnd, 'yyyy-MM-dd');
-    const todayStr = format(today, 'yyyy-MM-dd');
     
-    // Count days ACTUALLY worked in this period (knocking days from entries)
-    // Knocking day = doors >= 4 AND work_start_time AND work_end_time set
+    // Count days ACTUALLY worked in this period (finalized knocking days from entries)
+    // Knocking day = doors >= 4 AND work_start_time AND work_end_time set AND is_finalized
     const workedDays = entries.filter(e => {
       if (e.entry_date < periodStartStr || e.entry_date > periodEndStr) return false;
+      if (!e.is_finalized) return false; // Only count finalized entries as "worked"
       return (e.doors_knocked || 0) >= 4 && !!e.work_start_time && !!e.work_end_time;
     }).length;
     
-    // Get dates that have been worked (as a set for quick lookup)
+    // Get dates that have finalized entries (as a set for quick lookup)
     const workedDatesSet = new Set(
-      entries.filter(e => (e.doors_knocked || 0) >= 4 && !!e.work_start_time && !!e.work_end_time)
+      entries.filter(e => e.is_finalized && (e.doors_knocked || 0) >= 4 && !!e.work_start_time && !!e.work_end_time)
         .map(e => e.entry_date)
     );
     
-    // Count planned days from today forward that haven't been worked yet
-    // Use >= todayStr so today counts as remaining if not yet worked
+    // Count planned days AFTER latest finalized date that haven't been worked yet
+    // The cutoff is the latest finalized date, not today - finalization signals day complete
+    const cutoffStr = throughDateStr || todayStr;
     const remainingPlanned = plannedDays?.filter(d => 
-      d.planned_date >= todayStr && 
+      d.planned_date > cutoffStr && 
       d.planned_date <= periodEndStr &&
       !workedDatesSet.has(d.planned_date)
     ).length || 0;
     
-    // Total = worked + remaining planned (including today if planned but not worked)
+    // Also include today if it's in the period, after cutoff, planned, and not yet worked
+    const includesToday = todayStr >= periodStartStr && todayStr <= periodEndStr && 
+      todayStr > cutoffStr && 
+      plannedDays?.some(d => d.planned_date === todayStr) &&
+      !workedDatesSet.has(todayStr);
+    
+    // Total = worked + remaining planned
     return {
       daysWorkedInPeriod: workedDays,
-      totalDaysInPeriod: workedDays + remainingPlanned
+      totalDaysInPeriod: workedDays + remainingPlanned + (includesToday ? 1 : 0)
     };
-  }, [entries, plannedDays, currentDate, viewMode, today]);
+  }, [entries, plannedDays, currentDate, viewMode, throughDateStr, todayStr]);
 
   // Helper function for knocking day check - must match criteria used in daysWorkedInPeriod
   const isKnockingDay = (entry: any): boolean => {
@@ -155,16 +179,19 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   };
 
   // FIXED PACE CALCULATION
-  // Total knocking days for the ENTIRE season: already worked + future planned
+  // Total knocking days for the ENTIRE season: already worked (finalized) + future planned
   // When viewing summer dates (isInPreseason = false), calculate summer knocking days
   // When viewing preseason dates, calculate preseason knocking days
+  // IMPORTANT: Use finalization as trigger for "day complete", not calendar date
   const { totalSeasonKnockingDays, futureSeasonPlannedDays, seasonKnockingDaysComplete } = useMemo(() => {
     if (!plannedDays) return { totalSeasonKnockingDays: 0, futureSeasonPlannedDays: 0, seasonKnockingDaysComplete: 0 };
     
     // Determine season boundaries based on viewed date context
     const seasonEndStr = isInPreseason ? PRESEASON_END : personalSummerEnd;
     const seasonStartStr = isInPreseason ? '2025-09-28' : (personalSummerStart || '2026-04-12');
-    const todayStr = format(today, 'yyyy-MM-dd');
+    
+    // Use latest finalized date as cutoff, not today
+    const cutoffStr = throughDateStr || todayStr;
     
     // For summer view during preseason, we need to count planned summer days (not completed days)
     // because summer hasn't started yet
@@ -184,28 +211,34 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
       };
     }
     
-    // Normal case: today is within the season being viewed
-    // Knocking days already completed in the season
+    // Normal case: within the season being viewed
+    // Knocking days already completed in the season (must be finalized)
     const knockingDaysComplete = entries.filter(e => {
       if (!e.is_finalized) return false;
       if (e.entry_date < seasonStartStr || e.entry_date > seasonEndStr) return false;
       return isKnockingDay(e);
     }).length;
     
-    // Future planned days (from tomorrow to season end)
+    // Future planned days (AFTER latest finalized date to season end)
+    // If today hasn't been finalized yet, include today and onwards
     const futurePlanned = plannedDays.filter(d => 
-      d.planned_date > todayStr && d.planned_date <= seasonEndStr
+      d.planned_date > cutoffStr && d.planned_date <= seasonEndStr
     ).length;
     
+    // Also count today if it's after cutoff and planned
+    const includesTodayInFuture = todayStr > cutoffStr && 
+      todayStr <= seasonEndStr &&
+      plannedDays.some(d => d.planned_date === todayStr);
+    
     // Total = completed + future planned
-    const total = knockingDaysComplete + futurePlanned;
+    const total = knockingDaysComplete + futurePlanned + (includesTodayInFuture ? 1 : 0);
     
     return { 
       totalSeasonKnockingDays: total, 
-      futureSeasonPlannedDays: futurePlanned,
+      futureSeasonPlannedDays: futurePlanned + (includesTodayInFuture ? 1 : 0),
       seasonKnockingDaysComplete: knockingDaysComplete 
     };
-  }, [plannedDays, entries, isInPreseason, personalSummerEnd, personalSummerStart, today]);
+  }, [plannedDays, entries, isInPreseason, personalSummerEnd, personalSummerStart, throughDateStr, todayStr]);
 
   // Check if user has no goals set up - show engaging prompt
   if (!goals || !goals.setup_complete) {
