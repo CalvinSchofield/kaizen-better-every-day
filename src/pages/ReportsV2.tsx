@@ -136,6 +136,7 @@ export const ReportsV2Page = () => {
     totalPRMR,
     activeReps,
     workingCount,
+    workingNames,
     constraint,
     actions,
     effortSummary,
@@ -297,7 +298,10 @@ export const ReportsV2Page = () => {
         totalFP={totalFP}
         totalPRMR={totalPRMR}
         activeReps={activeReps}
+        workingCount={workingCount}
+        workingNames={workingNames}
         periodLabel={getPeriodLabel()}
+        isLiveView={effectivePreset === 'today'}
         constraint={constraint}
         actions={actions}
         teamGoalStatus={teamGoalStatus}
