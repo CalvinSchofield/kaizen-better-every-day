@@ -576,6 +576,9 @@ export const useReportsV2Data = ({
       const actions = generateLeaderActions(repPerformanceData, constraint);
       
       // Calculate team goal status from goals query data
+      // ONLY include reps who worked in the selected date range
+      const activeUserIds = new Set(repsWithEffort.map(r => r.userId));
+      
       let teamGoalStatus: TeamGoalStatus = {
         onPace: [],
         atRisk: [],
@@ -584,62 +587,96 @@ export const useReportsV2Data = ({
       };
       let teamGoalStatusDetails: TeamGoalStatusWithDetails | undefined;
       
-      if (goalsQuery.data) {
-        const { goals, reps, ytdEntries } = goalsQuery.data;
+      if (goalsQuery.data && repsWithEffort.length > 0) {
+        const { goals, reps } = goalsQuery.data;
         
-        const ytdFPByUser = ytdEntries.reduce((acc, e) => {
-          acc[e.user_id] = (acc[e.user_id] || 0) + (e.fp_plus || 0);
-          return acc;
-        }, {} as Record<string, number>);
+        // Calculate number of days in the selected period
+        const startDate = new Date(dateRange.start);
+        const endDate = new Date(dateRange.end);
+        const periodDays = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
         
+        // Map goals by user_id for quick lookup
+        const goalsMap = new Map(goals.map(g => [g.user_id, g]));
         const nameMap = new Map(reps.map(r => [r.user_id, r.name]));
         
-        const goalsWithNames: RepGoalData[] = goals.map(g => ({
-          user_id: g.user_id,
-          name: nameMap.get(g.user_id) || 'Unknown',
-          preseason_fp_goal: g.preseason_fp_goal,
-          must_do_fp_goal: g.must_do_fp_goal,
-          will_do_fp_goal: g.will_do_fp_goal,
-          could_do_fp_goal: g.could_do_fp_goal,
-          focus_tier: g.focus_tier,
-          setup_complete: g.setup_complete,
-        }));
+        // Calculate period-specific goal pacing for each active rep
+        const periodPaceResults: GoalPaceResult[] = [];
         
-        const repsWithGoals = new Set(goals.map(g => g.user_id));
-        const repsWithoutGoals = reps
-          .filter(r => r.user_id && !repsWithGoals.has(r.user_id))
-          .map(r => ({
-            user_id: r.user_id!,
-            name: r.name,
-            preseason_fp_goal: null,
-            must_do_fp_goal: null,
-            will_do_fp_goal: null,
-            could_do_fp_goal: null,
-            focus_tier: null,
-            setup_complete: null,
-          }));
-        
-        const allGoalsData = [...goalsWithNames, ...repsWithoutGoals];
-        const progressData = allGoalsData.map(g => ({
-          userId: g.user_id,
-          currentFP: ytdFPByUser[g.user_id] || 0,
-        }));
-        
-        const paceResults = calculateTeamGoalPace(allGoalsData, progressData);
+        for (const rep of repsWithEffort) {
+          const goal = goalsMap.get(rep.userId);
+          const periodFP = rep.fp; // FP earned in this period
+          
+          if (!goal || !goal.setup_complete) {
+            periodPaceResults.push({
+              userId: rep.userId,
+              name: rep.name,
+              status: 'no_goals',
+              activeGoal: 0,
+              currentProgress: periodFP,
+              expectedAtThisPoint: 0,
+              percentOfExpected: 0,
+              focusTier: null,
+            });
+            continue;
+          }
+          
+          // Calculate period goal from preseason goal
+          // Assume ~70 knocking days in preseason
+          const preseasonGoal = goal.preseason_fp_goal || 0;
+          const dailyGoal = preseasonGoal > 0 ? preseasonGoal / 70 : 0;
+          const periodGoal = dailyGoal * periodDays;
+          
+          if (periodGoal <= 0) {
+            periodPaceResults.push({
+              userId: rep.userId,
+              name: rep.name,
+              status: 'no_goals',
+              activeGoal: 0,
+              currentProgress: periodFP,
+              expectedAtThisPoint: 0,
+              percentOfExpected: 0,
+              focusTier: 'preseason',
+            });
+            continue;
+          }
+          
+          const percentOfPeriodGoal = (periodFP / periodGoal) * 100;
+          
+          // Determine status based on period progress vs period goal
+          let status: 'on_pace' | 'at_risk' | 'behind' | 'no_goals';
+          if (percentOfPeriodGoal >= 90) {
+            status = 'on_pace';
+          } else if (percentOfPeriodGoal >= 50) {
+            status = 'at_risk';
+          } else {
+            status = 'behind';
+          }
+          
+          periodPaceResults.push({
+            userId: rep.userId,
+            name: rep.name,
+            status,
+            activeGoal: periodGoal,
+            currentProgress: periodFP,
+            expectedAtThisPoint: periodGoal,
+            percentOfExpected: percentOfPeriodGoal,
+            focusTier: 'preseason',
+          });
+        }
         
         teamGoalStatus = {
-          onPace: paceResults.filter(r => r.status === 'on_pace').map(r => r.name),
-          atRisk: paceResults.filter(r => r.status === 'at_risk').map(r => r.name),
-          behind: paceResults.filter(r => r.status === 'behind').map(r => r.name),
-          noGoals: paceResults.filter(r => r.status === 'no_goals').map(r => r.name),
+          onPace: periodPaceResults.filter(r => r.status === 'on_pace').map(r => r.name),
+          atRisk: periodPaceResults.filter(r => r.status === 'at_risk').map(r => r.name),
+          behind: periodPaceResults.filter(r => r.status === 'behind').map(r => r.name),
+          noGoals: periodPaceResults.filter(r => r.status === 'no_goals').map(r => r.name),
         };
         
         // Store full details for tier breakdown
         teamGoalStatusDetails = {
-          onPace: paceResults.filter(r => r.status === 'on_pace'),
-          atRisk: paceResults.filter(r => r.status === 'at_risk'),
-          behind: paceResults.filter(r => r.status === 'behind'),
-          noGoals: paceResults.filter(r => r.status === 'no_goals'),
+          onPace: periodPaceResults.filter(r => r.status === 'on_pace'),
+          atRisk: periodPaceResults.filter(r => r.status === 'at_risk'),
+          behind: periodPaceResults.filter(r => r.status === 'behind'),
+          noGoals: periodPaceResults.filter(r => r.status === 'no_goals'),
         };
       }
       
