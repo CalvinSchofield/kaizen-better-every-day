@@ -36,7 +36,9 @@ import {
   calculateTeamGoalPace,
   RepGoalData,
   GoalPaceResult,
+  isPreseason,
 } from "@/utils/goalPaceCalculations";
+import { calculateSalesPace, SalesPaceInput } from "@/utils/salesPaceCalculator";
 
 interface UseReportsV2DataParams {
   userIds: string[];
@@ -185,7 +187,7 @@ export const useReportsV2Data = ({
       // Fetch rep_goals for all team members
       const { data: goals, error: goalsError } = await supabase
         .from('rep_goals')
-        .select('user_id, preseason_fp_goal, must_do_fp_goal, will_do_fp_goal, could_do_fp_goal, focus_tier, setup_complete')
+        .select('user_id, preseason_fp_goal, must_do_fp_goal, will_do_fp_goal, could_do_fp_goal, focus_tier, setup_complete, cancel_rate')
         .in('user_id', userIds);
 
       if (goalsError) throw goalsError;
@@ -201,13 +203,29 @@ export const useReportsV2Data = ({
       // Fetch year-to-date FP for progress
       const { data: ytdEntries, error: ytdError } = await supabase
         .from('daily_entries')
-        .select('user_id, fp_plus')
+        .select('user_id, fp_plus, doors_knocked')
         .in('user_id', userIds)
         .gte('entry_date', yearStart);
 
       if (ytdError) throw ytdError;
 
-      return { goals, reps, ytdEntries };
+      // Fetch all planned work days for proper daily goal calculation
+      const { data: allPlannedDays, error: plannedError } = await supabase
+        .from('planned_work_days')
+        .select('user_id, planned_date')
+        .in('user_id', userIds);
+
+      if (plannedError) throw plannedError;
+
+      // Fetch season_config for personal_summer_start
+      const { data: seasonConfigs, error: configError } = await supabase
+        .from('season_config')
+        .select('user_id, personal_summer_start')
+        .in('user_id', userIds);
+
+      if (configError) throw configError;
+
+      return { goals, reps, ytdEntries, allPlannedDays, seasonConfigs };
     },
     enabled: userIds.length > 0,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -347,10 +365,28 @@ export const useReportsV2Data = ({
       let teamGoalStatusDetails: TeamGoalStatusWithDetails | undefined;
       
       if (goalsQuery.data) {
-        const { goals, reps: allReps } = goalsQuery.data;
+        const { goals, reps: allReps, ytdEntries, allPlannedDays, seasonConfigs } = goalsQuery.data;
         
-        // Map goals by user_id for quick lookup
+        // Map data by user_id for quick lookup
         const goalsMap = new Map(goals.map(g => [g.user_id, g]));
+        const plannedDaysMap = new Map<string, Array<{ planned_date: string }>>();
+        (allPlannedDays || []).forEach(p => {
+          if (!plannedDaysMap.has(p.user_id)) {
+            plannedDaysMap.set(p.user_id, []);
+          }
+          plannedDaysMap.get(p.user_id)!.push({ planned_date: p.planned_date });
+        });
+        const seasonConfigMap = new Map(
+          (seasonConfigs || []).map(c => [c.user_id, c.personal_summer_start])
+        );
+        
+        // Calculate knocking days (days with 5+ doors) per user from YTD entries
+        const knockingDaysMap = new Map<string, number>();
+        (ytdEntries || []).forEach(e => {
+          if ((e.doors_knocked || 0) >= 5) {
+            knockingDaysMap.set(e.user_id, (knockingDaysMap.get(e.user_id) || 0) + 1);
+          }
+        });
         
         // For live view: only show reps who are currently working today
         // Calculate their daily goal and today's progress
@@ -374,10 +410,34 @@ export const useReportsV2Data = ({
             continue;
           }
           
-          // Calculate daily goal from preseason goal
-          // Assume ~70 knocking days in preseason (14 weeks * 5 days)
-          const preseasonGoal = goal.preseason_fp_goal || 0;
-          const dailyGoal = preseasonGoal > 0 ? preseasonGoal / 70 : 0;
+          // Use calculateSalesPace for proper daily goal calculation
+          const personalSummerStart = seasonConfigMap.get(rep.userId);
+          const plannedDays = plannedDaysMap.get(rep.userId) || [];
+          const knockingDays = knockingDaysMap.get(rep.userId) || 0;
+          
+          const paceResult = calculateSalesPace({
+            goals: {
+              preseason_fp_goal: goal.preseason_fp_goal,
+              must_do_fp_goal: goal.must_do_fp_goal,
+              will_do_fp_goal: goal.will_do_fp_goal,
+              could_do_fp_goal: goal.could_do_fp_goal,
+              cancel_rate: goal.cancel_rate,
+              setup_complete: goal.setup_complete,
+            },
+            plannedDays,
+            knockingDays,
+            currentFpPlus: 0, // We only need the daily goal
+            currentPrmr: 0,
+            efpModeEnabled: false,
+            calculateEfp: (prmr) => prmr / 85,
+            activeTier: isPreseason() ? 'preseason' : (goal.focus_tier as 'mustDo' | 'willDo' | 'couldDo') || 'willDo',
+            personalSummerStart,
+          });
+          
+          const dailyGoal = paceResult?.dailyGoal || 0;
+          const focusTier = paceResult?.isInPreseason 
+            ? 'preseason' 
+            : (goal.focus_tier as 'mustDo' | 'willDo' | 'couldDo') || 'willDo';
           
           if (dailyGoal <= 0) {
             dailyPaceResults.push({
@@ -388,7 +448,7 @@ export const useReportsV2Data = ({
               currentProgress: todayFP,
               expectedAtThisPoint: 0,
               percentOfExpected: 0,
-              focusTier: 'preseason',
+              focusTier,
             });
             continue;
           }
@@ -413,7 +473,7 @@ export const useReportsV2Data = ({
             currentProgress: todayFP,
             expectedAtThisPoint: dailyGoal,
             percentOfExpected: percentOfDaily,
-            focusTier: 'preseason',
+            focusTier,
           });
         }
         
