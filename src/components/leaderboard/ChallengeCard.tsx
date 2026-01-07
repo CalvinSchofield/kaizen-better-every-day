@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Flame, Users, Clock, Trophy, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { toast } from "sonner";
-
+import { Haptics, ImpactStyle } from "@capacitor/haptics";
 interface ChallengeCardProps {
   challenge: Challenge;
 }
@@ -61,6 +61,7 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
 
   const handleAccept = async () => {
     try {
+      Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
       await respondMutation.mutateAsync({ challengeId: challenge.id, accept: true });
       toast.success('Challenge accepted! Game on! 🔥');
     } catch (error) {
@@ -70,6 +71,7 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
 
   const handleDecline = async () => {
     try {
+      Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
       await respondMutation.mutateAsync({ challengeId: challenge.id, accept: false });
       toast.success('Challenge declined');
     } catch (error) {
@@ -82,12 +84,16 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
   return (
     <>
       <motion.div
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.99 }}
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
         onClick={() => !needsMyResponse && setShowDetail(true)}
         className={cn(
           "bg-card rounded-2xl border border-border p-4 cursor-pointer transition-colors",
-          challenge.status === 'active' && "border-primary/30",
+          challenge.status === 'active' && "border-primary/30 shadow-lg shadow-primary/5",
           needsMyResponse && "cursor-default"
         )}
       >
@@ -104,24 +110,48 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
             </span>
           </div>
           
-          {challenge.status === 'active' && (
-            <span className="flex items-center gap-1 text-xs font-medium bg-green-500/20 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-              LIVE
-            </span>
-          )}
-          {challenge.status === 'pending' && (
-            <span className="flex items-center gap-1 text-xs font-medium bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
-              <Clock className="h-3 w-3" />
-              Pending
-            </span>
-          )}
-          {challenge.status === 'completed' && (
-            <span className="flex items-center gap-1 text-xs font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-              <Trophy className="h-3 w-3" />
-              Completed
-            </span>
-          )}
+          <AnimatePresence mode="wait">
+            {challenge.status === 'active' && (
+              <motion.span 
+                key="live"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                className="flex items-center gap-1 text-xs font-medium bg-green-500/20 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full"
+              >
+                <motion.span 
+                  className="h-1.5 w-1.5 rounded-full bg-green-500"
+                  animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                />
+                LIVE
+              </motion.span>
+            )}
+            {challenge.status === 'pending' && (
+              <motion.span 
+                key="pending"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                className="flex items-center gap-1 text-xs font-medium bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full"
+              >
+                <Clock className="h-3 w-3" />
+                Pending
+              </motion.span>
+            )}
+            {challenge.status === 'completed' && (
+              <motion.span 
+                key="completed"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                className="flex items-center gap-1 text-xs font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
+              >
+                <Trophy className="h-3 w-3" />
+                Completed
+              </motion.span>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* 1v1 Matchup */}
@@ -226,35 +256,56 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
         </div>
 
         {/* Accept/Decline for pending challenges */}
-        {needsMyResponse && (
-          <div className="mt-4 pt-3 border-t border-border flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="flex-1 gap-1"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDecline();
-              }}
-              disabled={respondMutation.isPending}
+        <AnimatePresence>
+          {needsMyResponse && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-4 pt-3 border-t border-border flex gap-2 overflow-hidden"
             >
-              <X className="h-4 w-4" />
-              Decline
-            </Button>
-            <Button 
-              size="sm" 
-              className="flex-1 gap-1"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleAccept();
-              }}
-              disabled={respondMutation.isPending}
-            >
-              <Check className="h-4 w-4" />
-              Accept
-            </Button>
-          </div>
-        )}
+              <motion.div
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.1 }}
+                className="flex-1"
+              >
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full gap-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDecline();
+                  }}
+                  disabled={respondMutation.isPending}
+                >
+                  <X className="h-4 w-4" />
+                  Decline
+                </Button>
+              </motion.div>
+              <motion.div
+                initial={{ x: 20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.15 }}
+                className="flex-1"
+              >
+                <Button 
+                  size="sm" 
+                  className="w-full gap-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAccept();
+                  }}
+                  disabled={respondMutation.isPending}
+                >
+                  <Check className="h-4 w-4" />
+                  Accept
+                </Button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       {/* Detail Sheet */}
