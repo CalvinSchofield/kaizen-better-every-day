@@ -54,7 +54,7 @@ export interface Sale {
   customer_lng?: number;
   // CRM fields - Detailed
   time_to_sell_minutes?: number;
-  time_to_sell_source?: 'transition' | 'door';
+  time_to_sell_source?: 'transition' | 'door' | 'manual';
   deal_type?: 'fresh' | 'takeover' | 'diy';
   money_spent?: number;
   difficulty?: 'easy' | 'medium' | 'hard';

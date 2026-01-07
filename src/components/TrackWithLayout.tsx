@@ -10,6 +10,7 @@ import { EarlyEndConfirmSheet } from "./EarlyEndConfirmSheet";
 import { PostSaveSuccessSheet } from "./PostSaveSuccessSheet";
 import { SyncIndicator } from "./SyncIndicator";
 import { LogSaleSheet, Sale } from "./LogSaleSheet";
+import { SaleDetailSheet } from "./SaleDetailSheet";
 import { DeleteSalePickerSheet } from "./DeleteSalePickerSheet";
 import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
 import { PageTour } from "./PageTour";
@@ -86,6 +87,7 @@ const TrackWithLayout = () => {
   
   // Sales logger state
   const [isLogSaleSheetOpen, setIsLogSaleSheetOpen] = useState(false);
+  const [isSaleDetailOpen, setIsSaleDetailOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [pendingCloseIncrement, setPendingCloseIncrement] = useState(false);
   const [isDeleteSalePickerOpen, setIsDeleteSalePickerOpen] = useState(false);
@@ -681,7 +683,7 @@ const TrackWithLayout = () => {
 
   const handleEditSale = useCallback((sale: Sale) => {
     setEditingSale(sale);
-    setIsLogSaleSheetOpen(true);
+    setIsSaleDetailOpen(true);
   }, []);
 
   const handleUpdateSale = useCallback(async (updatedSale: Sale) => {
@@ -888,6 +890,23 @@ const TrackWithLayout = () => {
         counterTimestamps={entry.counter_timestamps}
         tourForceUpgrade={tourForceUpgrade}
         tourForceCalculatorOpen={tourForceCalculatorOpen}
+      />
+
+      {/* Sale Detail Sheet for viewing/editing existing sales */}
+      <SaleDetailSheet
+        open={isSaleDetailOpen}
+        onOpenChange={(open) => {
+          setIsSaleDetailOpen(open);
+          if (!open) {
+            setEditingSale(null);
+          }
+        }}
+        sale={editingSale}
+        entryDate={getTodayDate()}
+        onUpdateSale={handleUpdateSale}
+        onDeleteSale={handleDeleteSale}
+        crmEnabled={(repData as any)?.crm_enabled || false}
+        crmDetailedEnabled={(repData as any)?.crm_detailed_enabled || false}
       />
 
       {/* Delete Sale Picker Sheet */}
