@@ -297,7 +297,7 @@ export const CalendarView = ({
       // Fall back to column values for entries without sales_log (pre-feature entries)
       const salesLog = entry.sales_log || [];
       const fundedSales = Array.isArray(salesLog) 
-        ? salesLog.filter((sale: any) => sale.install_status !== 'cancelled')
+        ? salesLog.filter((sale: any) => sale.install_status !== 'cancelled' && sale.install_status !== 'never_installed')
         : [];
       
       if (fundedSales.length > 0) {
@@ -420,9 +420,9 @@ export const CalendarView = ({
             const isPlanned = isDatePlanned(dateStr);
             const hasEntry = entry && entry.is_finalized;
             
-            // Check for cancelled sales
+            // Check for cancelled or never_installed sales
             const salesLog = entry?.sales_log || [];
-            const hasCancelledSale = Array.isArray(salesLog) && salesLog.some((s: any) => s.install_status === 'cancelled');
+            const hasCancelledSale = Array.isArray(salesLog) && salesLog.some((s: any) => s.install_status === 'cancelled' || s.install_status === 'never_installed');
             
             // Me vs Me historical data for this day
             const historicalDay = meVsMeEnabled && hasMeVsMeData ? historicalByDate.get(dateStr) : null;

@@ -155,6 +155,9 @@ function calculateDealBreakdown(entries: any[], timezone: string = 'America/Los_
     
     if (entry.sales_log && Array.isArray(entry.sales_log)) {
       entry.sales_log.forEach((sale: any) => {
+        // Skip sales that were never installed
+        if (sale.install_status === 'never_installed') return;
+        
         allDeals.push({
           type: sale.type || 'FP',
           prmr: parseFloat(sale.prmr) || 0,

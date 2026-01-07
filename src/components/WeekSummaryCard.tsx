@@ -38,7 +38,7 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
         // Fall back to column values for entries without sales_log (pre-feature entries)
         const salesLog = entry.sales_log || [];
         const fundedSales = Array.isArray(salesLog) 
-          ? (salesLog as any[]).filter((sale: any) => sale.install_status !== 'cancelled')
+          ? (salesLog as any[]).filter((sale: any) => sale.install_status !== 'cancelled' && sale.install_status !== 'never_installed')
           : [];
         
         if (fundedSales.length > 0) {

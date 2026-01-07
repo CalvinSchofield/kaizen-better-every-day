@@ -180,7 +180,7 @@ export const SaveEntrySheet = ({
 
   // Calculate FP+ and PRMR from sales
   const calculatedMetrics = useMemo(() => {
-    const fundedSales = allSales.filter(s => s.install_status !== 'cancelled');
+    const fundedSales = allSales.filter(s => s.install_status !== 'cancelled' && s.install_status !== 'never_installed');
     const fpSales = fundedSales.filter(s => s.type === 'fp');
     const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
     
