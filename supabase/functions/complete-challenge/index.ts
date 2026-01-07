@@ -21,6 +21,35 @@ interface Challenge {
   start_date: string;
   end_date: string;
   created_by: string;
+  creator_timezone: string | null;
+}
+
+// Helper function to get current date in a specific timezone
+function getCurrentDateInTimezone(timezone: string): string {
+  try {
+    const now = new Date();
+    // Format the date as YYYY-MM-DD in the specified timezone
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    return formatter.format(now);
+  } catch (e) {
+    // Fallback to UTC if timezone is invalid
+    console.log(`[complete-challenge] Invalid timezone "${timezone}", falling back to UTC`);
+    return new Date().toISOString().split('T')[0];
+  }
+}
+
+// Check if a challenge has ended based on its creator's timezone
+function isChallengeEnded(challenge: Challenge): boolean {
+  const timezone = challenge.creator_timezone || 'America/Los_Angeles'; // Default to Pacific
+  const todayInCreatorTz = getCurrentDateInTimezone(timezone);
+  
+  // Challenge has ended if end_date is before today in the creator's timezone
+  return challenge.end_date < todayInCreatorTz;
 }
 
 Deno.serve(async (req) => {
@@ -35,24 +64,29 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0];
+    console.log('[complete-challenge] Checking for ended challenges using creator timezones...');
 
-    console.log('[complete-challenge] Checking for challenges ending before:', today);
-
-    // Find active challenges that have ended
-    const { data: endedChallenges, error: fetchError } = await supabase
+    // Fetch all active challenges (we'll filter by timezone in code)
+    const { data: activeChallenges, error: fetchError } = await supabase
       .from('challenges')
       .select('*')
-      .eq('status', 'active')
-      .lt('end_date', today);
+      .eq('status', 'active');
 
     if (fetchError) {
       console.error('[complete-challenge] Error fetching challenges:', fetchError);
       throw fetchError;
     }
 
-    if (!endedChallenges?.length) {
+    // Filter challenges that have ended based on their creator's timezone
+    const endedChallenges = (activeChallenges || []).filter((c: Challenge) => {
+      const ended = isChallengeEnded(c);
+      if (ended) {
+        console.log(`[complete-challenge] Challenge ${c.id} ended (end_date: ${c.end_date}, timezone: ${c.creator_timezone || 'default Pacific'})`);
+      }
+      return ended;
+    });
+
+    if (!endedChallenges.length) {
       console.log('[complete-challenge] No challenges to complete');
       return new Response(
         JSON.stringify({ message: 'No challenges to complete', completed: 0 }),
