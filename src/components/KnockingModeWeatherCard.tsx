@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getHourInRepTimezone } from "@/hooks/useKnockingState";
 
 interface KnockingModeWeatherCardProps {
   repData: any;
   isOnActiveBlitz: boolean;
+  /** If true, card will be hidden (for working state) */
+  forceHide?: boolean;
 }
 
 const WEATHER_CACHE_KEY = 'kaizen-weather-cache';
@@ -53,7 +56,7 @@ const setCachedWeather = (data: CachedWeather['data']) => {
   }
 };
 
-export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingModeWeatherCardProps) => {
+export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz, forceHide = false }: KnockingModeWeatherCardProps) => {
   const [weather, setWeather] = useState<{
     high: number;
     low: number;
@@ -66,6 +69,15 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
   });
   const [loading, setLoading] = useState(() => !getCachedWeather());
 
+  // Get current hour in rep's local timezone
+  const localHour = getHourInRepTimezone(repData?.timezone);
+  
+  // Visibility logic: Show only before 10 AM OR during active blitz
+  const shouldShowWeather = useMemo(() => {
+    if (forceHide) return false;
+    if (isOnActiveBlitz) return true; // Always show during blitz
+    return localHour < 10; // Before 10 AM local time
+  }, [forceHide, isOnActiveBlitz, localHour]);
 
   // Determine if there's an active blitz
   const activeBlitz = useMemo(() => {
@@ -242,6 +254,9 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
     
     return "Great weather to knock — let's get after it!";
   };
+
+  // Hide completely if shouldn't show
+  if (!shouldShowWeather) return null;
 
   // Show skeleton while loading
   if (loading) {

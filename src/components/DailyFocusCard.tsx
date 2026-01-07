@@ -1,4 +1,4 @@
-import { Target, ChevronRight, Edit2, Zap, Lightbulb, Settings2 } from "lucide-react";
+import { Target, ChevronRight, Edit2, Zap, Lightbulb, Settings2, BarChart3, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -10,16 +10,27 @@ import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
+import { useFocusTier, FocusTier } from "@/hooks/useFocusTier";
+import { useSmartActivityGoals } from "@/hooks/useSmartActivityGoals";
 import { calculateSalesPace } from "@/utils/salesPaceCalculator";
 import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getLearningCurvePrincipleMessage, calculatePaceContext } from "@/utils/learningCurveData";
+import { cn } from "@/lib/utils";
 
 interface DailyFocusCardProps {
   repData: any;
+  /** Hero mode for working state - larger display */
+  heroMode?: boolean;
 }
 
-export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
+const tierLabels: Record<FocusTier, string> = {
+  mustDo: 'Must Do',
+  willDo: 'Will Do',
+  couldDo: 'Could Do',
+};
+
+export const DailyFocusCard = ({ repData, heroMode = false }: DailyFocusCardProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { entry } = useDailyEntry();
@@ -28,8 +39,48 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { totalFP, totalPRMR, knockingDays } = usePreseasonFP();
   const [isEditing, setIsEditing] = useState(false);
+  const [useManualGoals, setUseManualGoals] = useState(false);
+  const isRookie = repData?.year === "Rookie";
 
-  // Activity goals from localStorage (user-editable)
+  // Calculate today's progress from sales_log
+  const todayTransitions = entry?.transitions || 0;
+  const todayPresentations = entry?.presentations || 0;
+  
+  const { todayFP, todayPRMR } = useMemo(() => {
+    if (!entry) return { todayFP: 0, todayPRMR: 0 };
+    
+    const salesLog = entry.sales_log as Array<{ fp?: number; prmr?: number; upgrade_prmr?: number }> | null;
+    if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
+      let totalFP = 0;
+      let totalPRMR = 0;
+      salesLog.forEach(sale => {
+        totalFP += (sale.fp || 0) + ((sale.upgrade_prmr || 0) / 85);
+        totalPRMR += (sale.prmr || 0) + (sale.upgrade_prmr || 0);
+      });
+      return { todayFP: totalFP, todayPRMR: totalPRMR };
+    }
+    
+    const entryAny = entry as any;
+    return { 
+      todayFP: entry.fp_plus || 0, 
+      todayPRMR: (entry.prmr || 0) + (entryAny.upgrade_prmr || 0) 
+    };
+  }, [entry]);
+
+  const displayValue = efpModeEnabled ? calculateEfp(todayPRMR) : todayFP;
+  const displayLabel = efpModeEnabled ? "EFP" : "FP+";
+
+  // Focus tier hook for summer goals (includes isUserSummerStarted)
+  const { 
+    focusTier, 
+    setFocusTier, 
+    focusTierGoal, 
+    allTiers, 
+    isUserSummerStarted,
+    isLoading: focusTierLoading 
+  } = useFocusTier(displayValue);
+
+  // Activity goals from localStorage (user-editable fallback)
   const [transitionsGoal, setTransitionsGoal] = useState(3);
   const [presentationsGoal, setPresentationsGoal] = useState(2);
   const [transitionsInput, setTransitionsInput] = useState("3");
@@ -57,8 +108,35 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
     };
   }, [goals, plannedDays, knockingDays, totalFP, totalPRMR, efpModeEnabled, calculateEfp]);
 
+  // The daily goal to use - preseason uses calculatedDailyFpGoal, summer uses pace from focus tier
+  const fpGoal = calculatedDailyFpGoal ?? 1;
+
+  // Smart activity goals based on conversion rates
+  const smartGoals = useSmartActivityGoals({
+    dailyFpGoal: fpGoal,
+    isRookie,
+  });
+
+  // Determine which activity goals to show
+  const effectiveTransitionsGoal = (!smartGoals.isUsingManualGoals && !useManualGoals && smartGoals.hasEnoughData) 
+    ? smartGoals.suggestedTransitions 
+    : transitionsGoal;
+  const effectivePresentationsGoal = (!smartGoals.isUsingManualGoals && !useManualGoals && smartGoals.hasEnoughData)
+    ? smartGoals.suggestedPresentations
+    : presentationsGoal;
+
   // Calculate pace context for messaging
   const paceMessage = useMemo(() => {
+    // Smart goal remaining message takes priority
+    if (smartGoals.hasEnoughData && !useManualGoals) {
+      const remaining = smartGoals.presentationsRemaining;
+      if (remaining > 0) {
+        return `${remaining} more presentation${remaining !== 1 ? 's' : ''} to hit your goal!`;
+      } else if (displayValue >= fpGoal) {
+        return "You hit your daily goal! 🎉";
+      }
+    }
+
     if (!paceResult || knockingDays < 18) {
       return "Keep building momentum — progress isn't always linear.";
     }
@@ -82,12 +160,13 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
     }
     
     return null;
-  }, [paceResult, knockingDays]);
+  }, [paceResult, knockingDays, smartGoals, useManualGoals, displayValue, fpGoal]);
 
   // Load activity goals from localStorage on mount
   useEffect(() => {
     const savedTransitions = localStorage.getItem('daily_transitions_goal');
     const savedPresentations = localStorage.getItem('daily_presentations_goal');
+    const savedManualPref = localStorage.getItem('use_manual_activity_goals');
     
     if (savedTransitions) {
       const val = parseInt(savedTransitions);
@@ -99,39 +178,13 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
       setPresentationsGoal(val);
       setPresentationsInput(String(val));
     }
+    if (savedManualPref === 'true') {
+      setUseManualGoals(true);
+    }
   }, []);
 
-  // Calculate today's progress from sales_log
-  const todayTransitions = entry?.transitions || 0;
-  const todayPresentations = entry?.presentations || 0;
-  
-  const { todayFP, todayPRMR } = useMemo(() => {
-    if (!entry) return { todayFP: 0, todayPRMR: 0 };
-    
-    const salesLog = entry.sales_log as Array<{ fp?: number; prmr?: number; upgrade_prmr?: number }> | null;
-    if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
-      let totalFP = 0;
-      let totalPRMR = 0;
-      salesLog.forEach(sale => {
-        totalFP += (sale.fp || 0) + ((sale.upgrade_prmr || 0) / 85);
-        totalPRMR += (sale.prmr || 0) + (sale.upgrade_prmr || 0);
-      });
-      return { todayFP: totalFP, todayPRMR: totalPRMR };
-    }
-    
-    const entryAny = entry as any;
-    return { 
-      todayFP: entry.fp_plus || 0, 
-      todayPRMR: (entry.prmr || 0) + (entryAny.upgrade_prmr || 0) 
-    };
-  }, [entry]);
-  
-  const displayValue = efpModeEnabled ? calculateEfp(todayPRMR) : todayFP;
-  const displayLabel = efpModeEnabled ? "EFP" : "FP+";
-  const fpGoal = calculatedDailyFpGoal ?? 1;
-
-  const transitionsProgress = transitionsGoal > 0 ? Math.min((todayTransitions / transitionsGoal) * 100, 100) : 0;
-  const presentationsProgress = presentationsGoal > 0 ? Math.min((todayPresentations / presentationsGoal) * 100, 100) : 0;
+  const transitionsProgress = effectiveTransitionsGoal > 0 ? Math.min((todayTransitions / effectiveTransitionsGoal) * 100, 100) : 0;
+  const presentationsProgress = effectivePresentationsGoal > 0 ? Math.min((todayPresentations / effectivePresentationsGoal) * 100, 100) : 0;
   const fpProgress = fpGoal > 0 ? Math.min((displayValue / fpGoal) * 100, 100) : 0;
 
   const handleSaveGoals = () => {
@@ -155,6 +208,20 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
     setTransitionsInput(String(transitionsGoal));
     setPresentationsInput(String(presentationsGoal));
     setIsEditing(false);
+  };
+
+  const handleTierChange = async (tier: FocusTier) => {
+    await setFocusTier(tier);
+    toast({
+      title: `Focus changed to ${tierLabels[tier]}`,
+      description: "Your daily pace has been updated.",
+    });
+  };
+
+  const toggleManualGoals = () => {
+    const newValue = !useManualGoals;
+    setUseManualGoals(newValue);
+    localStorage.setItem('use_manual_activity_goals', String(newValue));
   };
 
   // Show CTA to set up goals if no goals are set
@@ -188,12 +255,15 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
   }
 
   return (
-    <Card className="border-2 border-primary/20 shadow-lg">
-      <CardHeader>
+    <Card className={cn(
+      "border-2 border-primary/20 shadow-lg transition-all",
+      heroMode && "border-primary/40 shadow-xl"
+    )}>
+      <CardHeader className={cn(heroMode && "pb-2")}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-primary" />
-            <CardTitle>Today's Focus</CardTitle>
+            <Target className={cn("h-5 w-5 text-primary", heroMode && "h-6 w-6")} />
+            <CardTitle className={cn(heroMode && "text-xl")}>Today's Focus</CardTitle>
           </div>
           {!isEditing ? (
             <Button
@@ -206,13 +276,46 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
             </Button>
           ) : null}
         </div>
-        <CardDescription>
-          {goals?.setup_complete 
-            ? "Your daily targets based on your goals" 
-            : "Simplify your mission today"}
-        </CardDescription>
+        
+        {/* Summer: Show 3-tier selector */}
+        {isUserSummerStarted && goals?.setup_complete && !isEditing && (
+          <div className="flex items-center gap-1.5 pt-2">
+            {(['mustDo', 'willDo', 'couldDo'] as FocusTier[]).map((tier) => {
+              const tierData = allTiers[tier];
+              const isActive = focusTier === tier;
+              const isComplete = tierData.complete;
+              
+              return (
+                <button
+                  key={tier}
+                  onClick={() => handleTierChange(tier)}
+                  className={cn(
+                    "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all",
+                    isActive 
+                      ? "bg-primary text-primary-foreground" 
+                      : "bg-muted text-muted-foreground hover:bg-muted/80",
+                    isComplete && !isActive && "text-green-600 dark:text-green-400"
+                  )}
+                >
+                  {isComplete && <CheckCircle2 className="h-3 w-3" />}
+                  {tierLabels[tier]}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        
+        {/* Preseason: Show simple description */}
+        {!isUserSummerStarted && (
+          <CardDescription>
+            {goals?.setup_complete 
+              ? "Your daily targets based on your preseason goal" 
+              : "Simplify your mission today"}
+          </CardDescription>
+        )}
       </CardHeader>
-      <CardContent className="space-y-4">
+      
+      <CardContent className={cn("space-y-4", heroMode && "space-y-5")}>
         {isEditing ? (
           <div className="space-y-4">
             <div className="space-y-2">
@@ -255,7 +358,7 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
                   <span className="text-muted-foreground">{fpGoal.toFixed(1)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Calculated from your preseason goal ÷ planned days
+                  Calculated from your {isUserSummerStarted ? tierLabels[focusTier] : 'preseason'} goal ÷ planned days
                 </p>
               </div>
             )}
@@ -282,42 +385,83 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground">{displayLabel}</span>
+                  <span className={cn("text-muted-foreground", heroMode && "text-base")}>{displayLabel}</span>
                   {goals?.setup_complete && (
                     <span className="text-[10px] text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded">
-                      from goals
+                      {isUserSummerStarted ? tierLabels[focusTier] : 'preseason'}
                     </span>
                   )}
                 </div>
-                <span className="font-semibold text-lg">{displayValue.toFixed(1)} / {fpGoal.toFixed(1)}</span>
+                <span className={cn("font-semibold text-lg", heroMode && "text-2xl")}>
+                  {displayValue.toFixed(1)} / {fpGoal.toFixed(1)}
+                </span>
               </div>
               <Progress 
                 value={fpProgress} 
-                className="h-3"
+                className={cn("h-3", heroMode && "h-4")}
               />
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Transitions</span>
-                <span className="font-semibold text-lg">{todayTransitions} / {transitionsGoal}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Transitions</span>
+                  {smartGoals.hasEnoughData && !useManualGoals && (
+                    <BarChart3 className="h-3 w-3 text-primary" />
+                  )}
+                </div>
+                <span className={cn("font-semibold text-lg", heroMode && "text-xl")}>
+                  {todayTransitions} / {effectiveTransitionsGoal}
+                </span>
               </div>
               <Progress value={transitionsProgress} className="h-3" />
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Presentations</span>
-                <span className="font-semibold text-lg">{todayPresentations} / {presentationsGoal}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Presentations</span>
+                  {smartGoals.hasEnoughData && !useManualGoals && (
+                    <BarChart3 className="h-3 w-3 text-primary" />
+                  )}
+                </div>
+                <span className={cn("font-semibold text-lg", heroMode && "text-xl")}>
+                  {todayPresentations} / {effectivePresentationsGoal}
+                </span>
               </div>
               <Progress value={presentationsProgress} className="h-3" />
             </div>
 
+            {/* Smart goals indicator */}
+            {smartGoals.hasEnoughData && (
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
+                  <BarChart3 className="h-2.5 w-2.5" />
+                  {useManualGoals ? 'Using your targets' : 'Based on your data'}
+                </span>
+                <button
+                  onClick={toggleManualGoals}
+                  className="text-[10px] text-primary hover:underline"
+                >
+                  {useManualGoals ? 'Use smart goals' : 'Use my targets'}
+                </button>
+              </div>
+            )}
+
             {/* Pace Context Message */}
             {paceMessage && goals?.setup_complete && (
-              <div className="flex items-start gap-2 pt-2 border-t border-border/50">
-                <Lightbulb className="h-3.5 w-3.5 text-primary flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-muted-foreground leading-relaxed">
+              <div className={cn(
+                "flex items-start gap-2 pt-2 border-t border-border/50",
+                heroMode && "pt-3"
+              )}>
+                <Lightbulb className={cn(
+                  "h-3.5 w-3.5 text-primary flex-shrink-0 mt-0.5",
+                  heroMode && "h-4 w-4"
+                )} />
+                <p className={cn(
+                  "text-xs text-muted-foreground leading-relaxed",
+                  heroMode && "text-sm"
+                )}>
                   {paceMessage}
                 </p>
               </div>
