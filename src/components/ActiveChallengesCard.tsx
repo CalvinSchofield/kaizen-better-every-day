@@ -1,0 +1,202 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { useMyActiveChallenges, Challenge } from "@/hooks/useChallenges";
+import { useMyActiveIncentives } from "@/hooks/useIncentives";
+import { useChallengeProgress } from "@/hooks/useChallengeProgress";
+import { Swords, Trophy, ChevronRight, Flame, Gift, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
+
+const metricLabels: Record<string, string> = {
+  fp_plus: 'FP+',
+  prmr: 'PRMR',
+  transitions: 'Trans',
+  doors_knocked: 'Doors',
+};
+
+interface ChallengeProgressItemProps {
+  challenge: Challenge;
+  myUserId: string;
+}
+
+const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemProps) => {
+  const { data: progress, isLoading } = useChallengeProgress(challenge);
+  
+  if (isLoading || !progress) {
+    return (
+      <div className="flex items-center justify-center py-2">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const myProgress = progress.participants.find(p => p.user_id === myUserId);
+  const opponentProgress = progress.participants.find(p => p.user_id !== myUserId);
+  
+  const myValue = myProgress?.current_value || 0;
+  const theirValue = opponentProgress?.current_value || 0;
+  const isWinning = myValue > theirValue;
+  const isTied = myValue === theirValue;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
+            isWinning ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600"
+          )}>
+            {myValue}
+          </div>
+          <span className="text-sm font-medium">You</span>
+        </div>
+        <Badge variant="secondary" className="text-xs">
+          {metricLabels[challenge.metric] || challenge.metric}
+        </Badge>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">{opponentProgress?.rep_name?.split(' ')[0]}</span>
+          <div className={cn(
+            "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
+            !isWinning && !isTied ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600"
+          )}>
+            {theirValue}
+          </div>
+        </div>
+      </div>
+      {challenge.stakes && (
+        <p className="text-xs text-muted-foreground text-center">🎯 {challenge.stakes}</p>
+      )}
+    </div>
+  );
+};
+
+export const ActiveChallengesCard = () => {
+  const navigate = useNavigate();
+  const { data: challenges, isLoading: loadingChallenges } = useMyActiveChallenges();
+  const { data: incentives, isLoading: loadingIncentives } = useMyActiveIncentives();
+
+  const activeChallenges = challenges?.filter(c => c.status === 'active') || [];
+  const pendingChallenges = challenges?.filter(c => c.status === 'pending') || [];
+  const activeIncentives = incentives || [];
+
+  const hasContent = activeChallenges.length > 0 || pendingChallenges.length > 0 || activeIncentives.length > 0;
+  
+  if (loadingChallenges || loadingIncentives) {
+    return null; // Don't show loading state, just hide the card
+  }
+
+  if (!hasContent) {
+    return null; // Don't show card if nothing active
+  }
+
+  return (
+    <Card className="mb-6 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Flame className="h-5 w-5 text-orange-500" />
+            Active Competitions
+          </CardTitle>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate('/leaderboard')}
+            className="text-primary"
+          >
+            View All
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Active Challenges */}
+        {activeChallenges.slice(0, 2).map(challenge => {
+          const me = challenge.participants?.find(p => p.role === 'captain_a');
+          
+          return (
+            <div 
+              key={challenge.id}
+              onClick={() => navigate('/leaderboard')}
+              className="p-3 rounded-lg bg-background/80 border cursor-pointer hover:border-primary/50 transition-colors"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <Swords className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">1v1 Challenge</span>
+              </div>
+              <ChallengeProgressItem
+                challenge={challenge}
+                myUserId={me?.user_id || ''}
+              />
+            </div>
+          );
+        })}
+
+        {/* Pending Challenges */}
+        {pendingChallenges.slice(0, 1).map(challenge => {
+          const opponent = challenge.participants?.find(p => p.role === 'captain_b');
+          const isFromMe = challenge.participants?.find(p => p.role === 'captain_a')?.user_id === challenge.created_by;
+          
+          return (
+            <div 
+              key={challenge.id}
+              onClick={() => navigate('/leaderboard')}
+              className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 cursor-pointer hover:border-yellow-500/50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Swords className="h-4 w-4 text-yellow-600" />
+                  <span className="text-sm font-medium">
+                    {isFromMe ? 'Waiting for response...' : 'Challenge received!'}
+                  </span>
+                </div>
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={opponent?.profile_photo_url || undefined} />
+                  <AvatarFallback className="text-xs">
+                    {opponent?.rep_name?.charAt(0) || '?'}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {metricLabels[challenge.metric]} vs {opponent?.rep_name}
+              </p>
+            </div>
+          );
+        })}
+
+        {/* Active Incentives */}
+        {activeIncentives.slice(0, 2).map(incentive => (
+          <div 
+            key={incentive.id}
+            onClick={() => navigate('/leaderboard')}
+            className="p-3 rounded-lg bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 cursor-pointer hover:border-amber-500/50 transition-colors"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-amber-500" />
+                <span className="text-sm font-semibold">{incentive.title}</span>
+              </div>
+              <Gift className="h-4 w-4 text-amber-600" />
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                First to {incentive.target_value} {metricLabels[incentive.metric] || incentive.metric}
+              </span>
+              <Badge variant="outline" className="text-amber-600 border-amber-500/50">
+                🎁 {incentive.reward}
+              </Badge>
+            </div>
+          </div>
+        ))}
+
+        {/* Show more indicator */}
+        {(activeChallenges.length > 2 || activeIncentives.length > 2 || pendingChallenges.length > 1) && (
+          <p className="text-xs text-center text-muted-foreground">
+            +{Math.max(0, activeChallenges.length - 2) + Math.max(0, activeIncentives.length - 2) + Math.max(0, pendingChallenges.length - 1)} more
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
