@@ -4,14 +4,16 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Trophy, Users, Target, Clock, User, Eye, EyeOff, Pencil } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Trophy, Users, Target, Clock, Eye, EyeOff, Pencil, XCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Incentive, IncentiveMetric } from "@/hooks/useIncentives";
+import { Incentive, IncentiveMetric, useCancelIncentive } from "@/hooks/useIncentives";
 import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { EditIncentiveDrawer } from "./EditIncentiveDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 interface IncentiveDetailSheetProps {
   incentive: Incentive;
@@ -28,6 +30,7 @@ const metricLabels: Record<IncentiveMetric, string> = {
 
 export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: IncentiveDetailSheetProps) => {
   const [showEditDrawer, setShowEditDrawer] = useState(false);
+  const cancelMutation = useCancelIncentive();
   
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
@@ -40,8 +43,19 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
   const isActive = incentive.status === 'active';
   const isGroupTotal = incentive.target_type === 'group_total';
   const isCreator = currentUser?.id === incentive.created_by;
+  const canCancel = isCreator && isActive && !incentive.winner_user_id;
   
   const { data: progressData } = useIncentiveProgress(isActive ? incentive : null);
+
+  const handleCancel = async () => {
+    try {
+      await cancelMutation.mutateAsync(incentive.id);
+      toast.success('Incentive cancelled');
+      onOpenChange(false);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to cancel incentive');
+    }
+  };
 
   return (
     <>
@@ -57,14 +71,50 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                 <p className="text-sm text-muted-foreground">by {incentive.creator_name}</p>
               </div>
               {isCreator && isActive && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => setShowEditDrawer(true)}
-                  className="h-8 w-8"
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => setShowEditDrawer(true)}
+                    className="h-8 w-8"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  {canCancel && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Cancel Incentive?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will cancel "{incentive.title}" and notify all participants. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Keep Active</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleCancel}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            disabled={cancelMutation.isPending}
+                          >
+                            {cancelMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
+                            Cancel Incentive
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
               )}
             </div>
           </DrawerHeader>
