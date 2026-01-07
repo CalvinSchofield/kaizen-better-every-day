@@ -44,8 +44,10 @@ export const useSaleUpdate = () => {
       const updatedSalesLog = [...salesLog];
       updatedSalesLog[saleIndex] = updatedSale;
 
-      // Recalculate FP+ and PRMR from funded sales only
-      const fundedSales = updatedSalesLog.filter(s => s.install_status !== 'cancelled');
+      // Recalculate FP+ and PRMR from funded sales only (exclude cancelled AND never_installed)
+      const fundedSales = updatedSalesLog.filter(s => 
+        s.install_status !== 'cancelled' && s.install_status !== 'never_installed'
+      );
       const fpSales = fundedSales.filter(s => s.type === 'fp');
       const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
       
@@ -115,8 +117,10 @@ export const useSaleUpdate = () => {
       // Remove the sale from sales_log
       const updatedSalesLog = salesLog.filter(s => s.id !== saleId);
 
-      // Recalculate FP+ and PRMR from remaining funded sales only
-      const fundedSales = updatedSalesLog.filter(s => s.install_status !== 'cancelled');
+      // Recalculate FP+ and PRMR from remaining funded sales only (exclude cancelled AND never_installed)
+      const fundedSales = updatedSalesLog.filter(s => 
+        s.install_status !== 'cancelled' && s.install_status !== 'never_installed'
+      );
       const fpSales = fundedSales.filter(s => s.type === 'fp');
       const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
       

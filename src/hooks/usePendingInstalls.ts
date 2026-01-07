@@ -170,8 +170,10 @@ export const usePendingInstalls = () => {
       const salesLog = (entry.sales_log as unknown as Sale[]) || [];
       const updatedSalesLog = salesLog.filter(sale => sale.id !== saleId);
 
-      // Recalculate totals from remaining funded sales
-      const fundedSales = updatedSalesLog.filter(s => s.install_status !== 'cancelled');
+      // Recalculate totals from remaining funded sales (exclude cancelled AND never_installed)
+      const fundedSales = updatedSalesLog.filter(s => 
+        s.install_status !== 'cancelled' && s.install_status !== 'never_installed'
+      );
       const fpSales = fundedSales.filter(s => s.type === 'fp');
       const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
       

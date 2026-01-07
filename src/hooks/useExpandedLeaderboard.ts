@@ -315,6 +315,9 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         let upgradeFp = 0;
         
         for (const sale of salesLog) {
+          // Skip sales that were never installed - they don't count on leaderboard
+          if (sale.install_status === 'never_installed') continue;
+          
           const salePrmr = Number(sale.prmr) || 0;
           prmr += salePrmr;
           
