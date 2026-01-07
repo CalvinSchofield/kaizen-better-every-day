@@ -17,6 +17,7 @@ import { LeaderPreseasonPrepLeaderboard } from "@/components/LeaderPreseasonPrep
 import { WeeklyProgressPromptCard } from "@/components/WeeklyProgressPromptCard";
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import { LeaderRookieReviewCard } from "@/components/LeaderRookieReviewCard";
+import { ActiveChallengesCard } from "@/components/ActiveChallengesCard";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
@@ -780,6 +781,8 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         {/* Weekly Progress Prompt - Monday evenings */}
         <WeeklyProgressPromptCard />
 
+        {/* Active Challenges & Incentives */}
+        <ActiveChallengesCard />
 
         {/* Preseason Standards Card */}
         <PreseasonStandardsCard />
