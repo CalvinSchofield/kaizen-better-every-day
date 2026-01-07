@@ -46,18 +46,22 @@ interface UseTeamLiveDataParams {
 }
 
 // Get "today" date string for a given timezone
+// This is crucial: we need to know what date it is RIGHT NOW in the rep's timezone
+// to correctly match their daily_entry to "today"
 const getTodayInTimezone = (timezone: string | null): string => {
   try {
     const tz = timezone || 'America/Los_Angeles';
-    const now = new Date();
+    // Create a formatter that outputs in the rep's timezone
     const formatter = new Intl.DateTimeFormat('en-CA', { 
       timeZone: tz,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
     });
-    return formatter.format(now);
+    // Format the current instant in the rep's timezone
+    return formatter.format(new Date());
   } catch {
+    // Fallback: use local date
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   }

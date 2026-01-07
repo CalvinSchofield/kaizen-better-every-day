@@ -59,11 +59,16 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
         profilePhotoUrl: r.profile_photo_url
       }]) || []);
 
-      // Fetch recent entries (RLS allows last 2 days for timezone coverage)
-      // Include is_finalized to prioritize finalized data, sales_log for running totals
+      // Fetch entries from the last 2 days to handle timezone edge cases
+      // (entry_date stored as YYYY-MM-DD may be "today" or "yesterday" depending on viewer's timezone)
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+      const twoDaysAgoStr = twoDaysAgo.toISOString().split('T')[0];
+      
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, is_finalized, sales_log");
+        .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, is_finalized, sales_log")
+        .gte("entry_date", twoDaysAgoStr);
 
       if (error) throw error;
 
@@ -76,17 +81,25 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
         return entry.entry_date === repToday;
       }) || [];
       
-      // PROTECTION LAYER: Sort so finalized entries appear first (finalized > unfinalized)
-      // This ensures when there's both finalized and unfinalized for same user, finalized wins
-      todayEntries.sort((a, b) => {
-        if (a.is_finalized && !b.is_finalized) return -1;
-        if (!a.is_finalized && b.is_finalized) return 1;
-        return 0;
-      });
+      // PROTECTION LAYER: Deduplicate by user - if someone has both finalized and unfinalized for today,
+      // prioritize finalized. Sort so finalized entries appear first, then take first per user.
+      const seenUsers = new Set<string>();
+      const dedupedEntries = todayEntries
+        .sort((a, b) => {
+          // Finalized first
+          if (a.is_finalized && !b.is_finalized) return -1;
+          if (!a.is_finalized && b.is_finalized) return 1;
+          return 0;
+        })
+        .filter(entry => {
+          if (seenUsers.has(entry.user_id)) return false;
+          seenUsers.add(entry.user_id);
+          return true;
+        });
 
       const filteredEntries = filterByYear 
-        ? todayEntries.filter(e => repsMap.get(e.user_id)?.year === filterByYear)
-        : todayEntries;
+        ? dedupedEntries.filter(e => repsMap.get(e.user_id)?.year === filterByYear)
+        : dedupedEntries;
 
       // Create rankings arrays for each metric
       const createRanking = (field: keyof typeof filteredEntries[0]): RankingEntry[] => {
