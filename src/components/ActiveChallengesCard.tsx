@@ -77,6 +77,7 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
 };
 
 export const ActiveChallengesCard = () => {
+  const navigate = useNavigate();
   const [competeDrawerOpen, setCompeteDrawerOpen] = useState(false);
   const {
     data: challenges,
@@ -129,8 +130,46 @@ export const ActiveChallengesCard = () => {
     setCompeteDrawerOpen(true);
   };
 
-  // Hide until there's something actually active/pending.
-  if (!hasContent) return null;
+  const handleCreateChallenge = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    hapticLight();
+    navigate('/compete?create=challenge');
+  };
+
+  // Show CTA when no active competitions
+  if (!hasContent) {
+    return (
+      <>
+        <Card 
+          className="mb-6 border-dashed border-muted-foreground/30 bg-muted/30 cursor-pointer hover:border-primary/40 transition-colors"
+          onClick={handleCardClick}
+        >
+          <CardContent className="py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Swords className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">No active competitions</p>
+                  <p className="text-xs text-muted-foreground">Challenge a teammate!</p>
+                </div>
+              </div>
+              <Button 
+                size="sm" 
+                onClick={handleCreateChallenge}
+                className="gap-1"
+              >
+                <Plus className="h-4 w-4" />
+                Challenge
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        <CompeteDrawer open={competeDrawerOpen} onOpenChange={setCompeteDrawerOpen} />
+      </>
+    );
+  }
 
   return (
     <>
