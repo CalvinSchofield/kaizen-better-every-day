@@ -152,8 +152,8 @@ export const useCustomerData = (
           : sale
       );
 
-      // Recalculate FP+ and PRMR from funded sales only
-      const fundedSales = updatedSalesLog.filter(s => s.install_status !== 'cancelled');
+      // Recalculate FP+ and PRMR from funded sales only (exclude cancelled and never_installed)
+      const fundedSales = updatedSalesLog.filter(s => s.install_status !== 'cancelled' && s.install_status !== 'never_installed');
       const fpSales = fundedSales.filter(s => s.type === 'fp');
       const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
       

@@ -166,8 +166,8 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep }: RepDetailDrawerProp
   // FP+ = FP count + (upgradePRMR / 85) - but rep.fp already includes upgrade FP+ from data source
   const totalFPPlus = rep.fp;
   
-  // Funded sales only
-  const fundedSales = (rep.salesLog || []).filter(s => s.install_status !== 'cancelled');
+  // Funded sales only (exclude cancelled and never_installed)
+  const fundedSales = (rep.salesLog || []).filter(s => s.install_status !== 'cancelled' && s.install_status !== 'never_installed');
   const cancelledCount = (rep.salesLog || []).filter(s => s.install_status === 'cancelled').length;
 
   // Goal progress calculation

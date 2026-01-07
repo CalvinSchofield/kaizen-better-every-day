@@ -133,6 +133,9 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
         let prmr = 0;
         
         for (const sale of salesLog) {
+          // Skip sales that were never installed
+          if (sale.install_status === 'never_installed') continue;
+          
           const salePrmr = Number(sale.prmr) || 0;
           prmr += salePrmr;
           
