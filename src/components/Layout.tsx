@@ -244,7 +244,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         { path: "/", icon: Home, label: "Home" },
         { path: "/tools", icon: Wrench, label: "Tools" },
         { path: "/calendar", icon: Calendar, label: "Calendar" },
-        { path: "/goals", icon: Trophy, label: "Goals" },
+        { path: "/goals", icon: Target, label: "Goals" },
       ];
     }
     
@@ -254,7 +254,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         { path: "/", icon: Home, label: "Home" },
         { path: "/tools", icon: Wrench, label: "Tools" },
         { path: "/calendar", icon: Calendar, label: "Calendar" },
-        { path: "/goals", icon: Trophy, label: "Goals" },
+        { path: "/goals", icon: Target, label: "Goals" },
       ];
     }
 
@@ -265,7 +265,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         { path: "/", icon: Home, label: "Home" },
         { path: "/tools", icon: Wrench, label: "Tools" },
         { path: "/calendar", icon: Calendar, label: "Calendar" },
-        { path: "/goals", icon: Trophy, label: "Goals" },
+        { path: "/goals", icon: Target, label: "Goals" },
       ];
     }
 
@@ -274,7 +274,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
       { path: "/", icon: Home, label: "Home" },
       { path: "/tools", icon: Wrench, label: "Tools" },
       { path: "/calendar", icon: Calendar, label: "Calendar" },
-      { path: "/goals", icon: Trophy, label: "Goals" },
+      { path: "/goals", icon: Target, label: "Goals" },
     ];
   };
   
