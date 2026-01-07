@@ -1805,6 +1805,10 @@ export type Database = {
         Args: { _challenge_id: string; _user_id: string }
         Returns: boolean
       }
+      is_challenge_participant_direct: {
+        Args: { _challenge_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_incentive_eligible: {
         Args: { _incentive_id: string; _user_id: string }
         Returns: boolean
