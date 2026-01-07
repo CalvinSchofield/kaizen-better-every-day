@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ComposedChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Area } from "recharts";
@@ -81,13 +81,13 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
   }, [carouselApi]);
 
   // Set up carousel event listener
-  useState(() => {
+  useEffect(() => {
     if (!carouselApi) return;
     carouselApi.on('select', handleSlideChange);
     return () => {
       carouselApi.off('select', handleSlideChange);
     };
-  });
+  }, [carouselApi, handleSlideChange]);
 
   // Goal pace calculation
   const goalPaceData = useMemo(() => {
