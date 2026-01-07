@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,6 +52,7 @@ interface SaveEntrySheetProps {
   customCounterConfig?: Array<{ id: string; name: string; emoji: string; hidden?: boolean }>;
   counterLayoutConfig?: { order: string[] };
   salesLog?: Sale[];
+  skipSummaryView?: boolean; // Skip summary and go directly to save (with install step if needed)
 }
 
 type OpenCardType = 'activity' | 'time' | null;
@@ -67,6 +68,7 @@ export const SaveEntrySheet = ({
   customCounterConfig = [],
   counterLayoutConfig,
   salesLog = [],
+  skipSummaryView = false,
 }: SaveEntrySheetProps) => {
   const { repData } = useRepData();
   const { totalFP } = usePreseasonFP();
@@ -387,6 +389,34 @@ export const SaveEntrySheet = ({
     }
   }, [open, entry?.id]);
 
+  // Auto-trigger save when skipSummaryView is true (for Track page current day saves)
+  // This skips the summary UI and goes directly to the save flow (with install step if needed)
+  const skipTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (open && skipSummaryView && isFormReady && !skipTriggeredRef.current && !isSaving) {
+      skipTriggeredRef.current = true;
+      // Small delay to ensure form is fully ready then trigger save
+      const timeoutId = setTimeout(() => {
+        // Go directly to install step check / save
+        const allSalesToCheck = [...salesLog];
+        if (allSalesToCheck.length > 0) {
+          const hasUnmarkedSales = allSalesToCheck.some(s => s.install_status === undefined);
+          if (hasUnmarkedSales) {
+            setShowInstallStep(true);
+            return;
+          }
+        }
+        // No unmarked sales - proceed directly to save
+        proceedWithSave();
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+    // Reset when sheet closes
+    if (!open) {
+      skipTriggeredRef.current = false;
+    }
+  }, [open, skipSummaryView, isFormReady, isSaving, salesLog]);
+
   const hasResultsWithoutActivity = () => {
     const hasSales = allSales.length > 0;
     const hasAnyActivity = 
@@ -412,7 +442,7 @@ export const SaveEntrySheet = ({
     return false;
   };
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     // Check if entry is already finalized
     if (entry?.is_finalized) {
       setShowOverwriteWarning(true);
@@ -449,7 +479,7 @@ export const SaveEntrySheet = ({
     }
     
     proceedWithSave();
-  };
+  }, [entry?.is_finalized, endTimeWarning, acknowledgedEarlyEnd, salesLog, localSales]);
 
   const handleInstallConfirm = (updatedSales: Sale[]) => {
     setPendingSalesWithInstallTracking(updatedSales);

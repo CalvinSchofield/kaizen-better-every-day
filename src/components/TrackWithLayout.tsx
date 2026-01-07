@@ -949,7 +949,7 @@ const TrackWithLayout = () => {
         onKeepWorking={() => {}}
       />
 
-      {/* Save Entry Sheet */}
+      {/* Save Entry Sheet - skip summary view for current day, go directly to save */}
       <SaveEntrySheet
         open={isSaveSheetOpen}
         onOpenChange={setIsSaveSheetOpen}
@@ -960,6 +960,7 @@ const TrackWithLayout = () => {
         customCounterConfig={customCounterConfig}
         counterLayoutConfig={counterLayoutConfig}
         salesLog={entry.sales_log || []}
+        skipSummaryView={true}
       />
 
       {/* Post-Save Success Sheet */}
