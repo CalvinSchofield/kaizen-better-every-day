@@ -8,6 +8,8 @@ import { GritAwardsSection } from "@/components/leaderboard/GritAwardsSection";
 import { TimingBreakdownSection } from "@/components/leaderboard/TimingBreakdownSection";
 import { RecordsSection } from "@/components/leaderboard/RecordsSection";
 import { LiveRaceSection } from "@/components/leaderboard/LiveRaceSection";
+import { ChallengesTab } from "@/components/leaderboard/ChallengesTab";
+import { IncentivesTab } from "@/components/leaderboard/IncentivesTab";
 import { useExpandedLeaderboard, CustomDateRange } from "@/hooks/useExpandedLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
@@ -16,6 +18,8 @@ import { PageTour } from "@/components/PageTour";
 import { leaderboardTourSteps } from "@/config/pageTours";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Flame, Swords, Trophy } from "lucide-react";
 
 const LeaderboardSkeleton = () => (
   <div className="p-4 space-y-6">
@@ -152,37 +156,62 @@ const Leaderboard = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Live Race - Only show for live timeframe */}
-            {timeFilter === 'live' && (
-              <LiveRaceSection
-                currentUserId={currentUserId}
-                filterByYear={filterByYear}
-              />
-            )}
+            {/* Live Race - Only show for live timeframe with tabs */}
+            {timeFilter === 'live' ? (
+              <Tabs defaultValue="race" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 mb-4" data-tour="challenges-tab">
+                  <TabsTrigger value="race" className="gap-1.5">
+                    <Flame className="h-4 w-4" />
+                    Live Race
+                  </TabsTrigger>
+                  <TabsTrigger value="challenges" className="gap-1.5" data-tour="challenges-tab">
+                    <Swords className="h-4 w-4" />
+                    Challenges
+                  </TabsTrigger>
+                  <TabsTrigger value="incentives" className="gap-1.5" data-tour="incentives-tab">
+                    <Trophy className="h-4 w-4" />
+                    Incentives
+                  </TabsTrigger>
+                </TabsList>
 
-            {/* Sales Leaders - Show for non-live timeframes OR as secondary for live */}
-            {timeFilter !== 'live' && (
-              <div data-tour="leaderboard-sales">
-                <SalesLeadersSection
-                  mostFP={expandedLeaderboard.salesLeaders.mostFP}
-                  mostPRMR={expandedLeaderboard.salesLeaders.mostPRMR}
-                  mostUpgradeFP={expandedLeaderboard.salesLeaders.mostUpgradeFP}
-                  mostCloses={expandedLeaderboard.activityLeaders.mostCloses}
+                <TabsContent value="race" className="mt-0">
+                  <LiveRaceSection
+                    currentUserId={currentUserId}
+                    filterByYear={filterByYear}
+                  />
+                </TabsContent>
+
+                <TabsContent value="challenges" className="mt-0">
+                  <ChallengesTab />
+                </TabsContent>
+
+                <TabsContent value="incentives" className="mt-0">
+                  <IncentivesTab />
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <>
+                {/* Sales Leaders - Show for non-live timeframes */}
+                <div data-tour="leaderboard-sales">
+                  <SalesLeadersSection
+                    mostFP={expandedLeaderboard.salesLeaders.mostFP}
+                    mostPRMR={expandedLeaderboard.salesLeaders.mostPRMR}
+                    mostUpgradeFP={expandedLeaderboard.salesLeaders.mostUpgradeFP}
+                    mostCloses={expandedLeaderboard.activityLeaders.mostCloses}
+                    currentUserId={currentUserId}
+                  />
+                </div>
+
+                {/* Activity Leaders - Show for non-live timeframes */}
+                <ActivityLeadersSection
+                  mostDoors={expandedLeaderboard.activityLeaders.mostDoors}
+                  mostDMs={expandedLeaderboard.activityLeaders.mostDMs}
+                  mostPitches={expandedLeaderboard.activityLeaders.mostPitches}
+                  mostTransitions={expandedLeaderboard.activityLeaders.mostTransitions}
+                  mostPresentations={expandedLeaderboard.activityLeaders.mostPresentations}
                   currentUserId={currentUserId}
                 />
-              </div>
-            )}
-
-            {/* Activity Leaders - Show for non-live timeframes */}
-            {timeFilter !== 'live' && (
-              <ActivityLeadersSection
-                mostDoors={expandedLeaderboard.activityLeaders.mostDoors}
-                mostDMs={expandedLeaderboard.activityLeaders.mostDMs}
-                mostPitches={expandedLeaderboard.activityLeaders.mostPitches}
-                mostTransitions={expandedLeaderboard.activityLeaders.mostTransitions}
-                mostPresentations={expandedLeaderboard.activityLeaders.mostPresentations}
-                currentUserId={currentUserId}
-              />
+              </>
             )}
 
             {/* Grit Awards */}
