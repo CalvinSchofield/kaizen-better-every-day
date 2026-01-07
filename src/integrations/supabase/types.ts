@@ -229,6 +229,101 @@ export type Database = {
         }
         Relationships: []
       }
+      challenge_participants: {
+        Row: {
+          accepted: boolean | null
+          accepted_at: string | null
+          challenge_id: string
+          created_at: string
+          final_value: number | null
+          id: string
+          role: string
+          team: string | null
+          user_id: string
+        }
+        Insert: {
+          accepted?: boolean | null
+          accepted_at?: string | null
+          challenge_id: string
+          created_at?: string
+          final_value?: number | null
+          id?: string
+          role: string
+          team?: string | null
+          user_id: string
+        }
+        Update: {
+          accepted?: boolean | null
+          accepted_at?: string | null
+          challenge_id?: string
+          created_at?: string
+          final_value?: number | null
+          id?: string
+          role?: string
+          team?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_participants_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenges: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          end_date: string
+          id: string
+          is_tie: boolean | null
+          metric: string
+          stakes: string | null
+          start_date: string
+          status: string
+          tiebreaker_winner_id: string | null
+          type: string
+          visibility: string
+          winner_user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          end_date: string
+          id?: string
+          is_tie?: boolean | null
+          metric: string
+          stakes?: string | null
+          start_date: string
+          status?: string
+          tiebreaker_winner_id?: string | null
+          type: string
+          visibility?: string
+          winner_user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          end_date?: string
+          id?: string
+          is_tie?: boolean | null
+          metric?: string
+          stakes?: string | null
+          start_date?: string
+          status?: string
+          tiebreaker_winner_id?: string | null
+          type?: string
+          visibility?: string
+          winner_user_id?: string | null
+        }
+        Relationships: []
+      }
       competitors: {
         Row: {
           alternate_versions: Json | null
@@ -466,6 +561,89 @@ export type Database = {
           transitions?: number | null
           upgrade_prmr?: number | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      incentive_eligible_reps: {
+        Row: {
+          created_at: string
+          id: string
+          incentive_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          incentive_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          incentive_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incentive_eligible_reps_incentive_id_fkey"
+            columns: ["incentive_id"]
+            isOneToOne: false
+            referencedRelation: "incentives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      incentives: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          end_date: string
+          id: string
+          metric: string
+          reward: string
+          start_date: string
+          status: string
+          target_type: string
+          target_value: number | null
+          title: string
+          visibility: string
+          winner_user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          end_date: string
+          id?: string
+          metric: string
+          reward: string
+          start_date: string
+          status?: string
+          target_type: string
+          target_value?: number | null
+          title: string
+          visibility?: string
+          winner_user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          end_date?: string
+          id?: string
+          metric?: string
+          reward?: string
+          start_date?: string
+          status?: string
+          target_type?: string
+          target_value?: number | null
+          title?: string
+          visibility?: string
+          winner_user_id?: string | null
         }
         Relationships: []
       }
