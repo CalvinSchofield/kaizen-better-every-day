@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { toast } from "sonner";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { useConfetti } from "@/hooks/useConfetti";
 interface ChallengeCardProps {
   challenge: Challenge;
 }
@@ -25,6 +26,7 @@ const metricLabels: Record<ChallengeMetric, { label: string; format: (v: number)
 
 export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
   const [showDetail, setShowDetail] = useState(false);
+  const { fireConfetti } = useConfetti();
   
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
@@ -63,6 +65,8 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
     try {
       Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
       await respondMutation.mutateAsync({ challengeId: challenge.id, accept: true });
+      // Fire subtle confetti on acceptance
+      fireConfetti({ variant: 'subtle' });
       toast.success('Challenge accepted! Game on! 🔥');
     } catch (error) {
       toast.error('Failed to accept challenge');

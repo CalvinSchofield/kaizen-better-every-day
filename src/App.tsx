@@ -12,6 +12,7 @@ import ScrollToTop from "./components/ScrollToTop";
 import OfflineIndicator from "./components/OfflineIndicator";
 import TrackWithLayout from "./components/TrackWithLayout";
 import SetupFlow from "./components/SetupFlow";
+import { ChallengeWinListener } from "./components/ChallengeWinListener";
 import { HeaderProvider } from "./contexts/HeaderContext";
 import Home from "./pages/Home";
 import Training from "./pages/Training";
@@ -77,6 +78,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <OfflineIndicator />
+          <ChallengeWinListener />
           <BrowserRouter>
             <ScrollToTop />
           <Routes>

@@ -290,6 +290,31 @@ export const useCreateChallenge = () => {
 
       if (partError) throw partError;
 
+      // Send push notifications to invited participants
+      const targetUserIds = input.participants.map(p => p.user_id);
+      if (targetUserIds.length > 0) {
+        try {
+          const { data: creatorRep } = await supabase
+            .from('reps')
+            .select('name')
+            .eq('user_id', user.id)
+            .single();
+          
+          const creatorName = creatorRep?.name || 'Someone';
+          
+          await supabase.functions.invoke('send-challenge-notification', {
+            body: {
+              type: 'challenge_invite',
+              targetUserIds,
+              title: '🎯 Challenge Invite!',
+              body: `${creatorName} challenged you to a ${input.type === '1v1' ? '1v1' : 'team'} battle on ${input.metric.replace('_', ' ').toUpperCase()}!`,
+            },
+          });
+        } catch (notifError) {
+          console.error('[useCreateChallenge] Notification error (non-fatal):', notifError);
+        }
+      }
+
       return challenge;
     },
     onSuccess: () => {
@@ -385,6 +410,36 @@ export const useRespondToChallenge = () => {
           .eq('id', challengeId);
 
         if (error) throw error;
+      }
+
+      // Send notification to challenge creator about acceptance/decline
+      try {
+        const { data: challenge } = await supabase
+          .from('challenges')
+          .select('created_by')
+          .eq('id', challengeId)
+          .single();
+        
+        if (challenge && challenge.created_by !== user.id) {
+          const { data: responderRep } = await supabase
+            .from('reps')
+            .select('name')
+            .eq('user_id', user.id)
+            .single();
+          
+          const responderName = responderRep?.name || 'Someone';
+          
+          await supabase.functions.invoke('send-challenge-notification', {
+            body: {
+              type: accept ? 'challenge_accepted' : 'challenge_declined',
+              targetUserIds: [challenge.created_by],
+              title: accept ? '✅ Challenge Accepted!' : '❌ Challenge Declined',
+              body: `${responderName} ${accept ? 'accepted' : 'declined'} your challenge!`,
+            },
+          });
+        }
+      } catch (notifError) {
+        console.error('[useRespondToChallenge] Notification error (non-fatal):', notifError);
       }
 
       return { accepted: accept, newStatus };

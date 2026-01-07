@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.complete-challenge]
 verify_jwt = false
+
+[functions.send-challenge-notification]
+verify_jwt = false
