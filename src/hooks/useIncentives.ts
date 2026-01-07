@@ -231,3 +231,82 @@ export const useCreateIncentive = () => {
     },
   });
 };
+
+export interface UpdateIncentiveInput {
+  id: string;
+  title?: string;
+  description?: string;
+  reward?: string;
+  target_value?: number;
+  end_date?: string;
+  eligible_user_ids?: string[];
+}
+
+export const useUpdateIncentive = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdateIncentiveInput) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Verify user is the creator
+      const { data: incentive, error: fetchError } = await supabase
+        .from('incentives')
+        .select('created_by')
+        .eq('id', input.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (incentive.created_by !== user.id) {
+        throw new Error('Only the creator can edit this incentive');
+      }
+
+      // Update incentive fields
+      const updateFields: any = {};
+      if (input.title !== undefined) updateFields.title = input.title;
+      if (input.description !== undefined) updateFields.description = input.description;
+      if (input.reward !== undefined) updateFields.reward = input.reward;
+      if (input.target_value !== undefined) updateFields.target_value = input.target_value;
+      if (input.end_date !== undefined) updateFields.end_date = input.end_date;
+
+      if (Object.keys(updateFields).length > 0) {
+        const { error: updateError } = await supabase
+          .from('incentives')
+          .update(updateFields)
+          .eq('id', input.id);
+
+        if (updateError) throw updateError;
+      }
+
+      // Update eligible reps if provided
+      if (input.eligible_user_ids !== undefined) {
+        // Delete existing eligible reps
+        await supabase
+          .from('incentive_eligible_reps')
+          .delete()
+          .eq('incentive_id', input.id);
+
+        // Insert new eligible reps
+        if (input.eligible_user_ids.length > 0) {
+          const eligibleReps = input.eligible_user_ids.map(userId => ({
+            incentive_id: input.id,
+            user_id: userId,
+          }));
+
+          const { error: eligError } = await supabase
+            .from('incentive_eligible_reps')
+            .insert(eligibleReps);
+
+          if (eligError) throw eligError;
+        }
+      }
+
+      return { id: input.id };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incentives'] });
+      queryClient.invalidateQueries({ queryKey: ['my-active-incentives'] });
+    },
+  });
+};

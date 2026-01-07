@@ -36,8 +36,10 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
     },
   });
 
+  // Show progress for both active AND pending challenges (so recipients can see current stats)
   const { data: progress } = useChallengeProgress(
-    challenge.status === 'active' ? challenge : null
+    (challenge.status === 'active' || challenge.status === 'pending') ? challenge : null,
+    { includePending: challenge.status === 'pending' }
   );
 
   const respondMutation = useRespondToChallenge();
@@ -258,6 +260,15 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
             </p>
           </div>
         </div>
+
+        {/* Show current progress for pending challenges if start date is today */}
+        {isPending && progress && (progress.userProgress?.current_value || 0) > 0 && (
+          <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+              ⚡ Challenge starts today — current progress shown above
+            </p>
+          </div>
+        )}
 
         {/* Accept/Decline for pending challenges */}
         <AnimatePresence>
