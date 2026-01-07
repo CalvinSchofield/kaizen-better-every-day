@@ -47,10 +47,12 @@ export function useSmartActivityGoals({
 
   // Fetch historical conversion rates
   const { data: conversionData, isLoading } = useQuery({
-    queryKey: ['smart-activity-goals-conversion'],
+    queryKey: ['smart-activity-goals-conversion', efpModeEnabled],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+
+      const userEmail = user.email?.toLowerCase() ?? null;
 
       // Fetch all finalized entries with activity
       const { data: entries, error } = await supabase
@@ -86,6 +88,7 @@ export function useSmartActivityGoals({
       const transitionsPerFp = salesMetric > 0 ? totals.transitions / salesMetric : 0;
 
       return {
+        userEmail,
         knockingDays,
         presentationsPerFp,
         transitionsPerFp,
@@ -97,13 +100,19 @@ export function useSmartActivityGoals({
 
   return useMemo(() => {
     const knockingDays = conversionData?.knockingDays || 0;
-    const hasEnoughData = knockingDays >= dataThreshold;
+
+    const effectiveThreshold =
+      conversionData?.userEmail === 'calvinjschofield@gmail.com'
+        ? 1
+        : dataThreshold;
+
+    const hasEnoughData = knockingDays >= effectiveThreshold;
 
     if (!hasEnoughData || !conversionData) {
       return {
         hasEnoughData: false,
         daysTracked: knockingDays,
-        dataThreshold,
+        dataThreshold: effectiveThreshold,
         presentationsPerFp: 0,
         transitionsPerFp: 0,
         suggestedPresentations: 0,
@@ -116,8 +125,12 @@ export function useSmartActivityGoals({
     }
 
     // Calculate smart daily goals
-    const suggestedPresentations = Math.round(dailyFpGoal * conversionData.presentationsPerFp);
-    const suggestedTransitions = Math.round(dailyFpGoal * conversionData.transitionsPerFp);
+    const suggestedPresentations = Math.round(
+      dailyFpGoal * conversionData.presentationsPerFp
+    );
+    const suggestedTransitions = Math.round(
+      dailyFpGoal * conversionData.transitionsPerFp
+    );
 
     // Calculate remaining for today
     const todayPresentations = entry?.presentations || 0;
@@ -129,7 +142,7 @@ export function useSmartActivityGoals({
     return {
       hasEnoughData: true,
       daysTracked: knockingDays,
-      dataThreshold,
+      dataThreshold: effectiveThreshold,
       presentationsPerFp: conversionData.presentationsPerFp,
       transitionsPerFp: conversionData.transitionsPerFp,
       suggestedPresentations,

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+import { withTimeout } from "@/utils/withTimeout";
 
 export type ChallengeType = '1v1' | 'group';
 export type ChallengeMetric = 'fp_plus' | 'prmr' | 'transitions' | 'doors_knocked';
@@ -168,54 +169,72 @@ export const useMyActiveChallenges = () => {
   return useQuery({
     queryKey: ['my-active-challenges'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const { data: { user } } = await withTimeout(
+        supabase.auth.getUser(),
+        8000,
+        'Loading challenges timed out'
+      );
+
+      // If auth isn't ready yet (or user is signed out), treat as "no challenges".
+      if (!user) return [];
 
       // Get challenges where I'm a participant and status is active or pending
-      const { data: myParticipations, error: partError } = await supabase
-        .from('challenge_participants')
-        .select('challenge_id')
-        .eq('user_id', user.id);
+      const { data: myParticipations, error: partError } = await withTimeout(
+        supabase
+          .from('challenge_participants')
+          .select('challenge_id')
+          .eq('user_id', user.id),
+        8000,
+        'Loading challenges timed out'
+      );
 
       if (partError) throw partError;
       if (!myParticipations?.length) return [];
 
-      const challengeIds = myParticipations.map(p => p.challenge_id);
+      const challengeIds = myParticipations.map((p) => p.challenge_id);
 
-      const { data: challenges, error } = await supabase
-        .from('challenges')
-        .select(`
-          *,
-          challenge_participants (
-            id,
-            user_id,
-            team,
-            role,
-            accepted,
-            final_value
-          )
-        `)
-        .in('id', challengeIds)
-        .in('status', ['active', 'pending'])
-        .order('start_date', { ascending: true });
+      const { data: challenges, error } = await withTimeout(
+        supabase
+          .from('challenges')
+          .select(`
+            *,
+            challenge_participants (
+              id,
+              user_id,
+              team,
+              role,
+              accepted,
+              final_value
+            )
+          `)
+          .in('id', challengeIds)
+          .in('status', ['active', 'pending'])
+          .order('start_date', { ascending: true }),
+        8000,
+        'Loading challenges timed out'
+      );
 
       if (error) throw error;
 
       // Get rep names
       const userIds = new Set<string>();
-      challenges?.forEach(c => {
+      challenges?.forEach((c) => {
         userIds.add(c.created_by);
         c.challenge_participants?.forEach((p: any) => userIds.add(p.user_id));
       });
 
-      const { data: reps } = await supabase
-        .from('reps')
-        .select('user_id, name, profile_photo_url')
-        .in('user_id', Array.from(userIds));
+      const { data: reps } = await withTimeout(
+        supabase
+          .from('reps')
+          .select('user_id, name, profile_photo_url')
+          .in('user_id', Array.from(userIds)),
+        8000,
+        'Loading challenges timed out'
+      );
 
-      const repMap = new Map(reps?.map(r => [r.user_id, r]) || []);
+      const repMap = new Map(reps?.map((r) => [r.user_id, r]) || []);
 
-      return (challenges || []).map(c => ({
+      return (challenges || []).map((c) => ({
         ...c,
         creator_name: repMap.get(c.created_by)?.name || 'Unknown',
         participants: c.challenge_participants?.map((p: any) => ({
