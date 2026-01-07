@@ -435,7 +435,7 @@ export const SaleDetailSheet = ({
               type="time"
               value={saleTime}
               onChange={(e) => setSaleTime(e.target.value)}
-              className="h-12 w-full max-w-full"
+              className="h-12"
             />
           </div>
 
@@ -554,8 +554,8 @@ export const SaleDetailSheet = ({
             </div>
           )}
 
-          {/* CRM Fields (Detailed) */}
-          {crmEnabled && crmDetailedEnabled && (
+          {/* CRM Fields (Detailed) - Show if enabled OR if sale has any detailed data saved */}
+          {crmEnabled && (crmDetailedEnabled || sale.time_to_sell_minutes || sale.deal_type || sale.money_spent || sale.difficulty) && (
             <div className="space-y-4 pt-2 border-t border-border">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sale Details</p>
 
