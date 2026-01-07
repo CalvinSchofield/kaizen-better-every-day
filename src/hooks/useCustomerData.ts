@@ -106,14 +106,19 @@ export const useCustomerData = (
     onSuccess: ({ newStatus }) => {
       queryClient.invalidateQueries({ queryKey: ['customer-sales'] });
       queryClient.invalidateQueries({ queryKey: ['daily-entry'] });
+      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
       queryClient.invalidateQueries({ queryKey: ['pending-installs'] });
       queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
       queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'] });
+      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
+      queryClient.invalidateQueries({ queryKey: ['insights-data'] });
       const statusLabel = newStatus === 'installed' ? 'Funded' 
         : newStatus === 'pending' ? 'Pending' 
         : newStatus === 'never_installed' ? 'Never Installed'
-        : 'Unfunded';
+        : 'Cancelled';
       toast.success(`Marked as ${statusLabel}`);
     },
     onError: () => {
@@ -183,6 +188,11 @@ export const useCustomerData = (
       queryClient.invalidateQueries({ queryKey: ['daily-entry'] });
       queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
       queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
+      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'] });
+      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
       toast.success('Sale updated');
     },
     onError: () => {
@@ -233,11 +243,11 @@ export const useCustomerData = (
           case 'money_spent':
             return (b.money_spent || 0) - (a.money_spent || 0);
           case 'funded_first':
-            const fundedOrder = { installed: 0, pending: 1, cancelled: 2 };
-            return (fundedOrder[a.install_status || 'pending'] || 1) - (fundedOrder[b.install_status || 'pending'] || 1);
+            const fundedOrder: Record<string, number> = { installed: 0, pending: 1, cancelled: 2, never_installed: 3 };
+            return (fundedOrder[a.install_status || 'pending'] ?? 1) - (fundedOrder[b.install_status || 'pending'] ?? 1);
           case 'unfunded_first':
-            const unfundedOrder = { cancelled: 0, pending: 1, installed: 2 };
-            return (unfundedOrder[a.install_status || 'pending'] || 1) - (unfundedOrder[b.install_status || 'pending'] || 1);
+            const unfundedOrder: Record<string, number> = { never_installed: 0, cancelled: 1, pending: 2, installed: 3 };
+            return (unfundedOrder[a.install_status || 'pending'] ?? 2) - (unfundedOrder[b.install_status || 'pending'] ?? 2);
           default:
             return 0;
         }

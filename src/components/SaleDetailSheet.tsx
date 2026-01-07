@@ -11,9 +11,10 @@ import {
 } from "@/components/ui/drawer";
 import { Sale } from "@/hooks/useDailyEntry";
 import { format, parseISO, setHours, setMinutes } from "date-fns";
-import { Trash2, MapPin, Loader2, CheckCircle, Clock, Ban, Search, Pencil, Phone, User, Hash, DollarSign, Calendar } from "lucide-react";
+import { Trash2, MapPin, Loader2, CheckCircle, Clock, Ban, Search, Pencil, Phone, User, Hash, DollarSign, Calendar, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { CancellationConfirmDrawer } from "@/components/customers/CancellationConfirmDrawer";
 
 interface SaleDetailSheetProps {
   open: boolean;
@@ -85,6 +86,7 @@ export const SaleDetailSheet = ({
   const [installStatus, setInstallStatus] = useState<'installed' | 'pending' | 'cancelled' | 'never_installed'>('installed');
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCancellationDrawer, setShowCancellationDrawer] = useState(false);
 
   // Fetch Mapbox token on mount
   useEffect(() => {
@@ -343,12 +345,17 @@ export const SaleDetailSheet = ({
               ? 'bg-emerald-500/20 text-emerald-400'
               : installStatus === 'pending'
                 ? 'bg-amber-500/20 text-amber-400'
-                : 'bg-destructive/20 text-destructive'
+                : installStatus === 'cancelled'
+                  ? 'bg-amber-600/20 text-amber-500'
+                  : 'bg-destructive/20 text-destructive'
           }`}>
             {installStatus === 'installed' ? <CheckCircle className="w-3 h-3" /> : 
              installStatus === 'pending' ? <Clock className="w-3 h-3" /> : 
+             installStatus === 'never_installed' ? <XCircle className="w-3 h-3" /> :
              <Ban className="w-3 h-3" />}
-            {installStatus === 'installed' ? 'Funded' : installStatus === 'pending' ? 'Pending' : 'Unfunded'}
+            {installStatus === 'installed' ? 'Funded' : 
+             installStatus === 'pending' ? 'Pending' : 
+             installStatus === 'never_installed' ? 'Never Installed' : 'Cancelled'}
           </span>
         </div>
         
@@ -489,11 +496,11 @@ export const SaleDetailSheet = ({
         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Funding Status
         </Label>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => setInstallStatus('installed')}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
               installStatus === 'installed'
                 ? 'bg-emerald-500 text-white shadow-md'
                 : 'bg-muted text-muted-foreground hover:text-foreground'
@@ -505,7 +512,7 @@ export const SaleDetailSheet = ({
           <button
             type="button"
             onClick={() => setInstallStatus('pending')}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
               installStatus === 'pending'
                 ? 'bg-amber-500 text-white shadow-md'
                 : 'bg-muted text-muted-foreground hover:text-foreground'
@@ -517,16 +524,40 @@ export const SaleDetailSheet = ({
           <button
             type="button"
             onClick={() => setInstallStatus('cancelled')}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
               installStatus === 'cancelled'
-                ? 'bg-destructive text-white shadow-md'
+                ? 'bg-amber-600 text-white shadow-md'
                 : 'bg-muted text-muted-foreground hover:text-foreground'
             }`}
           >
             <Ban className="w-3.5 h-3.5" />
-            Unfunded
+            Cancelled
+          </button>
+          <button
+            type="button"
+            onClick={() => setInstallStatus('never_installed')}
+            className={`py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+              installStatus === 'never_installed'
+                ? 'bg-destructive text-white shadow-md'
+                : 'bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <XCircle className="w-3.5 h-3.5" />
+            Never Installed
           </button>
         </div>
+        {/* Explanation for Cancelled vs Never Installed */}
+        {(installStatus === 'cancelled' || installStatus === 'never_installed') && (
+          <div className={`p-2.5 rounded-lg text-xs ${
+            installStatus === 'never_installed' 
+              ? 'bg-destructive/10 text-destructive' 
+              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+          }`}>
+            {installStatus === 'never_installed' 
+              ? '✗ Will NOT count on leaderboard or records'
+              : '✓ Still counts on leaderboard & records (installed, then cancelled)'}
+          </div>
+        )}
       </div>
 
       {/* Sale Type Toggle */}
