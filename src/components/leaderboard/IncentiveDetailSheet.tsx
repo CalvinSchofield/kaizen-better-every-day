@@ -1,11 +1,16 @@
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, Users, Target, Clock, User, Eye, EyeOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Trophy, Users, Target, Clock, User, Eye, EyeOff, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Incentive, IncentiveMetric } from "@/hooks/useIncentives";
 import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
+import { EditIncentiveDrawer } from "./EditIncentiveDrawer";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 
 interface IncentiveDetailSheetProps {
@@ -22,25 +27,47 @@ const metricLabels: Record<IncentiveMetric, string> = {
 };
 
 export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: IncentiveDetailSheetProps) => {
+  const [showEditDrawer, setShowEditDrawer] = useState(false);
+  
+  const { data: currentUser } = useQuery({
+    queryKey: ['current-user'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
+    },
+  });
+  
   const isActive = incentive.status === 'active';
   const isGroupTotal = incentive.target_type === 'group_total';
+  const isCreator = currentUser?.id === incentive.created_by;
   
   const { data: progressData } = useIncentiveProgress(isActive ? incentive : null);
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh]">
-        <DrawerHeader className="pb-2">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center">
-              <Trophy className="h-6 w-6 text-amber-500" />
+    <>
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader className="pb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <Trophy className="h-6 w-6 text-amber-500" />
+              </div>
+              <div className="flex-1">
+                <DrawerTitle>{incentive.title}</DrawerTitle>
+                <p className="text-sm text-muted-foreground">by {incentive.creator_name}</p>
+              </div>
+              {isCreator && isActive && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => setShowEditDrawer(true)}
+                  className="h-8 w-8"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
             </div>
-            <div>
-              <DrawerTitle>{incentive.title}</DrawerTitle>
-              <p className="text-sm text-muted-foreground">by {incentive.creator_name}</p>
-            </div>
-          </div>
-        </DrawerHeader>
+          </DrawerHeader>
 
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -237,7 +264,15 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
             </motion.div>
           )}
         </motion.div>
-      </DrawerContent>
-    </Drawer>
+        </DrawerContent>
+      </Drawer>
+      
+      {/* Edit Drawer */}
+      <EditIncentiveDrawer
+        incentive={incentive}
+        open={showEditDrawer}
+        onOpenChange={setShowEditDrawer}
+      />
+    </>
   );
 };

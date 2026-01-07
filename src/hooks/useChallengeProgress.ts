@@ -41,10 +41,11 @@ const getMetricColumn = (metric: ChallengeMetric): string => {
   }
 };
 
-export const useChallengeProgress = (challenge: Challenge | null) => {
+export const useChallengeProgress = (challenge: Challenge | null, options?: { includePending?: boolean }) => {
   const queryClient = useQueryClient();
+  const includePending = options?.includePending ?? false;
 
-  // Set up realtime subscription for live updates
+  // Set up realtime subscription for live updates (only for active challenges)
   useEffect(() => {
     if (!challenge || challenge.status !== 'active') return;
 
@@ -208,7 +209,7 @@ export const useChallengeProgress = (challenge: Challenge | null) => {
         timeRemaining,
       } as ChallengeProgressData;
     },
-    enabled: !!challenge && challenge.status === 'active',
+    enabled: !!challenge && (challenge.status === 'active' || (includePending && challenge.status === 'pending')),
     staleTime: 10 * 1000,
   });
 };
