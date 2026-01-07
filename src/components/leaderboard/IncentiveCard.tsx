@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Users, Target, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -8,6 +8,7 @@ import { Incentive, IncentiveMetric } from "@/hooks/useIncentives";
 import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { differenceInHours, differenceInDays } from "date-fns";
 import { IncentiveDetailSheet } from "./IncentiveDetailSheet";
+import { Haptics, ImpactStyle } from "@capacitor/haptics";
 
 interface IncentiveCardProps {
   incentive: Incentive;
@@ -44,23 +45,38 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
     return 'Ending soon';
   };
 
+  const handleClick = () => {
+    Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
+    setShowDetail(true);
+  };
+
   return (
     <>
       <motion.div
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.99 }}
-        onClick={() => setShowDetail(true)}
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        onClick={handleClick}
         className={cn(
           "bg-card rounded-2xl border border-border p-4 cursor-pointer transition-colors",
-          isActive && "border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent"
+          isActive && "border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent shadow-lg shadow-amber-500/5"
         )}
       >
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+            <motion.div 
+              className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center"
+              animate={isActive ? { 
+                boxShadow: ["0 0 0 0 rgba(245, 158, 11, 0)", "0 0 0 8px rgba(245, 158, 11, 0.1)", "0 0 0 0 rgba(245, 158, 11, 0)"]
+              } : {}}
+              transition={{ repeat: Infinity, duration: 2 }}
+            >
               <Trophy className="h-5 w-5 text-amber-500" />
-            </div>
+            </motion.div>
             <div>
               <h3 className="font-semibold">{incentive.title}</h3>
               <p className="text-xs text-muted-foreground">
@@ -81,7 +97,7 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
           )}
         </div>
 
-        {/* Reward */}
+        {/* Reward - with shimmer effect */}
         <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-xl p-3 mb-3">
           <p className="text-xs text-muted-foreground mb-1">Prize</p>
           <p className="font-semibold text-amber-600 dark:text-amber-400">
@@ -90,64 +106,101 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
         </div>
 
         {/* Progress for active incentives */}
-        {isActive && progressData && (
-          <div className="mb-3 space-y-2">
-            {isGroupTotal ? (
-              <>
-                {/* Group Total Progress */}
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-1.5">
-                    <Users className="h-4 w-4 text-blue-500" />
-                    <span className="font-medium">Team Progress</span>
-                  </div>
-                  <span className="font-bold text-amber-600">
-                    {progressData.groupTotal.toFixed(1)} / {progressData.targetValue} {metricLabels[incentive.metric]}
-                  </span>
-                </div>
-                <Progress value={progressData.progressPercent} className="h-2" />
-                
-                {/* Individual contributions */}
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {progressData.participants.slice(0, 4).map(p => (
-                    <div key={p.user_id} className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-0.5">
-                      <Avatar className="h-4 w-4">
-                        {p.profile_photo_url && <AvatarImage src={p.profile_photo_url} />}
-                        <AvatarFallback className="text-[8px]">{p.rep_name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs">{p.current_value.toFixed(1)}</span>
+        <AnimatePresence>
+          {isActive && progressData && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-3 space-y-2 overflow-hidden"
+            >
+              {isGroupTotal ? (
+                <>
+                  {/* Group Total Progress */}
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-1.5">
+                      <Users className="h-4 w-4 text-blue-500" />
+                      <span className="font-medium">Team Progress</span>
                     </div>
-                  ))}
-                  {progressData.participants.length > 4 && (
-                    <span className="text-xs text-muted-foreground px-2 py-0.5">
-                      +{progressData.participants.length - 4} more
-                    </span>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Individual Race - show leader */}
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-1.5">
-                    <User className="h-4 w-4 text-primary" />
-                    <span className="font-medium">Leader</span>
+                    <motion.span 
+                      key={progressData.groupTotal}
+                      initial={{ scale: 1.2, color: "rgb(245, 158, 11)" }}
+                      animate={{ scale: 1, color: "rgb(217, 119, 6)" }}
+                      className="font-bold text-amber-600"
+                    >
+                      {progressData.groupTotal.toFixed(1)} / {progressData.targetValue} {metricLabels[incentive.metric]}
+                    </motion.span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {progressData.leader && (
-                      <>
-                        <span className="text-muted-foreground">{progressData.leader.rep_name}</span>
-                        <span className="font-bold text-amber-600">
-                          {progressData.leader.current_value.toFixed(1)} / {progressData.targetValue}
-                        </span>
-                      </>
+                  <motion.div
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: 1 }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                    style={{ originX: 0 }}
+                  >
+                    <Progress value={progressData.progressPercent} className="h-2" />
+                  </motion.div>
+                  
+                  {/* Individual contributions */}
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {progressData.participants.slice(0, 4).map((p, i) => (
+                      <motion.div 
+                        key={p.user_id} 
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-0.5"
+                      >
+                        <Avatar className="h-4 w-4">
+                          {p.profile_photo_url && <AvatarImage src={p.profile_photo_url} />}
+                          <AvatarFallback className="text-[8px]">{p.rep_name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs">{p.current_value.toFixed(1)}</span>
+                      </motion.div>
+                    ))}
+                    {progressData.participants.length > 4 && (
+                      <span className="text-xs text-muted-foreground px-2 py-0.5">
+                        +{progressData.participants.length - 4} more
+                      </span>
                     )}
                   </div>
-                </div>
-                <Progress value={progressData.progressPercent} className="h-2" />
-              </>
-            )}
-          </div>
-        )}
+                </>
+              ) : (
+                <>
+                  {/* Individual Race - show leader */}
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-1.5">
+                      <User className="h-4 w-4 text-primary" />
+                      <span className="font-medium">Leader</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {progressData.leader && (
+                        <>
+                          <span className="text-muted-foreground">{progressData.leader.rep_name}</span>
+                          <motion.span 
+                            key={progressData.leader.current_value}
+                            initial={{ scale: 1.2 }}
+                            animate={{ scale: 1 }}
+                            className="font-bold text-amber-600"
+                          >
+                            {progressData.leader.current_value.toFixed(1)} / {progressData.targetValue}
+                          </motion.span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <motion.div
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: 1 }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                    style={{ originX: 0 }}
+                  >
+                    <Progress value={progressData.progressPercent} className="h-2" />
+                  </motion.div>
+                </>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Details */}
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
