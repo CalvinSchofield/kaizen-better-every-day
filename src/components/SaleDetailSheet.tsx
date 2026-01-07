@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/drawer";
 import { Sale } from "@/hooks/useDailyEntry";
 import { format, parseISO, setHours, setMinutes } from "date-fns";
-import { Trash2, MapPin, Loader2, CheckCircle, Clock, Ban, Search, Pencil, Phone, User, Hash, DollarSign } from "lucide-react";
+import { Trash2, MapPin, Loader2, CheckCircle, Clock, Ban, Search, Pencil, Phone, User, Hash, DollarSign, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -326,7 +326,7 @@ export const SaleDetailSheet = ({
 
   // Summary View Component
   const SummaryView = () => (
-    <div className="px-4 pb-6 space-y-4">
+    <div className="px-4 pb-6 space-y-4 overflow-y-auto" style={{ maxHeight: 'min(70svh, 70vh)' }}>
       {/* Sale Overview Card */}
       <div className="bg-muted/50 rounded-xl p-4 space-y-3">
         {/* Type and PRMR */}
@@ -394,6 +394,21 @@ export const SaleDetailSheet = ({
                 <span className="text-sm">{sale.customer_location}</span>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Scheduled Install Date - show when pending */}
+      {sale.install_status === 'pending' && sale.scheduled_install_date && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Install Schedule</p>
+          <div className="bg-amber-500/10 rounded-xl p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Calendar className="w-4 h-4 text-amber-400" />
+              <span className="font-medium">
+                {format(parseISO(sale.scheduled_install_date), 'EEEE, MMM d, yyyy')}
+              </span>
+            </div>
           </div>
         </div>
       )}
