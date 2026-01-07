@@ -26,6 +26,7 @@ import { useAppMode } from "@/hooks/useAppMode";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDailyEntry, DailyEntry } from "@/hooks/useDailyEntry";
 import { useToast } from "@/hooks/use-toast";
+import { useKnockingState, KnockingState } from "@/hooks/useKnockingState";
 
 interface KnockingModeHomeProps {
   variant: "vet" | "rookie";
@@ -52,24 +53,20 @@ export const KnockingModeHome = ({
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const { isOnActiveBlitz } = useAppMode(repData);
   const { entry, deleteEntry } = useDailyEntry();
+  
+  // State-based layout using rep's timezone
+  const { state: knockingState, hasActivity } = useKnockingState({ 
+    timezone: repData?.timezone 
+  });
 
   // Check if entry is a real database entry (has id)
   const isRealEntry = (e: typeof entry): e is DailyEntry => {
     return e !== null && 'id' in e && typeof e.id === 'string';
   };
 
-  // Activity-based layout: has user started tracking today?
-  const hasStartedWorkToday = useMemo(() => {
-    if (!entry || entry.is_finalized) return false;
-    return (
-      (entry.doors_knocked ?? 0) > 0 ||
-      (entry.decision_makers ?? 0) > 0 ||
-      (entry.pitches ?? 0) > 0 ||
-      (entry.transitions ?? 0) > 0 ||
-      (entry.presentations ?? 0) > 0 ||
-      (entry.closes ?? 0) > 0
-    );
-  }, [entry]);
+  // Derived from knocking state
+  const hasStartedWorkToday = knockingState === 'working';
+  const isDayComplete = knockingState === 'day-complete';
 
   // Check if save alert should show
   const shouldShowSaveAlert = useMemo(() => {
@@ -194,7 +191,7 @@ export const KnockingModeHome = ({
         <ActiveChallengesCard />
         
         {/* Pre-work layout: Weather first, then Activity, Focus, Leaderboard, YTD */}
-        {!hasStartedWorkToday && (
+        {knockingState === 'pre-work' && (
           <>
             <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
             <ActivitySummaryCard repData={repData} />
@@ -202,7 +199,6 @@ export const KnockingModeHome = ({
             <LeaderboardCard />
             <FPCumulativeChart />
             
-            {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
             {isTeamLead && anyBlitzWithin14Days && (
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground">
@@ -218,20 +214,18 @@ export const KnockingModeHome = ({
               </>
             )}
             
-            {/* Admin Data Review Card - at bottom */}
             <AdminDataReviewCard />
           </>
         )}
         
-        {/* Working layout: Focus first, then Activity, Leaderboard, YTD (no weather) */}
-        {hasStartedWorkToday && (
+        {/* Working layout: Focus HERO first, then Activity (compact), Leaderboard */}
+        {knockingState === 'working' && (
           <>
-            <DailyFocusCard repData={repData} />
+            <DailyFocusCard repData={repData} heroMode />
             <ActivitySummaryCard repData={repData} />
             <LeaderboardCard />
             <FPCumulativeChart />
             
-            {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
             {isTeamLead && anyBlitzWithin14Days && (
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground">
@@ -247,7 +241,25 @@ export const KnockingModeHome = ({
               </>
             )}
             
-            {/* Admin Data Review Card - at bottom */}
+            <AdminDataReviewCard />
+          </>
+        )}
+        
+        {/* Day-complete layout: Results summary, Activity, Chart */}
+        {knockingState === 'day-complete' && (
+          <>
+            <DailyFocusCard repData={repData} />
+            <ActivitySummaryCard repData={repData} />
+            <FPCumulativeChart />
+            <LeaderboardCard />
+            
+            {variant === "rookie" && (
+              <>
+                <PitchPresentationQuickAccess />
+                <RookieCompetitorQuickAccess />
+              </>
+            )}
+            
             <AdminDataReviewCard />
           </>
         )}
