@@ -27,7 +27,7 @@ export interface Sale {
   // Install tracking fields
   installed_same_day?: boolean;
   scheduled_install_date?: string;
-  install_status?: 'installed' | 'pending' | 'cancelled';
+  install_status?: 'installed' | 'pending' | 'cancelled' | 'never_installed';
   install_confirmed_at?: string;
   // CRM fields (simple)
   customer_name?: string;

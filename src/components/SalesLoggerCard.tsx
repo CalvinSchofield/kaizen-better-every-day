@@ -271,7 +271,7 @@ interface SaleChipProps {
 
 const SaleChip = ({ sale, onEdit, onDelete }: SaleChipProps) => {
   const isFP = sale.type === 'fp';
-  const isCancelled = sale.install_status === 'cancelled';
+  const isCancelled = sale.install_status === 'cancelled' || sale.install_status === 'never_installed';
   const timeStr = format(parseISO(sale.timestamp), 'h:mm a');
   const hasCustomerName = sale.customer_name && sale.customer_name.trim().length > 0;
 

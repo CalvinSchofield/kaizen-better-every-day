@@ -1,18 +1,22 @@
-import { Phone, MessageSquare, Copy, ChevronRight, Check, Clock, Ban } from 'lucide-react';
+import { useState } from 'react';
+import { Phone, MessageSquare, Copy, ChevronRight, Check, Clock, Ban, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CustomerSale } from '@/hooks/useCustomerData';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { CancellationConfirmDrawer } from './CancellationConfirmDrawer';
 
 interface CustomerCardProps {
   sale: CustomerSale;
   efpModeEnabled: boolean;
   onCardClick: () => void;
-  onFundingToggle: (newStatus: 'installed' | 'pending' | 'cancelled') => void;
+  onFundingToggle: (newStatus: 'installed' | 'pending' | 'cancelled' | 'never_installed') => void;
 }
 
 export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggle }: CustomerCardProps) => {
+  const [showCancellationDrawer, setShowCancellationDrawer] = useState(false);
+
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (sale.customer_phone) {
@@ -41,19 +45,29 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
 
   const handleStatusClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Cycle through statuses: installed -> pending -> cancelled -> installed
-    const currentStatus = sale.install_status || 'installed';
-    let newStatus: 'installed' | 'pending' | 'cancelled';
     
-    if (currentStatus === 'installed') {
-      newStatus = 'pending';
-    } else if (currentStatus === 'pending') {
-      newStatus = 'cancelled';
-    } else {
-      newStatus = 'installed';
+    const currentStatus = sale.install_status || 'installed';
+    
+    // If this is a scheduled-out sale (pending) and user clicks, show the confirmation drawer
+    if (currentStatus === 'pending' || sale.scheduled_install_date) {
+      setShowCancellationDrawer(true);
+      return;
     }
     
-    onFundingToggle(newStatus);
+    // For non-scheduled sales, cycle through statuses: installed -> pending -> cancelled -> installed
+    // Note: never_installed only comes from the confirmation drawer, never from cycling
+    if (currentStatus === 'installed') {
+      onFundingToggle('pending');
+    } else if (currentStatus === 'cancelled' || currentStatus === 'never_installed') {
+      onFundingToggle('installed');
+    } else {
+      // pending case handled above with drawer
+      onFundingToggle('cancelled');
+    }
+  };
+
+  const handleCancellationConfirm = (status: 'cancelled' | 'never_installed') => {
+    onFundingToggle(status);
   };
 
   const formattedPrmr = new Intl.NumberFormat('en-US', {
@@ -70,6 +84,7 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
   const fpPlus = sale.type === 'fp' ? '1.0' : (sale.prmr / 85).toFixed(1);
 
   const isCancelled = sale.install_status === 'cancelled';
+  const isNeverInstalled = sale.install_status === 'never_installed';
   const isPending = sale.install_status === 'pending';
   const isInstalled = sale.install_status === 'installed' || !sale.install_status;
 
@@ -92,6 +107,13 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
         className: 'bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/30'
       };
     }
+    if (isNeverInstalled) {
+      return {
+        label: 'Never Installed',
+        icon: XCircle,
+        className: 'bg-destructive/20 text-destructive border-destructive/30 hover:bg-destructive/30'
+      };
+    }
     return {
       label: 'Unfunded',
       icon: Ban,
@@ -103,11 +125,12 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
   const StatusIcon = statusConfig.icon;
 
   return (
+    <>
     <div 
       onClick={onCardClick}
       className={cn(
         "bg-card rounded-xl p-4 border border-border shadow-sm cursor-pointer transition-all active:scale-[0.98]",
-        isCancelled && "opacity-60"
+        (isCancelled || isNeverInstalled) && "opacity-60"
       )}
     >
       {/* Header Row - Name, Status Pill, Type Badge */}
@@ -204,5 +227,14 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
         )}
       </div>
     </div>
+
+    {/* Cancellation Confirmation Drawer */}
+    <CancellationConfirmDrawer
+      open={showCancellationDrawer}
+      onOpenChange={setShowCancellationDrawer}
+      sale={sale}
+      onConfirm={handleCancellationConfirm}
+    />
+    </>
   );
 };

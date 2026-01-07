@@ -52,7 +52,7 @@ const Customers = () => {
     setDetailSheetOpen(true);
   };
 
-  const handleFundingToggle = (sale: CustomerSale, newStatus: 'installed' | 'pending' | 'cancelled') => {
+  const handleFundingToggle = (sale: CustomerSale, newStatus: 'installed' | 'pending' | 'cancelled' | 'never_installed') => {
     updateFunding(sale.id, sale.entry_date, newStatus);
   };
 

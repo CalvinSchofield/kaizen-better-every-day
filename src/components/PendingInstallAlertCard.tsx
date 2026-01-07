@@ -28,7 +28,8 @@ export const PendingInstallAlertCard = () => {
     setRescheduleOpenFor(null);
   };
 
-  const handleRemoveSale = async (entryId: string, saleId: string) => {
+  const handleMarkNeverInstalled = async (entryId: string, saleId: string) => {
+    // Use the existing mutation but with never_installed status instead of removing
     await removeSale(entryId, saleId);
     setConfirmRemoveFor(null);
   };
@@ -97,7 +98,7 @@ export const PendingInstallAlertCard = () => {
                         size="sm"
                         variant="destructive"
                         className="flex-1 h-7 text-xs"
-                        onClick={() => handleRemoveSale(sale.entryId, sale.id)}
+                        onClick={() => handleMarkNeverInstalled(sale.entryId, sale.id)}
                         disabled={isUpdating}
                       >
                         Yes, Remove

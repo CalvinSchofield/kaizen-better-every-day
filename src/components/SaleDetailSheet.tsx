@@ -82,7 +82,7 @@ export const SaleDetailSheet = ({
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   
   // Install status
-  const [installStatus, setInstallStatus] = useState<'installed' | 'pending' | 'cancelled'>('installed');
+  const [installStatus, setInstallStatus] = useState<'installed' | 'pending' | 'cancelled' | 'never_installed'>('installed');
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 

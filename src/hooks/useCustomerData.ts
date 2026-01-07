@@ -71,7 +71,7 @@ export const useCustomerData = (
     }: { 
       saleId: string; 
       entryDate: string; 
-      newStatus: 'installed' | 'pending' | 'cancelled';
+      newStatus: 'installed' | 'pending' | 'cancelled' | 'never_installed';
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -106,7 +106,14 @@ export const useCustomerData = (
     onSuccess: ({ newStatus }) => {
       queryClient.invalidateQueries({ queryKey: ['customer-sales'] });
       queryClient.invalidateQueries({ queryKey: ['daily-entry'] });
-      const statusLabel = newStatus === 'installed' ? 'Funded' : newStatus === 'pending' ? 'Pending' : 'Unfunded';
+      queryClient.invalidateQueries({ queryKey: ['pending-installs'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
+      const statusLabel = newStatus === 'installed' ? 'Funded' 
+        : newStatus === 'pending' ? 'Pending' 
+        : newStatus === 'never_installed' ? 'Never Installed'
+        : 'Unfunded';
       toast.success(`Marked as ${statusLabel}`);
     },
     onError: () => {
@@ -245,7 +252,7 @@ export const useCustomerData = (
     return filteredSales.filter(sale => sale.customer_address);
   }, [filteredSales]);
 
-  const updateFunding = (saleId: string, entryDate: string, newStatus: 'installed' | 'pending' | 'cancelled') => {
+  const updateFunding = (saleId: string, entryDate: string, newStatus: 'installed' | 'pending' | 'cancelled' | 'never_installed') => {
     updateFundingMutation.mutate({ saleId, entryDate, newStatus });
   };
 
