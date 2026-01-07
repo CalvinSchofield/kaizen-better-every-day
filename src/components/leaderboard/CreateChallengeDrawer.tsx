@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCreateChallenge, ChallengeMetric, ChallengeType } from "@/hooks/useChallenges";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, Loader2 } from "lucide-react";
+import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, Loader2, Eye, EyeOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 
@@ -29,6 +31,9 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
   const [step, setStep] = useState(1);
   const [type, setType] = useState<ChallengeType>('1v1');
   const [selectedOpponent, setSelectedOpponent] = useState<string | null>(null);
+  // Team mode: multi-select for team members
+  const [teamA, setTeamA] = useState<string[]>([]); // Current user's team (excluding self, added automatically)
+  const [teamB, setTeamB] = useState<string[]>([]); // Opponent's team
   const [metric, setMetric] = useState<ChallengeMetric>('fp_plus');
   const [duration, setDuration] = useState<'today' | 'tomorrow' | 'week'>('tomorrow');
   const [stakes, setStakes] = useState('');
@@ -47,7 +52,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
       if (!user) return null;
       const { data } = await supabase
         .from('reps')
-        .select('timezone')
+        .select('timezone, user_id, name')
         .eq('user_id', user.id)
         .single();
       return data;
@@ -55,10 +60,48 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
     staleTime: Infinity,
   });
 
+  // Get available reps for selection (excluding current user)
+  const availableReps = useMemo(() => {
+    return reps.filter(r => r.userId && r.userId !== currentUserRep?.user_id);
+  }, [reps, currentUserRep?.user_id]);
+
+  // For team mode, get reps not already selected
+  const availableForTeamA = useMemo(() => {
+    return availableReps.filter(r => !teamB.includes(r.userId!));
+  }, [availableReps, teamB]);
+
+  const availableForTeamB = useMemo(() => {
+    return availableReps.filter(r => !teamA.includes(r.userId!));
+  }, [availableReps, teamA]);
+
+  const toggleTeamMember = (userId: string, team: 'a' | 'b') => {
+    if (team === 'a') {
+      setTeamA(prev => 
+        prev.includes(userId) 
+          ? prev.filter(id => id !== userId)
+          : [...prev, userId]
+      );
+    } else {
+      setTeamB(prev => 
+        prev.includes(userId) 
+          ? prev.filter(id => id !== userId)
+          : [...prev, userId]
+      );
+    }
+  };
+
   const handleCreate = async () => {
-    if (!selectedOpponent) {
-      toast.error('Please select an opponent');
-      return;
+    if (type === '1v1') {
+      if (!selectedOpponent) {
+        toast.error('Please select an opponent');
+        return;
+      }
+    } else {
+      // Group mode
+      if (teamB.length === 0) {
+        toast.error('Please select at least one opponent for Team B');
+        return;
+      }
     }
 
     const today = new Date();
@@ -69,19 +112,48 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
     const creatorTimezone = currentUserRep?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     try {
-      await createMutation.mutateAsync({
-        type,
-        metric,
-        visibility: isPublic ? 'public' : 'private',
-        stakes: stakes || undefined,
-        start_date: format(startDate, 'yyyy-MM-dd'),
-        end_date: format(endDate, 'yyyy-MM-dd'),
-        creator_timezone: creatorTimezone,
-        participants: [{
-          user_id: selectedOpponent,
-          role: 'captain_b',
-        }],
-      });
+      if (type === '1v1') {
+        await createMutation.mutateAsync({
+          type,
+          metric,
+          visibility: isPublic ? 'public' : 'private',
+          stakes: stakes || undefined,
+          start_date: format(startDate, 'yyyy-MM-dd'),
+          end_date: format(endDate, 'yyyy-MM-dd'),
+          creator_timezone: creatorTimezone,
+          participants: [{
+            user_id: selectedOpponent!,
+            role: 'captain_b',
+          }],
+        });
+      } else {
+        // Group/Team mode
+        const participants = [
+          // Team A members (excluding creator who is added automatically)
+          ...teamA.map(userId => ({
+            user_id: userId,
+            team: 'a' as const,
+            role: 'member' as const,
+          })),
+          // Team B - first person is captain_b, others are members
+          ...teamB.map((userId, index) => ({
+            user_id: userId,
+            team: 'b' as const,
+            role: index === 0 ? 'captain_b' as const : 'member' as const,
+          })),
+        ];
+
+        await createMutation.mutateAsync({
+          type,
+          metric,
+          visibility: isPublic ? 'public' : 'private',
+          stakes: stakes || undefined,
+          start_date: format(startDate, 'yyyy-MM-dd'),
+          end_date: format(endDate, 'yyyy-MM-dd'),
+          creator_timezone: creatorTimezone,
+          participants,
+        });
+      }
       toast.success('Challenge sent! 🎯');
       onOpenChange(false);
       resetForm();
@@ -94,10 +166,19 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
     setStep(1);
     setType('1v1');
     setSelectedOpponent(null);
+    setTeamA([]);
+    setTeamB([]);
     setMetric('fp_plus');
     setDuration('tomorrow');
     setStakes('');
     setIsPublic(true);
+  };
+
+  const getSelectedTeamNames = (userIds: string[]) => {
+    return userIds.map(id => {
+      const rep = reps.find(r => r.userId === id);
+      return rep?.name || 'Unknown';
+    });
   };
 
   return (
@@ -126,19 +207,19 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                   className="p-4 rounded-xl border-2 border-border hover:border-primary transition-colors text-center"
                 >
                   <Users className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-                  <p className="font-semibold">Group</p>
+                  <p className="font-semibold">Team</p>
                   <p className="text-xs text-muted-foreground">Team vs Team</p>
                 </button>
               </div>
             </div>
           )}
 
-          {/* Step 2: Select Opponent */}
-          {step === 2 && (
+          {/* Step 2: Select Opponent (1v1) */}
+          {step === 2 && type === '1v1' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Select your opponent</p>
               <div className="max-h-60 overflow-y-auto space-y-2">
-                {reps.filter(r => r.userId).map(rep => (
+                {availableReps.map(rep => (
                   <button
                     key={rep.userId}
                     onClick={() => { setSelectedOpponent(rep.userId!); setStep(3); }}
@@ -155,6 +236,119 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Step 2: Select Teams (Group mode) */}
+          {step === 2 && type === 'group' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Team A (Your Team) */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-green-600">Your Team</Label>
+                  <div className="p-2 rounded-lg bg-green-500/10 border border-green-500/20 min-h-[100px]">
+                    {/* Current user (auto-included) */}
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/20 mb-2">
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback className="text-xs">{currentUserRep?.name?.charAt(0) || 'Y'}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs font-medium truncate">{currentUserRep?.name || 'You'}</span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">Captain</span>
+                    </div>
+                    {/* Selected team A members */}
+                    {teamA.map(userId => {
+                      const rep = reps.find(r => r.userId === userId);
+                      return (
+                        <div key={userId} className="flex items-center gap-2 p-2 rounded-lg bg-background mb-1">
+                          <Avatar className="h-6 w-6">
+                            <AvatarFallback className="text-xs">{rep?.name?.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs font-medium truncate flex-1">{rep?.name}</span>
+                          <button onClick={() => toggleTeamMember(userId, 'a')} className="text-muted-foreground hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Team B (Their Team) */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-orange-600">Their Team</Label>
+                  <div className="p-2 rounded-lg bg-orange-500/10 border border-orange-500/20 min-h-[100px]">
+                    {teamB.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-4">Select opponents below</p>
+                    )}
+                    {teamB.map((userId, index) => {
+                      const rep = reps.find(r => r.userId === userId);
+                      return (
+                        <div key={userId} className="flex items-center gap-2 p-2 rounded-lg bg-background mb-1">
+                          <Avatar className="h-6 w-6">
+                            <AvatarFallback className="text-xs">{rep?.name?.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs font-medium truncate flex-1">{rep?.name}</span>
+                          {index === 0 && <span className="text-[10px] text-muted-foreground">Captain</span>}
+                          <button onClick={() => toggleTeamMember(userId, 'b')} className="text-muted-foreground hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Available reps to add */}
+              <div className="space-y-2">
+                <Label className="text-sm">Add teammates or opponents</Label>
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {availableReps.map(rep => {
+                    const inTeamA = teamA.includes(rep.userId!);
+                    const inTeamB = teamB.includes(rep.userId!);
+                    
+                    return (
+                      <div
+                        key={rep.userId}
+                        className="flex items-center gap-3 p-2 rounded-lg border border-border"
+                      >
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="text-xs">{rep.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium flex-1">{rep.name}</span>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant={inTeamA ? "default" : "outline"}
+                            className={cn("h-7 px-2 text-xs", inTeamA && "bg-green-600 hover:bg-green-700")}
+                            onClick={() => toggleTeamMember(rep.userId!, 'a')}
+                            disabled={inTeamB}
+                          >
+                            Your Team
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={inTeamB ? "default" : "outline"}
+                            className={cn("h-7 px-2 text-xs", inTeamB && "bg-orange-600 hover:bg-orange-700")}
+                            onClick={() => toggleTeamMember(rep.userId!, 'b')}
+                            disabled={inTeamA}
+                          >
+                            Their Team
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <Button 
+                onClick={() => setStep(3)} 
+                className="w-full"
+                disabled={teamB.length === 0}
+              >
+                Continue
+              </Button>
             </div>
           )}
 
@@ -180,7 +374,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
             </div>
           )}
 
-          {/* Step 4: Duration & Stakes */}
+          {/* Step 4: Duration, Stakes & Privacy */}
           {step === 4 && (
             <div className="space-y-6">
               <div className="space-y-3">
@@ -208,6 +402,20 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                   value={stakes}
                   onChange={(e) => setStakes(e.target.value)}
                 />
+              </div>
+
+              {/* Privacy Toggle */}
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border">
+                <div className="flex items-center gap-2">
+                  {isPublic ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                  <div>
+                    <p className="text-sm font-medium">{isPublic ? 'Public' : 'Private'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isPublic ? 'Everyone can see this challenge' : 'Only participants can see'}
+                    </p>
+                  </div>
+                </div>
+                <Switch checked={isPublic} onCheckedChange={setIsPublic} />
               </div>
 
               <Button onClick={handleCreate} className="w-full" disabled={createMutation.isPending}>
