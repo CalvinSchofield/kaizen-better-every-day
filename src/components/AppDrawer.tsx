@@ -18,7 +18,7 @@ import { useAppMode } from "@/hooks/useAppMode";
 import { useRepData } from "@/hooks/useRepData";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useMyActiveChallenges } from "@/hooks/useChallenges";
-import { CompeteDrawer } from "@/components/CompeteDrawer";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -40,7 +40,6 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
-  const [competeDrawerOpen, setCompeteDrawerOpen] = useState(false);
   
   const { data: challenges } = useMyActiveChallenges();
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
@@ -422,9 +421,10 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             <Separator />
 
             {/* Compete - Challenges & Incentives hub */}
-            <button
-              onClick={() => { hapticLight(); setOpen(false); setCompeteDrawerOpen(true); }}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors w-full text-left"
+            <Link
+              to="/compete"
+              onClick={() => { hapticLight(); setOpen(false); }}
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
             >
               <Swords className="w-5 h-5 text-primary" />
               <div className="flex flex-col flex-1 min-w-0">
@@ -440,7 +440,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                   Challenges & incentives
                 </span>
               </div>
-            </button>
+            </Link>
 
             <Separator />
 
@@ -579,9 +579,6 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
         </div>
       </SheetContent>
     </Sheet>
-
-    {/* Compete Drawer */}
-    <CompeteDrawer open={competeDrawerOpen} onOpenChange={setCompeteDrawerOpen} />
 
     </>
   );

@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useMyActiveChallenges, Challenge } from "@/hooks/useChallenges";
 import { useMyActiveIncentives } from "@/hooks/useIncentives";
 import { useChallengeProgress } from "@/hooks/useChallengeProgress";
@@ -90,7 +92,19 @@ export const ActiveChallengesCard = () => {
   }).length;
   
   if (loadingChallenges || loadingIncentives) {
-    return null; // Don't show loading state, just hide the card
+    return (
+      <Card className="mb-6 border-muted">
+        <CardContent className="py-6">
+          <div className="flex items-center gap-3">
+            <Skeleton className="w-10 h-10 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   const handleCardClick = () => {

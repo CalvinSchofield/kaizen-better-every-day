@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { LeaderboardHeroBanner } from "@/components/leaderboard/LeaderboardHeroBanner";
 import { LeaderboardFilters, TimeFilter, ScopeFilter } from "@/components/leaderboard/LeaderboardFilters";
@@ -19,7 +20,7 @@ import { leaderboardTourSteps } from "@/config/pageTours";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Flame, Swords, Trophy } from "lucide-react";
+import { Flame, Swords, Trophy, ChevronRight } from "lucide-react";
 
 const LeaderboardSkeleton = () => (
   <div className="p-4 space-y-6">
@@ -135,6 +136,18 @@ const Leaderboard = () => {
             onScopeFilterChange={setScopeFilter}
             onCustomDateRangeChange={setCustomDateRange}
           />
+          
+          {/* Subtle chip to access Compete page for non-live views */}
+          {timeFilter !== 'live' && (
+            <Link
+              to="/compete"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors mt-2"
+            >
+              <Swords className="h-4 w-4" />
+              View Challenges & Incentives
+              <ChevronRight className="h-3 w-3" />
+            </Link>
+          )}
         </div>
 
         {/* Content */}
