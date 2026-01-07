@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, Target, Trophy, UserPlus, Contact, Sparkles } from "lucide-react";
+import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, Target, Trophy, UserPlus, Contact, Sparkles, Swords } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -13,15 +13,18 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { useAppMode } from "@/hooks/useAppMode";
 import { useRepData } from "@/hooks/useRepData";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useMyActiveChallenges } from "@/hooks/useChallenges";
+import { CompeteDrawer } from "@/components/CompeteDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { clearPersistedCache, clearCachedLayoutState } from "@/lib/queryPersister";
-import { hapticSelection } from "@/utils/haptics";
+import { hapticSelection, hapticLight } from "@/utils/haptics";
 
 interface AppDrawerProps {
   trigger: React.ReactNode;
@@ -37,8 +40,17 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
+  const [competeDrawerOpen, setCompeteDrawerOpen] = useState(false);
   
+  const { data: challenges } = useMyActiveChallenges();
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
+  
+  // Count pending challenges that require action (received, not yet responded)
+  const pendingActionCount = challenges?.filter(c => {
+    if (c.status !== 'pending') return false;
+    const myParticipant = c.participants?.find(p => p.accepted === null && p.role === 'captain_b');
+    return !!myParticipant;
+  }).length || 0;
 
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
@@ -409,6 +421,29 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
 
             <Separator />
 
+            {/* Compete - Challenges & Incentives hub */}
+            <button
+              onClick={() => { hapticLight(); setOpen(false); setCompeteDrawerOpen(true); }}
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors w-full text-left"
+            >
+              <Swords className="w-5 h-5 text-primary" />
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className="font-semibold text-sm flex items-center gap-2">
+                  Compete
+                  {pendingActionCount > 0 && (
+                    <Badge variant="destructive" className="h-4 min-w-4 flex items-center justify-center p-0 text-[10px]">
+                      {pendingActionCount}
+                    </Badge>
+                  )}
+                </span>
+                <span className="text-xs text-muted-foreground truncate">
+                  Challenges & incentives
+                </span>
+              </div>
+            </button>
+
+            <Separator />
+
             {/* My Group - Available for everyone EXCEPT leaders when knocking mode is OFF (it's in tabs for them) */}
             {!(isLeader && !isKnockingMode && !isCalendarLocked) && (
               <Link
@@ -544,6 +579,9 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
         </div>
       </SheetContent>
     </Sheet>
+
+    {/* Compete Drawer */}
+    <CompeteDrawer open={competeDrawerOpen} onOpenChange={setCompeteDrawerOpen} />
 
     </>
   );

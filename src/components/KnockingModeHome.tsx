@@ -17,6 +17,7 @@ import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { FPCumulativeChart } from "@/components/FPCumulativeChart";
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import { MeVsMeMotivationCard } from "@/components/MeVsMeMotivationCard";
+import { ActiveChallengesCard } from "@/components/ActiveChallengesCard";
 import { useState, useMemo } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -188,6 +189,9 @@ export const KnockingModeHome = ({
         
         {/* Me vs Me Motivation Card - shows week comparison when enabled */}
         <MeVsMeMotivationCard />
+        
+        {/* Active Challenges Card - shows competitions and allows creating new ones */}
+        <ActiveChallengesCard />
         
         {/* Pre-work layout: Weather first, then Activity, Focus, Leaderboard, YTD */}
         {!hasStartedWorkToday && (
