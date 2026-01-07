@@ -276,9 +276,11 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
 
   if (!cumulativeData || cumulativeData.length === 0) return null;
 
-  // Chart data grouping
-  const groupedData = () => {
-    if (groupBy === 'day') {
+  // Chart data grouping - now takes groupBy as parameter for per-view computation
+  const getGroupedData = useCallback((viewGroupBy: GroupBy) => {
+    if (!cumulativeData) return [];
+    
+    if (viewGroupBy === 'day') {
       return cumulativeData.map((point, idx) => {
         const pacePoint = goalPaceData?.pacePoints[idx];
         const inRange = isInHighlightRange(point.date);
@@ -311,7 +313,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     const grouped: Record<string, any> = {};
     cumulativeData.forEach((point, idx) => {
       const date = parseISO(point.date);
-      const key = groupBy === 'week' 
+      const key = viewGroupBy === 'week' 
         ? format(startOfWeek(date, { weekStartsOn: 0 }), 'yyyy-MM-dd')
         : format(startOfMonth(date), 'yyyy-MM-dd');
       
@@ -331,7 +333,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
       if (!grouped[key]) {
         grouped[key] = {
           date: key,
-          displayDate: groupBy === 'week' ? format(parseISO(key), "MMM d") : format(parseISO(key), "MMM"),
+          displayDate: viewGroupBy === 'week' ? format(parseISO(key), "MMM d") : format(parseISO(key), "MMM"),
           cumulative: cumValue,
           highlightCumulative: inRange ? cumValue : undefined,
           preseasonPace: pacePoint?.preseasonPace,
@@ -352,9 +354,15 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     });
 
     return Object.values(grouped);
-  };
+  }, [cumulativeData, goalPaceData, metricType, efpModeEnabled, showHistoricalLine, historicalByDayNumber, highlightDateRange]);
 
-  const chartData = groupedData();
+  // Compute chart data for each view
+  const dayChartData = useMemo(() => getGroupedData('day'), [getGroupedData]);
+  const weekChartData = useMemo(() => getGroupedData('week'), [getGroupedData]);
+  const monthChartData = useMemo(() => getGroupedData('month'), [getGroupedData]);
+
+  // For current view state (used for hero display)
+  const chartData = groupBy === 'day' ? dayChartData : groupBy === 'week' ? weekChartData : monthChartData;
   const totalForMode = metricType === 'primary' 
     ? cumulativeData[cumulativeData.length - 1].cumulative
     : (efpModeEnabled ? cumulativeData[cumulativeData.length - 1].cumulativeFp : cumulativeData[cumulativeData.length - 1].cumulativePrmr);
@@ -487,7 +495,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
                 {/* Day View */}
                 <CarouselItem>
                   <ChartView
-                    chartData={chartData}
+                    chartData={dayChartData}
                     chartConfig={chartConfig}
                     CustomTooltip={CustomTooltip}
                     canShowGoalLine={canShowGoalLine}
@@ -501,7 +509,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
                 {hasEnoughForWeek && (
                   <CarouselItem>
                     <ChartView
-                      chartData={chartData}
+                      chartData={weekChartData}
                       chartConfig={chartConfig}
                       CustomTooltip={CustomTooltip}
                       canShowGoalLine={canShowGoalLine}
@@ -516,7 +524,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
                 {hasEnoughForMonth && (
                   <CarouselItem>
                     <ChartView
-                      chartData={chartData}
+                      chartData={monthChartData}
                       chartConfig={chartConfig}
                       CustomTooltip={CustomTooltip}
                       canShowGoalLine={canShowGoalLine}
