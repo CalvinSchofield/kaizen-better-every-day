@@ -274,6 +274,38 @@ Deno.serve(async (req) => {
         }
 
         console.log(`[complete-challenge] Completed challenge ${challenge.id}. Winner: ${winnerUserId || 'tie'}`);
+
+        // Send notifications to all participants about completion
+        try {
+          const participantUserIds = participants.map((p: ChallengeParticipant) => p.user_id);
+          
+          // Get winner name if there is one
+          let winnerName = 'It was a tie!';
+          if (winnerUserId) {
+            const { data: winnerRep } = await supabase
+              .from('reps')
+              .select('name')
+              .eq('user_id', winnerUserId)
+              .single();
+            winnerName = winnerRep?.name || 'The winner';
+          }
+          
+          const notificationBody = winnerUserId 
+            ? `${winnerName} won the challenge!${isTie ? ' (by tiebreaker)' : ''}`
+            : 'The challenge ended in a tie!';
+          
+          await supabase.functions.invoke('send-challenge-notification', {
+            body: {
+              type: 'challenge_completed',
+              targetUserIds: participantUserIds,
+              title: '🏁 Challenge Complete!',
+              body: notificationBody,
+              data: { challengeId: challenge.id },
+            },
+          });
+        } catch (notifError) {
+          console.error(`[complete-challenge] Notification error (non-fatal):`, notifError);
+        }
         
         results.push({
           challengeId: challenge.id,

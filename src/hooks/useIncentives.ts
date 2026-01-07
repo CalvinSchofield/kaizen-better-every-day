@@ -199,6 +199,30 @@ export const useCreateIncentive = () => {
 
       if (eligError) throw eligError;
 
+      // Send push notifications to eligible participants
+      if (input.eligible_user_ids.length > 0) {
+        try {
+          const { data: creatorRep } = await supabase
+            .from('reps')
+            .select('name')
+            .eq('user_id', user.id)
+            .single();
+          
+          const creatorName = creatorRep?.name || 'A leader';
+          
+          await supabase.functions.invoke('send-challenge-notification', {
+            body: {
+              type: 'incentive_created',
+              targetUserIds: input.eligible_user_ids,
+              title: '🏆 New Incentive!',
+              body: `${creatorName} created "${input.title}" - prize: ${input.reward}`,
+            },
+          });
+        } catch (notifError) {
+          console.error('[useCreateIncentive] Notification error (non-fatal):', notifError);
+        }
+      }
+
       return incentive;
     },
     onSuccess: () => {
