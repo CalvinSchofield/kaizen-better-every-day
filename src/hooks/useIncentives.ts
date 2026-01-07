@@ -106,46 +106,34 @@ export const useMyActiveIncentives = () => {
   return useQuery({
     queryKey: ['my-active-incentives'],
     queryFn: async () => {
-      const { data: { user } } = await withTimeout(
-        supabase.auth.getUser(),
-        8000,
-        'Loading incentives timed out'
-      );
+      const { data: { user } } = await supabase.auth.getUser();
 
       // If auth isn't ready yet (or user is signed out), treat as "no incentives".
       if (!user) return [];
 
       // Get incentives where I'm eligible
-      const { data: myEligibility, error: eligError } = await withTimeout(
-        supabase
-          .from('incentive_eligible_reps')
-          .select('incentive_id')
-          .eq('user_id', user.id),
-        8000,
-        'Loading incentives timed out'
-      );
+      const { data: myEligibility, error: eligError } = await supabase
+        .from('incentive_eligible_reps')
+        .select('incentive_id')
+        .eq('user_id', user.id);
 
       if (eligError) throw eligError;
       if (!myEligibility?.length) return [];
 
       const incentiveIds = myEligibility.map((e) => e.incentive_id);
 
-      const { data: incentives, error } = await withTimeout(
-        supabase
-          .from('incentives')
-          .select(`
-            *,
-            incentive_eligible_reps (
-              id,
-              user_id
-            )
-          `)
-          .in('id', incentiveIds)
-          .eq('status', 'active')
-          .order('end_date', { ascending: true }),
-        8000,
-        'Loading incentives timed out'
-      );
+      const { data: incentives, error } = await supabase
+        .from('incentives')
+        .select(`
+          *,
+          incentive_eligible_reps (
+            id,
+            user_id
+          )
+        `)
+        .in('id', incentiveIds)
+        .eq('status', 'active')
+        .order('end_date', { ascending: true });
 
       if (error) throw error;
 
@@ -155,14 +143,10 @@ export const useMyActiveIncentives = () => {
         userIds.add(i.created_by);
       });
 
-      const { data: reps } = await withTimeout(
-        supabase
-          .from('reps')
-          .select('user_id, name, profile_photo_url')
-          .in('user_id', Array.from(userIds)),
-        8000,
-        'Loading incentives timed out'
-      );
+      const { data: reps } = await supabase
+        .from('reps')
+        .select('user_id, name, profile_photo_url')
+        .in('user_id', Array.from(userIds));
 
       const repMap = new Map(reps?.map((r) => [r.user_id, r]) || []);
 
@@ -173,6 +157,7 @@ export const useMyActiveIncentives = () => {
       })) as Incentive[];
     },
     staleTime: 30 * 1000,
+    retry: 1,
   });
 };
 
