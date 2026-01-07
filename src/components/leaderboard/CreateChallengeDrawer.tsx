@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCreateChallenge, ChallengeMetric, ChallengeType } from "@/hooks/useChallenges";
+import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -37,6 +39,22 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
 
   const reps = teamAccess?.accessibleReps || [];
 
+  // Get current user's timezone from their rep record
+  const { data: currentUserRep } = useQuery({
+    queryKey: ['current-user-timezone'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase
+        .from('reps')
+        .select('timezone')
+        .eq('user_id', user.id)
+        .single();
+      return data;
+    },
+    staleTime: Infinity,
+  });
+
   const handleCreate = async () => {
     if (!selectedOpponent) {
       toast.error('Please select an opponent');
@@ -44,19 +62,11 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
     }
 
     const today = new Date();
-    let startDate: Date;
-    let endDate: Date;
+    const startDate = duration === 'tomorrow' ? addDays(today, 1) : today;
+    const endDate = duration === 'week' ? addDays(today, 7) : startDate;
 
-    if (duration === 'today') {
-      startDate = today;
-      endDate = today;
-    } else if (duration === 'tomorrow') {
-      startDate = addDays(today, 1);
-      endDate = addDays(today, 1);
-    } else {
-      startDate = addDays(today, 1);
-      endDate = addDays(today, 7);
-    }
+    // Use rep's timezone or fall back to browser timezone
+    const creatorTimezone = currentUserRep?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     try {
       await createMutation.mutateAsync({
@@ -66,9 +76,13 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
         stakes: stakes || undefined,
         start_date: format(startDate, 'yyyy-MM-dd'),
         end_date: format(endDate, 'yyyy-MM-dd'),
-        participants: [{ user_id: selectedOpponent, role: 'captain_b' }],
+        creator_timezone: creatorTimezone,
+        participants: [{
+          user_id: selectedOpponent,
+          role: 'captain_b',
+        }],
       });
-      toast.success('Challenge sent! 🔥');
+      toast.success('Challenge sent! 🎯');
       onOpenChange(false);
       resetForm();
     } catch (error: any) {

@@ -278,6 +278,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           created_by: string
+          creator_timezone: string | null
           end_date: string
           id: string
           is_tie: boolean | null
@@ -294,6 +295,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by: string
+          creator_timezone?: string | null
           end_date: string
           id?: string
           is_tie?: boolean | null
@@ -310,6 +312,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string
+          creator_timezone?: string | null
           end_date?: string
           id?: string
           is_tie?: boolean | null
@@ -598,6 +601,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           created_by: string
+          creator_timezone: string | null
           description: string | null
           end_date: string
           id: string
@@ -615,6 +619,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by: string
+          creator_timezone?: string | null
           description?: string | null
           end_date: string
           id?: string
@@ -632,6 +637,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string
+          creator_timezone?: string | null
           description?: string | null
           end_date?: string
           id?: string

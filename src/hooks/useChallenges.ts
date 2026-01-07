@@ -49,6 +49,7 @@ export interface CreateChallengeInput {
   stakes?: string;
   start_date: string;
   end_date: string;
+  creator_timezone?: string;
   participants: Array<{
     user_id: string;
     team?: 'a' | 'b';
@@ -256,6 +257,7 @@ export const useCreateChallenge = () => {
           start_date: input.start_date,
           end_date: input.end_date,
           created_by: user.id,
+          creator_timezone: input.creator_timezone || null,
           status: 'pending',
         })
         .select()

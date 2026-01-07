@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCreateIncentive, IncentiveMetric } from "@/hooks/useIncentives";
+import { supabase } from "@/integrations/supabase/client";
 import { Trophy, DollarSign, ArrowRightLeft, Footprints, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
@@ -32,6 +34,22 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
   const { data: teamAccess } = useTeamAccess();
   const createMutation = useCreateIncentive();
 
+  // Get current user's timezone from their rep record
+  const { data: currentUserRep } = useQuery({
+    queryKey: ['current-user-timezone'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase
+        .from('reps')
+        .select('timezone')
+        .eq('user_id', user.id)
+        .single();
+      return data;
+    },
+    staleTime: Infinity,
+  });
+
   const eligibleUserIds = teamAccess?.accessibleReps
     .filter(r => r.userId)
     .map(r => r.userId!) || [];
@@ -46,6 +64,9 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
     const startDate = today;
     const endDate = duration === 'today' ? today : addDays(today, 7);
 
+    // Use rep's timezone or fall back to browser timezone
+    const creatorTimezone = currentUserRep?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     try {
       await createMutation.mutateAsync({
         title,
@@ -56,6 +77,7 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
         visibility: 'public',
         start_date: format(startDate, 'yyyy-MM-dd'),
         end_date: format(endDate, 'yyyy-MM-dd'),
+        creator_timezone: creatorTimezone,
         eligible_user_ids: eligibleUserIds,
       });
       toast.success('Incentive created! 🏆');

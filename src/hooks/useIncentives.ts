@@ -45,6 +45,7 @@ export interface CreateIncentiveInput {
   visibility: IncentiveVisibility;
   start_date: string;
   end_date: string;
+  creator_timezone?: string;
   eligible_user_ids: string[];
 }
 
@@ -178,6 +179,7 @@ export const useCreateIncentive = () => {
           visibility: input.visibility,
           start_date: input.start_date,
           end_date: input.end_date,
+          creator_timezone: input.creator_timezone || null,
           status: 'active',
         })
         .select()
