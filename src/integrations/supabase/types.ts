@@ -229,6 +229,79 @@ export type Database = {
         }
         Relationships: []
       }
+      challenge_edit_approvals: {
+        Row: {
+          approved: boolean | null
+          created_at: string
+          id: string
+          proposal_id: string
+          responded_at: string | null
+          user_id: string
+        }
+        Insert: {
+          approved?: boolean | null
+          created_at?: string
+          id?: string
+          proposal_id: string
+          responded_at?: string | null
+          user_id: string
+        }
+        Update: {
+          approved?: boolean | null
+          created_at?: string
+          id?: string
+          proposal_id?: string
+          responded_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_edit_approvals_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_edit_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_edit_proposals: {
+        Row: {
+          challenge_id: string
+          id: string
+          proposed_at: string
+          proposed_by: string
+          proposed_changes: Json
+          resolved_at: string | null
+          status: string
+        }
+        Insert: {
+          challenge_id: string
+          id?: string
+          proposed_at?: string
+          proposed_by: string
+          proposed_changes: Json
+          resolved_at?: string | null
+          status?: string
+        }
+        Update: {
+          challenge_id?: string
+          id?: string
+          proposed_at?: string
+          proposed_by?: string
+          proposed_changes?: Json
+          resolved_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_edit_proposals_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       challenge_participants: {
         Row: {
           accepted: boolean | null
