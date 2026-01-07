@@ -175,7 +175,7 @@ export const useDailyEntry = (date?: string) => {
     refetchOnWindowFocus: false,
   });
 
-  // Update counter mutation (auto-save)
+  // Update counter mutation (auto-save) with offline support
   const updateCounterMutation = useMutation({
     mutationKey: ['update-counter', entryDate],
     mutationFn: async (updates: Partial<DailyEntry>) => {
@@ -242,6 +242,10 @@ export const useDailyEntry = (date?: string) => {
       if (error) throw error;
       return data;
     },
+    // OFFLINE SUPPORT: Queue mutations when offline, retry when back online
+    networkMode: 'offlineFirst',
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
     onMutate: async (updates) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['daily-entry', entryDate] });
@@ -274,7 +278,7 @@ export const useDailyEntry = (date?: string) => {
     onError: (err, updates, context) => {
       // Rollback on error
       queryClient.setQueryData(['daily-entry', entryDate], context?.previousEntry);
-      toast.error('Failed to save counter');
+      // Don't show generic error toast here - let the caller handle offline-aware messaging
     },
     onSettled: () => {
       // BULLETPROOF: DON'T invalidate daily-entry during active tracking
