@@ -219,7 +219,16 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
     const hasCompletedPhase1 = repData?.ramp_phase_1_complete === true;
 
     if (effectiveIsKnockingMode) {
-      // KNOCKING MODE ON - ALL users get: Home, Leaderboard, Tools, Calendar
+      if (effectiveIsLeader) {
+        // Leaders in knocking mode: Home, Tools, Reports, Leaderboard (action: Track)
+        return [
+          { path: "/", icon: Home, label: "Home" },
+          { path: "/tools", icon: Wrench, label: "Tools" },
+          { path: "/team-reports", icon: BarChart3, label: "Reports" },
+          { path: "/leaderboard", icon: Trophy, label: "Leaderboard" },
+        ];
+      }
+      // Non-leaders in knocking mode: Home, Leaderboard, Tools, Calendar
       return [
         { path: "/", icon: Home, label: "Home" },
         { path: "/leaderboard", icon: Trophy, label: "Leaderboard" },
