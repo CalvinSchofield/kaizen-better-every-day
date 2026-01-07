@@ -1,7 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Challenge, ChallengeMetric } from "./useChallenges";
-import { format } from "date-fns";
+import { useEffect } from "react";
 
 interface ParticipantProgress {
   user_id: string;
@@ -42,6 +42,63 @@ const getMetricColumn = (metric: ChallengeMetric): string => {
 };
 
 export const useChallengeProgress = (challenge: Challenge | null) => {
+  const queryClient = useQueryClient();
+
+  // Set up realtime subscription for live updates
+  useEffect(() => {
+    if (!challenge || challenge.status !== 'active') return;
+
+    const participantUserIds = challenge.participants?.map(p => p.user_id) || [];
+    if (!participantUserIds.length) return;
+
+    // Subscribe to daily_entries changes for challenge participants
+    const channel = supabase
+      .channel(`challenge-progress-${challenge.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_entries',
+          filter: `user_id=in.(${participantUserIds.join(',')})`,
+        },
+        (payload) => {
+          console.log('[Realtime] Daily entry changed:', payload);
+          // Invalidate the query to refetch fresh data
+          queryClient.invalidateQueries({ 
+            queryKey: ['challenge-progress', challenge.id] 
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'challenges',
+          filter: `id=eq.${challenge.id}`,
+        },
+        (payload) => {
+          console.log('[Realtime] Challenge changed:', payload);
+          // Invalidate both challenge progress and challenges list
+          queryClient.invalidateQueries({ 
+            queryKey: ['challenge-progress', challenge.id] 
+          });
+          queryClient.invalidateQueries({ 
+            queryKey: ['challenges'] 
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log('[Realtime] Challenge progress subscription:', status);
+      });
+
+    return () => {
+      console.log('[Realtime] Unsubscribing from challenge progress');
+      supabase.removeChannel(channel);
+    };
+  }, [challenge?.id, challenge?.status, challenge?.participants, queryClient]);
+
   return useQuery({
     queryKey: ['challenge-progress', challenge?.id],
     queryFn: async () => {
@@ -152,7 +209,6 @@ export const useChallengeProgress = (challenge: Challenge | null) => {
       } as ChallengeProgressData;
     },
     enabled: !!challenge && challenge.status === 'active',
-    refetchInterval: 30 * 1000, // Refetch every 30 seconds for live updates
     staleTime: 10 * 1000,
   });
 };
