@@ -82,7 +82,7 @@ const TrackWithLayout = () => {
   const [isEarlyEndConfirmOpen, setIsEarlyEndConfirmOpen] = useState(false);
   const [isPostSaveSuccessOpen, setIsPostSaveSuccessOpen] = useState(false);
   const [lastSavedSummary, setLastSavedSummary] = useState({ doors: 0, dms: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, fpPlus: 0, prmr: 0, hoursWorked: 0 });
-  const [syncStatus, setSyncStatus] = useState<'synced' | 'pending' | 'error'>('synced');
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'pending' | 'offline' | 'error'>('synced');
   
   // Sales logger state
   const [isLogSaleSheetOpen, setIsLogSaleSheetOpen] = useState(false);
@@ -237,6 +237,33 @@ const TrackWithLayout = () => {
     }
   }, [entry, userId, saveBackup]);
 
+  // OFFLINE SUPPORT: Background sync when coming back online
+  useEffect(() => {
+    const handleOnline = async () => {
+      // Check if we have unsaved backup data that needs syncing
+      const backup = loadBackup();
+      if (backup && hasUnsavedBackup(entry)) {
+        setSyncStatus('pending');
+        toast.info('Syncing your offline data...', { icon: '🔄', duration: 2000 });
+        try {
+          await updateCounter(backup);
+          clearBackup();
+          setSyncStatus('synced');
+          toast.success('Offline data synced!', { duration: 3000 });
+        } catch {
+          setSyncStatus('error');
+          toast.error('Sync failed - will retry later');
+        }
+      } else if (syncStatus === 'offline') {
+        // Just came back online, update status
+        setSyncStatus('synced');
+      }
+    };
+    
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [loadBackup, hasUnsavedBackup, entry, updateCounter, clearBackup, syncStatus]);
+
   // Handle save button click - check if before sunset
   const handleSaveButtonClick = () => {
     // Check if it's before typical end of work day
@@ -249,6 +276,15 @@ const TrackWithLayout = () => {
 
   // Handle save - reset local UI state ONLY after confirmed successful save
   const handleSave = async (data: any) => {
+    // OFFLINE PROTECTION: Block finalization when offline
+    if (!navigator.onLine) {
+      toast.error('Cannot save while offline. Please reconnect and try again.', {
+        description: 'Your data is safely backed up locally.',
+        duration: 5000,
+      });
+      return;
+    }
+    
     setIsSaveInProgress(true);
     setSyncStatus('pending');
     try {
@@ -554,8 +590,19 @@ const TrackWithLayout = () => {
         toast.info("Today's work is already saved. Start fresh tomorrow!");
         setSavedThisSession(true); // Prevent further attempts
         setSyncStatus('synced');
+      } else if (!navigator.onLine) {
+        // OFFLINE SUPPORT: Show friendly offline message
+        setSyncStatus('offline');
+        toast.info('Saved locally - will sync when online', { 
+          icon: '📶',
+          duration: 3000 
+        });
       } else {
+        // Connection issue but online
         setSyncStatus('error');
+        toast.error('Connection issue - your data is backed up locally', {
+          duration: 4000
+        });
       }
     }
   }, [entry, updateCounter, isSaveInProgress, savedThisSession, salesLoggerEnabled, isLoadingEntry]);

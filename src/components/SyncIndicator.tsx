@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-type SyncStatus = 'synced' | 'pending' | 'error';
+type SyncStatus = 'synced' | 'pending' | 'offline' | 'error';
 
 interface SyncIndicatorProps {
   status: SyncStatus;
@@ -11,6 +11,7 @@ export const SyncIndicator = ({ status, className }: SyncIndicatorProps) => {
   const colors = {
     synced: 'bg-green-500',
     pending: 'bg-amber-500 animate-pulse',
+    offline: 'bg-blue-500 animate-pulse', // Blue = offline but safe
     error: 'bg-red-500',
   };
 
