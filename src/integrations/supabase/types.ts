@@ -1801,6 +1801,14 @@ export type Database = {
       }
       get_accessible_team_ids: { Args: { _user_id: string }; Returns: string[] }
       is_area_director: { Args: { _user_id: string }; Returns: boolean }
+      is_challenge_participant: {
+        Args: { _challenge_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_incentive_eligible: {
+        Args: { _incentive_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_mgmt_group_lead: { Args: { _user_id: string }; Returns: boolean }
       is_team_lead: { Args: { _user_id: string }; Returns: boolean }
       normalize_name: { Args: { raw_name: string }; Returns: string }
