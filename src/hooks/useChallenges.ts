@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 export type ChallengeType = '1v1' | 'group';
 export type ChallengeMetric = 'fp_plus' | 'prmr' | 'transitions' | 'doors_knocked';
@@ -56,6 +57,47 @@ export interface CreateChallengeInput {
 }
 
 export const useChallenges = (filter: 'active' | 'pending' | 'history' = 'active') => {
+  const queryClient = useQueryClient();
+
+  // Set up realtime subscription for challenges
+  useEffect(() => {
+    const channel = supabase
+      .channel('challenges-list')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'challenges',
+        },
+        (payload) => {
+          console.log('[Realtime] Challenges table changed:', payload);
+          queryClient.invalidateQueries({ queryKey: ['challenges'] });
+          queryClient.invalidateQueries({ queryKey: ['my-active-challenges'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'challenge_participants',
+        },
+        (payload) => {
+          console.log('[Realtime] Challenge participants changed:', payload);
+          queryClient.invalidateQueries({ queryKey: ['challenges'] });
+          queryClient.invalidateQueries({ queryKey: ['my-active-challenges'] });
+        }
+      )
+      .subscribe((status) => {
+        console.log('[Realtime] Challenges subscription:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['challenges', filter],
     queryFn: async () => {
