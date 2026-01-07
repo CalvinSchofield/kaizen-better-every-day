@@ -1,0 +1,148 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Incentive, IncentiveMetric } from "./useIncentives";
+import { useEffect } from "react";
+
+export interface ParticipantProgress {
+  user_id: string;
+  rep_name: string;
+  profile_photo_url: string | null;
+  current_value: number;
+}
+
+export interface IncentiveProgressData {
+  incentive: Incentive;
+  participants: ParticipantProgress[];
+  groupTotal: number;
+  targetValue: number;
+  progressPercent: number;
+  leader: ParticipantProgress | null;
+  isCompleted: boolean;
+  timeRemaining: string;
+}
+
+const getMetricColumn = (metric: IncentiveMetric): string => {
+  switch (metric) {
+    case 'fp_plus': return 'fp_plus';
+    case 'prmr': return 'prmr';
+    case 'transitions': return 'transitions';
+    case 'doors_knocked': return 'doors_knocked';
+    default: return 'fp_plus';
+  }
+};
+
+export const useIncentiveProgress = (incentive: Incentive | null) => {
+  const queryClient = useQueryClient();
+
+  // Set up realtime subscription for daily entries
+  useEffect(() => {
+    if (!incentive) return;
+
+    const channel = supabase
+      .channel(`incentive-progress-${incentive.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_entries',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['incentive-progress', incentive.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [incentive?.id, queryClient]);
+
+  return useQuery({
+    queryKey: ['incentive-progress', incentive?.id],
+    queryFn: async () => {
+      if (!incentive) return null;
+
+      // Get eligible user IDs
+      const eligibleUserIds = incentive.eligible_reps?.map(r => r.user_id) || [];
+      
+      if (eligibleUserIds.length === 0) return null;
+
+      // Get daily entries for the incentive date range
+      const { data: entries, error } = await supabase
+        .from('daily_entries')
+        .select('user_id, entry_date, fp_plus, prmr, transitions, doors_knocked')
+        .in('user_id', eligibleUserIds)
+        .gte('entry_date', incentive.start_date)
+        .lte('entry_date', incentive.end_date);
+
+      if (error) throw error;
+
+      const metricColumn = getMetricColumn(incentive.metric);
+
+      // Aggregate values per user
+      const userProgress: Record<string, number> = {};
+      eligibleUserIds.forEach(userId => {
+        userProgress[userId] = 0;
+      });
+
+      entries?.forEach(entry => {
+        const value = (entry as any)[metricColumn] || 0;
+        userProgress[entry.user_id] = (userProgress[entry.user_id] || 0) + value;
+      });
+
+      // Build participant progress
+      const participants: ParticipantProgress[] = eligibleUserIds.map(userId => {
+        const rep = incentive.eligible_reps?.find(r => r.user_id === userId);
+        return {
+          user_id: userId,
+          rep_name: rep?.rep_name || 'Unknown',
+          profile_photo_url: rep?.profile_photo_url || null,
+          current_value: userProgress[userId] || 0,
+        };
+      }).sort((a, b) => b.current_value - a.current_value);
+
+      // Calculate group total
+      const groupTotal = participants.reduce((sum, p) => sum + p.current_value, 0);
+      const targetValue = incentive.target_value || 1;
+
+      // Progress percent based on incentive type
+      const progressPercent = incentive.target_type === 'group_total'
+        ? Math.min(100, (groupTotal / targetValue) * 100)
+        : Math.min(100, ((participants[0]?.current_value || 0) / targetValue) * 100);
+
+      // Time remaining calculation
+      const endDate = new Date(incentive.end_date);
+      endDate.setHours(23, 59, 59, 999);
+      const now = new Date();
+      const msLeft = endDate.getTime() - now.getTime();
+      
+      let timeRemaining = 'Ended';
+      if (msLeft > 0) {
+        const hoursLeft = Math.floor(msLeft / (1000 * 60 * 60));
+        const daysLeft = Math.floor(hoursLeft / 24);
+        if (daysLeft > 0) {
+          timeRemaining = `${daysLeft}d ${hoursLeft % 24}h left`;
+        } else if (hoursLeft > 0) {
+          timeRemaining = `${hoursLeft}h left`;
+        } else {
+          const minsLeft = Math.floor(msLeft / (1000 * 60));
+          timeRemaining = `${minsLeft}m left`;
+        }
+      }
+
+      return {
+        incentive,
+        participants,
+        groupTotal,
+        targetValue,
+        progressPercent,
+        leader: participants[0] || null,
+        isCompleted: incentive.status === 'completed',
+        timeRemaining,
+      } as IncentiveProgressData;
+    },
+    enabled: !!incentive && incentive.status === 'active',
+    staleTime: 10 * 1000, // 10 seconds
+  });
+};

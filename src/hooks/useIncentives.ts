@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export type IncentiveMetric = 'fp_plus' | 'prmr' | 'transitions' | 'doors_knocked';
-export type IncentiveTargetType = 'first_to' | 'most_by_end';
+export type IncentiveTargetType = 'first_to' | 'most_by_end' | 'group_total';
 export type IncentiveStatus = 'active' | 'completed' | 'cancelled';
 export type IncentiveVisibility = 'public' | 'private';
 

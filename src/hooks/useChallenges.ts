@@ -307,6 +307,16 @@ export const useRespondToChallenge = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Get current user's participant record
+      const { data: myParticipant } = await supabase
+        .from('challenge_participants')
+        .select('role')
+        .eq('challenge_id', challengeId)
+        .eq('user_id', user.id)
+        .single();
+
+      const isCaptain = myParticipant?.role === 'captain_b';
+
       // Update participant acceptance
       const { error: partError } = await supabase
         .from('challenge_participants')
@@ -319,21 +329,53 @@ export const useRespondToChallenge = () => {
 
       if (partError) throw partError;
 
-      // Check if all participants have accepted
+      // Get all participants to check status
       const { data: participants } = await supabase
         .from('challenge_participants')
-        .select('accepted')
+        .select('accepted, role, user_id')
         .eq('challenge_id', challengeId);
 
-      const allAccepted = participants?.every(p => p.accepted === true);
-      const anyDeclined = participants?.some(p => p.accepted === false);
-
-      // Update challenge status
+      // Determine new status based on acceptance logic:
+      // - If captain_b declines → whole challenge declined
+      // - If a regular member declines → remove them, challenge continues
+      // - If all remaining participants accepted → challenge is active
+      
+      const captainB = participants?.find(p => p.role === 'captain_b');
+      const captainBDeclined = captainB?.accepted === false;
+      
       let newStatus: ChallengeStatus = 'pending';
-      if (anyDeclined) {
+      
+      if (captainBDeclined) {
+        // Captain B declined - whole challenge is declined
         newStatus = 'declined';
-      } else if (allAccepted) {
-        newStatus = 'active';
+      } else {
+        // Check if all participants (excluding declined members) have accepted
+        const activeParticipants = participants?.filter(p => p.accepted !== false);
+        const allActiveAccepted = activeParticipants?.every(p => p.accepted === true);
+        
+        if (allActiveAccepted && activeParticipants && activeParticipants.length >= 2) {
+          newStatus = 'active';
+        }
+      }
+
+      // If a non-captain member declined, just remove them from the challenge
+      if (!accept && !isCaptain) {
+        await supabase
+          .from('challenge_participants')
+          .delete()
+          .eq('challenge_id', challengeId)
+          .eq('user_id', user.id);
+        
+        // Re-check if challenge can proceed
+        const { data: remainingParticipants } = await supabase
+          .from('challenge_participants')
+          .select('accepted, role')
+          .eq('challenge_id', challengeId);
+        
+        const allAccepted = remainingParticipants?.every(p => p.accepted === true);
+        if (allAccepted && remainingParticipants && remainingParticipants.length >= 2) {
+          newStatus = 'active';
+        }
       }
 
       if (newStatus !== 'pending') {
