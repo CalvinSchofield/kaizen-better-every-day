@@ -5,15 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCreateChallenge, ChallengeMetric, ChallengeType } from "@/hooks/useChallenges";
 import { supabase } from "@/integrations/supabase/client";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, Loader2, Eye, EyeOff, X } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, ChevronLeft, Loader2, Eye, EyeOff, X, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
-import { format, addDays } from "date-fns";
+import { format, addDays, startOfWeek, endOfWeek } from "date-fns";
 
 interface CreateChallengeDrawerProps {
   open: boolean;
@@ -35,7 +36,9 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
   const [teamA, setTeamA] = useState<string[]>([]); // Current user's team (excluding self, added automatically)
   const [teamB, setTeamB] = useState<string[]>([]); // Opponent's team
   const [metric, setMetric] = useState<ChallengeMetric>('fp_plus');
-  const [duration, setDuration] = useState<'today' | 'tomorrow' | 'week'>('tomorrow');
+  const [duration, setDuration] = useState<'today' | 'tomorrow' | 'week' | 'custom'>('today');
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(new Date());
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(new Date());
   const [stakes, setStakes] = useState('');
   const [isPublic, setIsPublic] = useState(true);
 
@@ -90,6 +93,23 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
     }
   };
 
+  const getDateRange = () => {
+    const today = new Date();
+    if (duration === 'today') {
+      return { start: today, end: today };
+    } else if (duration === 'tomorrow') {
+      const tomorrow = addDays(today, 1);
+      return { start: tomorrow, end: tomorrow };
+    } else if (duration === 'week') {
+      // Sunday to Saturday in local time
+      const weekStart = startOfWeek(today, { weekStartsOn: 0 });
+      const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
+      return { start: weekStart, end: weekEnd };
+    } else {
+      return { start: customStartDate || today, end: customEndDate || today };
+    }
+  };
+
   const handleCreate = async () => {
     if (type === '1v1') {
       if (!selectedOpponent) {
@@ -104,9 +124,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
       }
     }
 
-    const today = new Date();
-    const startDate = duration === 'tomorrow' ? addDays(today, 1) : today;
-    const endDate = duration === 'week' ? addDays(today, 7) : startDate;
+    const { start, end } = getDateRange();
 
     // Use rep's timezone or fall back to browser timezone
     const creatorTimezone = currentUserRep?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -118,8 +136,8 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
           metric,
           visibility: isPublic ? 'public' : 'private',
           stakes: stakes || undefined,
-          start_date: format(startDate, 'yyyy-MM-dd'),
-          end_date: format(endDate, 'yyyy-MM-dd'),
+          start_date: format(start, 'yyyy-MM-dd'),
+          end_date: format(end, 'yyyy-MM-dd'),
           creator_timezone: creatorTimezone,
           participants: [{
             user_id: selectedOpponent!,
@@ -148,8 +166,8 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
           metric,
           visibility: isPublic ? 'public' : 'private',
           stakes: stakes || undefined,
-          start_date: format(startDate, 'yyyy-MM-dd'),
-          end_date: format(endDate, 'yyyy-MM-dd'),
+          start_date: format(start, 'yyyy-MM-dd'),
+          end_date: format(end, 'yyyy-MM-dd'),
           creator_timezone: creatorTimezone,
           participants,
         });
@@ -169,7 +187,9 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
     setTeamA([]);
     setTeamB([]);
     setMetric('fp_plus');
-    setDuration('tomorrow');
+    setDuration('today');
+    setCustomStartDate(new Date());
+    setCustomEndDate(new Date());
     setStakes('');
     setIsPublic(true);
   };
@@ -181,11 +201,19 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
     });
   };
 
+  const getTotalSteps = () => 4;
+
   return (
     <Drawer open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetForm(); }}>
       <DrawerContent className="max-h-[90vh]">
-        <DrawerHeader>
-          <DrawerTitle>New Challenge</DrawerTitle>
+        <DrawerHeader className="flex items-center gap-2">
+          {step > 1 && (
+            <Button variant="ghost" size="icon" onClick={() => setStep(step - 1)} className="h-8 w-8">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
+          <DrawerTitle className="flex-1">New Challenge</DrawerTitle>
+          <span className="text-xs text-muted-foreground">{step}/{getTotalSteps()}</span>
         </DrawerHeader>
 
         <div className="p-4 space-y-6 overflow-y-auto">
@@ -379,20 +407,64 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
             <div className="space-y-6">
               <div className="space-y-3">
                 <Label>Duration</Label>
-                <div className="flex gap-2">
-                  {(['tomorrow', 'week'] as const).map(d => (
+                <div className="flex gap-2 flex-wrap">
+                  {(['today', 'tomorrow', 'week', 'custom'] as const).map(d => (
                     <button
                       key={d}
                       onClick={() => setDuration(d)}
                       className={cn(
-                        "flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors",
+                        "flex-1 min-w-[70px] py-2 px-2 rounded-lg text-sm font-medium transition-colors",
                         duration === d ? "bg-primary text-primary-foreground" : "bg-muted"
                       )}
                     >
-                      {d === 'tomorrow' ? 'Tomorrow' : 'This Week'}
+                      {d === 'today' ? 'Today' : d === 'tomorrow' ? 'Tomorrow' : d === 'week' ? 'This Week' : 'Custom'}
                     </button>
                   ))}
                 </div>
+
+                {duration === 'custom' && (
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Start Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start text-left font-normal h-9">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {customStartDate ? format(customStartDate, 'MMM d') : 'Pick date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customStartDate}
+                            onSelect={setCustomStartDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">End Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start text-left font-normal h-9">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {customEndDate ? format(customEndDate, 'MMM d') : 'Pick date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customEndDate}
+                            onSelect={setCustomEndDate}
+                            disabled={(date) => customStartDate ? date < customStartDate : false}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

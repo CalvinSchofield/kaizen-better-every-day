@@ -6,14 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCreateIncentive, IncentiveMetric, IncentiveTargetType } from "@/hooks/useIncentives";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, DollarSign, ArrowRightLeft, Footprints, Loader2, Eye, EyeOff, Users, User, X } from "lucide-react";
+import { Trophy, DollarSign, ArrowRightLeft, Footprints, Loader2, Eye, EyeOff, Users, User, ChevronLeft, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
-import { format, addDays } from "date-fns";
+import { format, addDays, startOfWeek, endOfWeek } from "date-fns";
 
 interface CreateIncentiveDrawerProps {
   open: boolean;
@@ -28,15 +30,19 @@ const metrics: { key: IncentiveMetric; label: string; icon: typeof Trophy }[] = 
 ];
 
 export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDrawerProps) => {
+  const [step, setStep] = useState(1); // 1: basic info, 2: participants, 3: dates & settings
   const [title, setTitle] = useState('');
   const [reward, setReward] = useState('');
   const [metric, setMetric] = useState<IncentiveMetric>('transitions');
   const [targetType, setTargetType] = useState<IncentiveTargetType>('first_to');
   const [targetValue, setTargetValue] = useState('1');
-  const [duration, setDuration] = useState<'today' | 'week'>('today');
+  const [duration, setDuration] = useState<'today' | 'week' | 'custom'>('today');
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(new Date());
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(new Date());
   const [isPublic, setIsPublic] = useState(true);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [showPersonPicker, setShowPersonPicker] = useState(false);
+  const [allSelected, setAllSelected] = useState(true); // Track "all selected" state explicitly
 
   const { data: teamAccess } = useTeamAccess();
   const createMutation = useCreateIncentive();
@@ -61,28 +67,51 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
     return teamAccess?.accessibleReps.filter(r => r.userId) || [];
   }, [teamAccess]);
 
-  // If no specific selection, include all reps
+  // Compute effective user IDs based on explicit all-selected state
   const effectiveUserIds = useMemo(() => {
-    if (selectedUserIds.length === 0) {
+    if (allSelected) {
       return allEligibleReps.map(r => r.userId!);
     }
     return selectedUserIds;
-  }, [selectedUserIds, allEligibleReps]);
+  }, [allSelected, selectedUserIds, allEligibleReps]);
 
   const toggleUser = (userId: string) => {
-    setSelectedUserIds(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
-    );
+    if (allSelected) {
+      // First click when all selected - deselect this user
+      const newSelection = allEligibleReps.map(r => r.userId!).filter(id => id !== userId);
+      setSelectedUserIds(newSelection);
+      setAllSelected(false);
+    } else {
+      setSelectedUserIds(prev => 
+        prev.includes(userId) 
+          ? prev.filter(id => id !== userId)
+          : [...prev, userId]
+      );
+    }
   };
 
   const selectAll = () => {
-    setSelectedUserIds(allEligibleReps.map(r => r.userId!));
+    setAllSelected(true);
+    setSelectedUserIds([]);
   };
 
   const clearSelection = () => {
+    setAllSelected(false);
     setSelectedUserIds([]);
+  };
+
+  const getDateRange = () => {
+    const today = new Date();
+    if (duration === 'today') {
+      return { start: today, end: today };
+    } else if (duration === 'week') {
+      // Sunday to Saturday in local time
+      const weekStart = startOfWeek(today, { weekStartsOn: 0 });
+      const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
+      return { start: weekStart, end: weekEnd };
+    } else {
+      return { start: customStartDate || today, end: customEndDate || today };
+    }
   };
 
   const handleCreate = async () => {
@@ -96,9 +125,7 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
       return;
     }
 
-    const today = new Date();
-    const startDate = today;
-    const endDate = duration === 'today' ? today : addDays(today, 7);
+    const { start, end } = getDateRange();
 
     // Use rep's timezone or fall back to browser timezone
     const creatorTimezone = currentUserRep?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -111,8 +138,8 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
         target_type: targetType,
         target_value: parseInt(targetValue) || 1,
         visibility: isPublic ? 'public' : 'private',
-        start_date: format(startDate, 'yyyy-MM-dd'),
-        end_date: format(endDate, 'yyyy-MM-dd'),
+        start_date: format(start, 'yyyy-MM-dd'),
+        end_date: format(end, 'yyyy-MM-dd'),
         creator_timezone: creatorTimezone,
         eligible_user_ids: effectiveUserIds,
       });
@@ -125,213 +152,275 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
   };
 
   const resetForm = () => {
+    setStep(1);
     setTitle('');
     setReward('');
     setMetric('transitions');
     setTargetType('first_to');
     setTargetValue('1');
     setDuration('today');
+    setCustomStartDate(new Date());
+    setCustomEndDate(new Date());
     setIsPublic(true);
     setSelectedUserIds([]);
+    setAllSelected(true);
     setShowPersonPicker(false);
   };
+
+  const canProceedFromStep1 = title.trim() && reward.trim();
+  const canProceedFromStep2 = effectiveUserIds.length > 0;
 
   return (
     <Drawer open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetForm(); }}>
       <DrawerContent className="max-h-[90vh]">
-        <DrawerHeader>
-          <DrawerTitle>New Incentive</DrawerTitle>
+        <DrawerHeader className="flex items-center gap-2">
+          {step > 1 && (
+            <Button variant="ghost" size="icon" onClick={() => setStep(step - 1)} className="h-8 w-8">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
+          <DrawerTitle className="flex-1">
+            {step === 1 && 'New Incentive'}
+            {step === 2 && 'Select Participants'}
+            {step === 3 && 'Duration & Settings'}
+          </DrawerTitle>
+          <span className="text-xs text-muted-foreground">{step}/3</span>
         </DrawerHeader>
 
         <div className="p-4 space-y-6 overflow-y-auto">
-          <div className="space-y-2">
-            <Label>Title</Label>
-            <Input
-              placeholder="First to Transition!"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Reward</Label>
-            <Input
-              placeholder="Dinner on me"
-              value={reward}
-              onChange={(e) => setReward(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <Label>Metric</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {metrics.map(m => (
-                <button
-                  key={m.key}
-                  onClick={() => setMetric(m.key)}
-                  className={cn(
-                    "p-3 rounded-xl border-2 transition-colors text-center",
-                    metric === m.key ? "border-primary bg-primary/10" : "border-border"
-                  )}
-                >
-                  <m.icon className="h-5 w-5 mx-auto mb-1 text-primary" />
-                  <p className="text-sm font-medium">{m.label}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Goal Type */}
-          <div className="space-y-3">
-            <Label>Goal Type</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setTargetType('first_to')}
-                className={cn(
-                  "p-3 rounded-xl border-2 transition-colors text-center",
-                  targetType === 'first_to' ? "border-primary bg-primary/10" : "border-border"
-                )}
-              >
-                <User className="h-5 w-5 mx-auto mb-1 text-primary" />
-                <p className="text-sm font-medium">First To</p>
-                <p className="text-xs text-muted-foreground">Individual race</p>
-              </button>
-              <button
-                onClick={() => setTargetType('group_total')}
-                className={cn(
-                  "p-3 rounded-xl border-2 transition-colors text-center",
-                  targetType === 'group_total' ? "border-primary bg-primary/10" : "border-border"
-                )}
-              >
-                <Users className="h-5 w-5 mx-auto mb-1 text-blue-500" />
-                <p className="text-sm font-medium">Group Total</p>
-                <p className="text-xs text-muted-foreground">Team goal</p>
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>{targetType === 'group_total' ? 'Group target' : 'First to reach'}</Label>
-            <Input
-              type="number"
-              min="1"
-              value={targetValue}
-              onChange={(e) => setTargetValue(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <Label>Duration</Label>
-            <div className="flex gap-2">
-              {(['today', 'week'] as const).map(d => (
-                <button
-                  key={d}
-                  onClick={() => setDuration(d)}
-                  className={cn(
-                    "flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors",
-                    duration === d ? "bg-primary text-primary-foreground" : "bg-muted"
-                  )}
-                >
-                  {d === 'today' ? 'Today Only' : 'This Week'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Person Picker */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Participants</Label>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setShowPersonPicker(!showPersonPicker)}
-                className="h-7 text-xs"
-              >
-                {showPersonPicker ? 'Hide' : 'Customize'}
-              </Button>
-            </div>
-            
-            {!showPersonPicker ? (
-              <div className="p-3 rounded-xl bg-muted/50 border border-border">
-                <p className="text-sm">
-                  {selectedUserIds.length === 0 
-                    ? `All ${allEligibleReps.length} reps in your downline`
-                    : `${selectedUserIds.length} selected participant${selectedUserIds.length !== 1 ? 's' : ''}`
-                  }
-                </p>
-                {selectedUserIds.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {selectedUserIds.slice(0, 5).map(userId => {
-                      const rep = allEligibleReps.find(r => r.userId === userId);
-                      return (
-                        <span key={userId} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                          {rep?.name}
-                        </span>
-                      );
-                    })}
-                    {selectedUserIds.length > 5 && (
-                      <span className="text-xs text-muted-foreground">+{selectedUserIds.length - 5} more</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
+          {/* Step 1: Basic Info */}
+          {step === 1 && (
+            <>
               <div className="space-y-2">
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={selectAll} className="h-7 text-xs">
-                    Select All
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={clearSelection} className="h-7 text-xs">
-                    Clear
-                  </Button>
-                </div>
-                <div className="max-h-40 overflow-y-auto space-y-1 rounded-lg border border-border p-2">
-                  {allEligibleReps.map(rep => (
-                    <label
-                      key={rep.userId}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                <Label>Title</Label>
+                <Input
+                  placeholder="First to Transition!"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Reward</Label>
+                <Input
+                  placeholder="Dinner on me"
+                  value={reward}
+                  onChange={(e) => setReward(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <Label>Metric</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {metrics.map(m => (
+                    <button
+                      key={m.key}
+                      onClick={() => setMetric(m.key)}
+                      className={cn(
+                        "p-3 rounded-xl border-2 transition-colors text-center",
+                        metric === m.key ? "border-primary bg-primary/10" : "border-border"
+                      )}
                     >
-                      <Checkbox
-                        checked={selectedUserIds.length === 0 || selectedUserIds.includes(rep.userId!)}
-                        onCheckedChange={() => {
-                          if (selectedUserIds.length === 0) {
-                            // First click when "all selected" - select only this one
-                            setSelectedUserIds([rep.userId!]);
-                          } else {
-                            toggleUser(rep.userId!);
-                          }
-                        }}
-                      />
-                      <Avatar className="h-6 w-6">
-                        <AvatarFallback className="text-xs">{rep.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-medium">{rep.name}</span>
-                    </label>
+                      <m.icon className="h-5 w-5 mx-auto mb-1 text-primary" />
+                      <p className="text-sm font-medium">{m.label}</p>
+                    </button>
                   ))}
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Privacy Toggle */}
-          <div className="flex items-center justify-between p-3 rounded-xl border border-border">
-            <div className="flex items-center gap-2">
-              {isPublic ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
-              <div>
-                <p className="text-sm font-medium">{isPublic ? 'Public' : 'Private'}</p>
-                <p className="text-xs text-muted-foreground">
-                  {isPublic ? 'Everyone can see this incentive' : 'Only participants can see'}
-                </p>
+              {/* Goal Type */}
+              <div className="space-y-3">
+                <Label>Goal Type</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setTargetType('first_to')}
+                    className={cn(
+                      "p-3 rounded-xl border-2 transition-colors text-center",
+                      targetType === 'first_to' ? "border-primary bg-primary/10" : "border-border"
+                    )}
+                  >
+                    <User className="h-5 w-5 mx-auto mb-1 text-primary" />
+                    <p className="text-sm font-medium">First To</p>
+                    <p className="text-xs text-muted-foreground">Individual race</p>
+                  </button>
+                  <button
+                    onClick={() => setTargetType('group_total')}
+                    className={cn(
+                      "p-3 rounded-xl border-2 transition-colors text-center",
+                      targetType === 'group_total' ? "border-primary bg-primary/10" : "border-border"
+                    )}
+                  >
+                    <Users className="h-5 w-5 mx-auto mb-1 text-blue-500" />
+                    <p className="text-sm font-medium">Group Total</p>
+                    <p className="text-xs text-muted-foreground">Team goal</p>
+                  </button>
+                </div>
               </div>
-            </div>
-            <Switch checked={isPublic} onCheckedChange={setIsPublic} />
-          </div>
 
-          <Button onClick={handleCreate} className="w-full" disabled={createMutation.isPending}>
-            {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Create Incentive 🏆
-          </Button>
+              <div className="space-y-2">
+                <Label>{targetType === 'group_total' ? 'Group target' : 'First to reach'}</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={targetValue}
+                  onChange={(e) => setTargetValue(e.target.value)}
+                />
+              </div>
+
+              <Button 
+                onClick={() => setStep(2)} 
+                className="w-full" 
+                disabled={!canProceedFromStep1}
+              >
+                Next: Select Participants
+              </Button>
+            </>
+          )}
+
+          {/* Step 2: Participants */}
+          {step === 2 && (
+            <>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Participants</Label>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={selectAll} className="h-7 text-xs">
+                      Select All
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={clearSelection} className="h-7 text-xs">
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-muted/50 border border-border mb-2">
+                  <p className="text-sm font-medium">
+                    {allSelected 
+                      ? `All ${allEligibleReps.length} reps selected`
+                      : selectedUserIds.length === 0
+                        ? 'No participants selected'
+                        : `${selectedUserIds.length} participant${selectedUserIds.length !== 1 ? 's' : ''} selected`
+                    }
+                  </p>
+                </div>
+
+                <div className="max-h-60 overflow-y-auto space-y-1 rounded-lg border border-border p-2">
+                  {allEligibleReps.map(rep => {
+                    const isChecked = allSelected || selectedUserIds.includes(rep.userId!);
+                    return (
+                      <label
+                        key={rep.userId}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={isChecked}
+                          onCheckedChange={() => toggleUser(rep.userId!)}
+                        />
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback className="text-xs">{rep.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium">{rep.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <Button 
+                onClick={() => setStep(3)} 
+                className="w-full"
+                disabled={!canProceedFromStep2}
+              >
+                Next: Duration & Settings
+              </Button>
+            </>
+          )}
+
+          {/* Step 3: Duration & Settings */}
+          {step === 3 && (
+            <>
+              <div className="space-y-3">
+                <Label>Duration</Label>
+                <div className="flex gap-2 flex-wrap">
+                  {(['today', 'week', 'custom'] as const).map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setDuration(d)}
+                      className={cn(
+                        "flex-1 min-w-[80px] py-2 px-3 rounded-lg text-sm font-medium transition-colors",
+                        duration === d ? "bg-primary text-primary-foreground" : "bg-muted"
+                      )}
+                    >
+                      {d === 'today' ? 'Today' : d === 'week' ? 'This Week' : 'Custom'}
+                    </button>
+                  ))}
+                </div>
+
+                {duration === 'custom' && (
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Start Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start text-left font-normal h-9">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {customStartDate ? format(customStartDate, 'MMM d') : 'Pick date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customStartDate}
+                            onSelect={setCustomStartDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">End Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start text-left font-normal h-9">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {customEndDate ? format(customEndDate, 'MMM d') : 'Pick date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customEndDate}
+                            onSelect={setCustomEndDate}
+                            disabled={(date) => customStartDate ? date < customStartDate : false}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Privacy Toggle */}
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border">
+                <div className="flex items-center gap-2">
+                  {isPublic ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                  <div>
+                    <p className="text-sm font-medium">{isPublic ? 'Public' : 'Private'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isPublic ? 'Everyone can see this incentive' : 'Only participants can see'}
+                    </p>
+                  </div>
+                </div>
+                <Switch checked={isPublic} onCheckedChange={setIsPublic} />
+              </div>
+
+              <Button onClick={handleCreate} className="w-full" disabled={createMutation.isPending}>
+                {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Create Incentive 🏆
+              </Button>
+            </>
+          )}
         </div>
       </DrawerContent>
     </Drawer>
