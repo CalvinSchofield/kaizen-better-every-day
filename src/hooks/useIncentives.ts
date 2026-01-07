@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { withTimeout } from "@/utils/withTimeout";
 
 export type IncentiveMetric = 'fp_plus' | 'prmr' | 'transitions' | 'doors_knocked';
 export type IncentiveTargetType = 'first_to' | 'most_by_end' | 'group_total';
@@ -105,49 +106,67 @@ export const useMyActiveIncentives = () => {
   return useQuery({
     queryKey: ['my-active-incentives'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const { data: { user } } = await withTimeout(
+        supabase.auth.getUser(),
+        8000,
+        'Loading incentives timed out'
+      );
+
+      // If auth isn't ready yet (or user is signed out), treat as "no incentives".
+      if (!user) return [];
 
       // Get incentives where I'm eligible
-      const { data: myEligibility, error: eligError } = await supabase
-        .from('incentive_eligible_reps')
-        .select('incentive_id')
-        .eq('user_id', user.id);
+      const { data: myEligibility, error: eligError } = await withTimeout(
+        supabase
+          .from('incentive_eligible_reps')
+          .select('incentive_id')
+          .eq('user_id', user.id),
+        8000,
+        'Loading incentives timed out'
+      );
 
       if (eligError) throw eligError;
       if (!myEligibility?.length) return [];
 
-      const incentiveIds = myEligibility.map(e => e.incentive_id);
+      const incentiveIds = myEligibility.map((e) => e.incentive_id);
 
-      const { data: incentives, error } = await supabase
-        .from('incentives')
-        .select(`
-          *,
-          incentive_eligible_reps (
-            id,
-            user_id
-          )
-        `)
-        .in('id', incentiveIds)
-        .eq('status', 'active')
-        .order('end_date', { ascending: true });
+      const { data: incentives, error } = await withTimeout(
+        supabase
+          .from('incentives')
+          .select(`
+            *,
+            incentive_eligible_reps (
+              id,
+              user_id
+            )
+          `)
+          .in('id', incentiveIds)
+          .eq('status', 'active')
+          .order('end_date', { ascending: true }),
+        8000,
+        'Loading incentives timed out'
+      );
 
       if (error) throw error;
 
       // Get rep names
       const userIds = new Set<string>();
-      incentives?.forEach(i => {
+      incentives?.forEach((i) => {
         userIds.add(i.created_by);
       });
 
-      const { data: reps } = await supabase
-        .from('reps')
-        .select('user_id, name, profile_photo_url')
-        .in('user_id', Array.from(userIds));
+      const { data: reps } = await withTimeout(
+        supabase
+          .from('reps')
+          .select('user_id, name, profile_photo_url')
+          .in('user_id', Array.from(userIds)),
+        8000,
+        'Loading incentives timed out'
+      );
 
-      const repMap = new Map(reps?.map(r => [r.user_id, r]) || []);
+      const repMap = new Map(reps?.map((r) => [r.user_id, r]) || []);
 
-      return (incentives || []).map(i => ({
+      return (incentives || []).map((i) => ({
         ...i,
         creator_name: repMap.get(i.created_by)?.name || 'Unknown',
         eligible_count: i.incentive_eligible_reps?.length || 0,

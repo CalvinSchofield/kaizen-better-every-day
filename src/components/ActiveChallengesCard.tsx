@@ -78,19 +78,33 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
 
 export const ActiveChallengesCard = () => {
   const [competeDrawerOpen, setCompeteDrawerOpen] = useState(false);
-  const { data: challenges, isLoading: loadingChallenges } = useMyActiveChallenges();
-  const { data: incentives, isLoading: loadingIncentives } = useMyActiveIncentives();
+  const {
+    data: challenges,
+    isLoading: loadingChallenges,
+    isError: challengesError,
+  } = useMyActiveChallenges();
+  const {
+    data: incentives,
+    isLoading: loadingIncentives,
+    isError: incentivesError,
+  } = useMyActiveIncentives();
 
-  const activeChallenges = challenges?.filter(c => c.status === 'active') || [];
-  const pendingChallenges = challenges?.filter(c => c.status === 'pending') || [];
+  const activeChallenges = challenges?.filter((c) => c.status === "active") || [];
+  const pendingChallenges = challenges?.filter((c) => c.status === "pending") || [];
   const activeIncentives = incentives || [];
 
-  const hasContent = activeChallenges.length > 0 || pendingChallenges.length > 0 || activeIncentives.length > 0;
-  const pendingActionCount = pendingChallenges.filter(c => {
-    const me = c.participants?.find(p => p.accepted === null && p.role === 'captain_b');
+  const hasContent =
+    activeChallenges.length > 0 ||
+    pendingChallenges.length > 0 ||
+    activeIncentives.length > 0;
+
+  const pendingActionCount = pendingChallenges.filter((c) => {
+    const me = c.participants?.find(
+      (p) => p.accepted === null && p.role === "captain_b"
+    );
     return !!me;
   }).length;
-  
+
   if (loadingChallenges || loadingIncentives) {
     return (
       <Card className="mb-6 border-muted">
@@ -107,42 +121,16 @@ export const ActiveChallengesCard = () => {
     );
   }
 
+  // If the backend call errors (or times out), don't block the Home feed.
+  if (challengesError || incentivesError) return null;
+
   const handleCardClick = () => {
     hapticLight();
     setCompeteDrawerOpen(true);
   };
 
-  // Empty state - show CTA to create challenge
-  if (!hasContent) {
-    return (
-      <>
-        <Card 
-          className="mb-6 border-dashed border-2 border-muted-foreground/20 bg-transparent cursor-pointer hover:border-primary/50 transition-colors"
-          onClick={handleCardClick}
-        >
-          <CardContent className="py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Swords className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">No active competitions</p>
-                  <p className="text-sm text-muted-foreground">Challenge someone!</p>
-                </div>
-              </div>
-              <Button size="sm" variant="ghost" className="text-primary">
-                <Plus className="h-4 w-4 mr-1" />
-                New
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <CompeteDrawer open={competeDrawerOpen} onOpenChange={setCompeteDrawerOpen} />
-      </>
-    );
-  }
+  // Hide until there's something actually active/pending.
+  if (!hasContent) return null;
 
   return (
     <>
