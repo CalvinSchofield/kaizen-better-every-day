@@ -310,3 +310,49 @@ export const useUpdateIncentive = () => {
     },
   });
 };
+
+export const useCancelIncentive = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (incentiveId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Verify user is the creator and incentive hasn't been claimed
+      const { data: incentive, error: fetchError } = await supabase
+        .from('incentives')
+        .select('created_by, status, winner_user_id')
+        .eq('id', incentiveId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (incentive.created_by !== user.id) {
+        throw new Error('Only the creator can cancel this incentive');
+      }
+      if (incentive.winner_user_id) {
+        throw new Error('Cannot cancel an incentive that has already been claimed');
+      }
+      if (incentive.status === 'cancelled') {
+        throw new Error('Incentive is already cancelled');
+      }
+
+      // Cancel the incentive
+      const { error: updateError } = await supabase
+        .from('incentives')
+        .update({ 
+          status: 'cancelled',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', incentiveId);
+
+      if (updateError) throw updateError;
+
+      return { id: incentiveId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incentives'] });
+      queryClient.invalidateQueries({ queryKey: ['my-active-incentives'] });
+    },
+  });
+};
