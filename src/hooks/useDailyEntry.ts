@@ -390,6 +390,8 @@ export const useDailyEntry = (date?: string) => {
       queryClient.invalidateQueries({ queryKey: ['ytd-prmr-total'] });
       queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
       queryClient.invalidateQueries({ queryKey: ['insights-data'] });
+      // Invalidate cumulative-fp for Progress Over Time chart to show finalized data
+      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'] });
       // Invalidate worked-days-data for Goals calendar to update worked/planned visuals
       queryClient.invalidateQueries({ queryKey: ['worked-days-data'] });
       // Invalidate all leaderboards so they update immediately
