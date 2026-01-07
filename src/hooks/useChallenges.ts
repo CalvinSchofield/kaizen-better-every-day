@@ -237,14 +237,8 @@ export const useCreateChallenge = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Validate start date (no same-day after 8 AM)
-      const now = new Date();
-      const startDate = new Date(input.start_date);
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
-      if (startDate.getTime() === today.getTime() && now.getHours() >= 8) {
-        throw new Error('Cannot start a same-day challenge after 8 AM. Choose tomorrow or later.');
-      }
+      // Allow same-day starts - no time restriction
+      // Progress will be shown to recipients so they can make an informed decision
 
       // Create challenge
       const { data: challenge, error: challengeError } = await supabase
