@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/drawer";
 import { Sale } from "@/hooks/useDailyEntry";
 import { format, parseISO, setHours, setMinutes } from "date-fns";
-import { Trash2, MapPin, Loader2, CheckCircle, Clock, Ban, Search } from "lucide-react";
+import { Trash2, MapPin, Loader2, CheckCircle, Clock, Ban, Search, Pencil, Phone, User, Hash, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -47,6 +47,9 @@ export const SaleDetailSheet = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // View mode state
+  const [isEditMode, setIsEditMode] = useState(false);
   
   // Form state
   const [saleType, setSaleType] = useState<'fp' | 'upgrade'>('fp');
@@ -100,13 +103,12 @@ export const SaleDetailSheet = ({
     fetchToken();
   }, []);
 
-  // Auto-capture location when drawer opens with CRM enabled, no existing location, and token is ready
+  // Reset to summary view when drawer closes
   useEffect(() => {
-    if (open && crmEnabled && mapboxToken && sale && !sale.customer_location && !sale.customer_lat) {
-      // Auto-capture current location
-      getLocation();
+    if (!open) {
+      setIsEditMode(false);
     }
-  }, [open, crmEnabled, sale?.id, mapboxToken]);
+  }, [open]);
 
   // Initialize form when sale changes
   useEffect(() => {
@@ -164,8 +166,6 @@ export const SaleDetailSheet = ({
   const handleAddressChange = (value: string) => {
     setCustomerAddress(value);
     
-    // Clear existing coordinates when user types manually
-    // They'll be set when user selects a suggestion
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
@@ -205,7 +205,7 @@ export const SaleDetailSheet = ({
       setCustomerLat(latitude);
       setCustomerLng(longitude);
       
-      // Try Mapbox reverse geocoding first (more reliable)
+      // Try Mapbox reverse geocoding first
       if (mapboxToken) {
         try {
           const response = await fetch(
@@ -252,7 +252,6 @@ export const SaleDetailSheet = ({
           }
         }
       } catch (geocodeError) {
-        // Still have coordinates even if geocoding failed
         console.error('OSM reverse geocode failed:', geocodeError);
       }
     } catch (error: any) {
@@ -297,7 +296,7 @@ export const SaleDetailSheet = ({
       if (customerLat !== null) updatedSale.customer_lat = customerLat;
       if (customerLng !== null) updatedSale.customer_lng = customerLng;
 
-      if (crmDetailedEnabled) {
+      if (crmDetailedEnabled || sale.time_to_sell_minutes || sale.deal_type || sale.money_spent || sale.difficulty) {
         updatedSale.time_to_sell_minutes = timeToSellMinutes;
         updatedSale.deal_type = dealType;
         updatedSale.money_spent = moneySpent.trim() ? parseInt(moneySpent) : undefined;
@@ -320,362 +319,508 @@ export const SaleDetailSheet = ({
 
   const dateStr = format(parseISO(entryDate), 'MMM d, yyyy');
   const timeStr = format(parseISO(sale.timestamp), 'h:mm a');
+  
+  // Check if there's any CRM data to display
+  const hasCrmData = sale.customer_name || sale.customer_phone || sale.customer_account_number || sale.customer_location;
+  const hasDetailedCrmData = sale.time_to_sell_minutes || sale.deal_type || sale.money_spent || sale.difficulty;
+
+  // Summary View Component
+  const SummaryView = () => (
+    <div className="px-4 pb-6 space-y-4">
+      {/* Sale Overview Card */}
+      <div className="bg-muted/50 rounded-xl p-4 space-y-3">
+        {/* Type and PRMR */}
+        <div className="flex items-center justify-between">
+          <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+            sale.type === 'fp' 
+              ? 'bg-primary text-primary-foreground' 
+              : 'bg-emerald-600 text-white'
+          }`}>
+            {sale.type === 'fp' ? 'FP (New Account)' : 'Upgrade'}
+          </span>
+          <span className={`px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+            installStatus === 'installed' 
+              ? 'bg-emerald-500/20 text-emerald-400'
+              : installStatus === 'pending'
+                ? 'bg-amber-500/20 text-amber-400'
+                : 'bg-destructive/20 text-destructive'
+          }`}>
+            {installStatus === 'installed' ? <CheckCircle className="w-3 h-3" /> : 
+             installStatus === 'pending' ? <Clock className="w-3 h-3" /> : 
+             <Ban className="w-3 h-3" />}
+            {installStatus === 'installed' ? 'Funded' : installStatus === 'pending' ? 'Pending' : 'Unfunded'}
+          </span>
+        </div>
+        
+        {/* PRMR Amount */}
+        <div className="text-center py-2">
+          <p className="text-3xl font-bold">${sale.prmr.toFixed(2)}</p>
+          <p className="text-xs text-muted-foreground mt-1">PRMR</p>
+        </div>
+        
+        {/* Time */}
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Clock className="w-4 h-4" />
+          <span>{timeStr}</span>
+        </div>
+      </div>
+
+      {/* Customer Info */}
+      {hasCrmData && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer</p>
+          <div className="bg-muted/30 rounded-xl p-3 space-y-2">
+            {sale.customer_name && (
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-sm">{sale.customer_name}</span>
+              </div>
+            )}
+            {sale.customer_phone && (
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-sm">{sale.customer_phone}</span>
+              </div>
+            )}
+            {sale.customer_account_number && (
+              <div className="flex items-center gap-2">
+                <Hash className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-sm">A-{sale.customer_account_number}</span>
+              </div>
+            )}
+            {sale.customer_location && (
+              <div className="flex items-start gap-2">
+                <MapPin className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                <span className="text-sm">{sale.customer_location}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Sale Details */}
+      {hasDetailedCrmData && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sale Details</p>
+          <div className="bg-muted/30 rounded-xl p-3 space-y-2">
+            {sale.time_to_sell_minutes && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Time to Sell</span>
+                <span className="font-medium">{formatMinutes(sale.time_to_sell_minutes)}</span>
+              </div>
+            )}
+            {sale.deal_type && sale.type === 'fp' && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Deal Type</span>
+                <span className="font-medium">
+                  {sale.deal_type === 'fresh' ? '🚪 Fresh' : sale.deal_type === 'takeover' ? '🔄 Takeover' : '📷 DIY'}
+                </span>
+              </div>
+            )}
+            {sale.money_spent !== undefined && sale.money_spent > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Money Spent</span>
+                <span className="font-medium">${sale.money_spent}</span>
+              </div>
+            )}
+            {sale.difficulty && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Difficulty</span>
+                <span className={`font-medium ${
+                  sale.difficulty === 'easy' ? 'text-emerald-400' :
+                  sale.difficulty === 'medium' ? 'text-amber-400' : 'text-red-400'
+                }`}>
+                  {sale.difficulty === 'easy' ? '😊 Easy' : sale.difficulty === 'medium' ? '😐 Medium' : '😤 Hard'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="space-y-3 pt-2">
+        <Button
+          onClick={() => setIsEditMode(true)}
+          className="w-full h-12 text-base font-semibold"
+        >
+          <Pencil className="w-4 h-4 mr-2" />
+          Edit Sale
+        </Button>
+        
+        {onDeleteSale && (
+          <Button
+            variant="ghost"
+            onClick={handleDelete}
+            className={`w-full h-10 ${
+              showDeleteConfirm 
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' 
+                : 'text-destructive hover:text-destructive hover:bg-destructive/10'
+            }`}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            {showDeleteConfirm ? 'Tap Again to Confirm Delete' : 'Delete Sale'}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
+  // Edit View Component
+  const EditView = () => (
+    <div className="px-4 pb-6 space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0" style={{ maxHeight: 'min(70svh, 70vh)' }}>
+      {/* Funding Status Toggle */}
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Funding Status
+        </Label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setInstallStatus('installed')}
+            className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+              installStatus === 'installed'
+                ? 'bg-emerald-500 text-white shadow-md'
+                : 'bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <CheckCircle className="w-3.5 h-3.5" />
+            Funded
+          </button>
+          <button
+            type="button"
+            onClick={() => setInstallStatus('pending')}
+            className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+              installStatus === 'pending'
+                ? 'bg-amber-500 text-white shadow-md'
+                : 'bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            Pending
+          </button>
+          <button
+            type="button"
+            onClick={() => setInstallStatus('cancelled')}
+            className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+              installStatus === 'cancelled'
+                ? 'bg-destructive text-white shadow-md'
+                : 'bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Ban className="w-3.5 h-3.5" />
+            Unfunded
+          </button>
+        </div>
+      </div>
+
+      {/* Sale Type Toggle */}
+      <div className="flex gap-2 p-1 bg-muted rounded-xl">
+        <button
+          type="button"
+          onClick={() => setSaleType('fp')}
+          className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
+            saleType === 'fp'
+              ? 'bg-primary text-primary-foreground shadow-md'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          FP (New Account)
+        </button>
+        <button
+          type="button"
+          onClick={() => setSaleType('upgrade')}
+          className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
+            saleType === 'upgrade'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Upgrade
+        </button>
+      </div>
+
+      {/* PRMR Input */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-muted-foreground">
+          PRMR Amount
+        </label>
+        <div className="relative">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted-foreground">
+            $
+          </span>
+          <Input
+            ref={inputRef}
+            type="number"
+            inputMode="decimal"
+            placeholder="0"
+            value={prmr}
+            onChange={(e) => setPrmr(e.target.value)}
+            className="pl-9 text-2xl font-bold h-14 text-center"
+          />
+        </div>
+      </div>
+
+      {/* Sale Time */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-muted-foreground">
+          Sale Time
+        </Label>
+        <Input
+          type="time"
+          value={saleTime}
+          onChange={(e) => setSaleTime(e.target.value)}
+          className="h-12"
+        />
+      </div>
+
+      {/* CRM Fields (Simple) */}
+      {crmEnabled && (
+        <div className="space-y-3 pt-2 border-t border-border">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer Info</p>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Name</Label>
+              <Input
+                placeholder="Customer name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Phone</Label>
+              <Input
+                type="tel"
+                inputMode="tel"
+                placeholder="Phone number"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                className="h-10"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Account Number</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
+                A-
+              </span>
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder="12345678"
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                className="pl-8 h-10"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs flex items-center gap-1">
+              <MapPin className="w-3 h-3" />
+              Location
+            </Label>
+            <div className="relative">
+              <Input
+                ref={addressInputRef}
+                placeholder="Start typing address..."
+                value={customerAddress}
+                onChange={(e) => handleAddressChange(e.target.value)}
+                onFocus={() => {
+                  if (addressSuggestions.length > 0) setShowSuggestions(true);
+                }}
+                onBlur={() => {
+                  setTimeout(() => setShowSuggestions(false), 200);
+                }}
+                className="h-10 pr-20"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                {(isGettingLocation || isSearchingAddress) && (
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                )}
+                {!isGettingLocation && (
+                  <button
+                    type="button"
+                    onClick={getLocation}
+                    className="text-primary text-[10px] font-medium bg-primary/10 px-1.5 py-0.5 rounded"
+                  >
+                    📍 Use GPS
+                  </button>
+                )}
+              </div>
+              
+              {/* Address Autocomplete Suggestions */}
+              {showSuggestions && addressSuggestions.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-auto">
+                  {addressSuggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      className="w-full text-left px-3 py-2.5 hover:bg-muted text-sm border-b border-border last:border-b-0 flex items-start gap-2"
+                      onClick={() => selectAddress(suggestion)}
+                    >
+                      <Search className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                      <span className="line-clamp-2">{suggestion.place_name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {locationError && !customerAddress && (
+              <button 
+                type="button"
+                onClick={getLocation}
+                className="text-[10px] text-destructive hover:underline"
+              >
+                {locationError}
+              </button>
+            )}
+            {customerLat && customerLng && (
+              <p className="text-[10px] text-muted-foreground">
+                📍 Location saved ({customerLat.toFixed(4)}, {customerLng.toFixed(4)})
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* CRM Fields (Detailed) - Show if enabled OR if sale has any detailed data saved */}
+      {crmEnabled && (crmDetailedEnabled || sale.time_to_sell_minutes || sale.deal_type || sale.money_spent || sale.difficulty) && (
+        <div className="space-y-4 pt-2 border-t border-border">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sale Details</p>
+
+          {/* Time to Sell Slider - No helper text for post-save editing */}
+          <div className="space-y-2">
+            <Label className="text-xs flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              Time to Sell
+            </Label>
+            <div className="space-y-1">
+              <div className="text-center text-sm font-medium">
+                {formatMinutes(timeToSellMinutes)}
+              </div>
+              <Slider
+                value={[timeToSellMinutes]}
+                onValueChange={([val]) => setTimeToSellMinutes(val)}
+                min={5}
+                max={240}
+                step={5}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>5 min</span>
+                <span>4 hrs</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Deal Type - FP only */}
+          {saleType === 'fp' && (
+            <div className="space-y-2">
+              <Label className="text-xs">Deal Type</Label>
+              <div className="flex gap-2">
+                {(['fresh', 'takeover', 'diy'] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setDealType(type)}
+                    className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                      dealType === type
+                        ? 'bg-primary text-primary-foreground shadow-md'
+                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {type === 'fresh' ? '🚪 Fresh' : type === 'takeover' ? '🔄 Takeover' : '📷 DIY'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                {dealType === 'fresh' ? 'Doorbell cam at most' : dealType === 'takeover' ? 'Had an alarm system' : 'Had their own cameras'}
+              </p>
+            </div>
+          )}
+
+          {/* Money Spent */}
+          <div className="space-y-1">
+            <Label className="text-xs">Money Spent to Get Deal</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+              <Input
+                type="number"
+                inputMode="numeric"
+                placeholder="0"
+                value={moneySpent}
+                onChange={(e) => setMoneySpent(e.target.value)}
+                className="pl-7 h-10"
+              />
+            </div>
+          </div>
+
+          {/* Difficulty */}
+          <div className="space-y-2">
+            <Label className="text-xs">How Hard to Sell?</Label>
+            <div className="flex gap-2">
+              {(['easy', 'medium', 'hard'] as const).map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  onClick={() => setDifficulty(level)}
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                    difficulty === level
+                      ? level === 'easy' 
+                        ? 'bg-emerald-500 text-white shadow-md'
+                        : level === 'medium'
+                          ? 'bg-amber-500 text-white shadow-md'
+                          : 'bg-red-500 text-white shadow-md'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {level === 'easy' ? '😊 Easy' : level === 'medium' ? '😐 Medium' : '😤 Hard'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="space-y-3 pt-2">
+        <Button
+          onClick={handleSubmit}
+          className="w-full h-12 text-base font-semibold"
+          disabled={!prmr || parseFloat(prmr) <= 0}
+        >
+          Update Sale
+        </Button>
+        
+        <Button
+          variant="ghost"
+          onClick={() => setIsEditMode(false)}
+          className="w-full h-10 text-muted-foreground"
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="pb-safe">
+      <DrawerContent className="pb-safe" style={{ maxHeight: 'min(90svh, 90vh)' }}>
         <DrawerHeader className="text-center pb-2">
           <DrawerTitle className="text-xl">
-            Edit Sale
+            {isEditMode ? 'Edit Sale' : 'Sale Details'}
           </DrawerTitle>
           <p className="text-sm text-muted-foreground mt-1">
             {dateStr} at {timeStr}
           </p>
         </DrawerHeader>
 
-        <div className="px-4 pb-6 space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0 max-h-[70dvh]">
-          {/* Funding Status Toggle */}
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Funding Status
-            </Label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setInstallStatus('installed')}
-                className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
-                  installStatus === 'installed'
-                    ? 'bg-emerald-500 text-white shadow-md'
-                    : 'bg-muted text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <CheckCircle className="w-3.5 h-3.5" />
-                Funded
-              </button>
-              <button
-                type="button"
-                onClick={() => setInstallStatus('pending')}
-                className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
-                  installStatus === 'pending'
-                    ? 'bg-amber-500 text-white shadow-md'
-                    : 'bg-muted text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                Pending
-              </button>
-              <button
-                type="button"
-                onClick={() => setInstallStatus('cancelled')}
-                className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
-                  installStatus === 'cancelled'
-                    ? 'bg-destructive text-white shadow-md'
-                    : 'bg-muted text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Ban className="w-3.5 h-3.5" />
-                Unfunded
-              </button>
-            </div>
-          </div>
-
-          {/* Sale Type Toggle */}
-          <div className="flex gap-2 p-1 bg-muted rounded-xl">
-            <button
-              type="button"
-              onClick={() => setSaleType('fp')}
-              className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
-                saleType === 'fp'
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              FP (New Account)
-            </button>
-            <button
-              type="button"
-              onClick={() => setSaleType('upgrade')}
-              className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
-                saleType === 'upgrade'
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Upgrade
-            </button>
-          </div>
-
-          {/* PRMR Input */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">
-              PRMR Amount
-            </label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted-foreground">
-                $
-              </span>
-              <Input
-                ref={inputRef}
-                type="number"
-                inputMode="decimal"
-                placeholder="0"
-                value={prmr}
-                onChange={(e) => setPrmr(e.target.value)}
-                className="pl-9 text-2xl font-bold h-14 text-center"
-              />
-            </div>
-          </div>
-
-          {/* Sale Time */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-muted-foreground">
-              Sale Time
-            </Label>
-            <Input
-              type="time"
-              value={saleTime}
-              onChange={(e) => setSaleTime(e.target.value)}
-              className="h-12"
-            />
-          </div>
-
-          {/* CRM Fields (Simple) */}
-          {crmEnabled && (
-            <div className="space-y-3 pt-2 border-t border-border">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer Info</p>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Name</Label>
-                  <Input
-                    placeholder="Customer name"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Phone</Label>
-                  <Input
-                    type="tel"
-                    inputMode="tel"
-                    placeholder="Phone number"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">Account Number</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
-                    A-
-                  </span>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="12345678"
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value.replace(/[^0-9]/g, ''))}
-                    className="pl-8 h-10"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  Location
-                </Label>
-                <div className="relative">
-                  <Input
-                    ref={addressInputRef}
-                    placeholder="Start typing address..."
-                    value={customerAddress}
-                    onChange={(e) => handleAddressChange(e.target.value)}
-                    onFocus={() => {
-                      if (addressSuggestions.length > 0) setShowSuggestions(true);
-                    }}
-                    onBlur={() => {
-                      // Delay to allow click on suggestion
-                      setTimeout(() => setShowSuggestions(false), 200);
-                    }}
-                    className="h-10 pr-20"
-                  />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    {(isGettingLocation || isSearchingAddress) && (
-                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                    )}
-                    {!isGettingLocation && (
-                      <button
-                        type="button"
-                        onClick={getLocation}
-                        className="text-primary text-[10px] font-medium bg-primary/10 px-1.5 py-0.5 rounded"
-                      >
-                        📍 Use GPS
-                      </button>
-                    )}
-                  </div>
-                  
-                  {/* Address Autocomplete Suggestions */}
-                  {showSuggestions && addressSuggestions.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-auto">
-                      {addressSuggestions.map((suggestion, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          className="w-full text-left px-3 py-2.5 hover:bg-muted text-sm border-b border-border last:border-b-0 flex items-start gap-2"
-                          onClick={() => selectAddress(suggestion)}
-                        >
-                          <Search className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
-                          <span className="line-clamp-2">{suggestion.place_name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {locationError && !customerAddress && (
-                  <button 
-                    type="button"
-                    onClick={getLocation}
-                    className="text-[10px] text-destructive hover:underline"
-                  >
-                    {locationError}
-                  </button>
-                )}
-                {customerLat && customerLng && (
-                  <p className="text-[10px] text-muted-foreground">
-                    📍 Location saved ({customerLat.toFixed(4)}, {customerLng.toFixed(4)})
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* CRM Fields (Detailed) - Show if enabled OR if sale has any detailed data saved */}
-          {crmEnabled && (crmDetailedEnabled || sale.time_to_sell_minutes || sale.deal_type || sale.money_spent || sale.difficulty) && (
-            <div className="space-y-4 pt-2 border-t border-border">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sale Details</p>
-
-              {/* Time to Sell Slider */}
-              <div className="space-y-2">
-                <Label className="text-xs flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  Time to Sell
-                </Label>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{formatMinutes(timeToSellMinutes)}</span>
-                    <span>5 min - 4 hrs</span>
-                  </div>
-                  <Slider
-                    value={[timeToSellMinutes]}
-                    onValueChange={([val]) => setTimeToSellMinutes(val)}
-                    min={5}
-                    max={240}
-                    step={5}
-                    className="w-full"
-                  />
-                </div>
-              </div>
-
-              {/* Deal Type - FP only */}
-              {saleType === 'fp' && (
-                <div className="space-y-2">
-                  <Label className="text-xs">Deal Type</Label>
-                  <div className="flex gap-2">
-                    {(['fresh', 'takeover', 'diy'] as const).map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => setDealType(type)}
-                        className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${
-                          dealType === type
-                            ? 'bg-primary text-primary-foreground shadow-md'
-                            : 'bg-muted text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        {type === 'fresh' ? '🚪 Fresh' : type === 'takeover' ? '🔄 Takeover' : '📷 DIY'}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    {dealType === 'fresh' ? 'Doorbell cam at most' : dealType === 'takeover' ? 'Had an alarm system' : 'Had their own cameras'}
-                  </p>
-                </div>
-              )}
-
-              {/* Money Spent */}
-              <div className="space-y-1">
-                <Label className="text-xs">Money Spent to Get Deal</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="0"
-                    value={moneySpent}
-                    onChange={(e) => setMoneySpent(e.target.value)}
-                    className="pl-7 h-10"
-                  />
-                </div>
-              </div>
-
-              {/* Difficulty */}
-              <div className="space-y-2">
-                <Label className="text-xs">How Hard to Sell?</Label>
-                <div className="flex gap-2">
-                  {(['easy', 'medium', 'hard'] as const).map((level) => (
-                    <button
-                      key={level}
-                      type="button"
-                      onClick={() => setDifficulty(level)}
-                      className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${
-                        difficulty === level
-                          ? level === 'easy' 
-                            ? 'bg-emerald-500 text-white shadow-md'
-                            : level === 'medium'
-                              ? 'bg-amber-500 text-white shadow-md'
-                              : 'bg-red-500 text-white shadow-md'
-                          : 'bg-muted text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {level === 'easy' ? '😊 Easy' : level === 'medium' ? '😐 Medium' : '😤 Hard'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="space-y-3 pt-2">
-            <Button
-              onClick={handleSubmit}
-              className="w-full h-12 text-base font-semibold"
-              disabled={!prmr || parseFloat(prmr) <= 0}
-            >
-              Update Sale
-            </Button>
-            
-            {onDeleteSale && (
-              <Button
-                variant="ghost"
-                onClick={handleDelete}
-                className={`w-full h-10 ${
-                  showDeleteConfirm 
-                    ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' 
-                    : 'text-destructive hover:text-destructive hover:bg-destructive/10'
-                }`}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                {showDeleteConfirm ? 'Tap Again to Confirm Delete' : 'Delete Sale'}
-              </Button>
-            )}
-          </div>
-        </div>
+        {isEditMode ? <EditView /> : <SummaryView />}
       </DrawerContent>
     </Drawer>
   );
