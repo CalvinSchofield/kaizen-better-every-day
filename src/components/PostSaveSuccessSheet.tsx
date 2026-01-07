@@ -1,6 +1,6 @@
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Calendar, BarChart3, Target, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb } from "lucide-react";
+import { CheckCircle2, Calendar, BarChart3, Target, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb, Swords, Trophy } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
@@ -15,8 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { getSeasonInfo } from "@/utils/seasonWeekUtils";
 import { getLearningCurvePrincipleMessage, calculatePaceContext } from "@/utils/learningCurveData";
 import { calculateSalesPace } from "@/utils/salesPaceCalculator";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import confetti from "canvas-confetti";
+import { useMyActiveChallenges } from "@/hooks/useChallenges";
+import { useChallengeProgress } from "@/hooks/useChallengeProgress";
 
 interface PostSaveSuccessSheetProps {
   open: boolean;
@@ -464,6 +466,9 @@ export const PostSaveSuccessSheet = ({
             </div>
           </div>
         )}
+
+        {/* Active Challenges Progress */}
+        <ChallengesProgressSection />
         
         {/* Pace Insight - Show progress context */}
         {paceInsight && !goalMet && (
@@ -556,5 +561,100 @@ export const PostSaveSuccessSheet = ({
         </div>
       </DrawerContent>
     </Drawer>
+  );
+};
+
+// Separate component to avoid hook issues
+const ChallengesProgressSection = () => {
+  const navigate = useNavigate();
+  const { data: challenges } = useMyActiveChallenges();
+  
+  // Filter to only active challenges (not pending)
+  const activeChallenges = useMemo(() => 
+    challenges?.filter(c => c.status === 'active') || [], 
+    [challenges]
+  );
+  
+  if (activeChallenges.length === 0) return null;
+  
+  return (
+    <div className="px-4 mb-4">
+      <div className="space-y-2">
+        {activeChallenges.slice(0, 2).map(challenge => (
+          <ChallengeProgressItem 
+            key={challenge.id} 
+            challenge={challenge}
+            onClick={() => navigate('/leaderboard')}
+          />
+        ))}
+        {activeChallenges.length > 2 && (
+          <button 
+            onClick={() => navigate('/leaderboard')}
+            className="w-full text-xs text-primary font-medium py-1"
+          >
+            +{activeChallenges.length - 2} more challenges
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ChallengeProgressItem = ({ 
+  challenge, 
+  onClick 
+}: { 
+  challenge: any; 
+  onClick: () => void;
+}) => {
+  const { data: progressData } = useChallengeProgress(challenge);
+  
+  if (!progressData) return null;
+  
+  const { userProgress, leader, isUserAhead, gap, timeRemaining } = progressData;
+  const metricLabel = challenge.metric === 'fp_plus' ? 'FP+' : 
+                     challenge.metric === 'prmr' ? 'PRMR' : 
+                     challenge.metric === 'doors_knocked' ? 'Doors' : 'Trans.';
+  
+  // Get opponent for 1v1
+  const opponent = challenge.participants?.find((p: any) => p.user_id !== userProgress?.user_id);
+  const opponentProgress = progressData.participants?.find((p: any) => p.user_id !== userProgress?.user_id);
+  
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full rounded-xl p-3 text-left transition-all ${
+        isUserAhead 
+          ? 'bg-green-500/10 border border-green-500/20' 
+          : 'bg-orange-500/10 border border-orange-500/20'
+      }`}
+    >
+      <div className="flex items-center gap-2 mb-1.5">
+        <Swords className={`h-3.5 w-3.5 ${isUserAhead ? 'text-green-500' : 'text-orange-500'}`} />
+        <span className="text-xs font-medium truncate flex-1">
+          vs {opponent?.rep_name || 'Opponent'}
+        </span>
+        {isUserAhead && <Trophy className="h-3.5 w-3.5 text-yellow-500" />}
+      </div>
+      
+      <div className="flex items-baseline justify-between">
+        <div className="flex items-baseline gap-1.5">
+          <span className={`text-lg font-bold ${isUserAhead ? 'text-green-600' : 'text-foreground'}`}>
+            {userProgress?.current_value?.toFixed(1) || '0'}
+          </span>
+          <span className="text-muted-foreground text-xs">
+            vs {opponentProgress?.current_value?.toFixed(1) || '0'}
+          </span>
+          <span className="text-muted-foreground text-xs">{metricLabel}</span>
+        </div>
+        <span className={`text-xs font-medium ${isUserAhead ? 'text-green-600' : 'text-orange-600'}`}>
+          {isUserAhead ? `+${gap.toFixed(1)} ahead` : `-${gap.toFixed(1)} behind`}
+        </span>
+      </div>
+      
+      <p className="text-xs text-muted-foreground mt-1">
+        {timeRemaining}
+      </p>
+    </button>
   );
 };
