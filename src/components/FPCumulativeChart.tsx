@@ -260,21 +260,13 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     return { avg6Day, avg12Day, dailyGoalPace };
   }, [cumulativeData, metricType, efpModeEnabled, goalPaceData, isPreseason, selectedGoalLine]);
 
-  if (isLoading) {
-    return (
-      <Card className="p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-5 h-5" />
-          <h2 className="text-lg font-semibold">Progress Over Time</h2>
-        </div>
-        <div className="h-64 flex items-center justify-center text-muted-foreground">
-          Loading...
-        </div>
-      </Card>
-    );
-  }
-
-  if (!cumulativeData || cumulativeData.length === 0) return null;
+  const isInHighlightRangeMemo = useCallback((dateStr: string): boolean => {
+    if (!highlightDateRange) return false;
+    const date = parseLocalDate(dateStr);
+    const start = new Date(highlightDateRange.start.getFullYear(), highlightDateRange.start.getMonth(), highlightDateRange.start.getDate());
+    const end = new Date(highlightDateRange.end.getFullYear(), highlightDateRange.end.getMonth(), highlightDateRange.end.getDate());
+    return !isBefore(date, start) && !isAfter(date, end);
+  }, [highlightDateRange]);
 
   // Chart data grouping - now takes groupBy as parameter for per-view computation
   const getGroupedData = useCallback((viewGroupBy: GroupBy) => {
@@ -283,7 +275,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     if (viewGroupBy === 'day') {
       return cumulativeData.map((point, idx) => {
         const pacePoint = goalPaceData?.pacePoints[idx];
-        const inRange = isInHighlightRange(point.date);
+        const inRange = isInHighlightRangeMemo(point.date);
         const cumValue = metricType === 'primary' 
           ? point.cumulative 
           : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
@@ -318,7 +310,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
         : format(startOfMonth(date), 'yyyy-MM-dd');
       
       const pacePoint = goalPaceData?.pacePoints[idx];
-      const inRange = isInHighlightRange(point.date);
+      const inRange = isInHighlightRangeMemo(point.date);
       const cumValue = metricType === 'primary' 
         ? point.cumulative 
         : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
@@ -354,12 +346,28 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     });
 
     return Object.values(grouped);
-  }, [cumulativeData, goalPaceData, metricType, efpModeEnabled, showHistoricalLine, historicalByDayNumber, highlightDateRange]);
+  }, [cumulativeData, goalPaceData, metricType, efpModeEnabled, showHistoricalLine, historicalByDayNumber, isInHighlightRangeMemo]);
 
   // Compute chart data for each view
   const dayChartData = useMemo(() => getGroupedData('day'), [getGroupedData]);
   const weekChartData = useMemo(() => getGroupedData('week'), [getGroupedData]);
   const monthChartData = useMemo(() => getGroupedData('month'), [getGroupedData]);
+
+  if (isLoading) {
+    return (
+      <Card className="p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="w-5 h-5" />
+          <h2 className="text-lg font-semibold">Progress Over Time</h2>
+        </div>
+        <div className="h-64 flex items-center justify-center text-muted-foreground">
+          Loading...
+        </div>
+      </Card>
+    );
+  }
+
+  if (!cumulativeData || cumulativeData.length === 0) return null;
 
   // For current view state (used for hero display)
   const chartData = groupBy === 'day' ? dayChartData : groupBy === 'week' ? weekChartData : monthChartData;
