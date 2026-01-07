@@ -116,3 +116,6 @@ verify_jwt = false
 
 [functions.generate-purpose-statement]
 verify_jwt = false
+
+[functions.complete-challenge]
+verify_jwt = false
