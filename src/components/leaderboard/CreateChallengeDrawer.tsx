@@ -66,7 +66,21 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
   });
 
   // Get date range for smart sorting
-  const dateRange = useMemo(() => getDateRange(), [duration, customStartDate, customEndDate]);
+  const dateRange = useMemo(() => {
+    const today = new Date();
+    if (duration === 'today') {
+      return { start: today, end: today };
+    } else if (duration === 'tomorrow') {
+      const tomorrow = addDays(today, 1);
+      return { start: tomorrow, end: tomorrow };
+    } else if (duration === 'week') {
+      const weekStart = startOfWeek(today, { weekStartsOn: 0 });
+      const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
+      return { start: weekStart, end: weekEnd };
+    } else {
+      return { start: customStartDate || today, end: customEndDate || today };
+    }
+  }, [duration, customStartDate, customEndDate]);
 
   // Use smart sorting for available reps
   const { workingReps, notWorkingReps, allSortedReps } = useSmartRepSorting(
