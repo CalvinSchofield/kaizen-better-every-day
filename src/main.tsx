@@ -17,15 +17,25 @@ if (import.meta.env.PROD && !isLovablePreviewHost && "serviceWorker" in navigato
   });
 
   navigator.serviceWorker.addEventListener("controllerchange", () => {
+    // Clear all cached data on app update (preserves Track backups)
+    import("./lib/queryPersister").then(({ clearPersistedCache }) => {
+      clearPersistedCache();
+    });
+    
     const notification = document.createElement("div");
     notification.className =
       "fixed bottom-20 left-4 right-4 z-50 bg-primary text-primary-foreground px-4 py-3 rounded-lg shadow-lg flex items-center justify-between animate-in slide-in-from-bottom-4";
     notification.innerHTML = `
-      <span class="text-sm font-medium">✨ App updated to latest version</span>
+      <span class="text-sm font-medium">✨ App updated - refreshing data...</span>
       <button onclick="this.parentElement.remove()" class="ml-2 text-primary-foreground/70 hover:text-primary-foreground">✕</button>
     `;
     document.body.appendChild(notification);
-    setTimeout(() => notification.remove(), 5000);
+    
+    // Auto-reload after a brief delay to apply fresh data
+    setTimeout(() => {
+      notification.remove();
+      window.location.reload();
+    }, 2000);
   });
 }
 

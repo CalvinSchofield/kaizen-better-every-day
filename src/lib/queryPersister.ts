@@ -8,9 +8,33 @@ export const queryPersister = createSyncStoragePersister({
 });
 
 // Helper to clear the persisted cache (used during logout or force refresh)
+// IMPORTANT: Preserves Track backup keys (track-backup-*) to prevent data loss
 export const clearPersistedCache = () => {
   try {
     localStorage.removeItem(CACHE_KEY);
+    
+    // Clear other app caches but PRESERVE track backups
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      
+      // Preserve Track backups - these are critical for data recovery
+      if (key.startsWith('track-backup-')) continue;
+      
+      // Clear all other app-specific caches
+      if (key.startsWith('rep-data-cache') || 
+          key.startsWith('competitors-cache') ||
+          key.startsWith('blitzes-cache') ||
+          key.startsWith('team-access-cache') ||
+          key.startsWith('season-config-cache') ||
+          key.startsWith('group-recruits-cache') ||
+          key.startsWith('kaizen-layout-state') ||
+          key.startsWith('kaizen-')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
   } catch {
     // Ignore storage errors
   }
