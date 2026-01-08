@@ -1,15 +1,15 @@
 import { useState, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Incentive, useUpdateIncentive } from "@/hooks/useIncentives";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { SmartParticipantPicker } from "./SmartParticipantPicker";
+import { supabase } from "@/integrations/supabase/client";
 import { Loader2, CalendarIcon, ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
@@ -31,6 +31,22 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
 
   const { data: teamAccess } = useTeamAccess();
   const updateMutation = useUpdateIncentive();
+
+  // Get current user's rep record to include them in picker
+  const { data: currentUserRep } = useQuery({
+    queryKey: ['current-user-for-edit-incentive'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase
+        .from('reps')
+        .select('timezone, user_id, name')
+        .eq('user_id', user.id)
+        .single();
+      return data;
+    },
+    staleTime: Infinity,
+  });
 
   const allEligibleReps = useMemo(() => {
     return teamAccess?.accessibleReps.filter(r => r.userId) || [];
@@ -185,51 +201,17 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
           {/* Step 2: Participants */}
           {step === 2 && (
             <>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Participants</Label>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={selectAll} className="h-7 text-xs">
-                      Select All
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={clearSelection} className="h-7 text-xs">
-                      Clear
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-muted/50 border border-border mb-2">
-                  <p className="text-sm font-medium">
-                    {allSelected 
-                      ? `All ${allEligibleReps.length} reps selected`
-                      : selectedUserIds.length === 0
-                        ? 'No participants selected'
-                        : `${selectedUserIds.length} participant${selectedUserIds.length !== 1 ? 's' : ''} selected`
-                    }
-                  </p>
-                </div>
-
-                <div className="max-h-60 overflow-y-auto space-y-1 rounded-lg border border-border p-2">
-                  {allEligibleReps.map(rep => {
-                    const isChecked = allSelected || selectedUserIds.includes(rep.userId!);
-                    return (
-                      <label
-                        key={rep.userId}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={isChecked}
-                          onCheckedChange={() => toggleUser(rep.userId!)}
-                        />
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs">{rep.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm font-medium">{rep.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+              <SmartParticipantPicker
+                allReps={allEligibleReps}
+                selectedUserIds={selectedUserIds}
+                allSelected={allSelected}
+                onToggleUser={toggleUser}
+                onSelectAll={selectAll}
+                onClear={clearSelection}
+                currentUserId={currentUserRep?.user_id}
+                dateRange={endDate ? { start: parseISO(incentive.start_date), end: endDate } : undefined}
+                showSelfInList={true}
+              />
 
               <Button 
                 onClick={() => setStep(3)} 

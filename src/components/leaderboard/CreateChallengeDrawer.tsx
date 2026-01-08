@@ -5,14 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCreateChallenge, ChallengeMetric, ChallengeType } from "@/hooks/useChallenges";
+import { useSmartRepSorting } from "@/hooks/useSmartRepSorting";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, ChevronLeft, Loader2, Eye, EyeOff, X, CalendarIcon } from "lucide-react";
+import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, ChevronLeft, Loader2, Eye, EyeOff, X, CalendarIcon, CalendarCheck, CalendarX } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays, startOfWeek, endOfWeek } from "date-fns";
 
@@ -63,19 +65,25 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
     staleTime: Infinity,
   });
 
-  // Get available reps for selection (excluding current user)
-  const availableReps = useMemo(() => {
-    return reps.filter(r => r.userId && r.userId !== currentUserRep?.user_id);
-  }, [reps, currentUserRep?.user_id]);
+  // Get date range for smart sorting
+  const dateRange = useMemo(() => getDateRange(), [duration, customStartDate, customEndDate]);
 
-  // For team mode, get reps not already selected
+  // Use smart sorting for available reps
+  const { workingReps, notWorkingReps, allSortedReps } = useSmartRepSorting(
+    reps,
+    dateRange,
+    currentUserRep?.user_id,
+    true // exclude current user
+  );
+
+  // For team mode, filter out already selected users
   const availableForTeamA = useMemo(() => {
-    return availableReps.filter(r => !teamB.includes(r.userId!));
-  }, [availableReps, teamB]);
+    return allSortedReps.filter(r => !teamB.includes(r.userId!));
+  }, [allSortedReps, teamB]);
 
   const availableForTeamB = useMemo(() => {
-    return availableReps.filter(r => !teamA.includes(r.userId!));
-  }, [availableReps, teamA]);
+    return allSortedReps.filter(r => !teamA.includes(r.userId!));
+  }, [allSortedReps, teamA]);
 
   const toggleTeamMember = (userId: string, team: 'a' | 'b') => {
     if (team === 'a') {
@@ -247,7 +255,14 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Select your opponent</p>
               <div className="max-h-60 overflow-y-auto space-y-2">
-                {availableReps.map(rep => (
+                {/* Working reps */}
+                {workingReps.length > 0 && (
+                  <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
+                    <CalendarCheck className="h-3 w-3 text-green-500" />
+                    <span>Planning to work</span>
+                  </div>
+                )}
+                {workingReps.map(rep => (
                   <button
                     key={rep.userId}
                     onClick={() => { setSelectedOpponent(rep.userId!); setStep(3); }}
@@ -259,7 +274,42 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                     <Avatar className="h-10 w-10">
                       <AvatarFallback>{rep.name.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <span className="font-medium flex-1 text-left">{rep.name}</span>
+                    <div className="flex-1 text-left">
+                      <span className="font-medium block">{rep.name}</span>
+                      {rep.teamName && <span className="text-xs text-muted-foreground">{rep.teamName}</span>}
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                ))}
+                
+                {/* Separator */}
+                {workingReps.length > 0 && notWorkingReps.length > 0 && (
+                  <div className="py-2">
+                    <Separator className="my-1" />
+                    <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
+                      <CalendarX className="h-3 w-3" />
+                      <span>Not planning to work</span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Not working reps */}
+                {notWorkingReps.map(rep => (
+                  <button
+                    key={rep.userId}
+                    onClick={() => { setSelectedOpponent(rep.userId!); setStep(3); }}
+                    className={cn(
+                      "w-full flex items-center gap-3 p-3 rounded-xl border transition-colors",
+                      selectedOpponent === rep.userId ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback>{rep.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 text-left">
+                      <span className="font-medium block">{rep.name}</span>
+                      {rep.teamName && <span className="text-xs text-muted-foreground">{rep.teamName}</span>}
+                    </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </button>
                 ))}
@@ -331,7 +381,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
               <div className="space-y-2">
                 <Label className="text-sm">Add teammates or opponents</Label>
                 <div className="max-h-40 overflow-y-auto space-y-1">
-                  {availableReps.map(rep => {
+                  {allSortedReps.map(rep => {
                     const inTeamA = teamA.includes(rep.userId!);
                     const inTeamB = teamB.includes(rep.userId!);
                     
@@ -343,7 +393,10 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                         <Avatar className="h-8 w-8">
                           <AvatarFallback className="text-xs">{rep.name.charAt(0)}</AvatarFallback>
                         </Avatar>
-                        <span className="text-sm font-medium flex-1">{rep.name}</span>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium block truncate">{rep.name}</span>
+                          {rep.teamName && <span className="text-xs text-muted-foreground">{rep.teamName}</span>}
+                        </div>
                         <div className="flex gap-1">
                           <Button
                             size="sm"

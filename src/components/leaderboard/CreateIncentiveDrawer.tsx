@@ -5,14 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCreateIncentive, IncentiveMetric, IncentiveTargetType } from "@/hooks/useIncentives";
 import { supabase } from "@/integrations/supabase/client";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { SmartParticipantPicker } from "./SmartParticipantPicker";
 import { Trophy, DollarSign, ArrowRightLeft, Footprints, Loader2, Eye, EyeOff, Users, User, ChevronLeft, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays, startOfWeek, endOfWeek } from "date-fns";
@@ -63,14 +62,24 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
     staleTime: Infinity,
   });
 
+  // Include current user in the list (leaders should see themselves)
   const allEligibleReps = useMemo(() => {
-    return teamAccess?.accessibleReps.filter(r => r.userId) || [];
-  }, [teamAccess]);
+    const reps = teamAccess?.accessibleReps.filter(r => r.userId) || [];
+    
+    // Make sure current user is included if not already in list
+    if (currentUserRep?.user_id && !reps.some(r => r.userId === currentUserRep.user_id)) {
+      // Current user might not be in accessibleReps if they're a leader
+      // We'll rely on SmartParticipantPicker to handle this case
+    }
+    
+    return reps;
+  }, [teamAccess, currentUserRep]);
 
   // Compute effective user IDs based on explicit all-selected state
   const effectiveUserIds = useMemo(() => {
     if (allSelected) {
-      return allEligibleReps.map(r => r.userId!);
+      // When all selected, include all eligible reps that have userId
+      return allEligibleReps.map(r => r.userId!).filter(Boolean);
     }
     return selectedUserIds;
   }, [allSelected, selectedUserIds, allEligibleReps]);
@@ -280,51 +289,17 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
           {/* Step 2: Participants */}
           {step === 2 && (
             <>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Participants</Label>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={selectAll} className="h-7 text-xs">
-                      Select All
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={clearSelection} className="h-7 text-xs">
-                      Clear
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-muted/50 border border-border mb-2">
-                  <p className="text-sm font-medium">
-                    {allSelected 
-                      ? `All ${allEligibleReps.length} reps selected`
-                      : selectedUserIds.length === 0
-                        ? 'No participants selected'
-                        : `${selectedUserIds.length} participant${selectedUserIds.length !== 1 ? 's' : ''} selected`
-                    }
-                  </p>
-                </div>
-
-                <div className="max-h-60 overflow-y-auto space-y-1 rounded-lg border border-border p-2">
-                  {allEligibleReps.map(rep => {
-                    const isChecked = allSelected || selectedUserIds.includes(rep.userId!);
-                    return (
-                      <label
-                        key={rep.userId}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={isChecked}
-                          onCheckedChange={() => toggleUser(rep.userId!)}
-                        />
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs">{rep.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm font-medium">{rep.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+              <SmartParticipantPicker
+                allReps={allEligibleReps}
+                selectedUserIds={selectedUserIds}
+                allSelected={allSelected}
+                onToggleUser={toggleUser}
+                onSelectAll={selectAll}
+                onClear={clearSelection}
+                currentUserId={currentUserRep?.user_id}
+                dateRange={getDateRange()}
+                showSelfInList={true}
+              />
 
               <Button 
                 onClick={() => setStep(3)} 
