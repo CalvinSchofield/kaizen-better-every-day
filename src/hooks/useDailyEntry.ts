@@ -385,13 +385,14 @@ export const useDailyEntry = (date?: string) => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['daily-entry', variables.saveDate] });
       queryClient.invalidateQueries({ queryKey: ['daily-entries'] });
-      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
-      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
+      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['ytd-prmr-total'] });
-      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
+      // Force refetch activity-summary and cumulative-fp for Home page updates even when not mounted
+      queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['insights-data'] });
-      // Invalidate cumulative-fp for Progress Over Time chart to show finalized data
-      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'] });
+      // Force refetch cumulative-fp for Progress Over Time chart to show finalized data
+      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'], refetchType: 'all' });
       // Invalidate worked-days-data for Goals calendar to update worked/planned visuals
       queryClient.invalidateQueries({ queryKey: ['worked-days-data'] });
       // Invalidate all leaderboards so they update immediately
