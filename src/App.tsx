@@ -10,6 +10,7 @@ import { useSafeAreaFallback } from "./hooks/useSafeAreaFallback";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
 import OfflineIndicator from "./components/OfflineIndicator";
+import { NativeAppPromo } from "./components/NativeAppPromo";
 import TrackWithLayout from "./components/TrackWithLayout";
 import SetupFlow from "./components/SetupFlow";
 import { ChallengeWinListener } from "./components/ChallengeWinListener";
@@ -79,6 +80,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <OfflineIndicator />
+          <NativeAppPromo />
           <ChallengeWinListener />
           <BrowserRouter>
             <ScrollToTop />
