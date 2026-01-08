@@ -961,23 +961,40 @@ const Home = () => {
   
   // Check if rookie has completed Ramp to Blitz AND attended at least one blitz
   const committedBlitzes = (repData.committed_blitzes as any[]) || [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
   const hasAttendedBlitz = committedBlitzes.some((blitz: any) => {
     if (!blitz?.endDate) return false;
-    const endDate = new Date(blitz.endDate);
-    return endDate < new Date(); // End date is in the past
+    const endDate = parseDateAsLocal(blitz.endDate);
+    if (!endDate) return false;
+    endDate.setHours(0, 0, 0, 0);
+    return endDate < today; // End date is in the past
+  });
+  
+  // Check if rookie is currently ON a blitz (between start and end date)
+  const isOnActiveBlitz = committedBlitzes.some((blitz: any) => {
+    if (!blitz?.date) return false;
+    const startDate = parseDateAsLocal(blitz.date);
+    const endDate = blitz.endDate ? parseDateAsLocal(blitz.endDate) : startDate;
+    if (!startDate || !endDate) return false;
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    return today >= startDate && today <= endDate;
   });
   
   // Check if knocking mode is active - route to KnockingModeHome
   if (isKnockingMode) {
     const year = repData.year || "Rookie";
     const isVetOrSoph = year === "Vet" || year === "Sophomore";
-    const isPostBlitzRookie = year === "Rookie" && phase4Complete && hasAttendedBlitz;
+    // Rookies qualify if they completed phase 4 AND (attended a past blitz OR are currently on a blitz)
+    const isBlitzReadyRookie = year === "Rookie" && phase4Complete && (hasAttendedBlitz || isOnActiveBlitz);
     
     // TODO: Add team lead detection logic
     const isTeamLead = false;
     const anyBlitzWithin14Days = false;
     
-    if (isVetOrSoph || isPostBlitzRookie) {
+    if (isVetOrSoph || isBlitzReadyRookie) {
       return (
         <KnockingModeHome
           variant={isVetOrSoph ? "vet" : "rookie"}
