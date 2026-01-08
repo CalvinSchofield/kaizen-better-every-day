@@ -65,6 +65,29 @@ const getMetricColumn = (metric: ChallengeMetric): string => {
   }
 };
 
+// Calculate FP+ and PRMR from sales_log (matches Today Leaderboard logic)
+const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number } => {
+  if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0 };
+  
+  let fp = 0;
+  let prmr = 0;
+  
+  for (const sale of salesLog) {
+    if (sale.install_status === 'never_installed') continue;
+    
+    const salePrmr = Number(sale.prmr) || 0;
+    prmr += salePrmr;
+    
+    if (sale.type === 'fp') {
+      fp += 1;
+    } else if (sale.type === 'upgrade') {
+      fp += salePrmr / 85;
+    }
+  }
+  
+  return { fp, prmr };
+};
+
 export const useChallengeProgress = (challenge: Challenge | null, options?: { includePending?: boolean }) => {
   const queryClient = useQueryClient();
   const includePending = options?.includePending ?? false;
@@ -139,7 +162,7 @@ export const useChallengeProgress = (challenge: Challenge | null, options?: { in
       // Fetch daily entries for the challenge period
       const { data: entries, error } = await supabase
         .from('daily_entries')
-        .select('user_id, fp_plus, prmr, transitions, doors_knocked, entry_date')
+        .select('user_id, fp_plus, prmr, transitions, doors_knocked, entry_date, sales_log, is_finalized')
         .in('user_id', participantUserIds)
         .gte('entry_date', challenge.start_date)
         .lte('entry_date', challenge.end_date);
@@ -159,7 +182,31 @@ export const useChallengeProgress = (challenge: Challenge | null, options?: { in
       const userTotals = new Map<string, number>();
 
       entries?.forEach(entry => {
-        const value = (entry as any)[metricColumn] || 0;
+        let value = 0;
+        const isFinalized = entry.is_finalized;
+        const salesLog = entry.sales_log as any[] | null;
+        
+        if (challenge.metric === 'fp_plus') {
+          if (isFinalized) {
+            value = entry.fp_plus || 0;
+          } else {
+            const fromLog = calculateFromSalesLog(salesLog || []);
+            const fromColumn = entry.fp_plus || 0;
+            value = (salesLog && salesLog.length > 0) ? fromLog.fp : fromColumn;
+          }
+        } else if (challenge.metric === 'prmr') {
+          if (isFinalized) {
+            value = entry.prmr || 0;
+          } else {
+            const fromLog = calculateFromSalesLog(salesLog || []);
+            const fromColumn = entry.prmr || 0;
+            value = (salesLog && salesLog.length > 0) ? fromLog.prmr : fromColumn;
+          }
+        } else {
+          // transitions, doors_knocked - use column directly
+          value = (entry as any)[metricColumn] || 0;
+        }
+        
         userTotals.set(
           entry.user_id,
           (userTotals.get(entry.user_id) || 0) + value
