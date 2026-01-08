@@ -1,25 +1,38 @@
-import { Shield, ChevronRight } from "lucide-react";
+import { Shield, Star, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { COMPETITORS, ROOKIE_COMPETITORS } from "@/data/competitorData";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 export const RookieCompetitorQuickAccess = () => {
   const navigate = useNavigate();
+  const [favorites] = useLocalStorage<string[]>("competitor-favorites", []);
 
-  // Get the rookie-friendly competitors from static data
-  const commonCompetitors = ROOKIE_COMPETITORS
-    .map(id => COMPETITORS.find(c => c.id === id))
-    .filter(Boolean)
-    .slice(0, 8);
+  // If user has favorites, show those; otherwise show common competitors
+  const hasFavorites = favorites.length > 0;
+  
+  const displayCompetitors = hasFavorites
+    ? favorites
+        .map(id => COMPETITORS.find(c => c.id === id))
+        .filter(Boolean)
+        .slice(0, 8)
+    : ROOKIE_COMPETITORS
+        .map(id => COMPETITORS.find(c => c.id === id))
+        .filter(Boolean)
+        .slice(0, 8);
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            <CardTitle>Common Competitors</CardTitle>
+            {hasFavorites ? (
+              <Star className="h-5 w-5 text-primary fill-primary" />
+            ) : (
+              <Shield className="h-5 w-5 text-primary" />
+            )}
+            <CardTitle>{hasFavorites ? "Your Favorites" : "Common Competitors"}</CardTitle>
           </div>
           <Button
             variant="ghost"
@@ -31,11 +44,13 @@ export const RookieCompetitorQuickAccess = () => {
             <ChevronRight className="h-3 w-3" />
           </Button>
         </div>
-        <CardDescription>Quick access to the ones you'll see most</CardDescription>
+        <CardDescription>
+          {hasFavorites ? "Your saved competitor references" : "Quick access to the ones you'll see most"}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-2">
-          {commonCompetitors.map((competitor) => competitor && (
+          {displayCompetitors.map((competitor) => competitor && (
             <Button
               key={competitor.id}
               variant="outline"
