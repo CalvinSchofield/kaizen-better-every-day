@@ -266,6 +266,52 @@ Deno.serve(async (req) => {
             mgmtGroupName: mgmtGroup?.name || null,
           };
         }
+
+        // team_leader doesn't match a known team - trace up the recruiter chain
+        // to find the first person who IS on a known team
+        const recruiterKey = normalizeFullName(rep.recruiter);
+        if (recruiterKey) {
+          let current = repsData.find(r => normalizeFullName(r.name) === recruiterKey);
+          for (let depth = 0; depth < 6 && current; depth++) {
+            // Check if current rep's team_leader matches a known team
+            if (current.team_leader) {
+              const currentLeaderName = current.team_leader.toLowerCase().trim();
+              const currentTeam = teamKeyToTeam.get(currentLeaderName);
+              if (currentTeam) {
+                const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(currentTeam.id));
+                console.log(`Resolved ${rep.name} to ${currentTeam.name} via recruiter lineage (${current.name})`);
+                return {
+                  isTeamLead: false,
+                  teamId: currentTeam.id,
+                  teamName: currentTeam.name,
+                  mgmtGroupId: mgmtGroup?.id || null,
+                  mgmtGroupName: mgmtGroup?.name || null,
+                };
+              }
+            }
+
+            // Check if current rep is themselves a team lead
+            if (current.user_id) {
+              const currentTeamsAsLead = userIdToTeams.get(current.user_id);
+              if (currentTeamsAsLead && currentTeamsAsLead.length > 0) {
+                const currentTeam = currentTeamsAsLead[0];
+                const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(currentTeam.id));
+                console.log(`Resolved ${rep.name} to ${currentTeam.name} via recruiter who is team lead (${current.name})`);
+                return {
+                  isTeamLead: false,
+                  teamId: currentTeam.id,
+                  teamName: currentTeam.name,
+                  mgmtGroupId: mgmtGroup?.id || null,
+                  mgmtGroupName: mgmtGroup?.name || null,
+                };
+              }
+            }
+
+            // Go up one level in the recruiter chain
+            const nextKey = normalizeFullName(current.recruiter);
+            current = nextKey ? repsData.find(r => normalizeFullName(r.name) === nextKey) : undefined;
+          }
+        }
       }
 
       return {
