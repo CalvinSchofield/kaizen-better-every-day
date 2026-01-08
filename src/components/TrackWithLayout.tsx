@@ -23,7 +23,7 @@ import { trackTourSteps } from "@/config/pageTours";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
-import confetti from "canvas-confetti";
+import { useConfetti } from "@/hooks/useConfetti";
 import { toast } from "sonner";
 import { hapticSuccess } from "@/utils/haptics";
 
@@ -95,6 +95,9 @@ const TrackWithLayout = () => {
   const [isTourDemoMode, setIsTourDemoMode] = useState(false); // Prevents real data changes during tour
   const [tourForceUpgrade, setTourForceUpgrade] = useState(false); // Force upgrade mode in sale sheet
   const [tourForceCalculatorOpen, setTourForceCalculatorOpen] = useState(false); // Force calculator open
+  
+  // Confetti hook for celebrations
+  const { fireConfetti } = useConfetti();
   
   // Local backup for data recovery
   const userId = getCurrentUserId();
@@ -571,13 +574,9 @@ const TrackWithLayout = () => {
       };
     }
     
-    // Trigger confetti on close (only when adding)
+    // Trigger money confetti on close (only when adding)
     if (field === 'closes' && isAdding) {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
+      fireConfetti({ variant: 'money', duration: 2500 });
     }
     
     // Set sync status to pending
@@ -657,13 +656,9 @@ const TrackWithLayout = () => {
       updates.break_periods = updatedBreaks;
     }
     
-    // Fire confetti and haptic
+    // Fire money rain confetti and haptic
     hapticSuccess();
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 }
-    });
+    fireConfetti({ variant: 'money', duration: 2500 });
     
     setSyncStatus('pending');
     try {
