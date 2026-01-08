@@ -87,15 +87,34 @@ export const useCustomerData = (
       if (fetchError) throw fetchError;
 
       const salesLog = (entry.sales_log as unknown as Sale[]) || [];
-      const updatedSalesLog = salesLog.map(sale => 
-        sale.id === saleId 
+      const updatedSalesLog = salesLog.map(sale =>
+        sale.id === saleId
           ? { ...sale, install_status: newStatus }
           : sale
       );
 
+      // Recalculate totals from sales_log (exclude cancelled AND never_installed)
+      const fundedSales = updatedSalesLog.filter(s =>
+        s.install_status !== 'cancelled' && s.install_status !== 'never_installed'
+      );
+      const fpSales = fundedSales.filter(s => s.type === 'fp');
+      const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
+
+      const fpCount = fpSales.length;
+      const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+      const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+      const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
+      const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
+
       const { error: updateError } = await supabase
         .from('daily_entries')
-        .update({ sales_log: updatedSalesLog as unknown as null })
+        .update({
+          sales_log: updatedSalesLog as unknown as null,
+          closes: fundedSales.length,
+          fp_plus: Math.round(calculatedFpPlus * 100) / 100,
+          prmr: Math.round(totalPrmr * 100) / 100,
+          upgrade_prmr: Math.round(upgradePrmrTotal * 100) / 100,
+        })
         .eq('user_id', user.id)
         .eq('entry_date', entryDate);
 
