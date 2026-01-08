@@ -43,10 +43,10 @@ export const usePreseasonFP = () => {
       entries?.forEach(entry => {
         const salesLog = entry.sales_log as unknown as Sale[] | null;
         
-        // If entry has sales_log, calculate from all sales (including unfunded)
+        // If entry has sales_log, calculate from all sales (excluding never_installed)
         if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
-          // ALL sales count toward goals (including unfunded/cancelled after install)
-          const allSales = salesLog;
+          // ALL sales count toward goals EXCEPT never_installed (those never hit the books)
+          const allSales = salesLog.filter(s => s.install_status !== 'never_installed');
           const fpSales = allSales.filter(s => s.type === 'fp');
           const upgradeSales = allSales.filter(s => s.type === 'upgrade');
           
@@ -57,8 +57,8 @@ export const usePreseasonFP = () => {
           totalFP += fpCount + (upgradePrmrTotal / 85);
           totalPRMR += totalSalesPrmr;
           
-          // Only FUNDED sales count toward actual income
-          const fundedSales = allSales.filter(s => s.install_status !== 'cancelled');
+          // Only FUNDED sales count toward actual income (exclude cancelled AND never_installed)
+          const fundedSales = salesLog.filter(s => s.install_status !== 'cancelled' && s.install_status !== 'never_installed');
           const fundedFpSales = fundedSales.filter(s => s.type === 'fp');
           const fundedUpgradeSales = fundedSales.filter(s => s.type === 'upgrade');
           
