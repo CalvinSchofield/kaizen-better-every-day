@@ -229,7 +229,10 @@ const Goals = () => {
     // If not finalized, calculate from sales_log for running total
     const salesLog = (todayEntry as any)?.sales_log || [];
     if (salesLog.length > 0) {
-      return salesLog.reduce((sum: number, sale: any) => sum + (sale.prmr || 0), 0);
+      // Exclude never_installed sales from totals
+      return salesLog
+        .filter((sale: any) => sale.install_status !== 'never_installed')
+        .reduce((sum: number, sale: any) => sum + (sale.prmr || 0), 0);
     }
     // Fallback to prmr field if no sales_log
     return (todayEntry?.prmr || 0) + ((todayEntry as any)?.upgrade_prmr || 0);
@@ -244,8 +247,10 @@ const Goals = () => {
     // If not finalized, calculate from sales_log for running total
     const salesLog = (todayEntry as any)?.sales_log || [];
     if (salesLog.length > 0) {
-      const fpSales = salesLog.filter((s: any) => s.type === 'fp');
-      const upgradeSales = salesLog.filter((s: any) => s.type === 'upgrade');
+      // Exclude never_installed sales from totals
+      const fundedSales = salesLog.filter((s: any) => s.install_status !== 'never_installed');
+      const fpSales = fundedSales.filter((s: any) => s.type === 'fp');
+      const upgradeSales = fundedSales.filter((s: any) => s.type === 'upgrade');
       const upgradePrmr = upgradeSales.reduce((sum: number, s: any) => sum + (s.prmr || 0), 0);
       return fpSales.length + (upgradePrmr / 85);
     }
