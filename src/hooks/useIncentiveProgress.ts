@@ -54,6 +54,29 @@ const getMetricColumn = (metric: IncentiveMetric): string => {
   }
 };
 
+// Calculate FP+ and PRMR from sales_log (matches Today Leaderboard logic)
+const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number } => {
+  if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0 };
+  
+  let fp = 0;
+  let prmr = 0;
+  
+  for (const sale of salesLog) {
+    if (sale.install_status === 'never_installed') continue;
+    
+    const salePrmr = Number(sale.prmr) || 0;
+    prmr += salePrmr;
+    
+    if (sale.type === 'fp') {
+      fp += 1;
+    } else if (sale.type === 'upgrade') {
+      fp += salePrmr / 85;
+    }
+  }
+  
+  return { fp, prmr };
+};
+
 export const useIncentiveProgress = (incentive: Incentive | null) => {
   const queryClient = useQueryClient();
 
@@ -94,7 +117,7 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
       // Get daily entries for the incentive date range
       const { data: entries, error } = await supabase
         .from('daily_entries')
-        .select('user_id, entry_date, fp_plus, prmr, transitions, doors_knocked, sales_log')
+        .select('user_id, entry_date, fp_plus, prmr, transitions, doors_knocked, sales_log, is_finalized')
         .in('user_id', eligibleUserIds)
         .gte('entry_date', incentive.start_date)
         .lte('entry_date', incentive.end_date);
@@ -119,14 +142,27 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
 
       entries?.forEach(entry => {
         let value = 0;
+        const isFinalized = entry.is_finalized;
+        const salesLog = entry.sales_log as any[] | null;
         
-        // For PRMR, sum from sales_log if the prmr column is 0 (sales logger data)
-        if (incentive.metric === 'prmr') {
-          const prmrFromColumn = entry.prmr || 0;
-          const salesLog = entry.sales_log as any[] | null;
-          const prmrFromSalesLog = salesLog?.reduce((sum, sale) => sum + (sale.prmr || 0), 0) || 0;
-          value = prmrFromColumn > 0 ? prmrFromColumn : prmrFromSalesLog;
+        if (incentive.metric === 'fp_plus') {
+          if (isFinalized) {
+            value = entry.fp_plus || 0;
+          } else {
+            const fromLog = calculateFromSalesLog(salesLog || []);
+            const fromColumn = entry.fp_plus || 0;
+            value = (salesLog && salesLog.length > 0) ? fromLog.fp : fromColumn;
+          }
+        } else if (incentive.metric === 'prmr') {
+          if (isFinalized) {
+            value = entry.prmr || 0;
+          } else {
+            const fromLog = calculateFromSalesLog(salesLog || []);
+            const fromColumn = entry.prmr || 0;
+            value = (salesLog && salesLog.length > 0) ? fromLog.prmr : fromColumn;
+          }
         } else {
+          // transitions, doors_knocked - use column directly
           value = (entry as any)[metricColumn] || 0;
         }
         
