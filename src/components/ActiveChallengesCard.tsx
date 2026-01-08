@@ -144,8 +144,9 @@ export const ActiveChallengesCard = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'daily_entries' },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['my-active-incentives'] });
-          queryClient.invalidateQueries({ queryKey: ['incentive-progress'] });
+          queryClient.invalidateQueries({ queryKey: ['my-active-incentives'], refetchType: 'all' });
+          queryClient.invalidateQueries({ queryKey: ['incentive-progress'], refetchType: 'all' });
+          queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
         }
       )
       .on(
