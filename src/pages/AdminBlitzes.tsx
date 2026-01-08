@@ -11,6 +11,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import BlitzFormDrawer from "@/components/admin/BlitzFormDrawer";
 import DeleteBlitzDialog from "@/components/admin/DeleteBlitzDialog";
 import { formatBlitzDateRange } from "@/utils/blitzDateUtils";
+import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
 
 interface Accommodation {
   id: string;
@@ -178,7 +179,7 @@ export default function AdminBlitzes() {
   const pastBlitzes = blitzes.filter((b) => new Date(b.end_date || b.date) < now);
 
   return (
-    <div className="min-h-screen bg-background">
+    <EdgeSwipeContainer>
       {/* Header */}
       <div 
         className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b"
@@ -268,7 +269,7 @@ export default function AdminBlitzes() {
         blitzName={deletingBlitz?.name || ""}
         onConfirm={handleConfirmDelete}
       />
-    </div>
+    </EdgeSwipeContainer>
   );
 }
 

@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { UserPlus, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
 
 const STAGES = ["Evaluating", "Signed"] as const;
 
@@ -257,7 +258,7 @@ export default function AddApplicant() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <EdgeSwipeContainer>
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
         <div className="flex items-center gap-3 p-4">
@@ -395,6 +396,6 @@ export default function AddApplicant() {
           )}
         </Button>
       </form>
-    </div>
+    </EdgeSwipeContainer>
   );
 }
