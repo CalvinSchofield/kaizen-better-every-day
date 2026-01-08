@@ -115,11 +115,10 @@ export const useCanceledStats = (startDate?: string, endDate?: string) => {
   };
 };
 
-// Get YTD canceled stats (from Jan 1 of current year)
+// Get YTD canceled stats (from start of 2026 Sales Season - Sept 28, 2025)
 export const useYTDCanceledStats = () => {
-  const currentYear = new Date().getFullYear();
-  const startDate = `${currentYear}-01-01`;
-  return useCanceledStats(startDate);
+  const seasonStart = '2025-09-28';
+  return useCanceledStats(seasonStart);
 };
 
 // Get preseason canceled stats

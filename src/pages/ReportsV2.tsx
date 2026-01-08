@@ -145,8 +145,9 @@ export const ReportsV2Page = () => {
           end: format(today < PRESEASON_END ? today : PRESEASON_END, 'yyyy-MM-dd'),
         };
       case 'ytd':
+        // YTD = Sales Season to date (from Sept 28, 2025)
         return {
-          start: format(startOfYear(today), 'yyyy-MM-dd'),
+          start: format(PRESEASON_START, 'yyyy-MM-dd'),
           end: format(today, 'yyyy-MM-dd'),
         };
       default:
