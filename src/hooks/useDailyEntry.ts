@@ -45,11 +45,11 @@ export interface Sale {
   scheduled_install_date?: string;     // YYYY-MM-DD (only if scheduled out)
   install_status?: 'installed' | 'pending' | 'cancelled' | 'never_installed';  // Default: 'installed'
   install_confirmed_at?: string;       // When confirmed (for pending → installed)
-  // CRM fields - Simple
+  // CRM fields - Simple (canonical names)
   customer_name?: string;
   customer_phone?: string;
-  customer_account_number?: string;
-  customer_location?: string;
+  customer_account_number?: string;    // Canonical field name
+  customer_address?: string;           // Canonical field name (was customer_location)
   customer_lat?: number;
   customer_lng?: number;
   // CRM fields - Detailed
@@ -59,6 +59,14 @@ export interface Sale {
   money_spent?: number;
   difficulty?: 'easy' | 'medium' | 'hard';
 }
+
+// Normalize legacy field names when loading sales data
+export const normalizeSale = (sale: any): Sale => ({
+  ...sale,
+  // Migrate old field names to canonical names
+  customer_account_number: sale.customer_account_number || sale.account_number,
+  customer_address: sale.customer_address || sale.customer_location,
+});
 
 export interface DailyEntry {
   id: string;

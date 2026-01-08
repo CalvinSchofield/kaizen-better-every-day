@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Sale } from '@/components/LogSaleSheet';
+import { Sale, normalizeSale } from '@/hooks/useDailyEntry';
 import { toast } from 'sonner';
 
 export interface CustomerSale extends Sale {
@@ -45,9 +45,11 @@ export const useCustomerData = (
       for (const entry of data || []) {
         const salesLog = entry.sales_log as unknown as Sale[] | null;
         if (salesLog && Array.isArray(salesLog)) {
-          for (const sale of salesLog) {
+          for (const rawSale of salesLog) {
+            // Normalize legacy field names
+            const sale = normalizeSale(rawSale);
             // Only include sales with CRM data
-            if (sale.customer_name || sale.account_number || sale.customer_phone) {
+            if (sale.customer_name || sale.customer_account_number || sale.customer_phone) {
               sales.push({
                 ...sale,
                 entry_date: entry.entry_date,
@@ -234,7 +236,7 @@ export const useCustomerData = (
       result = result.filter(sale => {
         const name = (sale.customer_name || '').toLowerCase();
         const phone = (sale.customer_phone || '').toLowerCase();
-        const account = (sale.account_number || '').toLowerCase();
+        const account = (sale.customer_account_number || '').toLowerCase();
         // Also search without A- prefix
         const accountWithPrefix = `a-${account}`;
         

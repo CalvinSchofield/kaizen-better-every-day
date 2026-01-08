@@ -1,6 +1,6 @@
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Sale } from "./LogSaleSheet";
+import { Sale } from "@/hooks/useDailyEntry";
 import { format, parseISO } from "date-fns";
 import { Trash2, AlertCircle } from "lucide-react";
 

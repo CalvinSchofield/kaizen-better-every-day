@@ -121,13 +121,11 @@ export const SaleDetailSheet = ({
       setSaleTime(time);
       setInstallStatus(sale.install_status || 'installed');
       
-      // CRM fields - handle both field naming conventions for backwards compatibility
+      // CRM fields - use canonical field names
       setCustomerName(sale.customer_name || "");
       setCustomerPhone(sale.customer_phone || "");
-      // Handle both account_number (LogSaleSheet) and customer_account_number (useDailyEntry) field names
-      setAccountNumber((sale as any).account_number || sale.customer_account_number || "");
-      // Handle both customer_address (LogSaleSheet) and customer_location (useDailyEntry) field names
-      setCustomerAddress((sale as any).customer_address || sale.customer_location || "");
+      setAccountNumber(sale.customer_account_number || "");
+      setCustomerAddress(sale.customer_address || "");
       setCustomerLat(sale.customer_lat || null);
       setCustomerLng(sale.customer_lng || null);
       setTimeToSellMinutes(sale.time_to_sell_minutes || 30);
@@ -291,15 +289,12 @@ export const SaleDetailSheet = ({
       install_status: installStatus,
     };
 
-    // Add CRM fields if enabled - use both field naming conventions for compatibility
+    // Add CRM fields if enabled - use canonical field names
     if (crmEnabled) {
       updatedSale.customer_name = customerName.trim() || undefined;
       updatedSale.customer_phone = customerPhone.trim() || undefined;
-      // Save to both field names for compatibility with LogSaleSheet and useDailyEntry
       updatedSale.customer_account_number = accountNumber.trim() || undefined;
-      (updatedSale as any).account_number = accountNumber.trim() || undefined;
-      updatedSale.customer_location = customerAddress.trim() || undefined;
-      (updatedSale as any).customer_address = customerAddress.trim() || undefined;
+      updatedSale.customer_address = customerAddress.trim() || undefined;
       if (customerLat !== null) updatedSale.customer_lat = customerLat;
       if (customerLng !== null) updatedSale.customer_lng = customerLng;
 
@@ -327,8 +322,8 @@ export const SaleDetailSheet = ({
   const dateStr = format(parseISO(entryDate), 'MMM d, yyyy');
   const timeStr = format(parseISO(sale.timestamp), 'h:mm a');
   
-  // Check if there's any CRM data to display - handle both field naming conventions
-  const hasCrmData = sale.customer_name || sale.customer_phone || sale.customer_account_number || (sale as any).account_number || sale.customer_location || (sale as any).customer_address;
+  // Check if there's any CRM data to display - use canonical field names
+  const hasCrmData = sale.customer_name || sale.customer_phone || sale.customer_account_number || sale.customer_address;
   const hasDetailedCrmData = sale.time_to_sell_minutes || sale.deal_type || sale.money_spent || sale.difficulty;
 
   // Summary View Component
@@ -394,16 +389,16 @@ export const SaleDetailSheet = ({
                 <span className="text-sm">{sale.customer_phone}</span>
               </div>
             )}
-            {(sale.customer_account_number || (sale as any).account_number) && (
+            {sale.customer_account_number && (
               <div className="flex items-center gap-2">
                 <Hash className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-sm">A-{sale.customer_account_number || (sale as any).account_number}</span>
+                <span className="text-sm">A-{sale.customer_account_number}</span>
               </div>
             )}
-            {(sale.customer_location || (sale as any).customer_address) && (
+            {sale.customer_address && (
               <div className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                <span className="text-sm">{sale.customer_location || (sale as any).customer_address}</span>
+                <span className="text-sm">{sale.customer_address}</span>
               </div>
             )}
           </div>

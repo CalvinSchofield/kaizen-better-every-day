@@ -18,31 +18,7 @@ import {
 import { Trash2, HelpCircle, MapPin, Clock, Loader2, Search } from "lucide-react";
 import { UpgradePrmrCalculator } from "./UpgradePrmrCalculator";
 import { supabase } from "@/integrations/supabase/client";
-
-export interface Sale {
-  id: string;
-  type: 'fp' | 'upgrade';
-  prmr: number;
-  timestamp: string;
-  // Install tracking fields
-  installed_same_day?: boolean;
-  scheduled_install_date?: string;
-  install_status?: 'installed' | 'pending' | 'cancelled' | 'never_installed';
-  install_confirmed_at?: string;
-  // CRM fields (simple)
-  customer_name?: string;
-  customer_phone?: string;
-  account_number?: string;
-  customer_address?: string;
-  customer_lat?: number;
-  customer_lng?: number;
-  // CRM fields (detailed)
-  time_to_sell_minutes?: number;
-  time_to_sell_source?: 'transition' | 'door' | 'manual';
-  deal_type?: 'fresh' | 'takeover' | 'diy';
-  money_spent?: number;
-  difficulty?: 'easy' | 'medium' | 'hard';
-}
+import { Sale } from "@/hooks/useDailyEntry";
 
 interface LogSaleSheetProps {
   open: boolean;
@@ -345,7 +321,7 @@ export const LogSaleSheet = ({
         // CRM fields
         setCustomerName(editingSale.customer_name || "");
         setCustomerPhone(editingSale.customer_phone || "");
-        setAccountNumber(editingSale.account_number || "");
+        setAccountNumber(editingSale.customer_account_number || "");
         setCustomerAddress(editingSale.customer_address || "");
         setCustomerLat(editingSale.customer_lat || null);
         setCustomerLng(editingSale.customer_lng || null);
@@ -390,7 +366,7 @@ export const LogSaleSheet = ({
     if (crmEnabled) {
       if (customerName.trim()) saleData.customer_name = customerName.trim();
       if (customerPhone.trim()) saleData.customer_phone = customerPhone.trim();
-      if (accountNumber.trim()) saleData.account_number = accountNumber.trim();
+      if (accountNumber.trim()) saleData.customer_account_number = accountNumber.trim();
       if (customerAddress.trim()) saleData.customer_address = customerAddress.trim();
       if (customerLat !== null) saleData.customer_lat = customerLat;
       if (customerLng !== null) saleData.customer_lng = customerLng;

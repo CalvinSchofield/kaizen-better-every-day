@@ -33,12 +33,12 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const textToCopy = sale.account_number || sale.customer_phone || '';
+    const textToCopy = sale.customer_account_number || sale.customer_phone || '';
     if (textToCopy) {
       await navigator.clipboard.writeText(textToCopy);
       toast({
         title: "Copied",
-        description: sale.account_number ? `Account: ${textToCopy}` : `Phone: ${textToCopy}`,
+        description: sale.customer_account_number ? `Account: ${textToCopy}` : `Phone: ${textToCopy}`,
       });
     }
   };
@@ -190,8 +190,8 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
 
       {/* Secondary Info Row - Account # and Date */}
       <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
-        {sale.account_number && (
-          <span className="font-mono">A-{sale.account_number}</span>
+        {sale.customer_account_number && (
+          <span className="font-mono">A-{sale.customer_account_number}</span>
         )}
         <span className="ml-auto">{saleDate}</span>
       </div>
@@ -216,7 +216,7 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
             </button>
           </>
         )}
-        {(sale.account_number || sale.customer_phone) && (
+        {(sale.customer_account_number || sale.customer_phone) && (
           <button
             onClick={handleCopy}
             className="p-2 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"

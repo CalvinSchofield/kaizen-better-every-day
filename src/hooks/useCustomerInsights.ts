@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Sale } from '@/components/LogSaleSheet';
+import { Sale } from '@/hooks/useDailyEntry';
 import { isWithinInterval, parseISO, differenceInDays, format, startOfWeek, endOfWeek, startOfDay, endOfDay } from 'date-fns';
 
 interface SaleWithDate extends Sale {
@@ -512,7 +512,7 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
     const salesWithLocationCount = filteredSales.filter(s => s.customer_lat && s.customer_lng).length;
     
     // CRM data count
-    const dealsWithCrmData = filteredSales.filter(s => s.customer_name || s.account_number || s.customer_phone).length;
+    const dealsWithCrmData = filteredSales.filter(s => s.customer_name || s.customer_account_number || s.customer_phone).length;
 
     // Sales by Hour heatmap - parse timestamp from each sale (stored in local time)
     const salesByHourMap: Record<number, { fresh: number; takeover: number; diy: number; upgrade: number }> = {};
