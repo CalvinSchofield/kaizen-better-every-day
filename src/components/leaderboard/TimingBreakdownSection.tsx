@@ -19,6 +19,9 @@ export const TimingBreakdownSection = ({ gritAwards, currentUserId }: TimingBrea
     return null;
   }
 
+  // Only show Saturday columns if there's Saturday data
+  const showSaturday = hasSaturdayData;
+
   const timingRows: { 
     action: string; 
     weekdayEarliest: TimingEntry | null; 
@@ -58,6 +61,10 @@ export const TimingBreakdownSection = ({ gritAwards, currentUserId }: TimingBrea
     },
   ];
 
+  // Dynamic grid classes based on whether Saturday is shown
+  const headerGridClass = showSaturday ? "grid-cols-5" : "grid-cols-3";
+  const weekdayColSpan = showSaturday ? "col-span-2" : "col-span-2";
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger asChild>
@@ -77,30 +84,42 @@ export const TimingBreakdownSection = ({ gritAwards, currentUserId }: TimingBrea
       <CollapsibleContent>
         <div className="mt-3 rounded-lg border border-border overflow-hidden">
           {/* Header */}
-          <div className="grid grid-cols-5 bg-muted/50 px-2 py-2 text-[10px] font-medium text-muted-foreground">
+          <div className={`grid ${headerGridClass} bg-muted/50 px-2 py-2 text-[10px] font-medium text-muted-foreground`}>
             <span className="col-span-1"></span>
-            <span className="col-span-2 text-center border-l border-border">Mon-Fri</span>
-            <span className="col-span-2 text-center border-l border-border">Saturday</span>
+            <span className={`${weekdayColSpan} text-center border-l border-border`}>
+              {showSaturday ? 'Mon-Fri' : 'Weekdays'}
+            </span>
+            {showSaturday && (
+              <span className="col-span-2 text-center border-l border-border">Saturday</span>
+            )}
           </div>
-          <div className="grid grid-cols-5 bg-muted/30 px-2 py-1.5 text-[9px] font-medium text-muted-foreground">
+          <div className={`grid ${headerGridClass} bg-muted/30 px-2 py-1.5 text-[9px] font-medium text-muted-foreground`}>
             <span className="col-span-1">Action</span>
             <span className="text-center border-l border-border">🌅 Early</span>
             <span className="text-center">🌙 Late</span>
-            <span className="text-center border-l border-border">🌅 Early</span>
-            <span className="text-center">🌙 Late</span>
+            {showSaturday && (
+              <>
+                <span className="text-center border-l border-border">🌅 Early</span>
+                <span className="text-center">🌙 Late</span>
+              </>
+            )}
           </div>
 
           {/* Rows */}
           {timingRows.map((row) => (
             <div 
               key={row.action} 
-              className="grid grid-cols-5 px-2 py-2 border-t border-border text-xs"
+              className={`grid ${headerGridClass} px-2 py-2 border-t border-border text-xs`}
             >
               <span className="text-muted-foreground text-[11px]">{row.action}</span>
-              <TimingCell entry={row.weekdayEarliest} currentUserId={currentUserId} />
+              <TimingCell entry={row.weekdayEarliest} currentUserId={currentUserId} className="border-l border-border" />
               <TimingCell entry={row.weekdayLatest} currentUserId={currentUserId} />
-              <TimingCell entry={row.saturdayEarliest} currentUserId={currentUserId} className="border-l border-border" />
-              <TimingCell entry={row.saturdayLatest} currentUserId={currentUserId} />
+              {showSaturday && (
+                <>
+                  <TimingCell entry={row.saturdayEarliest} currentUserId={currentUserId} className="border-l border-border" />
+                  <TimingCell entry={row.saturdayLatest} currentUserId={currentUserId} />
+                </>
+              )}
             </div>
           ))}
         </div>

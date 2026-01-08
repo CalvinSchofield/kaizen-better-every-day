@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { tiebreakerCompare, YearRank } from "@/utils/leaderboardTiebreaker";
 
 interface RankingEntry {
   userId: string;
@@ -7,6 +8,7 @@ interface RankingEntry {
   value: number;
   isWorking?: boolean;
   profilePhotoUrl?: string | null;
+  year?: YearRank;
 }
 
 interface TodayLeaderboard {
@@ -101,8 +103,12 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
         ? dedupedEntries.filter(e => repsMap.get(e.user_id)?.year === filterByYear)
         : dedupedEntries;
 
-      // Create rankings arrays for each metric
-      const createRanking = (field: keyof typeof filteredEntries[0]): RankingEntry[] => {
+      // Create rankings arrays for each metric with tiebreaking
+      // Activity order: doors → decision_makers → pitches → transitions → presentations
+      const createRanking = (
+        field: keyof typeof filteredEntries[0], 
+        tiebreakerField?: keyof typeof filteredEntries[0]
+      ): RankingEntry[] => {
         return filteredEntries
           .map(entry => {
             const repInfo = repsMap.get(entry.user_id);
@@ -119,10 +125,19 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
               (entry.presentations ?? 0) > 0 ||
               (entry.fp_plus ?? 0) > 0
             );
-            return { userId: entry.user_id, name: cleanName, value, isWorking, profilePhotoUrl: repInfo.profilePhotoUrl };
+            const tiebreaker = tiebreakerField ? (Number(entry[tiebreakerField]) || 0) : 0;
+            return { 
+              userId: entry.user_id, 
+              name: cleanName, 
+              value, 
+              isWorking, 
+              profilePhotoUrl: repInfo.profilePhotoUrl,
+              year: repInfo.year as YearRank,
+              tiebreaker
+            };
           })
           .filter((e): e is NonNullable<typeof e> => e !== null)
-          .sort((a, b) => b.value - a.value);
+          .sort((a, b) => tiebreakerCompare(a.value, b.value, a.tiebreaker ?? 0, b.tiebreaker ?? 0, a.year, b.year));
       };
 
       // Helper to calculate running totals from sales_log for unfinalized entries
@@ -151,7 +166,7 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
       };
 
       // Create FP+ ranking - use sales_log for unfinalized, columns for finalized
-      // Include PRMR as tiebreaker
+      // Include PRMR as tiebreaker, then year
       const createFpRanking = (): RankingEntry[] => {
         // First, build a map of user_id to their PRMR for tiebreaker
         const prmrByUser = new Map<string, number>();
@@ -197,21 +212,38 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
               (entry.presentations ?? 0) > 0 ||
               value > 0
             );
-            return { userId: entry.user_id, name: cleanName, value, isWorking, profilePhotoUrl: repInfo.profilePhotoUrl };
+            const prmrTiebreaker = prmrByUser.get(entry.user_id) || 0;
+            return { 
+              userId: entry.user_id, 
+              name: cleanName, 
+              value, 
+              isWorking, 
+              profilePhotoUrl: repInfo.profilePhotoUrl,
+              year: repInfo.year as YearRank,
+              tiebreaker: prmrTiebreaker
+            };
           })
           .filter((e): e is NonNullable<typeof e> => e !== null)
-          .sort((a, b) => {
-            // Sort by FP+ first, then PRMR as tiebreaker
-            if (b.value !== a.value) return b.value - a.value;
-            const aPrmr = prmrByUser.get(a.userId) || 0;
-            const bPrmr = prmrByUser.get(b.userId) || 0;
-            return bPrmr - aPrmr;
-          });
+          .sort((a, b) => tiebreakerCompare(a.value, b.value, a.tiebreaker ?? 0, b.tiebreaker ?? 0, a.year, b.year));
       };
 
       // Create PRMR ranking - use sales_log for unfinalized, columns for finalized
-      // Total PRMR = prmr (FP sales) + upgrade_prmr (upgrade sales)
+      // FP+ as tiebreaker, then year
       const createPrmrRanking = (): RankingEntry[] => {
+        // Build FP+ map for tiebreaker
+        const fpByUser = new Map<string, number>();
+        filteredEntries.forEach(entry => {
+          let fpValue: number;
+          if (entry.is_finalized) {
+            fpValue = Number(entry.fp_plus) || 0;
+          } else {
+            const salesLog = entry.sales_log as any[];
+            const fromLog = calculateFromSalesLog(salesLog);
+            fpValue = (salesLog && salesLog.length > 0) ? fromLog.fp : (Number(entry.fp_plus) || 0);
+          }
+          fpByUser.set(entry.user_id, fpValue);
+        });
+
         return filteredEntries
           .map(entry => {
             const repInfo = repsMap.get(entry.user_id);
@@ -219,42 +251,40 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             
             let value: number;
             if (entry.is_finalized) {
-              // Finalized: prmr field IS total PRMR
               value = Number(entry.prmr) || 0;
             } else {
-              // Unfinalized: prioritize sales_log if it has entries (supports edits/deletes)
               const salesLog = entry.sales_log as any[];
               const fromLog = calculateFromSalesLog(salesLog);
               const fromColumns = Number(entry.prmr) || 0;
-              // Use sales_log calculation if there are sales, otherwise use column
               value = (salesLog && salesLog.length > 0) ? fromLog.prmr : fromColumns;
             }
             
             if (value === 0) return null;
             const cleanName = repInfo.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
             const isWorking = !entry.is_finalized && (
-              (entry.doors_knocked ?? 0) > 0 ||
-              (entry.decision_makers ?? 0) > 0 ||
-              (entry.pitches ?? 0) > 0 ||
-              (entry.transitions ?? 0) > 0 ||
-              (entry.presentations ?? 0) > 0 ||
-              value > 0
+              (entry.doors_knocked ?? 0) > 0 || (entry.fp_plus ?? 0) > 0 || value > 0
             );
-            return { userId: entry.user_id, name: cleanName, value, isWorking, profilePhotoUrl: repInfo.profilePhotoUrl };
+            const fpTiebreaker = fpByUser.get(entry.user_id) || 0;
+            return { 
+              userId: entry.user_id, name: cleanName, value, isWorking, 
+              profilePhotoUrl: repInfo.profilePhotoUrl,
+              year: repInfo.year as YearRank,
+              tiebreaker: fpTiebreaker
+            };
           })
           .filter((e): e is NonNullable<typeof e> => e !== null)
-          .sort((a, b) => b.value - a.value);
+          .sort((a, b) => tiebreakerCompare(a.value, b.value, a.tiebreaker ?? 0, b.tiebreaker ?? 0, a.year, b.year));
       };
 
       const leaderboard: TodayLeaderboard = {
         rankings: {
           fp_plus: createFpRanking(),
           prmr: createPrmrRanking(),
-          presentations: createRanking('presentations'),
-          transitions: createRanking('transitions'),
-          pitches: createRanking('pitches'),
-          doors_knocked: createRanking('doors_knocked'),
-          decision_makers: createRanking('decision_makers'),
+          presentations: createRanking('presentations', 'transitions'),
+          transitions: createRanking('transitions', 'presentations'),
+          pitches: createRanking('pitches', 'transitions'),
+          doors_knocked: createRanking('doors_knocked', 'decision_makers'),
+          decision_makers: createRanking('decision_makers', 'pitches'),
         },
       };
 

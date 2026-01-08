@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getLocalDateString } from "@/lib/utils";
-
+import { tiebreakerCompare, getYearPriority, YearRank } from "@/utils/leaderboardTiebreaker";
 export interface TimingEntry {
   userId: string;
   name: string;
@@ -604,46 +604,77 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
       const nightOwlWeekdayCandidates: EarlyBirdCandidate[] = [];
       const nightOwlSaturdayCandidates: EarlyBirdCandidate[] = [];
 
+      // Collect candidates for tiebreaking
+      interface LeaderCandidate {
+        userId: string;
+        name: string;
+        value: number;
+        tiebreaker: number;
+        year: YearRank;
+      }
+
+      const activityCandidates = {
+        doors: [] as LeaderCandidate[],
+        dms: [] as LeaderCandidate[],
+        pitches: [] as LeaderCandidate[],
+        transitions: [] as LeaderCandidate[],
+        presentations: [] as LeaderCandidate[],
+        closes: [] as LeaderCandidate[],
+      };
+
+      const salesCandidates = {
+        fp: [] as LeaderCandidate[],
+        prmr: [] as LeaderCandidate[],
+        upgradeFp: [] as LeaderCandidate[],
+      };
+
+      let mostHoursCandidate: LeaderCandidate | null = null;
+
       userStats.forEach((stats, userId) => {
         const repInfo = repsMap.get(userId);
         if (!repInfo) return;
 
         const name = repInfo.name;
+        const year = repInfo.year as YearRank;
 
-        // Activity leaders
-        if (stats.doors > 0 && (!result.activityLeaders.mostDoors || stats.doors > result.activityLeaders.mostDoors.value)) {
-          result.activityLeaders.mostDoors = { userId, name, value: stats.doors };
+        // Collect activity candidates with next-in-chain tiebreaker
+        // Order: doors → dms → pitches → transitions → presentations
+        if (stats.doors > 0) {
+          activityCandidates.doors.push({ userId, name, value: stats.doors, tiebreaker: stats.dms, year });
         }
-        if (stats.dms > 0 && (!result.activityLeaders.mostDMs || stats.dms > result.activityLeaders.mostDMs.value)) {
-          result.activityLeaders.mostDMs = { userId, name, value: stats.dms };
+        if (stats.dms > 0) {
+          activityCandidates.dms.push({ userId, name, value: stats.dms, tiebreaker: stats.pitches, year });
         }
-        if (stats.pitches > 0 && (!result.activityLeaders.mostPitches || stats.pitches > result.activityLeaders.mostPitches.value)) {
-          result.activityLeaders.mostPitches = { userId, name, value: stats.pitches };
+        if (stats.pitches > 0) {
+          activityCandidates.pitches.push({ userId, name, value: stats.pitches, tiebreaker: stats.transitions, year });
         }
-        if (stats.transitions > 0 && (!result.activityLeaders.mostTransitions || stats.transitions > result.activityLeaders.mostTransitions.value)) {
-          result.activityLeaders.mostTransitions = { userId, name, value: stats.transitions };
+        if (stats.transitions > 0) {
+          activityCandidates.transitions.push({ userId, name, value: stats.transitions, tiebreaker: stats.presentations, year });
         }
-        if (stats.presentations > 0 && (!result.activityLeaders.mostPresentations || stats.presentations > result.activityLeaders.mostPresentations.value)) {
-          result.activityLeaders.mostPresentations = { userId, name, value: stats.presentations };
+        if (stats.presentations > 0) {
+          activityCandidates.presentations.push({ userId, name, value: stats.presentations, tiebreaker: stats.closes, year });
         }
-        if (stats.closes > 0 && (!result.activityLeaders.mostCloses || stats.closes > result.activityLeaders.mostCloses.value)) {
-          result.activityLeaders.mostCloses = { userId, name, value: stats.closes };
-        }
-
-        // Sales leaders
-        if (stats.fp > 0 && (!result.salesLeaders.mostFP || stats.fp > result.salesLeaders.mostFP.value)) {
-          result.salesLeaders.mostFP = { userId, name, value: stats.fp };
-        }
-        if (stats.prmr > 0 && (!result.salesLeaders.mostPRMR || stats.prmr > result.salesLeaders.mostPRMR.value)) {
-          result.salesLeaders.mostPRMR = { userId, name, value: stats.prmr };
-        }
-        if (stats.upgradeFp > 0 && (!result.salesLeaders.mostUpgradeFP || stats.upgradeFp > result.salesLeaders.mostUpgradeFP.value)) {
-          result.salesLeaders.mostUpgradeFP = { userId, name, value: stats.upgradeFp };
+        if (stats.closes > 0) {
+          activityCandidates.closes.push({ userId, name, value: stats.closes, tiebreaker: stats.presentations, year });
         }
 
-        // Hours worked
-        if (stats.hoursWorked > 0 && (!result.gritAwards.mostHoursWorked || stats.hoursWorked > result.gritAwards.mostHoursWorked.value)) {
-          result.gritAwards.mostHoursWorked = { userId, name, value: stats.hoursWorked };
+        // Collect sales candidates: FP+ ↔ PRMR tiebreaker
+        if (stats.fp > 0) {
+          salesCandidates.fp.push({ userId, name, value: stats.fp, tiebreaker: stats.prmr, year });
+        }
+        if (stats.prmr > 0) {
+          salesCandidates.prmr.push({ userId, name, value: stats.prmr, tiebreaker: stats.fp, year });
+        }
+        if (stats.upgradeFp > 0) {
+          salesCandidates.upgradeFp.push({ userId, name, value: stats.upgradeFp, tiebreaker: stats.prmr, year });
+        }
+
+        // Hours worked (tiebreaker: more doors = worked harder)
+        if (stats.hoursWorked > 0) {
+          if (!mostHoursCandidate || 
+              tiebreakerCompare(stats.hoursWorked, mostHoursCandidate.value, stats.doors, mostHoursCandidate.tiebreaker, year, mostHoursCandidate.year) < 0) {
+            mostHoursCandidate = { userId, name, value: stats.hoursWorked, tiebreaker: stats.doors, year };
+          }
         }
 
         // Combined grit awards
@@ -757,6 +788,38 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         addNightOwlCandidate(nightOwlSaturdayCandidates, stats.saturdayLatestDM, 'Latest DM');
         addNightOwlCandidate(nightOwlSaturdayCandidates, stats.saturdayLatestDoor, 'Latest Door');
       });
+
+      // Determine winners with tiebreaking
+      const selectWinner = (candidates: LeaderCandidate[]): { userId: string; name: string; value: number } | null => {
+        if (candidates.length === 0) return null;
+        
+        // Sort by value desc, then tiebreaker desc, then year priority asc
+        candidates.sort((a, b) => tiebreakerCompare(a.value, b.value, a.tiebreaker, b.tiebreaker, a.year, b.year));
+        const winner = candidates[0];
+        return { userId: winner.userId, name: winner.name, value: winner.value };
+      };
+
+      // Assign activity leaders
+      result.activityLeaders.mostDoors = selectWinner(activityCandidates.doors);
+      result.activityLeaders.mostDMs = selectWinner(activityCandidates.dms);
+      result.activityLeaders.mostPitches = selectWinner(activityCandidates.pitches);
+      result.activityLeaders.mostTransitions = selectWinner(activityCandidates.transitions);
+      result.activityLeaders.mostPresentations = selectWinner(activityCandidates.presentations);
+      result.activityLeaders.mostCloses = selectWinner(activityCandidates.closes);
+
+      // Assign sales leaders
+      result.salesLeaders.mostFP = selectWinner(salesCandidates.fp);
+      result.salesLeaders.mostPRMR = selectWinner(salesCandidates.prmr);
+      result.salesLeaders.mostUpgradeFP = selectWinner(salesCandidates.upgradeFp);
+
+      // Assign hours worked
+      if (mostHoursCandidate) {
+        result.gritAwards.mostHoursWorked = { 
+          userId: mostHoursCandidate.userId, 
+          name: mostHoursCandidate.name, 
+          value: mostHoursCandidate.value 
+        };
+      }
 
       // Select Early Bird / Night Owl winners with fallback priority
       const actionPriority = ['First FP+', 'First Presentation', 'First Transition', 'First Pitch', 'First DM', 'First Door'];
