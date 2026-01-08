@@ -94,7 +94,7 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
       // Get daily entries for the incentive date range
       const { data: entries, error } = await supabase
         .from('daily_entries')
-        .select('user_id, entry_date, fp_plus, prmr, transitions, doors_knocked')
+        .select('user_id, entry_date, fp_plus, prmr, transitions, doors_knocked, sales_log')
         .in('user_id', eligibleUserIds)
         .gte('entry_date', incentive.start_date)
         .lte('entry_date', incentive.end_date);
@@ -118,7 +118,18 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
       });
 
       entries?.forEach(entry => {
-        const value = (entry as any)[metricColumn] || 0;
+        let value = 0;
+        
+        // For PRMR, sum from sales_log if the prmr column is 0 (sales logger data)
+        if (incentive.metric === 'prmr') {
+          const prmrFromColumn = entry.prmr || 0;
+          const salesLog = entry.sales_log as any[] | null;
+          const prmrFromSalesLog = salesLog?.reduce((sum, sale) => sum + (sale.prmr || 0), 0) || 0;
+          value = prmrFromColumn > 0 ? prmrFromColumn : prmrFromSalesLog;
+        } else {
+          value = (entry as any)[metricColumn] || 0;
+        }
+        
         userProgress[entry.user_id] = (userProgress[entry.user_id] || 0) + value;
       });
 

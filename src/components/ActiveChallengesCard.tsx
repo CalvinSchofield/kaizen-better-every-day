@@ -1,17 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import { useMyActiveChallenges, Challenge } from "@/hooks/useChallenges";
-import { useMyActiveIncentives } from "@/hooks/useIncentives";
+import { useMyActiveIncentives, Incentive } from "@/hooks/useIncentives";
 import { useChallengeProgress } from "@/hooks/useChallengeProgress";
+import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { CompeteDrawer } from "@/components/CompeteDrawer";
-import { Swords, Trophy, ChevronRight, Flame, Gift, Loader2, Plus } from "lucide-react";
+import { Swords, Trophy, ChevronRight, Flame, Gift, Loader2, Plus, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hapticLight } from "@/utils/haptics";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 const metricLabels: Record<string, string> = {
   fp_plus: 'FP+',
@@ -76,8 +80,50 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
   );
 };
 
+// Component to show incentive progress inline
+const IncentiveProgressItem = ({ incentive }: { incentive: Incentive }) => {
+  const { data: progress, isLoading } = useIncentiveProgress(incentive);
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-1">
+        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const isGroupIncentive = incentive.target_type === 'group_total';
+  const targetValue = incentive.target_value || 0;
+  const currentValue = isGroupIncentive ? (progress?.groupTotal || 0) : (progress?.leader?.current_value || 0);
+  const progressPercent = targetValue > 0 ? Math.min(100, (currentValue / targetValue) * 100) : 0;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground flex items-center gap-1">
+          {isGroupIncentive && <Users className="h-3 w-3" />}
+          {isGroupIncentive ? 'Group goal:' : 'First to'} {targetValue} {metricLabels[incentive.metric] || incentive.metric}
+        </span>
+        <Badge variant="outline" className="text-amber-600 border-amber-500/50 text-xs py-0">
+          🎁 {incentive.reward}
+        </Badge>
+      </div>
+      {isGroupIncentive && (
+        <div className="space-y-1">
+          <Progress value={progressPercent} className="h-2" />
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>{currentValue.toFixed(1)} / {targetValue}</span>
+            <span>{progressPercent.toFixed(0)}% complete</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const ActiveChallengesCard = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [competeDrawerOpen, setCompeteDrawerOpen] = useState(false);
   const {
     data: challenges,
@@ -89,6 +135,33 @@ export const ActiveChallengesCard = () => {
     isLoading: loadingIncentives,
     isError: incentivesError,
   } = useMyActiveIncentives();
+
+  // Subscribe to realtime updates for incentives and daily entries
+  useEffect(() => {
+    const channel = supabase
+      .channel('active-competitions-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'daily_entries' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['my-active-incentives'] });
+          queryClient.invalidateQueries({ queryKey: ['incentive-progress'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'incentives' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['my-active-incentives'] });
+          queryClient.invalidateQueries({ queryKey: ['incentives'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const activeChallenges = challenges?.filter((c) => c.status === "active") || [];
   const pendingChallenges = challenges?.filter((c) => c.status === "pending") || [];
@@ -265,14 +338,7 @@ export const ActiveChallengesCard = () => {
                 </div>
                 <Gift className="h-4 w-4 text-amber-600" />
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">
-                  First to {incentive.target_value} {metricLabels[incentive.metric] || incentive.metric}
-                </span>
-                <Badge variant="outline" className="text-amber-600 border-amber-500/50">
-                  🎁 {incentive.reward}
-                </Badge>
-              </div>
+              <IncentiveProgressItem incentive={incentive} />
             </div>
           ))}
 
