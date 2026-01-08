@@ -2,6 +2,29 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Incentive, IncentiveMetric } from "./useIncentives";
 import { useEffect } from "react";
+import { toZonedTime } from "date-fns-tz";
+
+// Get the timezone offset in minutes for a given timezone
+const getTimezoneOffset = (timezone: string): number => {
+  try {
+    const now = new Date();
+    const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const tzDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    return (tzDate.getTime() - utcDate.getTime()) / 60000;
+  } catch {
+    return 0;
+  }
+};
+
+// Find the westernmost (latest) timezone among a list
+const getLatestTimezone = (timezones: (string | null | undefined)[]): string => {
+  const validTimezones = timezones.filter(Boolean) as string[];
+  if (validTimezones.length === 0) return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
+  return validTimezones.reduce((latest, tz) => {
+    return getTimezoneOffset(tz) < getTimezoneOffset(latest) ? tz : latest;
+  });
+};
 
 export interface ParticipantProgress {
   user_id: string;
@@ -78,6 +101,14 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
 
       if (error) throw error;
 
+      // Fetch participant timezones for "latest" end time calculation
+      const { data: repTimezones } = await supabase
+        .from('reps')
+        .select('user_id, timezone')
+        .in('user_id', eligibleUserIds);
+      
+      const participantTimezones = repTimezones?.map(r => r.timezone) || [];
+
       const metricColumn = getMetricColumn(incentive.metric);
 
       // Aggregate values per user
@@ -111,11 +142,15 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
         ? Math.min(100, (groupTotal / targetValue) * 100)
         : Math.min(100, ((participants[0]?.current_value || 0) / targetValue) * 100);
 
-      // Time remaining calculation
-      const endDate = new Date(incentive.end_date);
-      endDate.setHours(23, 59, 59, 999);
-      const now = new Date();
-      const msLeft = endDate.getTime() - now.getTime();
+      // Time remaining calculation using the latest participant timezone
+      const latestTimezone = getLatestTimezone(participantTimezones);
+      const [year, month, day] = incentive.end_date.split('-').map(Number);
+      
+      // Compare "now" in the latest timezone to end of day in that timezone
+      const nowInLatestTz = toZonedTime(new Date(), latestTimezone);
+      const endDateInLatestTz = new Date(year, month - 1, day, 23, 59, 59, 999);
+      
+      const msLeft = endDateInLatestTz.getTime() - nowInLatestTz.getTime();
       
       let timeRemaining = 'Ended';
       if (msLeft > 0) {
