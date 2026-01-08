@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Challenge, ChallengeMetric } from "./useChallenges";
 import { useEffect } from "react";
 import { toZonedTime } from "date-fns-tz";
-
+import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 // Get the timezone offset in minutes for a given timezone
 // More negative = further west = later in the day
 const getTimezoneOffset = (timezone: string): number => {
@@ -63,29 +63,6 @@ const getMetricColumn = (metric: ChallengeMetric): string => {
     case 'doors_knocked': return 'doors_knocked';
     default: return 'fp_plus';
   }
-};
-
-// Calculate FP+ and PRMR from sales_log (matches Today Leaderboard logic)
-const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number } => {
-  if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0 };
-  
-  let fp = 0;
-  let prmr = 0;
-  
-  for (const sale of salesLog) {
-    if (sale.install_status === 'never_installed') continue;
-    
-    const salePrmr = Number(sale.prmr) || 0;
-    prmr += salePrmr;
-    
-    if (sale.type === 'fp') {
-      fp += 1;
-    } else if (sale.type === 'upgrade') {
-      fp += salePrmr / 85;
-    }
-  }
-  
-  return { fp, prmr };
 };
 
 export const useChallengeProgress = (challenge: Challenge | null, options?: { includePending?: boolean }) => {
