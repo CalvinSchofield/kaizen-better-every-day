@@ -15,27 +15,25 @@ export const useConfetti = () => {
     const end = Date.now() + duration;
     
     if (variant === 'money') {
-      // Money rain effect - green bills falling from top
-      const moneyColors = ['#85bb65', '#3d6b3d', '#228b22', '#2e8b57', '#006400'];
-      
-      // Create money shape (rectangle like a bill)
-      const moneyShape = confetti.shapeFromPath({
-        path: 'M0 0 L20 0 L20 10 L0 10 Z'
-      });
+      // Money rain effect with emoji shapes
+      const moneyEmojis = [
+        confetti.shapeFromText({ text: '💵', scalar: 2 }),
+        confetti.shapeFromText({ text: '💸', scalar: 2 }),
+        confetti.shapeFromText({ text: '💰', scalar: 2 }),
+      ];
       
       (function frame() {
         // Rain from random positions across the top
         confetti({
-          particleCount: 3,
+          particleCount: 2,
           angle: 270, // Straight down
-          spread: 30,
+          spread: 40,
           origin: { x: Math.random(), y: -0.1 },
-          colors: moneyColors,
-          shapes: ['circle', 'square'],
-          gravity: 1.2,
-          scalar: 1.2,
+          shapes: moneyEmojis,
+          gravity: 1.0,
+          scalar: 2,
           drift: (Math.random() - 0.5) * 2,
-          ticks: 300,
+          ticks: 400,
           zIndex: 9999,
         });
         
@@ -46,13 +44,12 @@ export const useConfetti = () => {
       
       // Initial burst from center-top
       confetti({
-        particleCount: 60,
-        spread: 100,
-        origin: { y: 0.2, x: 0.5 },
-        colors: moneyColors,
-        shapes: ['circle', 'square'],
-        gravity: 1.5,
-        scalar: 1.5,
+        particleCount: 40,
+        spread: 120,
+        origin: { y: 0.3, x: 0.5 },
+        shapes: moneyEmojis,
+        gravity: 1.2,
+        scalar: 2.5,
         zIndex: 9999,
       });
     } else if (variant === 'celebration') {
