@@ -3,14 +3,16 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMyActiveChallenges, Challenge, useRespondToChallenge } from "@/hooks/useChallenges";
 import { useMyActiveIncentives, Incentive } from "@/hooks/useIncentives";
 import { useChallengeProgress } from "@/hooks/useChallengeProgress";
+import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { CreateChallengeDrawer } from "@/components/leaderboard/CreateChallengeDrawer";
 import { CreateIncentiveDrawer } from "@/components/leaderboard/CreateIncentiveDrawer";
-import { Swords, Trophy, Gift, ChevronRight, Loader2, Check, X, Flame, Plus } from "lucide-react";
+import { Swords, Trophy, Gift, ChevronRight, Loader2, Check, X, Flame, Plus, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -77,6 +79,50 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
           {theirValue}
         </div>
       </div>
+    </div>
+  );
+};
+
+// Component to show incentive progress inline in drawer
+const IncentiveProgressInDrawer = ({ incentive }: { incentive: Incentive }) => {
+  const { data: progress, isLoading } = useIncentiveProgress(incentive);
+  const isGroupTotal = incentive.target_type === 'group_total';
+  const targetValue = incentive.target_value || 0;
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-1">
+        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const currentValue = isGroupTotal 
+    ? (progress?.groupTotal || 0) 
+    : (progress?.leader?.current_value || 0);
+  const progressPercent = targetValue > 0 ? Math.min(100, (currentValue / targetValue) * 100) : 0;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground flex items-center gap-1">
+          {isGroupTotal && <Users className="h-3 w-3" />}
+          {isGroupTotal ? 'Group goal:' : 'First to'} {targetValue} {metricLabels[incentive.metric] || incentive.metric}
+        </span>
+        <Badge variant="outline" className="text-amber-600 border-amber-500/50 text-[10px]">
+          🎁 {incentive.reward}
+        </Badge>
+      </div>
+      {/* Always show progress bar for group incentives */}
+      {isGroupTotal && (
+        <div className="space-y-1">
+          <Progress value={progressPercent} className="h-2" />
+          <div className="flex justify-between text-[10px] text-muted-foreground">
+            <span>{currentValue.toFixed(1)} / {targetValue}</span>
+            <span>{progressPercent.toFixed(0)}% complete</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -298,14 +344,7 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
                             </div>
                             <Gift className="h-4 w-4 text-amber-600" />
                           </div>
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              First to {incentive.target_value} {metricLabels[incentive.metric] || incentive.metric}
-                            </span>
-                            <Badge variant="outline" className="text-amber-600 border-amber-500/50 text-[10px]">
-                              🎁 {incentive.reward}
-                            </Badge>
-                          </div>
+                          <IncentiveProgressInDrawer incentive={incentive} />
                         </div>
                       ))}
                     </div>
