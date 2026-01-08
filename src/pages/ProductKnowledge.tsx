@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProductGuide } from "@/components/training/ProductGuide";
 import { productKnowledgeData, ProductData } from "@/components/training/productKnowledgeData";
+import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
 
 const ProductKnowledge = () => {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ const ProductKnowledge = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <EdgeSwipeContainer onBack={handleBack}>
       {/* Header */}
       <div 
         className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b"
@@ -71,7 +72,7 @@ const ProductKnowledge = () => {
           </Card>
         ))}
       </div>
-    </div>
+    </EdgeSwipeContainer>
   );
 };
 

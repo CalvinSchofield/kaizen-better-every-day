@@ -13,6 +13,7 @@ import { CompanyCredibility } from "@/components/about/CompanyCredibility";
 import { LeaderSection } from "@/components/about/LeaderSection";
 import { FinalCTA } from "@/components/about/FinalCTA";
 import { useAboutTeamPrefetch } from "@/hooks/useAboutTeamPrefetch";
+import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
 
 const AboutTeam = () => {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ const AboutTeam = () => {
   useAboutTeamPrefetch(true);
   
   return (
-    <div className="min-h-screen bg-background">
+    <EdgeSwipeContainer>
       {/* Fixed back button */}
       <Button
         variant="ghost"
@@ -44,7 +45,7 @@ const AboutTeam = () => {
       <CompanyCredibility />
       <LeaderSection />
       <FinalCTA />
-    </div>
+    </EdgeSwipeContainer>
   );
 };
 

@@ -12,6 +12,7 @@ import { EditValueDrawer } from '@/components/team-recap/EditValueDrawer';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { EdgeSwipeContainer } from '@/components/EdgeSwipeContainer';
 
 type ReportType = 'weekly' | 'monthly' | 'blitz';
 
@@ -179,7 +180,7 @@ export default function WeeklyRecapBuilder() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <EdgeSwipeContainer className="pb-24">
       {/* Header */}
       <div 
         className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-3"
@@ -344,6 +345,6 @@ export default function WeeklyRecapBuilder() {
         onSave={handleSaveEdit}
         type={editField?.type || 'number'}
       />
-    </div>
+    </EdgeSwipeContainer>
   );
 }

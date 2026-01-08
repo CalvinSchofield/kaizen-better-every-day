@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
 import { 
   recruitingContent, 
   ContentCategory, 
@@ -108,7 +109,7 @@ export default function RecruitingContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <EdgeSwipeContainer>
       {/* Header */}
       <div 
         className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border"
@@ -267,6 +268,6 @@ export default function RecruitingContent() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </EdgeSwipeContainer>
   );
 }

@@ -10,8 +10,8 @@ import { RampNextStep } from "@/components/ramp/RampNextStep";
 import { RampPhaseContent } from "@/components/ramp/RampPhaseContent";
 import { TakeoverPitchGuide } from "@/components/training/TakeoverPitchGuide";
 import { UpgradePitchGuide } from "@/components/training/UpgradePitchGuide";
+import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
 import confetti from "canvas-confetti";
-
 export type PhaseId = 1 | 2 | 3 | 4;
 export type PitchGuideType = "takeover" | "upgrade" | null;
 
@@ -169,7 +169,7 @@ const RampToBlitz = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-[max(0.5rem,env(safe-area-inset-top))]">
+    <EdgeSwipeContainer className="bg-background pt-[max(0.5rem,env(safe-area-inset-top))]">
       {/* Back Button Header */}
       <div className="px-4 py-3">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-1 -ml-2">
@@ -249,7 +249,7 @@ const RampToBlitz = () => {
           </Button>
         </div>
       </div>
-    </div>
+    </EdgeSwipeContainer>
   );
 };
 
