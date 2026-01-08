@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Users, Target, User } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -7,8 +7,11 @@ import { Progress } from "@/components/ui/progress";
 import { Incentive, IncentiveMetric } from "@/hooks/useIncentives";
 import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { differenceInHours, differenceInDays } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 import { IncentiveDetailSheet } from "./IncentiveDetailSheet";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface IncentiveCardProps {
   incentive: Incentive;
@@ -21,6 +24,30 @@ const metricLabels: Record<IncentiveMetric, string> = {
   doors_knocked: 'Doors',
 };
 
+// Get the timezone offset in minutes for a given timezone
+// More negative = further west = later in the day
+const getTimezoneOffset = (timezone: string): number => {
+  try {
+    const now = new Date();
+    const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const tzDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    return (tzDate.getTime() - utcDate.getTime()) / 60000; // offset in minutes
+  } catch {
+    return 0;
+  }
+};
+
+// Find the westernmost (latest) timezone among a list
+const getLatestTimezone = (timezones: (string | null)[]): string => {
+  const validTimezones = timezones.filter(Boolean) as string[];
+  if (validTimezones.length === 0) return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
+  // Sort by offset (most negative = furthest west = latest time)
+  return validTimezones.reduce((latest, tz) => {
+    return getTimezoneOffset(tz) < getTimezoneOffset(latest) ? tz : latest;
+  });
+};
+
 export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
   const [showDetail, setShowDetail] = useState(false);
   const isActive = incentive.status === 'active';
@@ -29,21 +56,51 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
 
   const { data: progressData } = useIncentiveProgress(isActive ? incentive : null);
 
-  // Format time remaining
-  const getTimeRemaining = () => {
-    const endDate = new Date(incentive.end_date);
-    endDate.setHours(23, 59, 59, 999);
-    const now = new Date();
+  // Fetch participant timezones to determine the latest end time
+  const { data: participantTimezones } = useQuery({
+    queryKey: ['incentive-participant-timezones', incentive.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('incentive_eligible_reps')
+        .select('user_id')
+        .eq('incentive_id', incentive.id);
+      
+      if (error || !data?.length) return [];
+      
+      const userIds = data.map(r => r.user_id);
+      const { data: reps } = await supabase
+        .from('reps')
+        .select('user_id, timezone')
+        .in('user_id', userIds);
+      
+      return reps?.map(r => r.timezone) || [];
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Format time remaining using the latest participant timezone
+  const getTimeRemaining = useMemo(() => {
+    const latestTimezone = getLatestTimezone(participantTimezones || []);
     
-    if (endDate < now) return 'Ended';
+    // Create end of day in the latest timezone
+    const endDateStr = incentive.end_date;
+    // Parse as local date then set to end of day in the latest timezone
+    const [year, month, day] = endDateStr.split('-').map(Number);
     
-    const hoursLeft = differenceInHours(endDate, now);
-    const daysLeft = differenceInDays(endDate, now);
+    // Create a date at 23:59:59 in the latest timezone
+    // We compare against "now" in that same timezone
+    const nowInLatestTz = toZonedTime(new Date(), latestTimezone);
+    const endDateInLatestTz = new Date(year, month - 1, day, 23, 59, 59, 999);
+    
+    if (endDateInLatestTz < nowInLatestTz) return 'Ended';
+    
+    const hoursLeft = differenceInHours(endDateInLatestTz, nowInLatestTz);
+    const daysLeft = differenceInDays(endDateInLatestTz, nowInLatestTz);
     
     if (daysLeft > 0) return `${daysLeft}d left`;
     if (hoursLeft > 0) return `${hoursLeft}h left`;
     return 'Ending soon';
-  };
+  }, [incentive.end_date, participantTimezones]);
 
   const handleClick = () => {
     Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
@@ -87,7 +144,7 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
           
           {isActive && (
             <span className="text-xs font-medium bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
-              {getTimeRemaining()}
+              {getTimeRemaining}
             </span>
           )}
           {isCompleted && (

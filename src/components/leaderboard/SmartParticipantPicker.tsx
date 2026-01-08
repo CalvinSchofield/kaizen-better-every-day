@@ -78,8 +78,6 @@ export const SmartParticipantPicker = ({
       const startStr = format(dateRange.start, 'yyyy-MM-dd');
       const endStr = format(dateRange.end, 'yyyy-MM-dd');
       
-      console.log('[SmartParticipantPicker] Fetching planned days for range:', startStr, 'to', endStr);
-      
       const { data, error } = await supabase
         .from('planned_work_days')
         .select('user_id, planned_date')
@@ -91,8 +89,6 @@ export const SmartParticipantPicker = ({
         return {};
       }
       
-      console.log('[SmartParticipantPicker] Found planned days:', data?.length, 'records');
-      
       // Group by user_id - just need to know if they have ANY planned day in range
       const userPlannedDays: Record<string, boolean> = {};
       data?.forEach(row => {
@@ -100,8 +96,6 @@ export const SmartParticipantPicker = ({
           userPlannedDays[row.user_id] = true;
         }
       });
-      
-      console.log('[SmartParticipantPicker] Users with planned days:', Object.keys(userPlannedDays).length);
       
       return userPlannedDays;
     },
