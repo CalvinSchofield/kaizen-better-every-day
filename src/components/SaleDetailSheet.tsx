@@ -121,11 +121,13 @@ export const SaleDetailSheet = ({
       setSaleTime(time);
       setInstallStatus(sale.install_status || 'installed');
       
-      // CRM fields
+      // CRM fields - handle both field naming conventions for backwards compatibility
       setCustomerName(sale.customer_name || "");
       setCustomerPhone(sale.customer_phone || "");
-      setAccountNumber(sale.customer_account_number || "");
-      setCustomerAddress(sale.customer_location || "");
+      // Handle both account_number (LogSaleSheet) and customer_account_number (useDailyEntry) field names
+      setAccountNumber((sale as any).account_number || sale.customer_account_number || "");
+      // Handle both customer_address (LogSaleSheet) and customer_location (useDailyEntry) field names
+      setCustomerAddress((sale as any).customer_address || sale.customer_location || "");
       setCustomerLat(sale.customer_lat || null);
       setCustomerLng(sale.customer_lng || null);
       setTimeToSellMinutes(sale.time_to_sell_minutes || 30);
@@ -289,12 +291,15 @@ export const SaleDetailSheet = ({
       install_status: installStatus,
     };
 
-    // Add CRM fields if enabled
+    // Add CRM fields if enabled - use both field naming conventions for compatibility
     if (crmEnabled) {
       updatedSale.customer_name = customerName.trim() || undefined;
       updatedSale.customer_phone = customerPhone.trim() || undefined;
+      // Save to both field names for compatibility with LogSaleSheet and useDailyEntry
       updatedSale.customer_account_number = accountNumber.trim() || undefined;
+      (updatedSale as any).account_number = accountNumber.trim() || undefined;
       updatedSale.customer_location = customerAddress.trim() || undefined;
+      (updatedSale as any).customer_address = customerAddress.trim() || undefined;
       if (customerLat !== null) updatedSale.customer_lat = customerLat;
       if (customerLng !== null) updatedSale.customer_lng = customerLng;
 
@@ -322,8 +327,8 @@ export const SaleDetailSheet = ({
   const dateStr = format(parseISO(entryDate), 'MMM d, yyyy');
   const timeStr = format(parseISO(sale.timestamp), 'h:mm a');
   
-  // Check if there's any CRM data to display
-  const hasCrmData = sale.customer_name || sale.customer_phone || sale.customer_account_number || sale.customer_location;
+  // Check if there's any CRM data to display - handle both field naming conventions
+  const hasCrmData = sale.customer_name || sale.customer_phone || sale.customer_account_number || (sale as any).account_number || sale.customer_location || (sale as any).customer_address;
   const hasDetailedCrmData = sale.time_to_sell_minutes || sale.deal_type || sale.money_spent || sale.difficulty;
 
   // Summary View Component
@@ -389,16 +394,16 @@ export const SaleDetailSheet = ({
                 <span className="text-sm">{sale.customer_phone}</span>
               </div>
             )}
-            {sale.customer_account_number && (
+            {(sale.customer_account_number || (sale as any).account_number) && (
               <div className="flex items-center gap-2">
                 <Hash className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-sm">A-{sale.customer_account_number}</span>
+                <span className="text-sm">A-{sale.customer_account_number || (sale as any).account_number}</span>
               </div>
             )}
-            {sale.customer_location && (
+            {(sale.customer_location || (sale as any).customer_address) && (
               <div className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                <span className="text-sm">{sale.customer_location}</span>
+                <span className="text-sm">{sale.customer_location || (sale as any).customer_address}</span>
               </div>
             )}
           </div>
@@ -490,7 +495,7 @@ export const SaleDetailSheet = ({
 
   // Edit View Component
   const EditView = () => (
-    <div className="px-4 pb-6 space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0" style={{ maxHeight: 'min(70svh, 70vh)' }}>
+    <div className="px-4 pb-6 space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0" style={{ maxHeight: 'min(60svh, 60vh)' }}>
       {/* Funding Status Toggle */}
       <div className="space-y-2">
         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -597,11 +602,16 @@ export const SaleDetailSheet = ({
           </span>
           <Input
             ref={inputRef}
-            type="number"
+            type="text"
             inputMode="decimal"
+            pattern="[0-9]*\.?[0-9]*"
             placeholder="0"
             value={prmr}
-            onChange={(e) => setPrmr(e.target.value)}
+            onChange={(e) => {
+              // Allow only numbers and decimal point
+              const value = e.target.value.replace(/[^0-9.]/g, '');
+              setPrmr(value);
+            }}
             className="pl-9 text-2xl font-bold h-14 text-center"
           />
         </div>
@@ -616,7 +626,7 @@ export const SaleDetailSheet = ({
           type="time"
           value={saleTime}
           onChange={(e) => setSaleTime(e.target.value)}
-          className="h-12"
+          className="h-12 w-full [&::-webkit-calendar-picker-indicator]:opacity-100"
         />
       </div>
 
@@ -727,7 +737,7 @@ export const SaleDetailSheet = ({
             )}
             {customerLat && customerLng && (
               <p className="text-[10px] text-muted-foreground">
-                📍 Location saved ({customerLat.toFixed(4)}, {customerLng.toFixed(4)})
+                📍 Location saved {customerAddress ? '' : `(${customerLat.toFixed(4)}, ${customerLng.toFixed(4)})`}
               </p>
             )}
           </div>
@@ -796,11 +806,12 @@ export const SaleDetailSheet = ({
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
               <Input
-                type="number"
+                type="text"
                 inputMode="numeric"
+                pattern="[0-9]*"
                 placeholder="0"
                 value={moneySpent}
-                onChange={(e) => setMoneySpent(e.target.value)}
+                onChange={(e) => setMoneySpent(e.target.value.replace(/[^0-9]/g, ''))}
                 className="pl-7 h-10"
               />
             </div>
