@@ -23,6 +23,7 @@ interface PitchGuideProps {
   pageTitle: string;
   audioSrc?: string;
   onBack?: () => void;
+  initialMode?: "practice" | "reference";
 }
 
 const formatTime = (seconds: number) => {
@@ -31,8 +32,8 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
-export const PitchGuide = ({ sections, pageTitle, audioSrc, onBack }: PitchGuideProps) => {
-  const [mode, setMode] = useState<"practice" | "reference">("practice");
+export const PitchGuide = ({ sections, pageTitle, audioSrc, onBack, initialMode = "practice" }: PitchGuideProps) => {
+  const [mode, setMode] = useState<"practice" | "reference">(initialMode);
   const [currentStep, setCurrentStep] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<number[]>([]);

@@ -6,11 +6,12 @@ import { inHomeSections } from "./inHomePitchData";
 
 interface InHomePitchGuideProps {
   onBack?: () => void;
+  initialMode?: "practice" | "reference";
 }
 
 const VIDEO_URL = "https://dthvivinttraining.conveyour.com/ui/portal/course/682b650d0866a26ac3318a1f/lesson/682b665eae62a2345d538e1a";
 
-export const InHomePitchGuide = ({ onBack }: InHomePitchGuideProps) => {
+export const InHomePitchGuide = ({ onBack, initialMode }: InHomePitchGuideProps) => {
   return (
     <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
       {/* Back button */}
@@ -49,6 +50,7 @@ export const InHomePitchGuide = ({ onBack }: InHomePitchGuideProps) => {
         sections={inHomeSections}
         pageTitle="In-Home Presentation"
         audioSrc="/audio/in-home-presentation.m4a"
+        initialMode={initialMode}
       />
     </div>
   );
