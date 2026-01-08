@@ -158,9 +158,12 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
   const insights = useMemo<CustomerInsightsData | null>(() => {
     if (!allSales || allSales.length === 0) return null;
 
-    // Filter sales by date range
+    // Filter sales by date range and exclude never_installed sales
     // Use startOfDay and endOfDay to ensure entire day is included for single-day ranges
     const filteredSales = allSales.filter(sale => {
+      // Exclude sales that were never installed - they shouldn't count in any metrics
+      if (sale.install_status === 'never_installed') return false;
+      
       const saleDate = parseISO(sale.entry_date);
       return isWithinInterval(saleDate, { 
         start: startOfDay(dateRange.start), 
