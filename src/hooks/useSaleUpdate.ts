@@ -119,40 +119,27 @@ export const useSaleUpdate = () => {
       const updatedSalesLog = salesLog.filter(s => s.id !== saleId);
 
       // Recalculate FP+ and PRMR from remaining funded sales only (exclude cancelled AND never_installed)
-      const fundedSales = updatedSalesLog.filter(s => 
+      const deleteFundedSales = updatedSalesLog.filter(s =>
         s.install_status !== 'cancelled' && s.install_status !== 'never_installed'
       );
-      const fpSales = fundedSales.filter(s => s.type === 'fp');
-      const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
-      
-      const fpCount = fpSales.length;
-      const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
-      const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
-      const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
-      const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
+      const deleteFpSales = deleteFundedSales.filter(s => s.type === 'fp');
+      const deleteUpgradeSales = deleteFundedSales.filter(s => s.type === 'upgrade');
 
-      // Recalculate totals from remaining funded sales only (exclude cancelled AND never_installed)
-      const fundedSales = updatedSalesLog.filter(s =>
-        s.install_status !== 'cancelled' && s.install_status !== 'never_installed'
-      );
-      const fpSales = fundedSales.filter(s => s.type === 'fp');
-      const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
-
-      const fpCount = fpSales.length;
-      const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
-      const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
-      const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
-      const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
+      const deleteFpCount = deleteFpSales.length;
+      const deleteFpPrmrTotal = deleteFpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+      const deleteUpgradePrmrTotal = deleteUpgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+      const deleteTotalPrmr = deleteFpPrmrTotal + deleteUpgradePrmrTotal;
+      const deleteCalculatedFpPlus = deleteFpCount + (deleteUpgradePrmrTotal / 85);
 
       // Update entry with new sales_log and recalculated totals
       const { error: updateError } = await supabase
         .from('daily_entries')
         .update({
           sales_log: updatedSalesLog as any,
-          closes: fundedSales.length,
-          fp_plus: Math.round(calculatedFpPlus * 100) / 100,
-          prmr: Math.round(totalPrmr * 100) / 100,
-          upgrade_prmr: Math.round(upgradePrmrTotal * 100) / 100,
+          closes: deleteFundedSales.length,
+          fp_plus: Math.round(deleteCalculatedFpPlus * 100) / 100,
+          prmr: Math.round(deleteTotalPrmr * 100) / 100,
+          upgrade_prmr: Math.round(deleteUpgradePrmrTotal * 100) / 100,
         })
         .eq('id', entryId);
 
