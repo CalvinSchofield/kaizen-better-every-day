@@ -63,14 +63,6 @@ export const useAppMode = (repData?: any) => {
     });
   }, [repData?.committed_blitzes]);
 
-  // Determine who can access knocking toggle
-  const canAccessKnockingToggle = useMemo(() => {
-    const year = repData?.year || "Rookie";
-    // Vets and Sophomores always have access
-    if (year === "Vet" || year === "Sophomore") return true;
-    // Rookies only after attending first blitz
-    return hasAttendedBlitz;
-  }, [repData?.year, hasAttendedBlitz]);
 
   // Get cached season config for instant loading
   const getCachedSeasonConfig = (): SeasonConfig | null => {
@@ -138,6 +130,15 @@ export const useAppMode = (repData?: any) => {
 
     return today >= effectiveStart && today <= effectiveEnd;
   }, [seasonConfig]);
+
+  // Determine who can access knocking toggle
+  const canAccessKnockingToggle = useMemo(() => {
+    const year = repData?.year || "Rookie";
+    // Vets and Sophomores always have access
+    if (year === "Vet" || year === "Sophomore") return true;
+    // Rookies: access if currently on blitz, post-blitz, OR in their personal summer period
+    return isOnActiveBlitz || hasAttendedBlitz || isInSummerPeriod;
+  }, [repData?.year, isOnActiveBlitz, hasAttendedBlitz, isInSummerPeriod]);
 
   // Calculate if knocking mode should be active
   const isKnockingMode = useMemo(() => {
