@@ -46,15 +46,15 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
   const { data: teamAccess } = useTeamAccess();
   const createMutation = useCreateIncentive();
 
-  // Get current user's timezone from their rep record
+  // Get current user's rep data for participant picker
   const { data: currentUserRep } = useQuery({
-    queryKey: ['current-user-timezone'],
+    queryKey: ['current-user-rep-for-incentive'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
       const { data } = await supabase
         .from('reps')
-        .select('timezone, user_id')
+        .select('timezone, user_id, name')
         .eq('user_id', user.id)
         .single();
       return data;
@@ -297,6 +297,7 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
                 onSelectAll={selectAll}
                 onClear={clearSelection}
                 currentUserId={currentUserRep?.user_id}
+                currentUserRep={currentUserRep}
                 dateRange={getDateRange()}
                 showSelfInList={true}
               />

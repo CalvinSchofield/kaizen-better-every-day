@@ -209,6 +209,7 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
                 onSelectAll={selectAll}
                 onClear={clearSelection}
                 currentUserId={currentUserRep?.user_id}
+                currentUserRep={currentUserRep}
                 dateRange={endDate ? { start: parseISO(incentive.start_date), end: endDate } : undefined}
                 showSelfInList={true}
               />

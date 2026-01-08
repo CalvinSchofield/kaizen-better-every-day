@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 
 interface Rep {
   id: string;
@@ -48,14 +49,15 @@ export const useSmartRepSorting = (
   currentUserId?: string | null,
   excludeCurrentUser: boolean = true
 ) => {
-  // Fetch planned work days within date range
+  // Fetch planned work days within date range - use local date format to avoid timezone issues
   const { data: plannedWorkDays, isLoading: loadingPlannedDays } = useQuery({
-    queryKey: ['planned-work-days-for-sorting', dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
+    queryKey: ['planned-work-days-for-sorting', dateRange ? format(dateRange.start, 'yyyy-MM-dd') : null, dateRange ? format(dateRange.end, 'yyyy-MM-dd') : null],
     queryFn: async () => {
       if (!dateRange) return {};
       
-      const startStr = dateRange.start.toISOString().split('T')[0];
-      const endStr = dateRange.end.toISOString().split('T')[0];
+      // Use local date format instead of toISOString() to avoid UTC conversion issues
+      const startStr = format(dateRange.start, 'yyyy-MM-dd');
+      const endStr = format(dateRange.end, 'yyyy-MM-dd');
       
       const { data, error } = await supabase
         .from('planned_work_days')

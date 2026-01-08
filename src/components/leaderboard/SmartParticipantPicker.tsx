@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { CalendarCheck, CalendarX } from "lucide-react";
+import { format } from "date-fns";
 
 interface Rep {
   id: string;
@@ -29,6 +30,7 @@ interface SmartParticipantPickerProps {
   onSelectAll: () => void;
   onClear: () => void;
   currentUserId?: string | null;
+  currentUserRep?: { user_id: string; name: string } | null; // Pass current user's rep data
   dateRange?: { start: Date; end: Date };
   showSelfInList?: boolean; // Whether to include current user in list
 }
@@ -62,17 +64,19 @@ export const SmartParticipantPicker = ({
   onSelectAll,
   onClear,
   currentUserId,
+  currentUserRep,
   dateRange,
   showSelfInList = true,
 }: SmartParticipantPickerProps) => {
-  // Fetch planned work days within date range
+  // Fetch planned work days within date range - use local date format to avoid timezone issues
   const { data: plannedWorkDays } = useQuery({
-    queryKey: ['planned-work-days-for-picker', dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
+    queryKey: ['planned-work-days-for-picker', dateRange ? format(dateRange.start, 'yyyy-MM-dd') : null, dateRange ? format(dateRange.end, 'yyyy-MM-dd') : null],
     queryFn: async () => {
       if (!dateRange) return {};
       
-      const startStr = dateRange.start.toISOString().split('T')[0];
-      const endStr = dateRange.end.toISOString().split('T')[0];
+      // Use local date format instead of toISOString() to avoid UTC conversion issues
+      const startStr = format(dateRange.start, 'yyyy-MM-dd');
+      const endStr = format(dateRange.end, 'yyyy-MM-dd');
       
       const { data, error } = await supabase
         .from('planned_work_days')
@@ -99,30 +103,66 @@ export const SmartParticipantPicker = ({
     staleTime: 60 * 1000, // 1 minute
   });
 
-  // Filter and sort reps
-  const { workingReps, notWorkingReps, eligibleCount } = useMemo(() => {
+  // Build combined reps list including current user if needed
+  const combinedReps = useMemo(() => {
+    let reps = [...allReps];
+    
+    // Add current user to list if showSelfInList is true and they're not already in the list
+    if (showSelfInList && currentUserId && currentUserRep) {
+      const selfExists = reps.some(r => r.userId === currentUserId);
+      if (!selfExists) {
+        // Create a rep entry for the current user
+        reps.unshift({
+          id: currentUserId,
+          userId: currentUserId,
+          name: currentUserRep.name,
+          stage: 'signed', // Assume active stage for self
+        });
+      }
+    }
+    
+    return reps;
+  }, [allReps, currentUserId, currentUserRep, showSelfInList]);
+
+  // Filter and sort reps, grouped by team
+  const { workingByTeam, notWorkingByTeam, eligibleCount } = useMemo(() => {
     // First, filter to only active stages and those with userId
-    const eligibleReps = allReps.filter(rep => {
+    const eligibleReps = combinedReps.filter(rep => {
       if (!rep.userId) return false;
       
-      const normalizedStage = normalizeStage(rep.stage);
-      const isActiveStage = normalizedStage && ACTIVE_STAGES.includes(normalizedStage);
+      // Current user is always eligible if showSelfInList
+      if (showSelfInList && rep.userId === currentUserId) return true;
       
-      // Include reps in active stages OR the current user themselves
-      return isActiveStage || (showSelfInList && rep.userId === currentUserId);
+      const normalizedStage = normalizeStage(rep.stage);
+      return normalizedStage && ACTIVE_STAGES.includes(normalizedStage);
     });
 
-    // Sort function: by team name, then by name alphabetically
+    // Sort function: alphabetically by name within each team
     const sortReps = (reps: Rep[]) => {
-      return [...reps].sort((a, b) => {
-        // First by team name
-        const teamA = a.teamName || '';
-        const teamB = b.teamName || '';
-        if (teamA !== teamB) return teamA.localeCompare(teamB);
-        
-        // Then alphabetically by name
-        return a.name.localeCompare(b.name);
+      return [...reps].sort((a, b) => a.name.localeCompare(b.name));
+    };
+
+    // Group by team - Map<teamName, Rep[]>
+    const groupByTeam = (reps: Rep[]): Map<string, Rep[]> => {
+      const grouped = new Map<string, Rep[]>();
+      
+      reps.forEach(rep => {
+        const teamKey = rep.teamName || 'Other';
+        if (!grouped.has(teamKey)) {
+          grouped.set(teamKey, []);
+        }
+        grouped.get(teamKey)!.push(rep);
       });
+      
+      // Sort reps within each team
+      grouped.forEach((teamReps, key) => {
+        grouped.set(key, sortReps(teamReps));
+      });
+      
+      // Sort teams alphabetically
+      const sortedMap = new Map([...grouped.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+      
+      return sortedMap;
     };
 
     // Split into working/not working based on planned days
@@ -149,11 +189,11 @@ export const SmartParticipantPicker = ({
     });
 
     return {
-      workingReps: sortReps(working),
-      notWorkingReps: sortReps(notWorking),
+      workingByTeam: groupByTeam(working),
+      notWorkingByTeam: groupByTeam(notWorking),
       eligibleCount: eligibleReps.length,
     };
-  }, [allReps, plannedWorkDays, currentUserId, showSelfInList]);
+  }, [combinedReps, plannedWorkDays, currentUserId, showSelfInList]);
 
   const renderRepItem = (rep: Rep, isSelf: boolean = false) => {
     if (!rep.userId) return null;
@@ -172,20 +212,32 @@ export const SmartParticipantPicker = ({
         <Avatar className="h-6 w-6">
           <AvatarFallback className="text-xs">{rep.name.charAt(0)}</AvatarFallback>
         </Avatar>
-        <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium block truncate">
-            {rep.name}
-            {isSelf && <span className="text-muted-foreground ml-1">(You)</span>}
-          </span>
-          {rep.teamName && (
-            <span className="text-xs text-muted-foreground block truncate">{rep.teamName}</span>
-          )}
-        </div>
+        <span className="text-sm font-medium truncate flex-1">
+          {rep.name}
+          {isSelf && <span className="text-muted-foreground ml-1">(You)</span>}
+        </span>
       </label>
     );
   };
 
+  const renderTeamGroup = (teamName: string, reps: Rep[], showHeader: boolean = true) => {
+    return (
+      <div key={teamName} className="space-y-1">
+        {showHeader && (
+          <div className="text-xs font-semibold text-muted-foreground px-2 pt-2">
+            {teamName}
+          </div>
+        )}
+        {reps.map(rep => 
+          renderRepItem(rep, rep.userId === currentUserId)
+        )}
+      </div>
+    );
+  };
+
   const totalSelected = allSelected ? eligibleCount : selectedUserIds.length;
+  const hasWorkingReps = workingByTeam.size > 0;
+  const hasNotWorkingReps = notWorkingByTeam.size > 0;
 
   return (
     <div className="space-y-3">
@@ -214,7 +266,7 @@ export const SmartParticipantPicker = ({
 
       <div className="max-h-60 overflow-y-auto space-y-1 rounded-lg border border-border p-2">
         {/* Working reps section */}
-        {workingReps.length > 0 && (
+        {hasWorkingReps && (
           <>
             {dateRange && (
               <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
@@ -222,14 +274,14 @@ export const SmartParticipantPicker = ({
                 <span>Planning to work</span>
               </div>
             )}
-            {workingReps.map(rep => 
-              renderRepItem(rep, rep.userId === currentUserId)
+            {Array.from(workingByTeam.entries()).map(([teamName, reps]) => 
+              renderTeamGroup(teamName, reps, workingByTeam.size > 1 || teamName !== 'Other')
             )}
           </>
         )}
 
         {/* Separator between working and not working */}
-        {workingReps.length > 0 && notWorkingReps.length > 0 && (
+        {hasWorkingReps && hasNotWorkingReps && (
           <div className="py-2">
             <Separator className="my-1" />
             <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
@@ -240,10 +292,16 @@ export const SmartParticipantPicker = ({
         )}
 
         {/* Not working reps section */}
-        {notWorkingReps.map(rep => renderRepItem(rep))}
+        {hasNotWorkingReps && (
+          <>
+            {Array.from(notWorkingByTeam.entries()).map(([teamName, reps]) => 
+              renderTeamGroup(teamName, reps, notWorkingByTeam.size > 1 || teamName !== 'Other')
+            )}
+          </>
+        )}
 
         {/* Empty state */}
-        {workingReps.length === 0 && notWorkingReps.length === 0 && (
+        {!hasWorkingReps && !hasNotWorkingReps && (
           <div className="text-center py-4 text-sm text-muted-foreground">
             No eligible participants found
           </div>
