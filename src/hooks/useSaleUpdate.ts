@@ -79,13 +79,16 @@ export const useSaleUpdate = () => {
       queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
       queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
       queryClient.invalidateQueries({ queryKey: ['canceled-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['insights-data'] });
+      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['weekly-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['monthly-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['season-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['ytd-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'] });
       toast.success('Sale updated');
     },
     onError: (error) => {
@@ -153,14 +156,17 @@ export const useSaleUpdate = () => {
       queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
       queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
       queryClient.invalidateQueries({ queryKey: ['canceled-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['insights-data'] });
+      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['pending-installs'] });
+      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['weekly-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['monthly-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['season-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['ytd-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'] });
       toast.success('Sale removed');
     },
     onError: (error) => {
