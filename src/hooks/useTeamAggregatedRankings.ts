@@ -81,8 +81,9 @@ const getDateRange = (period: 'week' | 'month' | 'season' | 'ytd') => {
       return { start: getLocalDateString(startDate), end: getLocalDateString(endDate) };
     }
     case 'ytd': {
-      const yearStart = new Date(currentYear, 0, 1);
-      return { start: getLocalDateString(yearStart), end: getLocalDateString(now) };
+      // YTD = Sales Season to date (from Sept 28, 2025)
+      const seasonStart = new Date(2025, 8, 28); // Sept 28, 2025
+      return { start: getLocalDateString(seasonStart), end: getLocalDateString(now) };
     }
   }
 };
