@@ -4,6 +4,7 @@ import { useRepGoals } from '@/hooks/useRepGoals';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { useFocusTier, FocusTier } from '@/hooks/useFocusTier';
+import { useCumulativeFP } from '@/hooks/useCumulativeFP';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { calculateSalesPace } from '@/utils/salesPaceCalculator';
@@ -38,13 +39,32 @@ export const InsightsSummaryHero = ({
   const { goals } = useRepGoals();
   const { plannedDays } = usePlannedDays();
   const { calculateEfp } = useEfpMode();
+  const { data: cumulativeData } = useCumulativeFP();
   
   // Check if goals are set up
   const goalsSetUp = goals?.setup_complete === true;
   
-  // Get current progress and focus tier
-  const currentProgress = efpModeEnabled ? totalEfp : totalFp;
-  const { focusTier, setFocusTier, allTiers, isUserSummerStarted } = useFocusTier(currentProgress);
+  // Get GLOBAL progress from cumulative data (for pace calculation)
+  const globalStats = useMemo(() => {
+    if (!cumulativeData || cumulativeData.length === 0) {
+      return { totalFp: 0, totalPrmr: 0, totalEfp: 0, knockingDays: 0 };
+    }
+    const latest = cumulativeData[cumulativeData.length - 1];
+    return {
+      totalFp: latest.cumulativeFp,
+      totalPrmr: latest.cumulativePrmr,
+      totalEfp: latest.cumulative,
+      knockingDays: latest.knockingDayNumber,
+    };
+  }, [cumulativeData]);
+  
+  // Get current progress for display (filtered by date range)
+  const displayProgress = efpModeEnabled ? totalEfp : totalFp;
+  
+  // Get GLOBAL progress for pace calculation
+  const globalProgress = efpModeEnabled ? globalStats.totalEfp : globalStats.totalFp;
+  
+  const { focusTier, setFocusTier, allTiers, isUserSummerStarted } = useFocusTier(globalProgress);
   
   const fpPerDay = daysWorked > 0 ? (efpModeEnabled ? totalEfp : totalFp) / daysWorked : 0;
   
@@ -55,16 +75,16 @@ export const InsightsSummaryHero = ({
     return !isAfter(dateRange.end, PRESEASON_END);
   }, [dateRange, isUserSummerStarted]);
   
-  // Calculate pace status using centralized calculator with focus tier
+  // Calculate pace status using centralized calculator with GLOBAL data
   const paceStatus = useMemo(() => {
-    if (!goalsSetUp) return null;
+    if (!goalsSetUp || globalStats.knockingDays === 0) return null;
     
     const result = calculateSalesPace({
       goals,
       plannedDays,
-      knockingDays: daysWorked,
-      currentFpPlus: totalFp,
-      currentPrmr: totalPrmr,
+      knockingDays: globalStats.knockingDays, // Use GLOBAL knocking days
+      currentFpPlus: globalStats.totalFp,      // Use GLOBAL FP+
+      currentPrmr: globalStats.totalPrmr,      // Use GLOBAL PRMR
       efpModeEnabled,
       calculateEfp,
       // Use preseason if viewing preseason data, otherwise use focus tier
@@ -83,9 +103,9 @@ export const InsightsSummaryHero = ({
       isInPreseason: isViewingPreseasonData,
       focusTier: isViewingPreseasonData ? null : focusTier,
       projectedFinal: result.projectedFinal,
-      currentAverage: daysWorked > 0 ? (efpModeEnabled ? totalEfp : totalFp) / daysWorked : 0,
+      currentAverage: globalStats.knockingDays > 0 ? globalProgress / globalStats.knockingDays : 0,
     };
-  }, [goals, goalsSetUp, plannedDays, totalFp, totalPrmr, totalEfp, efpModeEnabled, daysWorked, calculateEfp, focusTier, isViewingPreseasonData]);
+  }, [goals, goalsSetUp, plannedDays, globalStats, efpModeEnabled, calculateEfp, focusTier, isViewingPreseasonData, globalProgress]);
   
   // Calculate stretch goal suggestion
   const stretchSuggestion = useMemo(() => {
@@ -193,7 +213,7 @@ export const InsightsSummaryHero = ({
             const isActive = focusTier === tier;
             const tierData = allTiers[tier];
             const config = tierConfig[tier];
-            const progressPercent = tierData.goal > 0 ? Math.min((currentProgress / tierData.goal) * 100, 100) : 0;
+            const progressPercent = tierData.goal > 0 ? Math.min((globalProgress / tierData.goal) * 100, 100) : 0;
             
             return (
               <button
