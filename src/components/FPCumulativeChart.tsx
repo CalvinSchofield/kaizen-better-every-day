@@ -239,9 +239,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
             : (d.cumulativePrmr ?? 0) - (knockingDays[i - 1]?.cumulativePrmr ?? 0));
     });
     
-    const last6Days = dailyValues.slice(-6);
-    const avg6Day = last6Days.length > 0 ? last6Days.reduce((sum, v) => sum + v, 0) / last6Days.length : 0;
-    
     const last12Days = dailyValues.slice(-12);
     const avg12Day = last12Days.length > 0 ? last12Days.reduce((sum, v) => sum + v, 0) / last12Days.length : 0;
     
@@ -257,7 +254,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
       }
     }
     
-    return { avg6Day, avg12Day, dailyGoalPace };
+    return { avg12Day, dailyGoalPace };
   }, [cumulativeData, metricType, efpModeEnabled, goalPaceData, isPreseason, selectedGoalLine]);
 
   const isInHighlightRangeMemo = useCallback((dateStr: string): boolean => {
@@ -429,13 +426,13 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     );
   };
 
-  // Determine if above/below goal
+  // Determine if above/below goal (using 12-day rolling average)
   const isAboveGoal = rollingAverages && rollingAverages.dailyGoalPace > 0 
-    ? rollingAverages.avg6Day >= rollingAverages.dailyGoalPace 
+    ? rollingAverages.avg12Day >= rollingAverages.dailyGoalPace 
     : true;
 
   const paceGap = rollingAverages && rollingAverages.dailyGoalPace > 0
-    ? Math.abs(rollingAverages.avg6Day - rollingAverages.dailyGoalPace)
+    ? Math.abs(rollingAverages.avg12Day - rollingAverages.dailyGoalPace)
     : 0;
 
   return (
@@ -474,12 +471,12 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
                 </motion.div>
               </AnimatePresence>
 
-              {/* Summary Line */}
+              {/* Summary Line - 12 working day rolling average */}
               {rollingAverages && metricType === 'primary' && rollingAverages.dailyGoalPace > 0 && (
                 <div className={`mt-2 text-sm font-medium flex items-center justify-center gap-1.5 ${isAboveGoal ? 'text-success' : 'text-destructive'}`}>
                   {isAboveGoal ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
                   <span>
-                    {efpModeEnabled ? rollingAverages.avg6Day.toFixed(2) : rollingAverages.avg6Day.toFixed(1)}/day
+                    {efpModeEnabled ? rollingAverages.avg12Day.toFixed(2) : rollingAverages.avg12Day.toFixed(1)}/day (12-day avg)
                   </span>
                   <span className="text-muted-foreground">•</span>
                   <span>
