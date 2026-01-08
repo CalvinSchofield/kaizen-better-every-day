@@ -112,7 +112,7 @@ export const CustomerMap = ({ sales, filterType, onFilterChange }: CustomerMapPr
           id: sale.id,
           name: sale.customer_name || 'Customer',
           phone: sale.customer_phone || '',
-          account: sale.account_number || '',
+          account: sale.customer_account_number || '',
           prmr: sale.prmr || 0,
           type: sale.type,
           isUpgrade: sale.type === 'upgrade'

@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Sale } from "@/components/LogSaleSheet";
+import { Sale } from "@/hooks/useDailyEntry";
 import { X, Ban } from "lucide-react";
 import { format, parseISO, isBefore, isAfter, startOfDay } from "date-fns";
 import { useEfpMode } from "@/hooks/useEfpMode";
