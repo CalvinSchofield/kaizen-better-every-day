@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useConfetti } from "@/hooks/useConfetti";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -86,8 +87,23 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
 // Component to show incentive progress inline in drawer
 const IncentiveProgressInDrawer = ({ incentive }: { incentive: Incentive }) => {
   const { data: progress, isLoading } = useIncentiveProgress(incentive);
+  const { fireConfetti } = useConfetti();
+  const [hasFiredConfetti, setHasFiredConfetti] = useState(false);
   const isGroupTotal = incentive.target_type === 'group_total';
   const targetValue = incentive.target_value || 0;
+
+  const currentValue = isGroupTotal 
+    ? (progress?.groupTotal || 0) 
+    : (progress?.leader?.current_value || 0);
+  const progressPercent = targetValue > 0 ? Math.min(100, (currentValue / targetValue) * 100) : 0;
+
+  // Fire confetti when group incentive reaches 100%
+  useEffect(() => {
+    if (isGroupTotal && progressPercent >= 100 && !hasFiredConfetti && !isLoading) {
+      fireConfetti({ variant: 'gold', duration: 4000 });
+      setHasFiredConfetti(true);
+    }
+  }, [isGroupTotal, progressPercent, hasFiredConfetti, isLoading, fireConfetti]);
   
   if (isLoading) {
     return (
@@ -96,11 +112,6 @@ const IncentiveProgressInDrawer = ({ incentive }: { incentive: Incentive }) => {
       </div>
     );
   }
-
-  const currentValue = isGroupTotal 
-    ? (progress?.groupTotal || 0) 
-    : (progress?.leader?.current_value || 0);
-  const progressPercent = targetValue > 0 ? Math.min(100, (currentValue / targetValue) * 100) : 0;
 
   return (
     <div className="space-y-1.5">
