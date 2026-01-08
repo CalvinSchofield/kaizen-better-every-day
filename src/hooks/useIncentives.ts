@@ -137,10 +137,11 @@ export const useMyActiveIncentives = () => {
 
       if (error) throw error;
 
-      // Get rep names
+      // Get rep names (creator + eligible reps)
       const userIds = new Set<string>();
       incentives?.forEach((i) => {
         userIds.add(i.created_by);
+        i.incentive_eligible_reps?.forEach((r: any) => userIds.add(r.user_id));
       });
 
       const { data: reps } = await supabase
@@ -154,6 +155,11 @@ export const useMyActiveIncentives = () => {
         ...i,
         creator_name: repMap.get(i.created_by)?.name || 'Unknown',
         eligible_count: i.incentive_eligible_reps?.length || 0,
+        eligible_reps: i.incentive_eligible_reps?.map((r: any) => ({
+          ...r,
+          rep_name: repMap.get(r.user_id)?.name || 'Unknown',
+          profile_photo_url: repMap.get(r.user_id)?.profile_photo_url,
+        })),
       })) as Incentive[];
     },
     staleTime: 30 * 1000,

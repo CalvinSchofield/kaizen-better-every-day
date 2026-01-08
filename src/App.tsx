@@ -72,7 +72,7 @@ const App = () => {
       persistOptions={{ 
         persister: queryPersister,
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        buster: 'v1', // Bump this to invalidate all cached data
+        buster: 'v2', // Bump this to invalidate all cached data
       }}
     >
       <HeaderProvider>
