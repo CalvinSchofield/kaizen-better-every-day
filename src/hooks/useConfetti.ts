@@ -4,7 +4,7 @@ import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
 
 export const useConfetti = () => {
   const fireConfetti = useCallback((options?: {
-    variant?: 'celebration' | 'gold' | 'subtle';
+    variant?: 'celebration' | 'gold' | 'subtle' | 'money';
     duration?: number;
   }) => {
     const { variant = 'celebration', duration = 3000 } = options || {};
@@ -14,7 +14,48 @@ export const useConfetti = () => {
     
     const end = Date.now() + duration;
     
-    if (variant === 'celebration') {
+    if (variant === 'money') {
+      // Money rain effect - green bills falling from top
+      const moneyColors = ['#85bb65', '#3d6b3d', '#228b22', '#2e8b57', '#006400'];
+      
+      // Create money shape (rectangle like a bill)
+      const moneyShape = confetti.shapeFromPath({
+        path: 'M0 0 L20 0 L20 10 L0 10 Z'
+      });
+      
+      (function frame() {
+        // Rain from random positions across the top
+        confetti({
+          particleCount: 3,
+          angle: 270, // Straight down
+          spread: 30,
+          origin: { x: Math.random(), y: -0.1 },
+          colors: moneyColors,
+          shapes: ['circle', 'square'],
+          gravity: 1.2,
+          scalar: 1.2,
+          drift: (Math.random() - 0.5) * 2,
+          ticks: 300,
+          zIndex: 9999,
+        });
+        
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      })();
+      
+      // Initial burst from center-top
+      confetti({
+        particleCount: 60,
+        spread: 100,
+        origin: { y: 0.2, x: 0.5 },
+        colors: moneyColors,
+        shapes: ['circle', 'square'],
+        gravity: 1.5,
+        scalar: 1.5,
+        zIndex: 9999,
+      });
+    } else if (variant === 'celebration') {
       // Full celebration - multiple bursts
       const colors = ['#FF6B35', '#FFB347', '#FFD700', '#32CD32', '#1E90FF', '#9B59B6'];
       
