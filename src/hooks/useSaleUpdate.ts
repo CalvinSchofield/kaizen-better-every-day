@@ -27,7 +27,7 @@ export const useSaleUpdate = () => {
       // Fetch current entry
       const { data: entry, error: fetchError } = await supabase
         .from('daily_entries')
-        .select('sales_log, fp_plus, prmr, upgrade_prmr')
+        .select('sales_log, closes, fp_plus, prmr, upgrade_prmr')
         .eq('id', entryId)
         .single();
 
@@ -36,7 +36,7 @@ export const useSaleUpdate = () => {
 
       const salesLog = (entry.sales_log as unknown as Sale[]) || [];
       const saleIndex = salesLog.findIndex(s => s.id === saleId);
-      
+
       if (saleIndex === -1) throw new Error('Sale not found');
 
       // Update the sale
@@ -45,12 +45,12 @@ export const useSaleUpdate = () => {
       updatedSalesLog[saleIndex] = updatedSale;
 
       // Recalculate FP+ and PRMR from funded sales only (exclude cancelled AND never_installed)
-      const fundedSales = updatedSalesLog.filter(s => 
+      const fundedSales = updatedSalesLog.filter(s =>
         s.install_status !== 'cancelled' && s.install_status !== 'never_installed'
       );
       const fpSales = fundedSales.filter(s => s.type === 'fp');
       const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
-      
+
       const fpCount = fpSales.length;
       const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
       const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
@@ -62,6 +62,7 @@ export const useSaleUpdate = () => {
         .from('daily_entries')
         .update({
           sales_log: updatedSalesLog as any,
+          closes: fundedSales.length,
           fp_plus: Math.round(calculatedFpPlus * 100) / 100,
           prmr: Math.round(totalPrmr * 100) / 100,
           upgrade_prmr: Math.round(upgradePrmrTotal * 100) / 100,
@@ -130,15 +131,25 @@ export const useSaleUpdate = () => {
       const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
       const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
 
-      // Decrement closes count
-      const newClosesCount = Math.max(0, (entry.closes || 0) - 1);
+      // Recalculate totals from remaining funded sales only (exclude cancelled AND never_installed)
+      const fundedSales = updatedSalesLog.filter(s =>
+        s.install_status !== 'cancelled' && s.install_status !== 'never_installed'
+      );
+      const fpSales = fundedSales.filter(s => s.type === 'fp');
+      const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
+
+      const fpCount = fpSales.length;
+      const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+      const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+      const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
+      const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
 
       // Update entry with new sales_log and recalculated totals
       const { error: updateError } = await supabase
         .from('daily_entries')
         .update({
           sales_log: updatedSalesLog as any,
-          closes: newClosesCount,
+          closes: fundedSales.length,
           fp_plus: Math.round(calculatedFpPlus * 100) / 100,
           prmr: Math.round(totalPrmr * 100) / 100,
           upgrade_prmr: Math.round(upgradePrmrTotal * 100) / 100,
