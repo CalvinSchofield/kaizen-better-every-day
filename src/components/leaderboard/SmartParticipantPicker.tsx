@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarCheck, CalendarX } from "lucide-react";
+import { CalendarCheck, CalendarX, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface Rep {
@@ -69,7 +69,7 @@ export const SmartParticipantPicker = ({
   showSelfInList = true,
 }: SmartParticipantPickerProps) => {
   // Fetch planned work days within date range - use local date format to avoid timezone issues
-  const { data: plannedWorkDays } = useQuery({
+  const { data: plannedWorkDays, isLoading: isLoadingPlannedDays } = useQuery({
     queryKey: ['planned-work-days-for-picker', dateRange ? format(dateRange.start, 'yyyy-MM-dd') : null, dateRange ? format(dateRange.end, 'yyyy-MM-dd') : null],
     queryFn: async () => {
       if (!dateRange) return {};
@@ -77,6 +77,8 @@ export const SmartParticipantPicker = ({
       // Use local date format instead of toISOString() to avoid UTC conversion issues
       const startStr = format(dateRange.start, 'yyyy-MM-dd');
       const endStr = format(dateRange.end, 'yyyy-MM-dd');
+      
+      console.log('[SmartParticipantPicker] Fetching planned days for range:', startStr, 'to', endStr);
       
       const { data, error } = await supabase
         .from('planned_work_days')
@@ -89,6 +91,8 @@ export const SmartParticipantPicker = ({
         return {};
       }
       
+      console.log('[SmartParticipantPicker] Found planned days:', data?.length, 'records');
+      
       // Group by user_id - just need to know if they have ANY planned day in range
       const userPlannedDays: Record<string, boolean> = {};
       data?.forEach(row => {
@@ -96,6 +100,8 @@ export const SmartParticipantPicker = ({
           userPlannedDays[row.user_id] = true;
         }
       });
+      
+      console.log('[SmartParticipantPicker] Users with planned days:', Object.keys(userPlannedDays).length);
       
       return userPlannedDays;
     },
@@ -265,8 +271,16 @@ export const SmartParticipantPicker = ({
       </div>
 
       <div className="max-h-60 overflow-y-auto space-y-1 rounded-lg border border-border p-2">
+        {/* Loading state */}
+        {isLoadingPlannedDays && dateRange && (
+          <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            Loading availability...
+          </div>
+        )}
+
         {/* Working reps section */}
-        {hasWorkingReps && (
+        {!isLoadingPlannedDays && hasWorkingReps && (
           <>
             {dateRange && (
               <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
@@ -281,7 +295,7 @@ export const SmartParticipantPicker = ({
         )}
 
         {/* Separator between working and not working */}
-        {hasWorkingReps && hasNotWorkingReps && (
+        {!isLoadingPlannedDays && hasWorkingReps && hasNotWorkingReps && (
           <div className="py-2">
             <Separator className="my-1" />
             <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
@@ -292,7 +306,7 @@ export const SmartParticipantPicker = ({
         )}
 
         {/* Not working reps section */}
-        {hasNotWorkingReps && (
+        {!isLoadingPlannedDays && hasNotWorkingReps && (
           <>
             {Array.from(notWorkingByTeam.entries()).map(([teamName, reps]) => 
               renderTeamGroup(teamName, reps, notWorkingByTeam.size > 1 || teamName !== 'Other')
@@ -301,7 +315,7 @@ export const SmartParticipantPicker = ({
         )}
 
         {/* Empty state */}
-        {!hasWorkingReps && !hasNotWorkingReps && (
+        {!isLoadingPlannedDays && !hasWorkingReps && !hasNotWorkingReps && (
           <div className="text-center py-4 text-sm text-muted-foreground">
             No eligible participants found
           </div>
