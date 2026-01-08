@@ -122,3 +122,6 @@ verify_jwt = false
 
 [functions.send-challenge-notification]
 verify_jwt = false
+
+[functions.auto-complete-competitions]
+verify_jwt = false
