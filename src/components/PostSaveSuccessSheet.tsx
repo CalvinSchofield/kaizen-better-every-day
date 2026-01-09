@@ -79,16 +79,16 @@ export const PostSaveSuccessSheet = ({
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch historical entry for the same day number
-  const { data: historicalEntry } = useQuery({
-    queryKey: ['historical-day-comparison', comparisonYear, seasonInfo?.type, dayNumber],
+  // Fetch all historical entries up to this point in the season for cumulative comparison
+  const { data: historicalEntries } = useQuery({
+    queryKey: ['historical-cumulative-comparison', comparisonYear, seasonInfo?.type, dayNumber],
     queryFn: async () => {
       if (!dayNumber || !seasonInfo) return null;
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
       
-      // Find entry with matching day number
+      // Fetch all historical entries for this season type up to this day number
       const { data, error } = await supabase
         .from('historical_entries')
         .select('*')
@@ -98,114 +98,47 @@ export const PostSaveSuccessSheet = ({
       
       if (error || !data) return null;
       
-      // Find entry matching day number
-      const matchingEntry = data.find(entry => {
+      // Filter to only entries up to or on the current day number in the season
+      return data.filter(entry => {
         const entryDayNumber = (entry.season_week - 1) * 7 + entry.day_of_week;
-        return entryDayNumber === dayNumber;
+        return entryDayNumber <= dayNumber;
       });
-      
-      return matchingEntry || null;
     },
     enabled: open && meVsMeEnabled && !!seasonInfo && !!dayNumber,
     staleTime: 5 * 60 * 1000,
   });
   
-  // Calculate comparison metrics
+  // Calculate cumulative season-to-date comparison
   const comparison = useMemo(() => {
-    if (!historicalEntry) return null;
+    if (!historicalEntries || historicalEntries.length === 0) return null;
     
-    const currentEfp = efpModeEnabled ? calculateEfp(summary.prmr) : summary.fpPlus;
-    const historicalEfp = efpModeEnabled 
-      ? calculateEfp(historicalEntry.prmr || 0) 
-      : (historicalEntry.fp_plus || 0);
+    // Current cumulative = totalFP/totalPRMR from usePreseasonFP (already includes today after save)
+    // But since this is shown after save, we need to include today's summary too
+    const currentCumulativeFp = totalFP + summary.fpPlus;
+    const currentCumulativePrmr = totalPRMR + summary.prmr;
     
-    // Priority order for metrics
-    const metrics = [
-      { 
-        key: 'efp', 
-        label: efpModeEnabled ? 'EFP' : 'FP+', 
-        current: currentEfp, 
-        historical: historicalEfp,
-        format: (v: number) => v.toFixed(1)
-      },
-      { 
-        key: 'prmr', 
-        label: 'PRMR', 
-        current: summary.prmr, 
-        historical: historicalEntry.prmr || 0,
-        format: (v: number) => `$${Math.round(v)}`
-      },
-      { 
-        key: 'closes', 
-        label: 'closes', 
-        current: summary.closes, 
-        historical: historicalEntry.closes || 0,
-        format: (v: number) => v.toString()
-      },
-      { 
-        key: 'presentations', 
-        label: 'presentations', 
-        current: summary.presentations, 
-        historical: historicalEntry.presentations || 0,
-        format: (v: number) => v.toString()
-      },
-      { 
-        key: 'transitions', 
-        label: 'transitions', 
-        current: summary.transitions || 0, 
-        historical: historicalEntry.transitions || 0,
-        format: (v: number) => v.toString()
-      },
-      { 
-        key: 'hours', 
-        label: 'hours', 
-        current: summary.hoursWorked || 0, 
-        historical: historicalEntry.hours_worked || 0,
-        format: (v: number) => v.toFixed(1)
-      },
-      { 
-        key: 'pitches', 
-        label: 'pitches', 
-        current: summary.pitches || 0, 
-        historical: historicalEntry.pitches || 0,
-        format: (v: number) => v.toString()
-      },
-      { 
-        key: 'dms', 
-        label: 'DMs', 
-        current: summary.dms || 0, 
-        historical: historicalEntry.decision_makers || 0,
-        format: (v: number) => v.toString()
-      },
-      { 
-        key: 'doors', 
-        label: 'doors', 
-        current: summary.doors, 
-        historical: historicalEntry.doors_knocked || 0,
-        format: (v: number) => v.toString()
-      },
-    ];
+    // Historical cumulative = sum of all historical entries up to this point
+    const historicalCumulativeFp = historicalEntries.reduce((sum, entry) => sum + (entry.fp_plus || 0), 0);
+    const historicalCumulativePrmr = historicalEntries.reduce((sum, entry) => sum + (entry.prmr || 0), 0);
     
-    // Find first metric with a meaningful delta (both have data)
-    const significantMetric = metrics.find(m => 
-      (m.current > 0 || m.historical > 0) && 
-      m.current !== m.historical
-    );
+    // Calculate EFP if needed
+    const currentValue = efpModeEnabled ? calculateEfp(currentCumulativePrmr) : currentCumulativeFp;
+    const historicalValue = efpModeEnabled ? calculateEfp(historicalCumulativePrmr) : historicalCumulativeFp;
     
-    if (!significantMetric) return null;
-    
-    const delta = significantMetric.current - significantMetric.historical;
+    const delta = currentValue - historicalValue;
     const isAhead = delta > 0;
     const isBehind = delta < 0;
     
     return {
-      metric: significantMetric,
+      currentValue,
+      historicalValue,
       delta,
       isAhead,
       isBehind,
       year: comparisonYear,
+      label: efpModeEnabled ? 'EFP' : 'FP+',
     };
-  }, [historicalEntry, summary, efpModeEnabled, calculateEfp, comparisonYear]);
+  }, [historicalEntries, totalFP, totalPRMR, summary.fpPlus, summary.prmr, efpModeEnabled, calculateEfp, comparisonYear]);
   
   // Calculate display values based on EFP mode
   const displayFpValue = useMemo(() => {
@@ -453,15 +386,15 @@ export const PostSaveSuccessSheet = ({
               </div>
               <p className={`text-lg font-semibold ${comparison.isAhead ? 'text-green-600' : comparison.isBehind ? 'text-orange-600' : 'text-foreground'}`}>
                 {comparison.isAhead ? (
-                  <>Beat your {comparison.year} self by {comparison.metric.format(Math.abs(comparison.delta))} {comparison.metric.label}!</>
+                  <>{Math.abs(comparison.delta).toFixed(1)} {comparison.label} ahead of your {comparison.year} pace</>
                 ) : comparison.isBehind ? (
-                  <>{comparison.metric.format(Math.abs(comparison.delta))} {comparison.metric.label} behind your {comparison.year} pace</>
+                  <>{Math.abs(comparison.delta).toFixed(1)} {comparison.label} behind your {comparison.year} pace</>
                 ) : (
                   <>Matching your {comparison.year} performance</>
                 )}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Day {dayNumber} of {seasonInfo?.type}
+                Through day {dayNumber} of {seasonInfo?.type}
               </p>
             </div>
           </div>
