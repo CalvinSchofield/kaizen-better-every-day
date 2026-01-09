@@ -147,14 +147,24 @@ export const ActiveChallengesCard = () => {
           queryClient.invalidateQueries({ queryKey: ['my-active-incentives'], refetchType: 'all' });
           queryClient.invalidateQueries({ queryKey: ['incentive-progress'], refetchType: 'all' });
           queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
+          queryClient.invalidateQueries({ queryKey: ['my-active-challenges'], refetchType: 'all' });
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'incentives' },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['my-active-incentives'] });
-          queryClient.invalidateQueries({ queryKey: ['incentives'] });
+          queryClient.invalidateQueries({ queryKey: ['my-active-incentives'], refetchType: 'all' });
+          queryClient.invalidateQueries({ queryKey: ['incentives'], refetchType: 'all' });
+          queryClient.invalidateQueries({ queryKey: ['incentive-progress'], refetchType: 'all' });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'challenges' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['my-active-challenges'], refetchType: 'all' });
+          queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
         }
       )
       .subscribe();
