@@ -333,8 +333,8 @@ const TrackWithLayout = () => {
         prmr: data.prmr || 0,
         hoursWorked,
       });
-      // Show success sheet
-      setIsPostSaveSuccessOpen(true);
+      // Post-save success sheet removed - go straight to pending sales flow or show toast
+      toast.success('Entry saved!');
     } catch (error) {
       console.error('Save failed:', error);
       setSyncStatus('error');
