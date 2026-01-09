@@ -162,7 +162,8 @@ export const useMyActiveIncentives = () => {
         })),
       })) as Incentive[];
     },
-    staleTime: 30 * 1000,
+    staleTime: 15 * 1000, // 15 seconds for faster refresh
+    refetchOnMount: 'always', // Always refetch when component mounts
     retry: 1,
   });
 };

@@ -44,8 +44,11 @@ const getTodayInTimezone = (timezone: string | null): string => {
 };
 
 export const useTodayLeaderboard = (filterByYear?: string) => {
+  // Get today's date for cache key (so cache invalidates at midnight)
+  const todayDateKey = new Date().toISOString().split('T')[0];
+  
   return useQuery({
-    queryKey: ["today-leaderboard", filterByYear],
+    queryKey: ["today-leaderboard", todayDateKey, filterByYear],
     queryFn: async () => {
       // Fetch reps with timezone info
       const { data: repsData, error: repsError } = await supabase

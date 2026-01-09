@@ -42,16 +42,16 @@ const getLocalMinutesOfDay = (timestamp: string, timezone: string): number => {
 };
 
 export const useMonthlyLeaderboard = (filterByYear?: string) => {
+  // Get current month start and end dates for cache key
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const startStr = getLocalDateString(monthStart);
+  const endStr = getLocalDateString(monthEnd);
+
   return useQuery({
-    queryKey: ["monthly-leaderboard", filterByYear],
+    queryKey: ["monthly-leaderboard", startStr, endStr, filterByYear],
     queryFn: async () => {
-      // Get current month start and end dates
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      
-      const startStr = getLocalDateString(monthStart);
-      const endStr = getLocalDateString(monthEnd);
 
       // Fetch all reps data
       const { data: repsData, error: repsError } = await supabase
