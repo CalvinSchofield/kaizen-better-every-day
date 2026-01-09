@@ -202,6 +202,6 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
       } as IncentiveProgressData;
     },
     enabled: !!incentive && incentive.status === 'active',
-    staleTime: 10 * 1000, // 10 seconds
+    staleTime: 30 * 1000, // 30 seconds - ensures quick refresh after mutations
   });
 };

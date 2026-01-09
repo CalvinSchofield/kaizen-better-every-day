@@ -202,7 +202,7 @@ export const useCumulativeFP = () => {
 
       return dataPoints;
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 60 * 1000, // 60 seconds - ensures quick refresh after mutations
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
 };

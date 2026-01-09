@@ -11,6 +11,7 @@ import { useAvailableInsightsPresets, InsightsDatePreset, PRESEASON_START, SUMME
 import { usePageTour } from '@/hooks/usePageTour';
 import { PageTour } from '@/components/PageTour';
 import { insightsTourSteps } from '@/config/pageTours';
+import { useSalesRealtime } from '@/hooks/useSalesRealtime';
 
 import { Calendar as CalendarIcon, Lock, BarChart3 } from 'lucide-react';
 import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
@@ -84,6 +85,9 @@ export default function Insights() {
     enabled: !presetsLoading && hasAnyData,
     delay: 600,
   });
+  
+  // Subscribe to realtime sales updates for immediate data sync
+  useSalesRealtime();
   
   // Set initial preset to first available (smallest range) once presets are known.
   useEffect(() => {

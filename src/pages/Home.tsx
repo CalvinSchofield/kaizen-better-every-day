@@ -26,6 +26,7 @@ import { IntroWizard } from "@/components/IntroWizard";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useRepGoals } from "@/hooks/useRepGoals";
+import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { getDaysUntilBlitz, parseDateAsLocal } from "@/utils/blitzDateUtils";
 import { RookieRampHeroSection } from "@/components/RookieRampHeroSection";
 import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
@@ -78,6 +79,9 @@ const Home = () => {
   const { hasGoalsAccess, goals } = useRepGoals();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
   const { hasMnlEventToday } = useMondayNightLightsEvent();
+  
+  // Subscribe to realtime sales updates for immediate data sync
+  useSalesRealtime();
   
   // Auto-refresh on component mount (when PWA reopens)
   useEffect(() => {
