@@ -3,8 +3,17 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
+import { hapticWarning, hapticMedium } from "@/utils/haptics";
 
-const AlertDialog = AlertDialogPrimitive.Root;
+const AlertDialog = ({ onOpenChange, ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) => (
+  <AlertDialogPrimitive.Root
+    onOpenChange={(open) => {
+      if (open) hapticWarning();
+      onOpenChange?.(open);
+    }}
+    {...props}
+  />
+);
 
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 
@@ -72,8 +81,16 @@ AlertDialogDescription.displayName = AlertDialogPrimitive.Description.displayNam
 const AlertDialogAction = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Action>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action>
->(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Action ref={ref} className={cn(buttonVariants(), className)} {...props} />
+>(({ className, onClick, ...props }, ref) => (
+  <AlertDialogPrimitive.Action 
+    ref={ref} 
+    className={cn(buttonVariants(), className)} 
+    onClick={(e) => {
+      hapticMedium();
+      onClick?.(e);
+    }}
+    {...props} 
+  />
 ));
 AlertDialogAction.displayName = AlertDialogPrimitive.Action.displayName;
 
