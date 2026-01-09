@@ -86,19 +86,6 @@ const Customers = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="p-4 space-y-4">
-        {/* Header with Add Sale button */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Customers</h1>
-          <Button 
-            size="sm" 
-            onClick={() => setAddSaleSheetOpen(true)}
-            disabled={isAddingSale}
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Add Sale
-          </Button>
-        </div>
-
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -124,41 +111,53 @@ const Customers = () => {
           </TabsList>
 
           <TabsContent value="list" className="mt-4 space-y-4">
-            {/* Type Filter Pills */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterType('all')}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                  filterType === 'all'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                )}
+            {/* Type Filter Pills + Add Sale Button */}
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFilterType('all')}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                    filterType === 'all'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  )}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setFilterType('fp')}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                    filterType === 'fp'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  )}
+                >
+                  FP
+                </button>
+                <button
+                  onClick={() => setFilterType('upgrade')}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                    filterType === 'upgrade'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  )}
+                >
+                  Upgrades
+                </button>
+              </div>
+              
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setAddSaleSheetOpen(true)}
+                disabled={isAddingSale}
+                className="shrink-0"
               >
-                All
-              </button>
-              <button
-                onClick={() => setFilterType('fp')}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                  filterType === 'fp'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                )}
-              >
-                FP
-              </button>
-              <button
-                onClick={() => setFilterType('upgrade')}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                  filterType === 'upgrade'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                )}
-              >
-                Upgrades
-              </button>
+                <Plus className="w-4 h-4" />
+              </Button>
             </div>
 
             {/* Sort Dropdown */}
