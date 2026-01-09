@@ -76,11 +76,11 @@ export const useSaleUpdate = () => {
     onSuccess: ({ entryDate }) => {
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
-      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
       queryClient.invalidateQueries({ queryKey: ['canceled-stats'] });
       queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['insights-data'] });
+      queryClient.invalidateQueries({ queryKey: ['insights-data'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['cumulative-fp'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
@@ -89,6 +89,13 @@ export const useSaleUpdate = () => {
       queryClient.invalidateQueries({ queryKey: ['season-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['ytd-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'] });
+      // Invalidate competition/incentive progress
+      queryClient.invalidateQueries({ queryKey: ['my-active-incentives'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['incentive-progress'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['my-active-challenges'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
+      // Invalidate goals data
+      queryClient.invalidateQueries({ queryKey: ['rep-goals'], refetchType: 'all' });
       toast.success('Sale updated');
     },
     onError: (error) => {
@@ -153,11 +160,11 @@ export const useSaleUpdate = () => {
     onSuccess: ({ entryDate }) => {
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
-      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
       queryClient.invalidateQueries({ queryKey: ['canceled-stats'] });
       queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['insights-data'] });
+      queryClient.invalidateQueries({ queryKey: ['insights-data'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['cumulative-fp'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['pending-installs'] });
       queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
@@ -167,6 +174,13 @@ export const useSaleUpdate = () => {
       queryClient.invalidateQueries({ queryKey: ['season-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['ytd-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'] });
+      // Invalidate competition/incentive progress
+      queryClient.invalidateQueries({ queryKey: ['my-active-incentives'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['incentive-progress'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['my-active-challenges'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
+      // Invalidate goals data
+      queryClient.invalidateQueries({ queryKey: ['rep-goals'], refetchType: 'all' });
       toast.success('Sale removed');
     },
     onError: (error) => {
