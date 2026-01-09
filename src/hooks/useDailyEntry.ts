@@ -292,13 +292,21 @@ export const useDailyEntry = (date?: string) => {
       // BULLETPROOF: DON'T invalidate daily-entry during active tracking
       // This was causing race conditions where stale data overwrote optimistic updates
       // Only invalidate activity summary for real-time leaderboard updates
-      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
       // Invalidate today leaderboard for live rankings
       queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
       // Invalidate team live data for Team Reports real-time updates
       queryClient.invalidateQueries({ queryKey: ['team-live-data'] });
       // Invalidate expanded leaderboard for Timing Breakdown to show latest timestamps
       queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'] });
+      // Invalidate cumulative-fp for Progress Over Time chart real-time updates
+      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'], refetchType: 'all' });
+      // Invalidate competition/incentive progress for real-time updates
+      queryClient.invalidateQueries({ queryKey: ['my-active-incentives'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['incentive-progress'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['my-active-challenges'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
     },
   });
 
