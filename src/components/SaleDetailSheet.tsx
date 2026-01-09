@@ -326,170 +326,9 @@ export const SaleDetailSheet = ({
   const hasCrmData = sale.customer_name || sale.customer_phone || sale.customer_account_number || sale.customer_address;
   const hasDetailedCrmData = sale.time_to_sell_minutes || sale.deal_type || sale.money_spent || sale.difficulty;
 
-  // Summary View Component
-  const SummaryView = () => (
-    <div className="px-4 pb-6 space-y-4 overflow-y-auto" style={{ maxHeight: 'min(70svh, 70vh)' }}>
-      {/* Sale Overview Card */}
-      <div className="bg-muted/50 rounded-xl p-4 space-y-3">
-        {/* Type and PRMR */}
-        <div className="flex items-center justify-between">
-          <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-            sale.type === 'fp' 
-              ? 'bg-primary text-primary-foreground' 
-              : 'bg-emerald-600 text-white'
-          }`}>
-            {sale.type === 'fp' ? 'FP (New Account)' : 'Upgrade'}
-          </span>
-          <span className={`px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
-            installStatus === 'installed' 
-              ? 'bg-emerald-500/20 text-emerald-400'
-              : installStatus === 'pending'
-                ? 'bg-amber-500/20 text-amber-400'
-                : installStatus === 'cancelled'
-                  ? 'bg-amber-600/20 text-amber-500'
-                  : 'bg-destructive/20 text-destructive'
-          }`}>
-            {installStatus === 'installed' ? <CheckCircle className="w-3 h-3" /> : 
-             installStatus === 'pending' ? <Clock className="w-3 h-3" /> : 
-             installStatus === 'never_installed' ? <XCircle className="w-3 h-3" /> :
-             <Ban className="w-3 h-3" />}
-            {installStatus === 'installed' ? 'Funded' : 
-             installStatus === 'pending' ? 'Pending' : 
-             installStatus === 'never_installed' ? 'Never Installed' : 'Cancelled'}
-          </span>
-        </div>
-        
-        {/* PRMR Amount */}
-        <div className="text-center py-2">
-          <p className="text-3xl font-bold">${sale.prmr.toFixed(2)}</p>
-          <p className="text-xs text-muted-foreground mt-1">PRMR</p>
-        </div>
-        
-        {/* Time */}
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <Clock className="w-4 h-4" />
-          <span>{timeStr}</span>
-        </div>
-      </div>
 
-      {/* Customer Info */}
-      {hasCrmData && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer</p>
-          <div className="bg-muted/30 rounded-xl p-3 space-y-2">
-            {sale.customer_name && (
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-sm">{sale.customer_name}</span>
-              </div>
-            )}
-            {sale.customer_phone && (
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-sm">{sale.customer_phone}</span>
-              </div>
-            )}
-            {sale.customer_account_number && (
-              <div className="flex items-center gap-2">
-                <Hash className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-sm">A-{sale.customer_account_number}</span>
-              </div>
-            )}
-            {sale.customer_address && (
-              <div className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                <span className="text-sm">{sale.customer_address}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Scheduled Install Date - show when pending */}
-      {sale.install_status === 'pending' && sale.scheduled_install_date && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Install Schedule</p>
-          <div className="bg-amber-500/10 rounded-xl p-3">
-            <div className="flex items-center gap-2 text-sm">
-              <Calendar className="w-4 h-4 text-amber-400" />
-              <span className="font-medium">
-                {format(parseISO(sale.scheduled_install_date), 'EEEE, MMM d, yyyy')}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sale Details */}
-      {hasDetailedCrmData && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sale Details</p>
-          <div className="bg-muted/30 rounded-xl p-3 space-y-2">
-            {sale.time_to_sell_minutes && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Time to Sell</span>
-                <span className="font-medium">{formatMinutes(sale.time_to_sell_minutes)}</span>
-              </div>
-            )}
-            {sale.deal_type && sale.type === 'fp' && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Deal Type</span>
-                <span className="font-medium">
-                  {sale.deal_type === 'fresh' ? '🚪 Fresh' : sale.deal_type === 'takeover' ? '🔄 Takeover' : '📷 DIY'}
-                </span>
-              </div>
-            )}
-            {sale.money_spent !== undefined && sale.money_spent > 0 && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Money Spent</span>
-                <span className="font-medium">${sale.money_spent}</span>
-              </div>
-            )}
-            {sale.difficulty && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Difficulty</span>
-                <span className={`font-medium ${
-                  sale.difficulty === 'easy' ? 'text-emerald-400' :
-                  sale.difficulty === 'medium' ? 'text-amber-400' : 'text-red-400'
-                }`}>
-                  {sale.difficulty === 'easy' ? '😊 Easy' : sale.difficulty === 'medium' ? '😐 Medium' : '😤 Hard'}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Action Buttons */}
-      <div className="space-y-3 pt-2">
-        <Button
-          onClick={() => setIsEditMode(true)}
-          className="w-full h-12 text-base font-semibold"
-        >
-          <Pencil className="w-4 h-4 mr-2" />
-          Edit Sale
-        </Button>
-        
-        {onDeleteSale && (
-          <Button
-            variant="ghost"
-            onClick={handleDelete}
-            className={`w-full h-10 ${
-              showDeleteConfirm 
-                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' 
-                : 'text-destructive hover:text-destructive hover:bg-destructive/10'
-            }`}
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            {showDeleteConfirm ? 'Tap Again to Confirm Delete' : 'Delete Sale'}
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-
-  // Edit View Component
-  const EditView = () => (
+  // Render the edit view content inline to prevent re-mounting on state changes
+  const editViewContent = (
     <div className="px-4 pb-6 space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0" style={{ maxHeight: 'min(60svh, 60vh)' }}>
       {/* Funding Status Toggle */}
       <div className="space-y-2">
@@ -744,7 +583,7 @@ export const SaleDetailSheet = ({
         <div className="space-y-4 pt-2 border-t border-border">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sale Details</p>
 
-          {/* Time to Sell Slider - No helper text for post-save editing */}
+          {/* Time to Sell Slider */}
           <div className="space-y-2">
             <Label className="text-xs flex items-center gap-1">
               <Clock className="w-3 h-3" />
@@ -860,6 +699,186 @@ export const SaleDetailSheet = ({
     </div>
   );
 
+  // Render the summary view content inline
+  const summaryViewContent = (
+    <div className="px-4 pb-6 space-y-4 overflow-y-auto" style={{ maxHeight: 'min(70svh, 70vh)' }}>
+      {/* Sale Overview Card */}
+      <div className="bg-muted/50 rounded-xl p-4 space-y-3">
+        {/* Type and PRMR */}
+        <div className="flex items-center justify-between">
+          <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+            sale.type === 'fp' 
+              ? 'bg-primary text-primary-foreground' 
+              : 'bg-emerald-600 text-white'
+          }`}>
+            {sale.type === 'fp' ? 'FP (New Account)' : 'Upgrade'}
+          </span>
+          <span className={`px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+            installStatus === 'installed' 
+              ? 'bg-emerald-500/20 text-emerald-400'
+              : installStatus === 'pending'
+                ? 'bg-amber-500/20 text-amber-400'
+                : installStatus === 'cancelled'
+                  ? 'bg-amber-600/20 text-amber-500'
+                  : 'bg-destructive/20 text-destructive'
+          }`}>
+            {installStatus === 'installed' ? <CheckCircle className="w-3 h-3" /> : 
+             installStatus === 'pending' ? <Clock className="w-3 h-3" /> : 
+             installStatus === 'never_installed' ? <XCircle className="w-3 h-3" /> :
+             <Ban className="w-3 h-3" />}
+            {installStatus === 'installed' ? 'Funded' : 
+             installStatus === 'pending' ? 'Pending' : 
+             installStatus === 'never_installed' ? 'Never Installed' : 'Cancelled'}
+          </span>
+        </div>
+        
+        {/* PRMR Amount */}
+        <div className="text-center py-2">
+          <p className="text-3xl font-bold">${sale.prmr.toFixed(2)}</p>
+          <p className="text-xs text-muted-foreground mt-1">PRMR</p>
+        </div>
+        
+        {/* Time */}
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Clock className="w-4 h-4" />
+          <span>{timeStr}</span>
+        </div>
+      </div>
+
+      {/* Customer Info */}
+      {hasCrmData && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer</p>
+          <div className="bg-muted/30 rounded-xl p-3 space-y-2">
+            {sale.customer_name && (
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-sm">{sale.customer_name}</span>
+              </div>
+            )}
+            {sale.customer_phone && (
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-sm">{sale.customer_phone}</span>
+              </div>
+            )}
+            {sale.customer_account_number && (
+              <div className="flex items-center gap-2">
+                <Hash className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-sm">A-{sale.customer_account_number}</span>
+              </div>
+            )}
+            {sale.customer_address && (
+              <div className="flex items-start gap-2">
+                <MapPin className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                <span className="text-sm">{sale.customer_address}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Scheduled Install Date - show when pending */}
+      {sale.install_status === 'pending' && sale.scheduled_install_date && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Install Schedule</p>
+          <div className="bg-amber-500/10 rounded-xl p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Calendar className="w-4 h-4 text-amber-400" />
+              <span className="font-medium">
+                {format(parseISO(sale.scheduled_install_date), 'EEEE, MMM d, yyyy')}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sale Details */}
+      {hasDetailedCrmData && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sale Details</p>
+          <div className="bg-muted/30 rounded-xl p-3 space-y-2">
+            {sale.time_to_sell_minutes && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Time to Sell</span>
+                <span className="font-medium">{formatMinutes(sale.time_to_sell_minutes)}</span>
+              </div>
+            )}
+            {sale.deal_type && sale.type === 'fp' && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Deal Type</span>
+                <span className="font-medium">
+                  {sale.deal_type === 'fresh' ? '🚪 Fresh' : sale.deal_type === 'takeover' ? '🔄 Takeover' : '📷 DIY'}
+                </span>
+              </div>
+            )}
+            {sale.money_spent !== undefined && sale.money_spent > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Money Spent</span>
+                <span className="font-medium">${sale.money_spent}</span>
+              </div>
+            )}
+            {sale.difficulty && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Difficulty</span>
+                <span className={`font-medium ${
+                  sale.difficulty === 'easy' ? 'text-emerald-400' :
+                  sale.difficulty === 'medium' ? 'text-amber-400' : 'text-red-400'
+                }`}>
+                  {sale.difficulty === 'easy' ? '😊 Easy' : sale.difficulty === 'medium' ? '😐 Medium' : '😤 Hard'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Map Preview */}
+      {(sale.customer_lat && sale.customer_lng) && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Location</p>
+          <div className="rounded-xl overflow-hidden border border-border h-32">
+            <img
+              src={`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-s+ef4444(${sale.customer_lng},${sale.customer_lat})/${sale.customer_lng},${sale.customer_lat},15,0/400x200@2x?access_token=${mapboxToken}`}
+              alt="Customer location"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="space-y-3 pt-2">
+        <Button
+          onClick={() => setIsEditMode(true)}
+          className="w-full h-12"
+          variant="outline"
+        >
+          <Pencil className="w-4 h-4 mr-2" />
+          Edit Sale
+        </Button>
+        
+        {onDeleteSale && (
+          <Button
+            variant="ghost"
+            onClick={handleDelete}
+            className={`w-full h-10 ${
+              showDeleteConfirm 
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' 
+                : 'text-destructive hover:text-destructive hover:bg-destructive/10'
+            }`}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            {showDeleteConfirm ? 'Tap Again to Confirm Delete' : 'Delete Sale'}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="pb-safe" style={{ maxHeight: 'min(90svh, 90vh)' }}>
@@ -872,8 +891,19 @@ export const SaleDetailSheet = ({
           </p>
         </DrawerHeader>
 
-        {isEditMode ? <EditView /> : <SummaryView />}
+        {isEditMode ? editViewContent : summaryViewContent}
       </DrawerContent>
+
+      {/* Cancellation Drawer */}
+      <CancellationConfirmDrawer
+        open={showCancellationDrawer}
+        onOpenChange={setShowCancellationDrawer}
+        sale={sale}
+        onConfirm={(status) => {
+          setInstallStatus(status);
+          setShowCancellationDrawer(false);
+        }}
+      />
     </Drawer>
   );
 };
