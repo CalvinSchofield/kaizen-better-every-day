@@ -58,6 +58,7 @@ const SUMMER_START = new Date("2026-04-12");
 export const useActivitySummary = (repData: any) => {
   return useQuery({
     queryKey: ["activity-summary", repData?.user_id],
+    staleTime: 30 * 1000, // 30 seconds - ensures quick refresh after mutations
     queryFn: async (): Promise<ActivitySummaryData> => {
       if (!repData?.user_id) {
         throw new Error("No user data");

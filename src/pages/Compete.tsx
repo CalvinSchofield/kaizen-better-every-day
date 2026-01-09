@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { hapticLight, hapticSuccess, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
+import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 
 const metricLabels: Record<string, string> = {
   fp_plus: 'FP+',
@@ -102,6 +103,9 @@ const Compete = () => {
   const { data: incentiveHistory } = useIncentives('history');
   const { data: teamAccess } = useTeamAccess();
   const respondMutation = useRespondToChallenge();
+
+  // Subscribe to realtime sales updates for immediate competition data sync
+  useSalesRealtime();
 
   // Get current user
   const { data: currentUser, isLoading: loadingUser } = useQuery({

@@ -294,19 +294,22 @@ export const useDailyEntry = (date?: string) => {
       // Only invalidate activity summary for real-time leaderboard updates
       queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
       // Invalidate today leaderboard for live rankings
-      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'], refetchType: 'all' });
       // Invalidate team live data for Team Reports real-time updates
-      queryClient.invalidateQueries({ queryKey: ['team-live-data'] });
+      queryClient.invalidateQueries({ queryKey: ['team-live-data'], refetchType: 'all' });
       // Invalidate expanded leaderboard for Timing Breakdown to show latest timestamps
-      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'], refetchType: 'all' });
       // Invalidate cumulative-fp for Progress Over Time chart real-time updates
       queryClient.invalidateQueries({ queryKey: ['cumulative-fp'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['all-daily-entries'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['insights-data'], refetchType: 'all' });
       // Invalidate competition/incentive progress for real-time updates
       queryClient.invalidateQueries({ queryKey: ['my-active-incentives'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['incentive-progress'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['my-active-challenges'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
+      // Invalidate goals data
+      queryClient.invalidateQueries({ queryKey: ['rep-goals'], refetchType: 'all' });
     },
   });
 
@@ -399,30 +402,37 @@ export const useDailyEntry = (date?: string) => {
       }
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['daily-entry', variables.saveDate] });
-      queryClient.invalidateQueries({ queryKey: ['daily-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-entry', variables.saveDate], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['daily-entries'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['all-daily-entries'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['ytd-prmr-total'] });
+      queryClient.invalidateQueries({ queryKey: ['ytd-prmr-total'], refetchType: 'all' });
       // Force refetch activity-summary and cumulative-fp for Home page updates even when not mounted
       queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['insights-data'] });
+      queryClient.invalidateQueries({ queryKey: ['insights-data'], refetchType: 'all' });
       // Force refetch cumulative-fp for Progress Over Time chart to show finalized data
       queryClient.invalidateQueries({ queryKey: ['cumulative-fp'], refetchType: 'all' });
       // Invalidate worked-days-data for Goals calendar to update worked/planned visuals
-      queryClient.invalidateQueries({ queryKey: ['worked-days-data'] });
+      queryClient.invalidateQueries({ queryKey: ['worked-days-data'], refetchType: 'all' });
       // Invalidate all leaderboards so they update immediately
-      queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['weekly-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['monthly-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['ytd-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['season-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['weekly-leaderboard'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['monthly-leaderboard'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['ytd-leaderboard'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['season-leaderboard'], refetchType: 'all' });
       // PROTECTION LAYER 4: Update today leaderboard to show finalized data
-      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'], refetchType: 'all' });
       // Invalidate group-recruits in case stage was auto-progressed
-      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'], refetchType: 'all' });
       // Invalidate personal records for any UI that shows them
-      queryClient.invalidateQueries({ queryKey: ['personal-records'] });
+      queryClient.invalidateQueries({ queryKey: ['personal-records'], refetchType: 'all' });
+      // Invalidate competition/incentive progress
+      queryClient.invalidateQueries({ queryKey: ['my-active-incentives'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['incentive-progress'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['my-active-challenges'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
+      // Invalidate goals data
+      queryClient.invalidateQueries({ queryKey: ['rep-goals'], refetchType: 'all' });
       toast.success('Entry saved successfully!');
     },
   });

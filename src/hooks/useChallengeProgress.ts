@@ -269,6 +269,6 @@ export const useChallengeProgress = (challenge: Challenge | null, options?: { in
       } as ChallengeProgressData;
     },
     enabled: !!challenge && (challenge.status === 'active' || (includePending && challenge.status === 'pending')),
-    staleTime: 10 * 1000,
+    staleTime: 30 * 1000, // 30 seconds - ensures quick refresh after mutations
   });
 };
