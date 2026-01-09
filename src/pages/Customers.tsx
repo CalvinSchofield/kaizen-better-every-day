@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Search, List, Map, Users, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { Search, List, Map, Users, ArrowUpDown, ChevronDown, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CustomerCard } from '@/components/customers/CustomerCard';
 import { CustomerMap } from '@/components/customers/CustomerMap';
@@ -8,7 +9,9 @@ import { useCustomerData, SortOption, CustomerSale } from '@/hooks/useCustomerDa
 import { Skeleton } from '@/components/ui/skeleton';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { SaleDetailSheet } from '@/components/SaleDetailSheet';
+import { LogSaleSheet } from '@/components/LogSaleSheet';
 import { useRepData } from '@/hooks/useRepData';
+import { useAddSaleToEntry } from '@/hooks/useAddSaleToEntry';
 import { Sale } from '@/hooks/useDailyEntry';
 import {
   DropdownMenu,
@@ -38,6 +41,9 @@ const Customers = () => {
   // Detail sheet state
   const [selectedSale, setSelectedSale] = useState<CustomerSale | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  
+  // Add sale sheet state
+  const [addSaleSheetOpen, setAddSaleSheetOpen] = useState(false);
 
   const { sales, salesWithLocation, isLoading, totalCount, updateFunding, updateSaleDetails } = useCustomerData(
     searchQuery, 
@@ -46,6 +52,7 @@ const Customers = () => {
   );
   const { efpModeEnabled } = useEfpMode();
   const { repData } = useRepData();
+  const { addSale, isAddingSale } = useAddSaleToEntry();
 
   const handleCardClick = (sale: CustomerSale) => {
     setSelectedSale(sale);
@@ -62,9 +69,16 @@ const Customers = () => {
   };
 
   const handleDeleteSale = (_saleId: string) => {
-    // Delete functionality - would need to implement in useCustomerData
-    // For now, close the sheet - the SaleDetailSheet already handles deletion display
     setDetailSheetOpen(false);
+  };
+
+  const handleAddSaleWithDate = (saleData: Omit<Sale, 'id' | 'timestamp'>, date: string, timestamp: string) => {
+    addSale({
+      entryDate: date,
+      sale: saleData,
+      saleTimestamp: timestamp,
+    });
+    setAddSaleSheetOpen(false);
   };
 
   const currentSortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label || 'Sort';
@@ -72,6 +86,19 @@ const Customers = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="p-4 space-y-4">
+        {/* Header with Add Sale button */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold">Customers</h1>
+          <Button 
+            size="sm" 
+            onClick={() => setAddSaleSheetOpen(true)}
+            disabled={isAddingSale}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Add Sale
+          </Button>
+        </div>
+
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -84,11 +111,6 @@ const Customers = () => {
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="list" className="gap-2">
-              <List className="w-4 h-4" />
-              List
             </TabsTrigger>
             <TabsTrigger value="map" className="gap-2">
               <Map className="w-4 h-4" />

@@ -15,10 +15,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Trash2, HelpCircle, MapPin, Clock, Loader2, Search } from "lucide-react";
+import { Trash2, HelpCircle, MapPin, Clock, Loader2, Search, CalendarIcon } from "lucide-react";
 import { UpgradePrmrCalculator } from "./UpgradePrmrCalculator";
 import { supabase } from "@/integrations/supabase/client";
 import { Sale } from "@/hooks/useDailyEntry";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface LogSaleSheetProps {
   open: boolean;
@@ -36,6 +40,9 @@ interface LogSaleSheetProps {
   // Tour control props - for external control during tours
   tourForceUpgrade?: boolean;
   tourForceCalculatorOpen?: boolean;
+  // Date picker mode - for adding sales from CRM
+  showDatePicker?: boolean;
+  onLogSaleWithDate?: (sale: Omit<Sale, 'id' | 'timestamp'>, date: string, timestamp: string) => void;
 }
 
 // Helper to calculate minutes between two timestamps
@@ -67,11 +74,19 @@ export const LogSaleSheet = ({
   counterTimestamps,
   tourForceUpgrade = false,
   tourForceCalculatorOpen = false,
+  showDatePicker = false,
+  onLogSaleWithDate,
 }: LogSaleSheetProps) => {
   const [saleType, setSaleType] = useState<'fp' | 'upgrade'>('fp');
   const [prmr, setPrmr] = useState("");
   const [showHelperContent, setShowHelperContent] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedTime, setSelectedTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  });
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -346,6 +361,10 @@ export const LogSaleSheet = ({
         setDealType('fresh');
         setMoneySpent("");
         setDifficulty('medium');
+        // Reset date picker to today/now
+        setSelectedDate(new Date());
+        const now = new Date();
+        setSelectedTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
       }
       setShowHelperContent(false);
       setAddressSuggestions([]);
@@ -386,6 +405,19 @@ export const LogSaleSheet = ({
         ...editingSale,
         ...saleData,
       });
+    } else if (showDatePicker && onLogSaleWithDate) {
+      // Date picker mode - send with selected date and time
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      const entryDate = `${year}-${month}-${day}`;
+      
+      // Create timestamp from date + time
+      const [hours, minutes] = selectedTime.split(':');
+      const timestamp = new Date(selectedDate);
+      timestamp.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      
+      onLogSaleWithDate(saleData, entryDate, timestamp.toISOString());
     } else {
       onLogSale(saleData);
     }
@@ -464,6 +496,59 @@ export const LogSaleSheet = ({
               Upgrade
             </button>
           </div>
+
+          {/* Date/Time Picker (when showDatePicker is enabled) */}
+          {showDatePicker && (
+            <div className="space-y-3 pt-2 border-t border-border">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">When did this sale happen?</p>
+              
+              <div className="flex gap-3">
+                {/* Date Picker */}
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs">Date</Label>
+                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal h-10",
+                          !selectedDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {selectedDate ? format(selectedDate, "MMM d, yyyy") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => {
+                          if (date) {
+                            setSelectedDate(date);
+                            setDatePickerOpen(false);
+                          }
+                        }}
+                        disabled={(date) => date > new Date()}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Time Picker */}
+                <div className="w-28 space-y-1">
+                  <Label className="text-xs">Time</Label>
+                  <Input
+                    type="time"
+                    value={selectedTime}
+                    onChange={(e) => setSelectedTime(e.target.value)}
+                    className="h-10"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* PRMR Input */}
           <div className="space-y-2">

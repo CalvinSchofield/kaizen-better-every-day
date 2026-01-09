@@ -16,6 +16,7 @@ import { DeleteSalePickerSheet } from "./DeleteSalePickerSheet";
 import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
 import { PageTour } from "./PageTour";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
+import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
 import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
 import { useCompetitorNudge } from "@/hooks/useCompetitorNudge";
 import { usePageTour } from "@/hooks/usePageTour";
@@ -57,6 +58,7 @@ const TrackWithLayout = () => {
   const { repData } = useRepData();
   const { totalFP: preseasonFP } = usePreseasonFP();
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry } = useDailyEntry();
+  const { addSale: addSaleToEntry, isAddingSale } = useAddSaleToEntry();
   
   // Page tour
   const { showTour, completeTour, skipTour } = usePageTour({
@@ -91,6 +93,7 @@ const TrackWithLayout = () => {
   const [isSaleDetailOpen, setIsSaleDetailOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [pendingCloseIncrement, setPendingCloseIncrement] = useState(false);
+  const [pendingPostFinalizationSale, setPendingPostFinalizationSale] = useState(false); // For sales after finalization
   const [isDeleteSalePickerOpen, setIsDeleteSalePickerOpen] = useState(false);
   const [isTourDemoMode, setIsTourDemoMode] = useState(false); // Prevents real data changes during tour
   const [tourForceUpgrade, setTourForceUpgrade] = useState(false); // Force upgrade mode in sale sheet
@@ -451,15 +454,21 @@ const TrackWithLayout = () => {
       return;
     }
     
-    if (savedThisSession) {
-      console.log('Ignoring counter change - already saved this session');
-      toast.info("Today's work is already saved. Start fresh tomorrow!");
-      return;
-    }
-    
-    if (entry.is_finalized) {
+    if (savedThisSession || entry.is_finalized) {
+      // SPECIAL CASE: Allow adding closes via post-finalization flow
+      if (field === 'closes' && value > (entry.closes || 0) && salesLoggerEnabled) {
+        if (isLogSaleSheetOpen || pendingPostFinalizationSale) {
+          return; // Already logging
+        }
+        // Open LogSaleSheet for post-finalization sale
+        setPendingPostFinalizationSale(true);
+        setEditingSale(null);
+        setIsLogSaleSheetOpen(true);
+        return;
+      }
+      // Block other counter changes
       console.log('Ignoring counter change - entry is finalized');
-      toast.info("Today's work is already saved. Start fresh tomorrow!");
+      toast.info("Today's work is already saved. You can still add sales though!");
       return;
     }
 
@@ -613,6 +622,20 @@ const TrackWithLayout = () => {
   const handleLogSale = useCallback(async (saleData: Omit<Sale, 'id' | 'timestamp'>) => {
     // Block during tour demo mode
     if (isTourDemoMode) return;
+    
+    // POST-FINALIZATION: Use addSaleToEntry hook
+    if (pendingPostFinalizationSale) {
+      const today = getTodayDate();
+      addSaleToEntry({
+        entryDate: today,
+        sale: saleData,
+      });
+      hapticSuccess();
+      fireConfetti({ variant: 'money', duration: 2500 });
+      setPendingPostFinalizationSale(false);
+      return;
+    }
+    
     if (!pendingCloseIncrement) return;
     
     const newSale: Sale = {
@@ -675,7 +698,7 @@ const TrackWithLayout = () => {
     }
     
     setPendingCloseIncrement(false);
-  }, [entry, updateCounter, pendingCloseIncrement]);
+  }, [entry, updateCounter, pendingCloseIncrement, pendingPostFinalizationSale, addSaleToEntry, fireConfetti, isTourDemoMode]);
 
   const handleEditSale = useCallback((sale: Sale) => {
     setEditingSale(sale);
