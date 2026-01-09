@@ -111,6 +111,11 @@ const Customers = () => {
         </div>
 
         {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="list" className="gap-2">
+              <List className="w-4 h-4" />
+              List
             </TabsTrigger>
             <TabsTrigger value="map" className="gap-2">
               <Map className="w-4 h-4" />
@@ -233,6 +238,17 @@ const Customers = () => {
         onDeleteSale={handleDeleteSale}
         crmEnabled={repData?.crm_enabled}
         crmDetailedEnabled={repData?.crm_detailed_enabled}
+      />
+
+      {/* Add Sale Sheet */}
+      <LogSaleSheet
+        open={addSaleSheetOpen}
+        onOpenChange={setAddSaleSheetOpen}
+        onLogSale={() => {}}
+        crmEnabled={repData?.crm_enabled}
+        crmDetailedEnabled={repData?.crm_detailed_enabled}
+        showDatePicker={true}
+        onLogSaleWithDate={handleAddSaleWithDate}
       />
     </div>
   );
