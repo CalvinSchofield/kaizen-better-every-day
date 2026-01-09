@@ -478,10 +478,15 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
                   <span>
                     {efpModeEnabled ? rollingAverages.avg12Day.toFixed(2) : rollingAverages.avg12Day.toFixed(1)}/day (12-day avg)
                   </span>
-                  <span className="text-muted-foreground">•</span>
-                  <span>
-                    {efpModeEnabled ? paceGap.toFixed(2) : paceGap.toFixed(1)} {isAboveGoal ? 'above' : 'below'} goal
-                  </span>
+                  {/* Only show gap when behind, not when ahead */}
+                  {!isAboveGoal && (
+                    <>
+                      <span className="text-muted-foreground">•</span>
+                      <span>
+                        {efpModeEnabled ? paceGap.toFixed(2) : paceGap.toFixed(1)} below goal
+                      </span>
+                    </>
+                  )}
                 </div>
               )}
             </div>
