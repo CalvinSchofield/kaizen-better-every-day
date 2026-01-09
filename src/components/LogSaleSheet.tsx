@@ -502,24 +502,26 @@ export const LogSaleSheet = ({
             <div className="space-y-3 pt-2 border-t border-border">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">When did this sale happen?</p>
               
-              <div className="flex gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {/* Date Picker */}
-                <div className="flex-1 space-y-1">
-                  <Label className="text-xs">Date</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Date</Label>
                   <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className={cn(
-                          "w-full justify-start text-left font-normal h-10",
+                          "w-full justify-start text-left font-normal h-12",
                           !selectedDate && "text-muted-foreground"
                         )}
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {selectedDate ? format(selectedDate, "MMM d, yyyy") : "Pick a date"}
+                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                        <span className="truncate">
+                          {selectedDate ? format(selectedDate, "MMM d, yyyy") : "Pick date"}
+                        </span>
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0 z-50" align="start">
                       <Calendar
                         mode="single"
                         selected={selectedDate}
@@ -531,19 +533,20 @@ export const LogSaleSheet = ({
                         }}
                         disabled={(date) => date > new Date()}
                         initialFocus
+                        className="pointer-events-auto"
                       />
                     </PopoverContent>
                   </Popover>
                 </div>
 
                 {/* Time Picker */}
-                <div className="w-28 space-y-1">
-                  <Label className="text-xs">Time</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Time</Label>
                   <Input
                     type="time"
                     value={selectedTime}
                     onChange={(e) => setSelectedTime(e.target.value)}
-                    className="h-10"
+                    className="h-12"
                   />
                 </div>
               </div>
