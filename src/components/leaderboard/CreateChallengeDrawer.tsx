@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useAllOfficeReps } from "@/hooks/useAllOfficeReps";
 import { useCreateChallenge, ChallengeMetric, ChallengeType } from "@/hooks/useChallenges";
 import { useSmartRepSorting } from "@/hooks/useSmartRepSorting";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,10 +44,24 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
   const [stakes, setStakes] = useState('');
   const [isPublic, setIsPublic] = useState(true);
 
-  const { data: teamAccess } = useTeamAccess();
+  const { data: allOfficeReps } = useAllOfficeReps();
   const createMutation = useCreateChallenge();
 
-  const reps = teamAccess?.accessibleReps || [];
+  // Use all office reps so any rep can challenge anyone
+  const reps = useMemo(() => {
+    return (allOfficeReps || []).map(rep => ({
+      id: rep.id,
+      userId: rep.userId,
+      name: rep.name,
+      phone: rep.phone,
+      year: rep.year,
+      stage: rep.stage,
+      teamId: rep.teamId,
+      teamName: rep.teamName,
+      mgmtGroupId: rep.mgmtGroupId,
+      mgmtGroupName: rep.mgmtGroupName,
+    }));
+  }, [allOfficeReps]);
 
   // Get current user's timezone from their rep record
   const { data: currentUserRep } = useQuery({
