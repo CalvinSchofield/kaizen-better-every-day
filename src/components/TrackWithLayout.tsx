@@ -14,9 +14,11 @@ import { Sale } from "@/hooks/useDailyEntry";
 import { SaleDetailSheet } from "./SaleDetailSheet";
 import { DeleteSalePickerSheet } from "./DeleteSalePickerSheet";
 import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
+import { PendingSalesAlert } from "./PendingSalesAlert";
 import { PageTour } from "./PageTour";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
+import { usePendingSalesQueue } from "@/hooks/usePendingSalesQueue";
 import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
 import { useCompetitorNudge } from "@/hooks/useCompetitorNudge";
 import { usePageTour } from "@/hooks/usePageTour";
@@ -105,6 +107,9 @@ const TrackWithLayout = () => {
   // Local backup for data recovery
   const userId = getCurrentUserId();
   const { saveBackup, loadBackup, clearBackup, hasUnsavedBackup } = useTrackBackup(userId, getTodayDate());
+  
+  // Pending sales queue for bulletproof sale saving
+  const { queueSale, dequeueSale, processQueue } = usePendingSalesQueue(userId);
   
   // Competitor nudge for early save motivation
   const { competitor: competitorNudge, loading: competitorLoading } = useCompetitorNudge();
@@ -623,25 +628,45 @@ const TrackWithLayout = () => {
     // Block during tour demo mode
     if (isTourDemoMode) return;
     
-    // POST-FINALIZATION: Use addSaleToEntry hook
+    const today = getTodayDate();
+    
+    // POST-FINALIZATION: Use addSaleToEntry hook with queue protection
     if (pendingPostFinalizationSale) {
-      const today = getTodayDate();
-      addSaleToEntry({
-        entryDate: today,
-        sale: saleData,
-      });
-      hapticSuccess();
-      fireConfetti({ variant: 'money', duration: 2500 });
+      // Queue the sale FIRST for protection
+      const { saleId, saleTimestamp } = queueSale(today, saleData);
+      
+      try {
+        await addSaleToEntry({
+          entryDate: today,
+          sale: saleData,
+          saleTimestamp,
+        });
+        // Success - remove from queue
+        dequeueSale(saleId);
+        hapticSuccess();
+        fireConfetti({ variant: 'money', duration: 2500 });
+      } catch (error) {
+        console.error('[TrackWithLayout] Post-finalization sale failed, will retry:', error);
+        toast.info('Sale queued - will save when connection restores', { 
+          icon: '📶',
+          duration: 3000 
+        });
+        // Queue will auto-retry
+        processQueue();
+      }
       setPendingPostFinalizationSale(false);
       return;
     }
     
     if (!pendingCloseIncrement) return;
     
+    // PROTECTION: Queue the sale to localStorage BEFORE attempting database save
+    const { saleId, saleTimestamp } = queueSale(today, saleData);
+    
     const newSale: Sale = {
-      id: crypto.randomUUID(),
+      id: saleId,
       ...saleData,
-      timestamp: new Date().toISOString(),
+      timestamp: saleTimestamp,
     };
     
     const currentSalesLog = entry.sales_log || [];
@@ -658,7 +683,7 @@ const TrackWithLayout = () => {
     const closesTimestamps = timestamps['closes'] || [];
     updates.counter_timestamps = {
       ...timestamps,
-      closes: [...closesTimestamps, new Date().toISOString()]
+      closes: [...closesTimestamps, saleTimestamp]
     };
     
     // Auto-start work if not started
@@ -679,26 +704,35 @@ const TrackWithLayout = () => {
       updates.break_periods = updatedBreaks;
     }
     
-    // Fire money rain confetti and haptic
+    // Fire money rain confetti and haptic IMMEDIATELY for responsive feel
     hapticSuccess();
     fireConfetti({ variant: 'money', duration: 2500 });
     
     setSyncStatus('pending');
     try {
       await updateCounter(updates);
+      // SUCCESS: Remove from pending queue
+      dequeueSale(saleId);
       setSyncStatus('synced');
     } catch (error: any) {
       if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
         toast.info("Today's work is already saved. Start fresh tomorrow!");
         setSavedThisSession(true);
         setSyncStatus('synced');
+        // Still in queue - will be processed via post-finalization flow
       } else {
         setSyncStatus('error');
+        // Sale stays in queue - will auto-retry
+        toast.info('Sale saved locally - will sync when connection restores', { 
+          icon: '📶',
+          duration: 3000 
+        });
+        processQueue(); // Trigger retry
       }
     }
     
     setPendingCloseIncrement(false);
-  }, [entry, updateCounter, pendingCloseIncrement, pendingPostFinalizationSale, addSaleToEntry, fireConfetti, isTourDemoMode]);
+  }, [entry, updateCounter, pendingCloseIncrement, pendingPostFinalizationSale, addSaleToEntry, fireConfetti, isTourDemoMode, queueSale, dequeueSale, processQueue]);
 
   const handleEditSale = useCallback((sale: Sale) => {
     setEditingSale(sale);
@@ -864,6 +898,9 @@ const TrackWithLayout = () => {
         isResetting={isResetting}
         syncIndicator={<SyncIndicator status={syncStatus} />}
       >
+        {/* Pending Sales Alert */}
+        <PendingSalesAlert userId={userId} />
+        
         {/* Notification Permission Prompt */}
         <NotificationPermissionPrompt hasStartedTracking={hasStartedTracking} />
         
