@@ -407,7 +407,18 @@ const Compete = () => {
                 );
               })}
               {completedIncentives.map(incentive => {
-                const won = incentive.winner_user_id === currentUser;
+                // For group incentives, winner_user_id is set if target was hit (all participants win)
+                // For individual races, winner_user_id is the specific winner
+                const isGroupIncentive = incentive.target_type === 'group_total';
+                const targetHit = incentive.winner_user_id !== null;
+                const won = isGroupIncentive 
+                  ? targetHit // All participants win if group target was hit
+                  : incentive.winner_user_id === currentUser; // Individual race - check if current user won
+                
+                const statusLabel = isGroupIncentive
+                  ? (targetHit ? '🎉 Target Hit' : '❌ Expired')
+                  : (won ? '🏆 Won' : 'Lost');
+                
                 return (
                   <div 
                     key={incentive.id}
@@ -422,7 +433,7 @@ const Compete = () => {
                         <span className="text-sm">{incentive.title}</span>
                       </div>
                       <Badge variant={won ? "default" : "secondary"} className="text-xs">
-                        {won ? '🏆 Won' : 'Completed'}
+                        {statusLabel}
                       </Badge>
                     </div>
                   </div>
