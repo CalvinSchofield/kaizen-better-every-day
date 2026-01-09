@@ -42,8 +42,11 @@ const getLocalMinutesOfDay = (timestamp: string, timezone: string): number => {
 };
 
 export const useSeasonLeaderboard = (filterByYear?: string, isSummer: boolean = false) => {
+  // Include today's date in cache key for daily invalidation
+  const todayStr = getLocalDateString(new Date());
+
   return useQuery({
-    queryKey: ["season-leaderboard", filterByYear, isSummer],
+    queryKey: ["season-leaderboard", todayStr, filterByYear, isSummer],
     queryFn: async () => {
       // Determine season dates
       const now = new Date();

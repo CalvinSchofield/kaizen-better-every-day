@@ -25,12 +25,14 @@ interface YTDLeaderboard {
 }
 
 export const useYTDLeaderboard = (filterByYear?: string) => {
+  // Calculate date range for cache key
+  const now = new Date();
+  const yearStart = getLocalDateString(new Date(now.getFullYear(), 0, 1));
+  const todayStr = getLocalDateString(now);
+
   return useQuery({
-    queryKey: ['ytd-leaderboard', filterByYear],
+    queryKey: ['ytd-leaderboard', yearStart, todayStr, filterByYear],
     queryFn: async () => {
-      // Get start of current year
-      const now = new Date();
-      const yearStart = getLocalDateString(new Date(now.getFullYear(), 0, 1));
 
       // Fetch all users
       const { data: reps, error: repsError } = await supabase

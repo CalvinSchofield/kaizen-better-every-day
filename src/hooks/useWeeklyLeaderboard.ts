@@ -50,15 +50,15 @@ const getSundayOfWeek = (date: Date): Date => {
 };
 
 export const useWeeklyLeaderboard = (filterByYear?: string) => {
+  // Calculate date range for cache key
+  const today = new Date();
+  const sunday = getSundayOfWeek(today);
+  const sundayStr = getLocalDateString(sunday);
+  const todayStr = getLocalDateString(today);
+
   return useQuery({
-    queryKey: ["weekly-leaderboard", filterByYear],
+    queryKey: ["weekly-leaderboard", sundayStr, todayStr, filterByYear],
     queryFn: async () => {
-      const today = new Date();
-      const sunday = getSundayOfWeek(today);
-      
-      // Week-to-date: Sunday to today
-      const sundayStr = getLocalDateString(sunday);
-      const todayStr = getLocalDateString(today);
 
       const { data: users, error: usersError } = await supabase
         .from("reps")

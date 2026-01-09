@@ -42,15 +42,17 @@ const getLocalMinutesOfDay = (timestamp: string, timezone: string): number => {
 };
 
 export const useYesterdayLeaderboard = (filterByYear?: string) => {
+  // Calculate yesterday's date string OUTSIDE the query for cache key
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const year = yesterday.getFullYear();
+  const month = String(yesterday.getMonth() + 1).padStart(2, '0');
+  const day = String(yesterday.getDate()).padStart(2, '0');
+  const yesterdayStr = `${year}-${month}-${day}`;
+
   return useQuery({
-    queryKey: ["yesterday-leaderboard", filterByYear],
+    queryKey: ["yesterday-leaderboard", yesterdayStr, filterByYear],
     queryFn: async () => {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const year = yesterday.getFullYear();
-      const month = String(yesterday.getMonth() + 1).padStart(2, '0');
-      const day = String(yesterday.getDate()).padStart(2, '0');
-      const yesterdayStr = `${year}-${month}-${day}`;
 
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
