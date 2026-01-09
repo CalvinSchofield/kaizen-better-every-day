@@ -16,11 +16,7 @@ export const useConfetti = () => {
     
     if (variant === 'money') {
       // Money rain effect with emoji shapes
-      const moneyEmojis = [
-        confetti.shapeFromText({ text: '💵', scalar: 2 }),
-        confetti.shapeFromText({ text: '💸', scalar: 2 }),
-        confetti.shapeFromText({ text: '💰', scalar: 2 }),
-      ];
+      const moneyEmoji = confetti.shapeFromText({ text: '💸', scalar: 2 });
       
       (function frame() {
         // Rain from random positions across the top
@@ -29,7 +25,7 @@ export const useConfetti = () => {
           angle: 270, // Straight down
           spread: 40,
           origin: { x: Math.random(), y: -0.1 },
-          shapes: moneyEmojis,
+          shapes: [moneyEmoji],
           gravity: 1.0,
           scalar: 2,
           drift: (Math.random() - 0.5) * 2,
@@ -47,7 +43,7 @@ export const useConfetti = () => {
         particleCount: 40,
         spread: 120,
         origin: { y: 0.3, x: 0.5 },
-        shapes: moneyEmojis,
+        shapes: [moneyEmoji],
         gravity: 1.2,
         scalar: 2.5,
         zIndex: 9999,
