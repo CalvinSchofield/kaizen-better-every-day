@@ -333,7 +333,9 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
       };
 
       // Check if a sale qualifies as FP+ (type='fp' OR upgrade with prmr >= 85)
+      // Also exclude never_installed sales
       const isFPPlus = (sale: any): boolean => {
+        if (sale.install_status === 'never_installed') return false;
         if (sale.type === 'fp') return true;
         if (sale.type === 'upgrade' && Number(sale.prmr) >= 85) return true;
         return false;
