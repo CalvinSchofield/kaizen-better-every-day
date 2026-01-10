@@ -655,9 +655,13 @@ export const SaveEntrySheet = ({
     setShowLogSaleSheet(false);
   };
 
+  // When skipSummaryView is true and we're showing the install step, don't render the main drawer
+  // This prevents the summary drawer from appearing behind the install step drawer
+  const shouldHideMainDrawer = skipSummaryView && showInstallStep;
+
   return (
     <>
-      <Drawer open={open} onOpenChange={onOpenChange}>
+      <Drawer open={open && !shouldHideMainDrawer} onOpenChange={onOpenChange}>
         <DrawerContent className="pb-safe">
           <DrawerHeader className="mb-4 flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">

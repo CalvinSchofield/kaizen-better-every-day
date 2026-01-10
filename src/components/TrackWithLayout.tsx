@@ -361,6 +361,44 @@ const TrackWithLayout = () => {
     toast.info("You can continue tracking. Your previous data is saved in Calendar.");
   };
 
+  // Handle viewing the recap (after finalization)
+  const handleViewRecap = useCallback(() => {
+    // Calculate hours worked from entry times
+    let hoursWorked = 0;
+    if (entry.work_start_time && entry.work_end_time) {
+      const start = new Date(entry.work_start_time);
+      const end = new Date(entry.work_end_time);
+      hoursWorked = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
+      
+      // Subtract break time
+      if (entry.break_periods && Array.isArray(entry.break_periods)) {
+        const breakPeriods = entry.break_periods as Array<{ start: string; end: string }>;
+        const breakMinutes = breakPeriods.reduce((total, bp) => {
+          if (bp.start && bp.end) {
+            return total + (new Date(bp.end).getTime() - new Date(bp.start).getTime()) / (1000 * 60);
+          }
+          return total;
+        }, 0);
+        hoursWorked = Math.max(0, hoursWorked - breakMinutes / 60);
+      }
+    }
+    
+    // Populate summary from current entry
+    setLastSavedSummary({
+      doors: entry.doors_knocked || 0,
+      dms: entry.decision_makers || 0,
+      pitches: entry.pitches || 0,
+      transitions: entry.transitions || 0,
+      presentations: entry.presentations || 0,
+      closes: entry.closes || 0,
+      fpPlus: entry.fp_plus || 0,
+      prmr: entry.prmr || 0,
+      hoursWorked,
+    });
+    
+    setIsPostSaveSuccessOpen(true);
+  }, [entry]);
+
   // Get current entry being reviewed from the queue
   const currentReviewEntry = unfinalizedEntries[currentReviewIndex] || null;
   const totalUnfinalizedCount = unfinalizedEntries.length;
@@ -897,6 +935,8 @@ const TrackWithLayout = () => {
         isSaving={isFinalizing}
         isResetting={isResetting}
         syncIndicator={<SyncIndicator status={syncStatus} />}
+        isEntryFinalized={entry.is_finalized || savedThisSession}
+        onViewRecap={handleViewRecap}
       >
         {/* Pending Sales Alert */}
         <PendingSalesAlert userId={userId} />
