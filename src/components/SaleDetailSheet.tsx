@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { hapticLight } from "@/utils/haptics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -833,20 +834,31 @@ export const SaleDetailSheet = ({
         </div>
       )}
 
-      {/* Map Preview */}
+      {/* Open in Maps Button */}
       {(sale.customer_lat && sale.customer_lng) && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Location</p>
-          <div className="rounded-xl overflow-hidden border border-border h-32">
-            <img
-              src={`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-s+ef4444(${sale.customer_lng},${sale.customer_lat})/${sale.customer_lng},${sale.customer_lat},15,0/400x200@2x?access_token=${mapboxToken}`}
-              alt="Customer location"
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-          </div>
+          <Button
+            variant="outline"
+            className="w-full h-12 gap-2"
+            onClick={() => {
+              hapticLight();
+              const lat = sale.customer_lat;
+              const lng = sale.customer_lng;
+              const label = encodeURIComponent(sale.customer_address || 'Customer Location');
+              
+              // Try Apple Maps first (iOS), fallback to Google Maps
+              const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+              if (isIOS) {
+                window.location.href = `maps://?q=${label}&ll=${lat},${lng}`;
+              } else {
+                window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
+              }
+            }}
+          >
+            <MapPin className="w-4 h-4" />
+            Open in Maps
+          </Button>
         </div>
       )}
 
