@@ -195,6 +195,14 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
               ${summary.upfrontPay.toLocaleString()}
             </span>
           </p>
+          {summary.totalMoneySpent > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Spent: <span className="text-destructive">${summary.totalMoneySpent.toLocaleString()}</span>
+              {" → "}Net: <span className="text-green-700 dark:text-green-400 font-medium">
+                ${(summary.upfrontPay - summary.totalMoneySpent).toLocaleString()}
+              </span>
+            </p>
+          )}
         </div>
 
         {/* Daily Focus - AI generated one-liner */}
