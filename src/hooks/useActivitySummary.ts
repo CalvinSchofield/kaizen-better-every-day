@@ -17,6 +17,7 @@ interface ActivitySummaryData {
     fp: number;
     prmr: number;
     upgradePrmr: number;
+    moneySpent: number;
   };
   dailyAverages: {
     doors: number;
@@ -29,6 +30,7 @@ interface ActivitySummaryData {
     prmr: number;
   };
   upfrontPay: number;
+  totalMoneySpent: number;
   comparison?: {
     fpChange: number;
     prmrChange: number;
@@ -146,15 +148,19 @@ export const useActivitySummary = (repData: any) => {
         return getDay(entryDate) !== 0; // 0 = Sunday
       }) || [];
 
-      // Helper to calculate FP+ and PRMR from sales_log for unfinalized entries
-      const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number } => {
-        if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0 };
+      // Helper to calculate FP+, PRMR, and money spent from sales_log
+      const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number; moneySpent: number } => {
+        if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0, moneySpent: 0 };
         
         let fp = 0;
         let prmr = 0;
+        let moneySpent = 0;
         
         for (const sale of salesLog) {
-          // Skip sales that were never installed
+          // Always count money spent regardless of install status
+          moneySpent += Number(sale.money_spent) || 0;
+          
+          // Skip sales that were never installed for FP/PRMR
           if (sale.install_status === 'never_installed') continue;
           
           const salePrmr = Number(sale.prmr) || 0;
@@ -167,7 +173,7 @@ export const useActivitySummary = (repData: any) => {
           }
         }
         
-        return { fp, prmr };
+        return { fp, prmr, moneySpent };
       };
 
       // Include all entries (finalized + today's unfinalized) for live totals
@@ -177,6 +183,15 @@ export const useActivitySummary = (repData: any) => {
           let fp: number;
           let prmr: number;
           let upgradePrmr: number;
+          let moneySpent: number = 0;
+          
+          // Calculate money spent from sales_log for all entries
+          const salesLog = entry.sales_log as any[];
+          if (salesLog && Array.isArray(salesLog)) {
+            for (const sale of salesLog) {
+              moneySpent += Number(sale.money_spent) || 0;
+            }
+          }
           
           if (entry.is_finalized) {
             // Finalized: use saved column values
@@ -186,7 +201,6 @@ export const useActivitySummary = (repData: any) => {
             upgradePrmr = Number(entry.upgrade_prmr) || 0;
           } else {
             // Unfinalized: prioritize sales_log if it has entries (supports edits/deletes)
-            const salesLog = entry.sales_log as any[];
             const fromLog = calculateFromSalesLog(salesLog);
             const fromColumnFp = Number(entry.fp_plus) || 0;
             const fromColumnPrmr = Number(entry.prmr) || 0;
@@ -206,9 +220,10 @@ export const useActivitySummary = (repData: any) => {
             fp: acc.fp + fp,
             prmr: acc.prmr + prmr,
             upgradePrmr: acc.upgradePrmr + upgradePrmr,
+            moneySpent: acc.moneySpent + moneySpent,
           };
         },
-        { doors: 0, pitches: 0, decisionMakers: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0, upgradePrmr: 0 }
+        { doors: 0, pitches: 0, decisionMakers: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0, upgradePrmr: 0, moneySpent: 0 }
       );
 
       // Count entries with any activity as "days worked"
@@ -481,6 +496,7 @@ export const useActivitySummary = (repData: any) => {
         totals,
         dailyAverages,
         upfrontPay,
+        totalMoneySpent: totals.moneySpent,
         comparison,
         chartData,
         comparisonChartData,

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { DollarSign, Target, Calendar, Banknote } from 'lucide-react';
+import { DollarSign, Target, Calendar, Banknote, Receipt } from 'lucide-react';
 import { RecapStats } from '@/hooks/useRecapData';
 import { useRepGoals } from '@/hooks/useRepGoals';
 import { useRepData } from '@/hooks/useRepData';
@@ -28,6 +28,9 @@ export function RecapSummarySlide({ stats }: RecapSummarySlideProps) {
   const upfrontPay = stats.totalPrmr * 4;
   const payRate = PAY_RATES[payLevel] || 6.50;
   const totalPay = stats.totalPrmr * payRate;
+  const totalSpent = stats.dealBreakdown?.totalMoneySpent || 0;
+  const netUpfrontPay = upfrontPay - totalSpent;
+  const netTotalPay = totalPay - totalSpent;
   
   const maxPay = Math.max(upfrontPay, totalPay);
   const upfrontWidth = maxPay > 0 ? (upfrontPay / maxPay) * 100 : 0;
@@ -86,6 +89,11 @@ export function RecapSummarySlide({ stats }: RecapSummarySlideProps) {
               className="h-full bg-blue-500 rounded-full"
             />
           </div>
+          {totalSpent > 0 && (
+            <p className="text-xs text-muted-foreground text-right">
+              Net: <span className="text-blue-300 font-medium">${netUpfrontPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            </p>
+          )}
         </div>
 
         <div className="bg-green-500/10 rounded-xl px-4 py-3 border border-green-500/20 space-y-2">
@@ -104,7 +112,22 @@ export function RecapSummarySlide({ stats }: RecapSummarySlideProps) {
               className="h-full bg-green-500 rounded-full"
             />
           </div>
+          {totalSpent > 0 && (
+            <p className="text-xs text-muted-foreground text-right">
+              Net: <span className="text-green-400 font-medium">${netTotalPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            </p>
+          )}
         </div>
+
+        {totalSpent > 0 && (
+          <div className="flex items-center justify-between bg-destructive/10 rounded-xl px-4 py-3 border border-destructive/20">
+            <div className="flex items-center gap-3">
+              <Receipt className="w-5 h-5 text-destructive" />
+              <span className="text-destructive text-sm">Money Spent</span>
+            </div>
+            <span className="text-lg font-semibold text-destructive">${totalSpent.toLocaleString()}</span>
+          </div>
+        )}
 
         <div className="flex items-center justify-between bg-muted/30 rounded-xl px-4 py-3">
           <div className="flex items-center gap-3">

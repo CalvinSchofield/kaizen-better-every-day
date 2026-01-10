@@ -34,12 +34,19 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
         acc.prmr += Number(entry.prmr) || 0;
         acc.days += 1;
         
-        // Parse sales_log to get FP count and PRMR breakdown (only funded sales)
+        // Parse sales_log to get FP count, PRMR breakdown, and money spent
         // Fall back to column values for entries without sales_log (pre-feature entries)
         const salesLog = entry.sales_log || [];
         const fundedSales = Array.isArray(salesLog) 
           ? (salesLog as any[]).filter((sale: any) => sale.install_status !== 'cancelled' && sale.install_status !== 'never_installed')
           : [];
+        
+        // Always count money spent from all sales (regardless of install status)
+        if (Array.isArray(salesLog)) {
+          (salesLog as any[]).forEach((sale: any) => {
+            acc.moneySpent += Number(sale.money_spent) || 0;
+          });
+        }
         
         if (fundedSales.length > 0) {
           // Use sales_log data
@@ -69,7 +76,7 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
         }
         
         return acc;
-      }, { transitions: 0, fp: 0, prmr: 0, days: 0, fpCount: 0, fpPrmrTotal: 0, upgradeCount: 0, upgradePrmrTotal: 0 }) || { transitions: 0, fp: 0, prmr: 0, days: 0, fpCount: 0, fpPrmrTotal: 0, upgradeCount: 0, upgradePrmrTotal: 0 };
+      }, { transitions: 0, fp: 0, prmr: 0, days: 0, fpCount: 0, fpPrmrTotal: 0, upgradeCount: 0, upgradePrmrTotal: 0, moneySpent: 0 }) || { transitions: 0, fp: 0, prmr: 0, days: 0, fpCount: 0, fpPrmrTotal: 0, upgradeCount: 0, upgradePrmrTotal: 0, moneySpent: 0 };
 
       return totals;
     },
@@ -104,11 +111,12 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
     enabled: !!repData?.user_id,
   });
 
-  const thisWeek = thisWeekData || { transitions: 0, fp: 0, prmr: 0, days: 0, fpCount: 0, fpPrmrTotal: 0, upgradeCount: 0, upgradePrmrTotal: 0 };
+  const thisWeek = thisWeekData || { transitions: 0, fp: 0, prmr: 0, days: 0, fpCount: 0, fpPrmrTotal: 0, upgradeCount: 0, upgradePrmrTotal: 0, moneySpent: 0 };
   const lastWeek = lastWeekData || { fp: 0 };
   const fpChange = thisWeek.fp - lastWeek.fp;
   const isImproving = fpChange >= 0;
   const upfrontPay = thisWeek.prmr * 4;
+  const netPay = upfrontPay - thisWeek.moneySpent;
 
   // Calculate averages from sales_log data
   const avgPrmrPerFp = thisWeek.fpCount > 0 ? Math.round(thisWeek.fpPrmrTotal / thisWeek.fpCount) : 0;
@@ -165,6 +173,14 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
           <p className="text-sm font-semibold text-muted-foreground">
             Anticipated Upfront Pay: <span className="text-base text-green-800 dark:text-green-500">${upfrontPay.toLocaleString()}</span>
           </p>
+          {thisWeek.moneySpent > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Spent: <span className="text-destructive">${thisWeek.moneySpent.toLocaleString()}</span>
+              {" → "}Net: <span className="text-green-700 dark:text-green-400 font-medium">
+                ${netPay.toLocaleString()}
+              </span>
+            </p>
+          )}
         </div>
 
         {lastWeek.fp > 0 && (
