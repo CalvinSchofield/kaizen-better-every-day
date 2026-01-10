@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, Users, Target, User } from "lucide-react";
+import { Trophy, Users, Target, User, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -53,6 +53,7 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
   const isActive = incentive.status === 'active';
   const isCompleted = incentive.status === 'completed';
   const isGroupTotal = incentive.target_type === 'group_total';
+  const isAnyoneWho = incentive.target_type === 'anyone_who';
 
   const { data: progressData } = useIncentiveProgress(isActive ? incentive : null);
 
@@ -221,6 +222,55 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
                     )}
                   </div>
                 </>
+              ) : isAnyoneWho ? (
+                <>
+                  {/* Anyone Who - show qualified count */}
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <span className="font-medium">Qualified</span>
+                    </div>
+                    <motion.span 
+                      key={progressData.qualifiedParticipants.length}
+                      initial={{ scale: 1.2, color: "rgb(34, 197, 94)" }}
+                      animate={{ scale: 1, color: "rgb(22, 163, 74)" }}
+                      className="font-bold text-green-600"
+                    >
+                      {progressData.qualifiedParticipants.length} / {progressData.participants.length}
+                    </motion.span>
+                  </div>
+                  
+                  {/* Show qualified participants */}
+                  {progressData.qualifiedParticipants.length > 0 ? (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {progressData.qualifiedParticipants.slice(0, 4).map((p, i) => (
+                        <motion.div 
+                          key={p.user_id} 
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: i * 0.05 }}
+                          className="flex items-center gap-1 bg-green-500/10 rounded-full px-2 py-0.5 border border-green-500/20"
+                        >
+                          <CheckCircle2 className="h-3 w-3 text-green-500" />
+                          <Avatar className="h-4 w-4">
+                            {p.profile_photo_url && <AvatarImage src={p.profile_photo_url} />}
+                            <AvatarFallback className="text-[8px]">{p.rep_name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs font-medium">{p.rep_name.split(' ')[0]}</span>
+                        </motion.div>
+                      ))}
+                      {progressData.qualifiedParticipants.length > 4 && (
+                        <span className="text-xs text-green-600 px-2 py-0.5">
+                          +{progressData.qualifiedParticipants.length - 4} more
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      No one has qualified yet - be the first!
+                    </p>
+                  )}
+                </>
               ) : (
                 <>
                   {/* Individual Race - show leader */}
@@ -266,9 +316,11 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
             <span>
               {isGroupTotal 
                 ? `Group reaches ${incentive.target_value} ${metricLabels[incentive.metric]}`
-                : incentive.target_type === 'first_to' 
-                  ? `First to ${incentive.target_value} ${metricLabels[incentive.metric]}`
-                  : `Most ${metricLabels[incentive.metric]}`
+                : isAnyoneWho
+                  ? `Anyone who gets ${incentive.target_value} ${metricLabels[incentive.metric]}`
+                  : incentive.target_type === 'first_to' 
+                    ? `First to ${incentive.target_value} ${metricLabels[incentive.metric]}`
+                    : `Most ${metricLabels[incentive.metric]}`
               }
             </span>
           </div>

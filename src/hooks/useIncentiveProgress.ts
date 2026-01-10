@@ -40,6 +40,7 @@ export interface IncentiveProgressData {
   targetValue: number;
   progressPercent: number;
   leader: ParticipantProgress | null;
+  qualifiedParticipants: ParticipantProgress[]; // For 'anyone_who' type
   isCompleted: boolean;
   timeRemaining: string;
 }
@@ -161,10 +162,22 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
       const groupTotal = participants.reduce((sum, p) => sum + p.current_value, 0);
       const targetValue = incentive.target_value || 1;
 
+      // Calculate qualified participants for 'anyone_who' type
+      const qualifiedParticipants = participants.filter(p => p.current_value >= targetValue);
+
       // Progress percent based on incentive type
-      const progressPercent = incentive.target_type === 'group_total'
-        ? Math.min(100, (groupTotal / targetValue) * 100)
-        : Math.min(100, ((participants[0]?.current_value || 0) / targetValue) * 100);
+      let progressPercent: number;
+      if (incentive.target_type === 'group_total') {
+        progressPercent = Math.min(100, (groupTotal / targetValue) * 100);
+      } else if (incentive.target_type === 'anyone_who') {
+        // For anyone_who, show percentage of participants who have qualified
+        progressPercent = participants.length > 0 
+          ? (qualifiedParticipants.length / participants.length) * 100 
+          : 0;
+      } else {
+        // first_to - show leader's progress toward target
+        progressPercent = Math.min(100, ((participants[0]?.current_value || 0) / targetValue) * 100);
+      }
 
       // Time remaining calculation using the latest participant timezone
       const latestTimezone = getLatestTimezone(participantTimezones);
@@ -197,6 +210,7 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
         targetValue,
         progressPercent,
         leader: participants[0] || null,
+        qualifiedParticipants,
         isCompleted: incentive.status === 'completed',
         timeRemaining,
       } as IncentiveProgressData;
