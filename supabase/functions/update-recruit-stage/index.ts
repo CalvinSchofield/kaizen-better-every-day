@@ -198,14 +198,31 @@ serve(async (req) => {
       });
     }
 
+    // Build update payload - include onboarding progress when moving to Signed+
+    const recruitUpdatePayload: Record<string, any> = {
+      stage: newStage,
+      updated_at: new Date().toISOString(),
+    };
+    
+    const repUpdatePayload: Record<string, any> = {
+      stage: newStage,
+      updated_at: new Date().toISOString(),
+    };
+    
+    // When moving to Signed or beyond, set onboarding_complete = true
+    // This ensures progress tracking shows correctly for newly signed recruits
+    if (isMovingToSignedPlus) {
+      recruitUpdatePayload.onboarding_complete = true;
+      repUpdatePayload.onboarding_complete = true;
+      repUpdatePayload.ramp_to_blitz_phase = 'Onboarding ✅';
+      console.log(`[update-recruit-stage] Setting onboarding_complete=true for Signed+ stage`);
+    }
+
     // Update stage in recruits table first (when we have a recruits row)
     if (currentRecruit) {
       const { error: recruitUpdateError } = await supabase
         .from('recruits')
-        .update({
-          stage: newStage,
-          updated_at: new Date().toISOString(),
-        })
+        .update(recruitUpdatePayload)
         .eq('id', currentRecruit.id);
 
       if (recruitUpdateError) {
@@ -222,10 +239,7 @@ serve(async (req) => {
     if (currentRep) {
       const { error: repUpdateError } = await supabase
         .from('reps')
-        .update({ 
-          stage: newStage, 
-          updated_at: new Date().toISOString() 
-        })
+        .update(repUpdatePayload)
         .eq('id', currentRep.id);
 
       if (repUpdateError) {
