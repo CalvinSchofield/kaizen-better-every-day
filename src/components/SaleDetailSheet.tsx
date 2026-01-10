@@ -758,19 +758,40 @@ export const SaleDetailSheet = ({
               </div>
             )}
             {sale.customer_phone && (
-              <div className="flex items-center gap-2">
+              <div 
+                className="flex items-center gap-2 cursor-pointer active:opacity-70 transition-opacity"
+                onClick={() => {
+                  hapticLight();
+                  navigator.clipboard.writeText(sale.customer_phone || '');
+                  toast.success('Phone number copied');
+                }}
+              >
                 <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
                 <span className="text-sm">{sale.customer_phone}</span>
               </div>
             )}
             {sale.customer_account_number && (
-              <div className="flex items-center gap-2">
+              <div 
+                className="flex items-center gap-2 cursor-pointer active:opacity-70 transition-opacity"
+                onClick={() => {
+                  hapticLight();
+                  navigator.clipboard.writeText(sale.customer_account_number || '');
+                  toast.success('Account number copied');
+                }}
+              >
                 <Hash className="w-4 h-4 text-muted-foreground shrink-0" />
                 <span className="text-sm">A-{sale.customer_account_number}</span>
               </div>
             )}
             {sale.customer_address && (
-              <div className="flex items-start gap-2">
+              <div 
+                className="flex items-start gap-2 cursor-pointer active:opacity-70 transition-opacity"
+                onClick={() => {
+                  hapticLight();
+                  navigator.clipboard.writeText(sale.customer_address || '');
+                  toast.success('Address copied');
+                }}
+              >
                 <MapPin className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                 <span className="text-sm">{sale.customer_address}</span>
               </div>
@@ -834,13 +855,12 @@ export const SaleDetailSheet = ({
         </div>
       )}
 
-      {/* Open in Maps Button */}
+      {/* Map Preview - Tap to open in Maps */}
       {(sale.customer_lat && sale.customer_lng) && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Location</p>
-          <Button
-            variant="outline"
-            className="w-full h-12 gap-2"
+          <div 
+            className="rounded-xl overflow-hidden border border-border h-32 cursor-pointer active:opacity-80 transition-opacity"
             onClick={() => {
               hapticLight();
               const lat = sale.customer_lat;
@@ -856,9 +876,15 @@ export const SaleDetailSheet = ({
               }
             }}
           >
-            <MapPin className="w-4 h-4" />
-            Open in Maps
-          </Button>
+            <img
+              src={`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-s+ef4444(${sale.customer_lng},${sale.customer_lat})/${sale.customer_lng},${sale.customer_lat},15,0/400x200@2x?access_token=${mapboxToken}`}
+              alt="Customer location - tap to open in Maps"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
         </div>
       )}
 
