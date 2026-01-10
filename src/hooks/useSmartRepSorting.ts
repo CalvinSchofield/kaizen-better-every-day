@@ -49,13 +49,12 @@ export const useSmartRepSorting = (
   currentUserId?: string | null,
   excludeCurrentUser: boolean = true
 ) => {
-  // Fetch planned work days within date range - use local date format to avoid timezone issues
+  // Fetch planned work days within date range
   const { data: plannedWorkDays, isLoading: loadingPlannedDays } = useQuery({
     queryKey: ['planned-work-days-for-sorting', dateRange ? format(dateRange.start, 'yyyy-MM-dd') : null, dateRange ? format(dateRange.end, 'yyyy-MM-dd') : null],
     queryFn: async () => {
       if (!dateRange) return {};
       
-      // Use local date format instead of toISOString() to avoid UTC conversion issues
       const startStr = format(dateRange.start, 'yyyy-MM-dd');
       const endStr = format(dateRange.end, 'yyyy-MM-dd');
       
@@ -70,7 +69,6 @@ export const useSmartRepSorting = (
         return {};
       }
       
-      // Group by user_id - just need to know if they have ANY planned day in range
       const userPlannedDays: Record<string, boolean> = {};
       data?.forEach(row => {
         if (row.user_id) {
@@ -81,7 +79,51 @@ export const useSmartRepSorting = (
       return userPlannedDays;
     },
     enabled: !!dateRange,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
+  });
+
+  // Fetch active daily entries within date range - users who are actively working
+  const { data: activeEntries, isLoading: loadingActiveEntries } = useQuery({
+    queryKey: ['active-entries-for-sorting', dateRange ? format(dateRange.start, 'yyyy-MM-dd') : null, dateRange ? format(dateRange.end, 'yyyy-MM-dd') : null],
+    queryFn: async () => {
+      if (!dateRange) return {};
+      
+      const startStr = format(dateRange.start, 'yyyy-MM-dd');
+      const endStr = format(dateRange.end, 'yyyy-MM-dd');
+      
+      const { data, error } = await supabase
+        .from('daily_entries')
+        .select('user_id, entry_date, doors_knocked, pitches, decision_makers, transitions, presentations, closes, work_start_time')
+        .gte('entry_date', startStr)
+        .lte('entry_date', endStr);
+      
+      if (error) {
+        console.error('Error fetching active entries:', error);
+        return {};
+      }
+      
+      const userHasActivity: Record<string, boolean> = {};
+      data?.forEach(row => {
+        if (row.user_id) {
+          const hasActivity = 
+            (row.doors_knocked && row.doors_knocked > 0) ||
+            (row.pitches && row.pitches > 0) ||
+            (row.decision_makers && row.decision_makers > 0) ||
+            (row.transitions && row.transitions > 0) ||
+            (row.presentations && row.presentations > 0) ||
+            (row.closes && row.closes > 0) ||
+            row.work_start_time;
+          
+          if (hasActivity) {
+            userHasActivity[row.user_id] = true;
+          }
+        }
+      });
+      
+      return userHasActivity;
+    },
+    enabled: !!dateRange,
+    staleTime: 30 * 1000,
   });
 
   // Filter and sort reps
@@ -113,7 +155,7 @@ export const useSmartRepSorting = (
     };
 
     // If no date range, just return sorted reps
-    if (!dateRange || !plannedWorkDays) {
+    if (!dateRange || (!plannedWorkDays && !activeEntries)) {
       const sorted = sortReps(eligibleReps);
       return {
         workingReps: sorted,
@@ -122,17 +164,18 @@ export const useSmartRepSorting = (
       };
     }
 
-    // Split into working/not working based on planned days
+    // Split into working/not working based on planned days OR active entries
     const working: Rep[] = [];
     const notWorking: Rep[] = [];
     
     eligibleReps.forEach(rep => {
       if (!rep.userId) return;
       
-      // Check if they have planned work days in range
-      const hasPlannedDays = plannedWorkDays[rep.userId] ?? false;
+      // Check if they have planned work days OR have active entries in range
+      const hasPlannedDays = plannedWorkDays?.[rep.userId] ?? false;
+      const hasActiveEntry = activeEntries?.[rep.userId] ?? false;
       
-      if (hasPlannedDays) {
+      if (hasPlannedDays || hasActiveEntry) {
         working.push(rep);
       } else {
         notWorking.push(rep);
@@ -147,10 +190,10 @@ export const useSmartRepSorting = (
       notWorkingReps: sortedNotWorking,
       allSortedReps: [...sortedWorking, ...sortedNotWorking],
     };
-  }, [allReps, plannedWorkDays, currentUserId, excludeCurrentUser, dateRange]);
+  }, [allReps, plannedWorkDays, activeEntries, currentUserId, excludeCurrentUser, dateRange]);
 
   return {
     ...sortedReps,
-    isLoading: loadingPlannedDays,
+    isLoading: loadingPlannedDays || loadingActiveEntries,
   };
 };
