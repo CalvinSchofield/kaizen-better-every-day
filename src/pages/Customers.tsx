@@ -59,8 +59,8 @@ const Customers = () => {
     setDetailSheetOpen(true);
   };
 
-  const handleFundingToggle = (sale: CustomerSale, newStatus: 'installed' | 'pending' | 'cancelled' | 'never_installed') => {
-    updateFunding(sale.id, sale.entry_date, newStatus);
+  const handleFundingToggle = (sale: CustomerSale, newStatus: 'installed' | 'pending' | 'cancelled' | 'never_installed', scheduledInstallDate?: string) => {
+    updateFunding(sale.id, sale.entry_date, newStatus, scheduledInstallDate);
   };
 
   const handleUpdateSale = (updatedSale: Sale) => {
@@ -210,7 +210,7 @@ const Customers = () => {
                     sale={sale} 
                     efpModeEnabled={efpModeEnabled}
                     onCardClick={() => handleCardClick(sale)}
-                    onFundingToggle={(status) => handleFundingToggle(sale, status)}
+                    onFundingToggle={(status, scheduledDate) => handleFundingToggle(sale, status, scheduledDate)}
                   />
                 ))}
               </div>
