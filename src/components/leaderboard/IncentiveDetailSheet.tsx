@@ -335,9 +335,17 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                             </p>
                           )}
                           {isAnyoneWho && !isQualified && (
-                            <p className="text-xs text-muted-foreground">
-                              {Math.max(0, (progressData.targetValue || 0) - participant.current_value).toFixed(1)} more to qualify
-                            </p>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">
+                                {Math.max(0, (progressData.targetValue || 0) - participant.current_value).toFixed(1)} more to qualify
+                              </p>
+                              {participant.current_value > 0 && progressData.targetValue && (
+                                <Progress 
+                                  value={(participant.current_value / progressData.targetValue) * 100} 
+                                  className="h-1.5"
+                                />
+                              )}
+                            </div>
                           )}
                         </div>
                         <div className="text-right">
