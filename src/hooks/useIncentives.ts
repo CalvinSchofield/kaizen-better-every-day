@@ -28,6 +28,7 @@ export interface Incentive {
   start_date: string;
   end_date: string;
   winner_user_id: string | null;
+  winner_user_ids: string[] | null; // For 'anyone_who' type with multiple winners
   created_at: string;
   completed_at: string | null;
   // Joined data

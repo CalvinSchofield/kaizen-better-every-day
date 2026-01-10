@@ -331,12 +331,34 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
         </div>
 
         {/* Winner display for completed */}
-        {isCompleted && incentive.winner_user_id && (
+        {isCompleted && (
           <div className="mt-3 pt-3 border-t border-border">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-amber-500" />
-              <span className="text-sm font-medium">Winner claimed the prize!</span>
-            </div>
+            {isAnyoneWho ? (
+              // Anyone who - show how many qualified
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <span className="text-sm font-medium">
+                  {(incentive.winner_user_ids?.length || 0) > 0 
+                    ? `${incentive.winner_user_ids?.length} qualified and won!`
+                    : 'No one qualified'}
+                </span>
+              </div>
+            ) : incentive.winner_user_id ? (
+              <div className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-amber-500" />
+                <span className="text-sm font-medium">Winner claimed the prize!</span>
+              </div>
+            ) : isGroupTotal ? (
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-blue-500" />
+                <span className="text-sm font-medium">Group goal achieved!</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Target className="h-4 w-4" />
+                <span className="text-sm">Expired - no winner</span>
+              </div>
+            )}
           </div>
         )}
       </motion.div>
