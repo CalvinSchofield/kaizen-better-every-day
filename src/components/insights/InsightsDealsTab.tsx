@@ -276,7 +276,7 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20"
+          className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20 space-y-3"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -285,14 +285,50 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
             </div>
             <span className="text-xl font-bold text-destructive">${totalSpent.toLocaleString()}</span>
           </div>
-          <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Upfront Pay</span>
-              <span className="font-medium">${(insights.totalPrmr * 4).toLocaleString()}</span>
+          
+          {/* Upfront Pay Row */}
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">Upfront Pay</div>
+              <div className="font-semibold">${(insights.totalPrmr * 4).toLocaleString()}</div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Net Upfront</span>
-              <span className="font-medium text-success">${((insights.totalPrmr * 4) - totalSpent).toLocaleString()}</span>
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">Net Upfront</div>
+              <div className="font-semibold text-success">${((insights.totalPrmr * 4) - totalSpent).toLocaleString()}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">Upfront ROI</div>
+              <div className={`font-semibold ${((insights.totalPrmr * 4) / totalSpent) >= 1 ? 'text-success' : 'text-warning'}`}>
+                {((insights.totalPrmr * 4) / totalSpent).toFixed(1)}x
+              </div>
+            </div>
+          </div>
+
+          {/* Total Pay Row (using payscale rate) */}
+          <div className="pt-2 border-t border-border/30">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-muted-foreground">
+                Total Pay @ ${currentTier.rate.toFixed(2)}/PRMR
+              </span>
+              <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-background/50">
+                {targetFpPlus} FP+ tier
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <div className="text-center">
+                <div className="text-xs text-muted-foreground">Total Pay</div>
+                <div className="font-semibold">${(insights.totalPrmr * currentTier.rate).toLocaleString()}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-muted-foreground">Net Total</div>
+                <div className="font-semibold text-success">${((insights.totalPrmr * currentTier.rate) - totalSpent).toLocaleString()}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-muted-foreground">Total ROI</div>
+                <div className={`font-semibold ${((insights.totalPrmr * currentTier.rate) / totalSpent) >= 1 ? 'text-success' : 'text-warning'}`}>
+                  {((insights.totalPrmr * currentTier.rate) / totalSpent).toFixed(1)}x
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>
