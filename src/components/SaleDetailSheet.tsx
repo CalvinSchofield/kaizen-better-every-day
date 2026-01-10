@@ -329,7 +329,7 @@ export const SaleDetailSheet = ({
 
   // Render the edit view content inline to prevent re-mounting on state changes
   const editViewContent = (
-    <div className="px-4 pb-6 space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0" style={{ maxHeight: 'min(60svh, 60vh)' }}>
+    <div className="px-4 pb-8 space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
       {/* Funding Status Toggle */}
       <div className="space-y-2">
         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -701,7 +701,7 @@ export const SaleDetailSheet = ({
 
   // Render the summary view content inline
   const summaryViewContent = (
-    <div className="px-4 pb-6 space-y-4 overflow-y-auto" style={{ maxHeight: 'min(70svh, 70vh)' }}>
+    <div className="px-4 pb-8 space-y-4 overflow-y-auto flex-1 min-h-0">
       {/* Sale Overview Card */}
       <div className="bg-muted/50 rounded-xl p-4 space-y-3">
         {/* Type and PRMR */}
@@ -881,8 +881,8 @@ export const SaleDetailSheet = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="pb-safe" style={{ maxHeight: 'min(90svh, 90vh)' }}>
-        <DrawerHeader className="text-center pb-2">
+      <DrawerContent className="max-h-[85svh] flex flex-col">
+        <DrawerHeader className="text-center pb-2 shrink-0">
           <DrawerTitle className="text-xl">
             {isEditMode ? 'Edit Sale' : 'Sale Details'}
           </DrawerTitle>
