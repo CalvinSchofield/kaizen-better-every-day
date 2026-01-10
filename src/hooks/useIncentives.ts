@@ -119,10 +119,11 @@ export const useMyActiveIncentives = () => {
         .eq('user_id', user.id);
 
       if (eligError) throw eligError;
-      if (!myEligibility?.length) return [];
+      
+      const eligibleIds = myEligibility?.map((e) => e.incentive_id) || [];
 
-      const incentiveIds = myEligibility.map((e) => e.incentive_id);
-
+      // Fetch incentives where user is eligible OR user is the creator
+      // This ensures leaders always see their own incentives
       const { data: incentives, error } = await supabase
         .from('incentives')
         .select(`
@@ -132,8 +133,8 @@ export const useMyActiveIncentives = () => {
             user_id
           )
         `)
-        .in('id', incentiveIds)
         .eq('status', 'active')
+        .or(`id.in.(${eligibleIds.join(',')}),created_by.eq.${user.id}`)
         .order('end_date', { ascending: true });
 
       if (error) throw error;
