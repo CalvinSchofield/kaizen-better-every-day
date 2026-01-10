@@ -16,6 +16,7 @@ import { CommitmentChips } from "@/components/goals/CommitmentChips";
 import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
 import { CalendarPlanningCard } from "@/components/goals/CalendarPlanningCard";
 import { CanceledStatsCard } from "@/components/goals/CanceledStatsCard";
+import { SpendingROICard } from "@/components/goals/SpendingROICard";
 import { TrainingTimer } from "@/components/goals/TrainingTimer";
 import { BooksCompletionDrawer } from "@/components/goals/BooksSelectionDrawer";
 import { CommitmentEditorDrawer } from "@/components/goals/CommitmentEditorDrawer";
@@ -927,6 +928,11 @@ const Goals = () => {
             </CollapsibleContent>
           </Collapsible>
         </motion.div>
+
+        {/* Spending & ROI Card - only shows if user has spending data */}
+        <div className="px-4 pb-4">
+          <SpendingROICard />
+        </div>
 
         {/* Canceled Stats */}
         <motion.div 
