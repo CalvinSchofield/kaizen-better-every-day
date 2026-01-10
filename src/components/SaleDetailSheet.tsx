@@ -11,11 +11,17 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Sale } from "@/hooks/useDailyEntry";
-import { format, parseISO, setHours, setMinutes } from "date-fns";
+import { format, parseISO, setHours, setMinutes, addDays } from "date-fns";
 import { Trash2, MapPin, Loader2, CheckCircle, Clock, Ban, Search, Pencil, Phone, User, Hash, DollarSign, Calendar, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CancellationConfirmDrawer } from "@/components/customers/CancellationConfirmDrawer";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface SaleDetailSheetProps {
   open: boolean;
@@ -85,6 +91,8 @@ export const SaleDetailSheet = ({
   
   // Install status
   const [installStatus, setInstallStatus] = useState<'installed' | 'pending' | 'cancelled' | 'never_installed'>('installed');
+  const [scheduledInstallDate, setScheduledInstallDate] = useState<Date | undefined>(undefined);
+  const [showScheduleDatePicker, setShowScheduleDatePicker] = useState(false);
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCancellationDrawer, setShowCancellationDrawer] = useState(false);
@@ -121,6 +129,7 @@ export const SaleDetailSheet = ({
       const time = format(parseISO(sale.timestamp), 'HH:mm');
       setSaleTime(time);
       setInstallStatus(sale.install_status || 'installed');
+      setScheduledInstallDate(sale.scheduled_install_date ? parseISO(sale.scheduled_install_date) : undefined);
       
       // CRM fields - use canonical field names
       setCustomerName(sale.customer_name || "");
@@ -288,6 +297,12 @@ export const SaleDetailSheet = ({
       prmr: prmrValue,
       timestamp: newTimestamp.toISOString(),
       install_status: installStatus,
+      // Include scheduled install date when pending
+      scheduled_install_date: installStatus === 'pending' && scheduledInstallDate 
+        ? format(scheduledInstallDate, 'yyyy-MM-dd') 
+        : undefined,
+      // Clear install_confirmed_at when not installed
+      install_confirmed_at: installStatus === 'installed' ? new Date().toISOString() : undefined,
     };
 
     // Add CRM fields if enabled - use canonical field names
@@ -396,6 +411,49 @@ export const SaleDetailSheet = ({
             {installStatus === 'never_installed' 
               ? '✗ Will NOT count on leaderboard or records'
               : '✓ Still counts on leaderboard & records (installed, then cancelled)'}
+          </div>
+        )}
+        
+        {/* Scheduled Install Date Picker - show when pending */}
+        {installStatus === 'pending' && (
+          <div className="pt-2 space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Scheduled Install Date
+            </Label>
+            <Popover open={showScheduleDatePicker} onOpenChange={setShowScheduleDatePicker}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal h-12"
+                  onClick={() => {
+                    hapticLight();
+                    if (!scheduledInstallDate) {
+                      setScheduledInstallDate(addDays(new Date(), 1));
+                    }
+                  }}
+                >
+                  <Calendar className="mr-2 h-4 w-4 text-amber-500" />
+                  {scheduledInstallDate 
+                    ? format(scheduledInstallDate, 'EEEE, MMM d, yyyy') 
+                    : "Select install date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 z-50" align="center">
+                <CalendarPicker
+                  mode="single"
+                  selected={scheduledInstallDate}
+                  onSelect={(date) => {
+                    setScheduledInstallDate(date);
+                    setShowScheduleDatePicker(false);
+                  }}
+                  disabled={(date) => date < new Date()}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            <p className="text-xs text-muted-foreground">
+              This sale will appear in pending installs for follow-up
+            </p>
           </div>
         )}
       </div>

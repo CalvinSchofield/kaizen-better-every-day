@@ -6,16 +6,18 @@ import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { CancellationConfirmDrawer } from './CancellationConfirmDrawer';
+import { ScheduleInstallDrawer } from './ScheduleInstallDrawer';
 
 interface CustomerCardProps {
   sale: CustomerSale;
   efpModeEnabled: boolean;
   onCardClick: () => void;
-  onFundingToggle: (newStatus: 'installed' | 'pending' | 'cancelled' | 'never_installed') => void;
+  onFundingToggle: (newStatus: 'installed' | 'pending' | 'cancelled' | 'never_installed', scheduledInstallDate?: string) => void;
 }
 
 export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggle }: CustomerCardProps) => {
   const [showCancellationDrawer, setShowCancellationDrawer] = useState(false);
+  const [showScheduleDrawer, setShowScheduleDrawer] = useState(false);
 
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -54,16 +56,24 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
       return;
     }
     
-    // For non-scheduled sales, cycle through statuses: installed -> pending -> cancelled -> installed
-    // Note: never_installed only comes from the confirmation drawer, never from cycling
+    // For non-scheduled sales, when going to pending, show the schedule drawer
     if (currentStatus === 'installed') {
-      onFundingToggle('pending');
-    } else if (currentStatus === 'cancelled' || currentStatus === 'never_installed') {
+      // Show schedule drawer to pick install date
+      setShowScheduleDrawer(true);
+      return;
+    } 
+    
+    if (currentStatus === 'cancelled' || currentStatus === 'never_installed') {
       onFundingToggle('installed');
-    } else {
-      // pending case handled above with drawer
-      onFundingToggle('cancelled');
     }
+  };
+
+  const handleScheduleConfirm = (scheduledDate: string) => {
+    onFundingToggle('pending', scheduledDate);
+  };
+
+  const handleScheduleCancel = () => {
+    // User cancelled without picking a date - don't change status
   };
 
   const handleCancellationConfirm = (status: 'cancelled' | 'never_installed') => {
@@ -234,6 +244,15 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
       onOpenChange={setShowCancellationDrawer}
       sale={sale}
       onConfirm={handleCancellationConfirm}
+    />
+
+    {/* Schedule Install Date Drawer */}
+    <ScheduleInstallDrawer
+      open={showScheduleDrawer}
+      onOpenChange={setShowScheduleDrawer}
+      onConfirm={handleScheduleConfirm}
+      onCancel={handleScheduleCancel}
+      customerName={sale.customer_name}
     />
     </>
   );

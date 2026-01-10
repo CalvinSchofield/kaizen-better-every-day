@@ -69,11 +69,13 @@ export const useCustomerData = (
     mutationFn: async ({ 
       saleId, 
       entryDate, 
-      newStatus 
+      newStatus,
+      scheduledInstallDate,
     }: { 
       saleId: string; 
       entryDate: string; 
       newStatus: 'installed' | 'pending' | 'cancelled' | 'never_installed';
+      scheduledInstallDate?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -91,7 +93,14 @@ export const useCustomerData = (
       const salesLog = (entry.sales_log as unknown as Sale[]) || [];
       const updatedSalesLog = salesLog.map(sale =>
         sale.id === saleId
-          ? { ...sale, install_status: newStatus }
+          ? { 
+              ...sale, 
+              install_status: newStatus,
+              // Set scheduled_install_date when marking as pending, clear when installed
+              scheduled_install_date: newStatus === 'pending' ? (scheduledInstallDate || sale.scheduled_install_date) : undefined,
+              // Set install_confirmed_at when marking as installed
+              install_confirmed_at: newStatus === 'installed' ? new Date().toISOString() : undefined,
+            }
           : sale
       );
 
@@ -283,8 +292,8 @@ export const useCustomerData = (
     return filteredSales.filter(sale => sale.customer_address);
   }, [filteredSales]);
 
-  const updateFunding = (saleId: string, entryDate: string, newStatus: 'installed' | 'pending' | 'cancelled' | 'never_installed') => {
-    updateFundingMutation.mutate({ saleId, entryDate, newStatus });
+  const updateFunding = (saleId: string, entryDate: string, newStatus: 'installed' | 'pending' | 'cancelled' | 'never_installed', scheduledInstallDate?: string) => {
+    updateFundingMutation.mutate({ saleId, entryDate, newStatus, scheduledInstallDate });
   };
 
   const updateSaleDetails = (saleId: string, entryDate: string, updates: Partial<Sale>) => {
