@@ -74,7 +74,6 @@ export const SmartParticipantPicker = ({
     queryFn: async () => {
       if (!dateRange) return {};
       
-      // Use local date format instead of toISOString() to avoid UTC conversion issues
       const startStr = format(dateRange.start, 'yyyy-MM-dd');
       const endStr = format(dateRange.end, 'yyyy-MM-dd');
       
@@ -89,7 +88,6 @@ export const SmartParticipantPicker = ({
         return {};
       }
       
-      // Group by user_id - just need to know if they have ANY planned day in range
       const userPlannedDays: Record<string, boolean> = {};
       data?.forEach(row => {
         if (row.user_id) {
@@ -100,8 +98,56 @@ export const SmartParticipantPicker = ({
       return userPlannedDays;
     },
     enabled: !!dateRange,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
   });
+
+  // Fetch active daily entries within date range - users who are actively working
+  const { data: activeEntries, isLoading: isLoadingActiveEntries } = useQuery({
+    queryKey: ['active-entries-for-picker', dateRange ? format(dateRange.start, 'yyyy-MM-dd') : null, dateRange ? format(dateRange.end, 'yyyy-MM-dd') : null],
+    queryFn: async () => {
+      if (!dateRange) return {};
+      
+      const startStr = format(dateRange.start, 'yyyy-MM-dd');
+      const endStr = format(dateRange.end, 'yyyy-MM-dd');
+      
+      // Fetch entries that have any activity (doors, pitches, sales, etc.)
+      const { data, error } = await supabase
+        .from('daily_entries')
+        .select('user_id, entry_date, doors_knocked, pitches, decision_makers, transitions, presentations, closes, work_start_time')
+        .gte('entry_date', startStr)
+        .lte('entry_date', endStr);
+      
+      if (error) {
+        console.error('Error fetching active entries:', error);
+        return {};
+      }
+      
+      // Check if user has ANY activity in the date range
+      const userHasActivity: Record<string, boolean> = {};
+      data?.forEach(row => {
+        if (row.user_id) {
+          const hasActivity = 
+            (row.doors_knocked && row.doors_knocked > 0) ||
+            (row.pitches && row.pitches > 0) ||
+            (row.decision_makers && row.decision_makers > 0) ||
+            (row.transitions && row.transitions > 0) ||
+            (row.presentations && row.presentations > 0) ||
+            (row.closes && row.closes > 0) ||
+            row.work_start_time; // Has started working
+          
+          if (hasActivity) {
+            userHasActivity[row.user_id] = true;
+          }
+        }
+      });
+      
+      return userHasActivity;
+    },
+    enabled: !!dateRange,
+    staleTime: 30 * 1000, // 30 seconds for more real-time feel
+  });
+
+  const isLoadingWorkStatus = isLoadingPlannedDays || isLoadingActiveEntries;
 
   // Build combined reps list including current user if needed
   const combinedReps = useMemo(() => {
@@ -165,7 +211,7 @@ export const SmartParticipantPicker = ({
       return sortedMap;
     };
 
-    // Split into working/not working based on planned days
+    // Split into working/not working based on planned days OR active entries
     const working: Rep[] = [];
     const notWorking: Rep[] = [];
     
@@ -178,10 +224,11 @@ export const SmartParticipantPicker = ({
         return;
       }
       
-      // Check if they have planned work days in range
+      // Check if they have planned work days OR have active entries in range
       const hasPlannedDays = plannedWorkDays?.[rep.userId] ?? false;
+      const hasActiveEntry = activeEntries?.[rep.userId] ?? false;
       
-      if (hasPlannedDays) {
+      if (hasPlannedDays || hasActiveEntry) {
         working.push(rep);
       } else {
         notWorking.push(rep);
@@ -193,7 +240,7 @@ export const SmartParticipantPicker = ({
       notWorkingByTeam: groupByTeam(notWorking),
       eligibleCount: eligibleReps.length,
     };
-  }, [combinedReps, plannedWorkDays, currentUserId, showSelfInList]);
+  }, [combinedReps, plannedWorkDays, activeEntries, currentUserId, showSelfInList]);
 
   const renderRepItem = (rep: Rep, isSelf: boolean = false) => {
     if (!rep.userId) return null;
@@ -266,7 +313,7 @@ export const SmartParticipantPicker = ({
 
       <div className="max-h-60 overflow-y-auto space-y-1 rounded-lg border border-border p-2">
         {/* Loading state */}
-        {isLoadingPlannedDays && dateRange && (
+        {isLoadingWorkStatus && dateRange && (
           <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin mr-2" />
             Loading availability...
@@ -274,12 +321,12 @@ export const SmartParticipantPicker = ({
         )}
 
         {/* Working reps section */}
-        {!isLoadingPlannedDays && hasWorkingReps && (
+        {!isLoadingWorkStatus && hasWorkingReps && (
           <>
             {dateRange && (
               <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
                 <CalendarCheck className="h-3 w-3 text-green-500" />
-                <span>Planning to work</span>
+                <span>Working / Planning to work</span>
               </div>
             )}
             {Array.from(workingByTeam.entries()).map(([teamName, reps]) => 
@@ -289,18 +336,18 @@ export const SmartParticipantPicker = ({
         )}
 
         {/* Separator between working and not working */}
-        {!isLoadingPlannedDays && hasWorkingReps && hasNotWorkingReps && (
+        {!isLoadingWorkStatus && hasWorkingReps && hasNotWorkingReps && (
           <div className="py-2">
             <Separator className="my-1" />
             <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
               <CalendarX className="h-3 w-3 text-muted-foreground" />
-              <span>Not planning to work during this period</span>
+              <span>Not working during this period</span>
             </div>
           </div>
         )}
 
         {/* Not working reps section */}
-        {!isLoadingPlannedDays && hasNotWorkingReps && (
+        {!isLoadingWorkStatus && hasNotWorkingReps && (
           <>
             {Array.from(notWorkingByTeam.entries()).map(([teamName, reps]) => 
               renderTeamGroup(teamName, reps, notWorkingByTeam.size > 1 || teamName !== 'Other')
@@ -309,7 +356,7 @@ export const SmartParticipantPicker = ({
         )}
 
         {/* Empty state */}
-        {!isLoadingPlannedDays && !hasWorkingReps && !hasNotWorkingReps && (
+        {!isLoadingWorkStatus && !hasWorkingReps && !hasNotWorkingReps && (
           <div className="text-center py-4 text-sm text-muted-foreground">
             No eligible participants found
           </div>
