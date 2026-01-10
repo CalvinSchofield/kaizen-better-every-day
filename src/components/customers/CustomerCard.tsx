@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Phone, MessageSquare, Copy, ChevronRight, Check, Clock, Ban, XCircle } from 'lucide-react';
+import { Phone, MessageSquare, Copy, ChevronRight, Check, Clock, Ban, XCircle, CalendarClock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CustomerSale } from '@/hooks/useCustomerData';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, differenceInDays, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { CancellationConfirmDrawer } from './CancellationConfirmDrawer';
@@ -131,6 +131,32 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
     };
   };
 
+  // Get days until scheduled install for pending sales
+  const getDaysUntilInstall = () => {
+    if (!isPending || !sale.scheduled_install_date) return null;
+    
+    const installDate = startOfDay(parseISO(sale.scheduled_install_date));
+    const today = startOfDay(new Date());
+    
+    if (isPast(installDate) && !isToday(installDate)) {
+      const daysOverdue = differenceInDays(today, installDate);
+      return { label: `${daysOverdue}d overdue`, isOverdue: true };
+    }
+    
+    if (isToday(installDate)) {
+      return { label: 'Today', isOverdue: false };
+    }
+    
+    if (isTomorrow(installDate)) {
+      return { label: 'Tomorrow', isOverdue: false };
+    }
+    
+    const daysUntil = differenceInDays(installDate, today);
+    return { label: `In ${daysUntil}d`, isOverdue: false };
+  };
+
+  const daysUntilInstall = getDaysUntilInstall();
+
   const statusConfig = getStatusConfig();
   const StatusIcon = statusConfig.icon;
 
@@ -172,12 +198,25 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
             >
               {sale.type === 'fp' ? 'FP' : 'Upgrade'}
             </Badge>
+            {/* Days until install indicator for pending sales */}
+            {daysUntilInstall && (
+              <Badge 
+                variant="outline"
+                className={cn(
+                  "text-xs gap-1",
+                  daysUntilInstall.isOverdue 
+                    ? 'bg-destructive/10 text-destructive border-destructive/30' 
+                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                )}
+              >
+                <CalendarClock className="w-3 h-3" />
+                {daysUntilInstall.label}
+              </Badge>
+            )}
           </div>
         </div>
         <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
       </div>
-
-      {/* Metrics Row - EFP/FP+ and PRMR */}
       <div className="flex items-baseline gap-3 mb-3">
         <div className="flex items-baseline gap-1">
           <span className="text-2xl font-bold text-foreground">
