@@ -214,15 +214,28 @@ export const useCustomerData = (
       return { saleId };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['customer-sales'] });
-      queryClient.invalidateQueries({ queryKey: ['daily-entry'] });
-      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
-      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
-      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'] });
-      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
+      // Invalidate all queries that could be affected by sale updates (especially money_spent)
+      queryClient.invalidateQueries({ queryKey: ['customer-sales'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['daily-entry'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['weekly-leaderboard'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['monthly-leaderboard'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['season-leaderboard'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['ytd-leaderboard'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['insights-data'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['rep-goals'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['pending-installs'], refetchType: 'all' });
+      // Invalidate competition/incentive progress
+      queryClient.invalidateQueries({ queryKey: ['my-active-incentives'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['incentive-progress'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['my-active-challenges'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
       toast.success('Sale updated');
     },
     onError: () => {
