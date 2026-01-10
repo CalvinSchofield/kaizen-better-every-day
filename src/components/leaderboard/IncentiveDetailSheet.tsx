@@ -12,7 +12,7 @@ import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { EditIncentiveDrawer } from "./EditIncentiveDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { formatCompetitionDuration } from "@/utils/competitionDateUtils";
 import { toast } from "sonner";
 
 interface IncentiveDetailSheetProps {
@@ -164,7 +164,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
               {
                 icon: Clock,
                 label: "Duration",
-                value: `${format(new Date(incentive.start_date), 'MMM d')} - ${format(new Date(incentive.end_date), 'MMM d')}`
+                value: formatCompetitionDuration(incentive.start_date, incentive.end_date)
               },
               {
                 icon: Users,
