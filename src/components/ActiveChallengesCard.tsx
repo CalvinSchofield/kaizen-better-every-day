@@ -11,6 +11,7 @@ import { useMyActiveIncentives, Incentive } from "@/hooks/useIncentives";
 import { useChallengeProgress } from "@/hooks/useChallengeProgress";
 import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { CompeteDrawer } from "@/components/CompeteDrawer";
+import { IncentiveDetailSheet } from "@/components/leaderboard/IncentiveDetailSheet";
 import { Swords, Trophy, ChevronRight, Flame, Gift, Loader2, Plus, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hapticLight } from "@/utils/haptics";
@@ -125,6 +126,7 @@ export const ActiveChallengesCard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [competeDrawerOpen, setCompeteDrawerOpen] = useState(false);
+  const [selectedIncentive, setSelectedIncentive] = useState<Incentive | null>(null);
   const {
     data: challenges,
     isLoading: loadingChallenges,
@@ -182,6 +184,23 @@ export const ActiveChallengesCard = () => {
     activeChallenges.length > 0 ||
     pendingChallenges.length > 0 ||
     activeIncentives.length > 0;
+
+  // Determine dynamic title based on what's active
+  const hasChallengesOrPending = activeChallenges.length > 0 || pendingChallenges.length > 0;
+  const hasIncentives = activeIncentives.length > 0;
+  const cardTitle = hasChallengesOrPending && hasIncentives 
+    ? 'Active Competitions' 
+    : hasIncentives 
+      ? 'Active Incentives' 
+      : 'Active Challenges';
+  const cardIcon = hasIncentives && !hasChallengesOrPending ? Trophy : hasChallengesOrPending && !hasIncentives ? Swords : Flame;
+  const iconColor = hasIncentives && !hasChallengesOrPending ? 'text-amber-500' : hasChallengesOrPending && !hasIncentives ? 'text-primary' : 'text-orange-500';
+
+  const handleIncentiveClick = (e: React.MouseEvent, incentive: Incentive) => {
+    e.stopPropagation();
+    hapticLight();
+    setSelectedIncentive(incentive);
+  };
 
   const pendingActionCount = pendingChallenges.filter((c) => {
     const me = c.participants?.find(
@@ -264,8 +283,11 @@ export const ActiveChallengesCard = () => {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Flame className="h-5 w-5 text-orange-500" />
-              Active Competitions
+              {(() => {
+                const IconComponent = cardIcon;
+                return <IconComponent className={cn("h-5 w-5", iconColor)} />;
+              })()}
+              {cardTitle}
               {pendingActionCount > 0 && (
                 <Badge variant="destructive" className="h-5 min-w-5 flex items-center justify-center p-0 text-xs">
                   {pendingActionCount}
@@ -340,7 +362,8 @@ export const ActiveChallengesCard = () => {
           {activeIncentives.slice(0, 2).map(incentive => (
             <div 
               key={incentive.id}
-              className="p-3 rounded-lg bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30"
+              className="p-3 rounded-lg bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 cursor-pointer hover:border-amber-500/50 transition-colors active:scale-[0.98]"
+              onClick={(e) => handleIncentiveClick(e, incentive)}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -363,6 +386,15 @@ export const ActiveChallengesCard = () => {
       </Card>
       
       <CompeteDrawer open={competeDrawerOpen} onOpenChange={setCompeteDrawerOpen} />
+      
+      {/* Incentive Detail Sheet */}
+      {selectedIncentive && (
+        <IncentiveDetailSheet
+          incentive={selectedIncentive}
+          open={!!selectedIncentive}
+          onOpenChange={(open) => !open && setSelectedIncentive(null)}
+        />
+      )}
     </>
   );
 };
