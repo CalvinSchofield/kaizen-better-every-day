@@ -156,17 +156,15 @@ export const LogSaleSheet = ({
     if (open && crmDetailedEnabled && counterTimestamps) {
       const now = new Date().toISOString();
       
+      let transitionMins: number | null = null;
+      let doorMins: number | null = null;
+      
       // Get last transition timestamp
       const transitions = counterTimestamps.transitions || [];
       if (transitions.length > 0) {
         const lastTransition = transitions[transitions.length - 1];
-        const mins = getMinutesBetween(lastTransition, now);
-        setSinceTransitionMinutes(mins);
-        // Auto-select transition as source and set time if available
-        if (mins > 0 && mins < 480) { // Max 8 hours
-          setTimeToSellSource('transition');
-          setTimeToSellMinutes(mins);
-        }
+        transitionMins = getMinutesBetween(lastTransition, now);
+        setSinceTransitionMinutes(transitionMins);
       } else {
         setSinceTransitionMinutes(null);
       }
@@ -175,15 +173,20 @@ export const LogSaleSheet = ({
       const doors = counterTimestamps.doors_knocked || [];
       if (doors.length > 0) {
         const lastDoor = doors[doors.length - 1];
-        const mins = getMinutesBetween(lastDoor, now);
-        setSinceDoorMinutes(mins);
-        // If no transition, use door as fallback
-        if (sinceTransitionMinutes === null && mins > 0 && mins < 480) {
-          setTimeToSellSource('door');
-          setTimeToSellMinutes(mins);
-        }
+        doorMins = getMinutesBetween(lastDoor, now);
+        setSinceDoorMinutes(doorMins);
       } else {
         setSinceDoorMinutes(null);
+      }
+      
+      // Auto-select the best source: prefer transition, fallback to door
+      // Only use times that are reasonable (> 0 and < 8 hours)
+      if (transitionMins !== null && transitionMins > 0 && transitionMins < 480) {
+        setTimeToSellSource('transition');
+        setTimeToSellMinutes(Math.min(transitionMins, 120)); // Cap at 2 hours
+      } else if (doorMins !== null && doorMins > 0 && doorMins < 480) {
+        setTimeToSellSource('door');
+        setTimeToSellMinutes(Math.min(doorMins, 120)); // Cap at 2 hours
       }
     }
   }, [open, crmDetailedEnabled, counterTimestamps]);
@@ -781,16 +784,16 @@ export const LogSaleSheet = ({
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Adjust: {formatMinutes(timeToSellMinutes)}</span>
-                    <span>5 min - 4 hrs</span>
+                    <span>5 min - 2 hrs</span>
                   </div>
                   <Slider
-                    value={[timeToSellMinutes]}
+                    value={[Math.min(timeToSellMinutes, 120)]}
                     onValueChange={([val]) => {
                       setTimeToSellMinutes(val);
                       setTimeToSellSource('manual');
                     }}
                     min={5}
-                    max={240}
+                    max={120}
                     step={5}
                     className="w-full"
                   />
