@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import { format } from "date-fns";
 import Layout from "./Layout";
 import Track from "@/pages/Track";
 import { SaveEntrySheet } from "./SaveEntrySheet";
@@ -284,7 +285,82 @@ const TrackWithLayout = () => {
     if (isBeforeSunset()) {
       setIsEarlySaveConfirmOpen(true);
     } else {
+      // Direct save without opening drawer - just finalize immediately
+      handleDirectSave();
+    }
+  };
+
+  // Direct save without drawer - used when skipSummaryView would be true
+  const handleDirectSave = async () => {
+    if (isSaveInProgress || isFinalizing) return;
+    
+    // Check if there are unmarked sales that need install tracking
+    const salesLog = entry.sales_log || [];
+    const hasUnmarkedSales = salesLog.some((s: Sale) => s.install_status === undefined);
+    
+    if (hasUnmarkedSales) {
+      // Need to show the SaveEntrySheet for install step only
       setIsSaveSheetOpen(true);
+      return;
+    }
+    
+    // No unmarked sales - save directly without any drawer
+    setIsSaveInProgress(true);
+    setSyncStatus('pending');
+    
+    try {
+      const saveDate = format(new Date(), 'yyyy-MM-dd');
+      const now = new Date();
+      
+      // Auto-fill end time if not set
+      const workEndTime = entry.work_end_time || now.toISOString();
+      
+      // Calculate metrics from sales_log
+      const fundedSales = salesLog.filter((s: Sale) => s.install_status !== 'cancelled' && s.install_status !== 'never_installed');
+      const fpSales = fundedSales.filter((s: Sale) => s.type === 'fp');
+      const upgradeSales = fundedSales.filter((s: Sale) => s.type === 'upgrade');
+      
+      const fpCount = fpSales.length;
+      const fpPrmrTotal = fpSales.reduce((sum: number, s: Sale) => sum + (s.prmr || 0), 0);
+      const upgradePrmrTotal = upgradeSales.reduce((sum: number, s: Sale) => sum + (s.prmr || 0), 0);
+      const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
+      const fpPlus = fpCount + (upgradePrmrTotal / 85);
+      
+      const saveData = {
+        doors_knocked: entry.doors_knocked || 0,
+        decision_makers: entry.decision_makers || 0,
+        pitches: entry.pitches || 0,
+        transitions: entry.transitions || 0,
+        presentations: entry.presentations || 0,
+        closes: salesLog.length,
+        fp_plus: fpPlus,
+        prmr: totalPrmr,
+        upgrade_prmr: upgradePrmrTotal || null,
+        saveDate,
+        work_start_time: entry.work_start_time,
+        work_end_time: workEndTime,
+        sales_log: salesLog,
+      };
+      
+      await finalizeEntry(saveData);
+      setSavedThisSession(true);
+      // DON'T call clearLocalEntry - let the invalidation refetch the real finalized data from DB
+      // This prevents the bug where navigating away and back shows zeros/unfinalized state
+      clearBackup();
+      setSyncStatus('synced');
+      toast.success('Entry saved!');
+      
+      // Fire confetti for celebration
+      if (fpPlus > 0) {
+        hapticSuccess();
+        fireConfetti({ variant: 'money' });
+      }
+    } catch (error) {
+      console.error('Save failed:', error);
+      setSyncStatus('error');
+      toast.error('Failed to save. Your data is backed up locally.');
+    } finally {
+      setIsSaveInProgress(false);
     }
   };
 
@@ -305,8 +381,8 @@ const TrackWithLayout = () => {
       await finalizeEntry(data);
       // PROTECTION LAYER 6: Mark session as saved BEFORE clearing UI
       setSavedThisSession(true);
-      // Save succeeded - now safe to clear the UI
-      clearLocalEntry();
+      // DON'T call clearLocalEntry - let the invalidation refetch the real finalized data from DB
+      // This prevents the bug where navigating away and back shows zeros/unfinalized state
       // Clear localStorage backup
       clearBackup();
       setSyncStatus('synced');
@@ -1051,7 +1127,7 @@ const TrackWithLayout = () => {
         currentTime={formatCurrentTime()}
         competitor={competitorNudge}
         loading={competitorLoading}
-        onConfirm={() => setIsSaveSheetOpen(true)}
+        onConfirm={handleDirectSave}
         onKeepWorking={() => {}}
       />
 
