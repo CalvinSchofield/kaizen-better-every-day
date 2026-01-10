@@ -12,6 +12,7 @@ import { useChallengeProgress } from "@/hooks/useChallengeProgress";
 import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { CompeteDrawer } from "@/components/CompeteDrawer";
 import { IncentiveDetailSheet } from "@/components/leaderboard/IncentiveDetailSheet";
+import { ChallengeDetailSheet } from "@/components/leaderboard/ChallengeDetailSheet";
 import { Swords, Trophy, ChevronRight, Flame, Gift, Loader2, Plus, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hapticLight } from "@/utils/haptics";
@@ -127,6 +128,7 @@ export const ActiveChallengesCard = () => {
   const queryClient = useQueryClient();
   const [competeDrawerOpen, setCompeteDrawerOpen] = useState(false);
   const [selectedIncentive, setSelectedIncentive] = useState<Incentive | null>(null);
+  const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
   const {
     data: challenges,
     isLoading: loadingChallenges,
@@ -200,6 +202,12 @@ export const ActiveChallengesCard = () => {
     e.stopPropagation();
     hapticLight();
     setSelectedIncentive(incentive);
+  };
+
+  const handleChallengeClick = (e: React.MouseEvent, challenge: Challenge) => {
+    e.stopPropagation();
+    hapticLight();
+    setSelectedChallenge(challenge);
   };
 
   const pendingActionCount = pendingChallenges.filter((c) => {
@@ -313,7 +321,8 @@ export const ActiveChallengesCard = () => {
             return (
               <div 
                 key={challenge.id}
-                className="p-3 rounded-lg bg-background/80 border"
+                className="p-3 rounded-lg bg-background/80 border cursor-pointer hover:border-primary/50 transition-colors active:scale-[0.98]"
+                onClick={(e) => handleChallengeClick(e, challenge)}
               >
                 <div className="flex items-center gap-2 mb-3">
                   <Swords className="h-4 w-4 text-primary" />
@@ -335,7 +344,8 @@ export const ActiveChallengesCard = () => {
             return (
               <div 
                 key={challenge.id}
-                className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30"
+                className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 cursor-pointer hover:border-yellow-500/50 transition-colors active:scale-[0.98]"
+                onClick={(e) => handleChallengeClick(e, challenge)}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -393,6 +403,15 @@ export const ActiveChallengesCard = () => {
           incentive={selectedIncentive}
           open={!!selectedIncentive}
           onOpenChange={(open) => !open && setSelectedIncentive(null)}
+        />
+      )}
+      
+      {/* Challenge Detail Sheet */}
+      {selectedChallenge && (
+        <ChallengeDetailSheet
+          challenge={selectedChallenge}
+          open={!!selectedChallenge}
+          onOpenChange={(open) => !open && setSelectedChallenge(null)}
         />
       )}
     </>
