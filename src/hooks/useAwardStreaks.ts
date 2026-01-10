@@ -112,13 +112,21 @@ export const useAwardStreaks = (filterByYear?: string) => {
           const timestamps = entry.counter_timestamps as any;
           const salesLog = entry.sales_log as any[];
           
+          // Helper to check if a sale qualifies as FP+ (type='fp' OR upgrade with prmr >= 85)
+          const isFPPlus = (sale: any): boolean => {
+            if (sale.install_status === 'never_installed') return false;
+            if (sale.type === 'fp') return true;
+            if (sale.type === 'upgrade' && Number(sale.prmr) >= 85) return true;
+            return false;
+          };
+          
           // Get all timestamps for early bird check
           const allTimestamps: { ts: string; mins: number }[] = [];
           
-          // FP+ timestamps from sales_log
+          // FP+ timestamps from sales_log (only count actual FP+ sales)
           if (salesLog && Array.isArray(salesLog)) {
             salesLog.forEach(sale => {
-              if (sale.timestamp) {
+              if (sale.timestamp && isFPPlus(sale)) {
                 const mins = getLocalMinutesOfDay(sale.timestamp, userTimezone);
                 if (mins < earlyCutoff) {
                   allTimestamps.push({ ts: sale.timestamp, mins });
@@ -150,9 +158,10 @@ export const useAwardStreaks = (filterByYear?: string) => {
           // Check for latest action (Night Owl)
           const allLateTimestamps: { ts: string; mins: number }[] = [];
           
+          // FP+ timestamps from sales_log (only count actual FP+ sales)
           if (salesLog && Array.isArray(salesLog)) {
             salesLog.forEach(sale => {
-              if (sale.timestamp) {
+              if (sale.timestamp && isFPPlus(sale)) {
                 const mins = getLocalMinutesOfDay(sale.timestamp, userTimezone);
                 if (mins >= NIGHT_OWL_CUTOFF) {
                   allLateTimestamps.push({ ts: sale.timestamp, mins });
