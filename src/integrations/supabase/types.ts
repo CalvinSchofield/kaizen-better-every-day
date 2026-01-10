@@ -687,6 +687,7 @@ export type Database = {
           title: string
           visibility: string
           winner_user_id: string | null
+          winner_user_ids: Json | null
         }
         Insert: {
           completed_at?: string | null
@@ -705,6 +706,7 @@ export type Database = {
           title: string
           visibility?: string
           winner_user_id?: string | null
+          winner_user_ids?: Json | null
         }
         Update: {
           completed_at?: string | null
@@ -723,6 +725,7 @@ export type Database = {
           title?: string
           visibility?: string
           winner_user_id?: string | null
+          winner_user_ids?: Json | null
         }
         Relationships: []
       }

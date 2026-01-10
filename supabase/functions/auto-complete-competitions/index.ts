@@ -153,12 +153,24 @@ Deno.serve(async (req) => {
           });
 
           let winnerId: string | null = null;
+          let winnerIds: string[] = []; // For 'anyone_who' type
           const groupTotal = Object.values(userTotals).reduce((sum, v) => sum + v, 0);
 
           if (incentive.target_type === 'group_total') {
             // Group goal met = everyone wins (no single winner)
             if (groupTotal >= (incentive.target_value || 0)) {
               winnerId = 'group_success';
+            }
+          } else if (incentive.target_type === 'anyone_who') {
+            // Anyone who reaches target qualifies
+            for (const [uid, total] of Object.entries(userTotals)) {
+              if (total >= (incentive.target_value || 0)) {
+                winnerIds.push(uid);
+              }
+            }
+            // Set winnerId to indicate at least one person qualified
+            if (winnerIds.length > 0) {
+              winnerId = 'anyone_who_success';
             }
           } else if (incentive.target_type === 'first_to') {
             // First to reach target wins
@@ -180,20 +192,30 @@ Deno.serve(async (req) => {
           }
 
           // Update incentive
+          const updateData: any = {
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            winner_user_id: (winnerId === 'group_success' || winnerId === 'anyone_who_success') ? null : winnerId,
+          };
+
+          // For 'anyone_who' type, also store the array of winners
+          if (incentive.target_type === 'anyone_who') {
+            updateData.winner_user_ids = winnerIds;
+          }
+
           const { error: updateError } = await supabase
             .from('incentives')
-            .update({
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-              winner_user_id: winnerId === 'group_success' ? null : winnerId,
-            })
+            .update(updateData)
             .eq('id', incentive.id);
 
           if (updateError) {
             results.errors.push(`Incentive ${incentive.id} update error: ${updateError.message}`);
           } else {
-            results.incentivesCompleted.push(`${incentive.title} (${completionReason})`);
-            console.log(`Completed incentive: ${incentive.title} - ${completionReason}`);
+            const winnerInfo = incentive.target_type === 'anyone_who' 
+              ? `${winnerIds.length} qualified` 
+              : winnerId ? 'winner found' : 'no winner';
+            results.incentivesCompleted.push(`${incentive.title} (${completionReason}, ${winnerInfo})`);
+            console.log(`Completed incentive: ${incentive.title} - ${completionReason} - ${winnerInfo}`);
           }
         }
       } catch (err: any) {
