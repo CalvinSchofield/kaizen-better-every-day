@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Check, X, Clock, Loader2, Eraser, Zap, Undo2 } from 'lucide-react';
+import { AlertTriangle, Check, X, Clock, Loader2, Trash2, Zap, Undo2, EyeOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAdminDataReview, DataIssue } from '@/hooks/useAdminDataReview';
 import { RepDetailDrawer } from '@/components/reports/RepDetailDrawer';
@@ -196,7 +196,7 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onFixCorruptedTime, onC
                 disabled={isThisFixing}
                 title="Clear activity, keep FP+ & PRMR"
               >
-                <Eraser className="w-3 h-3" />
+                <Trash2 className="w-3 h-3" />
               </Button>
             )}
             {showFixButton && suggested && (
@@ -239,13 +239,14 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onFixCorruptedTime, onC
             <Button
               size="sm"
               variant="ghost"
-              className="h-8 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-100"
+              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
               onClick={(e) => {
                 e.stopPropagation();
                 onOkay();
               }}
+              title="Dismiss warning without changes"
             >
-              {isRapidTapping ? 'OK' : <Check className="w-4 h-4" />}
+              {isRapidTapping ? 'OK' : <EyeOff className="w-4 h-4" />}
             </Button>
           </div>
         </div>
