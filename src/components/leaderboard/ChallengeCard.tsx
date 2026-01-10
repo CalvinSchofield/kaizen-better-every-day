@@ -9,7 +9,7 @@ import { useChallengeProgress } from "@/hooks/useChallengeProgress";
 import { ChallengeDetailSheet } from "./ChallengeDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { format, parseISO, isToday, isTomorrow } from "date-fns";
+import { formatFriendlyDate } from "@/utils/competitionDateUtils";
 import { toast } from "sonner";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { useConfetti } from "@/hooks/useConfetti";
@@ -55,13 +55,6 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
     ? challenge.participants?.find(p => p.user_id !== currentUser?.id)
     : null;
 
-  // Format date
-  const formatChallengeDate = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    if (isToday(date)) return 'Today';
-    if (isTomorrow(date)) return 'Tomorrow';
-    return format(date, 'MMM d');
-  };
 
   const handleAccept = async () => {
     try {
@@ -254,9 +247,9 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
           </div>
           <div className="text-right text-muted-foreground">
             <p className="text-xs">
-              {challenge.status === 'pending' && `Starts ${formatChallengeDate(challenge.start_date)}`}
+              {challenge.status === 'pending' && `Starts ${formatFriendlyDate(challenge.start_date)}`}
               {challenge.status === 'active' && progress?.timeRemaining}
-              {challenge.status === 'completed' && `Ended ${formatChallengeDate(challenge.end_date)}`}
+              {challenge.status === 'completed' && `Ended ${formatFriendlyDate(challenge.end_date)}`}
             </p>
           </div>
         </div>
