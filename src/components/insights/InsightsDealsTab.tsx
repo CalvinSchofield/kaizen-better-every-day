@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { Receipt } from 'lucide-react';
 import { DollarSign, Clock, TrendingUp, Zap, Award, Target, ArrowRight, CalendarCheck, MapPin, Flame, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCustomerInsights, DealHighlight } from '@/hooks/useCustomerInsights';
@@ -268,6 +269,34 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
           <div className="text-xs text-muted-foreground">Total PRMR</div>
         </motion.div>
       </div>
+
+      {/* Money Spent Summary - only show if there's spending data */}
+      {totalSpent > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-destructive" />
+              <span className="text-sm font-medium text-destructive">Total Spent</span>
+            </div>
+            <span className="text-xl font-bold text-destructive">${totalSpent.toLocaleString()}</span>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Upfront Pay</span>
+              <span className="font-medium">${(insights.totalPrmr * 4).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Net Upfront</span>
+              <span className="font-medium text-success">${((insights.totalPrmr * 4) - totalSpent).toLocaleString()}</span>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Cost and ROI Stats - Uniform sizing */}
       {insights.hasMoneySpentData && (
