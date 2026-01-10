@@ -240,7 +240,7 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
               {/* Goal Type */}
               <div className="space-y-3">
                 <Label>Goal Type</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => setTargetType('first_to')}
                     className={cn(
@@ -250,7 +250,18 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
                   >
                     <User className="h-5 w-5 mx-auto mb-1 text-primary" />
                     <p className="text-sm font-medium">First To</p>
-                    <p className="text-xs text-muted-foreground">Individual race</p>
+                    <p className="text-xs text-muted-foreground">Race</p>
+                  </button>
+                  <button
+                    onClick={() => setTargetType('anyone_who')}
+                    className={cn(
+                      "p-3 rounded-xl border-2 transition-colors text-center",
+                      targetType === 'anyone_who' ? "border-primary bg-primary/10" : "border-border"
+                    )}
+                  >
+                    <Users className="h-5 w-5 mx-auto mb-1 text-green-500" />
+                    <p className="text-sm font-medium">Anyone</p>
+                    <p className="text-xs text-muted-foreground">All qualify</p>
                   </button>
                   <button
                     onClick={() => setTargetType('group_total')}
@@ -260,14 +271,18 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
                     )}
                   >
                     <Users className="h-5 w-5 mx-auto mb-1 text-blue-500" />
-                    <p className="text-sm font-medium">Group Total</p>
+                    <p className="text-sm font-medium">Group</p>
                     <p className="text-xs text-muted-foreground">Team goal</p>
                   </button>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>{targetType === 'group_total' ? 'Group target' : 'First to reach'}</Label>
+                <Label>
+                  {targetType === 'group_total' ? 'Group target' : 
+                   targetType === 'anyone_who' ? 'Anyone who gets' : 
+                   'First to reach'}
+                </Label>
                 <Input
                   type="number"
                   min="1"
