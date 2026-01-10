@@ -5,7 +5,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Trophy, Users, Target, Clock, Eye, EyeOff, Pencil, XCircle, Loader2 } from "lucide-react";
+import { Trophy, Users, Target, Clock, Eye, EyeOff, Pencil, XCircle, Loader2, CheckCircle2, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Incentive, IncentiveMetric, useCancelIncentive } from "@/hooks/useIncentives";
 import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
@@ -42,6 +42,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
   
   const isActive = incentive.status === 'active';
   const isGroupTotal = incentive.target_type === 'group_total';
+  const isAnyoneWho = incentive.target_type === 'anyone_who';
   const isCreator = currentUser?.id === incentive.created_by;
   const canCancel = isCreator && isActive && !incentive.winner_user_id;
   
@@ -156,7 +157,9 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                 label: "Goal",
                 value: isGroupTotal 
                   ? `Group: ${incentive.target_value} ${metricLabels[incentive.metric]}`
-                  : `First to ${incentive.target_value} ${metricLabels[incentive.metric]}`
+                  : isAnyoneWho
+                    ? `Anyone who gets ${incentive.target_value} ${metricLabels[incentive.metric]}`
+                    : `First to ${incentive.target_value} ${metricLabels[incentive.metric]}`
               },
               {
                 icon: Clock,
@@ -206,6 +209,11 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                       <Users className="h-4 w-4 text-blue-500" />
                       Team Progress
                     </>
+                  ) : isAnyoneWho ? (
+                    <>
+                      <Target className="h-4 w-4 text-green-500" />
+                      Qualification Status
+                    </>
                   ) : (
                     <>
                       <Trophy className="h-4 w-4 text-amber-500" />
@@ -213,6 +221,23 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                     </>
                   )}
                 </h3>
+
+                {/* Anyone Who Progress Summary */}
+                {isAnyoneWho && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded-xl p-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                      <span className="font-medium">Qualified</span>
+                    </div>
+                    <span className="text-lg font-bold text-green-600">
+                      {progressData.qualifiedParticipants?.length || 0} / {progressData.participants.length}
+                    </span>
+                  </motion.div>
+                )}
 
                 {isGroupTotal && (
                   <motion.div 
@@ -238,79 +263,135 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                   </motion.div>
                 )}
 
-                {/* Individual Contributions */}
+                {/* Individual Contributions / Leaderboard */}
                 <div className="space-y-2">
-                  {progressData.participants.map((participant, index) => (
-                    <motion.div 
-                      key={participant.user_id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.3 + index * 0.05 }}
-                      className={cn(
-                        "flex items-center gap-3 p-3 rounded-xl",
-                        index === 0 && !isGroupTotal ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"
-                      )}
-                    >
-                      <div className="relative">
-                        {index === 0 && !isGroupTotal && (
-                          <motion.div 
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ delay: 0.4, type: "spring" }}
-                            className="absolute -top-1 -left-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center"
-                          >
-                            <Trophy className="h-3 w-3 text-white" />
-                          </motion.div>
+                  {progressData.participants.map((participant, index) => {
+                    const isQualified = isAnyoneWho && participant.current_value >= (progressData.targetValue || 0);
+                    
+                    return (
+                      <motion.div 
+                        key={participant.user_id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + index * 0.05 }}
+                        className={cn(
+                          "flex items-center gap-3 p-3 rounded-xl",
+                          isAnyoneWho && isQualified 
+                            ? "bg-green-500/10 border border-green-500/20" 
+                            : index === 0 && !isGroupTotal && !isAnyoneWho 
+                              ? "bg-amber-500/10 border border-amber-500/20" 
+                              : "bg-muted/50"
                         )}
-                        <Avatar className="h-10 w-10">
-                          {participant.profile_photo_url && (
-                            <AvatarImage src={participant.profile_photo_url} />
+                      >
+                        <div className="relative">
+                          {/* First place badge for traditional incentives */}
+                          {index === 0 && !isGroupTotal && !isAnyoneWho && (
+                            <motion.div 
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ delay: 0.4, type: "spring" }}
+                              className="absolute -top-1 -left-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center"
+                            >
+                              <Trophy className="h-3 w-3 text-white" />
+                            </motion.div>
                           )}
-                          <AvatarFallback>{participant.rep_name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium">{participant.rep_name}</p>
-                        {isGroupTotal && (
+                          {/* Qualified badge for anyone_who incentives */}
+                          {isAnyoneWho && (
+                            <motion.div 
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ delay: 0.4 + index * 0.03, type: "spring" }}
+                              className={cn(
+                                "absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center",
+                                isQualified ? "bg-green-500" : "bg-muted-foreground/30"
+                              )}
+                            >
+                              {isQualified ? (
+                                <CheckCircle2 className="h-3 w-3 text-white" />
+                              ) : (
+                                <Circle className="h-3 w-3 text-white" />
+                              )}
+                            </motion.div>
+                          )}
+                          <Avatar className="h-10 w-10">
+                            {participant.profile_photo_url && (
+                              <AvatarImage src={participant.profile_photo_url} />
+                            )}
+                            <AvatarFallback>{participant.rep_name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{participant.rep_name}</p>
+                            {isAnyoneWho && isQualified && (
+                              <span className="text-xs font-medium text-green-600 bg-green-500/20 px-1.5 py-0.5 rounded-full">
+                                Qualified!
+                              </span>
+                            )}
+                          </div>
+                          {isGroupTotal && (
+                            <p className="text-xs text-muted-foreground">
+                              {((participant.current_value / progressData.groupTotal) * 100 || 0).toFixed(0)}% contribution
+                            </p>
+                          )}
+                          {isAnyoneWho && !isQualified && (
+                            <p className="text-xs text-muted-foreground">
+                              {Math.max(0, (progressData.targetValue || 0) - participant.current_value).toFixed(1)} more to qualify
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <motion.p 
+                            key={participant.current_value}
+                            initial={{ scale: 1.1 }}
+                            animate={{ scale: 1 }}
+                            className={cn(
+                              "font-bold",
+                              isAnyoneWho && isQualified ? "text-green-600" : "text-amber-600"
+                            )}
+                          >
+                            {participant.current_value.toFixed(1)}
+                          </motion.p>
                           <p className="text-xs text-muted-foreground">
-                            {((participant.current_value / progressData.groupTotal) * 100 || 0).toFixed(0)}% contribution
+                            {metricLabels[incentive.metric]}
                           </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <motion.p 
-                          key={participant.current_value}
-                          initial={{ scale: 1.1 }}
-                          animate={{ scale: 1 }}
-                          className="font-bold text-amber-600"
-                        >
-                          {participant.current_value.toFixed(1)}
-                        </motion.p>
-                        <p className="text-xs text-muted-foreground">
-                          {metricLabels[incentive.metric]}
-                        </p>
-                      </div>
-                    </motion.div>
-                  ))}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
           {/* Completed State */}
-          {incentive.status === 'completed' && incentive.winner_user_id && (
+          {incentive.status === 'completed' && (incentive.winner_user_id || (isAnyoneWho && incentive.winner_user_ids?.length)) && (
             <motion.div 
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-xl p-4 text-center"
+              className={cn(
+                "rounded-xl p-4 text-center",
+                isAnyoneWho 
+                  ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20"
+                  : "bg-gradient-to-r from-amber-500/20 to-orange-500/20"
+              )}
             >
               <motion.div
                 animate={{ rotate: [0, -10, 10, -10, 10, 0], scale: [1, 1.1, 1] }}
                 transition={{ duration: 0.5, delay: 0.2 }}
               >
-                <Trophy className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                {isAnyoneWho ? (
+                  <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                ) : (
+                  <Trophy className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                )}
               </motion.div>
-              <p className="font-semibold">Winner claimed the prize!</p>
+              <p className="font-semibold">
+                {isAnyoneWho 
+                  ? `${incentive.winner_user_ids?.length || 0} qualified and won!`
+                  : "Winner claimed the prize!"
+                }
+              </p>
             </motion.div>
           )}
         </motion.div>
