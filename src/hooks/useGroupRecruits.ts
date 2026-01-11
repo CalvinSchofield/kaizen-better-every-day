@@ -210,28 +210,43 @@ export const useGroupRecruits = () => {
         .order('created_at', { ascending: false });
       
       // Filter by accessible user IDs unless area director (who sees everyone)
-      if (accessLevel !== 'area_director' && accessibleUserIds.length > 0) {
-        repsQuery = repsQuery.in('user_id', accessibleUserIds);
-      }
+      // CRITICAL: If accessibleUserIds is empty for non-area-directors, skip the query entirely
+      // to prevent accidentally fetching the entire reps table
+      let filteredReps: any[] = [];
       
-      const { data: repsData, error: repsError } = await repsQuery;
-
-      if (repsError) {
-        console.error('Error fetching reps:', repsError);
-        throw repsError;
+      if (accessLevel === 'area_director') {
+        // Area directors see everyone
+        const { data: repsData, error: repsError } = await repsQuery;
+        if (repsError) {
+          console.error('Error fetching reps:', repsError);
+          throw repsError;
+        }
+        filteredReps = (repsData || []).filter((r: any) => {
+          if (r.user_id === session.user.id) return false;
+          const stage = canonicalizeStage(r.stage);
+          return RECRUITING_STAGES.includes(stage);
+        });
+      } else if (accessibleUserIds.length > 0) {
+        // Non-area-directors with accessible user IDs - filter query
+        repsQuery = repsQuery.in('user_id', accessibleUserIds);
+        const { data: repsData, error: repsError } = await repsQuery;
+        if (repsError) {
+          console.error('Error fetching reps:', repsError);
+          throw repsError;
+        }
+        filteredReps = (repsData || []).filter((r: any) => {
+          if (r.user_id === session.user.id) return false;
+          const stage = canonicalizeStage(r.stage);
+          return RECRUITING_STAGES.includes(stage);
+        });
+      } else {
+        // Non-area-directors with NO accessible user IDs - skip reps query entirely
+        // This prevents accidentally querying the entire reps table
+        console.log('[useGroupRecruits] No accessible user IDs for non-AD, skipping reps query');
+        filteredReps = [];
       }
 
-      // Filter to only recruiting stages and exclude current user
-      let filteredReps = (repsData || []).filter((r: any) => {
-        // Exclude current user
-        if (r.user_id === session.user.id) return false;
-        
-        // Canonicalize stage and check if it's a recruiting stage
-        const stage = canonicalizeStage(r.stage);
-        return RECRUITING_STAGES.includes(stage);
-      });
-
-      console.log('[useGroupRecruits] Fetched', filteredReps.length, 'reps from reps table (filtered from', repsData?.length, 'total)');
+      console.log('[useGroupRecruits] Fetched', filteredReps.length, 'reps from reps table');
 
       // Also fetch ghost reps (user_id = NULL) from recruits table for accessible teams
       // These are recruits without app accounts who won't appear in the reps query above
@@ -612,11 +627,15 @@ export const useGroupRecruits = () => {
       pendingSuggestions = (suggestions || []) as RecruitSuggestion[];
 
 
-      // Cache successful result
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
-        data: { recruits, activities, pendingSuggestions },
-        timestamp: Date.now(),
-      }));
+      // Cache successful result (best-effort - don't fail if caching fails)
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          data: { recruits, activities, pendingSuggestions },
+          timestamp: Date.now(),
+        }));
+      } catch (cacheError) {
+        console.warn('[useGroupRecruits] Failed to cache result (storage full?):', cacheError);
+      }
 
       return { recruits, activities, pendingSuggestions };
     },

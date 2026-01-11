@@ -85,11 +85,15 @@ export const useTeamAccess = () => {
           throw error;
         }
 
-        // Update cache
-        localStorage.setItem(CACHE_KEY, JSON.stringify({
-          data,
-          timestamp: Date.now()
-        }));
+        // Update cache (best-effort - don't fail the request if caching fails)
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            data,
+            timestamp: Date.now()
+          }));
+        } catch (cacheError) {
+          console.warn('[useTeamAccess] Failed to cache result (storage full?):', cacheError);
+        }
 
         return data as TeamAccessResponse;
       } catch (fetchError: any) {
