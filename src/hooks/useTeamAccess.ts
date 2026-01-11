@@ -62,17 +62,18 @@ export const useTeamAccess = () => {
       }
 
       try {
-        // Add timeout for mobile networks - 15 second timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        // Add timeout for mobile networks - 20 second timeout with Promise.race
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Request timeout')), 20000);
+        });
 
-        const { data, error } = await supabase.functions.invoke('fetch-team-access', {
+        const fetchPromise = supabase.functions.invoke('fetch-team-access', {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
         });
 
-        clearTimeout(timeoutId);
+        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
         if (error) {
           console.error('[useTeamAccess] Edge function error:', error);
