@@ -76,7 +76,7 @@ const FloatingAddButton = ({ visible, onClick }: { visible: boolean; onClick: ()
 
 const MyGroup = () => {
   const location = useLocation();
-  const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
+  const { data: teamAccess, isLoading: accessLoading, error: teamAccessError, refetch: refetchTeamAccess } = useTeamAccess();
   const { data: groupData, isLoading: recruitsLoading, isLeader, error: recruitsError, refetch: refetchRecruits, lastUpdated, isPlaceholderData, isFetching } = useGroupRecruits();
   const { data: mySuggestions, isLoading: suggestionsLoading } = useMySuggestions();
   const deleteMutation = useDeleteMySuggestion();
@@ -845,12 +845,15 @@ const MyGroup = () => {
     </div>
   );
 
-  // Error state with no cached data
-  const hasUnrecoverableError = recruitsError && !groupData && isLeader;
+  // Error state with no cached data - includes team access errors
+  const hasTeamAccessError = teamAccessError && !teamAccess;
+  const hasUnrecoverableError = (recruitsError && !groupData && isLeader) || hasTeamAccessError;
 
   const handleRetry = async () => {
     setIsRetrying(true);
     try {
+      // Retry team access first, then recruits and blitzes
+      await refetchTeamAccess();
       await Promise.all([refetchRecruits(), refetchBlitzes()]);
     } finally {
       setIsRetrying(false);
