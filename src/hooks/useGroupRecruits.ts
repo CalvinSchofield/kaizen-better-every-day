@@ -628,7 +628,8 @@ export const useGroupRecruits = () => {
       if (cached) {
         try {
           const { data, timestamp } = JSON.parse(cached);
-          const isRecent = Date.now() - timestamp < 30 * 60 * 1000; // 30 minutes for placeholder
+          // Extend placeholder validity to 2 hours for mobile network resilience
+          const isRecent = Date.now() - timestamp < 2 * 60 * 60 * 1000;
           if (isRecent && data) {
             return data;
           }
@@ -638,8 +639,8 @@ export const useGroupRecruits = () => {
       }
       return undefined;
     },
-    retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    retry: 3, // Increased retries for mobile network flakiness
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
   });
 
   // Show toast when using stale data due to error

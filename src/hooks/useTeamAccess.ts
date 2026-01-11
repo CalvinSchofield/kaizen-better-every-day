@@ -45,6 +45,8 @@ export const useTeamAccess = () => {
 
       // Try to load from cache first (scoped per user)
       const cachedData = localStorage.getItem(CACHE_KEY);
+      let cachedResult: TeamAccessResponse | null = null;
+      
       if (cachedData) {
         try {
           const { data, timestamp } = JSON.parse(cachedData);
@@ -52,28 +54,56 @@ export const useTeamAccess = () => {
           if (Date.now() - timestamp < 5 * 60 * 1000) {
             return data as TeamAccessResponse;
           }
+          // Keep stale cache as fallback
+          cachedResult = data as TeamAccessResponse;
         } catch (e) {
           console.error('Failed to parse team access cache:', e);
         }
       }
 
-      const { data, error } = await supabase.functions.invoke('fetch-team-access', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      try {
+        // Add timeout for mobile networks - 15 second timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-      if (error) throw error;
+        const { data, error } = await supabase.functions.invoke('fetch-team-access', {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
 
-      // Update cache
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
-        data,
-        timestamp: Date.now()
-      }));
+        clearTimeout(timeoutId);
 
-      return data as TeamAccessResponse;
+        if (error) {
+          console.error('[useTeamAccess] Edge function error:', error);
+          // If we have cached data, return it instead of throwing
+          if (cachedResult) {
+            console.log('[useTeamAccess] Returning stale cache due to error');
+            return cachedResult;
+          }
+          throw error;
+        }
+
+        // Update cache
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          data,
+          timestamp: Date.now()
+        }));
+
+        return data as TeamAccessResponse;
+      } catch (fetchError: any) {
+        console.error('[useTeamAccess] Fetch failed:', fetchError?.message || fetchError);
+        // Return cached data if available (stale is better than nothing)
+        if (cachedResult) {
+          console.log('[useTeamAccess] Returning stale cache due to fetch failure');
+          return cachedResult;
+        }
+        throw fetchError;
+      }
     },
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     gcTime: 1000 * 60 * 30, // Keep in memory for 30 minutes
+    retry: 3, // Retry 3 times for mobile network flakiness
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000), // Exponential backoff
   });
 };
