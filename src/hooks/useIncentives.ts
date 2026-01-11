@@ -164,8 +164,11 @@ export const useMyActiveIncentives = () => {
         })),
       })) as Incentive[];
     },
-    staleTime: 15 * 1000, // 15 seconds for faster refresh
+    staleTime: 10 * 1000, // 10 seconds for faster refresh
+    gcTime: 30 * 1000, // Garbage collect after 30s to prevent stale cached data
     refetchOnMount: 'always', // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refresh when app comes back to foreground
+    refetchInterval: 60 * 1000, // Auto-refresh every 60 seconds to catch completed competitions
     retry: 1,
   });
 };
