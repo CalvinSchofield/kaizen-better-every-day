@@ -7,7 +7,7 @@ import { useFocusTier } from "@/hooks/useFocusTier";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useRepGoals } from "@/hooks/useRepGoals";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import confetti from "canvas-confetti";
 
 const PRESEASON_END = '2026-04-11';
@@ -114,20 +114,26 @@ export const SalesLoggerCard = ({
   const todaysProgress = efpModeEnabled ? totalEFP : totalFPPlus;
   const metricLabel = efpModeEnabled ? "EFP" : "FP+";
 
-  // Confetti trigger - track if we've already fired for this session
-  const confettiFiredRef = useRef(false);
+  // Confetti trigger - use sessionStorage with today's date to track if already fired
+  // This prevents confetti from firing on every navigation, only when goal is first crossed
+  const todayKey = `goal-confetti-fired-${format(new Date(), 'yyyy-MM-dd')}`;
   
   useEffect(() => {
-    if (!goalsSetUp || confettiFiredRef.current) return;
+    if (!goalsSetUp) return;
+    
+    // Check if we already fired confetti today
+    const alreadyFired = sessionStorage.getItem(todayKey) === 'true';
+    if (alreadyFired) return;
     
     // Check if hitting at least the must-do goal (or focused goal during preseason)
     const thresholdGoal = isUserSummerStarted ? mustDoDailyGoal : dailyGoal;
     
     if (thresholdGoal > 0 && todaysProgress >= thresholdGoal) {
-      confettiFiredRef.current = true;
+      // Mark as fired for today's session
+      sessionStorage.setItem(todayKey, 'true');
       
       // Fire confetti from both sides
-      const fireConfetti = () => {
+      const fireGoalConfetti = () => {
         confetti({
           particleCount: 80,
           spread: 70,
@@ -143,9 +149,9 @@ export const SalesLoggerCard = ({
       };
       
       // Small delay for visual impact
-      setTimeout(fireConfetti, 100);
+      setTimeout(fireGoalConfetti, 100);
     }
-  }, [todaysProgress, dailyGoal, mustDoDailyGoal, goalsSetUp, isUserSummerStarted]);
+  }, [todaysProgress, dailyGoal, mustDoDailyGoal, goalsSetUp, isUserSummerStarted, todayKey]);
 
   if (salesLog.length === 0) {
     return null; // Don't show card if no sales
