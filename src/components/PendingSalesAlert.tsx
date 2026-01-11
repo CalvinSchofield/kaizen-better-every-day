@@ -11,22 +11,49 @@ interface PendingSalesAlertProps {
 export const PendingSalesAlert = ({ userId }: PendingSalesAlertProps) => {
   const { hasPendingSales, getPendingCount, processQueue } = usePendingSalesQueue(userId);
   const [pendingCount, setPendingCount] = useState(0);
+  const [showAlert, setShowAlert] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const queryClient = useQueryClient();
 
   // Check for pending sales on mount and periodically
+  // Only show alert if sales have been pending for 3+ seconds (to avoid flashing during normal saves)
   useEffect(() => {
     if (!userId) return;
 
+    let showTimeout: NodeJS.Timeout | null = null;
+
     const checkPending = () => {
-      setPendingCount(getPendingCount());
+      const count = getPendingCount();
+      setPendingCount(count);
+      
+      if (count > 0) {
+        // Delay showing alert by 3 seconds to avoid flashing during normal saves
+        if (!showAlert && !showTimeout) {
+          showTimeout = setTimeout(() => {
+            // Re-check count after delay
+            const currentCount = getPendingCount();
+            if (currentCount > 0) {
+              setShowAlert(true);
+            }
+          }, 3000);
+        }
+      } else {
+        setShowAlert(false);
+        if (showTimeout) {
+          clearTimeout(showTimeout);
+          showTimeout = null;
+        }
+      }
     };
 
     checkPending();
     const interval = setInterval(checkPending, 5000);
 
-    return () => clearInterval(interval);
-  }, [userId, getPendingCount]);
+    return () => {
+      clearInterval(interval);
+      if (showTimeout) clearTimeout(showTimeout);
+    };
+  }, [userId, getPendingCount, showAlert]);
 
   const handleRetry = async () => {
     setIsRetrying(true);
@@ -41,7 +68,7 @@ export const PendingSalesAlert = ({ userId }: PendingSalesAlertProps) => {
     setIsRetrying(false);
   };
 
-  if (!userId || pendingCount === 0) return null;
+  if (!userId || pendingCount === 0 || !showAlert) return null;
 
   return (
     <div className="bg-amber-500/20 border border-amber-500/50 rounded-lg p-3 mx-4 mb-3 animate-fade-in">

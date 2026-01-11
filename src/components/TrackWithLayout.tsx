@@ -110,7 +110,7 @@ const TrackWithLayout = () => {
   const { saveBackup, loadBackup, clearBackup, hasUnsavedBackup } = useTrackBackup(userId, getTodayDate());
   
   // Pending sales queue for bulletproof sale saving
-  const { queueSale, dequeueSale, processQueue } = usePendingSalesQueue(userId);
+  const { queueSale, processQueue } = usePendingSalesQueue(userId);
   
   // Competitor nudge for early save motivation
   const { competitor: competitorNudge, loading: competitorLoading } = useCompetitorNudge();
@@ -744,28 +744,28 @@ const TrackWithLayout = () => {
     
     const today = getTodayDate();
     
-    // POST-FINALIZATION: Use addSaleToEntry hook with queue protection
+    // POST-FINALIZATION: Use addSaleToEntry hook - only queue on failure
     if (pendingPostFinalizationSale) {
-      // Queue the sale FIRST for protection
-      const { saleId, saleTimestamp } = queueSale(today, saleData);
+      const saleTimestamp = new Date().toISOString();
       
       try {
+        // Try direct save FIRST (no queue)
         await addSaleToEntry({
           entryDate: today,
           sale: saleData,
           saleTimestamp,
         });
-        // Success - remove from queue
-        dequeueSale(saleId);
+        // Success!
         hapticSuccess();
         fireConfetti({ variant: 'money', duration: 2500 });
       } catch (error) {
-        console.error('[TrackWithLayout] Post-finalization sale failed, will retry:', error);
+        console.error('[TrackWithLayout] Post-finalization sale failed, queuing:', error);
+        // Only queue if save fails
+        queueSale(today, saleData);
         toast.info('Sale queued - will save when connection restores', { 
           icon: '📶',
           duration: 3000 
         });
-        // Queue will auto-retry
         processQueue();
       }
       setPendingPostFinalizationSale(false);
@@ -774,8 +774,9 @@ const TrackWithLayout = () => {
     
     if (!pendingCloseIncrement) return;
     
-    // PROTECTION: Queue the sale to localStorage BEFORE attempting database save
-    const { saleId, saleTimestamp } = queueSale(today, saleData);
+    // Generate sale ID and timestamp upfront
+    const saleId = crypto.randomUUID();
+    const saleTimestamp = new Date().toISOString();
     
     const newSale: Sale = {
       id: saleId,
@@ -824,19 +825,18 @@ const TrackWithLayout = () => {
     
     setSyncStatus('pending');
     try {
+      // Try direct save FIRST (no queue)
       await updateCounter(updates);
-      // SUCCESS: Remove from pending queue
-      dequeueSale(saleId);
       setSyncStatus('synced');
     } catch (error: any) {
       if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
         toast.info("Today's work is already saved. Start fresh tomorrow!");
         setSavedThisSession(true);
         setSyncStatus('synced');
-        // Still in queue - will be processed via post-finalization flow
       } else {
         setSyncStatus('error');
-        // Sale stays in queue - will auto-retry
+        // Only queue if save fails
+        queueSale(today, saleData);
         toast.info('Sale saved locally - will sync when connection restores', { 
           icon: '📶',
           duration: 3000 
@@ -846,7 +846,7 @@ const TrackWithLayout = () => {
     }
     
     setPendingCloseIncrement(false);
-  }, [entry, updateCounter, pendingCloseIncrement, pendingPostFinalizationSale, addSaleToEntry, fireConfetti, isTourDemoMode, queueSale, dequeueSale, processQueue]);
+  }, [entry, updateCounter, pendingCloseIncrement, pendingPostFinalizationSale, addSaleToEntry, fireConfetti, isTourDemoMode, queueSale, processQueue]);
 
   const handleEditSale = useCallback((sale: Sale) => {
     setEditingSale(sale);
