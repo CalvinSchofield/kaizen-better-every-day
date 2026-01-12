@@ -178,8 +178,9 @@ export function RecapDealBreakdownSlide({ dealBreakdown }: RecapDealBreakdownSli
   const payLevel = goals?.custom_payscale_fp ?? defaultPayLevel;
   const payRate = PAY_RATES[payLevel] || getTier(payLevel).rate;
   
+  const upfrontPay = (totalPrmr || 0) * 4;
   const totalPay = (totalPrmr || 0) * payRate;
-  const upfrontRoi = totalMoneySpent > 0 ? (totalPrmr || 0) / totalMoneySpent : 0;
+  const upfrontRoi = totalMoneySpent > 0 ? upfrontPay / totalMoneySpent : 0;
   const payRoi = totalMoneySpent > 0 ? totalPay / totalMoneySpent : 0;
   
   const fpPercent = totalDeals > 0 ? (fpDeals / totalDeals) * 100 : 0;
