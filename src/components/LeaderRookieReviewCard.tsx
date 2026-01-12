@@ -266,7 +266,7 @@ export const LeaderRookieReviewCard = () => {
   return (
     <>
       <Card 
-        className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30 cursor-pointer hover:shadow-md transition-all"
+        className="mb-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30 cursor-pointer hover:shadow-md transition-all"
         onClick={() => setSelectedRookie(rookiesReady[0])}
       >
         <CardContent className="p-4">

@@ -123,7 +123,11 @@ const IncentiveProgressItem = ({ incentive }: { incentive: Incentive }) => {
   );
 };
 
-export const ActiveChallengesCard = () => {
+interface ActiveChallengesCardProps {
+  hideCta?: boolean; // If true, don't show CTA when no competitions (for leader preseason home)
+}
+
+export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [competeDrawerOpen, setCompeteDrawerOpen] = useState(false);
@@ -247,12 +251,16 @@ export const ActiveChallengesCard = () => {
     navigate('/compete?create=challenge');
   };
 
-  // Show CTA when no active competitions
+  // Show CTA when no active competitions (unless hideCta is true)
   if (!hasContent) {
+    if (hideCta) {
+      return null; // Don't show anything when no competitions and CTA is hidden
+    }
+    
     return (
       <>
         <Card 
-          className="mb-6 border-dashed border-muted-foreground/30 bg-muted/30 cursor-pointer hover:border-primary/40 transition-colors"
+          className="mb-4 border-dashed border-muted-foreground/30 bg-muted/30 cursor-pointer hover:border-primary/40 transition-colors"
           onClick={handleCardClick}
         >
           <CardContent className="py-6">
@@ -285,7 +293,7 @@ export const ActiveChallengesCard = () => {
   return (
     <>
       <Card 
-        className="mb-6 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent cursor-pointer hover:border-primary/40 transition-colors"
+        className="mb-4 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent cursor-pointer hover:border-primary/40 transition-colors"
         onClick={handleCardClick}
       >
         <CardHeader className="pb-3">
