@@ -25,16 +25,6 @@ export const useAddSaleToEntry = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Fetch existing entry for this date (if any)
-      const { data: existingEntry, error: fetchError } = await supabase
-        .from('daily_entries')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('entry_date', entryDate)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-
       // Create the new sale with ID and timestamp
       const newSale: Sale = {
         id: crypto.randomUUID(),
@@ -42,12 +32,37 @@ export const useAddSaleToEntry = () => {
         timestamp: saleTimestamp || new Date().toISOString(),
       };
 
-      // Get existing sales_log or start fresh
-      const existingSalesLog = existingEntry?.sales_log as unknown as Sale[] || [];
-      const updatedSalesLog = [...existingSalesLog, newSale];
+      // Use the safe upsert function that MERGES sales instead of overwriting
+      // This prevents multi-device conflicts where iPad/phone sync issues cause data loss
+      const { data, error } = await supabase.rpc('upsert_daily_entry_safe', {
+        p_user_id: user.id,
+        p_entry_date: entryDate,
+        p_sales_log: JSON.parse(JSON.stringify([newSale])), // Only send the NEW sale, server will merge
+        // Don't send other fields - let server preserve existing values
+        p_doors_knocked: null,
+        p_decision_makers: null,
+        p_pitches: null,
+        p_transitions: null,
+        p_presentations: null,
+        p_closes: null,
+        p_fp_plus: null,
+        p_prmr: null,
+        p_upgrade_prmr: null,
+        p_work_start_time: null,
+        p_work_end_time: null,
+        p_break_periods: null,
+        p_counter_timestamps: null,
+        p_custom_counters: null,
+        p_timezone: null,
+        p_is_finalized: null,
+      });
 
-      // Recalculate totals from sales_log (exclude cancelled AND never_installed)
-      const fundedSales = updatedSalesLog.filter(s =>
+      if (error) throw error;
+
+      // Recalculate totals from the returned merged sales_log
+      const returnedData = data as { sales_log?: unknown } | null;
+      const mergedSalesLog = (returnedData?.sales_log as Sale[]) || [newSale];
+      const fundedSales = mergedSalesLog.filter(s =>
         s.install_status !== 'cancelled' && s.install_status !== 'never_installed'
       );
       const fpSales = fundedSales.filter(s => s.type === 'fp');
@@ -59,48 +74,17 @@ export const useAddSaleToEntry = () => {
       const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
       const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
 
-      if (existingEntry) {
-        // Update existing entry
-        const { error: updateError } = await supabase
-          .from('daily_entries')
-          .update({
-            sales_log: updatedSalesLog as unknown as null,
-            closes: fundedSales.length,
-            fp_plus: Math.round(calculatedFpPlus * 100) / 100,
-            prmr: Math.round(totalPrmr * 100) / 100,
-            upgrade_prmr: Math.round(upgradePrmrTotal * 100) / 100,
-          })
-          .eq('user_id', user.id)
-          .eq('entry_date', entryDate);
-
-        if (updateError) throw updateError;
-      } else {
-        // Create new entry with the sale
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const now = new Date().toISOString();
-        
-        const { error: insertError } = await supabase
-          .from('daily_entries')
-          .insert({
-            user_id: user.id,
-            entry_date: entryDate,
-            sales_log: updatedSalesLog as unknown as null,
-            closes: fundedSales.length,
-            fp_plus: Math.round(calculatedFpPlus * 100) / 100,
-            prmr: Math.round(totalPrmr * 100) / 100,
-            upgrade_prmr: Math.round(upgradePrmrTotal * 100) / 100,
-            doors_knocked: 0,
-            decision_makers: 0,
-            pitches: 0,
-            transitions: 0,
-            presentations: 0,
-            work_start_time: now,
-            timezone,
-            is_finalized: true, // Mark as finalized since we're adding retroactively
-          });
-
-        if (insertError) throw insertError;
-      }
+      // Update the entry with recalculated totals
+      await supabase
+        .from('daily_entries')
+        .update({
+          closes: fundedSales.length,
+          fp_plus: Math.round(calculatedFpPlus * 100) / 100,
+          prmr: Math.round(totalPrmr * 100) / 100,
+          upgrade_prmr: Math.round(upgradePrmrTotal * 100) / 100,
+        })
+        .eq('user_id', user.id)
+        .eq('entry_date', entryDate);
 
       return { entryDate, sale: newSale };
     },

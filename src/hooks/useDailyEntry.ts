@@ -184,70 +184,45 @@ export const useDailyEntry = (date?: string) => {
   });
 
   // Update counter mutation (auto-save) with offline support
+  // BULLETPROOF: Uses server-side merge function to prevent multi-device conflicts
   const updateCounterMutation = useMutation({
     mutationKey: ['update-counter', entryDate],
     mutationFn: async (updates: Partial<DailyEntry>) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // PROTECTION LAYER 1: Check if entry is already finalized in database
-      // This prevents any accidental overwrites of finalized data
-      const { data: existingEntry } = await supabase
-        .from('daily_entries')
-        .select('is_finalized')
-        .eq('user_id', user.id)
-        .eq('entry_date', entryDate)
-        .maybeSingle();
+      // Use the safe upsert function that merges sales_log instead of overwriting
+      // This prevents iPad/phone sync issues where stale cache overwrites sales
+      const { data, error } = await supabase.rpc('upsert_daily_entry_safe', {
+        p_user_id: user.id,
+        p_entry_date: entryDate,
+        p_doors_knocked: updates.doors_knocked ?? null,
+        p_decision_makers: updates.decision_makers ?? null,
+        p_pitches: updates.pitches ?? null,
+        p_transitions: updates.transitions ?? null,
+        p_presentations: updates.presentations ?? null,
+        p_closes: updates.closes ?? null,
+        p_fp_plus: updates.fp_plus ?? null,
+        p_prmr: updates.prmr ?? null,
+        p_upgrade_prmr: updates.upgrade_prmr ?? null,
+        p_work_start_time: updates.work_start_time ?? null,
+        p_work_end_time: updates.work_end_time ?? null,
+        p_break_periods: updates.break_periods ? JSON.parse(JSON.stringify(updates.break_periods)) : null,
+        p_counter_timestamps: updates.counter_timestamps ? JSON.parse(JSON.stringify(updates.counter_timestamps)) : null,
+        p_custom_counters: updates.custom_counters ? JSON.parse(JSON.stringify(updates.custom_counters)) : null,
+        p_timezone: updates.timezone ?? null,
+        p_sales_log: updates.sales_log ? JSON.parse(JSON.stringify(updates.sales_log)) : null,
+        p_is_finalized: updates.is_finalized ?? null,
+      });
 
-      if (existingEntry?.is_finalized) {
-        throw new Error('ENTRY_ALREADY_FINALIZED');
+      if (error) {
+        // Check for finalized entry error
+        if (error.message?.includes('finalized')) {
+          throw new Error('ENTRY_ALREADY_FINALIZED');
+        }
+        throw error;
       }
-
-      const currentEntry = entry || {
-        doors_knocked: 0,
-        decision_makers: 0,
-        pitches: 0,
-        transitions: 0,
-        presentations: 0,
-        closes: 0,
-        fp_plus: 0,
-        prmr: 0,
-        custom_counters: {},
-        sales_log: [],
-      };
-
-      // Build upsert payload with explicit fields to avoid type issues
-      const upsertPayload = {
-        user_id: user.id,
-        entry_date: entryDate,
-        doors_knocked: (updates.doors_knocked ?? currentEntry.doors_knocked) as number,
-        decision_makers: (updates.decision_makers ?? currentEntry.decision_makers) as number,
-        pitches: (updates.pitches ?? currentEntry.pitches) as number,
-        transitions: (updates.transitions ?? currentEntry.transitions) as number,
-        presentations: (updates.presentations ?? currentEntry.presentations) as number,
-        closes: (updates.closes ?? currentEntry.closes) as number,
-        fp_plus: (updates.fp_plus ?? currentEntry.fp_plus) as number,
-        prmr: (updates.prmr ?? currentEntry.prmr) as number,
-        custom_counters: (updates.custom_counters ?? currentEntry.custom_counters) as any,
-        sales_log: (updates.sales_log ?? currentEntry.sales_log) as any,
-        work_start_time: updates.work_start_time ?? entry?.work_start_time,
-        work_end_time: updates.work_end_time ?? entry?.work_end_time,
-        break_periods: (updates.break_periods ?? entry?.break_periods ?? []) as any,
-        counter_timestamps: (updates.counter_timestamps ?? entry?.counter_timestamps ?? {}) as any,
-        timezone: updates.timezone ?? entry?.timezone,
-        // PROTECTION LAYER 2: Never allow counter updates to change finalized status
-        is_finalized: existingEntry?.is_finalized || false,
-      };
-
-      const { data, error } = await supabase
-        .from('daily_entries')
-        .upsert(upsertPayload, {
-          onConflict: 'user_id,entry_date'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      
       return data;
     },
     // OFFLINE SUPPORT: Queue mutations when offline, retry when back online

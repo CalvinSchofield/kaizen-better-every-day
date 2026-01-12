@@ -1824,6 +1824,30 @@ export type Database = {
       is_team_lead: { Args: { _user_id: string }; Returns: boolean }
       normalize_name: { Args: { raw_name: string }; Returns: string }
       normalize_stage: { Args: { raw_stage: string }; Returns: string }
+      upsert_daily_entry_safe: {
+        Args: {
+          p_break_periods?: Json
+          p_closes?: number
+          p_counter_timestamps?: Json
+          p_custom_counters?: Json
+          p_decision_makers?: number
+          p_doors_knocked?: number
+          p_entry_date: string
+          p_fp_plus?: number
+          p_is_finalized?: boolean
+          p_pitches?: number
+          p_presentations?: number
+          p_prmr?: number
+          p_sales_log?: Json
+          p_timezone?: string
+          p_transitions?: number
+          p_upgrade_prmr?: number
+          p_user_id: string
+          p_work_end_time?: string
+          p_work_start_time?: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       recruit_activity_type:
