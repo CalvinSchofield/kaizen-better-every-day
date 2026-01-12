@@ -161,10 +161,31 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
       const competitor = findCompetitor(todayBoard.rankings.fp_plus, userFP.value, todayBoard.rankings.presentations);
       if (competitor) {
         const diff = competitor.value - userFP.value;
-        const text = diff === 0 
-          ? `You and ${competitor.name} are tied at ${userFP.value.toFixed(1)} FP+ today! Race to pull ahead ⚡`
-          : `${competitor.name} has ${diff.toFixed(1)} more FP+ than you today! Can you catch up? 💪`;
-        return { text, isCurrentUser: false, filterKey: 'today' as const };
+        // If FP+ diff rounds to 0.0, show PRMR difference instead
+        if (diff === 0 || Number(diff.toFixed(1)) === 0) {
+          // Calculate PRMR difference
+          const userPrmr = todayBoard.rankings.prmr.find(e => e.userId === currentUserId);
+          const competitorPrmr = todayBoard.rankings.prmr.find(e => e.userId === competitor.userId);
+          if (userPrmr && competitorPrmr && competitorPrmr.value > userPrmr.value) {
+            const prmrDiff = competitorPrmr.value - userPrmr.value;
+            return { 
+              text: `${competitor.name} has $${Math.round(prmrDiff)} more PRMR than you today! Can you catch up? 💪`, 
+              isCurrentUser: false, 
+              filterKey: 'today' as const 
+            };
+          }
+          // If PRMR is also tied or user is ahead in PRMR, show tied message
+          return { 
+            text: `You and ${competitor.name} are tied at ${userFP.value.toFixed(1)} FP+ today! Race to pull ahead ⚡`, 
+            isCurrentUser: false, 
+            filterKey: 'today' as const 
+          };
+        }
+        return { 
+          text: `${competitor.name} has ${diff.toFixed(1)} more FP+ than you today! Can you catch up? 💪`, 
+          isCurrentUser: false, 
+          filterKey: 'today' as const 
+        };
       }
       // User is leading
       return { text: `You're leading with ${userFP.value.toFixed(1)} FP+ today! Keep that momentum 🔥`, isCurrentUser: true, filterKey: 'today' as const };

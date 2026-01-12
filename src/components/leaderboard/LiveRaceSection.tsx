@@ -218,11 +218,27 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
               ? entry.value - rankings[userIndex + 1].value
               : 0;
 
+            // For FP+ metric: If FP+ gap rounds to 0.0, calculate PRMR gap as fallback
+            const getPrmrGap = (): number | null => {
+              if (!isCurrentUser || userIndex <= 0 || activeMetric !== 'fp_plus') return null;
+              const prmrRankings = leaderboard?.rankings?.prmr || [];
+              const userPrmr = prmrRankings.find(e => e.userId === currentUserId);
+              const aheadUserId = rankings[userIndex - 1].userId;
+              const aheadPrmr = prmrRankings.find(e => e.userId === aheadUserId);
+              if (!userPrmr || !aheadPrmr) return null;
+              return aheadPrmr.value - userPrmr.value;
+            };
+
             const formatValue = (val: number) => {
               if (activeMetric === 'fp_plus') return val.toFixed(1);
               if (activeMetric === 'prmr') return `$${val.toLocaleString()}`;
               return val.toString();
             };
+
+            // Determine what gap to show - use PRMR if FP+ rounds to 0.0
+            const fpGapRoundsToZero = activeMetric === 'fp_plus' && gapToAhead > 0 && Number(gapToAhead.toFixed(1)) === 0;
+            const prmrGap = fpGapRoundsToZero ? getPrmrGap() : null;
+            const showPrmrFallback = fpGapRoundsToZero && prmrGap !== null && prmrGap > 0;
 
             return (
               <motion.div 
@@ -238,7 +254,9 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
                   <div className="flex items-center gap-2 px-4 py-1.5 bg-muted/50">
                     <ChevronUp className="h-3 w-3 text-amber-500" />
                     <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                      {formatValue(gapToAhead)} {config.gapUnit} to catch
+                      {showPrmrFallback 
+                        ? `$${Math.round(prmrGap!)} PRMR to catch`
+                        : `${formatValue(gapToAhead)} ${config.gapUnit} to catch`}
                     </span>
                   </div>
                 )}
