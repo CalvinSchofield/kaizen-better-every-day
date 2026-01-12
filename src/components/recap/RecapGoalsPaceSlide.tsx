@@ -101,7 +101,7 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
       // Get entries before this period for starting cumulative
       const { data: beforeEntries } = await supabase
         .from('daily_entries')
-        .select('fp_plus, entry_date, doors_knocked, work_start_time, work_end_time')
+        .select('fp_plus, prmr, entry_date, doors_knocked, work_start_time, work_end_time')
         .eq('user_id', repData.user_id)
         .eq('is_finalized', true)
         .lt('entry_date', startStr);
@@ -109,7 +109,7 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
       // Get entries during this period
       const { data: periodEntries } = await supabase
         .from('daily_entries')
-        .select('fp_plus, entry_date, doors_knocked, work_start_time, work_end_time')
+        .select('fp_plus, prmr, entry_date, doors_knocked, work_start_time, work_end_time')
         .eq('user_id', repData.user_id)
         .eq('is_finalized', true)
         .gte('entry_date', startStr)
@@ -126,15 +126,16 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
       const isKnockingDay = (e: { doors_knocked?: number | null; work_start_time?: string | null; work_end_time?: string | null }) => 
         (e.doors_knocked || 0) >= 5 && e.work_start_time && e.work_end_time;
       
-      const cumulativeBefore = beforeEntries?.reduce((sum, e) => sum + (e.fp_plus || 0), 0) || 0;
-      const knockingDaysBefore = beforeEntries?.filter(isKnockingDay).length || 0;
+      // Helper to get value based on EFP mode (EFP = PRMR / 85, FP+ = fp_plus)
+      const getValue = (e: { fp_plus?: number | null; prmr?: number | null }, useEfp: boolean) => 
+        useEfp ? (e.prmr || 0) / 85 : (e.fp_plus || 0);
       
       return {
-        cumulativeBefore,
-        knockingDaysBefore,
+        beforeEntries: beforeEntries || [],
         periodEntries: periodEntries || [],
         plannedDays: plannedDays || [],
         isKnockingDay,
+        getValue,
       };
     },
     enabled: !!repData?.user_id,
@@ -186,15 +187,15 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     // Check if this period is entirely in preseason
     const periodIsPreseason = summerStartDate ? periodEnd < summerStartDate : true;
     
-    // Get knocking day counts from data
+    // Get entries and helpers from data
+    const beforeEntries = progressData.beforeEntries || [];
     const periodEntries = progressData.periodEntries || [];
     const plannedDays = progressData.plannedDays || [];
-    const cumulativeBefore = progressData.cumulativeBefore || 0;
-    const knockingDaysBefore = progressData.knockingDaysBefore || 0;
+    const { isKnockingDay, getValue } = progressData;
     
-    // Helper: check if entry is a knocking day
-    const isKnockingDay = (e: { doors_knocked?: number | null; work_start_time?: string | null; work_end_time?: string | null }) => 
-      (e.doors_knocked || 0) >= 5 && e.work_start_time && e.work_end_time;
+    // Calculate cumulative before using correct metric (EFP = PRMR/85 when efpModeEnabled)
+    const cumulativeBefore = beforeEntries.reduce((sum, e) => sum + getValue(e, efpModeEnabled), 0);
+    const knockingDaysBefore = beforeEntries.filter(isKnockingDay).length;
     
     // Count knocking days in this period
     const knockingDaysInPeriod = periodEntries.filter(isKnockingDay).length;
@@ -234,7 +235,8 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
       const entry = periodEntries.find(e => e.entry_date === dateStr);
       
       if (entry) {
-        runningCumulative += entry.fp_plus || 0;
+        // Use correct value based on EFP mode (PRMR/85 for EFP, fp_plus for FP+)
+        runningCumulative += getValue(entry, efpModeEnabled);
         if (isKnockingDay(entry)) {
           runningKnockingDayCount++;
         }
