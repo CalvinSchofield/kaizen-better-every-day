@@ -407,24 +407,68 @@ const Compete = () => {
                 );
               })}
               {completedIncentives.map(incentive => {
-                // For group incentives, winner_user_id is set if target was hit (all participants win)
-                // For individual races, winner_user_id is the specific winner
                 const isGroupIncentive = incentive.target_type === 'group_total';
-                const targetHit = incentive.winner_user_id !== null;
-                const won = isGroupIncentive 
-                  ? targetHit // All participants win if group target was hit
-                  : incentive.winner_user_id === currentUser; // Individual race - check if current user won
+                const isAnyoneWho = incentive.target_type === 'anyone_who';
                 
-                const statusLabel = isGroupIncentive
-                  ? (targetHit ? '🎉 Target Hit' : '❌ Expired')
-                  : (won ? '🏆 Won' : 'Lost');
+                // Determine if there was a winner/success
+                const hasWinner = incentive.winner_user_id !== null;
+                const winnerUserIds = Array.isArray(incentive.winner_user_ids) 
+                  ? incentive.winner_user_ids 
+                  : [];
+                const hasAnyWinners = winnerUserIds.length > 0;
+                
+                // Get winner names for anyone_who incentives
+                const winnerNames = isAnyoneWho && hasAnyWinners
+                  ? winnerUserIds
+                      .map(id => incentive.eligible_reps?.find(r => r.user_id === id)?.rep_name)
+                      .filter(Boolean)
+                      .map(name => (name as string).split(' ')[0]) // First name only
+                  : [];
+                
+                // Determine if current user won
+                let won = false;
+                if (isGroupIncentive) {
+                  won = hasWinner; // All participants win if group target was hit
+                } else if (isAnyoneWho) {
+                  won = winnerUserIds.includes(currentUser || '');
+                } else {
+                  won = incentive.winner_user_id === currentUser;
+                }
+                
+                // Check if incentive was cancelled
+                const isCancelled = incentive.status === 'cancelled';
+                
+                // Determine status label
+                let statusLabel: string;
+                let hasSuccess = false;
+                if (isCancelled) {
+                  statusLabel = '❌ Cancelled';
+                } else if (isGroupIncentive) {
+                  statusLabel = hasWinner ? '🎉 Target Hit' : '❌ Expired';
+                  hasSuccess = hasWinner;
+                } else if (isAnyoneWho) {
+                  if (hasAnyWinners) {
+                    statusLabel = won ? '🏆 Qualified' : `✅ ${winnerNames.length} qualified`;
+                    hasSuccess = true;
+                  } else {
+                    statusLabel = '❌ Expired';
+                  }
+                } else {
+                  // first_to or most_by_end
+                  if (hasWinner) {
+                    statusLabel = won ? '🏆 Won' : 'Lost';
+                    hasSuccess = won;
+                  } else {
+                    statusLabel = '❌ Expired';
+                  }
+                }
                 
                 return (
                   <div 
                     key={incentive.id}
                     className={cn(
                       "p-3 rounded-lg border",
-                      won ? "bg-amber-500/5 border-amber-500/30" : "bg-muted/30"
+                      hasSuccess ? "bg-amber-500/5 border-amber-500/30" : "bg-muted/30"
                     )}
                   >
                     <div className="flex items-center justify-between">
@@ -432,10 +476,16 @@ const Compete = () => {
                         <Trophy className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">{incentive.title}</span>
                       </div>
-                      <Badge variant={won ? "default" : "secondary"} className="text-xs">
+                      <Badge variant={hasSuccess ? "default" : "secondary"} className="text-xs">
                         {statusLabel}
                       </Badge>
                     </div>
+                    {/* Show who qualified for anyone_who incentives */}
+                    {isAnyoneWho && hasAnyWinners && winnerNames.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        Qualified: {winnerNames.join(', ')}
+                      </p>
+                    )}
                   </div>
                 );
               })}
