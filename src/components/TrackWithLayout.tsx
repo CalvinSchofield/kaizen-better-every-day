@@ -1175,6 +1175,7 @@ const TrackWithLayout = () => {
           transitions: entry.transitions || 0,
           presentations: entry.presentations || 0,
           closes: entry.closes || 0,
+          salesCount: Array.isArray(entry.sales_log) ? entry.sales_log.length : 0,
         }}
       />
 
