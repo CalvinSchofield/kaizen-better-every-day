@@ -84,6 +84,8 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
         date={stats.bestDay.date}
         doors={stats.bestDay.doors}
         fpPlus={stats.bestDay.fpPlus}
+        prmr={stats.bestDay.prmr}
+        efpModeEnabled={efpModeEnabled}
       />
     );
   }
@@ -107,6 +109,7 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
       key="comparison"
       period={stats.period}
       comparison={stats.comparison}
+      efpModeEnabled={efpModeEnabled}
     />
   );
 
@@ -135,7 +138,7 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
   );
 
   slides.push(
-    <RecapSummarySlide key="summary" stats={stats} />
+    <RecapSummarySlide key="summary" stats={stats} efpModeEnabled={efpModeEnabled} />
   );
 
   const totalSlides = slides.length;

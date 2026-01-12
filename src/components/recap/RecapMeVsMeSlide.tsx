@@ -104,8 +104,14 @@ export function RecapMeVsMeSlide({
     ? `Same Week in ${comparisonYear}`
     : `${reviewedMonthName || 'Same Month'} ${comparisonYear}`;
 
+  // When EFP mode is enabled, calculate EFP from PRMR (PRMR / 85)
+  // Otherwise use FP+ directly
   const primaryMetric = efpModeEnabled 
-    ? { label: 'EFP', current: comparison.fpPlus.current, historical: comparison.fpPlus.historical }
+    ? { 
+        label: 'EFP', 
+        current: comparison.prmr.current / 85, 
+        historical: comparison.prmr.historical / 85 
+      }
     : { label: 'FP+', current: comparison.fpPlus.current, historical: comparison.fpPlus.historical };
   
   const primaryDelta = primaryMetric.current - primaryMetric.historical;
