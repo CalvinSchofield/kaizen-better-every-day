@@ -562,20 +562,42 @@ export function useRecapData(period: 'week' | 'month') {
 
       // Find best day - use PRMR as primary metric for consistency with EFP mode
       // Best day = highest PRMR (prmr column already includes all PRMR, no need to add upgrade_prmr)
+      // If no PRMR exists, fall back to highest doors day
       let bestDay: RecapStats['bestDay'] = null;
+      let bestDayByDoors: RecapStats['bestDay'] = null;
+      
       currentEntries.forEach(entry => {
         const entryPrmr = entry.prmr || 0;
+        const entryDoors = entry.doors_knocked || 0;
+        
+        // Track best by PRMR
         const currentBestPrmr = bestDay ? (bestDay.prmr || 0) : 0;
-        // Compare by PRMR only (this equals EFP when divided by 85)
         if (!bestDay || entryPrmr > currentBestPrmr) {
           bestDay = {
             date: entry.entry_date,
-            doors: entry.doors_knocked || 0,
+            doors: entryDoors,
+            fpPlus: entry.fp_plus || 0,
+            prmr: entryPrmr
+          };
+        }
+        
+        // Track best by doors as fallback
+        const currentBestDoors = bestDayByDoors ? (bestDayByDoors.doors || 0) : 0;
+        if (!bestDayByDoors || entryDoors > currentBestDoors) {
+          bestDayByDoors = {
+            date: entry.entry_date,
+            doors: entryDoors,
             fpPlus: entry.fp_plus || 0,
             prmr: entryPrmr
           };
         }
       });
+      
+      // Use PRMR-based best day if there's any PRMR, otherwise use doors-based
+      const hasPrmr = bestDay && bestDay.prmr > 0;
+      if (!hasPrmr && bestDayByDoors) {
+        bestDay = bestDayByDoors;
+      }
 
       // Calculate previous period stats for comparison
       const prevDoors = prevEntries?.reduce((sum, e) => sum + (e.doors_knocked || 0), 0) || 0;
