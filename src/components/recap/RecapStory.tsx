@@ -93,7 +93,7 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
   // Add personal records slide if any records were set
   if (hasRecords) {
     slides.push(
-      <RecapRecordsSlide key="records" records={stats.records} />
+      <RecapRecordsSlide key="records" records={stats.records} efpModeEnabled={efpModeEnabled} />
     );
   }
 
