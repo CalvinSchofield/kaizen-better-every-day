@@ -116,6 +116,14 @@ export const useChallenges = (filter: 'active' | 'pending' | 'history' = 'active
         statusFilter = ['completed', 'declined', 'voided'];
       }
 
+      // First, auto-expire any pending challenges that have passed their end date
+      const today = new Date().toISOString().split('T')[0];
+      await supabase
+        .from('challenges')
+        .update({ status: 'voided' })
+        .eq('status', 'pending')
+        .lt('end_date', today);
+
       // Fetch challenges where user is a participant or it's public
       const { data: challenges, error } = await supabase
         .from('challenges')
