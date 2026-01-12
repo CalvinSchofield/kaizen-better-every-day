@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, subWeeks } from "date-fns";
+import { calculateUpfrontPay, calculateNetPay } from "@/utils/roiCalculations";
 
 interface WeekSummaryCardProps {
   repData: any;
@@ -115,8 +116,8 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
   const lastWeek = lastWeekData || { fp: 0 };
   const fpChange = thisWeek.fp - lastWeek.fp;
   const isImproving = fpChange >= 0;
-  const upfrontPay = thisWeek.prmr * 4;
-  const netPay = upfrontPay - thisWeek.moneySpent;
+  const upfrontPay = calculateUpfrontPay(thisWeek.prmr);
+  const netPay = calculateNetPay(upfrontPay, thisWeek.moneySpent);
 
   // Calculate averages from sales_log data
   const avgPrmrPerFp = thisWeek.fpCount > 0 ? Math.round(thisWeek.fpPrmrTotal / thisWeek.fpCount) : 0;

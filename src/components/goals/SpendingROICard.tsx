@@ -8,6 +8,7 @@ import { useRepGoals } from '@/hooks/useRepGoals';
 import { useRepData } from '@/hooks/useRepData';
 import { getTier } from '@/utils/payscaleCalculator';
 import { usePreseasonFP } from '@/hooks/usePreseasonFP';
+import { calculateRoiMetrics } from '@/utils/roiCalculations';
 
 interface Sale {
   prmr?: number;
@@ -81,22 +82,12 @@ export const SpendingROICard = () => {
     
     const { totalSpent, totalPrmr, dealsWithSpending, totalDeals } = spendingData;
     
-    // Get user's pay rate
+    // Calculate ROI metrics using unified utility
     const customPayLevel = goals?.custom_payscale_fp ?? null;
     const targetFpPlus = customPayLevel ?? totalFP;
-    const tier = getTier(targetFpPlus);
+    const roiMetrics = calculateRoiMetrics(totalPrmr, totalSpent, targetFpPlus, customPayLevel);
     
-    // Upfront pay (always 4x)
-    const upfrontPay = totalPrmr * 4;
-    const netUpfront = upfrontPay - totalSpent;
-    
-    // Total pay (based on tier)
-    const totalPay = totalPrmr * tier.rate;
-    const netTotal = totalPay - totalSpent;
-    
-    // ROI calculations
-    const upfrontRoi = totalSpent > 0 ? upfrontPay / totalSpent : 0;
-    const totalRoi = totalSpent > 0 ? totalPay / totalSpent : 0;
+    const { upfrontPay, netUpfront, totalPay, netTotal, upfrontRoi, totalRoi, payRate } = roiMetrics;
     
     // Avg cost per deal
     const avgCostPerDeal = totalDeals > 0 ? totalSpent / totalDeals : 0;
@@ -115,7 +106,7 @@ export const SpendingROICard = () => {
       totalRoi,
       avgCostPerDeal,
       spendingRate,
-      tierRate: tier.rate,
+      tierRate: payRate,
       totalDeals,
       dealsWithSpending,
     };

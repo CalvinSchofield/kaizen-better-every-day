@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, isBefore, isAfter, getDay } from "date-fns";
+import { calculateUpfrontPay } from "@/utils/roiCalculations";
 
 interface ActivitySummaryData {
   mode: "blitz" | "summer" | "preseason";
@@ -248,7 +249,7 @@ export const useActivitySummary = (repData: any) => {
       };
 
       // Upfront pay is based on TOTAL PRMR (prmr field already IS total PRMR)
-      const upfrontPay = totals.prmr * 4;
+      const upfrontPay = calculateUpfrontPay(totals.prmr);
 
       // Chart data (last 7 data points, excluding Sundays)
       const chartData = workdayEntries.slice(-7).map((entry) => ({

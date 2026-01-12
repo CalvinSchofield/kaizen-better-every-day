@@ -11,6 +11,7 @@ import { useEfpMode } from '@/hooks/useEfpMode';
 import { motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { CompactROICard } from './CompactROICard';
+import { calculateUpfrontPay, calculateUpfrontRoi, calculateNetPay, isPositiveRoi, formatRoi } from '@/utils/roiCalculations';
 
 // Helper to format minutes as human readable
 const formatMinutes = (minutes: number): string => {
@@ -290,16 +291,16 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
           <div className="grid grid-cols-3 gap-2 text-sm">
             <div className="text-center">
               <div className="text-xs text-muted-foreground">Upfront Pay</div>
-              <div className="font-semibold">${(insights.totalPrmr * 4).toLocaleString()}</div>
+              <div className="font-semibold">${calculateUpfrontPay(insights.totalPrmr).toLocaleString()}</div>
             </div>
             <div className="text-center">
               <div className="text-xs text-muted-foreground">Net Upfront</div>
-              <div className="font-semibold text-success">${((insights.totalPrmr * 4) - totalSpent).toLocaleString()}</div>
+              <div className="font-semibold text-success">${calculateNetPay(calculateUpfrontPay(insights.totalPrmr), totalSpent).toLocaleString()}</div>
             </div>
             <div className="text-center">
               <div className="text-xs text-muted-foreground">Upfront ROI</div>
-              <div className={`font-semibold ${((insights.totalPrmr * 4) / totalSpent) >= 1 ? 'text-success' : 'text-warning'}`}>
-                {((insights.totalPrmr * 4) / totalSpent).toFixed(1)}x
+              <div className={`font-semibold ${isPositiveRoi(calculateUpfrontRoi(insights.totalPrmr, totalSpent)) ? 'text-success' : 'text-warning'}`}>
+                {formatRoi(calculateUpfrontRoi(insights.totalPrmr, totalSpent))}
               </div>
             </div>
           </div>
