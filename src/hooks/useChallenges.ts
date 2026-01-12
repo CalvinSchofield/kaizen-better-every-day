@@ -183,10 +183,12 @@ export const useMyActiveChallenges = () => {
       if (!user) return [];
 
       // Get challenges where I'm a participant and status is active or pending
+      // Filter out challenges where I've explicitly declined (accepted = false)
       const { data: myParticipations, error: partError } = await supabase
         .from('challenge_participants')
-        .select('challenge_id')
-        .eq('user_id', user.id);
+        .select('challenge_id, accepted')
+        .eq('user_id', user.id)
+        .neq('accepted', false);
 
       if (partError) throw partError;
       if (!myParticipations?.length) return [];
