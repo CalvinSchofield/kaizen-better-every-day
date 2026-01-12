@@ -36,6 +36,14 @@ interface GoalPaceInfo {
   status: 'on_pace' | 'at_risk' | 'behind';
 }
 
+interface TodayActivityData {
+  counterTimestamps?: Record<string, string[]>;
+  salesLog?: Array<{ type: string; prmr: number; timestamp?: string }>;
+  workStartTime?: string;
+  workEndTime?: string;
+  isFinalized?: boolean;
+}
+
 interface RepDrillDownExtendedData {
   last14DaysEntries: DayActivity[];
   goals: RepGoalData | null;
@@ -57,6 +65,8 @@ interface RepDrillDownExtendedData {
   // Purpose statement
   purposeStatement?: string | null;
   purposeUpdatedAt?: string | null;
+  // Today's activity timeline data
+  todayActivity?: TodayActivityData;
 }
 
 // Season date constants
@@ -81,7 +91,7 @@ export const useRepDrillDownData = (userId: string | undefined) => {
       const isPreseason = !isAfter(today, parseISO(PRESEASON_END));
 
       // Fetch all data in parallel
-      const [entriesResult, goalsResult, seasonFPResult, preseasonFPResult, plannedDaysResult] = await Promise.all([
+      const [entriesResult, goalsResult, seasonFPResult, preseasonFPResult, plannedDaysResult, todayEntryResult] = await Promise.all([
         // Last 14 days of entries
         supabase
           .from('daily_entries')
@@ -120,6 +130,14 @@ export const useRepDrillDownData = (userId: string | undefined) => {
           .eq('user_id', userId)
           .gte('planned_date', PRESEASON_START)
           .lte('planned_date', SUMMER_END),
+        
+        // Today's entry with counter_timestamps for activity flow
+        supabase
+          .from('daily_entries')
+          .select('counter_timestamps, sales_log, work_start_time, work_end_time, is_finalized')
+          .eq('user_id', userId)
+          .eq('entry_date', todayStr)
+          .maybeSingle(),
       ]);
 
       // Calculate personal averages from 14-day entries
@@ -229,6 +247,15 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         couldDo: calculateGoalPace(goals?.couldGoal, totalSeasonFP, PRESEASON_START, SUMMER_END),
       };
 
+      // Process today's activity data for timeline
+      const todayActivity: TodayActivityData | undefined = todayEntryResult.data ? {
+        counterTimestamps: todayEntryResult.data.counter_timestamps as Record<string, string[]> | undefined,
+        salesLog: todayEntryResult.data.sales_log as Array<{ type: string; prmr: number; timestamp?: string }> | undefined,
+        workStartTime: todayEntryResult.data.work_start_time || undefined,
+        workEndTime: todayEntryResult.data.work_end_time || undefined,
+        isFinalized: todayEntryResult.data.is_finalized || false,
+      } : undefined;
+
       return {
         last14DaysEntries,
         goals,
@@ -241,6 +268,7 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         isPreseason,
         purposeStatement: goalsResult.data?.purpose_statement || null,
         purposeUpdatedAt: goalsResult.data?.purpose_updated_at || null,
+        todayActivity,
       };
     },
     enabled: !!userId,
