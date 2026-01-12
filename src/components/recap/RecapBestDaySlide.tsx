@@ -70,14 +70,22 @@ export function RecapBestDaySlide({ date, doors, fpPlus, prmr, efpModeEnabled }:
           transition={{ delay: 0.6, duration: 0.4 }}
           className="flex gap-8"
         >
-          <div className="text-center">
-            <p className="text-4xl font-bold">{doors}</p>
-            <p className="text-muted-foreground">Doors</p>
-          </div>
-          {hasValue && (
+          {/* Show EFP/FP+ as primary metric when available, doors as secondary */}
+          {hasValue ? (
+            <>
+              <div className="text-center">
+                <p className="text-4xl font-bold text-green-500">{displayValue}</p>
+                <p className="text-muted-foreground">{displayLabel}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl font-bold">{doors}</p>
+                <p className="text-muted-foreground">Doors</p>
+              </div>
+            </>
+          ) : (
             <div className="text-center">
-              <p className="text-4xl font-bold text-green-500">{displayValue}</p>
-              <p className="text-muted-foreground">{displayLabel}</p>
+              <p className="text-4xl font-bold">{doors}</p>
+              <p className="text-muted-foreground">Doors</p>
             </div>
           )}
         </motion.div>
