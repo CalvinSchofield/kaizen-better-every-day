@@ -781,8 +781,8 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         {/* Weekly Progress Prompt - Monday evenings */}
         <WeeklyProgressPromptCard />
 
-        {/* Active Challenges & Incentives */}
-        <ActiveChallengesCard />
+        {/* Active Challenges & Incentives - only show if user has active competitions (CTA is in knocking mode only) */}
+        <ActiveChallengesCard hideCta={true} />
 
         {/* Preseason Standards Card */}
         <PreseasonStandardsCard />
