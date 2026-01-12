@@ -340,23 +340,29 @@ export const useRespondToChallenge = () => {
 
       const isCaptain = myParticipant?.role === 'captain_b';
 
-      // Update participant acceptance
-      const { error: partError } = await supabase
+      // Update participant acceptance and get back the updated record
+      const { data: updatedParticipant, error: partError } = await supabase
         .from('challenge_participants')
         .update({
           accepted: accept,
           accepted_at: accept ? new Date().toISOString() : null,
         })
         .eq('challenge_id', challengeId)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select()
+        .single();
 
       if (partError) throw partError;
 
-      // Get all participants to check status
-      const { data: participants } = await supabase
+      // Get all participants to check status - use fresh query
+      const { data: participants, error: fetchError } = await supabase
         .from('challenge_participants')
         .select('accepted, role, user_id')
         .eq('challenge_id', challengeId);
+
+      if (fetchError) throw fetchError;
+
+      console.log('[useRespondToChallenge] Participants after update:', participants);
 
       // Determine new status based on acceptance logic:
       // - If captain_b declines → whole challenge declined
@@ -375,6 +381,9 @@ export const useRespondToChallenge = () => {
         // Check if all participants (excluding declined members) have accepted
         const activeParticipants = participants?.filter(p => p.accepted !== false);
         const allActiveAccepted = activeParticipants?.every(p => p.accepted === true);
+        
+        console.log('[useRespondToChallenge] Active participants:', activeParticipants);
+        console.log('[useRespondToChallenge] All accepted:', allActiveAccepted);
         
         if (allActiveAccepted && activeParticipants && activeParticipants.length >= 2) {
           newStatus = 'active';
@@ -401,14 +410,15 @@ export const useRespondToChallenge = () => {
         }
       }
 
-      if (newStatus !== 'pending') {
-        const { error } = await supabase
-          .from('challenges')
-          .update({ status: newStatus })
-          .eq('id', challengeId);
+      console.log('[useRespondToChallenge] New status:', newStatus);
 
-        if (error) throw error;
-      }
+      // Always update the challenge status (even if still pending, to ensure consistency)
+      const { error } = await supabase
+        .from('challenges')
+        .update({ status: newStatus })
+        .eq('id', challengeId);
+
+      if (error) throw error;
 
       // Send notification to challenge creator about acceptance/decline
       try {
