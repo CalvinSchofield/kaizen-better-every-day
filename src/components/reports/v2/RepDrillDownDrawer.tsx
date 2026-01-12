@@ -8,11 +8,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { X, Clock, Footprints, Target, MessageSquare } from "lucide-react";
+import { X, Clock, Footprints, Target, MessageSquare, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EffortResult } from "@/utils/effortScore";
 import { RepWorkTimeline } from "./RepWorkTimeline";
 import { RepGoalPaceCard } from "./RepGoalPaceCard";
+import { RepDayActivityFlow } from "./RepDayActivityFlow";
 import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
 import { PurposeDisplayCard } from "@/components/goals/PurposeDisplayCard";
 import { formatHoursMinutes } from "@/lib/formatters";
@@ -197,6 +198,28 @@ export const RepDrillDownDrawer = ({
               value={formatHoursMinutes(rep.hoursWorked)}
             />
           </div>
+
+          {/* Today's Activity Flow */}
+          {extendedData?.todayActivity && (
+            <>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-primary" />
+                  <h4 className="text-sm font-medium">Today's Activity Flow</h4>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/30">
+                  <RepDayActivityFlow
+                    counterTimestamps={extendedData.todayActivity.counterTimestamps}
+                    salesLog={extendedData.todayActivity.salesLog}
+                    workStartTime={extendedData.todayActivity.workStartTime}
+                    workEndTime={extendedData.todayActivity.workEndTime}
+                    isFinalized={extendedData.todayActivity.isFinalized}
+                  />
+                </div>
+              </div>
+              <Separator />
+            </>
+          )}
 
           {/* Effort Flags */}
           {rep.effort.flags.length > 0 && (
