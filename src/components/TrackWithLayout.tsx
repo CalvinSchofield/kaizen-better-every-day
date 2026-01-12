@@ -28,6 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useConfetti } from "@/hooks/useConfetti";
+import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { toast } from "sonner";
 import { hapticSuccess } from "@/utils/haptics";
 
@@ -62,6 +63,10 @@ const TrackWithLayout = () => {
   const { totalFP: preseasonFP } = usePreseasonFP();
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry } = useDailyEntry();
   const { addSale: addSaleToEntry, isAddingSale } = useAddSaleToEntry();
+  
+  // CRITICAL: Subscribe to realtime updates for multi-device sync
+  // This ensures iPad and Phone stay in sync automatically
+  useSalesRealtime();
   
   // Page tour
   const { showTour, completeTour, skipTour } = usePageTour({

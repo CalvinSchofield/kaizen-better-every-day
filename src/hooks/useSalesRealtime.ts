@@ -23,12 +23,15 @@ export const useSalesRealtime = () => {
         () => {
           // Invalidate all sales-dependent queries with refetchType: 'all'
           // This ensures even unmounted queries get invalidated
+          // CRITICAL: Include 'daily-entry' for multi-device Track sync
           const salesKeys = [
+            'daily-entry', // CRITICAL for multi-device Track sync
             'activity-summary',
             'cumulative-fp',
             'insights-data',
             'all-daily-entries',
             'daily-entries',
+            'customer-sales', // For Customers page
             'my-active-incentives',
             'incentive-progress',
             'my-active-challenges',
