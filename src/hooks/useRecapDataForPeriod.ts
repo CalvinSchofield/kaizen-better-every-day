@@ -471,15 +471,18 @@ export function useRecapDataForPeriod({
         }
       });
 
-      // Find best day
+      // Find best day - use PRMR as primary metric for consistency with EFP mode
       let bestDay: RecapStats['bestDay'] = null;
       currentEntries.forEach(entry => {
-        const score = (entry.doors_knocked || 0) + ((entry.fp_plus || 0) * 100);
-        if (!bestDay || score > ((bestDay.doors || 0) + (bestDay.fpPlus * 100))) {
+        const entryPrmr = (entry.prmr || 0) + (entry.upgrade_prmr || 0);
+        const score = (entry.doors_knocked || 0) + (entryPrmr * 100);
+        const currentBestPrmr = bestDay ? ((bestDay.prmr || 0)) : 0;
+        if (!bestDay || score > ((bestDay.doors || 0) + (currentBestPrmr * 100))) {
           bestDay = {
             date: entry.entry_date,
             doors: entry.doors_knocked || 0,
-            fpPlus: entry.fp_plus || 0
+            fpPlus: entry.fp_plus || 0,
+            prmr: entryPrmr
           };
         }
       });

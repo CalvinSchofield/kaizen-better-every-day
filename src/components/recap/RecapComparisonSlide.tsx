@@ -9,6 +9,7 @@ interface RecapComparisonSlideProps {
     hoursWorked: number;
     daysWorked: number;
   };
+  efpModeEnabled?: boolean;
 }
 
 function TrendIndicator({ value, label }: { value: number; label: string }) {
@@ -44,8 +45,9 @@ function TrendIndicator({ value, label }: { value: number; label: string }) {
   );
 }
 
-export function RecapComparisonSlide({ period, comparison }: RecapComparisonSlideProps) {
+export function RecapComparisonSlide({ period, comparison, efpModeEnabled }: RecapComparisonSlideProps) {
   const prevPeriodLabel = period === 'week' ? 'last week' : 'last month';
+  const fpLabel = efpModeEnabled ? 'EFP' : 'FP+';
 
   return (
     <div className="flex flex-col items-center h-full px-6 pt-8 pb-4 overflow-y-auto">
@@ -76,7 +78,7 @@ export function RecapComparisonSlide({ period, comparison }: RecapComparisonSlid
         className="space-y-3 w-full max-w-xs mt-6"
       >
         <TrendIndicator value={comparison.doors} label="Doors" />
-        <TrendIndicator value={comparison.fpPlus} label="FP+" />
+        <TrendIndicator value={comparison.fpPlus} label={fpLabel} />
         <TrendIndicator value={comparison.hoursWorked} label="Hours" />
         <TrendIndicator value={comparison.daysWorked} label="Days Worked" />
       </motion.div>

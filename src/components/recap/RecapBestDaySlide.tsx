@@ -6,11 +6,22 @@ interface RecapBestDaySlideProps {
   date: string;
   doors: number;
   fpPlus: number;
+  prmr?: number;
+  efpModeEnabled?: boolean;
 }
 
-export function RecapBestDaySlide({ date, doors, fpPlus }: RecapBestDaySlideProps) {
+export function RecapBestDaySlide({ date, doors, fpPlus, prmr, efpModeEnabled }: RecapBestDaySlideProps) {
   const dayName = format(parseISO(date), 'EEEE');
   const formattedDate = format(parseISO(date), 'MMMM d');
+
+  // Calculate display value based on mode
+  // EFP = PRMR / 85, FP+ = raw fp_plus
+  const displayValue = efpModeEnabled && prmr !== undefined
+    ? (prmr / 85).toFixed(1)
+    : fpPlus.toString();
+  
+  const displayLabel = efpModeEnabled ? 'EFP' : 'FP+';
+  const hasValue = efpModeEnabled ? (prmr !== undefined && prmr > 0) : fpPlus > 0;
 
   return (
     <div className="flex flex-col items-center h-full pt-8 pb-4 overflow-y-auto px-8">
@@ -63,10 +74,10 @@ export function RecapBestDaySlide({ date, doors, fpPlus }: RecapBestDaySlideProp
             <p className="text-4xl font-bold">{doors}</p>
             <p className="text-muted-foreground">Doors</p>
           </div>
-          {fpPlus > 0 && (
+          {hasValue && (
             <div className="text-center">
-              <p className="text-4xl font-bold text-green-500">{fpPlus}</p>
-              <p className="text-muted-foreground">FP+</p>
+              <p className="text-4xl font-bold text-green-500">{displayValue}</p>
+              <p className="text-muted-foreground">{displayLabel}</p>
             </div>
           )}
         </motion.div>

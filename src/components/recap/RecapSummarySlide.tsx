@@ -7,6 +7,7 @@ import { calculateUpfrontPay, calculateNetPay } from '@/utils/roiCalculations';
 
 interface RecapSummarySlideProps {
   stats: RecapStats;
+  efpModeEnabled?: boolean;
 }
 
 const PAY_RATES: Record<number, number> = {
@@ -18,7 +19,7 @@ const PAY_RATES: Record<number, number> = {
   300: 9.00,
 };
 
-export function RecapSummarySlide({ stats }: RecapSummarySlideProps) {
+export function RecapSummarySlide({ stats, efpModeEnabled }: RecapSummarySlideProps) {
   const { goals } = useRepGoals();
   const { repData } = useRepData();
   
@@ -36,6 +37,13 @@ export function RecapSummarySlide({ stats }: RecapSummarySlideProps) {
   const maxPay = Math.max(upfrontPay, totalPay);
   const upfrontWidth = maxPay > 0 ? (upfrontPay / maxPay) * 100 : 0;
   const totalWidth = maxPay > 0 ? (totalPay / maxPay) * 100 : 0;
+
+  // Display value based on EFP mode
+  // EFP = PRMR / 85, FP+ = raw fp_plus
+  const displayValue = efpModeEnabled
+    ? (stats.totalPrmr / 85).toFixed(1)
+    : stats.totalFpPlus.toFixed(1);
+  const displayLabel = efpModeEnabled ? 'EFP' : 'FP+';
 
   return (
     <div className="flex flex-col items-center h-full px-6 pt-8 pb-4 overflow-y-auto">
@@ -55,9 +63,9 @@ export function RecapSummarySlide({ stats }: RecapSummarySlideProps) {
         className="mb-6"
       >
         <div className="text-6xl font-bold text-green-500 mb-1">
-          {stats.totalFpPlus.toFixed(1)}
+          {displayValue}
         </div>
-        <p className="text-muted-foreground text-center">FP+</p>
+        <p className="text-muted-foreground text-center">{displayLabel}</p>
       </motion.div>
 
       <motion.div
@@ -101,7 +109,7 @@ export function RecapSummarySlide({ stats }: RecapSummarySlideProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Banknote className="w-5 h-5 text-green-500" />
-              <span className="text-green-500 text-sm">Total Pay ({payLevel} FP+)</span>
+              <span className="text-green-500 text-sm">Total Pay ({payLevel} {displayLabel})</span>
             </div>
             <span className="text-lg font-bold text-green-500">${totalPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
           </div>
