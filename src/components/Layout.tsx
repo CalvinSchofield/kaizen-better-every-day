@@ -518,11 +518,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                   stiffness: 500,
                   damping: 30
                 }}
-                className={`relative rounded-full shadow-xl flex flex-col items-center justify-center w-16 h-16 ${
-                  location.pathname === actionButton.path
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-primary/90 text-primary-foreground"
-                }`}
+                className="relative rounded-full shadow-xl flex flex-col items-center justify-center w-16 h-16 bg-primary text-primary-foreground"
               >
                 <actionButton.icon
                   className="w-6 h-6"
