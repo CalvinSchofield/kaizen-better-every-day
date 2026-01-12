@@ -42,7 +42,7 @@ export function RecapCTACard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="mb-4"
+            className="home-card-spacing"
           >
             <Card 
               className="relative overflow-hidden bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20 cursor-pointer active:scale-[0.98] transition-transform"
@@ -74,7 +74,7 @@ export function RecapCTACard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="mb-4"
+            className="home-card-spacing"
           >
             <Card 
               className="relative overflow-hidden bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-background border-purple-500/20 cursor-pointer active:scale-[0.98] transition-transform"
