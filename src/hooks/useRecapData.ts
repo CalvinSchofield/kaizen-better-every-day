@@ -561,13 +561,13 @@ export function useRecapData(period: 'week' | 'month') {
       });
 
       // Find best day - use PRMR as primary metric for consistency with EFP mode
-      // Best day = highest total PRMR (includes both regular sales and upgrade PRMR)
+      // Best day = highest PRMR (prmr column already includes all PRMR, no need to add upgrade_prmr)
       let bestDay: RecapStats['bestDay'] = null;
       currentEntries.forEach(entry => {
-        const entryPrmr = (entry.prmr || 0) + (entry.upgrade_prmr || 0);
-        const score = (entry.doors_knocked || 0) + (entryPrmr * 100);
-        const currentBestPrmr = bestDay ? ((bestDay.prmr || 0)) : 0;
-        if (!bestDay || score > ((bestDay.doors || 0) + (currentBestPrmr * 100))) {
+        const entryPrmr = entry.prmr || 0;
+        const currentBestPrmr = bestDay ? (bestDay.prmr || 0) : 0;
+        // Compare by PRMR only (this equals EFP when divided by 85)
+        if (!bestDay || entryPrmr > currentBestPrmr) {
           bestDay = {
             date: entry.entry_date,
             doors: entry.doors_knocked || 0,

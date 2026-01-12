@@ -4,6 +4,7 @@ import { RecapStats } from '@/hooks/useRecapData';
 
 interface RecapRecordsSlideProps {
   records: RecapStats['records'];
+  efpModeEnabled?: boolean;
 }
 
 interface RecordItemProps {
@@ -37,7 +38,7 @@ function RecordItem({ icon: Icon, label, value, previousBest, delay }: RecordIte
   );
 }
 
-export function RecapRecordsSlide({ records }: RecapRecordsSlideProps) {
+export function RecapRecordsSlide({ records, efpModeEnabled }: RecapRecordsSlideProps) {
   const recordsList: { key: string; icon: React.ElementType; label: string; value: string | number; previousBest: string | number }[] = [];
   
   if (records.mostDoorsInDay.isRecord) {
@@ -90,7 +91,20 @@ export function RecapRecordsSlide({ records }: RecapRecordsSlideProps) {
     });
   }
   
-  if (records.mostFpInDay.isRecord) {
+  // Show EFP record when in EFP mode (using PRMR/85), otherwise show FP+
+  if (efpModeEnabled && records.mostPrmrInDay?.isRecord) {
+    const efpValue = (records.mostPrmrInDay.value / 85).toFixed(1);
+    const efpPrevious = records.mostPrmrInDay.previousBest 
+      ? (records.mostPrmrInDay.previousBest / 85).toFixed(1) 
+      : 'N/A';
+    recordsList.push({
+      key: 'efp',
+      icon: Zap,
+      label: 'Most EFP in a Day',
+      value: efpValue,
+      previousBest: efpPrevious
+    });
+  } else if (!efpModeEnabled && records.mostFpInDay.isRecord) {
     recordsList.push({
       key: 'fp',
       icon: Zap,
