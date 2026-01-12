@@ -107,7 +107,13 @@ export interface RecapStats {
     doors: number;
     fpPlus: number;
     prmr: number;
+    closes: number;
+    hoursWorked: number;
   } | null;
+  
+  // Averages for comparison
+  avgDoorsPerDay: number;
+  avgPrmrPerDay: number;
   
   // Results
   totalFpPlus: number;
@@ -569,6 +575,8 @@ export function useRecapData(period: 'week' | 'month') {
       currentEntries.forEach(entry => {
         const entryPrmr = entry.prmr || 0;
         const entryDoors = entry.doors_knocked || 0;
+        const entryCloses = entry.closes || 0;
+        const entryHours = calculateHoursWorked(entry);
         
         // Track best by PRMR
         const currentBestPrmr = bestDay ? (bestDay.prmr || 0) : 0;
@@ -577,7 +585,9 @@ export function useRecapData(period: 'week' | 'month') {
             date: entry.entry_date,
             doors: entryDoors,
             fpPlus: entry.fp_plus || 0,
-            prmr: entryPrmr
+            prmr: entryPrmr,
+            closes: entryCloses,
+            hoursWorked: entryHours
           };
         }
         
@@ -588,7 +598,9 @@ export function useRecapData(period: 'week' | 'month') {
             date: entry.entry_date,
             doors: entryDoors,
             fpPlus: entry.fp_plus || 0,
-            prmr: entryPrmr
+            prmr: entryPrmr,
+            closes: entryCloses,
+            hoursWorked: entryHours
           };
         }
       });
@@ -781,6 +793,8 @@ export function useRecapData(period: 'week' | 'month') {
         bestDay,
         totalFpPlus,
         totalPrmr,
+        avgDoorsPerDay: daysWorked > 0 ? Math.round(totalDoors / daysWorked) : 0,
+        avgPrmrPerDay: daysWorked > 0 ? Math.round((totalPrmr / daysWorked) * 10) / 10 : 0,
         comparison,
         inputComparison,
         timeComparison,

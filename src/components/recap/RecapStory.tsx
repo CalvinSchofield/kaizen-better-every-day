@@ -85,6 +85,10 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
         doors={stats.bestDay.doors}
         fpPlus={stats.bestDay.fpPlus}
         prmr={stats.bestDay.prmr}
+        closes={stats.bestDay.closes}
+        hoursWorked={stats.bestDay.hoursWorked}
+        avgDoorsPerDay={stats.avgDoorsPerDay}
+        avgPrmrPerDay={stats.avgPrmrPerDay}
         efpModeEnabled={efpModeEnabled}
       />
     );

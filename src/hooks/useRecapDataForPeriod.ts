@@ -475,6 +475,8 @@ export function useRecapDataForPeriod({
       let bestDay: RecapStats['bestDay'] = null;
       currentEntries.forEach(entry => {
         const entryPrmr = (entry.prmr || 0) + (entry.upgrade_prmr || 0);
+        const entryCloses = entry.closes || 0;
+        const entryHours = calculateHoursWorked(entry);
         const score = (entry.doors_knocked || 0) + (entryPrmr * 100);
         const currentBestPrmr = bestDay ? ((bestDay.prmr || 0)) : 0;
         if (!bestDay || score > ((bestDay.doors || 0) + (currentBestPrmr * 100))) {
@@ -482,7 +484,9 @@ export function useRecapDataForPeriod({
             date: entry.entry_date,
             doors: entry.doors_knocked || 0,
             fpPlus: entry.fp_plus || 0,
-            prmr: entryPrmr
+            prmr: entryPrmr,
+            closes: entryCloses,
+            hoursWorked: entryHours
           };
         }
       });
@@ -669,6 +673,8 @@ export function useRecapDataForPeriod({
         bestDay,
         totalFpPlus,
         totalPrmr,
+        avgDoorsPerDay: daysWorked > 0 ? Math.round(totalDoors / daysWorked) : 0,
+        avgPrmrPerDay: daysWorked > 0 ? Math.round((totalPrmr / daysWorked) * 10) / 10 : 0,
         comparison,
         inputComparison,
         timeComparison,
