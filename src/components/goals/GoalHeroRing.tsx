@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Check, Target, Zap, Trophy, TrendingUp } from "lucide-react";
 import { formatCurrency, calculateTakeHome } from "@/utils/payscaleCalculator";
+import { calculateUpfrontPay } from "@/utils/roiCalculations";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
@@ -137,7 +138,7 @@ export const GoalHeroRing = ({
   // Calculate earnings - for preseason, just show upfront pay (4x PRMR)
   const isPreseasonTier = activeTier === 'preseason';
   const preseasonPrmr = fpGoal * avgPrmrPerFp;
-  const preseasonUpfrontPay = preseasonPrmr * 4; // Upfront is 4x PRMR
+  const preseasonUpfrontPay = calculateUpfrontPay(preseasonPrmr);
   
   const result = calculateTakeHome({
     fpGoal,

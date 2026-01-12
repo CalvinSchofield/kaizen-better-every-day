@@ -4,6 +4,7 @@ import { useLongPress } from '@/hooks/useLongPress';
 import { PayscalePickerDrawer } from './PayscalePickerDrawer';
 import { useRepGoals } from '@/hooks/useRepGoals';
 import { getTier } from '@/utils/payscaleCalculator';
+import { UPFRONT_MULTIPLIER, calculateUpfrontRoi, calculateTotalRoi, formatRoi, isPositiveRoi } from '@/utils/roiCalculations';
 
 interface CompactROICardProps {
   totalSpent: number;
@@ -12,8 +13,7 @@ interface CompactROICardProps {
   onRateChange?: (rate: number, roiMode: 'upfront' | 'total') => void;
 }
 
-// Upfront pay is always 4x for all reps
-const UPFRONT_MULTIPLIER = 4;
+// Use the centralized constant from roiCalculations
 
 export const CompactROICard = ({
   totalSpent,

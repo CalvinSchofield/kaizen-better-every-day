@@ -3,6 +3,7 @@ import { DollarSign, Target, Calendar, Banknote, Receipt } from 'lucide-react';
 import { RecapStats } from '@/hooks/useRecapData';
 import { useRepGoals } from '@/hooks/useRepGoals';
 import { useRepData } from '@/hooks/useRepData';
+import { calculateUpfrontPay, calculateNetPay } from '@/utils/roiCalculations';
 
 interface RecapSummarySlideProps {
   stats: RecapStats;
@@ -25,12 +26,12 @@ export function RecapSummarySlide({ stats }: RecapSummarySlideProps) {
   const defaultPayLevel = isRookie ? 60 : 100;
   const payLevel = goals?.custom_payscale_fp ?? defaultPayLevel;
   
-  const upfrontPay = stats.totalPrmr * 4;
+  const upfrontPay = calculateUpfrontPay(stats.totalPrmr);
   const payRate = PAY_RATES[payLevel] || 6.50;
   const totalPay = stats.totalPrmr * payRate;
   const totalSpent = stats.dealBreakdown?.totalMoneySpent || 0;
-  const netUpfrontPay = upfrontPay - totalSpent;
-  const netTotalPay = totalPay - totalSpent;
+  const netUpfrontPay = calculateNetPay(upfrontPay, totalSpent);
+  const netTotalPay = calculateNetPay(totalPay, totalSpent);
   
   const maxPay = Math.max(upfrontPay, totalPay);
   const upfrontWidth = maxPay > 0 ? (upfrontPay / maxPay) * 100 : 0;

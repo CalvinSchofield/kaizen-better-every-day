@@ -4,6 +4,7 @@ import { format, parseISO } from 'date-fns';
 import { useRepGoals } from '@/hooks/useRepGoals';
 import { useRepData } from '@/hooks/useRepData';
 import { getTier } from '@/utils/payscaleCalculator';
+import { calculateUpfrontPay, calculateUpfrontRoi, calculateTotalRoi, formatRoi } from '@/utils/roiCalculations';
 
 interface DealHighlight {
   date: string;
@@ -178,10 +179,11 @@ export function RecapDealBreakdownSlide({ dealBreakdown }: RecapDealBreakdownSli
   const payLevel = goals?.custom_payscale_fp ?? defaultPayLevel;
   const payRate = PAY_RATES[payLevel] || getTier(payLevel).rate;
   
-  const upfrontPay = (totalPrmr || 0) * 4;
-  const totalPay = (totalPrmr || 0) * payRate;
-  const upfrontRoi = totalMoneySpent > 0 ? upfrontPay / totalMoneySpent : 0;
-  const payRoi = totalMoneySpent > 0 ? totalPay / totalMoneySpent : 0;
+  const prmr = totalPrmr || 0;
+  const upfrontPay = calculateUpfrontPay(prmr);
+  const totalPay = prmr * payRate;
+  const upfrontRoi = calculateUpfrontRoi(prmr, totalMoneySpent);
+  const payRoi = calculateTotalRoi(prmr, totalMoneySpent, payRate);
   
   const fpPercent = totalDeals > 0 ? (fpDeals / totalDeals) * 100 : 0;
   const upgradePercent = totalDeals > 0 ? (upgradeDeals / totalDeals) * 100 : 0;
