@@ -154,22 +154,24 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     // Count planned days AFTER latest finalized date that haven't been worked yet
     // The cutoff is the latest finalized date, not today - finalization signals day complete
     const cutoffStr = throughDateStr || todayStr;
-    const remainingPlanned = plannedDays?.filter(d => 
+    
+    // Count future planned days (after cutoff, but NOT including today - we handle today separately)
+    const futurePlanned = plannedDays?.filter(d => 
       d.planned_date > cutoffStr && 
+      d.planned_date > todayStr && // Must be AFTER today to avoid double-counting
       d.planned_date <= periodEndStr &&
       !workedDatesSet.has(d.planned_date)
     ).length || 0;
     
-    // Also include today if it's in the period, after cutoff, planned, and not yet worked
+    // Include today if it's in the period, planned, and not yet worked
     const includesToday = todayStr >= periodStartStr && todayStr <= periodEndStr && 
-      todayStr > cutoffStr && 
       plannedDays?.some(d => d.planned_date === todayStr) &&
       !workedDatesSet.has(todayStr);
     
-    // Total = worked + remaining planned
+    // Total = worked + future planned + today (if applicable)
     return {
       daysWorkedInPeriod: workedDays,
-      totalDaysInPeriod: workedDays + remainingPlanned + (includesToday ? 1 : 0)
+      totalDaysInPeriod: workedDays + futurePlanned + (includesToday ? 1 : 0)
     };
   }, [entries, plannedDays, currentDate, viewMode, throughDateStr, todayStr]);
 
