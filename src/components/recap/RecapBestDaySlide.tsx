@@ -1,16 +1,30 @@
 import { motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
-import { Trophy } from 'lucide-react';
+import { Trophy, TrendingUp } from 'lucide-react';
 
 interface RecapBestDaySlideProps {
   date: string;
   doors: number;
   fpPlus: number;
   prmr?: number;
+  closes?: number;
+  hoursWorked?: number;
+  avgDoorsPerDay?: number;
+  avgPrmrPerDay?: number;
   efpModeEnabled?: boolean;
 }
 
-export function RecapBestDaySlide({ date, doors, fpPlus, prmr, efpModeEnabled }: RecapBestDaySlideProps) {
+export function RecapBestDaySlide({ 
+  date, 
+  doors, 
+  fpPlus, 
+  prmr, 
+  closes,
+  hoursWorked,
+  avgDoorsPerDay = 0,
+  avgPrmrPerDay = 0,
+  efpModeEnabled 
+}: RecapBestDaySlideProps) {
   const dayName = format(parseISO(date), 'EEEE');
   const formattedDate = format(parseISO(date), 'MMMM d');
 
@@ -22,6 +36,21 @@ export function RecapBestDaySlide({ date, doors, fpPlus, prmr, efpModeEnabled }:
   
   const displayLabel = efpModeEnabled ? 'EFP' : 'FP+';
   const hasValue = efpModeEnabled ? (prmr !== undefined && prmr > 0) : fpPlus > 0;
+
+  // Calculate comparison to average
+  const efpValue = prmr ? prmr / 85 : 0;
+  const avgEfpPerDay = avgPrmrPerDay / 85;
+  
+  const doorsVsAvg = avgDoorsPerDay > 0 ? Math.round(((doors - avgDoorsPerDay) / avgDoorsPerDay) * 100) : 0;
+  const efpVsAvg = avgEfpPerDay > 0 ? Math.round(((efpValue - avgEfpPerDay) / avgEfpPerDay) * 100) : 0;
+
+  // Format hours worked
+  const formatHours = (hours: number) => {
+    const hrs = Math.floor(hours);
+    const mins = Math.round((hours - hrs) * 60);
+    if (mins === 0) return `${hrs}h`;
+    return `${hrs}h ${mins}m`;
+  };
 
   return (
     <div className="flex flex-col items-center h-full pt-8 pb-4 overflow-y-auto px-8">
@@ -59,18 +88,18 @@ export function RecapBestDaySlide({ date, doors, fpPlus, prmr, efpModeEnabled }:
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5, duration: 0.4 }}
-          className="text-muted-foreground mb-8"
+          className="text-muted-foreground mb-6"
         >
           {formattedDate}
         </motion.p>
 
+        {/* Primary metrics */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.4 }}
-          className="flex gap-8"
+          className="flex gap-8 mb-6"
         >
-          {/* Show EFP/FP+ as primary metric when available, doors as secondary */}
           {hasValue ? (
             <>
               <div className="text-center">
@@ -89,6 +118,46 @@ export function RecapBestDaySlide({ date, doors, fpPlus, prmr, efpModeEnabled }:
             </div>
           )}
         </motion.div>
+
+        {/* Additional context */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8, duration: 0.4 }}
+          className="flex flex-wrap justify-center gap-3 mb-6"
+        >
+          {closes !== undefined && closes > 0 && (
+            <div className="bg-muted/50 rounded-full px-4 py-2">
+              <span className="text-sm font-medium">{closes} Close{closes !== 1 ? 's' : ''}</span>
+            </div>
+          )}
+          {hoursWorked !== undefined && hoursWorked > 0 && (
+            <div className="bg-muted/50 rounded-full px-4 py-2">
+              <span className="text-sm font-medium">{formatHours(hoursWorked)} worked</span>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Comparison to average */}
+        {(doorsVsAvg !== 0 || (hasValue && efpVsAvg !== 0)) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.0, duration: 0.4 }}
+            className="bg-primary/10 rounded-xl px-5 py-3"
+          >
+            <div className="flex items-center gap-2 text-sm">
+              <TrendingUp className="w-4 h-4 text-primary" />
+              <span className="text-muted-foreground">
+                {hasValue && efpVsAvg > 0 ? (
+                  <span><span className="font-semibold text-green-500">+{efpVsAvg}%</span> more {displayLabel} than average</span>
+                ) : doorsVsAvg > 0 ? (
+                  <span><span className="font-semibold text-green-500">+{doorsVsAvg}%</span> more doors than average</span>
+                ) : null}
+              </span>
+            </div>
+          </motion.div>
+        )}
       </div>
     </div>
   );
