@@ -260,7 +260,7 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
     return (
       <>
         <Card 
-          className="mb-4 border-dashed border-muted-foreground/30 bg-muted/30 cursor-pointer hover:border-primary/40 transition-colors"
+          className="home-card-spacing border-dashed border-muted-foreground/30 bg-muted/30 cursor-pointer hover:border-primary/40 transition-colors"
           onClick={handleCardClick}
         >
           <CardContent className="py-6">
@@ -293,7 +293,7 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
   return (
     <>
       <Card 
-        className="mb-4 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent cursor-pointer hover:border-primary/40 transition-colors"
+        className="home-card-spacing border-primary/20 bg-gradient-to-br from-primary/5 to-transparent cursor-pointer hover:border-primary/40 transition-colors"
         onClick={handleCardClick}
       >
         <CardHeader className="pb-3">

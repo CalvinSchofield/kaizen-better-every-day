@@ -712,7 +712,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 -mt-4 pb-32">
+      <div className="max-w-lg mx-auto px-4 -mt-4 pb-32 home-card-container">
         {/* Pending Install Alert - shows after 7 PM if pending installs */}
         <PendingInstallAlertCard />
 
@@ -745,7 +745,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
             : `${minsUntil}m`;
           
           return shouldShowMondayNights ? (
-            <Card className="mb-6 shadow-sm border-2 border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+            <Card className="home-card-spacing shadow-sm border-2 border-orange-500 bg-orange-50 dark:bg-orange-950/20">
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
                   <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -782,7 +782,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         <PreseasonStandardsCard />
 
         {/* Upcoming Blitzes Card */}
-        <Card className="mb-6 shadow-sm">
+        <Card className="home-card-spacing shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-primary" />
@@ -839,7 +839,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         </Card>
 
         {/* Bring a Friend Callout */}
-        <Card className="mb-6 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
+        <Card className="home-card-spacing border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
           <CardContent className="pt-6">
             <div className="text-center space-y-3">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20">

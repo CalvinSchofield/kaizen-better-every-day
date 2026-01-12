@@ -704,7 +704,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 -mt-4 pb-32">
+      <div className="max-w-4xl mx-auto px-4 -mt-4 pb-32 home-card-container">
         {/* Dynamic Alert Card for Team Leads */}
         {isTeamLead && !teamLoading && (
           <VetAlertCard 
@@ -757,7 +757,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             : `${minsUntil}m`;
           
           return shouldShowMondayNights ? (
-            <Card className="mb-6 shadow-sm border-2 border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+            <Card className="home-card-spacing shadow-sm border-2 border-orange-500 bg-orange-50 dark:bg-orange-950/20">
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
                   <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -821,7 +821,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         )}
 
         {/* Recruiting Flow Carousel */}
-        <Card className="mb-6">
+        <Card className="home-card-spacing">
           <CardHeader>
             <CardTitle>Recruiting Flow</CardTitle>
             <CardDescription>
@@ -864,7 +864,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         )}
 
         {/* 5-5-5 Callout at Bottom */}
-        <Card className="mb-6 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
+        <Card className="home-card-spacing border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
           <CardContent className="pt-6">
             <div className="text-center space-y-3">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20">
