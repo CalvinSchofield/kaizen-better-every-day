@@ -5,7 +5,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Trophy, Users, Target, Clock, Eye, EyeOff, Pencil, XCircle, Loader2, CheckCircle2, Circle } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Trophy, Users, Target, Clock, Eye, EyeOff, Pencil, XCircle, Loader2, CheckCircle2, Circle, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Incentive, IncentiveMetric, useCancelIncentive } from "@/hooks/useIncentives";
 import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
@@ -30,6 +31,7 @@ const metricLabels: Record<IncentiveMetric, string> = {
 
 export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: IncentiveDetailSheetProps) => {
   const [showEditDrawer, setShowEditDrawer] = useState(false);
+  const [showWinners, setShowWinners] = useState(false);
   const cancelMutation = useCancelIncentive();
   
   const { data: currentUser } = useQuery({
@@ -378,28 +380,92 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               className={cn(
-                "rounded-xl p-4 text-center",
+                "rounded-xl overflow-hidden",
                 isAnyoneWho 
                   ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20"
                   : "bg-gradient-to-r from-amber-500/20 to-orange-500/20"
               )}
             >
-              <motion.div
-                animate={{ rotate: [0, -10, 10, -10, 10, 0], scale: [1, 1.1, 1] }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-              >
-                {isAnyoneWho ? (
-                  <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                ) : (
-                  <Trophy className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-                )}
-              </motion.div>
-              <p className="font-semibold">
-                {isAnyoneWho 
-                  ? `${incentive.winner_user_ids?.length || 0} qualified and won!`
-                  : "Winner claimed the prize!"
-                }
-              </p>
+              {isAnyoneWho && incentive.winner_user_ids?.length ? (
+                <Collapsible open={showWinners} onOpenChange={setShowWinners}>
+                  <CollapsibleTrigger className="w-full p-4 text-center">
+                    <motion.div
+                      animate={{ rotate: [0, -10, 10, -10, 10, 0], scale: [1, 1.1, 1] }}
+                      transition={{ duration: 0.5, delay: 0.2 }}
+                    >
+                      <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    </motion.div>
+                    <div className="flex items-center justify-center gap-2">
+                      <p className="font-semibold">
+                        {incentive.winner_user_ids.length} qualified and won!
+                      </p>
+                      <motion.div
+                        animate={{ rotate: showWinners ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      </motion.div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Tap to {showWinners ? 'hide' : 'see'} winners
+                    </p>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="px-4 pb-4 space-y-2"
+                    >
+                      {incentive.winner_user_ids.map((winnerId, index) => {
+                        const winner = incentive.eligible_reps?.find(r => r.user_id === winnerId);
+                        if (!winner) return null;
+                        return (
+                          <motion.div
+                            key={winnerId}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="flex items-center gap-3 p-3 rounded-xl bg-green-500/10 border border-green-500/20"
+                          >
+                            <div className="relative">
+                              <Avatar className="h-10 w-10">
+                                {winner.profile_photo_url && (
+                                  <AvatarImage src={winner.profile_photo_url} />
+                                )}
+                                <AvatarFallback>{winner.rep_name.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <motion.div 
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ delay: 0.2 + index * 0.05, type: "spring" }}
+                                className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"
+                              >
+                                <CheckCircle2 className="h-3 w-3 text-white" />
+                              </motion.div>
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium">{winner.rep_name}</p>
+                              <span className="text-xs font-medium text-green-600">
+                                🏆 Qualified!
+                              </span>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </motion.div>
+                  </CollapsibleContent>
+                </Collapsible>
+              ) : (
+                <div className="p-4 text-center">
+                  <motion.div
+                    animate={{ rotate: [0, -10, 10, -10, 10, 0], scale: [1, 1.1, 1] }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                  >
+                    <Trophy className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                  </motion.div>
+                  <p className="font-semibold">Winner claimed the prize!</p>
+                </div>
+              )}
             </motion.div>
           )}
         </motion.div>
