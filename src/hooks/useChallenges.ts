@@ -417,7 +417,7 @@ export const useRespondToChallenge = () => {
         .eq('id', challengeId)
         .single();
       
-      const isOneOnOne = challengeData?.type === 'head_to_head';
+      const isOneOnOne = challengeData?.type === '1v1';
       
       // Determine new status based on acceptance logic:
       // - For 1v1 (head_to_head): If ANYONE declines → whole challenge declined
