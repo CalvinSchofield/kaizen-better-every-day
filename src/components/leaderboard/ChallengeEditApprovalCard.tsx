@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
+import { getInitials } from "@/utils/nameUtils";
 
 interface ChallengeEditApprovalCardProps {
   proposal: ChallengeEditProposal & { approvals: ChallengeEditApproval[] };
@@ -112,7 +113,7 @@ export const ChallengeEditApprovalCard = ({
               <Avatar className="h-5 w-5">
                 <AvatarImage src={rep?.profile_photo_url || undefined} />
                 <AvatarFallback className="text-[10px]">
-                  {rep?.name?.charAt(0) || '?'}
+                  {getInitials(rep?.name)}
                 </AvatarFallback>
               </Avatar>
               <span>{rep?.name || 'Unknown'}</span>

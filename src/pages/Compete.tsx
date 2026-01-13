@@ -20,6 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import { hapticLight, hapticSuccess, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
+import { getInitials } from "@/utils/nameUtils";
 
 const metricLabels: Record<string, string> = {
   fp_plus: 'FP+',
@@ -218,7 +219,7 @@ const Compete = () => {
                     <div className="flex items-center gap-3 mb-3">
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={opponent?.profile_photo_url || undefined} />
-                        <AvatarFallback>{opponent?.rep_name?.charAt(0) || '?'}</AvatarFallback>
+                        <AvatarFallback>{getInitials(opponent?.rep_name)}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
                         <p className="font-medium">{opponent?.rep_name} challenged you!</p>
@@ -319,7 +320,7 @@ const Compete = () => {
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={opponent?.profile_photo_url || undefined} />
-                        <AvatarFallback>{opponent?.rep_name?.charAt(0) || '?'}</AvatarFallback>
+                        <AvatarFallback>{getInitials(opponent?.rep_name)}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
                         <p className="font-medium">Challenged {opponent?.rep_name}</p>
