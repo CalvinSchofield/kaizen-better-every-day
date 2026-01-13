@@ -6,15 +6,8 @@ import { Trophy, TrendingUp, BookOpen, Timer, Dumbbell, Phone, ChevronDown, Chev
 import { useRookieOfTheWeek, RookieStats } from "@/hooks/useRookieOfTheWeek";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
+import { getInitials } from "@/utils/nameUtils";
 
-const getInitials = (name: string) => {
-  return name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-};
 
 const formatTrainingHours = (minutes: number): string => {
   const hours = Math.floor(minutes / 60);

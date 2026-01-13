@@ -8,6 +8,7 @@ import { BookOpen, Timer, Dumbbell, Phone, Trophy, ChevronDown, ChevronUp, Star,
 import { usePreseasonPrepLeaderboard, LeaderboardMetric, LeaderboardEntry } from "@/hooks/usePreseasonPrepLeaderboard";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { getInitials } from "@/utils/nameUtils";
 
 const metrics: { key: LeaderboardMetric; label: string; icon: React.ReactNode }[] = [
   { key: 'overall', label: 'Overall', icon: <Zap className="h-3.5 w-3.5" /> },
@@ -17,14 +18,6 @@ const metrics: { key: LeaderboardMetric; label: string; icon: React.ReactNode }[
   { key: 'mnl', label: 'MNL', icon: <Phone className="h-3.5 w-3.5" /> },
 ];
 
-const getInitials = (name: string) => {
-  return name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-};
 
 const formatTrainingDisplay = (minutes: number): string => {
   const hours = Math.floor(minutes / 60);

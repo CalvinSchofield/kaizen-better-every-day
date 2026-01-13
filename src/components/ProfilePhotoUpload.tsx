@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
+import { getInitials } from "@/utils/nameUtils";
 
 interface ProfilePhotoUploadProps {
   currentPhotoUrl?: string | null;
@@ -16,21 +17,6 @@ interface ProfilePhotoUploadProps {
   showRemoveButton?: boolean;
 }
 
-// Strip emojis and get clean initials
-const getInitials = (name: string) => {
-  // Remove emojis and other unicode symbols
-  const cleanName = name
-    .replace(/[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Modifier_Base}\p{Emoji_Component}]/gu, '')
-    .trim();
-  
-  return cleanName
-    .split(' ')
-    .filter(n => n.length > 0)
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-};
 
 const MAX_IMAGE_SIZE = 1200; // Max dimension in pixels
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB after compression

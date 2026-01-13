@@ -7,6 +7,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { hapticSuccess, hapticWarning } from "@/utils/haptics";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
+import { getInitials } from "@/utils/nameUtils";
 
 interface LiveRaceSectionProps {
   currentUserId: string | null;
@@ -313,7 +314,7 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
                     <Avatar className="h-9 w-9">
                       <AvatarImage src={entry.profilePhotoUrl || undefined} alt={entry.name} />
                       <AvatarFallback className="bg-muted text-muted-foreground text-sm font-medium">
-                        {entry.name.charAt(0).toUpperCase()}
+                        {getInitials(entry.name)}
                       </AvatarFallback>
                     </Avatar>
                     {/* Show camera icon for current user if no photo */}

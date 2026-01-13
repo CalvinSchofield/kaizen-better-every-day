@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Trophy, Crown, Medal, Award, Pencil } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getInitials } from '@/utils/nameUtils';
 
 interface Rep {
   userId: string;
@@ -19,17 +20,6 @@ interface Top10SlideProps {
   onEditValue?: (field: string, label: string, currentValue: number) => void;
 }
 
-function getInitials(name: string) {
-  return name
-    .replace(/[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Component}]/gu, '')
-    .trim()
-    .split(' ')
-    .filter(n => n.length > 0)
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) {
