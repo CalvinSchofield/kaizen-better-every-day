@@ -106,19 +106,36 @@ export const useActivitySummary = (repData: any) => {
         startDate = new Date(activeBlitz.date + 'T00:00:00');
         endDate = new Date(activeBlitz.endDate + 'T00:00:00');
         
-        // If blitz starts on Sunday, Day 1 is Monday
-        let dayOneDate = new Date(startDate);
-        if (getDay(startDate) === 0) {
-          dayOneDate.setDate(dayOneDate.getDate() + 1); // Move to Monday
+        // Calculate the knocking day number (excluding Sundays)
+        // Count work days from blitz start to today
+        const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        let knockingDayNumber = 0;
+        let currentDate = new Date(startDate);
+        
+        while (currentDate <= todayMidnight) {
+          // Only count non-Sundays as knocking days
+          if (getDay(currentDate) !== 0) {
+            knockingDayNumber++;
+          }
+          currentDate.setDate(currentDate.getDate() + 1);
         }
         
-        // Calculate day number based on calendar dates, not time elapsed
-        // This prevents evening times from showing as the next day
-        const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const dayOneMidnight = new Date(dayOneDate.getFullYear(), dayOneDate.getMonth(), dayOneDate.getDate());
-        const daysIntoBlitz = Math.floor((todayMidnight.getTime() - dayOneMidnight.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-        dayNumber = daysIntoBlitz;
-        title = `This Blitz — Day ${daysIntoBlitz}`;
+        // If today is Sunday, we're between knocking days - show as previous day
+        if (getDay(todayMidnight) === 0) {
+          // Find the last knocking day number
+          let tempDate = new Date(startDate);
+          knockingDayNumber = 0;
+          while (tempDate < todayMidnight) {
+            if (getDay(tempDate) !== 0) {
+              knockingDayNumber++;
+            }
+            tempDate.setDate(tempDate.getDate() + 1);
+          }
+        }
+        
+        // Minimum day 1 for people who just arrived
+        dayNumber = Math.max(1, knockingDayNumber);
+        title = `This Blitz — Day ${dayNumber}`;
         subtitle = activeBlitz.name || activeBlitz.location;
       } else if (mode === "summer") {
         // Summer weeks run Sunday to Saturday
@@ -311,21 +328,9 @@ export const useActivitySummary = (repData: any) => {
           };
 
           // Build comparison chart data for blitz (day-by-day FP+ or PRMR for EFP calc)
-          // Use actual blitz day number based on entry date, not sequential index
+          // Use knocking day number (excluding Sundays) for chart x-axis
           const sortedCurrentEntries = workdayEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
           const sortedPrevEntries = prevFullWorkdayEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
-          
-          // Calculate day 1 date for current blitz
-          let currentDayOne = new Date(activeBlitz.date + 'T00:00:00');
-          if (getDay(currentDayOne) === 0) {
-            currentDayOne.setDate(currentDayOne.getDate() + 1); // Move to Monday if Sunday
-          }
-          
-          // Calculate day 1 date for previous blitz
-          let prevDayOne = new Date(prevBlitz.date + 'T00:00:00');
-          if (getDay(prevDayOne) === 0) {
-            prevDayOne.setDate(prevDayOne.getDate() + 1);
-          }
           
           // Only show data up to the current blitz day number
           const maxDayToShow = currentBlitzDayNum;
@@ -347,10 +352,24 @@ export const useActivitySummary = (repData: any) => {
             };
           };
           
+          // Helper to calculate knocking day number (excluding Sundays)
+          const getKnockingDayNum = (entryDateStr: string, blitzStartDate: Date): number => {
+            const entryDate = new Date(entryDateStr + 'T00:00:00');
+            let knockingDay = 0;
+            let currentDate = new Date(blitzStartDate);
+            
+            while (currentDate <= entryDate) {
+              if (getDay(currentDate) !== 0) { // Skip Sundays
+                knockingDay++;
+              }
+              currentDate.setDate(currentDate.getDate() + 1);
+            }
+            return knockingDay;
+          };
+          
           comparisonChartData = {
             current: sortedCurrentEntries.map((e) => {
-              const entryDate = new Date(e.entry_date + 'T00:00:00');
-              const dayNum = Math.floor((entryDate.getTime() - currentDayOne.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+              const dayNum = getKnockingDayNum(e.entry_date, startDate);
               const metrics = getEntryMetrics(e);
               return {
                 day: dayNum,
@@ -360,8 +379,7 @@ export const useActivitySummary = (repData: any) => {
               };
             }).filter(d => d.day <= maxDayToShow),
             previous: sortedPrevEntries.map((e) => {
-              const entryDate = new Date(e.entry_date + 'T00:00:00');
-              const dayNum = Math.floor((entryDate.getTime() - prevDayOne.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+              const dayNum = getKnockingDayNum(e.entry_date, prevBlitzStart);
               return {
                 day: dayNum,
                 value: Number(e.fp_plus) || 0,
