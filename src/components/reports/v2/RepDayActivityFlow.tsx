@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { 
   DoorOpen, 
@@ -11,9 +11,16 @@ import {
   Play,
   Square,
   Coffee,
-  Home
+  Home,
+  X
 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 
 interface TimelineEvent {
   timestamp: Date;
@@ -375,76 +382,153 @@ export const RepDayActivityFlow = ({
         </div>
       </div>
 
-      {/* Main Timeline */}
-      <ScrollArea className="w-full">
-        <div className="relative h-20 min-w-[400px]">
+      {/* Main Timeline - no vertical scroll, horizontal scroll OK */}
+      <div className="w-full overflow-x-auto pb-2">
+        <div className="relative h-14 min-w-[500px] px-2">
           {/* Background track */}
-          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 bg-muted rounded-full" />
+          <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-2 bg-muted rounded-full" />
           
           {/* Break periods (shown as distinct coffee-colored zones) */}
           {parsedBreaks.map((bp, idx) => (
-            <div
-              key={`break-${idx}`}
-              className="absolute top-1/2 -translate-y-1/2 h-4 rounded-full bg-amber-900/30 border border-dashed border-amber-700/40 flex items-center justify-center"
-              style={{
-                left: `${bp.start}%`,
-                width: `${Math.max(bp.end - bp.start, 2)}%`,
-              }}
-              title={`Break: ${formatTimeOnly(bp.startTime)} - ${formatTimeOnly(bp.endTime)} (${formatDuration(bp.duration)})`}
-            >
-              {(bp.end - bp.start) > 5 && (
-                <Coffee className="w-2.5 h-2.5 text-amber-700/60" />
-              )}
-            </div>
+            <Popover key={`break-${idx}`}>
+              <PopoverTrigger asChild>
+                <button
+                  className="absolute top-1/2 -translate-y-1/2 h-5 rounded-full bg-amber-900/30 border border-dashed border-amber-700/40 flex items-center justify-center cursor-pointer hover:bg-amber-900/40 transition-colors"
+                  style={{
+                    left: `calc(${bp.start}% + 8px)`,
+                    width: `${Math.max(bp.end - bp.start, 2)}%`,
+                  }}
+                >
+                  {(bp.end - bp.start) > 5 && (
+                    <Coffee className="w-2.5 h-2.5 text-amber-700/60" />
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-3" side="top">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-amber-600 font-medium text-sm">
+                    <Coffee className="w-4 h-4" />
+                    <span>Break</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {formatTimeOnly(bp.startTime)} → {formatTimeOnly(bp.endTime)}
+                  </div>
+                  <div className="text-sm font-medium">
+                    {formatDuration(bp.duration)}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           ))}
           
-          {/* Gap highlights with duration labels */}
+          {/* Gap highlights with tap interaction */}
           {gaps.map((gap, idx) => {
             const width = gap.end - gap.start;
-            const showLabel = width > 4; // Only show label if gap is wide enough
+            const showLabel = width > 6;
+            const beforeConfig = gap.contextBefore ? EVENT_CONFIG[gap.contextBefore.type] : null;
+            const afterConfig = gap.contextAfter ? EVENT_CONFIG[gap.contextAfter.type] : null;
             
             return (
-              <div
-                key={`gap-${idx}`}
-                className="absolute flex flex-col items-center"
-                style={{
-                  left: `${gap.start}%`,
-                  width: `${width}%`,
-                }}
-              >
-                {/* Gap background */}
-                <div
-                  className={cn(
-                    "absolute top-1/2 -translate-y-1/2 h-3 rounded-full w-full",
-                    gap.type === 'in_home' && "bg-emerald-500/15 border border-emerald-500/20",
-                    gap.type === 'break' && "bg-amber-500/15 border border-amber-500/20",
-                    gap.type === 'inactivity' && gap.duration >= 30 
-                      ? "bg-red-500/20 border border-red-500/30" 
-                      : gap.type === 'inactivity' && "bg-red-500/10 border border-red-500/15"
-                  )}
-                  title={`${gap.type === 'in_home' ? '🏠 In Home' : gap.type === 'break' ? '☕ Break' : '⚠️ Inactivity'}: ${formatDuration(gap.duration)}`}
-                />
-                
-                {/* Duration label above gap */}
-                {showLabel && (
-                  <div
-                    className={cn(
-                      "absolute -top-1 text-[9px] font-medium px-1 rounded whitespace-nowrap flex items-center gap-0.5",
-                      gap.type === 'in_home' && "text-emerald-600 bg-emerald-500/10",
-                      gap.type === 'break' && "text-amber-600 bg-amber-500/10",
-                      gap.type === 'inactivity' && "text-red-500 bg-red-500/10"
-                    )}
-                    style={{ 
-                      left: '50%', 
-                      transform: 'translateX(-50%)'
+              <Popover key={`gap-${idx}`}>
+                <PopoverTrigger asChild>
+                  <button
+                    className="absolute flex flex-col items-center cursor-pointer group"
+                    style={{
+                      left: `calc(${gap.start}% + 8px)`,
+                      width: `${width}%`,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
                     }}
                   >
-                    {gap.type === 'in_home' && <Home className="w-2 h-2" />}
-                    {gap.type === 'break' && <Coffee className="w-2 h-2" />}
-                    {formatDuration(gap.duration)}
+                    {/* Gap background - tappable */}
+                    <div
+                      className={cn(
+                        "h-5 rounded-full w-full transition-all group-hover:scale-y-125",
+                        gap.type === 'in_home' && "bg-emerald-500/20 border border-emerald-500/30",
+                        gap.type === 'break' && "bg-amber-500/20 border border-amber-500/30",
+                        gap.type === 'inactivity' && gap.duration >= 30 
+                          ? "bg-red-500/25 border border-red-500/40" 
+                          : gap.type === 'inactivity' && "bg-red-500/15 border border-red-500/25"
+                      )}
+                    />
+                    
+                    {/* Duration label */}
+                    {showLabel && (
+                      <div
+                        className={cn(
+                          "absolute -top-4 text-[10px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap flex items-center gap-0.5",
+                          gap.type === 'in_home' && "text-emerald-600 bg-emerald-500/15",
+                          gap.type === 'break' && "text-amber-600 bg-amber-500/15",
+                          gap.type === 'inactivity' && "text-red-500 bg-red-500/15"
+                        )}
+                        style={{ 
+                          left: '50%', 
+                          transform: 'translateX(-50%)'
+                        }}
+                      >
+                        {gap.type === 'in_home' && <Home className="w-2.5 h-2.5" />}
+                        {gap.type === 'break' && <Coffee className="w-2.5 h-2.5" />}
+                        {formatDuration(gap.duration)}
+                      </div>
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-3" side="top">
+                  <div className="space-y-3">
+                    {/* Gap type header */}
+                    <div className={cn(
+                      "flex items-center gap-2 font-medium text-sm",
+                      gap.type === 'in_home' && "text-emerald-600",
+                      gap.type === 'break' && "text-amber-600",
+                      gap.type === 'inactivity' && "text-red-500"
+                    )}>
+                      {gap.type === 'in_home' && <Home className="w-4 h-4" />}
+                      {gap.type === 'break' && <Coffee className="w-4 h-4" />}
+                      {gap.type === 'inactivity' && <span>⚠️</span>}
+                      <span>
+                        {gap.type === 'in_home' ? 'In Home' : gap.type === 'break' ? 'Break' : 'Inactivity'}
+                      </span>
+                      <span className="ml-auto font-bold">{formatDuration(gap.duration)}</span>
+                    </div>
+                    
+                    {/* Time range */}
+                    <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                      {formatTimeOnly(gap.startTime)} → {formatTimeOnly(gap.endTime)}
+                    </div>
+                    
+                    {/* Context events */}
+                    <div className="space-y-1.5">
+                      {gap.contextBefore && beforeConfig && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className={cn("w-2 h-2 rounded-full", beforeConfig.bgColor)} />
+                          <span className="text-muted-foreground">Before:</span>
+                          <span className="font-medium">{beforeConfig.label}</span>
+                          <span className="text-muted-foreground ml-auto">
+                            {formatTimeOnly(gap.contextBefore.timestamp)}
+                          </span>
+                        </div>
+                      )}
+                      {gap.contextAfter && afterConfig && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className={cn("w-2 h-2 rounded-full", afterConfig.bgColor)} />
+                          <span className="text-muted-foreground">After:</span>
+                          <span className="font-medium">{afterConfig.label}</span>
+                          <span className="text-muted-foreground ml-auto">
+                            {formatTimeOnly(gap.contextAfter.timestamp)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Explanation for in-home */}
+                    {gap.type === 'in_home' && (
+                      <div className="text-[10px] text-muted-foreground italic border-t pt-2">
+                        Likely presenting/closing - door knock followed by deeper funnel activity
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </PopoverContent>
+              </Popover>
             );
           })}
           
@@ -507,8 +591,7 @@ export const RepDayActivityFlow = ({
             />
           )}
         </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+      </div>
 
       {/* Legend */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground justify-center pt-2">
