@@ -410,17 +410,31 @@ export const useRespondToChallenge = () => {
 
       console.log('[useRespondToChallenge] Participants after update:', participants);
 
+      // Get challenge type to determine decline behavior
+      const { data: challengeData } = await supabase
+        .from('challenges')
+        .select('type')
+        .eq('id', challengeId)
+        .single();
+      
+      const isOneOnOne = challengeData?.type === 'head_to_head';
+      
       // Determine new status based on acceptance logic:
-      // - If captain_b declines → whole challenge declined
+      // - For 1v1 (head_to_head): If ANYONE declines → whole challenge declined
+      // - For team battles: If captain_b declines → whole challenge declined
       // - If a regular member declines → remove them, challenge continues
       // - If all remaining participants accepted → challenge is active
       
       const captainB = participants?.find(p => p.role === 'captain_b');
       const captainBDeclined = captainB?.accepted === false;
+      const anyDeclined = participants?.some(p => p.accepted === false);
       
       let newStatus: ChallengeStatus = 'pending';
       
-      if (captainBDeclined) {
+      if (isOneOnOne && anyDeclined) {
+        // 1v1 challenge - if anyone declines, it's over
+        newStatus = 'declined';
+      } else if (captainBDeclined) {
         // Captain B declined - whole challenge is declined
         newStatus = 'declined';
       } else {
