@@ -386,15 +386,20 @@ const Compete = () => {
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-3 pt-2">
               {completedChallenges.map(challenge => {
-                const won = challenge.winner_user_id === currentUser;
+                // Only count as "won" if winner is explicitly set to current user (not null/null match)
+                const won = currentUser && challenge.winner_user_id && challenge.winner_user_id === currentUser;
                 
-                // Check if the current user declined the challenge
+                // Check if the current user is a participant
                 const myParticipation = challenge.participants?.find(p => p.user_id === currentUser);
                 const iDeclined = myParticipation?.accepted === false;
+                const wasParticipant = !!myParticipation;
                 
                 // Check if challenge was declined or voided (never actually happened)
                 const wasDeclined = challenge.status === 'declined' || iDeclined;
                 const wasVoided = challenge.status === 'voided';
+                
+                // Check if challenge ended with no winner (tie or both scored 0)
+                const noWinner = challenge.status === 'completed' && !challenge.winner_user_id;
                 
                 // Determine badge label and styling
                 let badgeLabel: string;
@@ -410,6 +415,12 @@ const Compete = () => {
                   badgeVariant = "outline";
                 } else if (wasVoided) {
                   badgeLabel = '❌ Expired';
+                } else if (noWinner) {
+                  badgeLabel = 'Tie';
+                } else if (!wasParticipant) {
+                  // User wasn't in this challenge - show neutral status
+                  badgeLabel = 'Ended';
+                  badgeVariant = "outline";
                 } else {
                   badgeLabel = 'Lost';
                 }
