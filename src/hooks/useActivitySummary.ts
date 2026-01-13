@@ -106,35 +106,36 @@ export const useActivitySummary = (repData: any) => {
         startDate = new Date(activeBlitz.date + 'T00:00:00');
         endDate = new Date(activeBlitz.endDate + 'T00:00:00');
         
-        // Calculate the knocking day number (excluding Sundays)
-        // Count work days from blitz start to today
+        // Calculate knocking day number - we'll update this after fetching entries
+        // to show the actual last worked day number
         const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        let knockingDayNumber = 0;
-        let currentDate = new Date(startDate);
         
-        while (currentDate <= todayMidnight) {
-          // Only count non-Sundays as knocking days
-          if (getDay(currentDate) !== 0) {
-            knockingDayNumber++;
-          }
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-        
-        // If today is Sunday, we're between knocking days - show as previous day
-        if (getDay(todayMidnight) === 0) {
-          // Find the last knocking day number
-          let tempDate = new Date(startDate);
-          knockingDayNumber = 0;
-          while (tempDate < todayMidnight) {
-            if (getDay(tempDate) !== 0) {
-              knockingDayNumber++;
+        // Helper to calculate knocking day number for a date (excluding Sundays)
+        const getKnockingDayForDate = (targetDate: Date): number => {
+          let knockingDay = 0;
+          let currentDate = new Date(startDate);
+          
+          while (currentDate <= targetDate) {
+            if (getDay(currentDate) !== 0) { // Skip Sundays
+              knockingDay++;
             }
-            tempDate.setDate(tempDate.getDate() + 1);
+            currentDate.setDate(currentDate.getDate() + 1);
           }
+          return knockingDay;
+        };
+        
+        // Calculate what today's knocking day number would be
+        let todayKnockingDay = getKnockingDayForDate(todayMidnight);
+        
+        // If today is Sunday, use the previous knocking day
+        if (getDay(todayMidnight) === 0) {
+          const yesterday = new Date(todayMidnight);
+          yesterday.setDate(yesterday.getDate() - 1);
+          todayKnockingDay = getKnockingDayForDate(yesterday);
         }
         
-        // Minimum day 1 for people who just arrived
-        dayNumber = Math.max(1, knockingDayNumber);
+        // Store for later - we'll update dayNumber after checking if today has activity
+        dayNumber = Math.max(1, todayKnockingDay);
         title = `This Blitz — Day ${dayNumber}`;
         subtitle = activeBlitz.name || activeBlitz.location;
       } else if (mode === "summer") {
@@ -253,6 +254,26 @@ export const useActivitySummary = (repData: any) => {
         (Number(entry.fp_plus) || 0) > 0
       ).length;
       const isEmpty = workdayEntries.length === 0;
+      
+      // For blitz mode: Update dayNumber and title based on actual worked days
+      // If today has no activity yet, show the last worked day number
+      if (mode === "blitz" && dayNumber !== undefined) {
+        const todayStr = format(now, "yyyy-MM-dd");
+        const todayEntry = workdayEntries.find(e => e.entry_date === todayStr);
+        const hasTodayActivity = todayEntry && (
+          (todayEntry.doors_knocked || 0) > 0 || 
+          (todayEntry.pitches || 0) > 0 ||
+          (todayEntry.transitions || 0) > 0 ||
+          (todayEntry.presentations || 0) > 0 ||
+          (Number(todayEntry.fp_plus) || 0) > 0
+        );
+        
+        // If no activity today, show the last worked day's number
+        if (!hasTodayActivity && daysWorked > 0) {
+          dayNumber = daysWorked;
+          title = `This Blitz — Day ${dayNumber}`;
+        }
+      }
 
       const dailyAverages = {
         doors: daysWorked > 0 ? totals.doors / daysWorked : 0,
