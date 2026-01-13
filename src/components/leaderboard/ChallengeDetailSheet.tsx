@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { EditChallengeDrawer } from "./EditChallengeDrawer";
 import { ChallengeEditApprovalCard } from "./ChallengeEditApprovalCard";
+import { getInitials } from "@/utils/nameUtils";
 
 interface ChallengeDetailSheetProps {
   challenge: Challenge;
@@ -125,7 +126,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                           i === 0 ? "border-primary" : "border-border"
                         )}>
                           <AvatarImage src={p.profile_photo_url} />
-                          <AvatarFallback>{p.rep_name.charAt(0)}</AvatarFallback>
+                          <AvatarFallback>{getInitials(p.rep_name)}</AvatarFallback>
                         </Avatar>
                       </motion.div>
                       <p className="font-semibold">{p.rep_name}</p>

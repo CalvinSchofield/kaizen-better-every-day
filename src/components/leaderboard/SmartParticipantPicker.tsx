@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { CalendarCheck, CalendarX, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { getInitials } from "@/utils/nameUtils";
 
 interface Rep {
   id: string;
@@ -257,7 +258,7 @@ export const SmartParticipantPicker = ({
           onCheckedChange={() => onToggleUser(rep.userId!)}
         />
         <Avatar className="h-6 w-6">
-          <AvatarFallback className="text-xs">{rep.name.charAt(0)}</AvatarFallback>
+          <AvatarFallback className="text-xs">{getInitials(rep.name)}</AvatarFallback>
         </Avatar>
         <span className="text-sm font-medium truncate flex-1">
           {rep.name}

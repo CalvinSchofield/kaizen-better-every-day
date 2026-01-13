@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, ChevronLeft, Loader2, Eye, EyeOff, X, CalendarIcon, CalendarCheck, CalendarX } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays, startOfWeek, endOfWeek } from "date-fns";
+import { getInitials } from "@/utils/nameUtils";
 
 interface CreateChallengeDrawerProps {
   open: boolean;
@@ -300,7 +301,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                     )}
                   >
                     <Avatar className="h-10 w-10">
-                      <AvatarFallback>{rep.name.charAt(0)}</AvatarFallback>
+                      <AvatarFallback>{getInitials(rep.name)}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 text-left">
                       <span className="font-medium block">{rep.name}</span>
@@ -332,7 +333,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                     )}
                   >
                     <Avatar className="h-10 w-10">
-                      <AvatarFallback>{rep.name.charAt(0)}</AvatarFallback>
+                      <AvatarFallback>{getInitials(rep.name)}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 text-left">
                       <span className="font-medium block">{rep.name}</span>
@@ -356,7 +357,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                     {/* Current user (auto-included) */}
                     <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/20 mb-2">
                       <Avatar className="h-6 w-6">
-                        <AvatarFallback className="text-xs">{currentUserRep?.name?.charAt(0) || 'Y'}</AvatarFallback>
+                        <AvatarFallback className="text-xs">{getInitials(currentUserRep?.name)}</AvatarFallback>
                       </Avatar>
                       <span className="text-xs font-medium truncate">{currentUserRep?.name || 'You'}</span>
                       <span className="text-[10px] text-muted-foreground ml-auto">Captain</span>
@@ -367,7 +368,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                       return (
                         <div key={userId} className="flex items-center gap-2 p-2 rounded-lg bg-background mb-1">
                           <Avatar className="h-6 w-6">
-                            <AvatarFallback className="text-xs">{rep?.name?.charAt(0)}</AvatarFallback>
+                            <AvatarFallback className="text-xs">{getInitials(rep?.name)}</AvatarFallback>
                           </Avatar>
                           <span className="text-xs font-medium truncate flex-1">{rep?.name}</span>
                           <button onClick={() => toggleTeamMember(userId, 'a')} className="text-muted-foreground hover:text-destructive">
@@ -391,7 +392,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                       return (
                         <div key={userId} className="flex items-center gap-2 p-2 rounded-lg bg-background mb-1">
                           <Avatar className="h-6 w-6">
-                            <AvatarFallback className="text-xs">{rep?.name?.charAt(0)}</AvatarFallback>
+                            <AvatarFallback className="text-xs">{getInitials(rep?.name)}</AvatarFallback>
                           </Avatar>
                           <span className="text-xs font-medium truncate flex-1">{rep?.name}</span>
                           {index === 0 && <span className="text-[10px] text-muted-foreground">Captain</span>}
@@ -419,7 +420,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                         className="flex items-center gap-3 p-2 rounded-lg border border-border"
                       >
                         <Avatar className="h-8 w-8">
-                          <AvatarFallback className="text-xs">{rep.name.charAt(0)}</AvatarFallback>
+                          <AvatarFallback className="text-xs">{getInitials(rep.name)}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <span className="text-sm font-medium block truncate">{rep.name}</span>

@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { formatCompetitionDuration } from "@/utils/competitionDateUtils";
 import { toast } from "sonner";
+import { getInitials } from "@/utils/nameUtils";
 
 interface IncentiveDetailSheetProps {
   incentive: Incentive;
@@ -319,7 +320,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                             {participant.profile_photo_url && (
                               <AvatarImage src={participant.profile_photo_url} />
                             )}
-                            <AvatarFallback>{participant.rep_name.charAt(0)}</AvatarFallback>
+                            <AvatarFallback className="text-xs">{getInitials(participant.rep_name)}</AvatarFallback>
                           </Avatar>
                         </div>
                         <div className="flex-1">
@@ -432,7 +433,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                                 {winner.profile_photo_url && (
                                   <AvatarImage src={winner.profile_photo_url} />
                                 )}
-                                <AvatarFallback>{winner.rep_name.charAt(0)}</AvatarFallback>
+                                <AvatarFallback className="text-xs">{getInitials(winner.rep_name)}</AvatarFallback>
                               </Avatar>
                               <motion.div 
                                 initial={{ scale: 0 }}

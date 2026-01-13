@@ -12,6 +12,7 @@ import { IncentiveDetailSheet } from "./IncentiveDetailSheet";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getInitials } from "@/utils/nameUtils";
 
 interface IncentiveCardProps {
   incentive: Incentive;
@@ -210,7 +211,7 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
                       >
                         <Avatar className="h-4 w-4">
                           {p.profile_photo_url && <AvatarImage src={p.profile_photo_url} />}
-                          <AvatarFallback className="text-[8px]">{p.rep_name.charAt(0)}</AvatarFallback>
+                          <AvatarFallback className="text-[8px]">{getInitials(p.rep_name)}</AvatarFallback>
                         </Avatar>
                         <span className="text-xs">{p.current_value.toFixed(1)}</span>
                       </motion.div>
@@ -254,7 +255,7 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
                           <CheckCircle2 className="h-3 w-3 text-green-500" />
                           <Avatar className="h-4 w-4">
                             {p.profile_photo_url && <AvatarImage src={p.profile_photo_url} />}
-                            <AvatarFallback className="text-[8px]">{p.rep_name.charAt(0)}</AvatarFallback>
+                            <AvatarFallback className="text-[8px]">{getInitials(p.rep_name)}</AvatarFallback>
                           </Avatar>
                           <span className="text-xs font-medium">{p.rep_name.split(' ')[0]}</span>
                         </motion.div>

@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { getInitials } from "@/utils/nameUtils";
 import { hapticLight, hapticSuccess, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
 
@@ -240,7 +241,7 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
                             <div className="flex items-center gap-3 mb-3">
                               <Avatar className="h-8 w-8">
                                 <AvatarImage src={opponent?.profile_photo_url || undefined} />
-                                <AvatarFallback>{opponent?.rep_name?.charAt(0) || '?'}</AvatarFallback>
+                                <AvatarFallback className="text-xs">{getInitials(opponent?.rep_name)}</AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
                                 <p className="text-sm font-medium">{opponent?.rep_name} challenged you!</p>
@@ -322,7 +323,7 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
                             <div className="flex items-center gap-3">
                               <Avatar className="h-8 w-8">
                                 <AvatarImage src={opponent?.profile_photo_url || undefined} />
-                                <AvatarFallback>{opponent?.rep_name?.charAt(0) || '?'}</AvatarFallback>
+                                <AvatarFallback className="text-xs">{getInitials(opponent?.rep_name)}</AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
                                 <p className="text-sm font-medium">Challenged {opponent?.rep_name}</p>
