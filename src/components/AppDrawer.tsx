@@ -25,6 +25,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { clearPersistedCache, clearCachedLayoutState } from "@/lib/queryPersister";
 import { hapticSelection, hapticLight } from "@/utils/haptics";
+import { getInitials } from "@/utils/nameUtils";
 
 interface AppDrawerProps {
   trigger: React.ReactNode;
@@ -88,20 +89,6 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   // Strip emojis from firstName
   const cleanFirstName = firstName?.replace(/[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Component}]/gu, '').trim();
 
-  const getInitials = (name: string) => {
-    // Remove emojis and other unicode symbols first
-    const cleanName = name
-      .replace(/[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Modifier_Base}\p{Emoji_Component}]/gu, '')
-      .trim();
-    
-    return cleanName
-      .split(' ')
-      .filter(n => n.length > 0)
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   const handleToggle = (checked: boolean) => {
     hapticSelection();

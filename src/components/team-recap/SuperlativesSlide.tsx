@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Moon, Sun, Zap, Target, TrendingUp, DoorOpen, Star } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getInitials } from '@/utils/nameUtils';
 
 interface Superlative {
   key: string;
@@ -59,17 +60,6 @@ const superlativeConfig: Record<string, { icon: typeof Moon; emoji: string; titl
   },
 };
 
-function getInitials(name: string) {
-  return name
-    .replace(/[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Component}]/gu, '')
-    .trim()
-    .split(' ')
-    .filter(n => n.length > 0)
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 export function SuperlativesSlide({ superlatives }: SuperlativesSlideProps) {
   return (
