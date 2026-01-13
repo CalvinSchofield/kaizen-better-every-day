@@ -14,15 +14,22 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RecruitActivity } from "@/hooks/useGroupRecruits";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getInitials } from "@/utils/nameUtils";
 
 interface ActivityTabProps {
   activities: RecruitActivity[];
   onLogActivity: () => void;
   onScheduleFollowUp: () => void;
   onActivityClick: (activity: RecruitActivity) => void;
+}
+
+interface LoggerInfo {
+  name: string;
+  profilePhotoUrl: string | null;
 }
 
 export const ActivityTab = ({
@@ -49,6 +56,13 @@ export const ActivityTab = ({
       .map(a => a.assigned_to_user_id!)
   )];
   
+  // Get all logged_by_user_ids to fetch their names and photos
+  const loggedByUserIds = [...new Set(
+    activities
+      .filter(a => a.logged_by_user_id && a.logged_by_user_id !== 'optimistic')
+      .map(a => a.logged_by_user_id)
+  )];
+  
   // Strip emojis helper
   const stripEmojis = (text: string | null): string => {
     if (!text) return '';
@@ -73,6 +87,29 @@ export const ActivityTab = ({
       return nameMap;
     },
     enabled: assignedUserIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch logger info (name and profile photo) for all logged_by_user_ids
+  const { data: loggerInfo = {} } = useQuery({
+    queryKey: ['activity-logger-info', loggedByUserIds],
+    queryFn: async () => {
+      if (loggedByUserIds.length === 0) return {};
+      const { data } = await supabase
+        .from('reps')
+        .select('user_id, name, profile_photo_url')
+        .in('user_id', loggedByUserIds);
+      
+      const infoMap: Record<string, LoggerInfo> = {};
+      data?.forEach(rep => {
+        infoMap[rep.user_id] = {
+          name: stripEmojis(rep.name),
+          profilePhotoUrl: rep.profile_photo_url,
+        };
+      });
+      return infoMap;
+    },
+    enabled: loggedByUserIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
   
@@ -239,6 +276,11 @@ export const ActivityTab = ({
                       ? assigneeNames[activity.assigned_to_user_id!] 
                       : null;
                     
+                    // Get logger info for this activity
+                    const logger = activity.logged_by_user_id && activity.logged_by_user_id !== 'optimistic'
+                      ? loggerInfo[activity.logged_by_user_id]
+                      : null;
+                    
                     // Determine if next_action is different from notes (avoid duplicate display)
                     const hasUniqueNextAction = activity.next_action && 
                       activity.next_action !== activity.notes &&
@@ -276,7 +318,7 @@ export const ActivityTab = ({
                             {getActivityIcon(activity.activity_type, activity.notes, isCompleted, isOverdue)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            {/* Header row: type, time */}
+                            {/* Header row: type, time, and logger avatar */}
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className={`text-sm font-medium capitalize shrink-0 ${
@@ -291,6 +333,16 @@ export const ActivityTab = ({
                                   </span>
                                 )}
                               </div>
+                              
+                              {/* Logger avatar on the right */}
+                              {logger && (
+                                <Avatar className="h-6 w-6 shrink-0">
+                                  <AvatarImage src={logger.profilePhotoUrl || undefined} alt={logger.name} />
+                                  <AvatarFallback className="text-[10px] bg-muted">
+                                    {getInitials(logger.name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
                             </div>
                           
                           {/* Assignee badge on its own line if present */}
