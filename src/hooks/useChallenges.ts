@@ -251,8 +251,44 @@ export const useCreateChallenge = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Validation: Prevent self-challenges
+      const selfChallenge = input.participants.some(p => p.user_id === user.id);
+      if (selfChallenge) {
+        throw new Error("You can't challenge yourself!");
+      }
+
+      // Validation: Ensure all participants have valid user IDs
+      const invalidParticipants = input.participants.filter(p => !p.user_id);
+      if (invalidParticipants.length > 0) {
+        throw new Error('All participants must have valid accounts');
+      }
+
+      // Validation: Check for duplicate active/pending challenges with same opponent
+      if (input.type === '1v1' && input.participants.length === 1) {
+        const opponentId = input.participants[0].user_id;
+        
+        const { data: existingChallenges } = await supabase
+          .from('challenges')
+          .select(`
+            id,
+            challenge_participants!inner (user_id)
+          `)
+          .in('status', ['pending', 'active'])
+          .gte('end_date', input.start_date)
+          .lte('start_date', input.end_date);
+        
+        // Check if any existing challenge has both the current user and the opponent
+        const duplicateChallenge = existingChallenges?.find(c => {
+          const participantIds = c.challenge_participants.map((p: any) => p.user_id);
+          return participantIds.includes(user.id) && participantIds.includes(opponentId);
+        });
+        
+        if (duplicateChallenge) {
+          throw new Error('You already have an active or pending challenge with this opponent for overlapping dates');
+        }
+      }
+
       // Allow same-day starts - no time restriction
-      // Progress will be shown to recipients so they can make an informed decision
 
       // Create challenge
       const { data: challenge, error: challengeError } = await supabase
