@@ -51,6 +51,17 @@ export const useAllOfficeReps = () => {
 
       if (repsError) throw repsError;
 
+      // Debug logging for rep filtering
+      console.log('[useAllOfficeReps] Total reps fetched:', reps?.length || 0);
+      
+      // Log stages for debugging
+      const stageCounts: Record<string, number> = {};
+      reps?.forEach(rep => {
+        const stage = rep.stage || 'null';
+        stageCounts[stage] = (stageCounts[stage] || 0) + 1;
+      });
+      console.log('[useAllOfficeReps] Stage distribution:', stageCounts);
+
       // Fetch teams for names
       const { data: teams, error: teamsError } = await supabase
         .from('teams')
@@ -107,11 +118,20 @@ export const useAllOfficeReps = () => {
       };
 
       // Filter to active stages using proper normalization and map to standard format
+      const filteredOutReps: Array<{ name: string; stage: string | null; normalized: string | null }> = [];
+      
       const officeReps: OfficeRep[] = (reps || [])
         .filter(rep => {
           if (!rep.user_id) return false;
           const normalizedStage = normalizeStage(rep.stage);
-          return normalizedStage && ACTIVE_STAGES.includes(normalizedStage);
+          const isActive = normalizedStage && ACTIVE_STAGES.includes(normalizedStage);
+          
+          // Track filtered out reps for debugging
+          if (!isActive) {
+            filteredOutReps.push({ name: rep.name, stage: rep.stage, normalized: normalizedStage });
+          }
+          
+          return isActive;
         })
         .map(rep => {
           // Try to determine team from lead status
@@ -139,6 +159,12 @@ export const useAllOfficeReps = () => {
             mgmtGroupName: mgmtGroupInfo?.name || null,
           };
         });
+
+      // Log debugging info
+      console.log('[useAllOfficeReps] Active reps after filtering:', officeReps.length);
+      if (filteredOutReps.length > 0) {
+        console.log('[useAllOfficeReps] Filtered out reps:', filteredOutReps);
+      }
 
       return officeReps;
     },

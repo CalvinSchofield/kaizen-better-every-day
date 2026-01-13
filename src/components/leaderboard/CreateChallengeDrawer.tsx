@@ -284,11 +284,24 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Select your opponent</p>
               <div className="max-h-60 overflow-y-auto space-y-2">
+                {/* Empty state */}
+                {allSortedReps.length === 0 && (
+                  <div className="text-center py-8 space-y-3">
+                    <Users className="h-12 w-12 mx-auto text-muted-foreground/50" />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">No opponents available</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">
+                        Only reps who are Signed, Shadow Complete, or have made sales can be challenged.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Working reps */}
                 {workingReps.length > 0 && (
                   <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
                     <CalendarCheck className="h-3 w-3 text-green-500" />
-                    <span>Planning to work</span>
+                    <span>Planning to work ({workingReps.length})</span>
                   </div>
                 )}
                 {workingReps.map(rep => (
@@ -317,8 +330,16 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                     <Separator className="my-1" />
                     <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
                       <CalendarX className="h-3 w-3" />
-                      <span>Not planning to work</span>
+                      <span>Not planning to work ({notWorkingReps.length})</span>
                     </div>
+                  </div>
+                )}
+                
+                {/* Show header for not working if working is empty but reps exist */}
+                {workingReps.length === 0 && notWorkingReps.length > 0 && (
+                  <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
+                    <CalendarX className="h-3 w-3" />
+                    <span>Available to challenge ({notWorkingReps.length})</span>
                   </div>
                 )}
                 
