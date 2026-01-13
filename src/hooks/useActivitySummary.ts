@@ -258,19 +258,31 @@ export const useActivitySummary = (repData: any) => {
       // For blitz mode: Update dayNumber and title based on actual worked days
       // If today has no activity yet, show the last worked day number
       if (mode === "blitz" && dayNumber !== undefined) {
-        const todayStr = format(now, "yyyy-MM-dd");
-        const todayEntry = workdayEntries.find(e => e.entry_date === todayStr);
-        const hasTodayActivity = todayEntry && (
-          (todayEntry.doors_knocked || 0) > 0 || 
-          (todayEntry.pitches || 0) > 0 ||
-          (todayEntry.transitions || 0) > 0 ||
-          (todayEntry.presentations || 0) > 0 ||
-          (Number(todayEntry.fp_plus) || 0) > 0
+        // Find the latest entry with activity to determine if we've worked today
+        const entriesWithActivity = workdayEntries.filter(e => 
+          (e.doors_knocked || 0) > 0 || 
+          (e.pitches || 0) > 0 ||
+          (e.transitions || 0) > 0 ||
+          (e.presentations || 0) > 0 ||
+          (Number(e.fp_plus) || 0) > 0
         );
         
-        // If no activity today, show the last worked day's number
-        if (!hasTodayActivity && daysWorked > 0) {
-          dayNumber = daysWorked;
+        if (entriesWithActivity.length > 0) {
+          // We have activity - show the knocking day of the latest entry with activity
+          const latestEntryDate = entriesWithActivity[entriesWithActivity.length - 1].entry_date;
+          const latestDate = new Date(latestEntryDate + 'T00:00:00');
+          
+          // Recalculate knocking day for latest entry date
+          let latestKnockingDay = 0;
+          let currentDate = new Date(startDate);
+          while (currentDate <= latestDate) {
+            if (getDay(currentDate) !== 0) {
+              latestKnockingDay++;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+          
+          dayNumber = Math.max(1, latestKnockingDay);
           title = `This Blitz — Day ${dayNumber}`;
         }
       }
