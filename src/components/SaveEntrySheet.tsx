@@ -655,9 +655,9 @@ export const SaveEntrySheet = ({
     setShowLogSaleSheet(false);
   };
 
-  // When skipSummaryView is true and we're showing the install step, don't render the main drawer
-  // This prevents the summary drawer from appearing behind the install step drawer
-  const shouldHideMainDrawer = skipSummaryView && showInstallStep;
+  // When skipSummaryView is true, never show the main drawer - only show install step if needed
+  // This prevents any flash of the summary drawer during the save flow
+  const shouldHideMainDrawer = skipSummaryView;
 
   return (
     <>
