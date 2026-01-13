@@ -365,7 +365,7 @@ export const RepDayActivityFlow = ({
       </div>
 
       {/* Timeline - NO VERTICAL SCROLL, fixed height for sales markers */}
-      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+      <div className="overflow-x-auto overflow-y-hidden touch-pan-x overscroll-y-none scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
         <div className="relative h-16 min-w-[450px]">
           {/* Track background */}
           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 bg-muted/50 rounded-full" />
