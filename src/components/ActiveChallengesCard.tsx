@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -322,77 +323,94 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Active Challenges */}
-          {activeChallenges.slice(0, 2).map(challenge => {
-            const me = challenge.participants?.find(p => p.role === 'captain_a');
-            
-            return (
-              <div 
-                key={challenge.id}
-                className="p-3 rounded-lg bg-background/80 border cursor-pointer hover:border-primary/50 transition-colors active:scale-[0.98]"
-                onClick={(e) => handleChallengeClick(e, challenge)}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <Swords className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">1v1 Challenge</span>
-                </div>
-                <ChallengeProgressItem
-                  challenge={challenge}
-                  myUserId={me?.user_id || ''}
-                />
-              </div>
-            );
-          })}
-
-          {/* Pending Challenges */}
-          {pendingChallenges.slice(0, 1).map(challenge => {
-            const opponent = challenge.participants?.find(p => p.role === 'captain_b');
-            const isFromMe = challenge.participants?.find(p => p.role === 'captain_a')?.user_id === challenge.created_by;
-            
-            return (
-              <div 
-                key={challenge.id}
-                className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 cursor-pointer hover:border-yellow-500/50 transition-colors active:scale-[0.98]"
-                onClick={(e) => handleChallengeClick(e, challenge)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Swords className="h-4 w-4 text-yellow-600" />
-                    <span className="text-sm font-medium">
-                      {isFromMe ? 'Waiting for response...' : 'Challenge received!'}
-                    </span>
+          <AnimatePresence mode="popLayout">
+            {/* Active Challenges */}
+            {activeChallenges.slice(0, 2).map(challenge => {
+              const me = challenge.participants?.find(p => p.role === 'captain_a');
+              
+              return (
+                <motion.div 
+                  key={challenge.id}
+                  layout
+                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: -50, scale: 0.9, transition: { duration: 0.3, ease: "easeOut" } }}
+                  transition={{ duration: 0.2 }}
+                  className="p-3 rounded-lg bg-background/80 border cursor-pointer hover:border-primary/50 transition-colors active:scale-[0.98]"
+                  onClick={(e) => handleChallengeClick(e, challenge)}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <Swords className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">1v1 Challenge</span>
                   </div>
-                  <Avatar className="h-6 w-6">
-                    <AvatarImage src={opponent?.profile_photo_url || undefined} />
-                    <AvatarFallback className="text-xs">
-                      {opponent?.rep_name?.charAt(0) || '?'}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {metricLabels[challenge.metric]} vs {opponent?.rep_name}
-                </p>
-              </div>
-            );
-          })}
+                  <ChallengeProgressItem
+                    challenge={challenge}
+                    myUserId={me?.user_id || ''}
+                  />
+                </motion.div>
+              );
+            })}
 
-          {/* Active Incentives */}
-          {activeIncentives.slice(0, 2).map(incentive => (
-            <div 
-              key={incentive.id}
-              className="p-3 rounded-lg bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 cursor-pointer hover:border-amber-500/50 transition-colors active:scale-[0.98]"
-              onClick={(e) => handleIncentiveClick(e, incentive)}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-amber-500" />
-                  <span className="text-sm font-semibold">{incentive.title}</span>
+            {/* Pending Challenges */}
+            {pendingChallenges.slice(0, 1).map(challenge => {
+              const opponent = challenge.participants?.find(p => p.role === 'captain_b');
+              const isFromMe = challenge.participants?.find(p => p.role === 'captain_a')?.user_id === challenge.created_by;
+              
+              return (
+                <motion.div 
+                  key={challenge.id}
+                  layout
+                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: -50, scale: 0.9, transition: { duration: 0.3, ease: "easeOut" } }}
+                  transition={{ duration: 0.2 }}
+                  className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 cursor-pointer hover:border-yellow-500/50 transition-colors active:scale-[0.98]"
+                  onClick={(e) => handleChallengeClick(e, challenge)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Swords className="h-4 w-4 text-yellow-600" />
+                      <span className="text-sm font-medium">
+                        {isFromMe ? 'Waiting for response...' : 'Challenge received!'}
+                      </span>
+                    </div>
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage src={opponent?.profile_photo_url || undefined} />
+                      <AvatarFallback className="text-xs">
+                        {opponent?.rep_name?.charAt(0) || '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {metricLabels[challenge.metric]} vs {opponent?.rep_name}
+                  </p>
+                </motion.div>
+              );
+            })}
+
+            {/* Active Incentives */}
+            {activeIncentives.slice(0, 2).map(incentive => (
+              <motion.div 
+                key={incentive.id}
+                layout
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, x: -50, scale: 0.9, transition: { duration: 0.3, ease: "easeOut" } }}
+                transition={{ duration: 0.2 }}
+                className="p-3 rounded-lg bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 cursor-pointer hover:border-amber-500/50 transition-colors active:scale-[0.98]"
+                onClick={(e) => handleIncentiveClick(e, incentive)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="h-4 w-4 text-amber-500" />
+                    <span className="text-sm font-semibold">{incentive.title}</span>
+                  </div>
+                  <Gift className="h-4 w-4 text-amber-600" />
                 </div>
-                <Gift className="h-4 w-4 text-amber-600" />
-              </div>
-              <IncentiveProgressItem incentive={incentive} />
-            </div>
-          ))}
+                <IncentiveProgressItem incentive={incentive} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
 
           {/* Show more indicator */}
           {(activeChallenges.length > 2 || activeIncentives.length > 2 || pendingChallenges.length > 1) && (
