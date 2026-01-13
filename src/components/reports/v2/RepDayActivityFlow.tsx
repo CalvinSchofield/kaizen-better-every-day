@@ -92,9 +92,9 @@ const EVENT_CONFIG: Record<string, {
   },
   transitions: { 
     icon: ArrowRight, 
-    color: 'text-amber-500', 
-    bgColor: 'bg-amber-500',
-    textColor: 'text-amber-400',
+    color: 'text-amber-400', 
+    bgColor: 'bg-amber-400',
+    textColor: 'text-amber-300',
     label: 'Transition',
     shortLabel: 'Trans',
     funnelOrder: 4,
@@ -364,9 +364,9 @@ export const RepDayActivityFlow = ({
         </div>
       </div>
 
-      {/* Timeline - NO VERTICAL SCROLL */}
+      {/* Timeline - NO VERTICAL SCROLL, fixed height for sales markers */}
       <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-        <div className="relative h-12 min-w-[450px]">
+        <div className="relative h-16 min-w-[450px]">
           {/* Track background */}
           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 bg-muted/50 rounded-full" />
           
@@ -520,30 +520,166 @@ export const RepDayActivityFlow = ({
             </div>
           ))}
 
-          {/* Event markers - color-coded bars */}
+          {/* Event markers - color-coded bars with tappable sales & transitions */}
           {events.map((event, idx) => {
             const config = EVENT_CONFIG[event.type];
             if (!config) return null;
             
             const position = ((event.timestamp.getTime() - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
             const isSale = event.type === 'sale';
-            const height = isSale ? 24 : event.type === 'presentations' ? 18 : event.type === 'transitions' ? 14 : 10;
+            const isTransition = event.type === 'transitions';
+            const isPresentation = event.type === 'presentations';
+            const isHighlight = isSale || isTransition;
             
+            // Sales are BIGGEST and most prominent, transitions are next
+            const height = isSale ? 36 : isTransition ? 28 : isPresentation ? 20 : event.type === 'closes' ? 18 : 10;
+            const width = isSale ? 8 : isTransition ? 5 : 2;
+            
+            // Get surrounding events for context on tappable items
+            const surroundingEvents = isHighlight ? {
+              before: events.slice(Math.max(0, idx - 3), idx),
+              after: events.slice(idx + 1, Math.min(events.length, idx + 4)),
+            } : null;
+            
+            // Non-interactive markers for regular events
+            if (!isHighlight) {
+              return (
+                <div
+                  key={`event-${idx}`}
+                  className={cn("absolute top-1/2 -translate-y-1/2 rounded-sm", config.bgColor)}
+                  style={{ left: `${position}%`, height: `${height}px`, width: `${width}px` }}
+                  title={`${config.label} at ${formatTimeOnly(event.timestamp)}`}
+                />
+              );
+            }
+            
+            // Tappable sales & transitions with popovers
             return (
-              <div
-                key={`event-${idx}`}
-                className={cn(
-                  "absolute top-1/2 -translate-y-1/2 rounded-sm",
-                  config.bgColor,
-                  isSale && "ring-1 ring-green-400/50 shadow-sm shadow-green-500/30"
-                )}
-                style={{
-                  left: `${position}%`,
-                  height: `${height}px`,
-                  width: isSale ? '4px' : '2px',
-                }}
-                title={`${config.label} at ${formatTimeOnly(event.timestamp)}`}
-              />
+              <Popover key={`event-${idx}`}>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      "absolute top-1/2 -translate-y-1/2 rounded-sm transition-all active:scale-90 cursor-pointer z-10",
+                      config.bgColor,
+                      isSale && "ring-2 ring-green-400 shadow-lg shadow-green-500/50 animate-pulse",
+                      isTransition && "ring-1 ring-amber-400/70 shadow-md shadow-amber-500/30"
+                    )}
+                    style={{ left: `${position}%`, height: `${height}px`, width: `${width}px` }}
+                  >
+                    {/* Sale indicator above the marker */}
+                    {isSale && (
+                      <div className="absolute -top-5 left-1/2 -translate-x-1/2">
+                        <DollarSign className="w-4 h-4 text-green-400 drop-shadow-lg" />
+                      </div>
+                    )}
+                    {isTransition && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                        <ArrowRight className="w-3 h-3 text-amber-400" />
+                      </div>
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0" side="top" align="center">
+                  {/* Header */}
+                  <div className={cn(
+                    "px-3 py-2 border-b flex items-center justify-between",
+                    isSale && "bg-green-500/20 border-green-500/30",
+                    isTransition && "bg-amber-500/15 border-amber-500/25"
+                  )}>
+                    <div className="flex items-center gap-2">
+                      {isSale ? (
+                        <DollarSign className="w-5 h-5 text-green-400" />
+                      ) : (
+                        <ArrowRight className="w-4 h-4 text-amber-400" />
+                      )}
+                      <span className={cn(
+                        "font-bold text-sm",
+                        isSale && "text-green-400",
+                        isTransition && "text-amber-400"
+                      )}>
+                        {isSale ? (event.label || 'Sale') : 'Transition'}
+                      </span>
+                    </div>
+                    <span className="text-xs font-medium text-foreground">
+                      {formatTimeOnly(event.timestamp)}
+                    </span>
+                  </div>
+                  
+                  {/* Sale details */}
+                  {isSale && event.prmr && (
+                    <div className="px-3 py-2 bg-green-500/10 border-b border-green-500/20">
+                      <div className="text-lg font-bold text-green-400">${event.prmr} PRMR</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {event.label === 'Upgrade' ? 'Upgrade Sale' : 'Full Package Sale'}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Context: What happened before/after */}
+                  <div className="p-3 space-y-3">
+                    {surroundingEvents && surroundingEvents.before.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="text-[9px] text-muted-foreground uppercase tracking-wide">
+                          {isSale ? 'Path to Sale' : 'Leading Up'}
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {surroundingEvents.before.map((e, i) => {
+                            const c = EVENT_CONFIG[e.type];
+                            if (!c) return null;
+                            const Icon = c.icon;
+                            return (
+                              <div key={i} className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", c.bgColor + "/15")}>
+                                <Icon className={cn("w-3 h-3", c.color)} />
+                                <span className={c.textColor}>{c.shortLabel}</span>
+                              </div>
+                            );
+                          })}
+                          <ChevronRight className="w-3 h-3 text-muted-foreground self-center" />
+                          <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ring-1", 
+                            isSale ? "bg-green-500/20 ring-green-500/50 text-green-400" : "bg-amber-500/20 ring-amber-500/50 text-amber-400"
+                          )}>
+                            {isSale ? <DollarSign className="w-3 h-3" /> : <ArrowRight className="w-3 h-3" />}
+                            {isSale ? 'SALE' : 'Trans'}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {surroundingEvents && surroundingEvents.after.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="text-[9px] text-muted-foreground uppercase tracking-wide">After</div>
+                        <div className="flex flex-wrap gap-1">
+                          {surroundingEvents.after.map((e, i) => {
+                            const c = EVENT_CONFIG[e.type];
+                            if (!c) return null;
+                            const Icon = c.icon;
+                            return (
+                              <div key={i} className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", c.bgColor + "/15")}>
+                                <Icon className={cn("w-3 h-3", c.color)} />
+                                <span className={c.textColor}>{c.shortLabel}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Coach insight for transitions */}
+                    {isTransition && (
+                      <div className="text-[10px] text-amber-400 bg-amber-500/10 rounded px-2 py-1.5 italic">
+                        🏠 Rep entered the home — this is where deals happen!
+                      </div>
+                    )}
+                    
+                    {/* Coach insight for sales */}
+                    {isSale && (
+                      <div className="text-[10px] text-green-400 bg-green-500/10 rounded px-2 py-1.5 italic">
+                        💰 Great work! Track the funnel path to replicate success.
+                      </div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             );
           })}
 
