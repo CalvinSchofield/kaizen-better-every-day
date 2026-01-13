@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { hapticMedium, hapticLight } from "@/utils/haptics";
 
 interface CounterLayoutConfig {
@@ -19,6 +20,7 @@ interface QTallyGridProps {
   onCounterChange: (field: string, value: number) => void;
   customCounterConfig?: Array<{ id: string; name: string; emoji: string; hidden?: boolean }>;
   counterLayoutConfig?: CounterLayoutConfig;
+  isLoading?: boolean;
 }
 
 interface CounterCardProps {
@@ -122,7 +124,7 @@ const CounterCard = ({ label, value, field, onCounterChange }: CounterCardProps)
   );
 };
 
-export const QTallyGrid = ({ entry, onCounterChange, customCounterConfig = [], counterLayoutConfig }: QTallyGridProps) => {
+export const QTallyGrid = ({ entry, onCounterChange, customCounterConfig = [], counterLayoutConfig, isLoading = false }: QTallyGridProps) => {
   const counterLabels: Record<string, string> = {
     doors_knocked: "Doors Knocked",
     decision_makers: "Decision Makers",
@@ -131,6 +133,19 @@ export const QTallyGrid = ({ entry, onCounterChange, customCounterConfig = [], c
     presentations: "Presentations",
     closes: "Closes"
   };
+  
+  // Show skeleton grid when loading
+  if (isLoading) {
+    return (
+      <div className="w-full h-full">
+        <div className="grid grid-cols-2 gap-3 w-full h-full" style={{ gridTemplateRows: 'repeat(3, 1fr)' }}>
+          {[...Array(6)].map((_, i) => (
+            <Skeleton key={i} className="h-full min-h-[160px] rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
   
   const allCoreCounters = [
     { label: "Doors Knocked", field: "doors_knocked", value: entry.doors_knocked },
