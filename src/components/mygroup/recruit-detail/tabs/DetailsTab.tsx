@@ -353,8 +353,11 @@ const IpadAssignmentCard = ({
   const hasIpad = recruitRepData?.ipad_assigned ?? false;
   
   const handleToggle = async (checked: boolean) => {
+    // Use the full query key that matches RecruitDetailDrawer
+    const queryKey = ['recruit-rep-data', recruit.id, recruit.email, recruit.name];
+    
     // Optimistic update
-    queryClient.setQueryData(['recruit-rep-data', recruit.id], (old: any) => 
+    queryClient.setQueryData(queryKey, (old: any) => 
       old ? { ...old, ipad_assigned: checked } : old
     );
     
@@ -375,9 +378,11 @@ const IpadAssignmentCard = ({
       }
       
       toast.success(checked ? 'iPad assigned' : 'iPad unassigned');
+      // Invalidate both the specific recruit query and the list
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.id], exact: false });
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
     } catch (error) {
-      queryClient.setQueryData(['recruit-rep-data', recruit.id], (old: any) => 
+      queryClient.setQueryData(queryKey, (old: any) => 
         old ? { ...old, ipad_assigned: !checked } : old
       );
       toast.error("Couldn't update iPad status");
