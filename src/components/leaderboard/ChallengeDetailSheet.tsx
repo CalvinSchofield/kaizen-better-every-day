@@ -6,7 +6,7 @@ import { Challenge } from "@/hooks/useChallenges";
 import { useChallengeProgress } from "@/hooks/useChallengeProgress";
 import { useChallengeEditProposals } from "@/hooks/useChallengeEdits";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, Eye, EyeOff, Pencil } from "lucide-react";
+import { Trophy, Eye, EyeOff, Pencil, Check, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -101,6 +101,58 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
               </span>
             </motion.div>
 
+            {/* Pending - Show participant acceptance status */}
+            {challenge.status === 'pending' && challenge.participants && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className="space-y-3"
+              >
+                <p className="text-sm text-muted-foreground text-center">Waiting for responses</p>
+                <div className="space-y-2">
+                  {challenge.participants.map((participant, i) => (
+                    <motion.div
+                      key={participant.user_id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.2 + i * 0.1 }}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-lg",
+                        participant.accepted ? "bg-green-500/10" : "bg-muted/50"
+                      )}
+                    >
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={participant.profile_photo_url} />
+                        <AvatarFallback>{getInitials(participant.rep_name)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{participant.rep_name}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{participant.role}</p>
+                      </div>
+                      <div className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
+                        participant.accepted 
+                          ? "bg-green-500/20 text-green-600" 
+                          : "bg-amber-500/20 text-amber-600"
+                      )}>
+                        {participant.accepted ? (
+                          <>
+                            <Check className="h-3 w-3" />
+                            Accepted
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="h-3 w-3" />
+                            Pending
+                          </>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
             {/* Matchup */}
             <AnimatePresence>
               {progress && (
