@@ -72,22 +72,42 @@ export const useAwardStreaks = (filterByYear?: string) => {
         entriesByDate.set(entry.entry_date, dateEntries);
       });
 
-      // Sort dates descending (most recent first)
-      const sortedDates = Array.from(entriesByDate.keys()).sort((a, b) => b.localeCompare(a));
+      // Sort dates ASCENDING (oldest first) for proper streak counting
+      const sortedDates = Array.from(entriesByDate.keys()).sort((a, b) => a.localeCompare(b));
 
-      // Track streaks per user
+      // Check if a sale qualifies as FP+ (type='fp' OR upgrade with prmr >= 85)
+      const isFPPlus = (sale: any): boolean => {
+        if (sale.install_status === 'never_installed') return false;
+        if (sale.type === 'fp') return true;
+        if (sale.type === 'upgrade' && Number(sale.prmr) >= 85) return true;
+        return false;
+      };
+
+      // Track streaks per user - process chronologically
       const streaks: Map<string, {
         earlyBird: number;
         nightOwl: number;
         ironman: number;
         workhorse: number;
-        earlyBirdBroken: boolean;
-        nightOwlBroken: boolean;
-        ironmanBroken: boolean;
-        workhorseBroken: boolean;
       }> = new Map();
 
-      // Process each date to find winners
+      // Track the last date where each award had a winner
+      // This helps us detect gaps in calendar days
+      let lastEarlyBirdDate: string | null = null;
+      let lastNightOwlDate: string | null = null;
+      let lastIronmanDate: string | null = null;
+      let lastWorkhorseDate: string | null = null;
+
+      // Helper to check if two dates are consecutive calendar days
+      const areConsecutiveDays = (date1: string | null, date2: string): boolean => {
+        if (!date1) return true; // First win starts a streak
+        const d1 = new Date(date1 + 'T12:00:00');
+        const d2 = new Date(date2 + 'T12:00:00');
+        const diffDays = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+        return diffDays === 1;
+      };
+
+      // Process each date chronologically
       for (const dateStr of sortedDates) {
         const dayEntries = entriesByDate.get(dateStr) || [];
         if (dayEntries.length === 0) continue;
@@ -96,9 +116,9 @@ export const useAwardStreaks = (filterByYear?: string) => {
         const isSaturday = dateObj.getDay() === 6;
         const earlyCutoff = isSaturday ? SATURDAY_EARLY_CUTOFF : WEEKDAY_EARLY_CUTOFF;
 
-        // Find Early Bird winner for this day
+        // Find Early Bird winner for this day - FP+ ONLY
         let earlyBirdWinner: { userId: string; mins: number } | null = null;
-        // Find Night Owl winner for this day
+        // Find Night Owl winner for this day - FP+ ONLY
         let nightOwlWinner: { userId: string; mins: number } | null = null;
         // Find Workhorse winner for this day
         let workhorseWinner: { userId: string; hours: number } | null = null;
@@ -108,85 +128,34 @@ export const useAwardStreaks = (filterByYear?: string) => {
           if (!repInfo) return;
           const userTimezone = entry.timezone || repInfo.timezone;
 
-          // Check for earliest action (Early Bird)
-          const timestamps = entry.counter_timestamps as any;
           const salesLog = entry.sales_log as any[];
           
-          // Helper to check if a sale qualifies as FP+ (type='fp' OR upgrade with prmr >= 85)
-          const isFPPlus = (sale: any): boolean => {
-            if (sale.install_status === 'never_installed') return false;
-            if (sale.type === 'fp') return true;
-            if (sale.type === 'upgrade' && Number(sale.prmr) >= 85) return true;
-            return false;
-          };
-          
-          // Get all timestamps for early bird check
-          const allTimestamps: { ts: string; mins: number }[] = [];
-          
-          // FP+ timestamps from sales_log (only count actual FP+ sales)
+          // Early Bird: ONLY count FP+ sales before cutoff
           if (salesLog && Array.isArray(salesLog)) {
             salesLog.forEach(sale => {
               if (sale.timestamp && isFPPlus(sale)) {
                 const mins = getLocalMinutesOfDay(sale.timestamp, userTimezone);
                 if (mins < earlyCutoff) {
-                  allTimestamps.push({ ts: sale.timestamp, mins });
+                  if (!earlyBirdWinner || mins < earlyBirdWinner.mins) {
+                    earlyBirdWinner = { userId: entry.user_id, mins };
+                  }
                 }
               }
             });
           }
-          
-          // Activity timestamps
-          ['presentations', 'transitions', 'pitches', 'decision_makers', 'doors_knocked'].forEach(key => {
-            const arr = timestamps?.[key];
-            if (Array.isArray(arr)) {
-              arr.forEach((ts: string) => {
-                const mins = getLocalMinutesOfDay(ts, userTimezone);
-                if (mins < earlyCutoff) {
-                  allTimestamps.push({ ts, mins });
-                }
-              });
-            }
-          });
 
-          if (allTimestamps.length > 0) {
-            const earliest = allTimestamps.reduce((min, curr) => curr.mins < min.mins ? curr : min);
-            if (!earlyBirdWinner || earliest.mins < earlyBirdWinner.mins) {
-              earlyBirdWinner = { userId: entry.user_id, mins: earliest.mins };
-            }
-          }
-
-          // Check for latest action (Night Owl)
-          const allLateTimestamps: { ts: string; mins: number }[] = [];
-          
-          // FP+ timestamps from sales_log (only count actual FP+ sales)
+          // Night Owl: ONLY count FP+ sales after 7 PM
           if (salesLog && Array.isArray(salesLog)) {
             salesLog.forEach(sale => {
               if (sale.timestamp && isFPPlus(sale)) {
                 const mins = getLocalMinutesOfDay(sale.timestamp, userTimezone);
                 if (mins >= NIGHT_OWL_CUTOFF) {
-                  allLateTimestamps.push({ ts: sale.timestamp, mins });
+                  if (!nightOwlWinner || mins > nightOwlWinner.mins) {
+                    nightOwlWinner = { userId: entry.user_id, mins };
+                  }
                 }
               }
             });
-          }
-          
-          ['presentations', 'transitions', 'pitches', 'decision_makers', 'doors_knocked'].forEach(key => {
-            const arr = timestamps?.[key];
-            if (Array.isArray(arr)) {
-              arr.forEach((ts: string) => {
-                const mins = getLocalMinutesOfDay(ts, userTimezone);
-                if (mins >= NIGHT_OWL_CUTOFF) {
-                  allLateTimestamps.push({ ts, mins });
-                }
-              });
-            }
-          });
-
-          if (allLateTimestamps.length > 0) {
-            const latest = allLateTimestamps.reduce((max, curr) => curr.mins > max.mins ? curr : max);
-            if (!nightOwlWinner || latest.mins > nightOwlWinner.mins) {
-              nightOwlWinner = { userId: entry.user_id, mins: latest.mins };
-            }
           }
 
           // Calculate hours worked for workhorse
@@ -213,47 +182,130 @@ export const useAwardStreaks = (filterByYear?: string) => {
           }
         });
 
-        // Update streaks for winners
-        repsData?.forEach(rep => {
-          const userId = rep.user_id;
-          if (!userId) return;
-          
-          const userStreaks = streaks.get(userId) || {
-            earlyBird: 0, nightOwl: 0, ironman: 0, workhorse: 0,
-            earlyBirdBroken: false, nightOwlBroken: false, ironmanBroken: false, workhorseBroken: false
-          };
+        // Determine Ironman: same person wins both Early Bird AND Night Owl
+        const ironmanWinnerId = earlyBirdWinner && nightOwlWinner && 
+          earlyBirdWinner.userId === nightOwlWinner.userId 
+          ? earlyBirdWinner.userId 
+          : null;
 
-          // Early Bird
-          if (earlyBirdWinner?.userId === userId && !userStreaks.earlyBirdBroken) {
-            userStreaks.earlyBird++;
-          } else if (earlyBirdWinner && !userStreaks.earlyBirdBroken) {
-            userStreaks.earlyBirdBroken = true;
+        // Update streaks based on winners
+        // For consecutive calendar days rule: if no winner, all streaks reset
+        
+        // Early Bird streak
+        if (earlyBirdWinner) {
+          if (areConsecutiveDays(lastEarlyBirdDate, dateStr)) {
+            // Continue or start streak for winner
+            const winnerStreaks = streaks.get(earlyBirdWinner.userId) || { earlyBird: 0, nightOwl: 0, ironman: 0, workhorse: 0 };
+            winnerStreaks.earlyBird++;
+            streaks.set(earlyBirdWinner.userId, winnerStreaks);
+            
+            // Reset all other users' early bird streaks (they lost today)
+            streaks.forEach((userStreaks, odUserId) => {
+              if (odUserId !== earlyBirdWinner!.userId) {
+                userStreaks.earlyBird = 0;
+              }
+            });
+          } else {
+            // Gap in calendar days - reset all streaks, start fresh for winner
+            streaks.forEach((userStreaks) => {
+              userStreaks.earlyBird = 0;
+            });
+            const winnerStreaks = streaks.get(earlyBirdWinner.userId) || { earlyBird: 0, nightOwl: 0, ironman: 0, workhorse: 0 };
+            winnerStreaks.earlyBird = 1;
+            streaks.set(earlyBirdWinner.userId, winnerStreaks);
           }
+          lastEarlyBirdDate = dateStr;
+        } else {
+          // No winner today - all early bird streaks break
+          streaks.forEach((userStreaks) => {
+            userStreaks.earlyBird = 0;
+          });
+          lastEarlyBirdDate = null;
+        }
 
-          // Night Owl
-          if (nightOwlWinner?.userId === userId && !userStreaks.nightOwlBroken) {
-            userStreaks.nightOwl++;
-          } else if (nightOwlWinner && !userStreaks.nightOwlBroken) {
-            userStreaks.nightOwlBroken = true;
+        // Night Owl streak
+        if (nightOwlWinner) {
+          if (areConsecutiveDays(lastNightOwlDate, dateStr)) {
+            const winnerStreaks = streaks.get(nightOwlWinner.userId) || { earlyBird: 0, nightOwl: 0, ironman: 0, workhorse: 0 };
+            winnerStreaks.nightOwl++;
+            streaks.set(nightOwlWinner.userId, winnerStreaks);
+            
+            streaks.forEach((userStreaks, odUserId) => {
+              if (odUserId !== nightOwlWinner!.userId) {
+                userStreaks.nightOwl = 0;
+              }
+            });
+          } else {
+            streaks.forEach((userStreaks) => {
+              userStreaks.nightOwl = 0;
+            });
+            const winnerStreaks = streaks.get(nightOwlWinner.userId) || { earlyBird: 0, nightOwl: 0, ironman: 0, workhorse: 0 };
+            winnerStreaks.nightOwl = 1;
+            streaks.set(nightOwlWinner.userId, winnerStreaks);
           }
+          lastNightOwlDate = dateStr;
+        } else {
+          streaks.forEach((userStreaks) => {
+            userStreaks.nightOwl = 0;
+          });
+          lastNightOwlDate = null;
+        }
 
-          // Ironman (both early bird AND night owl on same day)
-          const isIronman = earlyBirdWinner?.userId === userId && nightOwlWinner?.userId === userId;
-          if (isIronman && !userStreaks.ironmanBroken) {
-            userStreaks.ironman++;
-          } else if ((earlyBirdWinner || nightOwlWinner) && !userStreaks.ironmanBroken) {
-            userStreaks.ironmanBroken = true;
+        // Ironman streak
+        if (ironmanWinnerId) {
+          if (areConsecutiveDays(lastIronmanDate, dateStr)) {
+            const winnerStreaks = streaks.get(ironmanWinnerId) || { earlyBird: 0, nightOwl: 0, ironman: 0, workhorse: 0 };
+            winnerStreaks.ironman++;
+            streaks.set(ironmanWinnerId, winnerStreaks);
+            
+            streaks.forEach((userStreaks, odUserId) => {
+              if (odUserId !== ironmanWinnerId) {
+                userStreaks.ironman = 0;
+              }
+            });
+          } else {
+            streaks.forEach((userStreaks) => {
+              userStreaks.ironman = 0;
+            });
+            const winnerStreaks = streaks.get(ironmanWinnerId) || { earlyBird: 0, nightOwl: 0, ironman: 0, workhorse: 0 };
+            winnerStreaks.ironman = 1;
+            streaks.set(ironmanWinnerId, winnerStreaks);
           }
+          lastIronmanDate = dateStr;
+        } else {
+          streaks.forEach((userStreaks) => {
+            userStreaks.ironman = 0;
+          });
+          lastIronmanDate = null;
+        }
 
-          // Workhorse
-          if (workhorseWinner?.userId === userId && !userStreaks.workhorseBroken) {
-            userStreaks.workhorse++;
-          } else if (workhorseWinner && !userStreaks.workhorseBroken) {
-            userStreaks.workhorseBroken = true;
+        // Workhorse streak
+        if (workhorseWinner) {
+          if (areConsecutiveDays(lastWorkhorseDate, dateStr)) {
+            const winnerStreaks = streaks.get(workhorseWinner.userId) || { earlyBird: 0, nightOwl: 0, ironman: 0, workhorse: 0 };
+            winnerStreaks.workhorse++;
+            streaks.set(workhorseWinner.userId, winnerStreaks);
+            
+            streaks.forEach((userStreaks, odUserId) => {
+              if (odUserId !== workhorseWinner!.userId) {
+                userStreaks.workhorse = 0;
+              }
+            });
+          } else {
+            streaks.forEach((userStreaks) => {
+              userStreaks.workhorse = 0;
+            });
+            const winnerStreaks = streaks.get(workhorseWinner.userId) || { earlyBird: 0, nightOwl: 0, ironman: 0, workhorse: 0 };
+            winnerStreaks.workhorse = 1;
+            streaks.set(workhorseWinner.userId, winnerStreaks);
           }
-
-          streaks.set(userId, userStreaks);
-        });
+          lastWorkhorseDate = dateStr;
+        } else {
+          streaks.forEach((userStreaks) => {
+            userStreaks.workhorse = 0;
+          });
+          lastWorkhorseDate = null;
+        }
       }
 
       // Find the best streak for each award type

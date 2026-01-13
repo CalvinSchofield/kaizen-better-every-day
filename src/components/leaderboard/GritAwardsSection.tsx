@@ -73,7 +73,7 @@ export const GritAwardsSection = ({ gritAwards, currentUserId, streaks }: GritAw
                 </div>
               </div>
               {ironmanStreakCount && ironmanStreakCount >= 2 && (
-                <StreakBadge count={ironmanStreakCount} />
+                <StreakBadge count={ironmanStreakCount} holderName={streaks?.ironmanStreak?.name} />
               )}
             </div>
             <p className="text-[10px] text-muted-foreground mb-2 italic">Early Bird + Night Owl = First to fight, last to leave!</p>
@@ -136,6 +136,7 @@ export const GritAwardsSection = ({ gritAwards, currentUserId, streaks }: GritAw
             weekdayLabel="Mon-Fri (before 3 PM)"
             saturdayLabel="Saturday (before 10 AM)"
             streakCount={earlyBirdStreakCount}
+            streakHolderName={streaks?.earlyBirdStreak?.name}
           />
         )}
 
@@ -151,6 +152,7 @@ export const GritAwardsSection = ({ gritAwards, currentUserId, streaks }: GritAw
             weekdayLabel="Mon-Fri (after 7 PM)"
             saturdayLabel="Saturday (after 7 PM)"
             streakCount={nightOwlStreakCount}
+            streakHolderName={streaks?.nightOwlStreak?.name}
           />
         )}
 
@@ -168,7 +170,7 @@ export const GritAwardsSection = ({ gritAwards, currentUserId, streaks }: GritAw
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold">Workhorse</p>
                   {workhorseStreakCount && workhorseStreakCount >= 2 && (
-                    <StreakBadge count={workhorseStreakCount} />
+                    <StreakBadge count={workhorseStreakCount} holderName={streaks?.workhorseStreak?.name} />
                   )}
                 </div>
                 <p className={cn(
@@ -190,11 +192,13 @@ export const GritAwardsSection = ({ gritAwards, currentUserId, streaks }: GritAw
   );
 };
 
-// Streak badge component
-const StreakBadge = ({ count }: { count: number }) => (
+// Streak badge component - now shows the streak holder's name
+const StreakBadge = ({ count, holderName }: { count: number; holderName?: string }) => (
   <div className="flex items-center gap-1 bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full">
     <Zap className="h-3 w-3" />
-    <span className="text-xs font-medium">{count} day streak!</span>
+    <span className="text-xs font-medium">
+      {holderName ? `${holderName}: ` : ''}{count} day streak!
+    </span>
   </div>
 );
 
@@ -208,6 +212,7 @@ interface DualAwardCardProps {
   weekdayLabel: string;
   saturdayLabel: string;
   streakCount?: number;
+  streakHolderName?: string;
 }
 
 const DualAwardCard = ({ 
@@ -218,7 +223,8 @@ const DualAwardCard = ({
   currentUserId,
   weekdayLabel,
   saturdayLabel,
-  streakCount
+  streakCount,
+  streakHolderName
 }: DualAwardCardProps) => {
   const isWeekdayCurrentUser = weekdayEntry && currentUserId === weekdayEntry.userId;
   const isSaturdayCurrentUser = saturdayEntry && currentUserId === saturdayEntry.userId;
@@ -238,7 +244,7 @@ const DualAwardCard = ({
           <p className="text-sm font-semibold">{title}</p>
         </div>
         {streakCount && streakCount >= 2 && (
-          <StreakBadge count={streakCount} />
+          <StreakBadge count={streakCount} holderName={streakHolderName} />
         )}
       </div>
 
