@@ -387,12 +387,39 @@ const Compete = () => {
             <CollapsibleContent className="space-y-3 pt-2">
               {completedChallenges.map(challenge => {
                 const won = challenge.winner_user_id === currentUser;
+                
+                // Check if the current user declined the challenge
+                const myParticipation = challenge.participants?.find(p => p.user_id === currentUser);
+                const iDeclined = myParticipation?.accepted === false;
+                
+                // Check if challenge was declined or voided (never actually happened)
+                const wasDeclined = challenge.status === 'declined' || iDeclined;
+                const wasVoided = challenge.status === 'voided';
+                
+                // Determine badge label and styling
+                let badgeLabel: string;
+                let badgeVariant: "default" | "secondary" | "outline" = "secondary";
+                let bgClass = "bg-muted/30";
+                
+                if (won) {
+                  badgeLabel = '🏆 Won';
+                  badgeVariant = "default";
+                  bgClass = "bg-green-500/5 border-green-500/30";
+                } else if (wasDeclined) {
+                  badgeLabel = 'Declined';
+                  badgeVariant = "outline";
+                } else if (wasVoided) {
+                  badgeLabel = '❌ Expired';
+                } else {
+                  badgeLabel = 'Lost';
+                }
+                
                 return (
                   <div 
                     key={challenge.id}
                     className={cn(
                       "p-3 rounded-lg border",
-                      won ? "bg-green-500/5 border-green-500/30" : "bg-muted/30"
+                      bgClass
                     )}
                   >
                     <div className="flex items-center justify-between">
@@ -400,8 +427,8 @@ const Compete = () => {
                         <Swords className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">{metricLabels[challenge.metric]} Challenge</span>
                       </div>
-                      <Badge variant={won ? "default" : "secondary"} className="text-xs">
-                        {won ? '🏆 Won' : 'Lost'}
+                      <Badge variant={badgeVariant} className="text-xs">
+                        {badgeLabel}
                       </Badge>
                     </div>
                   </div>
