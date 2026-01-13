@@ -51,8 +51,12 @@ export const ScheduledActivityActionSheet = ({
 
   const handleDelete = () => {
     if (activity) {
-      onDelete(activity);
+      // Close the action sheet FIRST to prevent drawer stacking issues
       onOpenChange(false);
+      // Then trigger the delete confirmation (with slight delay to let drawer close)
+      setTimeout(() => {
+        onDelete(activity);
+      }, 100);
     }
   };
 
