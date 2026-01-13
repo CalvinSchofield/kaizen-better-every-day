@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { 
   DoorOpen, 
@@ -12,15 +12,15 @@ import {
   Square,
   Coffee,
   Home,
-  X
+  ChevronRight,
+  Zap,
+  AlertTriangle
 } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
 
 interface TimelineEvent {
   timestamp: Date;
@@ -35,14 +35,14 @@ interface BreakPeriod {
 }
 
 interface GapPeriod {
-  start: number; // position %
-  end: number; // position %
-  duration: number; // minutes
+  start: number;
+  end: number;
+  duration: number;
   startTime: Date;
   endTime: Date;
   type: 'in_home' | 'break' | 'inactivity';
-  contextBefore?: TimelineEvent;
-  contextAfter?: TimelineEvent;
+  eventsBefore: TimelineEvent[];
+  eventsAfter: TimelineEvent[];
 }
 
 interface RepDayActivityFlowProps {
@@ -58,69 +58,76 @@ const EVENT_CONFIG: Record<string, {
   icon: React.ComponentType<{ className?: string }>; 
   color: string; 
   bgColor: string;
-  height: number;
+  textColor: string;
   label: string;
-  funnelOrder: number; // Higher = deeper in funnel
+  shortLabel: string;
+  funnelOrder: number;
 }> = {
   doors_knocked: { 
     icon: DoorOpen, 
     color: 'text-blue-500', 
     bgColor: 'bg-blue-500',
-    height: 16,
-    label: 'Door',
+    textColor: 'text-blue-400',
+    label: 'Door Knocked',
+    shortLabel: 'Door',
     funnelOrder: 1,
   },
   decision_makers: { 
     icon: Users, 
     color: 'text-purple-500', 
     bgColor: 'bg-purple-500',
-    height: 20,
-    label: 'DM',
+    textColor: 'text-purple-400',
+    label: 'Decision Maker',
+    shortLabel: 'DM',
     funnelOrder: 2,
   },
   pitches: { 
     icon: MessageSquare, 
     color: 'text-cyan-500', 
     bgColor: 'bg-cyan-500',
-    height: 24,
+    textColor: 'text-cyan-400',
     label: 'Pitch',
+    shortLabel: 'Pitch',
     funnelOrder: 3,
   },
   transitions: { 
     icon: ArrowRight, 
     color: 'text-amber-500', 
     bgColor: 'bg-amber-500',
-    height: 28,
+    textColor: 'text-amber-400',
     label: 'Transition',
+    shortLabel: 'Trans',
     funnelOrder: 4,
   },
   presentations: { 
     icon: Presentation, 
     color: 'text-orange-500', 
     bgColor: 'bg-orange-500',
-    height: 32,
+    textColor: 'text-orange-400',
     label: 'Presentation',
+    shortLabel: 'Pres',
     funnelOrder: 5,
   },
   closes: { 
     icon: Handshake, 
     color: 'text-green-600', 
     bgColor: 'bg-green-600',
-    height: 36,
-    label: 'Close',
+    textColor: 'text-green-400',
+    label: 'Close Attempt',
+    shortLabel: 'Close',
     funnelOrder: 6,
   },
   sale: { 
     icon: DollarSign, 
     color: 'text-green-500', 
     bgColor: 'bg-green-500',
-    height: 48,
+    textColor: 'text-green-400',
     label: 'Sale',
+    shortLabel: 'Sale',
     funnelOrder: 7,
   },
 };
 
-// Funnel types that suggest the rep is "in a home" when they follow a door knock
 const IN_HOME_ACTIVITY_TYPES = ['transitions', 'presentations', 'closes', 'sale', 'decision_makers', 'pitches'];
 
 const formatTimeOnly = (date: Date): string => {
@@ -140,6 +147,17 @@ const formatDuration = (minutes: number): string => {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };
 
+// Get events within a time window
+const getEventsInWindow = (events: TimelineEvent[], centerTime: Date, windowMinutes: number, direction: 'before' | 'after'): TimelineEvent[] => {
+  return events.filter(e => {
+    const diff = (e.timestamp.getTime() - centerTime.getTime()) / (1000 * 60);
+    if (direction === 'before') {
+      return diff >= -windowMinutes && diff <= 0;
+    }
+    return diff >= 0 && diff <= windowMinutes;
+  }).slice(direction === 'before' ? -5 : 0, direction === 'before' ? undefined : 5);
+};
+
 export const RepDayActivityFlow = ({
   counterTimestamps,
   salesLog,
@@ -148,11 +166,10 @@ export const RepDayActivityFlow = ({
   isFinalized,
   breakPeriods,
 }: RepDayActivityFlowProps) => {
-  // Parse all events from counter timestamps
+  // Parse all events
   const events = useMemo(() => {
     const allEvents: TimelineEvent[] = [];
 
-    // Add counter timestamps
     if (counterTimestamps) {
       Object.entries(counterTimestamps).forEach(([type, timestamps]) => {
         if (Array.isArray(timestamps)) {
@@ -170,7 +187,6 @@ export const RepDayActivityFlow = ({
       });
     }
 
-    // Add sales from sales_log
     if (salesLog && Array.isArray(salesLog)) {
       salesLog.forEach(sale => {
         if (sale.timestamp) {
@@ -184,40 +200,27 @@ export const RepDayActivityFlow = ({
       });
     }
 
-    // Sort by timestamp
     return allEvents.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [counterTimestamps, salesLog]);
 
-  // Calculate time bounds
+  // Time bounds
   const { startTime, endTime, totalMinutes } = useMemo(() => {
     let start = workStartTime ? new Date(workStartTime) : null;
     let end = workEndTime ? new Date(workEndTime) : null;
 
-    // Expand bounds based on events if needed
     events.forEach(event => {
-      if (!start || event.timestamp < start) {
-        start = event.timestamp;
-      }
-      if (!end || event.timestamp > end) {
-        end = event.timestamp;
-      }
+      if (!start || event.timestamp < start) start = event.timestamp;
+      if (!end || event.timestamp > end) end = event.timestamp;
     });
 
-    // Default to current time if no end and not finalized
-    if (!end && !isFinalized) {
-      end = new Date();
-    }
-
-    if (!start || !end) {
-      return { startTime: null, endTime: null, totalMinutes: 0 };
-    }
+    if (!end && !isFinalized) end = new Date();
+    if (!start || !end) return { startTime: null, endTime: null, totalMinutes: 0 };
 
     const total = Math.max((end.getTime() - start.getTime()) / (1000 * 60), 60);
-    
     return { startTime: start, endTime: end, totalMinutes: total };
   }, [events, workStartTime, workEndTime, isFinalized]);
 
-  // Parse break periods into timeline positions
+  // Parse breaks
   const parsedBreaks = useMemo(() => {
     if (!breakPeriods || !startTime || !totalMinutes) return [];
     
@@ -230,29 +233,19 @@ export const RepDayActivityFlow = ({
         const endPos = ((breakEnd.getTime() - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
         const duration = (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60);
         
-        return {
-          start: Math.max(0, startPos),
-          end: Math.min(100, endPos),
-          duration,
-          startTime: breakStart,
-          endTime: breakEnd,
-        };
+        return { start: Math.max(0, startPos), end: Math.min(100, endPos), duration, startTime: breakStart, endTime: breakEnd };
       })
       .filter(bp => bp.end > bp.start);
   }, [breakPeriods, startTime, totalMinutes]);
 
-  // Generate hour markers
+  // Hour markers
   const hourMarkers = useMemo(() => {
     if (!startTime || !endTime) return [];
     
     const markers: { time: Date; label: string; position: number }[] = [];
     const startHour = new Date(startTime);
     startHour.setMinutes(0, 0, 0);
-    
-    // Move to next hour if start isn't on the hour
-    if (startTime.getMinutes() > 0) {
-      startHour.setHours(startHour.getHours() + 1);
-    }
+    if (startTime.getMinutes() > 0) startHour.setHours(startHour.getHours() + 1);
     
     let current = new Date(startHour);
     while (current <= endTime) {
@@ -270,7 +263,7 @@ export const RepDayActivityFlow = ({
     return markers;
   }, [startTime, endTime, totalMinutes]);
 
-  // Smart gap detection with context analysis
+  // Smart gap detection with context
   const gaps = useMemo(() => {
     if (events.length < 2 || !startTime) return [];
     
@@ -285,42 +278,30 @@ export const RepDayActivityFlow = ({
         const startPos = ((prevEvent.timestamp.getTime() - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
         const endPos = ((currEvent.timestamp.getTime() - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
         
-        // Check if this gap overlaps with a break period
         const isBreak = parsedBreaks.some(bp => {
           const overlapStart = Math.max(prevEvent.timestamp.getTime(), bp.startTime.getTime());
           const overlapEnd = Math.min(currEvent.timestamp.getTime(), bp.endTime.getTime());
           return overlapEnd > overlapStart;
         });
         
-        // Determine if this looks like "in-home" activity
-        // Pattern: door/DM followed by deeper funnel activities (transition, presentation, sale)
-        // The rep knocked, then logged everything after leaving
-        const prevFunnelOrder = EVENT_CONFIG[prevEvent.type]?.funnelOrder || 0;
-        const currFunnelOrder = EVENT_CONFIG[currEvent.type]?.funnelOrder || 0;
-        
-        // In-home indicators:
-        // 1. Previous event is door knock or DM, followed by transition/presentation/close/sale
-        // 2. Multiple funnel events logged close together after a gap (batch logging after leaving)
         const isInHomePattern = 
           (prevEvent.type === 'doors_knocked' || prevEvent.type === 'decision_makers') &&
           IN_HOME_ACTIVITY_TYPES.includes(currEvent.type);
         
-        // Check if next few events are deeper funnel activities logged together (batch)
         let isBatchLogging = false;
         if (i + 1 < events.length) {
           const nextEvent = events[i + 1];
-          const timeBetweenCurrAndNext = (nextEvent.timestamp.getTime() - currEvent.timestamp.getTime()) / (1000 * 60);
-          // If next event is within 2 minutes and is deeper in funnel, likely batch logging
-          if (timeBetweenCurrAndNext < 2 && currFunnelOrder < (EVENT_CONFIG[nextEvent.type]?.funnelOrder || 0)) {
-            isBatchLogging = true;
-          }
+          const timeBetween = (nextEvent.timestamp.getTime() - currEvent.timestamp.getTime()) / (1000 * 60);
+          const currFunnel = EVENT_CONFIG[currEvent.type]?.funnelOrder || 0;
+          const nextFunnel = EVENT_CONFIG[nextEvent.type]?.funnelOrder || 0;
+          if (timeBetween < 2 && currFunnel < nextFunnel) isBatchLogging = true;
         }
         
-        const gapType: GapPeriod['type'] = isBreak 
-          ? 'break' 
-          : (isInHomePattern || isBatchLogging) 
-            ? 'in_home' 
-            : 'inactivity';
+        const gapType: GapPeriod['type'] = isBreak ? 'break' : (isInHomePattern || isBatchLogging) ? 'in_home' : 'inactivity';
+        
+        // Get surrounding events for context (5 min window or last 5 events)
+        const eventsBefore = getEventsInWindow(events.slice(0, i), prevEvent.timestamp, 10, 'before');
+        const eventsAfter = getEventsInWindow(events.slice(i), currEvent.timestamp, 10, 'after');
         
         gapPeriods.push({
           start: startPos,
@@ -329,8 +310,8 @@ export const RepDayActivityFlow = ({
           startTime: prevEvent.timestamp,
           endTime: currEvent.timestamp,
           type: gapType,
-          contextBefore: prevEvent,
-          contextAfter: currEvent,
+          eventsBefore: eventsBefore.length > 0 ? eventsBefore : [prevEvent],
+          eventsAfter: eventsAfter.length > 0 ? eventsAfter : [currEvent],
         });
       }
     }
@@ -338,192 +319,187 @@ export const RepDayActivityFlow = ({
     return gapPeriods;
   }, [events, startTime, totalMinutes, parsedBreaks]);
 
-  // Categorize gaps for summary
-  const gapSummary = useMemo(() => {
+  // Summary stats
+  const stats = useMemo(() => {
     const inHomeGaps = gaps.filter(g => g.type === 'in_home');
     const breakGaps = gaps.filter(g => g.type === 'break');
     const inactivityGaps = gaps.filter(g => g.type === 'inactivity');
+    const salesCount = events.filter(e => e.type === 'sale').length;
     
     return {
-      inHome: inHomeGaps,
-      breaks: breakGaps,
-      inactivity: inactivityGaps,
-      totalInHomeMinutes: inHomeGaps.reduce((sum, g) => sum + g.duration, 0),
-      totalBreakMinutes: breakGaps.reduce((sum, g) => sum + g.duration, 0),
-      totalInactivityMinutes: inactivityGaps.reduce((sum, g) => sum + g.duration, 0),
+      inHomeTime: inHomeGaps.reduce((sum, g) => sum + g.duration, 0),
+      inHomeCount: inHomeGaps.length,
+      breakTime: breakGaps.reduce((sum, g) => sum + g.duration, 0),
+      inactivityTime: inactivityGaps.reduce((sum, g) => sum + g.duration, 0),
+      inactivityCount: inactivityGaps.length,
+      longestInactivity: inactivityGaps.length > 0 ? Math.max(...inactivityGaps.map(g => g.duration)) : 0,
+      salesCount,
     };
-  }, [gaps]);
+  }, [gaps, events]);
 
   if (!startTime || events.length === 0) {
     return (
-      <div className="text-center py-6 text-muted-foreground text-sm">
-        <p>No activity data for this day</p>
-        <p className="text-xs mt-1">Timeline will appear once tracking begins</p>
+      <div className="text-center py-4 text-muted-foreground text-sm">
+        <p>No activity data</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      {/* Header with time range */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
+    <div className="space-y-2">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1">
         <div className="flex items-center gap-1">
           <Play className="w-3 h-3 text-primary" />
-          <span>{formatTimeOnly(startTime)}</span>
+          <span className="font-medium">{formatTimeOnly(startTime)}</span>
         </div>
-        <span className="text-[10px]">{events.length} activities</span>
+        <span className="text-muted-foreground/70">{events.length} events</span>
         <div className="flex items-center gap-1">
-          <span>{endTime ? formatTimeOnly(endTime) : 'Now'}</span>
+          <span className="font-medium">{endTime ? formatTimeOnly(endTime) : 'Now'}</span>
           {isFinalized ? (
-            <Square className="w-3 h-3 text-muted-foreground" />
+            <Square className="w-2.5 h-2.5 text-muted-foreground" />
           ) : (
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
           )}
         </div>
       </div>
 
-      {/* Main Timeline - no vertical scroll, horizontal scroll OK */}
-      <div className="w-full overflow-x-auto pb-2">
-        <div className="relative h-14 min-w-[500px] px-2">
-          {/* Background track */}
-          <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-2 bg-muted rounded-full" />
+      {/* Timeline - NO VERTICAL SCROLL */}
+      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+        <div className="relative h-12 min-w-[450px]">
+          {/* Track background */}
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 bg-muted/50 rounded-full" />
           
-          {/* Break periods (shown as distinct coffee-colored zones) */}
+          {/* Breaks - subtle dashed zones */}
           {parsedBreaks.map((bp, idx) => (
-            <Popover key={`break-${idx}`}>
-              <PopoverTrigger asChild>
-                <button
-                  className="absolute top-1/2 -translate-y-1/2 h-5 rounded-full bg-amber-900/30 border border-dashed border-amber-700/40 flex items-center justify-center cursor-pointer hover:bg-amber-900/40 transition-colors"
-                  style={{
-                    left: `calc(${bp.start}% + 8px)`,
-                    width: `${Math.max(bp.end - bp.start, 2)}%`,
-                  }}
-                >
-                  {(bp.end - bp.start) > 5 && (
-                    <Coffee className="w-2.5 h-2.5 text-amber-700/60" />
-                  )}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-3" side="top">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-amber-600 font-medium text-sm">
-                    <Coffee className="w-4 h-4" />
-                    <span>Break</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {formatTimeOnly(bp.startTime)} → {formatTimeOnly(bp.endTime)}
-                  </div>
-                  <div className="text-sm font-medium">
-                    {formatDuration(bp.duration)}
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+            <div
+              key={`break-${idx}`}
+              className="absolute top-1/2 -translate-y-1/2 h-3 rounded bg-amber-900/20 border border-dashed border-amber-600/30"
+              style={{ left: `${bp.start}%`, width: `${Math.max(bp.end - bp.start, 1)}%` }}
+              title={`Break: ${formatDuration(bp.duration)}`}
+            />
           ))}
           
-          {/* Gap highlights with tap interaction */}
+          {/* Gap zones with popovers */}
           {gaps.map((gap, idx) => {
             const width = gap.end - gap.start;
-            const showLabel = width > 6;
-            const beforeConfig = gap.contextBefore ? EVENT_CONFIG[gap.contextBefore.type] : null;
-            const afterConfig = gap.contextAfter ? EVENT_CONFIG[gap.contextAfter.type] : null;
             
             return (
               <Popover key={`gap-${idx}`}>
                 <PopoverTrigger asChild>
                   <button
-                    className="absolute flex flex-col items-center cursor-pointer group"
-                    style={{
-                      left: `calc(${gap.start}% + 8px)`,
-                      width: `${width}%`,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                    }}
+                    className={cn(
+                      "absolute top-1/2 -translate-y-1/2 rounded cursor-pointer transition-all hover:opacity-80 active:scale-y-90",
+                      gap.type === 'in_home' && "h-4 bg-emerald-500/25 border border-emerald-400/40",
+                      gap.type === 'break' && "h-3 bg-amber-500/20 border border-amber-400/30",
+                      gap.type === 'inactivity' && gap.duration >= 30 
+                        ? "h-5 bg-red-500/30 border border-red-400/50" 
+                        : gap.type === 'inactivity' && "h-4 bg-red-500/20 border border-red-400/30"
+                    )}
+                    style={{ left: `${gap.start}%`, width: `${Math.max(width, 1.5)}%` }}
                   >
-                    {/* Gap background - tappable */}
-                    <div
-                      className={cn(
-                        "h-5 rounded-full w-full transition-all group-hover:scale-y-125",
-                        gap.type === 'in_home' && "bg-emerald-500/20 border border-emerald-500/30",
-                        gap.type === 'break' && "bg-amber-500/20 border border-amber-500/30",
-                        gap.type === 'inactivity' && gap.duration >= 30 
-                          ? "bg-red-500/25 border border-red-500/40" 
-                          : gap.type === 'inactivity' && "bg-red-500/15 border border-red-500/25"
-                      )}
-                    />
-                    
-                    {/* Duration label */}
-                    {showLabel && (
-                      <div
-                        className={cn(
-                          "absolute -top-4 text-[10px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap flex items-center gap-0.5",
-                          gap.type === 'in_home' && "text-emerald-600 bg-emerald-500/15",
-                          gap.type === 'break' && "text-amber-600 bg-amber-500/15",
-                          gap.type === 'inactivity' && "text-red-500 bg-red-500/15"
-                        )}
-                        style={{ 
-                          left: '50%', 
-                          transform: 'translateX(-50%)'
-                        }}
-                      >
-                        {gap.type === 'in_home' && <Home className="w-2.5 h-2.5" />}
-                        {gap.type === 'break' && <Coffee className="w-2.5 h-2.5" />}
+                    {/* Duration badge for wider gaps */}
+                    {width > 5 && (
+                      <span className={cn(
+                        "absolute -top-3.5 left-1/2 -translate-x-1/2 text-[9px] font-semibold px-1 rounded whitespace-nowrap",
+                        gap.type === 'in_home' && "text-emerald-500",
+                        gap.type === 'break' && "text-amber-500",
+                        gap.type === 'inactivity' && "text-red-400"
+                      )}>
                         {formatDuration(gap.duration)}
-                      </div>
+                      </span>
                     )}
                   </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-64 p-3" side="top">
-                  <div className="space-y-3">
-                    {/* Gap type header */}
-                    <div className={cn(
-                      "flex items-center gap-2 font-medium text-sm",
-                      gap.type === 'in_home' && "text-emerald-600",
-                      gap.type === 'break' && "text-amber-600",
-                      gap.type === 'inactivity' && "text-red-500"
-                    )}>
-                      {gap.type === 'in_home' && <Home className="w-4 h-4" />}
-                      {gap.type === 'break' && <Coffee className="w-4 h-4" />}
-                      {gap.type === 'inactivity' && <span>⚠️</span>}
-                      <span>
-                        {gap.type === 'in_home' ? 'In Home' : gap.type === 'break' ? 'Break' : 'Inactivity'}
+                <PopoverContent className="w-72 p-0" side="top" align="center">
+                  {/* Gap detail header */}
+                  <div className={cn(
+                    "px-3 py-2 border-b flex items-center justify-between",
+                    gap.type === 'in_home' && "bg-emerald-500/10 border-emerald-500/20",
+                    gap.type === 'break' && "bg-amber-500/10 border-amber-500/20",
+                    gap.type === 'inactivity' && "bg-red-500/10 border-red-500/20"
+                  )}>
+                    <div className="flex items-center gap-2">
+                      {gap.type === 'in_home' && <Home className="w-4 h-4 text-emerald-500" />}
+                      {gap.type === 'break' && <Coffee className="w-4 h-4 text-amber-500" />}
+                      {gap.type === 'inactivity' && <AlertTriangle className="w-4 h-4 text-red-400" />}
+                      <span className={cn(
+                        "font-semibold text-sm",
+                        gap.type === 'in_home' && "text-emerald-500",
+                        gap.type === 'break' && "text-amber-500",
+                        gap.type === 'inactivity' && "text-red-400"
+                      )}>
+                        {gap.type === 'in_home' ? 'In Home' : gap.type === 'break' ? 'Break' : 'Gap'}
                       </span>
-                      <span className="ml-auto font-bold">{formatDuration(gap.duration)}</span>
+                    </div>
+                    <span className="text-xs font-bold text-foreground">{formatDuration(gap.duration)}</span>
+                  </div>
+                  
+                  {/* Time range */}
+                  <div className="px-3 py-1.5 bg-muted/30 text-[11px] text-muted-foreground text-center">
+                    {formatTimeOnly(gap.startTime)} → {formatTimeOnly(gap.endTime)}
+                  </div>
+                  
+                  {/* Zoomed event sequence */}
+                  <div className="p-3 space-y-3">
+                    {/* Events BEFORE gap */}
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Before Gap</div>
+                      <div className="flex flex-wrap gap-1">
+                        {gap.eventsBefore.map((e, i) => {
+                          const config = EVENT_CONFIG[e.type];
+                          if (!config) return null;
+                          const Icon = config.icon;
+                          return (
+                            <div 
+                              key={i}
+                              className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", config.bgColor + "/15")}
+                            >
+                              <Icon className={cn("w-3 h-3", config.color)} />
+                              <span className={config.textColor}>{config.shortLabel}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                     
-                    {/* Time range */}
-                    <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
-                      {formatTimeOnly(gap.startTime)} → {formatTimeOnly(gap.endTime)}
+                    {/* Arrow */}
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground/50">
+                      <div className="flex-1 h-px bg-border" />
+                      <ChevronRight className="w-4 h-4" />
+                      <div className="flex-1 h-px bg-border" />
                     </div>
                     
-                    {/* Context events */}
-                    <div className="space-y-1.5">
-                      {gap.contextBefore && beforeConfig && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <div className={cn("w-2 h-2 rounded-full", beforeConfig.bgColor)} />
-                          <span className="text-muted-foreground">Before:</span>
-                          <span className="font-medium">{beforeConfig.label}</span>
-                          <span className="text-muted-foreground ml-auto">
-                            {formatTimeOnly(gap.contextBefore.timestamp)}
-                          </span>
-                        </div>
-                      )}
-                      {gap.contextAfter && afterConfig && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <div className={cn("w-2 h-2 rounded-full", afterConfig.bgColor)} />
-                          <span className="text-muted-foreground">After:</span>
-                          <span className="font-medium">{afterConfig.label}</span>
-                          <span className="text-muted-foreground ml-auto">
-                            {formatTimeOnly(gap.contextAfter.timestamp)}
-                          </span>
-                        </div>
-                      )}
+                    {/* Events AFTER gap */}
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">After Gap</div>
+                      <div className="flex flex-wrap gap-1">
+                        {gap.eventsAfter.map((e, i) => {
+                          const config = EVENT_CONFIG[e.type];
+                          if (!config) return null;
+                          const Icon = config.icon;
+                          return (
+                            <div 
+                              key={i}
+                              className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", config.bgColor + "/15")}
+                            >
+                              <Icon className={cn("w-3 h-3", config.color)} />
+                              <span className={config.textColor}>{config.shortLabel}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                     
-                    {/* Explanation for in-home */}
+                    {/* Coach insight */}
                     {gap.type === 'in_home' && (
-                      <div className="text-[10px] text-muted-foreground italic border-t pt-2">
-                        Likely presenting/closing - door knock followed by deeper funnel activity
+                      <div className="text-[10px] text-emerald-600 bg-emerald-500/10 rounded px-2 py-1.5 italic">
+                        💡 Likely presenting — Door → Funnel activity pattern detected
+                      </div>
+                    )}
+                    {gap.type === 'inactivity' && gap.duration >= 30 && (
+                      <div className="text-[10px] text-red-400 bg-red-500/10 rounded px-2 py-1.5 italic">
+                        ⚠️ Long gap — check if break was logged or address in coaching
                       </div>
                     )}
                   </div>
@@ -532,124 +508,96 @@ export const RepDayActivityFlow = ({
             );
           })}
           
-          {/* Hour markers */}
+          {/* Hour markers - subtle */}
           {hourMarkers.map((marker, idx) => (
             <div
               key={`hour-${idx}`}
-              className="absolute top-0 bottom-0 flex flex-col items-center"
+              className="absolute h-full flex flex-col items-center pointer-events-none"
               style={{ left: `${marker.position}%` }}
             >
-              <div className="h-full w-px bg-border/50" />
-              <span className="absolute -bottom-4 text-[9px] text-muted-foreground whitespace-nowrap">
-                {marker.label}
-              </span>
+              <div className="h-full w-px bg-border/30" />
+              <span className="absolute -bottom-3.5 text-[8px] text-muted-foreground/70">{marker.label}</span>
             </div>
           ))}
 
-          {/* Event markers */}
+          {/* Event markers - color-coded bars */}
           {events.map((event, idx) => {
             const config = EVENT_CONFIG[event.type];
             if (!config) return null;
             
             const position = ((event.timestamp.getTime() - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
             const isSale = event.type === 'sale';
+            const height = isSale ? 24 : event.type === 'presentations' ? 18 : event.type === 'transitions' ? 14 : 10;
             
             return (
               <div
                 key={`event-${idx}`}
                 className={cn(
-                  "absolute top-1/2 -translate-y-1/2 rounded-full transition-transform hover:scale-125",
+                  "absolute top-1/2 -translate-y-1/2 rounded-sm",
                   config.bgColor,
-                  isSale && "ring-2 ring-green-500/30 shadow-lg shadow-green-500/20"
+                  isSale && "ring-1 ring-green-400/50 shadow-sm shadow-green-500/30"
                 )}
                 style={{
-                  left: `calc(${position}% - 1px)`,
-                  height: `${config.height}px`,
-                  width: isSale ? '6px' : '3px',
+                  left: `${position}%`,
+                  height: `${height}px`,
+                  width: isSale ? '4px' : '2px',
                 }}
-                title={`${config.label} at ${formatTimeOnly(event.timestamp)}${event.prmr ? ` ($${event.prmr})` : ''}`}
+                title={`${config.label} at ${formatTimeOnly(event.timestamp)}`}
               />
             );
           })}
 
-          {/* Start marker */}
+          {/* Start/End markers */}
           <div 
-            className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary ring-2 ring-primary/30"
-            title={`Started: ${formatTimeOnly(startTime)}`}
+            className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-primary"
+            title={`Start: ${formatTimeOnly(startTime)}`}
           />
-          
-          {/* End marker */}
           {endTime && (
             <div 
               className={cn(
-                "absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full ring-2",
-                isFinalized 
-                  ? "bg-muted-foreground ring-muted-foreground/30" 
-                  : "bg-green-500 ring-green-500/30 animate-pulse"
+                "absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full",
+                isFinalized ? "bg-muted-foreground" : "bg-green-500 animate-pulse"
               )}
-              title={isFinalized ? `Ended: ${formatTimeOnly(endTime)}` : 'Still working'}
+              title={isFinalized ? `End: ${formatTimeOnly(endTime)}` : 'Active'}
             />
           )}
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground justify-center pt-2">
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-blue-500" /> Doors
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-purple-500" /> DMs
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-cyan-500" /> Pitches
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-amber-500" /> Trans
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-orange-500" /> Pres
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-3 rounded-full bg-green-500" /> Sale
-        </span>
+      {/* Compact Legend */}
+      <div className="flex flex-wrap gap-2 justify-center text-[9px] text-muted-foreground">
+        {['doors_knocked', 'decision_makers', 'pitches', 'transitions', 'presentations', 'sale'].map(type => {
+          const config = EVENT_CONFIG[type];
+          return (
+            <span key={type} className="flex items-center gap-0.5">
+              <div className={cn("w-1.5 rounded-sm", config.bgColor, type === 'sale' ? 'h-3' : 'h-2')} />
+              {config.shortLabel}
+            </span>
+          );
+        })}
       </div>
 
-      {/* Smart Gap Summary */}
-      {gaps.length > 0 && (
-        <div className="space-y-1 text-center text-[11px]">
-          {/* In-home time */}
-          {gapSummary.inHome.length > 0 && (
-            <div className="flex items-center justify-center gap-1 text-emerald-600">
-              <Home className="w-3 h-3" />
-              <span>
-                ~{formatDuration(gapSummary.totalInHomeMinutes)} in homes 
-                ({gapSummary.inHome.length} visit{gapSummary.inHome.length > 1 ? 's' : ''})
-              </span>
-            </div>
-          )}
-          
-          {/* Break time */}
-          {gapSummary.breaks.length > 0 && (
-            <div className="flex items-center justify-center gap-1 text-amber-600">
-              <Coffee className="w-3 h-3" />
-              <span>
-                {formatDuration(gapSummary.totalBreakMinutes)} on breaks
-              </span>
-            </div>
-          )}
-          
-          {/* Inactivity gaps - only show if concerning */}
-          {gapSummary.inactivity.length > 0 && (
-            <div className="flex items-center justify-center gap-1 text-red-500">
-              <span>
-                {gapSummary.inactivity.length} inactive gap{gapSummary.inactivity.length > 1 ? 's' : ''} • 
-                Longest: {formatDuration(Math.max(...gapSummary.inactivity.map(g => g.duration)))}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Smart Summary - Coach Insights */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center text-[10px]">
+        {stats.inHomeCount > 0 && (
+          <span className="flex items-center gap-1 text-emerald-500">
+            <Home className="w-3 h-3" />
+            ~{formatDuration(stats.inHomeTime)} in homes ({stats.inHomeCount})
+          </span>
+        )}
+        {stats.breakTime > 0 && (
+          <span className="flex items-center gap-1 text-amber-500">
+            <Coffee className="w-3 h-3" />
+            {formatDuration(stats.breakTime)} breaks
+          </span>
+        )}
+        {stats.inactivityCount > 0 && (
+          <span className="flex items-center gap-1 text-red-400">
+            <Zap className="w-3 h-3" />
+            {stats.inactivityCount} gap{stats.inactivityCount > 1 ? 's' : ''} • longest {formatDuration(stats.longestInactivity)}
+          </span>
+        )}
+      </div>
     </div>
   );
 };
