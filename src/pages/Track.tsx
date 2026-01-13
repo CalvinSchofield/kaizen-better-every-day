@@ -37,6 +37,7 @@ interface TrackProps {
   salesLoggerEnabled?: boolean;
   onEditSale?: (sale: Sale) => void;
   onDeleteSale?: (saleId: string) => void;
+  isLoadingEntry?: boolean;
 }
 
 const Track = ({
@@ -53,6 +54,7 @@ const Track = ({
   salesLoggerEnabled = false,
   onEditSale,
   onDeleteSale,
+  isLoadingEntry = false,
 }: TrackProps) => {
   const { repData, loading: loadingRepData, isInitializing } = useRepData();
 
@@ -179,6 +181,7 @@ const Track = ({
             onCounterChange={onCounterChange}
             customCounterConfig={customCounterConfig}
             counterLayoutConfig={counterLayoutConfig}
+            isLoading={isLoadingEntry}
           />
         </div>
         

@@ -1040,6 +1040,7 @@ const TrackWithLayout = () => {
           salesLoggerEnabled={salesLoggerEnabled}
           onEditSale={handleEditSale}
           onDeleteSale={handleDeleteSale}
+          isLoadingEntry={isLoadingEntry}
         />
       </Layout>
 
