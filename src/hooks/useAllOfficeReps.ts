@@ -1,8 +1,25 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+// Normalize stage for filtering - maps display stages to canonical forms
+const normalizeStage = (stage: string | null | undefined): string | null => {
+  if (!stage) return null;
+  const lower = stage.toLowerCase().trim();
+  
+  // Map various stage formats to canonical forms
+  if (lower.includes('signed')) return 'signed';
+  if (lower.includes('shadow')) return 'shadow_complete'; // Matches "Shadow ✅", "Shadow Complete ✅", etc.
+  if (lower.includes('sold') && (lower.includes('5+') || lower.includes('5)') || lower.includes('💰'))) return 'sold_5_plus';
+  if (lower.includes('sold')) return 'sold';
+  if (lower.includes('evaluating')) return 'evaluating';
+  if (lower.includes('reached')) return 'reached_out';
+  if (lower.includes('100')) return '100_list';
+  
+  return lower;
+};
+
 // Active stages that can participate in competitions
-const ACTIVE_STAGES = ['signed', 'shadow_complete', 'sold', 'sold_5_plus', 'Signed ✍️', 'Shadow Complete ✅', 'Sold 💵', 'Sold 5+ 💰'];
+const ACTIVE_STAGES = ['signed', 'shadow_complete', 'sold', 'sold_5_plus'];
 
 interface OfficeRep {
   id: string;
@@ -89,15 +106,12 @@ export const useAllOfficeReps = () => {
         return null;
       };
 
-      // Filter to active stages and map to standard format
+      // Filter to active stages using proper normalization and map to standard format
       const officeReps: OfficeRep[] = (reps || [])
         .filter(rep => {
           if (!rep.user_id) return false;
-          const stage = rep.stage?.toLowerCase().trim() || '';
-          return ACTIVE_STAGES.some(s => 
-            stage.includes(s.toLowerCase().replace(/[✍️✅💵💰]/g, '').trim()) ||
-            stage === s.toLowerCase()
-          );
+          const normalizedStage = normalizeStage(rep.stage);
+          return normalizedStage && ACTIVE_STAGES.includes(normalizedStage);
         })
         .map(rep => {
           // Try to determine team from lead status
