@@ -345,8 +345,61 @@ export const RepDayActivityFlow = ({
     );
   }
 
+  // Extract sales for the Sales Moments row
+  const salesMoments = useMemo(() => {
+    return events.filter(e => e.type === 'sale');
+  }, [events]);
+
   return (
     <div className="space-y-2">
+      {/* Sales Moments Row - Big tappable chips */}
+      {salesMoments.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+          {salesMoments.map((sale, idx) => (
+            <Popover key={`sale-moment-${idx}`}>
+              <PopoverTrigger asChild>
+                <button className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/20 border border-green-500/40 hover:bg-green-500/30 active:scale-95 transition-all">
+                  <DollarSign className="w-4 h-4 text-green-400" />
+                  <div className="text-left">
+                    <div className="text-sm font-bold text-green-400">
+                      ${sale.prmr || 0}
+                    </div>
+                    <div className="text-[10px] text-green-300/80">
+                      {formatTimeOnly(sale.timestamp)} • {sale.label === 'Upgrade' ? 'UPG' : 'FP'}
+                    </div>
+                  </div>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-0" side="bottom" align="start">
+                <div className="px-3 py-2 bg-green-500/20 border-b border-green-500/30">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-green-400" />
+                    <span className="font-bold text-green-400">{sale.label || 'Sale'}</span>
+                  </div>
+                </div>
+                <div className="p-3 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">PRMR</span>
+                    <span className="text-lg font-bold text-green-400">${sale.prmr || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Time</span>
+                    <span className="text-sm font-medium">{formatTimeOnly(sale.timestamp)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Type</span>
+                    <span className="text-sm font-medium">{sale.label === 'Upgrade' ? 'Upgrade' : 'Full Package'}</span>
+                  </div>
+                  <div className="pt-2 border-t text-[10px] text-green-400/80 italic">
+                    💰 Great close! Review the timeline to see the funnel path.
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          ))}
+        </div>
+      )}
+
       {/* Compact Header */}
       <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1">
         <div className="flex items-center gap-1">
