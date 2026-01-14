@@ -4,6 +4,24 @@ import { Challenge, ChallengeMetric } from "./useChallenges";
 import { useEffect } from "react";
 import { toZonedTime } from "date-fns-tz";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+
+// Get "today" date string for a given timezone - MUST match useTodayLeaderboard exactly
+const getTodayInTimezone = (timezone: string | null): string => {
+  try {
+    const tz = timezone || 'America/Los_Angeles';
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-CA', { 
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    return formatter.format(now);
+  } catch {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+};
 // Get the timezone offset in minutes for a given timezone
 // More negative = further west = later in the day
 const getTimezoneOffset = (timezone: string): number => {
@@ -136,29 +154,77 @@ export const useChallengeProgress = (challenge: Challenge | null, options?: { in
       const participantUserIds = challenge.participants?.map(p => p.user_id) || [];
       if (!participantUserIds.length) return null;
 
-      // Fetch daily entries for the challenge period
-      const { data: entries, error } = await supabase
-        .from('daily_entries')
-        .select('user_id, fp_plus, prmr, transitions, doors_knocked, entry_date, sales_log, is_finalized')
-        .in('user_id', participantUserIds)
-        .gte('entry_date', challenge.start_date)
-        .lte('entry_date', challenge.end_date);
-
-      if (error) throw error;
-
-      // Fetch participant timezones for "latest" end time calculation
-      const { data: repTimezones } = await supabase
+      // Fetch participant data with timezones FIRST - needed for timezone-aware filtering
+      const { data: repsData } = await supabase
         .from('reps')
         .select('user_id, timezone')
         .in('user_id', participantUserIds);
       
-      const participantTimezones = repTimezones?.map(r => r.timezone) || [];
+      const repsTimezoneMap = new Map(repsData?.map(r => [r.user_id, r.timezone]) || []);
+      const participantTimezones = repsData?.map(r => r.timezone) || [];
+
+      // Fetch entries with a 2-day buffer to handle timezone edge cases
+      // This matches the approach used in useTodayLeaderboard for consistency
+      const startBuffer = new Date(challenge.start_date);
+      startBuffer.setDate(startBuffer.getDate() - 1);
+      const endBuffer = new Date(challenge.end_date);
+      endBuffer.setDate(endBuffer.getDate() + 1);
+      
+      const { data: rawEntries, error } = await supabase
+        .from('daily_entries')
+        .select('user_id, fp_plus, prmr, transitions, doors_knocked, entry_date, sales_log, is_finalized')
+        .in('user_id', participantUserIds)
+        .gte('entry_date', startBuffer.toISOString().split('T')[0])
+        .lte('entry_date', endBuffer.toISOString().split('T')[0]);
+
+      if (error) throw error;
+
+      // Filter entries using timezone-aware date matching - MUST match useTodayLeaderboard logic
+      // For each entry, check if the entry_date falls within the challenge period in the REP'S timezone
+      const entries = rawEntries?.filter(entry => {
+        // Simple case: entry_date is within challenge range
+        if (entry.entry_date >= challenge.start_date && entry.entry_date <= challenge.end_date) {
+          return true;
+        }
+        
+        // Edge case: For "today" entries, use timezone-aware matching
+        const repTimezone = repsTimezoneMap.get(entry.user_id);
+        const repToday = getTodayInTimezone(repTimezone);
+        
+        // If entry is for rep's "today" and today is within the challenge period
+        if (entry.entry_date === repToday && 
+            repToday >= challenge.start_date && 
+            repToday <= challenge.end_date) {
+          return true;
+        }
+        
+        return false;
+      }) || [];
+
+      // PROTECTION LAYER: Deduplicate by user+date - matches useTodayLeaderboard
+      // Prioritize finalized entries over unfinalized for the same date
+      const entryKeyMap = new Map<string, typeof entries[0]>();
+      entries
+        .sort((a, b) => {
+          // Finalized first
+          if (a.is_finalized && !b.is_finalized) return -1;
+          if (!a.is_finalized && b.is_finalized) return 1;
+          return 0;
+        })
+        .forEach(entry => {
+          const key = `${entry.user_id}-${entry.entry_date}`;
+          if (!entryKeyMap.has(key)) {
+            entryKeyMap.set(key, entry);
+          }
+        });
+      
+      const dedupedEntries = Array.from(entryKeyMap.values());
 
       // Aggregate values per user
       const metricColumn = getMetricColumn(challenge.metric);
       const userTotals = new Map<string, number>();
 
-      entries?.forEach(entry => {
+      dedupedEntries.forEach(entry => {
         let value = 0;
         const isFinalized = entry.is_finalized;
         const salesLog = entry.sales_log as any[] | null;
