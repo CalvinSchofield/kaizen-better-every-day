@@ -103,7 +103,7 @@ export const ChallengesTab = () => {
                 layout
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
+                exit={{ opacity: 0, x: -50, scale: 0.9, transition: { duration: 0.3, ease: "easeOut" } }}
                 transition={{ delay: index * 0.05 }}
               >
                 <ChallengeCard challenge={challenge} />

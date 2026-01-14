@@ -585,8 +585,9 @@ export const useVoidChallenge = () => {
       return { challengeId };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['challenges'] });
-      queryClient.invalidateQueries({ queryKey: ['my-active-challenges'] });
+      queryClient.invalidateQueries({ queryKey: ['challenges'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['my-active-challenges'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
     },
   });
 };
