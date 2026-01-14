@@ -38,8 +38,8 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
   
   if (isLoading || !progress) {
     return (
-      <div className="flex items-center justify-center py-2">
-        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center py-1">
+        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -47,43 +47,25 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
   const isGroupChallenge = challenge.type === 'group';
 
   if (isGroupChallenge) {
-    // For group challenges, show team totals
     const teamA = progress.participants.filter(p => p.team === 'a');
     const teamB = progress.participants.filter(p => p.team === 'b');
     const teamATotal = teamA.reduce((sum, p) => sum + (p.current_value || 0), 0);
     const teamBTotal = teamB.reduce((sum, p) => sum + (p.current_value || 0), 0);
-    const myTeam = progress.participants.find(p => p.user_id === myUserId)?.team;
-    const isWinning = myTeam === 'a' ? teamATotal > teamBTotal : teamBTotal > teamATotal;
-    const isTied = teamATotal === teamBTotal;
+    const total = teamATotal + teamBTotal;
+    const redPercent = total > 0 ? (teamATotal / total) * 100 : 50;
 
     return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
-              myTeam === 'a' 
-                ? (isWinning ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600")
-                : "bg-red-500/10 text-red-600"
-            )}>
-              {teamATotal}
-            </div>
-            <span className="text-sm font-medium text-red-600">🔴 Red</span>
+      <div className="space-y-1.5">
+        {/* Score slider */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-red-600 w-8 text-right">{Math.round(teamATotal)}</span>
+          <div className="flex-1 h-2 rounded-full bg-blue-500 overflow-hidden">
+            <div 
+              className="h-full bg-red-500 transition-all duration-300"
+              style={{ width: `${redPercent}%` }}
+            />
           </div>
-          <Badge variant="secondary" className="text-xs">
-            {metricLabels[challenge.metric] || challenge.metric}
-          </Badge>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-blue-600">🔵 Blue</span>
-            <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
-              myTeam === 'b' 
-                ? (isWinning ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600")
-                : "bg-blue-500/10 text-blue-600"
-            )}>
-              {teamBTotal}
-            </div>
-          </div>
+          <span className="text-xs font-semibold text-blue-600 w-8">{Math.round(teamBTotal)}</span>
         </div>
         {challenge.stakes && (
           <p className="text-xs text-muted-foreground text-center">🎯 {challenge.stakes}</p>
@@ -92,39 +74,26 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
     );
   }
 
-  // Original 1v1 logic
+  // 1v1 logic - simple score slider
   const myProgress = progress.participants.find(p => p.user_id === myUserId);
   const opponentProgress = progress.participants.find(p => p.user_id !== myUserId);
-  
   const myValue = myProgress?.current_value || 0;
   const theirValue = opponentProgress?.current_value || 0;
-  const isWinning = myValue > theirValue;
-  const isTied = myValue === theirValue;
+  const total = myValue + theirValue;
+  const myPercent = total > 0 ? (myValue / total) * 100 : 50;
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
-            isWinning ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600"
-          )}>
-            {myValue}
-          </div>
-          <span className="text-sm font-medium">You</span>
+    <div className="space-y-1.5">
+      {/* Score slider */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold text-primary w-8 text-right">{Math.round(myValue)}</span>
+        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+          <div 
+            className="h-full bg-primary transition-all duration-300"
+            style={{ width: `${myPercent}%` }}
+          />
         </div>
-        <Badge variant="secondary" className="text-xs">
-          {metricLabels[challenge.metric] || challenge.metric}
-        </Badge>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{getCleanFirstName(opponentProgress?.rep_name)}</span>
-          <div className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
-            !isWinning && !isTied ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600"
-          )}>
-            {theirValue}
-          </div>
-        </div>
+        <span className="text-xs font-semibold text-muted-foreground w-8">{Math.round(theirValue)}</span>
       </div>
       {challenge.stakes && (
         <p className="text-xs text-muted-foreground text-center">🎯 {challenge.stakes}</p>
@@ -378,8 +347,7 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
             {activeChallenges.slice(0, 2).map(challenge => {
               const me = challenge.participants?.find(p => p.role === 'captain_a');
               const isGroupChallenge = challenge.type === 'group';
-              const teamA = challenge.participants?.filter(p => p.team === 'a') || [];
-              const teamB = challenge.participants?.filter(p => p.team === 'b') || [];
+              const opponent = challenge.participants?.find(p => p.user_id !== me?.user_id);
               
               return (
                 <motion.div 
@@ -392,30 +360,13 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
                   className="p-3 rounded-lg bg-background/80 border cursor-pointer hover:border-primary/50 transition-colors active:scale-[0.98]"
                   onClick={(e) => handleChallengeClick(e, challenge)}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      {isGroupChallenge ? (
-                        <Users className="h-4 w-4 text-primary" />
-                      ) : (
-                        <Swords className="h-4 w-4 text-primary" />
-                      )}
-                      <span className="text-sm font-medium">
-                        {isGroupChallenge ? '🔴 Red vs 🔵 Blue' : '1v1 Challenge'}
-                      </span>
-                    </div>
-                    {isGroupChallenge && (
-                      <div className="flex items-center gap-1.5">
-                        {/* Red - count badge */}
-                        <div className="flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded-full">
-                          <span className="text-xs font-semibold text-red-600">{teamA.length}</span>
-                        </div>
-                        <span className="text-[10px] text-muted-foreground font-medium">vs</span>
-                        {/* Blue - count badge */}
-                        <div className="flex items-center gap-1 bg-blue-500/10 px-2 py-0.5 rounded-full">
-                          <span className="text-xs font-semibold text-blue-600">{teamB.length}</span>
-                        </div>
-                      </div>
-                    )}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">
+                      {isGroupChallenge ? '🔴 vs 🔵' : `vs ${getCleanFirstName(opponent?.rep_name)}`}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {metricLabels[challenge.metric] || challenge.metric}
+                    </span>
                   </div>
                   <ChallengeProgressItem
                     challenge={challenge}
