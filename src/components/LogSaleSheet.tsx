@@ -542,15 +542,35 @@ export const LogSaleSheet = ({
                   </Popover>
                 </div>
 
-                {/* Time Picker */}
+                {/* Time Picker - styled to match date picker */}
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Time</Label>
-                  <Input
-                    type="time"
-                    value={selectedTime}
-                    onChange={(e) => setSelectedTime(e.target.value)}
-                    className="h-12"
-                  />
+                  <div className="relative">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-center text-left font-normal h-12",
+                        !selectedTime && "text-muted-foreground"
+                      )}
+                      onClick={() => {
+                        // Focus the hidden input when clicking the button
+                        const input = document.getElementById('sale-time-input');
+                        if (input) input.click();
+                      }}
+                    >
+                      <span className="text-base">
+                        {selectedTime ? format(new Date(`2000-01-01T${selectedTime}`), "h:mm a") : "Pick time"}
+                      </span>
+                    </Button>
+                    <input
+                      id="sale-time-input"
+                      type="time"
+                      value={selectedTime}
+                      onChange={(e) => setSelectedTime(e.target.value)}
+                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
