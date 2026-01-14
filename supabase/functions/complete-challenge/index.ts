@@ -213,14 +213,14 @@ Deno.serve(async (req) => {
             .filter((p: ChallengeParticipant) => p.team === 'b')
             .reduce((sum: number, p: ChallengeParticipant) => sum + (userTotals.get(p.user_id)?.primary || 0), 0);
 
-          console.log(`[complete-challenge] Team A: ${teamATotals}, Team B: ${teamBTotals}`);
+          console.log(`[complete-challenge] Red: ${teamATotals}, Blue: ${teamBTotals}`);
 
           if (teamATotals > teamBTotals) {
-            // Team A wins - winner is captain_a
+            // Red wins - winner is captain_a
             const captainA = participants.find((p: ChallengeParticipant) => p.role === 'captain_a');
             winnerUserId = captainA?.user_id || null;
           } else if (teamBTotals > teamATotals) {
-            // Team B wins - winner is captain_b
+            // Blue wins - winner is captain_b
             const captainB = participants.find((p: ChallengeParticipant) => p.role === 'captain_b');
             winnerUserId = captainB?.user_id || null;
           } else {

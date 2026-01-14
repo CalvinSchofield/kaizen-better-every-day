@@ -224,7 +224,7 @@ const Compete = () => {
                       <div className="flex-1">
                         <p className="font-medium">{getCleanName(opponent?.rep_name)} challenged you!</p>
                         <p className="text-sm text-muted-foreground">
-                          {metricLabels[challenge.metric]} • {challenge.type === '1v1' ? '1v1 Battle' : 'Team Battle'}
+                          {metricLabels[challenge.metric]} • {challenge.type === '1v1' ? '1v1 Battle' : '🔴 Red vs 🔵 Blue'}
                         </p>
                       </div>
                     </div>
@@ -278,7 +278,7 @@ const Compete = () => {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary" className="text-xs">
-                          {challenge.type === '1v1' ? '1v1' : 'Team'}
+                          {challenge.type === '1v1' ? '1v1' : '🔴 vs 🔵'}
                         </Badge>
                         <span className="text-xs text-muted-foreground">vs {opponent?.rep_name}</span>
                       </div>

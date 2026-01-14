@@ -199,22 +199,58 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
           </div>
         )}
 
-        {/* Group Battle */}
+        {/* Group Battle - Red vs Blue */}
         {!is1v1 && progress?.teams && (
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground mb-1">Team A ({progress.teams.a.members.length})</p>
-              <p className="text-2xl font-bold text-primary">
-                {metricConfig.format(progress.teams.a.total_value)}
-              </p>
+          <div className="space-y-3 mb-3">
+            <div className="flex items-center justify-between">
+              <div className="text-center">
+                <p className="text-xs text-red-600 mb-1">🔴 Red ({progress.teams.a.members.length})</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {metricConfig.format(progress.teams.a.total_value)}
+                </p>
+              </div>
+              <span className="text-lg font-bold text-muted-foreground">VS</span>
+              <div className="text-center">
+                <p className="text-xs text-blue-600 mb-1">🔵 Blue ({progress.teams.b.members.length})</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {metricConfig.format(progress.teams.b.total_value)}
+                </p>
+              </div>
             </div>
-            <span className="text-lg font-bold text-muted-foreground">VS</span>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground mb-1">Team B ({progress.teams.b.members.length})</p>
-              <p className="text-2xl font-bold">
-                {metricConfig.format(progress.teams.b.total_value)}
-              </p>
-            </div>
+            {/* Red vs Blue Score Slider */}
+            {(progress.teams.a.total_value > 0 || progress.teams.b.total_value > 0) && (
+              <div className="relative h-3 rounded-full overflow-hidden bg-gradient-to-r from-red-500/20 via-muted to-blue-500/20">
+                {(() => {
+                  const redTotal = progress.teams.a.total_value;
+                  const blueTotal = progress.teams.b.total_value;
+                  const total = redTotal + blueTotal;
+                  const redPercent = total > 0 ? (redTotal / total) * 100 : 50;
+                  
+                  return (
+                    <>
+                      <motion.div
+                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 to-red-400"
+                        initial={{ width: "50%" }}
+                        animate={{ width: `${redPercent}%` }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
+                      />
+                      <motion.div
+                        className="absolute inset-y-0 right-0 bg-gradient-to-l from-blue-500 to-blue-400"
+                        initial={{ width: "50%" }}
+                        animate={{ width: `${100 - redPercent}%` }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
+                      />
+                      <motion.div
+                        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white shadow-lg border-2 border-foreground/20"
+                        initial={{ left: "calc(50% - 8px)" }}
+                        animate={{ left: `calc(${redPercent}% - 8px)` }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
+                      />
+                    </>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         )}
 
