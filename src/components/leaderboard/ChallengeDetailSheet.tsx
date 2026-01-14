@@ -12,7 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { EditChallengeDrawer } from "./EditChallengeDrawer";
 import { ChallengeEditApprovalCard } from "./ChallengeEditApprovalCard";
-import { getInitials } from "@/utils/nameUtils";
+import { getInitials, getCleanName, getCleanFirstName } from "@/utils/nameUtils";
 import { toast } from "sonner";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { useConfetti } from "@/hooks/useConfetti";
@@ -191,7 +191,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                 <div className="text-center">
                   <p className="font-semibold text-lg">You've been challenged!</p>
                   <p className="text-sm text-muted-foreground">
-                    {challenge.creator_name} wants to compete with you
+                    {getCleanName(challenge.creator_name)} wants to compete with you
                   </p>
                 </div>
                 <div className="flex gap-3">
@@ -273,7 +273,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                             <AvatarFallback className="text-xs">{getInitials(participant.rep_name)}</AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{participant.rep_name}</p>
+                            <p className="font-medium text-sm truncate">{getCleanName(participant.rep_name)}</p>
                           </div>
                           {participant.accepted ? (
                             <Check className="h-4 w-4 text-green-500 shrink-0" />
@@ -307,7 +307,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                             <AvatarFallback className="text-xs">{getInitials(participant.rep_name)}</AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{participant.rep_name}</p>
+                            <p className="font-medium text-sm truncate">{getCleanName(participant.rep_name)}</p>
                           </div>
                           {participant.accepted ? (
                             <Check className="h-4 w-4 text-green-500 shrink-0" />
@@ -363,7 +363,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                           )}
                         </div>
                       </div>
-                      <p className="font-semibold mt-2">{participant.rep_name}</p>
+                      <p className="font-semibold mt-2">{getCleanName(participant.rep_name)}</p>
                       <p className="text-xs text-muted-foreground">
                         {participant.accepted ? 'Ready!' : 'Pending'}
                       </p>
@@ -404,7 +404,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                               <AvatarFallback className="text-lg font-semibold">{getInitials(p.rep_name)}</AvatarFallback>
                             </Avatar>
                           </motion.div>
-                          <p className="font-semibold">{p.rep_name}</p>
+                          <p className="font-semibold">{getCleanName(p.rep_name)}</p>
                           <motion.p 
                             key={p.current_value}
                             initial={{ scale: 1.2 }}
@@ -480,7 +480,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium truncate">{member.rep_name?.split(' ')[0]}</p>
+                                <p className="text-xs font-medium truncate">{getCleanFirstName(member.rep_name)}</p>
                               </div>
                               <span className={cn(
                                 "text-sm font-bold shrink-0",
@@ -520,7 +520,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium truncate">{member.rep_name?.split(' ')[0]}</p>
+                                <p className="text-xs font-medium truncate">{getCleanFirstName(member.rep_name)}</p>
                               </div>
                               <span className="text-sm font-bold shrink-0">
                                 {member.current_value.toFixed(1)}

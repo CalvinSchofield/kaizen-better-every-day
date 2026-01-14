@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { formatCompetitionDuration } from "@/utils/competitionDateUtils";
 import { toast } from "sonner";
-import { getInitials } from "@/utils/nameUtils";
+import { getInitials, getCleanName } from "@/utils/nameUtils";
 
 interface IncentiveDetailSheetProps {
   incentive: Incentive;
@@ -72,7 +72,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
               </div>
               <div className="flex-1">
                 <DrawerTitle>{incentive.title}</DrawerTitle>
-                <p className="text-sm text-muted-foreground">by {incentive.creator_name}</p>
+                <p className="text-sm text-muted-foreground">by {getCleanName(incentive.creator_name)}</p>
               </div>
               {isCreator && isActive && (
                 <div className="flex items-center gap-1">
@@ -325,7 +325,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <p className="font-medium">{participant.rep_name}</p>
+                            <p className="font-medium">{getCleanName(participant.rep_name)}</p>
                             {isAnyoneWho && isQualified && (
                               <span className="text-xs font-medium text-green-600 bg-green-500/20 px-1.5 py-0.5 rounded-full">
                                 Qualified!
@@ -445,7 +445,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                               </motion.div>
                             </div>
                             <div className="flex-1">
-                              <p className="font-medium">{winner.rep_name}</p>
+                              <p className="font-medium">{getCleanName(winner.rep_name)}</p>
                               <span className="text-xs font-medium text-green-600">
                                 🏆 Qualified!
                               </span>
