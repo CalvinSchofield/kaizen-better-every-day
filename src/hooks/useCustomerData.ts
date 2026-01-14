@@ -273,10 +273,23 @@ export const useCustomerData = (
     if (sortBy) {
       result = [...result].sort((a, b) => {
         switch (sortBy) {
-          case 'recent':
-            return new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime();
-          case 'oldest':
-            return new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime();
+          case 'recent': {
+            // First sort by entry_date (day), then by timestamp (sale time) within each day
+            const dateDiff = new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime();
+            if (dateDiff !== 0) return dateDiff;
+            // Within same day, sort by sale timestamp (most recent first)
+            const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+            const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+            return bTime - aTime;
+          }
+          case 'oldest': {
+            const dateDiff = new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime();
+            if (dateDiff !== 0) return dateDiff;
+            // Within same day, sort by sale timestamp (oldest first)
+            const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+            const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+            return aTime - bTime;
+          }
           case 'prmr_high':
             return b.prmr - a.prmr;
           case 'prmr_low':
