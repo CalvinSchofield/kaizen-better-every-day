@@ -2,11 +2,11 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Challenge, useRespondToChallenge } from "@/hooks/useChallenges";
+import { Challenge, useRespondToChallenge, useVoidChallenge } from "@/hooks/useChallenges";
 import { useChallengeProgress } from "@/hooks/useChallengeProgress";
 import { useChallengeEditProposals } from "@/hooks/useChallengeEdits";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, Eye, EyeOff, Pencil, Check, Clock, X, Swords, Users } from "lucide-react";
+import { Trophy, Eye, EyeOff, Pencil, Check, Clock, X, Swords, Users, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +40,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
   );
   const { data: editProposals } = useChallengeEditProposals(challenge.id);
   const respondMutation = useRespondToChallenge();
+  const voidMutation = useVoidChallenge();
   const { fireConfetti } = useConfetti();
 
   const { data: currentUser } = useQuery({
@@ -70,6 +71,9 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
     myParticipation.accepted === false && 
     isTeamBattle;
 
+  // Creator can void pending or active challenges (not completed ones)
+  const canVoid = isCreator && (challenge.status === 'pending' || challenge.status === 'active');
+
   // Separate participants by team
   const teamA = challenge.participants?.filter(p => p.role === 'captain_a' || p.team === 'a') || [];
   const teamB = challenge.participants?.filter(p => p.role === 'captain_b' || p.team === 'b') || [];
@@ -94,6 +98,17 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
       onOpenChange(false);
     } catch (error) {
       toast.error('Failed to decline challenge');
+    }
+  };
+
+  const handleVoid = async () => {
+    try {
+      Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
+      await voidMutation.mutateAsync(challenge.id);
+      toast.success('Challenge voided');
+      onOpenChange(false);
+    } catch (error) {
+      toast.error('Failed to void challenge');
     }
   };
 
@@ -472,6 +487,26 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                 <p className="text-xs text-center text-muted-foreground mb-2">
                   Wait for current proposal to be resolved before proposing new changes
                 </p>
+              </motion.div>
+            )}
+
+            {/* Void Challenge Button - for creators only */}
+            {canVoid && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.45 }}
+                className="pt-4 border-t border-border"
+              >
+                <Button
+                  variant="ghost"
+                  className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={handleVoid}
+                  disabled={voidMutation.isPending}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {voidMutation.isPending ? 'Voiding...' : 'Void Challenge'}
+                </Button>
               </motion.div>
             )}
           </motion.div>
