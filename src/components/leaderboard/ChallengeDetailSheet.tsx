@@ -376,46 +376,165 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
             {/* Active/Completed Matchup */}
             <AnimatePresence>
               {progress && challenge.status !== 'pending' && (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex items-center justify-around"
-                >
-                  {progress.participants.slice(0, 2).map((p, i) => (
+                <>
+                  {/* 1v1 Challenge - Show two participants head to head */}
+                  {is1v1 && (
                     <motion.div 
-                      key={p.user_id} 
-                      initial={{ opacity: 0, x: i === 0 ? -30 : 30 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.15 + i * 0.1, type: "spring", stiffness: 300 }}
-                      className="text-center"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex items-center justify-around"
                     >
-                      <motion.div
-                        whileHover={{ scale: 1.05 }}
-                        transition={{ type: "spring", stiffness: 400 }}
-                      >
-                        <Avatar className={cn(
-                          "h-16 w-16 mx-auto mb-2 border-2",
-                          i === 0 ? "border-primary" : "border-border"
-                        )}>
-                          <AvatarImage src={p.profile_photo_url} />
-                          <AvatarFallback>{getInitials(p.rep_name)}</AvatarFallback>
-                        </Avatar>
-                      </motion.div>
-                      <p className="font-semibold">{p.rep_name}</p>
-                      <motion.p 
-                        key={p.current_value}
-                        initial={{ scale: 1.2 }}
-                        animate={{ scale: 1 }}
-                        className={cn(
-                          "text-2xl font-bold",
-                          i === 0 ? "text-primary" : "text-foreground"
-                        )}
-                      >
-                        {p.current_value.toFixed(1)}
-                      </motion.p>
+                      {progress.participants.slice(0, 2).map((p, i) => (
+                        <motion.div 
+                          key={p.user_id} 
+                          initial={{ opacity: 0, x: i === 0 ? -30 : 30 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.15 + i * 0.1, type: "spring", stiffness: 300 }}
+                          className="text-center"
+                        >
+                          <motion.div
+                            whileHover={{ scale: 1.05 }}
+                            transition={{ type: "spring", stiffness: 400 }}
+                          >
+                            <Avatar className={cn(
+                              "h-16 w-16 mx-auto mb-2 border-2",
+                              i === 0 ? "border-primary" : "border-border"
+                            )}>
+                              <AvatarImage src={p.profile_photo_url} />
+                              <AvatarFallback className="text-lg font-semibold">{getInitials(p.rep_name)}</AvatarFallback>
+                            </Avatar>
+                          </motion.div>
+                          <p className="font-semibold">{p.rep_name}</p>
+                          <motion.p 
+                            key={p.current_value}
+                            initial={{ scale: 1.2 }}
+                            animate={{ scale: 1 }}
+                            className={cn(
+                              "text-2xl font-bold",
+                              i === 0 ? "text-primary" : "text-foreground"
+                            )}
+                          >
+                            {p.current_value.toFixed(1)}
+                          </motion.p>
+                        </motion.div>
+                      ))}
                     </motion.div>
-                  ))}
-                </motion.div>
+                  )}
+
+                  {/* Team Battle - Show team leaderboards */}
+                  {isTeamBattle && progress.teams && (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="space-y-4"
+                    >
+                      {/* Team Totals Header */}
+                      <div className="flex items-center justify-between px-4">
+                        <div className="text-center">
+                          <p className="text-sm font-bold text-primary">TEAM A</p>
+                          <p className={cn(
+                            "text-2xl font-bold",
+                            progress.teams.a.total_value > progress.teams.b.total_value ? "text-green-500" :
+                            progress.teams.a.total_value < progress.teams.b.total_value ? "text-red-500" : "text-amber-500"
+                          )}>
+                            {progress.teams.a.total_value.toFixed(1)}
+                          </p>
+                        </div>
+                        <div className="text-muted-foreground text-lg font-semibold">vs</div>
+                        <div className="text-center">
+                          <p className="text-sm font-bold text-muted-foreground">TEAM B</p>
+                          <p className={cn(
+                            "text-2xl font-bold",
+                            progress.teams.b.total_value > progress.teams.a.total_value ? "text-green-500" :
+                            progress.teams.b.total_value < progress.teams.a.total_value ? "text-red-500" : "text-amber-500"
+                          )}>
+                            {progress.teams.b.total_value.toFixed(1)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Team Leaderboards Side by Side */}
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Team A Leaderboard */}
+                        <div className="space-y-1">
+                          {progress.teams.a.members
+                            .sort((a, b) => b.current_value - a.current_value)
+                            .map((member, i) => (
+                            <motion.div
+                              key={member.user_id}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 0.1 + i * 0.03 }}
+                              className={cn(
+                                "flex items-center gap-2 p-2 rounded-lg",
+                                i === 0 ? "bg-primary/10 border border-primary/30" : "bg-muted/30"
+                              )}
+                            >
+                              <span className="text-xs font-bold text-muted-foreground w-4">
+                                {i + 1}
+                              </span>
+                              <Avatar className="h-7 w-7 border border-primary/50 shrink-0">
+                                <AvatarImage src={member.profile_photo_url} />
+                                <AvatarFallback className="text-[10px] font-semibold">
+                                  {getInitials(member.rep_name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{member.rep_name?.split(' ')[0]}</p>
+                              </div>
+                              <span className={cn(
+                                "text-sm font-bold shrink-0",
+                                i === 0 ? "text-primary" : "text-foreground"
+                              )}>
+                                {member.current_value.toFixed(1)}
+                              </span>
+                            </motion.div>
+                          ))}
+                          {progress.teams.a.members.length === 0 && (
+                            <p className="text-xs text-muted-foreground text-center py-2">No members</p>
+                          )}
+                        </div>
+
+                        {/* Team B Leaderboard */}
+                        <div className="space-y-1">
+                          {progress.teams.b.members
+                            .sort((a, b) => b.current_value - a.current_value)
+                            .map((member, i) => (
+                            <motion.div
+                              key={member.user_id}
+                              initial={{ opacity: 0, x: 10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 0.1 + i * 0.03 }}
+                              className={cn(
+                                "flex items-center gap-2 p-2 rounded-lg",
+                                i === 0 ? "bg-muted border border-border" : "bg-muted/30"
+                              )}
+                            >
+                              <span className="text-xs font-bold text-muted-foreground w-4">
+                                {i + 1}
+                              </span>
+                              <Avatar className="h-7 w-7 border border-border shrink-0">
+                                <AvatarImage src={member.profile_photo_url} />
+                                <AvatarFallback className="text-[10px] font-semibold">
+                                  {getInitials(member.rep_name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{member.rep_name?.split(' ')[0]}</p>
+                              </div>
+                              <span className="text-sm font-bold shrink-0">
+                                {member.current_value.toFixed(1)}
+                              </span>
+                            </motion.div>
+                          ))}
+                          {progress.teams.b.members.length === 0 && (
+                            <p className="text-xs text-muted-foreground text-center py-2">No members</p>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </>
               )}
             </AnimatePresence>
 
