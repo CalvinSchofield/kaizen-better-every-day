@@ -24,6 +24,7 @@ export const clearPersistedCache = () => {
       
       // Clear all other app-specific caches
       if (key.startsWith('rep-data-cache') || 
+          key.startsWith('rep-goals-cache') ||  // Goals cache - critical for pace calculations
           key.startsWith('competitors-cache') ||
           key.startsWith('blitzes-cache') ||
           key.startsWith('team-access-cache') ||
