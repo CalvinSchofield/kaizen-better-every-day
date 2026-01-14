@@ -43,6 +43,55 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
     );
   }
 
+  const isGroupChallenge = challenge.type === 'group';
+
+  if (isGroupChallenge) {
+    // For group challenges, show team totals
+    const teamA = progress.participants.filter(p => p.team === 'a');
+    const teamB = progress.participants.filter(p => p.team === 'b');
+    const teamATotal = teamA.reduce((sum, p) => sum + (p.current_value || 0), 0);
+    const teamBTotal = teamB.reduce((sum, p) => sum + (p.current_value || 0), 0);
+    const myTeam = progress.participants.find(p => p.user_id === myUserId)?.team;
+    const isWinning = myTeam === 'a' ? teamATotal > teamBTotal : teamBTotal > teamATotal;
+    const isTied = teamATotal === teamBTotal;
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
+              myTeam === 'a' 
+                ? (isWinning ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600")
+                : "bg-muted text-muted-foreground"
+            )}>
+              {teamATotal}
+            </div>
+            <span className="text-sm font-medium">Team A</span>
+          </div>
+          <Badge variant="secondary" className="text-xs">
+            {metricLabels[challenge.metric] || challenge.metric}
+          </Badge>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Team B</span>
+            <div className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
+              myTeam === 'b' 
+                ? (isWinning ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600")
+                : "bg-muted text-muted-foreground"
+            )}>
+              {teamBTotal}
+            </div>
+          </div>
+        </div>
+        {challenge.stakes && (
+          <p className="text-xs text-muted-foreground text-center">🎯 {challenge.stakes}</p>
+        )}
+      </div>
+    );
+  }
+
+  // Original 1v1 logic
   const myProgress = progress.participants.find(p => p.user_id === myUserId);
   const opponentProgress = progress.participants.find(p => p.user_id !== myUserId);
   
@@ -327,6 +376,9 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
             {/* Active Challenges */}
             {activeChallenges.slice(0, 2).map(challenge => {
               const me = challenge.participants?.find(p => p.role === 'captain_a');
+              const isGroupChallenge = challenge.type === 'group';
+              const teamA = challenge.participants?.filter(p => p.team === 'a') || [];
+              const teamB = challenge.participants?.filter(p => p.team === 'b') || [];
               
               return (
                 <motion.div 
@@ -339,9 +391,54 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
                   className="p-3 rounded-lg bg-background/80 border cursor-pointer hover:border-primary/50 transition-colors active:scale-[0.98]"
                   onClick={(e) => handleChallengeClick(e, challenge)}
                 >
-                  <div className="flex items-center gap-2 mb-3">
-                    <Swords className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium">1v1 Challenge</span>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      {isGroupChallenge ? (
+                        <Users className="h-4 w-4 text-primary" />
+                      ) : (
+                        <Swords className="h-4 w-4 text-primary" />
+                      )}
+                      <span className="text-sm font-medium">
+                        {isGroupChallenge ? 'Team A vs Team B' : '1v1 Challenge'}
+                      </span>
+                    </div>
+                    {isGroupChallenge && (
+                      <div className="flex items-center gap-2">
+                        {/* Team A avatars */}
+                        <div className="flex -space-x-2">
+                          {teamA.slice(0, 3).map((p, i) => (
+                            <Avatar key={p.user_id} className="h-6 w-6 border-2 border-background" style={{ zIndex: 3 - i }}>
+                              <AvatarImage src={p.profile_photo_url || undefined} />
+                              <AvatarFallback className="text-[10px] bg-green-100 text-green-700">
+                                {p.rep_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                          ))}
+                          {teamA.length > 3 && (
+                            <div className="h-6 w-6 rounded-full bg-green-100 border-2 border-background flex items-center justify-center text-[10px] font-medium text-green-700">
+                              +{teamA.length - 3}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground">vs</span>
+                        {/* Team B avatars */}
+                        <div className="flex -space-x-2">
+                          {teamB.slice(0, 3).map((p, i) => (
+                            <Avatar key={p.user_id} className="h-6 w-6 border-2 border-background" style={{ zIndex: 3 - i }}>
+                              <AvatarImage src={p.profile_photo_url || undefined} />
+                              <AvatarFallback className="text-[10px] bg-red-100 text-red-700">
+                                {p.rep_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                          ))}
+                          {teamB.length > 3 && (
+                            <div className="h-6 w-6 rounded-full bg-red-100 border-2 border-background flex items-center justify-center text-[10px] font-medium text-red-700">
+                              +{teamB.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <ChallengeProgressItem
                     challenge={challenge}
