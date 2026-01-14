@@ -324,7 +324,7 @@ export const useCreateChallenge = () => {
           user_id: p.user_id,
           team: p.team || null,
           role: p.role,
-          accepted: null, // Pending acceptance
+          accepted: null, // Initially pending
         })),
       ];
 
@@ -334,32 +334,63 @@ export const useCreateChallenge = () => {
 
       if (partError) throw partError;
 
-      // Send push notifications to invited participants
-      const targetUserIds = input.participants.map(p => p.user_id);
-      if (targetUserIds.length > 0) {
-        try {
-          const { data: creatorRep } = await supabase
-            .from('reps')
-            .select('name')
-            .eq('user_id', user.id)
-            .single();
-          
-          const creatorName = creatorRep?.name || 'Someone';
-          
-          await supabase.functions.invoke('send-challenge-notification', {
-            body: {
-              type: 'challenge_invite',
-              targetUserIds,
-              title: '🎯 Challenge Invite!',
-              body: `${creatorName} challenged you to a ${input.type === '1v1' ? '1v1' : 'team'} battle on ${input.metric.replace('_', ' ').toUpperCase()}!`,
-            },
-          });
-        } catch (notifError) {
-          console.error('[useCreateChallenge] Notification error (non-fatal):', notifError);
+      // Check if all participants are in creator's downline - if so, auto-start
+      let shouldAutoStart = false;
+      try {
+        const { data: accessData } = await supabase.functions.invoke('fetch-team-access');
+        const downlineUserIds = new Set<string>(accessData?.accessibleUserIds || []);
+        
+        // Only auto-start if creator has leadership access and ALL invited participants are in their downline
+        if (accessData?.accessLevel && accessData.accessLevel !== 'none') {
+          const allInDownline = input.participants.every(p => downlineUserIds.has(p.user_id));
+          if (allInDownline) {
+            shouldAutoStart = true;
+            console.log('[useCreateChallenge] All participants in downline, auto-starting challenge');
+          }
+        }
+      } catch (accessError) {
+        console.warn('[useCreateChallenge] Could not check team access for auto-start:', accessError);
+      }
+
+      if (shouldAutoStart) {
+        // Auto-accept all participants and set challenge to active
+        await supabase
+          .from('challenge_participants')
+          .update({ accepted: true, accepted_at: new Date().toISOString() })
+          .eq('challenge_id', challenge.id);
+        
+        await supabase
+          .from('challenges')
+          .update({ status: 'active' })
+          .eq('id', challenge.id);
+      } else {
+        // Send push notifications to invited participants
+        const targetUserIds = input.participants.map(p => p.user_id);
+        if (targetUserIds.length > 0) {
+          try {
+            const { data: creatorRep } = await supabase
+              .from('reps')
+              .select('name')
+              .eq('user_id', user.id)
+              .single();
+            
+            const creatorName = creatorRep?.name || 'Someone';
+            
+            await supabase.functions.invoke('send-challenge-notification', {
+              body: {
+                type: 'challenge_invite',
+                targetUserIds,
+                title: '🎯 Challenge Invite!',
+                body: `${creatorName} challenged you to a ${input.type === '1v1' ? '1v1' : 'team'} battle on ${input.metric.replace('_', ' ').toUpperCase()}!`,
+              },
+            });
+          } catch (notifError) {
+            console.error('[useCreateChallenge] Notification error (non-fatal):', notifError);
+          }
         }
       }
 
-      return challenge;
+      return { challenge, autoStarted: shouldAutoStart };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['challenges'] });
@@ -450,19 +481,19 @@ export const useRespondToChallenge = () => {
         }
       }
 
-      // If a non-captain member declined, just remove them from the challenge
-      if (!accept && !isCaptain) {
-        await supabase
-          .from('challenge_participants')
-          .delete()
-          .eq('challenge_id', challengeId)
-          .eq('user_id', user.id);
+      // For team battles (group), keep the participant but mark as declined so they can change their mind
+      // For 1v1, the challenge is already declined at this point
+      if (!accept && !isCaptain && !isOneOnOne) {
+        // Team battle: Keep the participant record with accepted=false
+        // They can change their response later via the "Change Response" button
+        console.log('[useRespondToChallenge] Team member declined - keeping record for potential change');
         
-        // Re-check if challenge can proceed
+        // Re-check if challenge can still proceed with remaining accepting participants
         const { data: remainingParticipants } = await supabase
           .from('challenge_participants')
           .select('accepted, role')
-          .eq('challenge_id', challengeId);
+          .eq('challenge_id', challengeId)
+          .neq('accepted', false); // Only count those who haven't declined
         
         const allAccepted = remainingParticipants?.every(p => p.accepted === true);
         if (allAccepted && remainingParticipants && remainingParticipants.length >= 2) {

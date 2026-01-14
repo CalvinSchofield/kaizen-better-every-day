@@ -58,11 +58,17 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
   const is1v1 = challenge.type === '1v1';
   const isTeamBattle = challenge.type === 'group';
 
-  // Check if current user needs to respond
+  // Check if current user needs to respond (hasn't accepted or declined yet)
+  // Note: Creator is auto-accepted so their `accepted` is always true, never null
   const needsMyResponse = challenge.status === 'pending' && 
     myParticipation && 
-    myParticipation.accepted === null && 
-    !isCreator;
+    myParticipation.accepted === null;
+
+  // Check if user previously declined but can change their response (team battles only)
+  const canChangeResponse = challenge.status === 'pending' && 
+    myParticipation && 
+    myParticipation.accepted === false && 
+    isTeamBattle;
 
   // Separate participants by team
   const teamA = challenge.participants?.filter(p => p.role === 'captain_a' || p.team === 'a') || [];
@@ -192,6 +198,30 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                     Accept
                   </Button>
                 </div>
+              </motion.div>
+            )}
+
+            {/* Change Response CTA for users who previously declined (team battles only) */}
+            {canChangeResponse && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-muted/50 border border-border rounded-2xl p-4 space-y-3"
+              >
+                <div className="text-center">
+                  <p className="font-semibold text-lg">You declined this challenge</p>
+                  <p className="text-sm text-muted-foreground">
+                    Change your mind? You can still join!
+                  </p>
+                </div>
+                <Button
+                  className="w-full gap-2"
+                  onClick={handleAccept}
+                  disabled={respondMutation.isPending}
+                >
+                  <Check className="h-4 w-4" />
+                  Accept Challenge
+                </Button>
               </motion.div>
             )}
 
