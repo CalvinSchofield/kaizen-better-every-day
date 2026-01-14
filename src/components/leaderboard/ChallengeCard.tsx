@@ -156,46 +156,84 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
 
         {/* 1v1 Matchup */}
         {is1v1 && (
-          <div className="flex items-center justify-between mb-3">
-            {/* You */}
-            <div className="flex items-center gap-2">
-              <Avatar className="h-10 w-10 border-2 border-primary">
-                <AvatarImage src={myParticipation?.profile_photo_url || undefined} />
-                <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                  {myParticipation?.rep_name?.charAt(0) || 'Y'}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="font-semibold text-sm">You</p>
-                {progress && (
-                  <p className="text-lg font-bold text-primary">
-                    {metricConfig.format(progress.userProgress?.current_value || 0)}
-                  </p>
-                )}
+          <div className="space-y-3 mb-3">
+            <div className="flex items-center justify-between">
+              {/* You */}
+              <div className="flex items-center gap-2">
+                <Avatar className="h-10 w-10 border-2 border-primary">
+                  <AvatarImage src={myParticipation?.profile_photo_url || undefined} />
+                  <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                    {myParticipation?.rep_name?.charAt(0) || 'Y'}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-semibold text-sm">You</p>
+                  {progress && (
+                    <p className="text-lg font-bold text-primary">
+                      {metricConfig.format(progress.userProgress?.current_value || 0)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <span className="text-lg font-bold text-muted-foreground">VS</span>
+
+              {/* Opponent */}
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <p className="font-semibold text-sm">{getCleanName(opponent?.rep_name) || 'Opponent'}</p>
+                  {progress && (
+                    <p className="text-lg font-bold">
+                      {metricConfig.format(
+                        progress.participants.find(p => p.user_id === opponent?.user_id)?.current_value || 0
+                      )}
+                    </p>
+                  )}
+                </div>
+                <Avatar className="h-10 w-10 border-2 border-border">
+                  <AvatarImage src={opponent?.profile_photo_url || undefined} />
+                  <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
+                    {getInitials(opponent?.rep_name)}
+                  </AvatarFallback>
+                </Avatar>
               </div>
             </div>
 
-            <span className="text-lg font-bold text-muted-foreground">VS</span>
-
-            {/* Opponent */}
-            <div className="flex items-center gap-2">
-              <div className="text-right">
-                <p className="font-semibold text-sm">{getCleanName(opponent?.rep_name) || 'Opponent'}</p>
-                {progress && (
-                  <p className="text-lg font-bold">
-                    {metricConfig.format(
-                      progress.participants.find(p => p.user_id === opponent?.user_id)?.current_value || 0
-                    )}
-                  </p>
-                )}
-              </div>
-              <Avatar className="h-10 w-10 border-2 border-border">
-                <AvatarImage src={opponent?.profile_photo_url || undefined} />
-                <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
-                  {getInitials(opponent?.rep_name)}
-                </AvatarFallback>
-              </Avatar>
-            </div>
+            {/* 1v1 Score Slider */}
+            {progress && challenge.status === 'active' && (
+              (() => {
+                const myValue = progress.userProgress?.current_value || 0;
+                const theirValue = progress.participants.find(p => p.user_id === opponent?.user_id)?.current_value || 0;
+                const total = myValue + theirValue;
+                
+                if (total === 0) return null;
+                
+                const myPercent = (myValue / total) * 100;
+                
+                return (
+                  <div className="relative h-3 rounded-full overflow-hidden bg-gradient-to-r from-primary/20 via-muted to-foreground/20">
+                    <motion.div
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/80"
+                      initial={{ width: "50%" }}
+                      animate={{ width: `${myPercent}%` }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                    />
+                    <motion.div
+                      className="absolute inset-y-0 right-0 bg-gradient-to-l from-foreground/60 to-foreground/40"
+                      initial={{ width: "50%" }}
+                      animate={{ width: `${100 - myPercent}%` }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                    />
+                    <motion.div
+                      className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white shadow-lg border-2 border-foreground/20"
+                      initial={{ left: "calc(50% - 8px)" }}
+                      animate={{ left: `calc(${myPercent}% - 8px)` }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                    />
+                  </div>
+                );
+              })()
+            )}
           </div>
         )}
 
@@ -254,24 +292,6 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
           </div>
         )}
 
-        {/* Progress bar for active */}
-        {challenge.status === 'active' && progress && is1v1 && (
-          <div className="mb-3">
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-primary rounded-full"
-                initial={{ width: '50%' }}
-                animate={{ 
-                  width: `${Math.min(95, Math.max(5, 
-                    ((progress.userProgress?.current_value || 0) / 
-                    ((progress.userProgress?.current_value || 0) + (progress.leader?.current_value || 1))) * 100
-                  ))}%` 
-                }}
-                transition={{ duration: 0.5 }}
-              />
-            </div>
-          </div>
-        )}
 
         {/* Stakes & Timing */}
         <div className="flex items-center justify-between text-sm">

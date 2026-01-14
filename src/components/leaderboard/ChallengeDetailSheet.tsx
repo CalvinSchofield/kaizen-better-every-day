@@ -382,42 +382,86 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                     <motion.div 
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="flex items-center justify-around"
+                      className="space-y-4"
                     >
-                      {progress.participants.slice(0, 2).map((p, i) => (
-                        <motion.div 
-                          key={p.user_id} 
-                          initial={{ opacity: 0, x: i === 0 ? -30 : 30 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.15 + i * 0.1, type: "spring", stiffness: 300 }}
-                          className="text-center"
-                        >
-                          <motion.div
-                            whileHover={{ scale: 1.05 }}
-                            transition={{ type: "spring", stiffness: 400 }}
+                      <div className="flex items-center justify-around">
+                        {progress.participants.slice(0, 2).map((p, i) => (
+                          <motion.div 
+                            key={p.user_id} 
+                            initial={{ opacity: 0, x: i === 0 ? -30 : 30 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.15 + i * 0.1, type: "spring", stiffness: 300 }}
+                            className="text-center"
                           >
-                            <Avatar className={cn(
-                              "h-16 w-16 mx-auto mb-2 border-2",
-                              i === 0 ? "border-primary" : "border-border"
-                            )}>
-                              <AvatarImage src={p.profile_photo_url} />
-                              <AvatarFallback className="text-lg font-semibold">{getInitials(p.rep_name)}</AvatarFallback>
-                            </Avatar>
+                            <motion.div
+                              whileHover={{ scale: 1.05 }}
+                              transition={{ type: "spring", stiffness: 400 }}
+                            >
+                              <Avatar className={cn(
+                                "h-16 w-16 mx-auto mb-2 border-2",
+                                i === 0 ? "border-primary" : "border-border"
+                              )}>
+                                <AvatarImage src={p.profile_photo_url} />
+                                <AvatarFallback className="text-lg font-semibold">{getInitials(p.rep_name)}</AvatarFallback>
+                              </Avatar>
+                            </motion.div>
+                            <p className="font-semibold">{getCleanName(p.rep_name)}</p>
+                            <motion.p 
+                              key={p.current_value}
+                              initial={{ scale: 1.2 }}
+                              animate={{ scale: 1 }}
+                              className={cn(
+                                "text-2xl font-bold",
+                                i === 0 ? "text-primary" : "text-foreground"
+                              )}
+                            >
+                              {p.current_value.toFixed(1)}
+                            </motion.p>
                           </motion.div>
-                          <p className="font-semibold">{getCleanName(p.rep_name)}</p>
-                          <motion.p 
-                            key={p.current_value}
-                            initial={{ scale: 1.2 }}
-                            animate={{ scale: 1 }}
-                            className={cn(
-                              "text-2xl font-bold",
-                              i === 0 ? "text-primary" : "text-foreground"
-                            )}
-                          >
-                            {p.current_value.toFixed(1)}
-                          </motion.p>
+                        ))}
+                      </div>
+
+                      {/* 1v1 Score Slider */}
+                      {progress.participants.length >= 2 && (progress.participants[0].current_value > 0 || progress.participants[1].current_value > 0) && (
+                        <motion.div
+                          initial={{ opacity: 0, scaleX: 0.8 }}
+                          animate={{ opacity: 1, scaleX: 1 }}
+                          className="relative h-4 rounded-full overflow-hidden bg-gradient-to-r from-primary/20 via-muted to-foreground/20"
+                        >
+                          {(() => {
+                            const leftTotal = progress.participants[0].current_value;
+                            const rightTotal = progress.participants[1].current_value;
+                            const total = leftTotal + rightTotal;
+                            const leftPercent = total > 0 ? (leftTotal / total) * 100 : 50;
+                            
+                            return (
+                              <>
+                                {/* Left side fill */}
+                                <motion.div
+                                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/80"
+                                  initial={{ width: "50%" }}
+                                  animate={{ width: `${leftPercent}%` }}
+                                  transition={{ duration: 0.6, ease: "easeOut" }}
+                                />
+                                {/* Right side fill */}
+                                <motion.div
+                                  className="absolute inset-y-0 right-0 bg-gradient-to-l from-foreground/60 to-foreground/40"
+                                  initial={{ width: "50%" }}
+                                  animate={{ width: `${100 - leftPercent}%` }}
+                                  transition={{ duration: 0.6, ease: "easeOut" }}
+                                />
+                                {/* Center indicator dot */}
+                                <motion.div
+                                  className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-lg border-2 border-foreground/20"
+                                  initial={{ left: "calc(50% - 10px)" }}
+                                  animate={{ left: `calc(${leftPercent}% - 10px)` }}
+                                  transition={{ duration: 0.6, ease: "easeOut" }}
+                                />
+                              </>
+                            );
+                          })()}
                         </motion.div>
-                      ))}
+                      )}
                     </motion.div>
                   )}
 
