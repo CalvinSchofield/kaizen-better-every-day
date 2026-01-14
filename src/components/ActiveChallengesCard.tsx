@@ -64,22 +64,22 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
               "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
               myTeam === 'a' 
                 ? (isWinning ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600")
-                : "bg-muted text-muted-foreground"
+                : "bg-red-500/10 text-red-600"
             )}>
               {teamATotal}
             </div>
-            <span className="text-sm font-medium">Team A</span>
+            <span className="text-sm font-medium text-red-600">🔴 Red</span>
           </div>
           <Badge variant="secondary" className="text-xs">
             {metricLabels[challenge.metric] || challenge.metric}
           </Badge>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">Team B</span>
+            <span className="text-sm font-medium text-blue-600">🔵 Blue</span>
             <div className={cn(
               "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
               myTeam === 'b' 
                 ? (isWinning ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600")
-                : "bg-muted text-muted-foreground"
+                : "bg-blue-500/10 text-blue-600"
             )}>
               {teamBTotal}
             </div>
@@ -400,19 +400,19 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
                         <Swords className="h-4 w-4 text-primary" />
                       )}
                       <span className="text-sm font-medium">
-                        {isGroupChallenge ? 'Team A vs Team B' : '1v1 Challenge'}
+                        {isGroupChallenge ? '🔴 Red vs 🔵 Blue' : '1v1 Challenge'}
                       </span>
                     </div>
                     {isGroupChallenge && (
                       <div className="flex items-center gap-1.5">
-                        {/* Team A - count badge */}
-                        <div className="flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-full">
-                          <span className="text-xs font-semibold text-primary">{teamA.length}</span>
+                        {/* Red - count badge */}
+                        <div className="flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded-full">
+                          <span className="text-xs font-semibold text-red-600">{teamA.length}</span>
                         </div>
                         <span className="text-[10px] text-muted-foreground font-medium">vs</span>
-                        {/* Team B - count badge */}
-                        <div className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full">
-                          <span className="text-xs font-semibold text-muted-foreground">{teamB.length}</span>
+                        {/* Blue - count badge */}
+                        <div className="flex items-center gap-1 bg-blue-500/10 px-2 py-0.5 rounded-full">
+                          <span className="text-xs font-semibold text-blue-600">{teamB.length}</span>
                         </div>
                       </div>
                     )}

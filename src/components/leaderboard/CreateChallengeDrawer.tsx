@@ -379,12 +379,12 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
           {step === 2 && type === 'group' && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                {/* Team A (Your Team) */}
+                {/* Red Team (Your Team) */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-green-600">Your Team</Label>
-                  <div className="p-2 rounded-lg bg-green-500/10 border border-green-500/20 min-h-[100px]">
+                  <Label className="text-sm font-medium text-red-600">🔴 Your Team</Label>
+                  <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 min-h-[100px]">
                     {/* Current user (auto-included) */}
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/20 mb-2">
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-red-500/20 mb-2">
                       <Avatar className="h-6 w-6">
                         <AvatarFallback className="text-xs">{getInitials(currentUserRep?.name)}</AvatarFallback>
                       </Avatar>
@@ -409,10 +409,10 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                   </div>
                 </div>
 
-                {/* Team B (Their Team) */}
+                {/* Blue Team (Their Team) */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-orange-600">Their Team</Label>
-                  <div className="p-2 rounded-lg bg-orange-500/10 border border-orange-500/20 min-h-[100px]">
+                  <Label className="text-sm font-medium text-blue-600">🔵 Their Team</Label>
+                  <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 min-h-[100px]">
                     {teamB.length === 0 && (
                       <p className="text-xs text-muted-foreground text-center py-4">Select opponents below</p>
                     )}

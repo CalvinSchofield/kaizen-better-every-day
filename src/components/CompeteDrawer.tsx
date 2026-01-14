@@ -246,7 +246,7 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
                               <div className="flex-1">
                                 <p className="text-sm font-medium">{getCleanName(opponent?.rep_name)} challenged you!</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {metricLabels[challenge.metric]} • {challenge.type === '1v1' ? '1v1' : 'Team'}
+                                  {metricLabels[challenge.metric]} • {challenge.type === '1v1' ? '1v1' : '🔴 vs 🔵'}
                                 </p>
                               </div>
                             </div>

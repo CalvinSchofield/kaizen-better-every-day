@@ -25,10 +25,10 @@ interface ChallengeDetailSheetProps {
 
 // Helper to get friendly role label
 const getRoleLabel = (role: string, team?: string | null) => {
-  if (role === 'captain_a') return 'Team A Captain';
-  if (role === 'captain_b') return 'Team B Captain';
-  if (team === 'a') return 'Team A';
-  if (team === 'b') return 'Team B';
+  if (role === 'captain_a') return 'Red Captain';
+  if (role === 'captain_b') return 'Blue Captain';
+  if (team === 'a') return 'Red Team';
+  if (team === 'b') return 'Blue Team';
   return 'Participant';
 };
 
@@ -251,10 +251,10 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                 <p className="text-sm text-muted-foreground text-center font-medium">Waiting for all participants to accept</p>
                 
                 <div className="grid grid-cols-2 gap-3">
-                  {/* Team A */}
+                  {/* Red Team */}
                   <div className="space-y-2">
-                    <div className="bg-primary/10 rounded-lg px-3 py-2 text-center">
-                      <span className="text-sm font-bold text-primary">TEAM A</span>
+                    <div className="bg-red-500/10 rounded-lg px-3 py-2 text-center">
+                      <span className="text-sm font-bold text-red-600">🔴 RED</span>
                     </div>
                     <div className="space-y-2">
                       {teamA.map((participant, i) => (
@@ -268,7 +268,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                             participant.accepted ? "bg-green-500/10 border border-green-500/30" : "bg-muted/50"
                           )}
                         >
-                          <Avatar className="h-8 w-8 border border-primary/50">
+                          <Avatar className="h-8 w-8 border border-red-500/50">
                             <AvatarImage src={participant.profile_photo_url} />
                             <AvatarFallback className="text-xs">{getInitials(participant.rep_name)}</AvatarFallback>
                           </Avatar>
@@ -285,10 +285,10 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                     </div>
                   </div>
 
-                  {/* Team B */}
+                  {/* Blue Team */}
                   <div className="space-y-2">
-                    <div className="bg-muted rounded-lg px-3 py-2 text-center">
-                      <span className="text-sm font-bold text-muted-foreground">TEAM B</span>
+                    <div className="bg-blue-500/10 rounded-lg px-3 py-2 text-center">
+                      <span className="text-sm font-bold text-blue-600">🔵 BLUE</span>
                     </div>
                     <div className="space-y-2">
                       {teamB.map((participant, i) => (
@@ -302,7 +302,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                             participant.accepted ? "bg-green-500/10 border border-green-500/30" : "bg-muted/50"
                           )}
                         >
-                          <Avatar className="h-8 w-8 border border-border">
+                          <Avatar className="h-8 w-8 border border-blue-500/50">
                             <AvatarImage src={participant.profile_photo_url} />
                             <AvatarFallback className="text-xs">{getInitials(participant.rep_name)}</AvatarFallback>
                           </Avatar>
@@ -428,34 +428,68 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                       animate={{ opacity: 1 }}
                       className="space-y-4"
                     >
-                      {/* Team Totals Header */}
+                      {/* Red vs Blue Score Header */}
                       <div className="flex items-center justify-between px-4">
                         <div className="text-center">
-                          <p className="text-sm font-bold text-primary">TEAM A</p>
-                          <p className={cn(
-                            "text-2xl font-bold",
-                            progress.teams.a.total_value > progress.teams.b.total_value ? "text-green-500" :
-                            progress.teams.a.total_value < progress.teams.b.total_value ? "text-red-500" : "text-amber-500"
-                          )}>
+                          <p className="text-sm font-bold text-red-600">🔴 RED</p>
+                          <p className="text-2xl font-bold text-red-600">
                             {progress.teams.a.total_value.toFixed(1)}
                           </p>
                         </div>
                         <div className="text-muted-foreground text-lg font-semibold">vs</div>
                         <div className="text-center">
-                          <p className="text-sm font-bold text-muted-foreground">TEAM B</p>
-                          <p className={cn(
-                            "text-2xl font-bold",
-                            progress.teams.b.total_value > progress.teams.a.total_value ? "text-green-500" :
-                            progress.teams.b.total_value < progress.teams.a.total_value ? "text-red-500" : "text-amber-500"
-                          )}>
+                          <p className="text-sm font-bold text-blue-600">🔵 BLUE</p>
+                          <p className="text-2xl font-bold text-blue-600">
                             {progress.teams.b.total_value.toFixed(1)}
                           </p>
                         </div>
                       </div>
 
+                      {/* Red vs Blue Score Slider */}
+                      {(progress.teams.a.total_value > 0 || progress.teams.b.total_value > 0) && (
+                        <motion.div
+                          initial={{ opacity: 0, scaleX: 0.8 }}
+                          animate={{ opacity: 1, scaleX: 1 }}
+                          className="relative h-4 rounded-full overflow-hidden bg-gradient-to-r from-red-500/20 via-muted to-blue-500/20"
+                        >
+                          {(() => {
+                            const redTotal = progress.teams.a.total_value;
+                            const blueTotal = progress.teams.b.total_value;
+                            const total = redTotal + blueTotal;
+                            const redPercent = total > 0 ? (redTotal / total) * 100 : 50;
+                            
+                            return (
+                              <>
+                                {/* Red side fill */}
+                                <motion.div
+                                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 to-red-400"
+                                  initial={{ width: "50%" }}
+                                  animate={{ width: `${redPercent}%` }}
+                                  transition={{ duration: 0.6, ease: "easeOut" }}
+                                />
+                                {/* Blue side fill */}
+                                <motion.div
+                                  className="absolute inset-y-0 right-0 bg-gradient-to-l from-blue-500 to-blue-400"
+                                  initial={{ width: "50%" }}
+                                  animate={{ width: `${100 - redPercent}%` }}
+                                  transition={{ duration: 0.6, ease: "easeOut" }}
+                                />
+                                {/* Center indicator dot */}
+                                <motion.div
+                                  className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-lg border-2 border-foreground/20"
+                                  initial={{ left: "calc(50% - 10px)" }}
+                                  animate={{ left: `calc(${redPercent}% - 10px)` }}
+                                  transition={{ duration: 0.6, ease: "easeOut" }}
+                                />
+                              </>
+                            );
+                          })()}
+                        </motion.div>
+                      )}
+
                       {/* Team Leaderboards Side by Side */}
                       <div className="grid grid-cols-2 gap-3">
-                        {/* Team A Leaderboard */}
+                        {/* Red Team Leaderboard */}
                         <div className="space-y-1">
                           {progress.teams.a.members
                             .sort((a, b) => b.current_value - a.current_value)
@@ -467,13 +501,13 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                               transition={{ delay: 0.1 + i * 0.03 }}
                               className={cn(
                                 "flex items-center gap-2 p-2 rounded-lg",
-                                i === 0 ? "bg-primary/10 border border-primary/30" : "bg-muted/30"
+                                i === 0 ? "bg-red-500/10 border border-red-500/30" : "bg-muted/30"
                               )}
                             >
                               <span className="text-xs font-bold text-muted-foreground w-4">
                                 {i + 1}
                               </span>
-                              <Avatar className="h-7 w-7 border border-primary/50 shrink-0">
+                              <Avatar className="h-7 w-7 border border-red-500/50 shrink-0">
                                 <AvatarImage src={member.profile_photo_url} />
                                 <AvatarFallback className="text-[10px] font-semibold">
                                   {getInitials(member.rep_name)}
@@ -484,7 +518,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                               </div>
                               <span className={cn(
                                 "text-sm font-bold shrink-0",
-                                i === 0 ? "text-primary" : "text-foreground"
+                                i === 0 ? "text-red-600" : "text-foreground"
                               )}>
                                 {member.current_value.toFixed(1)}
                               </span>
@@ -495,7 +529,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                           )}
                         </div>
 
-                        {/* Team B Leaderboard */}
+                        {/* Blue Team Leaderboard */}
                         <div className="space-y-1">
                           {progress.teams.b.members
                             .sort((a, b) => b.current_value - a.current_value)
@@ -507,13 +541,13 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                               transition={{ delay: 0.1 + i * 0.03 }}
                               className={cn(
                                 "flex items-center gap-2 p-2 rounded-lg",
-                                i === 0 ? "bg-muted border border-border" : "bg-muted/30"
+                                i === 0 ? "bg-blue-500/10 border border-blue-500/30" : "bg-muted/30"
                               )}
                             >
                               <span className="text-xs font-bold text-muted-foreground w-4">
                                 {i + 1}
                               </span>
-                              <Avatar className="h-7 w-7 border border-border shrink-0">
+                              <Avatar className="h-7 w-7 border border-blue-500/50 shrink-0">
                                 <AvatarImage src={member.profile_photo_url} />
                                 <AvatarFallback className="text-[10px] font-semibold">
                                   {getInitials(member.rep_name)}
@@ -522,7 +556,10 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-medium truncate">{getCleanFirstName(member.rep_name)}</p>
                               </div>
-                              <span className="text-sm font-bold shrink-0">
+                              <span className={cn(
+                                "text-sm font-bold shrink-0",
+                                i === 0 ? "text-blue-600" : "text-foreground"
+                              )}>
                                 {member.current_value.toFixed(1)}
                               </span>
                             </motion.div>
@@ -538,8 +575,8 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
               )}
             </AnimatePresence>
 
-            {/* Progress bar */}
-            {progress && challenge.status === 'active' && (
+            {/* Time Remaining - for 1v1 or as supplementary info */}
+            {progress && challenge.status === 'active' && !isTeamBattle && (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -559,6 +596,17 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                     transition={{ duration: 0.6, ease: "easeOut" }}
                   />
                 </div>
+                <p className="text-center text-sm text-muted-foreground">{progress.timeRemaining}</p>
+              </motion.div>
+            )}
+
+            {/* Time Remaining for Team Battles - just the text */}
+            {progress && challenge.status === 'active' && isTeamBattle && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
                 <p className="text-center text-sm text-muted-foreground">{progress.timeRemaining}</p>
               </motion.div>
             )}
