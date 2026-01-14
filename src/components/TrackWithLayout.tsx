@@ -19,6 +19,7 @@ import { PendingSalesAlert } from "./PendingSalesAlert";
 import { PageTour } from "./PageTour";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
+import { useSaleUpdate } from "@/hooks/useSaleUpdate";
 import { usePendingSalesQueue } from "@/hooks/usePendingSalesQueue";
 import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
 import { useCompetitorNudge } from "@/hooks/useCompetitorNudge";
@@ -63,6 +64,7 @@ const TrackWithLayout = () => {
   const { totalFP: preseasonFP } = usePreseasonFP();
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry } = useDailyEntry();
   const { addSale: addSaleToEntry, isAddingSale } = useAddSaleToEntry();
+  const { deleteSale: deleteSaleFromEntry, isDeleting: isDeletingSale } = useSaleUpdate();
   
   // CRITICAL: Subscribe to realtime updates for multi-device sync
   // This ensures iPad and Phone stay in sync automatically
@@ -876,35 +878,34 @@ const TrackWithLayout = () => {
   }, [entry.sales_log, updateCounter]);
 
   const handleDeleteSale = useCallback(async (saleId: string) => {
-    const currentSalesLog = entry.sales_log || [];
-    const updatedSalesLog = currentSalesLog.filter(s => s.id !== saleId);
-    
-    // Also decrement closes to keep in sync
-    const updates: any = {
-      sales_log: updatedSalesLog,
-      closes: Math.max(0, (entry.closes || 0) - 1),
-    };
-    
-    // Remove last closes timestamp
-    const timestamps = entry.counter_timestamps || {};
-    const closesTimestamps = timestamps['closes'] || [];
-    if (closesTimestamps.length > 0) {
-      updates.counter_timestamps = {
-        ...timestamps,
-        closes: closesTimestamps.slice(0, -1)
-      };
+    // Use the dedicated useSaleUpdate hook which properly:
+    // 1. Removes the sale from sales_log
+    // 2. Recalculates closes, fp_plus, prmr, upgrade_prmr based on remaining funded sales
+    // 3. Invalidates all relevant caches
+    const entryId = (entry as any).id;
+    if (!entryId) {
+      console.error('[handleDeleteSale] No entry ID available');
+      toast.error('Cannot delete sale - entry not found');
+      return;
     }
+    
+    const todayDate = getTodayDate();
     
     setSyncStatus('pending');
     try {
-      await updateCounter(updates);
+      deleteSaleFromEntry({
+        entryId,
+        entryDate: todayDate,
+        saleId,
+      });
       setSyncStatus('synced');
     } catch (error) {
+      console.error('[handleDeleteSale] Error:', error);
       setSyncStatus('error');
     }
     
     setEditingSale(null);
-  }, [entry, updateCounter]);
+  }, [entry, deleteSaleFromEntry]);
 
   const handleStartWork = () => {
     // Block during tour demo mode
