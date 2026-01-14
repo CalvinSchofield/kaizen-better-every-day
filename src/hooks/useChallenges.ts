@@ -549,3 +549,44 @@ export const useRespondToChallenge = () => {
     },
   });
 };
+
+// Hook for voiding/deleting a challenge (creator only)
+export const useVoidChallenge = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (challengeId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Verify the user is the creator
+      const { data: challenge, error: fetchError } = await supabase
+        .from('challenges')
+        .select('created_by, status')
+        .eq('id', challengeId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (challenge.created_by !== user.id) {
+        throw new Error('Only the creator can void this challenge');
+      }
+      if (challenge.status === 'completed') {
+        throw new Error('Cannot void a completed challenge');
+      }
+
+      // Update challenge to voided status
+      const { error: updateError } = await supabase
+        .from('challenges')
+        .update({ status: 'voided' })
+        .eq('id', challengeId);
+
+      if (updateError) throw updateError;
+
+      return { challengeId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['challenges'] });
+      queryClient.invalidateQueries({ queryKey: ['my-active-challenges'] });
+    },
+  });
+};
