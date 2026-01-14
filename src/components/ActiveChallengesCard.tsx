@@ -16,6 +16,7 @@ import { IncentiveDetailSheet } from "@/components/leaderboard/IncentiveDetailSh
 import { ChallengeDetailSheet } from "@/components/leaderboard/ChallengeDetailSheet";
 import { Swords, Trophy, ChevronRight, Flame, Gift, Loader2, Plus, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getInitials } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -403,39 +404,15 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
                       </span>
                     </div>
                     {isGroupChallenge && (
-                      <div className="flex items-center gap-2">
-                        {/* Team A avatars */}
-                        <div className="flex -space-x-2">
-                          {teamA.slice(0, 3).map((p, i) => (
-                            <Avatar key={p.user_id} className="h-6 w-6 border-2 border-background" style={{ zIndex: 3 - i }}>
-                              <AvatarImage src={p.profile_photo_url || undefined} />
-                              <AvatarFallback className="text-[10px] bg-green-100 text-green-700">
-                                {p.rep_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
-                              </AvatarFallback>
-                            </Avatar>
-                          ))}
-                          {teamA.length > 3 && (
-                            <div className="h-6 w-6 rounded-full bg-green-100 border-2 border-background flex items-center justify-center text-[10px] font-medium text-green-700">
-                              +{teamA.length - 3}
-                            </div>
-                          )}
+                      <div className="flex items-center gap-1.5">
+                        {/* Team A - count badge */}
+                        <div className="flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-full">
+                          <span className="text-xs font-semibold text-primary">{teamA.length}</span>
                         </div>
-                        <span className="text-xs text-muted-foreground">vs</span>
-                        {/* Team B avatars */}
-                        <div className="flex -space-x-2">
-                          {teamB.slice(0, 3).map((p, i) => (
-                            <Avatar key={p.user_id} className="h-6 w-6 border-2 border-background" style={{ zIndex: 3 - i }}>
-                              <AvatarImage src={p.profile_photo_url || undefined} />
-                              <AvatarFallback className="text-[10px] bg-red-100 text-red-700">
-                                {p.rep_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
-                              </AvatarFallback>
-                            </Avatar>
-                          ))}
-                          {teamB.length > 3 && (
-                            <div className="h-6 w-6 rounded-full bg-red-100 border-2 border-background flex items-center justify-center text-[10px] font-medium text-red-700">
-                              +{teamB.length - 3}
-                            </div>
-                          )}
+                        <span className="text-[10px] text-muted-foreground font-medium">vs</span>
+                        {/* Team B - count badge */}
+                        <div className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full">
+                          <span className="text-xs font-semibold text-muted-foreground">{teamB.length}</span>
                         </div>
                       </div>
                     )}
@@ -473,8 +450,8 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
                     </div>
                     <Avatar className="h-6 w-6">
                       <AvatarImage src={opponent?.profile_photo_url || undefined} />
-                      <AvatarFallback className="text-xs">
-                        {opponent?.rep_name?.charAt(0) || '?'}
+                      <AvatarFallback className="text-[10px] font-semibold">
+                        {getInitials(opponent?.rep_name)}
                       </AvatarFallback>
                     </Avatar>
                   </div>
