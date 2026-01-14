@@ -354,15 +354,25 @@ export const useCreateChallenge = () => {
 
       if (shouldAutoStart) {
         // Auto-accept all participants and set challenge to active
-        await supabase
+        const { error: participantError } = await supabase
           .from('challenge_participants')
           .update({ accepted: true, accepted_at: new Date().toISOString() })
           .eq('challenge_id', challenge.id);
         
-        await supabase
+        if (participantError) {
+          console.error('[useCreateChallenge] Failed to auto-accept participants:', participantError);
+        }
+        
+        const { error: statusError } = await supabase
           .from('challenges')
           .update({ status: 'active' })
           .eq('id', challenge.id);
+        
+        if (statusError) {
+          console.error('[useCreateChallenge] Failed to set challenge to active:', statusError);
+        } else {
+          console.log('[useCreateChallenge] Challenge auto-started successfully');
+        }
       } else {
         // Send push notifications to invited participants
         const targetUserIds = input.participants.map(p => p.user_id);
