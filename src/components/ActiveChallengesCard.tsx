@@ -433,13 +433,15 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
       )}
       
       {/* Challenge Detail Sheet */}
-      {selectedChallenge && (
-        <ChallengeDetailSheet
-          challenge={selectedChallenge}
-          open={!!selectedChallenge}
-          onOpenChange={(open) => !open && setSelectedChallenge(null)}
-        />
-      )}
+      <AnimatePresence>
+        {selectedChallenge && (
+          <ChallengeDetailSheet
+            challenge={selectedChallenge}
+            open={!!selectedChallenge}
+            onOpenChange={(open) => !open && setSelectedChallenge(null)}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 };
