@@ -18,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { getInitials } from "@/utils/nameUtils";
+import { getInitials, getCleanName } from "@/utils/nameUtils";
 import { hapticLight, hapticSuccess, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
 
@@ -244,7 +244,7 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
                                 <AvatarFallback className="text-xs">{getInitials(opponent?.rep_name)}</AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
-                                <p className="text-sm font-medium">{opponent?.rep_name} challenged you!</p>
+                                <p className="text-sm font-medium">{getCleanName(opponent?.rep_name)} challenged you!</p>
                                 <p className="text-xs text-muted-foreground">
                                   {metricLabels[challenge.metric]} • {challenge.type === '1v1' ? '1v1' : 'Team'}
                                 </p>
@@ -326,7 +326,7 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
                                 <AvatarFallback className="text-xs">{getInitials(opponent?.rep_name)}</AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
-                                <p className="text-sm font-medium">Challenged {opponent?.rep_name}</p>
+                                <p className="text-sm font-medium">Challenged {getCleanName(opponent?.rep_name)}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {metricLabels[challenge.metric]} • Waiting...
                                 </p>

@@ -13,6 +13,7 @@ import { formatFriendlyDate } from "@/utils/competitionDateUtils";
 import { toast } from "sonner";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { useConfetti } from "@/hooks/useConfetti";
+import { getInitials, getCleanName } from "@/utils/nameUtils";
 interface ChallengeCardProps {
   challenge: Challenge;
 }
@@ -179,7 +180,7 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
             {/* Opponent */}
             <div className="flex items-center gap-2">
               <div className="text-right">
-                <p className="font-semibold text-sm">{opponent?.rep_name || 'Opponent'}</p>
+                <p className="font-semibold text-sm">{getCleanName(opponent?.rep_name) || 'Opponent'}</p>
                 {progress && (
                   <p className="text-lg font-bold">
                     {metricConfig.format(
@@ -191,7 +192,7 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
               <Avatar className="h-10 w-10 border-2 border-border">
                 <AvatarImage src={opponent?.profile_photo_url || undefined} />
                 <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
-                  {opponent?.rep_name?.charAt(0) || 'O'}
+                  {getInitials(opponent?.rep_name)}
                 </AvatarFallback>
               </Avatar>
             </div>

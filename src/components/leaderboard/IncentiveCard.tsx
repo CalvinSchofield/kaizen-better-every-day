@@ -12,7 +12,7 @@ import { IncentiveDetailSheet } from "./IncentiveDetailSheet";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getInitials } from "@/utils/nameUtils";
+import { getInitials, getCleanFirstName } from "@/utils/nameUtils";
 
 interface IncentiveCardProps {
   incentive: Incentive;
@@ -257,7 +257,7 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
                             {p.profile_photo_url && <AvatarImage src={p.profile_photo_url} />}
                             <AvatarFallback className="text-[8px]">{getInitials(p.rep_name)}</AvatarFallback>
                           </Avatar>
-                          <span className="text-xs font-medium">{p.rep_name.split(' ')[0]}</span>
+                          <span className="text-xs font-medium">{getCleanFirstName(p.rep_name)}</span>
                         </motion.div>
                       ))}
                       {progressData.qualifiedParticipants.length > 4 && (

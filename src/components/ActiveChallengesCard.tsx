@@ -16,7 +16,7 @@ import { IncentiveDetailSheet } from "@/components/leaderboard/IncentiveDetailSh
 import { ChallengeDetailSheet } from "@/components/leaderboard/ChallengeDetailSheet";
 import { Swords, Trophy, ChevronRight, Flame, Gift, Loader2, Plus, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getInitials } from "@/utils/nameUtils";
+import { getInitials, getCleanName, getCleanFirstName } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -117,7 +117,7 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
           {metricLabels[challenge.metric] || challenge.metric}
         </Badge>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{opponentProgress?.rep_name?.split(' ')[0]}</span>
+          <span className="text-sm font-medium">{getCleanFirstName(opponentProgress?.rep_name)}</span>
           <div className={cn(
             "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
             !isWinning && !isTied ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600"
@@ -456,7 +456,7 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
                     </Avatar>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {metricLabels[challenge.metric]} vs {opponent?.rep_name}
+                    {metricLabels[challenge.metric]} vs {getCleanName(opponent?.rep_name)}
                   </p>
                 </motion.div>
               );
