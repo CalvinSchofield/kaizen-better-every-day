@@ -167,8 +167,9 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
     const creatorTimezone = currentUserRep?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     try {
+      let result;
       if (type === '1v1') {
-        await createMutation.mutateAsync({
+        result = await createMutation.mutateAsync({
           type,
           metric,
           visibility: isPublic ? 'public' : 'private',
@@ -198,7 +199,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
           })),
         ];
 
-        await createMutation.mutateAsync({
+        result = await createMutation.mutateAsync({
           type,
           metric,
           visibility: isPublic ? 'public' : 'private',
@@ -209,7 +210,14 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
           participants,
         });
       }
-      toast.success('Challenge sent! 🎯');
+      
+      // Show different toast based on whether challenge was auto-started
+      if (result?.autoStarted) {
+        toast.success('Challenge started! 🚀');
+      } else {
+        toast.success('Challenge sent! 🎯');
+      }
+      
       onOpenChange(false);
       resetForm();
     } catch (error: any) {
