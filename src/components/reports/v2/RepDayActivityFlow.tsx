@@ -303,49 +303,101 @@ export const RepDayActivityFlow = ({
   const presentationEvents = useMemo(() => 
     events.filter(e => e.type === 'presentations'), [events]);
 
-  // Calculate "in home" zones - from door knock to transition
+  // Calculate "in home" zones - smart detection based on door → transition/presentation/sale
+  // Priority: Sale > Presentation > Transition
+  // Also detect "doorstep" interactions (presentation/sale without transition)
   const inHomeZones = useMemo(() => {
     if (!startTime || !totalMinutes) return [];
+    
+    type ZoneType = 'transition' | 'presentation' | 'sale' | 'doorstep_presentation' | 'doorstep_sale';
     
     const zones: Array<{
       startPos: number;
       endPos: number;
       duration: number;
       doorTime: Date;
-      transitionTime: Date;
+      endTime: Date;
+      endType: ZoneType;
     }> = [];
     
-    // For each transition, look backward for the door knock that started this home visit
-    events.forEach((event, idx) => {
-      if (event.type !== 'transitions') return;
+    // Find all door knock indices
+    const doorIndices = events
+      .map((e, i) => e.type === 'doors_knocked' ? i : -1)
+      .filter(i => i >= 0);
+    
+    doorIndices.forEach((doorIdx, i) => {
+      const doorEvent = events[doorIdx];
+      const nextDoorIdx = doorIndices[i + 1] ?? events.length;
       
-      const transitionTime = event.timestamp.getTime();
-      let searchIdx = idx - 1;
+      // Get all events in this potential home visit (after door, before next door)
+      const visitEvents = events.slice(doorIdx + 1, nextDoorIdx);
       
-      // Skip batch-logged events at the same timestamp
-      while (searchIdx >= 0 && events[searchIdx].timestamp.getTime() === transitionTime) {
-        searchIdx--;
-      }
+      if (visitEvents.length === 0) return; // No events after this door
       
-      // Find the door knock that preceded this
-      while (searchIdx >= 0) {
-        if (events[searchIdx].type === 'doors_knocked') {
-          const doorTime = events[searchIdx].timestamp.getTime();
-          const startPos = ((doorTime - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
-          const endPos = ((transitionTime - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
-          const duration = (transitionTime - doorTime) / (1000 * 60);
-          
-          zones.push({
-            startPos: Math.max(0, startPos),
-            endPos: Math.min(100, endPos),
-            duration,
-            doorTime: events[searchIdx].timestamp,
-            transitionTime: event.timestamp,
-          });
-          break;
+      // Find key events in this visit
+      const transitionEvent = visitEvents.find(e => e.type === 'transitions');
+      const presentationEvent = visitEvents.find(e => e.type === 'presentations');
+      const saleEvent = visitEvents.find(e => e.type === 'sale' || e.type === 'closes');
+      
+      // No significant event = just knocked and left, no zone
+      if (!transitionEvent && !presentationEvent && !saleEvent) return;
+      
+      // Determine end event and type (priority: sale > presentation > transition)
+      let endEvent: TimelineEvent;
+      let endType: ZoneType;
+      
+      // Check for rapid succession taps (within 30 seconds) - treat as batch-logged
+      const BATCH_THRESHOLD_MS = 30 * 1000;
+      
+      const hasTransition = !!transitionEvent;
+      const hasBatchedTransition = (event: TimelineEvent) => {
+        if (!transitionEvent) return false;
+        return Math.abs(event.timestamp.getTime() - transitionEvent.timestamp.getTime()) <= BATCH_THRESHOLD_MS;
+      };
+      
+      if (saleEvent) {
+        // Sale is the deepest interaction
+        endEvent = saleEvent;
+        // If transition exists OR was batch-logged with sale, it's not doorstep
+        const isDoorstep = !hasTransition && !hasBatchedTransition(saleEvent);
+        endType = isDoorstep ? 'doorstep_sale' : 'sale';
+        
+        // Use the later of sale/transition if they're batch-logged
+        if (transitionEvent && hasBatchedTransition(saleEvent)) {
+          endEvent = saleEvent.timestamp > transitionEvent.timestamp ? saleEvent : transitionEvent;
         }
-        searchIdx--;
+      } else if (presentationEvent) {
+        // Presentation without sale
+        endEvent = presentationEvent;
+        const isDoorstep = !hasTransition && !hasBatchedTransition(presentationEvent);
+        endType = isDoorstep ? 'doorstep_presentation' : 'presentation';
+        
+        // Use the later of presentation/transition if they're batch-logged
+        if (transitionEvent && hasBatchedTransition(presentationEvent)) {
+          endEvent = presentationEvent.timestamp > transitionEvent.timestamp ? presentationEvent : transitionEvent;
+          endType = 'presentation'; // Still count as presentation since both were logged
+        }
+      } else {
+        // Just transition
+        endEvent = transitionEvent!;
+        endType = 'transition';
       }
+      
+      const doorTime = doorEvent.timestamp.getTime();
+      const endTimeMs = endEvent.timestamp.getTime();
+      
+      const startPos = ((doorTime - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
+      const endPos = ((endTimeMs - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
+      const duration = (endTimeMs - doorTime) / (1000 * 60);
+      
+      zones.push({
+        startPos: Math.max(0, startPos),
+        endPos: Math.min(100, endPos),
+        duration,
+        doorTime: doorEvent.timestamp,
+        endTime: endEvent.timestamp,
+        endType,
+      });
     });
     
     return zones;
@@ -495,46 +547,80 @@ export const RepDayActivityFlow = ({
           {/* Track background */}
           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 bg-muted/50 rounded-full" />
           
-          {/* In-home zones - colored bands from door to transition */}
-          {inHomeZones.map((zone, idx) => (
-            <Popover key={`home-zone-${idx}`}>
-              <PopoverTrigger asChild>
-                <button
-                  className="absolute top-1/2 -translate-y-1/2 h-6 rounded-md bg-gradient-to-r from-amber-500/20 via-amber-400/30 to-amber-500/20 border border-amber-400/40 cursor-pointer hover:bg-amber-400/30 transition-all active:scale-y-90"
-                  style={{ left: `${zone.startPos}%`, width: `${Math.max(zone.endPos - zone.startPos, 2)}%` }}
-                >
-                  {/* Duration label for wider zones */}
-                  {(zone.endPos - zone.startPos) > 6 && (
-                    <span className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold text-amber-300 whitespace-nowrap">
-                      {formatDuration(zone.duration)}
-                    </span>
-                  )}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-0" side="top" align="center">
-                <div className="px-3 py-2 bg-amber-500/15 border-b border-amber-500/25 flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-amber-400/20 flex items-center justify-center">
-                    🏠
+          {/* In-home zones - colored bands from door to end of interaction */}
+          {inHomeZones.map((zone, idx) => {
+            const isDoorstep = zone.endType.startsWith('doorstep_');
+            const isSale = zone.endType === 'sale' || zone.endType === 'doorstep_sale';
+            const isPresentation = zone.endType === 'presentation' || zone.endType === 'doorstep_presentation';
+            
+            // Different colors based on type
+            const bgClass = isSale 
+              ? 'bg-gradient-to-r from-green-500/20 via-green-400/30 to-green-500/20 border-green-400/40'
+              : isPresentation
+                ? 'bg-gradient-to-r from-orange-500/20 via-orange-400/30 to-orange-500/20 border-orange-400/40'
+                : 'bg-gradient-to-r from-amber-500/20 via-amber-400/30 to-amber-500/20 border-amber-400/40';
+            
+            const textClass = isSale ? 'text-green-300' : isPresentation ? 'text-orange-300' : 'text-amber-300';
+            const headerBgClass = isSale ? 'bg-green-500/15 border-green-500/25' : isPresentation ? 'bg-orange-500/15 border-orange-500/25' : 'bg-amber-500/15 border-amber-500/25';
+            const headerTextClass = isSale ? 'text-green-400' : isPresentation ? 'text-orange-400' : 'text-amber-400';
+            
+            const endLabel = isSale ? 'Closed Deal' : isPresentation ? 'Presented' : 'Left Home';
+            const headerLabel = isDoorstep 
+              ? (isSale ? 'Doorstep Close' : 'Doorstep Pitch')
+              : (isSale ? 'Sale Visit' : isPresentation ? 'Presentation' : 'In Home');
+            const emoji = isDoorstep ? '🚪' : isSale ? '💰' : isPresentation ? '📊' : '🏠';
+            
+            return (
+              <Popover key={`home-zone-${idx}`}>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      "absolute top-1/2 -translate-y-1/2 rounded-md border cursor-pointer hover:opacity-80 transition-all active:scale-y-90",
+                      bgClass,
+                      isDoorstep ? "h-5 border-dashed" : "h-6"
+                    )}
+                    style={{ left: `${zone.startPos}%`, width: `${Math.max(zone.endPos - zone.startPos, 2)}%` }}
+                  >
+                    {/* Duration label for wider zones */}
+                    {(zone.endPos - zone.startPos) > 6 && (
+                      <span className={cn("absolute inset-0 flex items-center justify-center text-[9px] font-semibold whitespace-nowrap", textClass)}>
+                        {formatDuration(zone.duration)}
+                      </span>
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0" side="top" align="center">
+                  <div className={cn("px-3 py-2 border-b flex items-center gap-2", headerBgClass)}>
+                    <div className="w-5 h-5 rounded-full bg-black/20 flex items-center justify-center text-sm">
+                      {emoji}
+                    </div>
+                    <span className={cn("font-bold text-sm", headerTextClass)}>{headerLabel}</span>
                   </div>
-                  <span className="font-bold text-sm text-amber-400">In Home</span>
-                </div>
-                <div className="p-3 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[11px] text-muted-foreground">Duration</span>
-                    <span className="text-sm font-bold text-amber-400">{formatDuration(zone.duration)}</span>
+                  <div className="p-3 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-muted-foreground">Duration</span>
+                      <span className={cn("text-sm font-bold", headerTextClass)}>{formatDuration(zone.duration)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-muted-foreground">Door Knocked</span>
+                      <span className="text-[11px] font-medium">{formatTimeOnly(zone.doorTime)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-muted-foreground">{endLabel}</span>
+                      <span className="text-[11px] font-medium">{formatTimeOnly(zone.endTime)}</span>
+                    </div>
+                    {isDoorstep && (
+                      <div className={cn("text-[10px] rounded px-2 py-1.5 italic mt-1", 
+                        isSale ? "text-green-400 bg-green-500/10" : "text-orange-400 bg-orange-500/10"
+                      )}>
+                        {isSale ? '💰 Closed on the doorstep!' : '📊 Pitched without entering home'}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[11px] text-muted-foreground">Door Knocked</span>
-                    <span className="text-[11px] font-medium">{formatTimeOnly(zone.doorTime)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[11px] text-muted-foreground">Left Home</span>
-                    <span className="text-[11px] font-medium">{formatTimeOnly(zone.transitionTime)}</span>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          ))}
+                </PopoverContent>
+              </Popover>
+            );
+          })}
           
           {/* Breaks - subtle dashed zones */}
           {parsedBreaks.map((bp, idx) => (
