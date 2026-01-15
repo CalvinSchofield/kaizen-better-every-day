@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { startOfWeek, startOfMonth, subDays, subMonths, endOfMonth, format, endOfWeek } from 'date-fns';
 import type { TimeframeType } from './useExpandedLeaderboard';
@@ -30,6 +31,8 @@ export const useLeaderboardDataBoundary = () => {
     queryFn: async (): Promise<LeaderboardDataBoundary> => {
       // Get all entries that have at least some activity (any door knocked OR any sales)
       // Include unfinalized entries since they're valid for leaderboard
+      // This query benefits from RLS policy "Users can view recent entries for live leaderboards"
+      // which allows viewing entries from CURRENT_DATE - 1 day
       const { data: entries, error } = await supabase
         .from('daily_entries')
         .select('entry_date, is_finalized, doors_knocked')
@@ -47,12 +50,39 @@ export const useLeaderboardDataBoundary = () => {
         entryDates,
       };
     },
-    staleTime: 1000 * 60 * 5,
+    // Short stale time to quickly detect when someone starts working
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    // Auto-refetch to catch new workers
+    refetchInterval: 1000 * 60 * 2, // Every 2 minutes
   });
 };
 
 export const useAvailableLeaderboardPresets = () => {
+  const queryClient = useQueryClient();
   const { data: boundary, isLoading } = useLeaderboardDataBoundary();
+
+  // Subscribe to realtime changes on daily_entries to detect when someone starts working
+  useEffect(() => {
+    const channel = supabase
+      .channel('leaderboard-boundary-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_entries',
+        },
+        () => {
+          // Invalidate boundary check when any entry changes (someone starts/updates work)
+          queryClient.invalidateQueries({ queryKey: ['leaderboard-data-boundary'], refetchType: 'all' });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const getAvailablePresets = (): TimeframeType[] => {
     if (!boundary?.hasAnyData) {
