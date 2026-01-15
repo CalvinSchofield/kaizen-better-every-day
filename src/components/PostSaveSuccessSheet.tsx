@@ -1,6 +1,6 @@
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Calendar, BarChart3, Target, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb, Swords, Trophy } from "lucide-react";
+import { CheckCircle2, Calendar, BarChart3, Target, Sparkles, TrendingUp, TrendingDown, Minus, Lightbulb, Swords, Trophy, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
@@ -19,6 +19,7 @@ import { format, differenceInDays } from "date-fns";
 import confetti from "canvas-confetti";
 import { useMyActiveChallenges } from "@/hooks/useChallenges";
 import { useChallengeProgress } from "@/hooks/useChallengeProgress";
+import { getCleanFirstName } from "@/utils/nameUtils";
 
 interface PostSaveSuccessSheetProps {
   open: boolean;
@@ -276,8 +277,8 @@ export const PostSaveSuccessSheet = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="pb-safe max-h-[90dvh]">
-        <DrawerHeader className="mb-2">
+      <DrawerContent className="pb-safe max-h-[90dvh] flex flex-col">
+        <DrawerHeader className="mb-2 flex-shrink-0">
           <div className="flex items-center gap-2 justify-center mb-2">
             {goalMet ? (
               <Sparkles className="h-8 w-8 text-primary animate-pulse" />
@@ -292,8 +293,11 @@ export const PostSaveSuccessSheet = ({
             {goalMet 
               ? "You hit your daily goal!" 
               : "Your entry has been saved successfully."}
-          </DrawerDescription>
+        </DrawerDescription>
         </DrawerHeader>
+        
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto min-h-0">
         
         {/* Goals Not Set Up CTA */}
         {(!goals || !goals.setup_complete) && (
@@ -450,7 +454,10 @@ export const PostSaveSuccessSheet = ({
           Your data is now available in Calendar, Insights, and Reports.
         </div>
         
-        {/* Quick Actions */}
+        </div>{/* End Scrollable Content Area */}
+        
+        {/* Quick Actions - Fixed at bottom */}
+        <div className="flex-shrink-0 pt-2">
         <div className="flex gap-3 px-4 mb-4">
           <Button
             onClick={handleViewCalendar}
@@ -492,6 +499,7 @@ export const PostSaveSuccessSheet = ({
             Actually, I need to keep working
           </Button>
         </div>
+        </div>{/* End Fixed Bottom Actions */}
       </DrawerContent>
     </Drawer>
   );
@@ -544,44 +552,80 @@ const ChallengeProgressItem = ({
   
   if (!progressData) return null;
   
-  const { userProgress, leader, isUserAhead, gap, timeRemaining } = progressData;
+  const { userProgress, isUserAhead, gap, timeRemaining, teams } = progressData;
   const metricLabel = challenge.metric === 'fp_plus' ? 'FP+' : 
                      challenge.metric === 'prmr' ? 'PRMR' : 
                      challenge.metric === 'doors_knocked' ? 'Doors' : 'Trans.';
   
-  // Get opponent for 1v1
-  const opponent = challenge.participants?.find((p: any) => p.user_id !== userProgress?.user_id);
-  const opponentProgress = progressData.participants?.find((p: any) => p.user_id !== userProgress?.user_id);
+  const isTeamBattle = challenge.type === 'group';
+  
+  // Get captain names for team battles
+  const captainA = challenge.participants?.find((p: any) => p.role === 'captain_a');
+  const captainB = challenge.participants?.find((p: any) => p.role === 'captain_b');
+  
+  // For 1v1, get opponent
+  const opponent = !isTeamBattle 
+    ? challenge.participants?.find((p: any) => p.user_id !== userProgress?.user_id)
+    : null;
+  const opponentProgress = !isTeamBattle 
+    ? progressData.participants?.find((p: any) => p.user_id !== userProgress?.user_id)
+    : null;
+  
+  // Calculate team scores and difference for team battles
+  const teamATotal = teams?.a?.total_value || 0;
+  const teamBTotal = teams?.b?.total_value || 0;
+  const userTeam = userProgress?.team;
+  const userTeamTotal = userTeam === 'a' ? teamATotal : teamBTotal;
+  const opponentTeamTotal = userTeam === 'a' ? teamBTotal : teamATotal;
+  const teamDifference = userTeamTotal - opponentTeamTotal;
+  const isTeamAhead = teamDifference >= 0;
+  
+  // Get display name - captain name for team battles or opponent for 1v1
+  const displayVsName = isTeamBattle 
+    ? (userTeam === 'a' 
+        ? getCleanFirstName(captainB?.rep_name) || '🔵 Blue'
+        : getCleanFirstName(captainA?.rep_name) || '🔴 Red')
+    : getCleanFirstName(opponent?.rep_name) || 'Opponent';
+  
+  // Use team-based logic for coloring in team battles
+  const showAsAhead = isTeamBattle ? isTeamAhead : isUserAhead;
+  const displayGap = isTeamBattle ? Math.abs(teamDifference) : gap;
   
   return (
     <button
       onClick={onClick}
       className={`w-full rounded-xl p-3 text-left transition-all ${
-        isUserAhead 
+        showAsAhead 
           ? 'bg-green-500/10 border border-green-500/20' 
           : 'bg-orange-500/10 border border-orange-500/20'
       }`}
     >
       <div className="flex items-center gap-2 mb-1.5">
-        <Swords className={`h-3.5 w-3.5 ${isUserAhead ? 'text-green-500' : 'text-orange-500'}`} />
+        {isTeamBattle ? (
+          <Users className={`h-3.5 w-3.5 ${showAsAhead ? 'text-green-500' : 'text-orange-500'}`} />
+        ) : (
+          <Swords className={`h-3.5 w-3.5 ${showAsAhead ? 'text-green-500' : 'text-orange-500'}`} />
+        )}
         <span className="text-xs font-medium truncate flex-1">
-          vs {opponent?.rep_name || 'Opponent'}
+          vs {displayVsName}
         </span>
-        {isUserAhead && <Trophy className="h-3.5 w-3.5 text-yellow-500" />}
+        {showAsAhead && <Trophy className="h-3.5 w-3.5 text-yellow-500" />}
       </div>
       
       <div className="flex items-baseline justify-between">
         <div className="flex items-baseline gap-1.5">
-          <span className={`text-lg font-bold ${isUserAhead ? 'text-green-600' : 'text-foreground'}`}>
-            {userProgress?.current_value?.toFixed(1) || '0'}
+          <span className={`text-lg font-bold ${showAsAhead ? 'text-green-600' : 'text-foreground'}`}>
+            {isTeamBattle ? userTeamTotal.toFixed(1) : (userProgress?.current_value?.toFixed(1) || '0')}
           </span>
           <span className="text-muted-foreground text-xs">
-            vs {opponentProgress?.current_value?.toFixed(1) || '0'}
+            vs {isTeamBattle ? opponentTeamTotal.toFixed(1) : (opponentProgress?.current_value?.toFixed(1) || '0')}
           </span>
           <span className="text-muted-foreground text-xs">{metricLabel}</span>
         </div>
-        <span className={`text-xs font-medium ${isUserAhead ? 'text-green-600' : 'text-orange-600'}`}>
-          {isUserAhead ? `+${gap.toFixed(1)} ahead` : `-${gap.toFixed(1)} behind`}
+        <span className={`text-xs font-medium ${showAsAhead ? 'text-green-600' : 'text-orange-600'}`}>
+          {displayGap > 0 
+            ? (showAsAhead ? `+${displayGap.toFixed(1)} ahead` : `-${displayGap.toFixed(1)} behind`)
+            : 'Tied'}
         </span>
       </div>
       

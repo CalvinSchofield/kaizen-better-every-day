@@ -347,7 +347,26 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
             {activeChallenges.slice(0, 2).map(challenge => {
               const me = challenge.participants?.find(p => p.role === 'captain_a');
               const isGroupChallenge = challenge.type === 'group';
-              const opponent = challenge.participants?.find(p => p.user_id !== me?.user_id);
+              
+              // For team battles, show captain names
+              const captainA = challenge.participants?.find(p => p.role === 'captain_a');
+              const captainB = challenge.participants?.find(p => p.role === 'captain_b');
+              
+              // For 1v1, get opponent
+              const opponent = !isGroupChallenge 
+                ? challenge.participants?.find(p => p.user_id !== me?.user_id)
+                : null;
+              
+              // Determine the display name based on challenge type
+              const getDisplayVsName = () => {
+                if (!isGroupChallenge) {
+                  return `vs ${getCleanFirstName(opponent?.rep_name)}`;
+                }
+                // For team battles, show "Team [CaptainA] vs Team [CaptainB]"
+                const captainAName = getCleanFirstName(captainA?.rep_name);
+                const captainBName = getCleanFirstName(captainB?.rep_name);
+                return `🔴 ${captainAName} vs 🔵 ${captainBName}`;
+              };
               
               return (
                 <motion.div 
@@ -362,7 +381,7 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium">
-                      {isGroupChallenge ? '🔴 vs 🔵' : `vs ${getCleanFirstName(opponent?.rep_name)}`}
+                      {getDisplayVsName()}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {metricLabels[challenge.metric] || challenge.metric}
