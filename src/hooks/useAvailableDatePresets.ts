@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { startOfWeek, startOfMonth, subDays, subMonths, endOfMonth, format, endOfWeek } from 'date-fns';
 
@@ -287,12 +288,37 @@ export const useTeamLiveDataBoundary = (userIds: string[]) => {
     },
     enabled: userIds.length > 0,
     staleTime: 1000 * 60 * 2, // 2 minutes for more responsive live updates
+    refetchInterval: 1000 * 60 * 2, // Auto-refetch every 2 minutes to catch when downline starts working
   });
 };
 
 export const useAvailableTeamReportsPresets = (userIds: string[]) => {
+  const queryClient = useQueryClient();
   const { data: liveBoundary, isFetching: liveFetching } = useTeamLiveDataBoundary(userIds);
   const { data: finalizedBoundary, isLoading, isFetching } = useTeamDataBoundary(userIds);
+
+  // Subscribe to realtime changes to detect when downline starts working
+  useEffect(() => {
+    const channel = supabase
+      .channel('reports-boundary-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_entries',
+        },
+        () => {
+          // Invalidate boundary checks when any entry changes
+          queryClient.invalidateQueries({ queryKey: ['team-live-data-boundary'], refetchType: 'all' });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const getAvailablePresets = (): ReportsDatePreset[] => {
     const now = new Date();
