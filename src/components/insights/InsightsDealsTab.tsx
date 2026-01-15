@@ -437,10 +437,10 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
         </CardContent>
       </Card>
 
-      {/* FP Breakdown by Type (Fresh/Takeover/DIY) */}
-      {insights.hasDealTypeData && (
+      {/* Deal Breakdown by Type (Fresh/Takeover/DIY + Upgrades) */}
+      {(insights.hasDealTypeData || insights.totalUpgradeDeals > 0) && (
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground px-1">FP Breakdown</h3>
+          <h3 className="text-sm font-medium text-muted-foreground px-1">Deal Breakdown</h3>
           <div className="grid grid-cols-1 gap-3">
             {insights.dealTypeDistribution.fresh > 0 && (
               <DealTypeCard
@@ -479,6 +479,20 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
                 difficulty={insights.difficultyByDealType.diy}
                 color="bg-warning/10"
                 icon={Flame}
+              />
+            )}
+            {/* Upgrade Card */}
+            {insights.totalUpgradeDeals > 0 && (
+              <DealTypeCard
+                type="Upgrade"
+                count={insights.totalUpgradeDeals}
+                avgPrmr={insights.avgPrmrPerUpgrade}
+                avgTime={insights.avgTimeBySaleType.upgrade}
+                avgCost={insights.avgCostBySaleType.upgrade}
+                roi={getSaleTypeRoi('upgrade')}
+                difficulty={insights.difficultyBySaleType.upgrade}
+                color="bg-blue-500/10"
+                icon={TrendingUp}
               />
             )}
           </div>
