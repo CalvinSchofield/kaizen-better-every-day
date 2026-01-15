@@ -13,7 +13,6 @@ import {
   Coffee,
   Home,
   ChevronRight,
-  Zap,
   AlertTriangle
 } from "lucide-react";
 import {
@@ -34,13 +33,24 @@ interface BreakPeriod {
   end: string;
 }
 
+interface InHomeSession {
+  doorKnockTime: Date;
+  funnelEndTime: Date;
+  duration: number; // in minutes
+  startPos: number; // percentage position on timeline
+  endPos: number;
+  containsSale: boolean;
+  containsTransition: boolean;
+  eventsInSession: TimelineEvent[];
+}
+
 interface GapPeriod {
   start: number;
   end: number;
   duration: number;
   startTime: Date;
   endTime: Date;
-  type: 'in_home' | 'break' | 'inactivity';
+  type: 'break' | 'inactivity';
   eventsBefore: TimelineEvent[];
   eventsAfter: TimelineEvent[];
 }
@@ -263,7 +273,64 @@ export const RepDayActivityFlow = ({
     return markers;
   }, [startTime, endTime, totalMinutes]);
 
-  // Smart gap detection with context
+  // Detect In-Home Sessions: Door knock → next funnel event(s)
+  // Duration = time from door knock to the LAST event in a batch (events within 2 min of each other)
+  const inHomeSessions = useMemo(() => {
+    if (events.length < 2 || !startTime) return [];
+    
+    const sessions: InHomeSession[] = [];
+    const doorKnocks = events.filter(e => e.type === 'doors_knocked');
+    
+    doorKnocks.forEach((doorKnock, idx) => {
+      const doorTime = doorKnock.timestamp.getTime();
+      const nextDoorTime = idx < doorKnocks.length - 1 
+        ? doorKnocks[idx + 1].timestamp.getTime() 
+        : (endTime?.getTime() || Date.now());
+      
+      // Find all funnel events between this door and the next door
+      const funnelEvents = events.filter(e => {
+        const t = e.timestamp.getTime();
+        return t > doorTime && t < nextDoorTime && IN_HOME_ACTIVITY_TYPES.includes(e.type);
+      });
+      
+      if (funnelEvents.length === 0) return; // No funnel activity = didn't get in
+      
+      // Find the end of the "batch" - last event in a cluster (events within 2 min of each other)
+      let batchEndTime = funnelEvents[0].timestamp.getTime();
+      for (let i = 1; i < funnelEvents.length; i++) {
+        const timeSincePrev = (funnelEvents[i].timestamp.getTime() - funnelEvents[i-1].timestamp.getTime()) / (1000 * 60);
+        if (timeSincePrev <= 2) {
+          // Still in the batch
+          batchEndTime = funnelEvents[i].timestamp.getTime();
+        } else {
+          // Gap in funnel events - stop at the batch end
+          break;
+        }
+      }
+      
+      const duration = (batchEndTime - doorTime) / (1000 * 60);
+      const startPos = ((doorTime - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
+      const endPos = ((batchEndTime - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
+      
+      // Collect events that are part of this session
+      const sessionEvents = funnelEvents.filter(e => e.timestamp.getTime() <= batchEndTime);
+      
+      sessions.push({
+        doorKnockTime: doorKnock.timestamp,
+        funnelEndTime: new Date(batchEndTime),
+        duration,
+        startPos: Math.max(0, startPos),
+        endPos: Math.min(100, endPos),
+        containsSale: sessionEvents.some(e => e.type === 'sale'),
+        containsTransition: sessionEvents.some(e => e.type === 'transitions'),
+        eventsInSession: [doorKnock, ...sessionEvents],
+      });
+    });
+    
+    return sessions;
+  }, [events, startTime, endTime, totalMinutes]);
+
+  // Simplified gap detection: Only 30+ min gaps, excluding in-home sessions
   const gaps = useMemo(() => {
     if (events.length < 2 || !startTime) return [];
     
@@ -272,70 +339,72 @@ export const RepDayActivityFlow = ({
     for (let i = 1; i < events.length; i++) {
       const prevEvent = events[i - 1];
       const currEvent = events[i];
-      const gapMinutes = (currEvent.timestamp.getTime() - prevEvent.timestamp.getTime()) / (1000 * 60);
+      const gapStart = prevEvent.timestamp.getTime();
+      const gapEnd = currEvent.timestamp.getTime();
+      const gapMinutes = (gapEnd - gapStart) / (1000 * 60);
       
-      if (gapMinutes >= 15) {
-        const startPos = ((prevEvent.timestamp.getTime() - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
-        const endPos = ((currEvent.timestamp.getTime() - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
-        
-        const isBreak = parsedBreaks.some(bp => {
-          const overlapStart = Math.max(prevEvent.timestamp.getTime(), bp.startTime.getTime());
-          const overlapEnd = Math.min(currEvent.timestamp.getTime(), bp.endTime.getTime());
-          return overlapEnd > overlapStart;
-        });
-        
-        const isInHomePattern = 
-          (prevEvent.type === 'doors_knocked' || prevEvent.type === 'decision_makers') &&
-          IN_HOME_ACTIVITY_TYPES.includes(currEvent.type);
-        
-        let isBatchLogging = false;
-        if (i + 1 < events.length) {
-          const nextEvent = events[i + 1];
-          const timeBetween = (nextEvent.timestamp.getTime() - currEvent.timestamp.getTime()) / (1000 * 60);
-          const currFunnel = EVENT_CONFIG[currEvent.type]?.funnelOrder || 0;
-          const nextFunnel = EVENT_CONFIG[nextEvent.type]?.funnelOrder || 0;
-          if (timeBetween < 2 && currFunnel < nextFunnel) isBatchLogging = true;
-        }
-        
-        const gapType: GapPeriod['type'] = isBreak ? 'break' : (isInHomePattern || isBatchLogging) ? 'in_home' : 'inactivity';
-        
-        // Get surrounding events for context (5 min window or last 5 events)
-        const eventsBefore = getEventsInWindow(events.slice(0, i), prevEvent.timestamp, 10, 'before');
-        const eventsAfter = getEventsInWindow(events.slice(i), currEvent.timestamp, 10, 'after');
-        
-        gapPeriods.push({
-          start: startPos,
-          end: endPos,
-          duration: gapMinutes,
-          startTime: prevEvent.timestamp,
-          endTime: currEvent.timestamp,
-          type: gapType,
-          eventsBefore: eventsBefore.length > 0 ? eventsBefore : [prevEvent],
-          eventsAfter: eventsAfter.length > 0 ? eventsAfter : [currEvent],
-        });
-      }
+      // Only show gaps of 30+ minutes
+      if (gapMinutes < 30) continue;
+      
+      // Check if this gap is covered by an in-home session
+      const isInSession = inHomeSessions.some(session => {
+        const sessionStart = session.doorKnockTime.getTime();
+        const sessionEnd = session.funnelEndTime.getTime();
+        // Gap overlaps with session
+        return (gapStart >= sessionStart && gapStart <= sessionEnd) ||
+               (gapEnd >= sessionStart && gapEnd <= sessionEnd) ||
+               (gapStart <= sessionStart && gapEnd >= sessionEnd);
+      });
+      
+      if (isInSession) continue;
+      
+      const startPos = ((gapStart - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
+      const endPos = ((gapEnd - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
+      
+      // Check if it's a logged break
+      const isBreak = parsedBreaks.some(bp => {
+        const overlapStart = Math.max(gapStart, bp.startTime.getTime());
+        const overlapEnd = Math.min(gapEnd, bp.endTime.getTime());
+        return overlapEnd > overlapStart;
+      });
+      
+      // Get surrounding events for context
+      const eventsBefore = getEventsInWindow(events.slice(0, i), prevEvent.timestamp, 10, 'before');
+      const eventsAfter = getEventsInWindow(events.slice(i), currEvent.timestamp, 10, 'after');
+      
+      gapPeriods.push({
+        start: startPos,
+        end: endPos,
+        duration: gapMinutes,
+        startTime: prevEvent.timestamp,
+        endTime: currEvent.timestamp,
+        type: isBreak ? 'break' : 'inactivity',
+        eventsBefore: eventsBefore.length > 0 ? eventsBefore : [prevEvent],
+        eventsAfter: eventsAfter.length > 0 ? eventsAfter : [currEvent],
+      });
     }
     
     return gapPeriods;
-  }, [events, startTime, totalMinutes, parsedBreaks]);
+  }, [events, startTime, totalMinutes, parsedBreaks, inHomeSessions]);
 
-  // Summary stats
+  // Summary stats - now uses inHomeSessions for accurate in-home tracking
   const stats = useMemo(() => {
-    const inHomeGaps = gaps.filter(g => g.type === 'in_home');
     const breakGaps = gaps.filter(g => g.type === 'break');
     const inactivityGaps = gaps.filter(g => g.type === 'inactivity');
     const salesCount = events.filter(e => e.type === 'sale').length;
+    const transitionCount = events.filter(e => e.type === 'transitions').length;
     
     return {
-      inHomeTime: inHomeGaps.reduce((sum, g) => sum + g.duration, 0),
-      inHomeCount: inHomeGaps.length,
+      inHomeTime: inHomeSessions.reduce((sum, s) => sum + s.duration, 0),
+      inHomeCount: inHomeSessions.length,
+      transitionCount,
       breakTime: breakGaps.reduce((sum, g) => sum + g.duration, 0),
       inactivityTime: inactivityGaps.reduce((sum, g) => sum + g.duration, 0),
       inactivityCount: inactivityGaps.length,
       longestInactivity: inactivityGaps.length > 0 ? Math.max(...inactivityGaps.map(g => g.duration)) : 0,
       salesCount,
     };
-  }, [gaps, events]);
+  }, [gaps, events, inHomeSessions]);
 
   if (!startTime || events.length === 0) {
     return (
@@ -433,7 +502,85 @@ export const RepDayActivityFlow = ({
             />
           ))}
           
-          {/* Gap zones with popovers */}
+          {/* In-Home Session blocks - emerald zones showing door→funnel activity */}
+          {inHomeSessions.map((session, idx) => {
+            const width = session.endPos - session.startPos;
+            
+            return (
+              <Popover key={`session-${idx}`}>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      "absolute top-1/2 -translate-y-1/2 rounded cursor-pointer transition-all hover:opacity-80 active:scale-y-90",
+                      session.containsSale 
+                        ? "h-5 bg-green-500/25 border border-green-400/50" 
+                        : "h-4 bg-emerald-500/25 border border-emerald-400/40"
+                    )}
+                    style={{ left: `${session.startPos}%`, width: `${Math.max(width, 2)}%` }}
+                  >
+                    {/* Duration badge for wider sessions */}
+                    {width > 4 && (
+                      <span className={cn(
+                        "absolute -top-3.5 left-1/2 -translate-x-1/2 text-[9px] font-semibold px-1 rounded whitespace-nowrap",
+                        session.containsSale ? "text-green-400" : "text-emerald-500"
+                      )}>
+                        {formatDuration(session.duration)}
+                      </span>
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0" side="top" align="center">
+                  <div className={cn(
+                    "px-3 py-2 border-b flex items-center justify-between",
+                    session.containsSale ? "bg-green-500/15 border-green-500/25" : "bg-emerald-500/10 border-emerald-500/20"
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <Home className={cn("w-4 h-4", session.containsSale ? "text-green-400" : "text-emerald-500")} />
+                      <span className={cn("font-semibold text-sm", session.containsSale ? "text-green-400" : "text-emerald-500")}>
+                        {session.containsSale ? 'Sale Session' : 'In Home'}
+                      </span>
+                    </div>
+                    <span className="text-xs font-bold text-foreground">{formatDuration(session.duration)}</span>
+                  </div>
+                  <div className="px-3 py-1.5 bg-muted/30 text-[11px] text-muted-foreground text-center">
+                    {formatTimeOnly(session.doorKnockTime)} → {formatTimeOnly(session.funnelEndTime)}
+                  </div>
+                  <div className="p-3 space-y-2">
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Activity Flow</div>
+                    <div className="flex flex-wrap gap-1">
+                      {session.eventsInSession.map((e, i) => {
+                        const config = EVENT_CONFIG[e.type];
+                        if (!config) return null;
+                        const Icon = config.icon;
+                        return (
+                          <div 
+                            key={i}
+                            className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", config.bgColor + "/15")}
+                          >
+                            <Icon className={cn("w-3 h-3", config.color)} />
+                            <span className={config.textColor}>{config.shortLabel}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className={cn(
+                      "text-[10px] rounded px-2 py-1.5 italic",
+                      session.containsSale ? "text-green-400 bg-green-500/10" : "text-emerald-600 bg-emerald-500/10"
+                    )}>
+                      {session.containsSale 
+                        ? "💰 Closed the deal! Great in-home execution."
+                        : session.duration < 10 
+                          ? "🏠 Quick transition — likely planning to return later"
+                          : "🏠 Time spent presenting in the home"
+                      }
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            );
+          })}
+          
+          {/* Gap zones with popovers - only 30+ min gaps (breaks or inactivity) */}
           {gaps.map((gap, idx) => {
             const width = gap.end - gap.start;
             
@@ -443,11 +590,8 @@ export const RepDayActivityFlow = ({
                   <button
                     className={cn(
                       "absolute top-1/2 -translate-y-1/2 rounded cursor-pointer transition-all hover:opacity-80 active:scale-y-90",
-                      gap.type === 'in_home' && "h-4 bg-emerald-500/25 border border-emerald-400/40",
                       gap.type === 'break' && "h-3 bg-amber-500/20 border border-amber-400/30",
-                      gap.type === 'inactivity' && gap.duration >= 30 
-                        ? "h-5 bg-red-500/30 border border-red-400/50" 
-                        : gap.type === 'inactivity' && "h-4 bg-red-500/20 border border-red-400/30"
+                      gap.type === 'inactivity' && "h-5 bg-red-500/30 border border-red-400/50"
                     )}
                     style={{ left: `${gap.start}%`, width: `${Math.max(width, 1.5)}%` }}
                   >
@@ -455,7 +599,6 @@ export const RepDayActivityFlow = ({
                     {width > 5 && (
                       <span className={cn(
                         "absolute -top-3.5 left-1/2 -translate-x-1/2 text-[9px] font-semibold px-1 rounded whitespace-nowrap",
-                        gap.type === 'in_home' && "text-emerald-500",
                         gap.type === 'break' && "text-amber-500",
                         gap.type === 'inactivity' && "text-red-400"
                       )}>
@@ -468,21 +611,18 @@ export const RepDayActivityFlow = ({
                   {/* Gap detail header */}
                   <div className={cn(
                     "px-3 py-2 border-b flex items-center justify-between",
-                    gap.type === 'in_home' && "bg-emerald-500/10 border-emerald-500/20",
                     gap.type === 'break' && "bg-amber-500/10 border-amber-500/20",
                     gap.type === 'inactivity' && "bg-red-500/10 border-red-500/20"
                   )}>
                     <div className="flex items-center gap-2">
-                      {gap.type === 'in_home' && <Home className="w-4 h-4 text-emerald-500" />}
                       {gap.type === 'break' && <Coffee className="w-4 h-4 text-amber-500" />}
                       {gap.type === 'inactivity' && <AlertTriangle className="w-4 h-4 text-red-400" />}
                       <span className={cn(
                         "font-semibold text-sm",
-                        gap.type === 'in_home' && "text-emerald-500",
                         gap.type === 'break' && "text-amber-500",
                         gap.type === 'inactivity' && "text-red-400"
                       )}>
-                        {gap.type === 'in_home' ? 'In Home' : gap.type === 'break' ? 'Break' : 'Gap'}
+                        {gap.type === 'break' ? 'Break' : 'Gap'}
                       </span>
                     </div>
                     <span className="text-xs font-bold text-foreground">{formatDuration(gap.duration)}</span>
@@ -544,15 +684,10 @@ export const RepDayActivityFlow = ({
                       </div>
                     </div>
                     
-                    {/* Coach insight */}
-                    {gap.type === 'in_home' && (
-                      <div className="text-[10px] text-emerald-600 bg-emerald-500/10 rounded px-2 py-1.5 italic">
-                        💡 Likely presenting — Door → Funnel activity pattern detected
-                      </div>
-                    )}
-                    {gap.type === 'inactivity' && gap.duration >= 30 && (
+                    {/* Coach insight for inactivity */}
+                    {gap.type === 'inactivity' && (
                       <div className="text-[10px] text-red-400 bg-red-500/10 rounded px-2 py-1.5 italic">
-                        ⚠️ Long gap — check if break was logged or address in coaching
+                        ⚠️ {formatDuration(gap.duration)} gap — check if break was logged or address in coaching
                       </div>
                     )}
                   </div>
@@ -768,10 +903,16 @@ export const RepDayActivityFlow = ({
 
       {/* Smart Summary - Coach Insights */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center text-[10px]">
+        {stats.transitionCount > 0 && (
+          <span className="flex items-center gap-1 text-amber-400">
+            <ArrowRight className="w-3 h-3" />
+            {stats.transitionCount} transition{stats.transitionCount > 1 ? 's' : ''}
+          </span>
+        )}
         {stats.inHomeCount > 0 && (
           <span className="flex items-center gap-1 text-emerald-500">
             <Home className="w-3 h-3" />
-            ~{formatDuration(stats.inHomeTime)} in homes ({stats.inHomeCount})
+            ~{formatDuration(stats.inHomeTime)} presenting
           </span>
         )}
         {stats.breakTime > 0 && (
@@ -782,8 +923,8 @@ export const RepDayActivityFlow = ({
         )}
         {stats.inactivityCount > 0 && (
           <span className="flex items-center gap-1 text-red-400">
-            <Zap className="w-3 h-3" />
-            {stats.inactivityCount} gap{stats.inactivityCount > 1 ? 's' : ''} • longest {formatDuration(stats.longestInactivity)}
+            <AlertTriangle className="w-3 h-3" />
+            {stats.inactivityCount} gap{stats.inactivityCount > 1 ? 's' : ''} (30+ min) • longest {formatDuration(stats.longestInactivity)}
           </span>
         )}
       </div>
