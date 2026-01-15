@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "./useRepData";
+import { hapticSuccess, hapticWarning } from "@/utils/haptics";
+import { toast } from "sonner";
 
 export interface TrainingWeekHistory {
   week_start: string; // ISO date string (Sunday)
@@ -238,7 +240,40 @@ export const useRepGoals = () => {
       if (error) throw error;
       return data;
     },
+    // OPTIMISTIC UPDATE - Instant UI feedback
+    onMutate: async (updates) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['rep-goals', repData?.user_id] });
+
+      // Snapshot current data for rollback
+      const previousGoals = queryClient.getQueryData(['rep-goals', repData?.user_id]);
+
+      // Optimistically update the cache
+      queryClient.setQueryData(['rep-goals', repData?.user_id], (old: RepGoals | null | undefined) => {
+        if (!old) return old;
+        return { ...old, ...updates };
+      });
+
+      return { previousGoals };
+    },
+    onError: (error, updates, context) => {
+      console.error('Error updating goals:', error);
+      
+      // Rollback on error
+      if (context?.previousGoals) {
+        queryClient.setQueryData(['rep-goals', repData?.user_id], context.previousGoals);
+      }
+      
+      hapticWarning();
+      toast.error('Failed to save goals', {
+        action: {
+          label: 'Retry',
+          onClick: () => upsertGoalsMutation.mutate(updates),
+        },
+      });
+    },
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
       // Also invalidate leaderboard so it updates immediately
       queryClient.invalidateQueries({ queryKey: ['preseason-prep-leaderboard-weekly'] });

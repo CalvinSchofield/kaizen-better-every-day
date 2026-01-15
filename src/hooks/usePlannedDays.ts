@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "./useRepData";
+import { hapticLight, hapticWarning } from "@/utils/haptics";
+import { toast } from "sonner";
 
 export interface PlannedDay {
   id: string;
@@ -71,6 +73,48 @@ export const usePlannedDays = () => {
       if (error) throw error;
       return data;
     },
+    // OPTIMISTIC UPDATE - Instant UI feedback
+    onMutate: async (date) => {
+      // Haptic feedback immediately
+      hapticLight();
+      
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['planned-days', repData?.user_id] });
+
+      // Snapshot current data for rollback
+      const previousDays = queryClient.getQueryData(['planned-days', repData?.user_id]);
+
+      // Optimistically add the day
+      queryClient.setQueryData(['planned-days', repData?.user_id], (old: PlannedDay[] | undefined) => {
+        const optimisticDay: PlannedDay = {
+          id: `optimistic-${date}-${Date.now()}`,
+          user_id: repData?.user_id!,
+          planned_date: date,
+          created_at: new Date().toISOString(),
+        };
+        return [...(old || []), optimisticDay].sort((a, b) => 
+          a.planned_date.localeCompare(b.planned_date)
+        );
+      });
+
+      return { previousDays };
+    },
+    onError: (error, date, context) => {
+      console.error('Error adding planned day:', error);
+      
+      // Rollback on error
+      if (context?.previousDays) {
+        queryClient.setQueryData(['planned-days', repData?.user_id], context.previousDays);
+      }
+      
+      hapticWarning();
+      toast.error('Failed to add day', {
+        action: {
+          label: 'Retry',
+          onClick: () => addPlannedDayMutation.mutate(date),
+        },
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planned-days'] });
     },
@@ -87,6 +131,40 @@ export const usePlannedDays = () => {
         .eq('planned_date', date);
 
       if (error) throw error;
+    },
+    // OPTIMISTIC UPDATE - Instant UI feedback
+    onMutate: async (date) => {
+      // Haptic feedback immediately
+      hapticLight();
+      
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['planned-days', repData?.user_id] });
+
+      // Snapshot current data for rollback
+      const previousDays = queryClient.getQueryData(['planned-days', repData?.user_id]);
+
+      // Optimistically remove the day
+      queryClient.setQueryData(['planned-days', repData?.user_id], (old: PlannedDay[] | undefined) => {
+        return (old || []).filter(d => d.planned_date !== date);
+      });
+
+      return { previousDays };
+    },
+    onError: (error, date, context) => {
+      console.error('Error removing planned day:', error);
+      
+      // Rollback on error
+      if (context?.previousDays) {
+        queryClient.setQueryData(['planned-days', repData?.user_id], context.previousDays);
+      }
+      
+      hapticWarning();
+      toast.error('Failed to remove day', {
+        action: {
+          label: 'Retry',
+          onClick: () => removePlannedDayMutation.mutate(date),
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planned-days'] });
@@ -109,40 +187,90 @@ export const usePlannedDays = () => {
     const newDates = dates.filter(d => !plannedDays?.some(p => p.planned_date === d));
     if (newDates.length === 0) return;
 
-    const { error } = await supabase
-      .from('planned_work_days')
-      .insert(newDates.map(date => ({
-        user_id: repData.user_id,
+    // Optimistic update for multiple days
+    const previousDays = queryClient.getQueryData(['planned-days', repData?.user_id]);
+    
+    queryClient.setQueryData(['planned-days', repData?.user_id], (old: PlannedDay[] | undefined) => {
+      const optimisticDays = newDates.map(date => ({
+        id: `optimistic-${date}-${Date.now()}`,
+        user_id: repData?.user_id!,
         planned_date: date,
-      })));
+        created_at: new Date().toISOString(),
+      }));
+      return [...(old || []), ...optimisticDays].sort((a, b) => 
+        a.planned_date.localeCompare(b.planned_date)
+      );
+    });
 
-    if (error) throw error;
-    queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+    try {
+      const { error } = await supabase
+        .from('planned_work_days')
+        .insert(newDates.map(date => ({
+          user_id: repData.user_id,
+          planned_date: date,
+        })));
+
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+    } catch (error) {
+      // Rollback on error
+      queryClient.setQueryData(['planned-days', repData?.user_id], previousDays);
+      hapticWarning();
+      toast.error('Failed to add days');
+      throw error;
+    }
   };
 
   const removeMultipleDays = async (dates: string[]) => {
     if (!repData?.user_id || dates.length === 0) return;
 
-    const { error } = await supabase
-      .from('planned_work_days')
-      .delete()
-      .eq('user_id', repData.user_id)
-      .in('planned_date', dates);
+    // Optimistic update
+    const previousDays = queryClient.getQueryData(['planned-days', repData?.user_id]);
+    
+    queryClient.setQueryData(['planned-days', repData?.user_id], (old: PlannedDay[] | undefined) => {
+      return (old || []).filter(d => !dates.includes(d.planned_date));
+    });
 
-    if (error) throw error;
-    queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+    try {
+      const { error } = await supabase
+        .from('planned_work_days')
+        .delete()
+        .eq('user_id', repData.user_id)
+        .in('planned_date', dates);
+
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+    } catch (error) {
+      // Rollback on error
+      queryClient.setQueryData(['planned-days', repData?.user_id], previousDays);
+      hapticWarning();
+      toast.error('Failed to remove days');
+      throw error;
+    }
   };
 
   const clearAllPlannedDays = async () => {
     if (!repData?.user_id) return;
 
-    const { error } = await supabase
-      .from('planned_work_days')
-      .delete()
-      .eq('user_id', repData.user_id);
+    // Optimistic update
+    const previousDays = queryClient.getQueryData(['planned-days', repData?.user_id]);
+    queryClient.setQueryData(['planned-days', repData?.user_id], []);
 
-    if (error) throw error;
-    queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+    try {
+      const { error } = await supabase
+        .from('planned_work_days')
+        .delete()
+        .eq('user_id', repData.user_id);
+
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+    } catch (error) {
+      // Rollback on error
+      queryClient.setQueryData(['planned-days', repData?.user_id], previousDays);
+      hapticWarning();
+      toast.error('Failed to clear days');
+      throw error;
+    }
   };
 
   const isDatePlanned = (date: string): boolean => {

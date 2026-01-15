@@ -30,7 +30,7 @@ import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { getDaysUntilBlitz, parseDateAsLocal } from "@/utils/blitzDateUtils";
 import { RookieRampHeroSection } from "@/components/RookieRampHeroSection";
 import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
-import { hapticSuccess } from "@/utils/haptics";
+import { hapticSuccess, hapticMedium, hapticWarning } from "@/utils/haptics";
 import type { PhaseData, PhaseId } from "@/pages/RampToBlitz";
 
 import { PreseasonPrepLeaderboard } from "@/components/PreseasonPrepLeaderboard";
@@ -430,21 +430,47 @@ const Home = () => {
     const blitz = confirmCommitBlitz;
     if (!blitz || !repData?.id) return;
     
-    setIsCommittingBlitz(blitz.id);
+    // Close confirmation drawer immediately
     setConfirmCommitBlitz(null);
     
+    // Haptic feedback for immediate response
+    hapticMedium();
+    
+    // Optimistic update - update cache immediately
+    const currentCommitments = (repData.committed_blitzes as any[]) || [];
+    const newCommitment = {
+      id: blitz.id,
+      name: blitz.name,
+      date: blitz.date,
+      endDate: blitz.endDate || undefined,
+      location: blitz.location || undefined,
+    };
+    const updatedCommitments = [...currentCommitments, newCommitment];
+    
+    // Optimistically update rep-data cache
+    queryClient.setQueryData(['rep-data'], (old: any) => {
+      if (!old) return old;
+      return { ...old, committed_blitzes: updatedCommitments };
+    });
+    
+    // Fire confetti immediately (before server response)
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+    
+    // Show success toast immediately
+    hapticSuccess();
+    toast({
+      title: "Committed! 🎉",
+      description: `You're now committed to ${blitz.name}`,
+    });
+    
+    setBlitzListExpanded(false);
+    setIsCommittingBlitz(blitz.id);
+    
     try {
-      const currentCommitments = (repData.committed_blitzes as any[]) || [];
-      const newCommitment = {
-        id: blitz.id,
-        name: blitz.name,
-        date: blitz.date,
-        endDate: blitz.endDate || undefined,
-        location: blitz.location || undefined,
-      };
-      
-      const updatedCommitments = [...currentCommitments, newCommitment];
-      
       const { error } = await supabase
         .from('reps')
         .update({ committed_blitzes: updatedCommitments as unknown as null })
@@ -452,32 +478,28 @@ const Home = () => {
       
       if (error) throw error;
       
-      // Sync via edge function
+      // Sync via edge function (don't await - fire and forget)
       if (repData.id) {
-        await supabase.functions.invoke('update-blitz-commitment', {
+        supabase.functions.invoke('update-blitz-commitment', {
           body: {
             repId: repData.id,
             blitzPageIds: updatedCommitments.map((b: any) => b.id),
           },
-        });
+        }).catch(console.error);
       }
       
+      // Invalidate in background
       queryClient.invalidateQueries({ queryKey: ['rep-data'] });
-      
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-      
-      toast({
-        title: "Committed! 🎉",
-        description: `You're now committed to ${blitz.name}`,
-      });
-      
-      setBlitzListExpanded(false);
     } catch (error) {
       console.error('Error committing to blitz:', error);
+      
+      // Rollback on error
+      queryClient.setQueryData(['rep-data'], (old: any) => {
+        if (!old) return old;
+        return { ...old, committed_blitzes: currentCommitments };
+      });
+      
+      hapticWarning();
       toast({
         title: "Failed to commit",
         description: "Please try again",
@@ -493,13 +515,31 @@ const Home = () => {
     const blitz = confirmUncommitBlitz;
     if (!blitz || !repData?.id) return;
     
-    setIsUncommittingBlitz(blitz.id);
+    // Close confirmation drawer immediately
     setConfirmUncommitBlitz(null);
     
+    // Haptic feedback for immediate response
+    hapticMedium();
+    
+    // Optimistic update - update cache immediately
+    const currentCommitments = (repData.committed_blitzes as any[]) || [];
+    const updatedCommitments = currentCommitments.filter((b: any) => b.id !== blitz.id);
+    
+    // Optimistically update rep-data cache
+    queryClient.setQueryData(['rep-data'], (old: any) => {
+      if (!old) return old;
+      return { ...old, committed_blitzes: updatedCommitments };
+    });
+    
+    // Show toast immediately
+    toast({
+      title: "Uncommitted",
+      description: `You're no longer committed to ${blitz.name}`,
+    });
+    
+    setIsUncommittingBlitz(blitz.id);
+    
     try {
-      const currentCommitments = (repData.committed_blitzes as any[]) || [];
-      const updatedCommitments = currentCommitments.filter((b: any) => b.id !== blitz.id);
-      
       const { error } = await supabase
         .from('reps')
         .update({ committed_blitzes: updatedCommitments as unknown as null })
@@ -507,24 +547,28 @@ const Home = () => {
       
       if (error) throw error;
       
-      // Sync via edge function
+      // Sync via edge function (don't await - fire and forget)
       if (repData.id) {
-        await supabase.functions.invoke('update-blitz-commitment', {
+        supabase.functions.invoke('update-blitz-commitment', {
           body: {
             repId: repData.id,
             blitzPageIds: updatedCommitments.map((b: any) => b.id),
           },
-        });
+        }).catch(console.error);
       }
       
+      // Invalidate in background
       queryClient.invalidateQueries({ queryKey: ['rep-data'] });
-      
-      toast({
-        title: "Uncommitted",
-        description: `You're no longer committed to ${blitz.name}`,
-      });
     } catch (error) {
       console.error('Error uncommitting from blitz:', error);
+      
+      // Rollback on error
+      queryClient.setQueryData(['rep-data'], (old: any) => {
+        if (!old) return old;
+        return { ...old, committed_blitzes: currentCommitments };
+      });
+      
+      hapticWarning();
       toast({
         title: "Failed to uncommit",
         description: "Please try again",
