@@ -278,7 +278,8 @@ export const RepDayActivityFlow = ({
       const gapEnd = currEvent.timestamp.getTime();
       const gapMinutes = (gapEnd - gapStart) / (1000 * 60);
       
-      // Show all gaps (no minimum threshold)
+      // Only show gaps of 20+ minutes
+      if (gapMinutes < 20) continue;
       
       const startPos = ((gapStart - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
       const endPos = ((gapEnd - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
