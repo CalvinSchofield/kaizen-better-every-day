@@ -176,6 +176,33 @@ export const useChallenges = (filter: 'active' | 'pending' | 'history' = 'active
 };
 
 export const useMyActiveChallenges = () => {
+  const queryClient = useQueryClient();
+
+  // Set up realtime subscription for challenge status changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('my-active-challenges-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'challenges',
+        },
+        (payload) => {
+          console.log('[Realtime] Challenge status changed:', payload);
+          // Invalidate on any challenge change (completion, voiding, etc.)
+          queryClient.invalidateQueries({ queryKey: ['my-active-challenges'], refetchType: 'all' });
+          queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['my-active-challenges'],
     queryFn: async () => {
@@ -240,7 +267,8 @@ export const useMyActiveChallenges = () => {
         })),
       })) as Challenge[];
     },
-    staleTime: 30 * 1000,
+    staleTime: 10 * 1000, // 10 seconds - faster refresh for active challenges
+    refetchInterval: 60 * 1000, // Auto-refetch every minute
     retry: 1,
   });
 };
