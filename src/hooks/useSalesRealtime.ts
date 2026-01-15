@@ -21,27 +21,32 @@ export const useSalesRealtime = () => {
           table: 'daily_entries',
         },
         () => {
-          // Invalidate all sales-dependent queries with refetchType: 'all'
+          // CRITICAL: Invalidate ALL sales-dependent queries with refetchType: 'all'
           // This ensures even unmounted queries get invalidated
-          // CRITICAL: Include 'daily-entry' for multi-device Track sync
-          // CRITICAL: Include ALL queries that depend on daily_entries data
-          // Both leaderboard and challenge progress must stay in sync
+          // MUST match the keys in useSaleUpdate.ts for consistency
           const salesKeys = [
             'daily-entry', // CRITICAL for multi-device Track sync
+            'all-daily-entries',
+            'daily-entries',
             'activity-summary',
             'cumulative-fp',
             'insights-data',
-            'all-daily-entries',
-            'daily-entries',
             'customer-sales', // For Customers page
+            // Competitions - CRITICAL: Challenge/incentive progress must sync with sales changes
             'my-active-incentives',
             'incentive-progress',
             'my-active-challenges',
             'challenge-progress', // CRITICAL: Must match leaderboard updates
+            // Goals
             'rep-goals',
+            // Leaderboards - ALL variants
             'today-leaderboard',
             'yesterday-leaderboard',
             'weekly-leaderboard',
+            'monthly-leaderboard',
+            'season-leaderboard',
+            'ytd-leaderboard',
+            'expanded-leaderboard',
           ];
 
           salesKeys.forEach((key) => {

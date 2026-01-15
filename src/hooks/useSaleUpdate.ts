@@ -131,26 +131,43 @@ export const useSaleUpdate = () => {
       hapticSuccess();
       toast.success('Sale updated');
       
-      // Invalidate related queries in background
-      queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
-      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
-      queryClient.invalidateQueries({ queryKey: ['canceled-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['insights-data'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['weekly-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['monthly-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['season-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['ytd-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['my-active-incentives'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['incentive-progress'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['my-active-challenges'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['rep-goals'], refetchType: 'all' });
+      // CRITICAL: Invalidate ALL sales-dependent queries with refetchType: 'all'
+      // This ensures challenges, incentives, and leaderboards all update when PRMR changes
+      const salesDependentKeys = [
+        'daily-entry',
+        'all-daily-entries',
+        'daily-entries',
+        'preseason-fp-total',
+        'canceled-stats',
+        'activity-summary',
+        'insights-data',
+        'cumulative-fp',
+        'customer-sales',
+        // Leaderboards
+        'today-leaderboard',
+        'yesterday-leaderboard',
+        'weekly-leaderboard',
+        'monthly-leaderboard',
+        'season-leaderboard',
+        'ytd-leaderboard',
+        'expanded-leaderboard',
+        // Competitions - CRITICAL for PRMR updates
+        'my-active-incentives',
+        'incentive-progress',
+        'my-active-challenges',
+        'challenge-progress',
+        // Goals
+        'rep-goals',
+      ];
+      
+      // Invalidate all sales-dependent queries with refetchType: 'all'
+      // This ensures even inactive/unmounted queries get invalidated
+      salesDependentKeys.forEach(key => {
+        queryClient.invalidateQueries({ queryKey: [key], refetchType: 'all' });
+      });
+      
+      // Also invalidate the specific entry date
+      queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate], refetchType: 'all' });
     },
   });
 
@@ -238,27 +255,43 @@ export const useSaleUpdate = () => {
       hapticSuccess();
       toast.success('Sale removed');
       
-      // Invalidate related queries in background
-      queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
-      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
-      queryClient.invalidateQueries({ queryKey: ['canceled-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['insights-data'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['pending-installs'] });
-      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['weekly-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['monthly-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['season-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['ytd-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['my-active-incentives'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['incentive-progress'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['my-active-challenges'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['rep-goals'], refetchType: 'all' });
+      // CRITICAL: Invalidate ALL sales-dependent queries with refetchType: 'all'
+      // This ensures challenges, incentives, and leaderboards all update when sales are deleted
+      const salesDependentKeys = [
+        'daily-entry',
+        'all-daily-entries',
+        'daily-entries',
+        'preseason-fp-total',
+        'canceled-stats',
+        'activity-summary',
+        'insights-data',
+        'cumulative-fp',
+        'customer-sales',
+        'pending-installs',
+        // Leaderboards
+        'today-leaderboard',
+        'yesterday-leaderboard',
+        'weekly-leaderboard',
+        'monthly-leaderboard',
+        'season-leaderboard',
+        'ytd-leaderboard',
+        'expanded-leaderboard',
+        // Competitions - CRITICAL for PRMR updates
+        'my-active-incentives',
+        'incentive-progress',
+        'my-active-challenges',
+        'challenge-progress',
+        // Goals
+        'rep-goals',
+      ];
+      
+      // Invalidate all sales-dependent queries with refetchType: 'all'
+      salesDependentKeys.forEach(key => {
+        queryClient.invalidateQueries({ queryKey: [key], refetchType: 'all' });
+      });
+      
+      // Also invalidate the specific entry date
+      queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate], refetchType: 'all' });
     },
   });
 
