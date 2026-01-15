@@ -15,6 +15,7 @@ import { useExpandedLeaderboard, CustomDateRange } from "@/hooks/useExpandedLead
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
 import { usePageTour } from "@/hooks/usePageTour";
+import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { PageTour } from "@/components/PageTour";
 import { leaderboardTourSteps } from "@/config/pageTours";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,6 +48,9 @@ const Leaderboard = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
   const [isUserInitialized, setIsUserInitialized] = useState(false);
+
+  // Subscribe to realtime sales updates for immediate leaderboard and challenge sync
+  useSalesRealtime();
 
   // Page tour
   const { showTour, completeTour, skipTour } = usePageTour({
