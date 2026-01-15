@@ -64,7 +64,7 @@ const TrackWithLayout = () => {
   const { totalFP: preseasonFP } = usePreseasonFP();
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry } = useDailyEntry();
   const { addSale: addSaleToEntry, isAddingSale } = useAddSaleToEntry();
-  const { deleteSale: deleteSaleFromEntry, isDeleting: isDeletingSale } = useSaleUpdate();
+  const { updateSale, deleteSale: deleteSaleFromEntry, isDeleting: isDeletingSale } = useSaleUpdate();
   
   // CRITICAL: Subscribe to realtime updates for multi-device sync
   // This ensures iPad and Phone stay in sync automatically
@@ -861,21 +861,26 @@ const TrackWithLayout = () => {
   }, []);
 
   const handleUpdateSale = useCallback(async (updatedSale: Sale) => {
-    const currentSalesLog = entry.sales_log || [];
-    const updatedSalesLog = currentSalesLog.map(s => 
-      s.id === updatedSale.id ? updatedSale : s
-    );
-    
-    setSyncStatus('pending');
-    try {
-      await updateCounter({ sales_log: updatedSalesLog });
-      setSyncStatus('synced');
-    } catch (error) {
-      setSyncStatus('error');
+    // Use the dedicated useSaleUpdate hook which properly:
+    // 1. Updates the sale in sales_log
+    // 2. Recalculates closes, fp_plus, prmr, upgrade_prmr based on all funded sales
+    // 3. Invalidates all relevant caches
+    const entryId = (entry as any).id;
+    if (!entryId) {
+      console.error('[handleUpdateSale] No entry ID available');
+      toast.error('Cannot update sale - entry not found');
+      return;
     }
     
+    updateSale({
+      entryId,
+      entryDate: getTodayDate(),
+      saleId: updatedSale.id,
+      updates: updatedSale,
+    });
+    
     setEditingSale(null);
-  }, [entry.sales_log, updateCounter]);
+  }, [entry, updateSale]);
 
   const handleDeleteSale = useCallback(async (saleId: string) => {
     // Use the dedicated useSaleUpdate hook which properly:
