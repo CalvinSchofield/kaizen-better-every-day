@@ -236,11 +236,11 @@ export const ReportsV2Page = () => {
   // Preset button config with Live indicator for today
   const presetConfig: { key: ReportsDatePreset; label: string; isLive?: boolean }[] = [
     { key: 'today', label: 'Live', isLive: true },
-    { key: 'yesterday', label: 'Yest' },
-    { key: 'week', label: 'Week' },
-    { key: 'lastWeek', label: 'Last Wk' },
-    { key: 'month', label: 'Month' },
-    { key: 'lastMonth', label: 'Last Mo' },
+    { key: 'yesterday', label: 'Yesterday' },
+    { key: 'week', label: 'This Week' },
+    { key: 'lastWeek', label: 'Last Week' },
+    { key: 'month', label: 'This Month' },
+    { key: 'lastMonth', label: 'Last Month' },
     { key: 'preseason', label: 'Preseason' },
     { key: 'ytd', label: 'YTD' },
   ];
