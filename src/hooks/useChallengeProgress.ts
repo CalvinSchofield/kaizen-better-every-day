@@ -335,6 +335,7 @@ export const useChallengeProgress = (challenge: Challenge | null, options?: { in
       } as ChallengeProgressData;
     },
     enabled: !!challenge && (challenge.status === 'active' || (includePending && challenge.status === 'pending')),
-    staleTime: 30 * 1000, // 30 seconds - ensures quick refresh after mutations
+    staleTime: 30 * 1000, // 30 seconds - matches useTodayLeaderboard
+    refetchInterval: 60 * 1000, // Auto-refetch every minute - matches useTodayLeaderboard for sync
   });
 };

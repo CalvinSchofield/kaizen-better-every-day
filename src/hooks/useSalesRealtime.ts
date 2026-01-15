@@ -24,6 +24,8 @@ export const useSalesRealtime = () => {
           // Invalidate all sales-dependent queries with refetchType: 'all'
           // This ensures even unmounted queries get invalidated
           // CRITICAL: Include 'daily-entry' for multi-device Track sync
+          // CRITICAL: Include ALL queries that depend on daily_entries data
+          // Both leaderboard and challenge progress must stay in sync
           const salesKeys = [
             'daily-entry', // CRITICAL for multi-device Track sync
             'activity-summary',
@@ -35,7 +37,7 @@ export const useSalesRealtime = () => {
             'my-active-incentives',
             'incentive-progress',
             'my-active-challenges',
-            'challenge-progress',
+            'challenge-progress', // CRITICAL: Must match leaderboard updates
             'rep-goals',
             'today-leaderboard',
             'yesterday-leaderboard',
