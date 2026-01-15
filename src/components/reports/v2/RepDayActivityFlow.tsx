@@ -444,11 +444,83 @@ export const RepDayActivityFlow = ({
     return gapPeriods;
   }, [events, startTime, totalMinutes, parsedBreaks]);
 
+  // Detect extended doorstep conversations: door → DM/pitch but no transition/presentation/sale
+  // These could indicate the rep was talking at the door for a while
+  const extendedConversations = useMemo(() => {
+    if (!startTime || !totalMinutes) return [];
+    
+    const conversations: Array<{
+      startPos: number;
+      endPos: number;
+      duration: number;
+      doorTime: Date;
+      lastActivityTime: Date;
+      activities: string[];
+    }> = [];
+    
+    const doorIndices = events
+      .map((e, i) => e.type === 'doors_knocked' ? i : -1)
+      .filter(i => i >= 0);
+    
+    doorIndices.forEach((doorIdx, i) => {
+      const doorEvent = events[doorIdx];
+      const nextDoorIdx = doorIndices[i + 1] ?? events.length;
+      
+      const visitEvents = events.slice(doorIdx + 1, nextDoorIdx);
+      if (visitEvents.length === 0) return;
+      
+      // Check if there's a transition, presentation, or sale
+      const hasEnding = visitEvents.some(e => 
+        e.type === 'transitions' || e.type === 'presentations' || e.type === 'sale' || e.type === 'closes'
+      );
+      
+      if (hasEnding) return; // Already tracked in inHomeZones
+      
+      // Check if there's DM or pitch activity
+      const dmPitchEvents = visitEvents.filter(e => 
+        e.type === 'decision_makers' || e.type === 'pitches'
+      );
+      
+      if (dmPitchEvents.length === 0) return;
+      
+      // Find the last activity timestamp
+      const lastActivity = dmPitchEvents[dmPitchEvents.length - 1];
+      const doorTime = doorEvent.timestamp.getTime();
+      const lastActivityTime = lastActivity.timestamp.getTime();
+      const duration = (lastActivityTime - doorTime) / (1000 * 60);
+      
+      // Only show if there's meaningful time (> 2 minutes)
+      if (duration < 2) return;
+      
+      const startPos = ((doorTime - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
+      const endPos = ((lastActivityTime - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
+      
+      conversations.push({
+        startPos: Math.max(0, startPos),
+        endPos: Math.min(100, endPos),
+        duration,
+        doorTime: doorEvent.timestamp,
+        lastActivityTime: lastActivity.timestamp,
+        activities: dmPitchEvents.map(e => EVENT_CONFIG[e.type]?.shortLabel || e.type),
+      });
+    });
+    
+    return conversations;
+  }, [events, startTime, totalMinutes]);
+
   // Summary stats - transitions = homes entered, presentations = presented
   const stats = useMemo(() => {
     const breakGaps = gaps.filter(g => g.type === 'break');
     const inactivityGaps = gaps.filter(g => g.type === 'inactivity');
     const salesCount = events.filter(e => e.type === 'sale').length;
+    
+    // Total time selling = in-home zones + extended conversations
+    const totalSellingTime = inHomeZones.reduce((sum, z) => sum + z.duration, 0) 
+      + extendedConversations.reduce((sum, c) => sum + c.duration, 0);
+    
+    // Count doorstep vs in-home
+    const doorstepCount = inHomeZones.filter(z => z.endType.startsWith('doorstep_')).length;
+    const inHomeCount = inHomeZones.filter(z => !z.endType.startsWith('doorstep_')).length;
     
     return {
       transitionCount: transitionEvents.length,
@@ -458,8 +530,12 @@ export const RepDayActivityFlow = ({
       inactivityCount: inactivityGaps.length,
       longestInactivity: inactivityGaps.length > 0 ? Math.max(...inactivityGaps.map(g => g.duration)) : 0,
       salesCount,
+      totalSellingTime,
+      doorstepCount,
+      inHomeCount,
+      extendedConvoCount: extendedConversations.length,
     };
-  }, [gaps, events, transitionEvents, presentationEvents]);
+  }, [gaps, events, transitionEvents, presentationEvents, inHomeZones, extendedConversations]);
 
   if (!startTime || events.length === 0) {
     return (
@@ -622,6 +698,53 @@ export const RepDayActivityFlow = ({
             );
           })}
           
+          {/* Extended conversations - door → DM/pitch without transition */}
+          {extendedConversations.map((convo, idx) => (
+            <Popover key={`convo-${idx}`}>
+              <PopoverTrigger asChild>
+                <button
+                  className="absolute top-1/2 -translate-y-1/2 h-4 rounded-md bg-gradient-to-r from-purple-500/15 via-cyan-400/20 to-purple-500/15 border border-dashed border-purple-400/40 cursor-pointer hover:opacity-80 transition-all active:scale-y-90"
+                  style={{ left: `${convo.startPos}%`, width: `${Math.max(convo.endPos - convo.startPos, 2)}%` }}
+                >
+                  {(convo.endPos - convo.startPos) > 8 && (
+                    <span className="absolute inset-0 flex items-center justify-center text-[8px] font-medium text-purple-300 whitespace-nowrap">
+                      {formatDuration(convo.duration)}
+                    </span>
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-0" side="top" align="center">
+                <div className="px-3 py-2 bg-purple-500/15 border-b border-purple-500/25 flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-purple-400/20 flex items-center justify-center text-sm">
+                    💬
+                  </div>
+                  <span className="font-bold text-sm text-purple-400">At Door</span>
+                </div>
+                <div className="p-3 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-muted-foreground">Duration</span>
+                    <span className="text-sm font-bold text-purple-400">{formatDuration(convo.duration)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-muted-foreground">Door Knocked</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(convo.doorTime)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-muted-foreground">Last Activity</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(convo.lastActivityTime)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-muted-foreground">Logged</span>
+                    <span className="text-[11px] font-medium">{convo.activities.join(', ')}</span>
+                  </div>
+                  <div className="text-[10px] text-purple-400 bg-purple-500/10 rounded px-2 py-1.5 italic mt-1">
+                    💬 Extended conversation — no transition logged
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          ))}
+          
           {/* Breaks - subtle dashed zones */}
           {parsedBreaks.map((bp, idx) => (
             <div
@@ -631,7 +754,6 @@ export const RepDayActivityFlow = ({
               title={`Break: ${formatDuration(bp.duration)}`}
             />
           ))}
-          
           
           {/* Gap zones with popovers */}
           {gaps.map((gap, idx) => {
@@ -953,28 +1075,37 @@ export const RepDayActivityFlow = ({
 
       {/* Smart Summary - Coach Insights */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center text-[10px]">
-        {stats.transitionCount > 0 && (
-          <span className="flex items-center gap-1 text-amber-400">
-            <ArrowRight className="w-3 h-3" />
-            {stats.transitionCount} transition{stats.transitionCount > 1 ? 's' : ''}
+        {/* Total time selling - most important stat */}
+        {stats.totalSellingTime > 0 && (
+          <span className="flex items-center gap-1 text-primary font-semibold">
+            ⏱️ {formatDuration(stats.totalSellingTime)} selling
           </span>
         )}
-        {stats.presentationCount > 0 && (
+        {stats.inHomeCount > 0 && (
+          <span className="flex items-center gap-1 text-amber-400">
+            🏠 {stats.inHomeCount} home{stats.inHomeCount > 1 ? 's' : ''}
+          </span>
+        )}
+        {stats.doorstepCount > 0 && (
           <span className="flex items-center gap-1 text-orange-400">
-            <Presentation className="w-3 h-3" />
-            {stats.presentationCount} presentation{stats.presentationCount > 1 ? 's' : ''}
+            🚪 {stats.doorstepCount} doorstep
+          </span>
+        )}
+        {stats.extendedConvoCount > 0 && (
+          <span className="flex items-center gap-1 text-purple-400">
+            💬 {stats.extendedConvoCount} convo{stats.extendedConvoCount > 1 ? 's' : ''}
           </span>
         )}
         {stats.breakTime > 0 && (
           <span className="flex items-center gap-1 text-amber-500">
             <Coffee className="w-3 h-3" />
-            {formatDuration(stats.breakTime)} breaks
+            {formatDuration(stats.breakTime)}
           </span>
         )}
         {stats.inactivityCount > 0 && (
           <span className="flex items-center gap-1 text-red-400">
             <AlertTriangle className="w-3 h-3" />
-            {stats.inactivityCount} gap{stats.inactivityCount > 1 ? 's' : ''} • longest {formatDuration(stats.longestInactivity)}
+            {stats.inactivityCount} gap{stats.inactivityCount > 1 ? 's' : ''}
           </span>
         )}
       </div>
