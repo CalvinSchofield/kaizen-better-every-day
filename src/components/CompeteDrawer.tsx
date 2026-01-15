@@ -13,12 +13,13 @@ import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { CreateChallengeDrawer } from "@/components/leaderboard/CreateChallengeDrawer";
 import { CreateIncentiveDrawer } from "@/components/leaderboard/CreateIncentiveDrawer";
+import { ChallengeScoreSlider } from "@/components/competitions/ChallengeScoreSlider";
 import { Swords, Trophy, Gift, ChevronRight, Loader2, Check, X, Flame, Plus, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { getInitials, getCleanName } from "@/utils/nameUtils";
+import { getInitials, getCleanName, getCleanFirstName } from "@/utils/nameUtils";
 import { hapticLight, hapticSuccess, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
 
@@ -50,38 +51,38 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
     );
   }
 
+  const isGroupChallenge = challenge.type === 'group';
+
+  if (isGroupChallenge) {
+    const teamA = progress.participants.filter(p => p.team === 'a');
+    const teamB = progress.participants.filter(p => p.team === 'b');
+    const teamATotal = teamA.reduce((sum, p) => sum + (p.current_value || 0), 0);
+    const teamBTotal = teamB.reduce((sum, p) => sum + (p.current_value || 0), 0);
+
+    return (
+      <ChallengeScoreSlider
+        isTeamBattle
+        redTotal={teamATotal}
+        blueTotal={teamBTotal}
+        variant="compact"
+      />
+    );
+  }
+
+  // 1v1 challenge
   const myProgress = progress.participants.find(p => p.user_id === myUserId);
   const opponentProgress = progress.participants.find(p => p.user_id !== myUserId);
-  
   const myValue = myProgress?.current_value || 0;
   const theirValue = opponentProgress?.current_value || 0;
-  const isWinning = myValue > theirValue;
-  const isTied = myValue === theirValue;
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <div className={cn(
-          "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold",
-          isWinning ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600"
-        )}>
-          {myValue}
-        </div>
-        <span className="text-xs font-medium">You</span>
-      </div>
-      <Badge variant="secondary" className="text-[10px]">
-        {metricLabels[challenge.metric] || challenge.metric}
-      </Badge>
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium">{opponentProgress?.rep_name?.split(' ')[0]}</span>
-        <div className={cn(
-          "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold",
-          !isWinning && !isTied ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600"
-        )}>
-          {theirValue}
-        </div>
-      </div>
-    </div>
+    <ChallengeScoreSlider
+      myValue={myValue}
+      theirValue={theirValue}
+      variant="compact"
+      myLabel="You"
+      theirLabel={getCleanFirstName(opponentProgress?.rep_name)}
+    />
   );
 };
 
