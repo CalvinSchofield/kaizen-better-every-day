@@ -303,6 +303,54 @@ export const RepDayActivityFlow = ({
   const presentationEvents = useMemo(() => 
     events.filter(e => e.type === 'presentations'), [events]);
 
+  // Calculate "in home" zones - from door knock to transition
+  const inHomeZones = useMemo(() => {
+    if (!startTime || !totalMinutes) return [];
+    
+    const zones: Array<{
+      startPos: number;
+      endPos: number;
+      duration: number;
+      doorTime: Date;
+      transitionTime: Date;
+    }> = [];
+    
+    // For each transition, look backward for the door knock that started this home visit
+    events.forEach((event, idx) => {
+      if (event.type !== 'transitions') return;
+      
+      const transitionTime = event.timestamp.getTime();
+      let searchIdx = idx - 1;
+      
+      // Skip batch-logged events at the same timestamp
+      while (searchIdx >= 0 && events[searchIdx].timestamp.getTime() === transitionTime) {
+        searchIdx--;
+      }
+      
+      // Find the door knock that preceded this
+      while (searchIdx >= 0) {
+        if (events[searchIdx].type === 'doors_knocked') {
+          const doorTime = events[searchIdx].timestamp.getTime();
+          const startPos = ((doorTime - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
+          const endPos = ((transitionTime - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
+          const duration = (transitionTime - doorTime) / (1000 * 60);
+          
+          zones.push({
+            startPos: Math.max(0, startPos),
+            endPos: Math.min(100, endPos),
+            duration,
+            doorTime: events[searchIdx].timestamp,
+            transitionTime: event.timestamp,
+          });
+          break;
+        }
+        searchIdx--;
+      }
+    });
+    
+    return zones;
+  }, [events, startTime, totalMinutes]);
+
   // Simplified gap detection: Only 30+ min gaps
   const gaps = useMemo(() => {
     if (events.length < 2 || !startTime) return [];
@@ -446,6 +494,47 @@ export const RepDayActivityFlow = ({
         <div className="relative h-16 min-w-[450px]">
           {/* Track background */}
           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 bg-muted/50 rounded-full" />
+          
+          {/* In-home zones - colored bands from door to transition */}
+          {inHomeZones.map((zone, idx) => (
+            <Popover key={`home-zone-${idx}`}>
+              <PopoverTrigger asChild>
+                <button
+                  className="absolute top-1/2 -translate-y-1/2 h-6 rounded-md bg-gradient-to-r from-amber-500/20 via-amber-400/30 to-amber-500/20 border border-amber-400/40 cursor-pointer hover:bg-amber-400/30 transition-all active:scale-y-90"
+                  style={{ left: `${zone.startPos}%`, width: `${Math.max(zone.endPos - zone.startPos, 2)}%` }}
+                >
+                  {/* Duration label for wider zones */}
+                  {(zone.endPos - zone.startPos) > 6 && (
+                    <span className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold text-amber-300 whitespace-nowrap">
+                      {formatDuration(zone.duration)}
+                    </span>
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-0" side="top" align="center">
+                <div className="px-3 py-2 bg-amber-500/15 border-b border-amber-500/25 flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-amber-400/20 flex items-center justify-center">
+                    🏠
+                  </div>
+                  <span className="font-bold text-sm text-amber-400">In Home</span>
+                </div>
+                <div className="p-3 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-muted-foreground">Duration</span>
+                    <span className="text-sm font-bold text-amber-400">{formatDuration(zone.duration)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-muted-foreground">Door Knocked</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(zone.doorTime)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-muted-foreground">Left Home</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(zone.transitionTime)}</span>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          ))}
           
           {/* Breaks - subtle dashed zones */}
           {parsedBreaks.map((bp, idx) => (
