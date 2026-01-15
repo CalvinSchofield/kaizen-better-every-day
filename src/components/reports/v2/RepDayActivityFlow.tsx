@@ -278,8 +278,7 @@ export const RepDayActivityFlow = ({
       const gapEnd = currEvent.timestamp.getTime();
       const gapMinutes = (gapEnd - gapStart) / (1000 * 60);
       
-      // Only show gaps of 30+ minutes
-      if (gapMinutes < 30) continue;
+      // Show all gaps (no minimum threshold)
       
       const startPos = ((gapStart - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
       const endPos = ((gapEnd - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
@@ -420,7 +419,7 @@ export const RepDayActivityFlow = ({
           ))}
           
           
-          {/* Gap zones with popovers - only 30+ min gaps (breaks or inactivity) */}
+          {/* Gap zones with popovers */}
           {gaps.map((gap, idx) => {
             const width = gap.end - gap.start;
             
