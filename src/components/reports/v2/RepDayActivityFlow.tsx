@@ -145,51 +145,40 @@ const formatDuration = (minutes: number): string => {
 };
 
 // Get the single closest event before/after with time
-// For "before" direction: detect batch-logged events (same timestamp) and look backward for the door knock
-const getAdjacentEvent = (events: TimelineEvent[], idx: number, direction: 'before' | 'after'): { event: TimelineEvent; time: string } | null => {
+// For "before" direction on transitions: detect batch-logged events and find the door knock that started this home visit
+const getAdjacentEvent = (
+  events: TimelineEvent[], 
+  idx: number, 
+  direction: 'before' | 'after',
+  currentEventType?: string
+): { event: TimelineEvent; time: string } | null => {
   const currentEvent = events[idx];
   
   if (direction === 'before') {
-    // Look for the most recent door knock before this event
+    // For transitions specifically, we want to find the door knock that started this home visit
     // This handles "batch logging" where reps log DM, pitch, transition all at once after an interaction
-    // The door knock before those batch events tells us when they actually entered the home
+    const isTransition = currentEventType === 'transitions';
     
-    let searchIdx = idx - 1;
-    let foundDoorKnock: TimelineEvent | null = null;
-    
-    // First, check if there are events at the same timestamp (batch-logged)
-    const currentTime = currentEvent.timestamp.getTime();
-    const hasBatchEvents = searchIdx >= 0 && events[searchIdx].timestamp.getTime() === currentTime;
-    
-    if (hasBatchEvents) {
-      // Skip past all same-timestamp events and find the door knock before them
+    if (isTransition) {
+      const currentTime = currentEvent.timestamp.getTime();
+      let searchIdx = idx - 1;
+      
+      // Skip past any events at the same timestamp (batch-logged together)
       while (searchIdx >= 0 && events[searchIdx].timestamp.getTime() === currentTime) {
         searchIdx--;
       }
-      // Now look for a door knock
+      
+      // Now search backward for the door knock that preceded this home visit
+      // The door knock is what started this interaction sequence
       while (searchIdx >= 0) {
         if (events[searchIdx].type === 'doors_knocked') {
-          foundDoorKnock = events[searchIdx];
-          break;
-        }
-        // Also check if this is a significantly earlier event (more than 2 minutes before)
-        // which would indicate the "real" start of this home interaction
-        const timeDiff = currentTime - events[searchIdx].timestamp.getTime();
-        if (timeDiff > 2 * 60 * 1000) {
-          // Found an event more than 2 min before - this is likely where they started
-          foundDoorKnock = events[searchIdx];
-          break;
+          return { event: events[searchIdx], time: formatTimeOnly(events[searchIdx].timestamp) };
         }
         searchIdx--;
       }
     }
     
-    // If we found a door knock (or earlier event) from batch detection, use it
-    if (foundDoorKnock) {
-      return { event: foundDoorKnock, time: formatTimeOnly(foundDoorKnock.timestamp) };
-    }
-    
-    // Otherwise, just return the immediately preceding event
+    // For non-transitions or if no door found, just return the immediately preceding event
     const targetIdx = idx - 1;
     if (targetIdx < 0) return null;
     return { event: events[targetIdx], time: formatTimeOnly(events[targetIdx].timestamp) };
@@ -613,8 +602,9 @@ export const RepDayActivityFlow = ({
             const width = isSale ? 8 : isTransition ? 5 : 2;
             
             // Get just 1-2 adjacent events for simple before/after context
-            const eventBefore = isHighlight ? getAdjacentEvent(events, idx, 'before') : null;
-            const eventAfter = isHighlight ? getAdjacentEvent(events, idx, 'after') : null;
+            // For transitions, this will find the door knock that started this home visit
+            const eventBefore = isHighlight ? getAdjacentEvent(events, idx, 'before', event.type) : null;
+            const eventAfter = isHighlight ? getAdjacentEvent(events, idx, 'after', event.type) : null;
             
             // Non-interactive markers for regular events
             if (!isHighlight) {
@@ -732,8 +722,13 @@ export const RepDayActivityFlow = ({
                       </div>
                     )}
                     
-                    {/* Coach insight for transitions */}
-                    {isTransition && (
+                    {/* Coach insight for transitions - show time in home if door knock found */}
+                    {isTransition && eventBefore?.event.type === 'doors_knocked' && (
+                      <div className="text-[10px] text-amber-400 bg-amber-500/10 rounded px-2 py-1.5 italic mt-2">
+                        🏠 In home since {eventBefore.time} ({Math.round((event.timestamp.getTime() - eventBefore.event.timestamp.getTime()) / (1000 * 60))} min)
+                      </div>
+                    )}
+                    {isTransition && eventBefore?.event.type !== 'doors_knocked' && (
                       <div className="text-[10px] text-amber-400 bg-amber-500/10 rounded px-2 py-1.5 italic mt-2">
                         🏠 Rep entered the home
                       </div>
