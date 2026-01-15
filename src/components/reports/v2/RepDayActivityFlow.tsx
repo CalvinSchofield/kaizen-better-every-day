@@ -11,8 +11,6 @@ import {
   Play,
   Square,
   Coffee,
-  Home,
-  ChevronRight,
   AlertTriangle
 } from "lucide-react";
 import {
@@ -31,17 +29,6 @@ interface TimelineEvent {
 interface BreakPeriod {
   start: string;
   end: string;
-}
-
-interface InHomeSession {
-  doorKnockTime: Date;
-  funnelEndTime: Date;
-  duration: number; // in minutes
-  startPos: number; // percentage position on timeline
-  endPos: number;
-  containsSale: boolean;
-  containsTransition: boolean;
-  eventsInSession: TimelineEvent[];
 }
 
 interface GapPeriod {
@@ -138,8 +125,8 @@ const EVENT_CONFIG: Record<string, {
   },
 };
 
-const IN_HOME_ACTIVITY_TYPES = ['transitions', 'presentations', 'closes', 'sale', 'decision_makers', 'pitches'];
-
+// TRANSITION is the key signal that rep got INTO a home
+// Presentations are also important to track separately
 const formatTimeOnly = (date: Date): string => {
   return date.toLocaleTimeString('en-US', { 
     hour: 'numeric', 
@@ -157,15 +144,12 @@ const formatDuration = (minutes: number): string => {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };
 
-// Get events within a time window
-const getEventsInWindow = (events: TimelineEvent[], centerTime: Date, windowMinutes: number, direction: 'before' | 'after'): TimelineEvent[] => {
-  return events.filter(e => {
-    const diff = (e.timestamp.getTime() - centerTime.getTime()) / (1000 * 60);
-    if (direction === 'before') {
-      return diff >= -windowMinutes && diff <= 0;
-    }
-    return diff >= 0 && diff <= windowMinutes;
-  }).slice(direction === 'before' ? -5 : 0, direction === 'before' ? undefined : 5);
+// Get the single closest event before/after with time
+const getAdjacentEvent = (events: TimelineEvent[], idx: number, direction: 'before' | 'after'): { event: TimelineEvent; time: string } | null => {
+  const targetIdx = direction === 'before' ? idx - 1 : idx + 1;
+  if (targetIdx < 0 || targetIdx >= events.length) return null;
+  const event = events[targetIdx];
+  return { event, time: formatTimeOnly(event.timestamp) };
 };
 
 export const RepDayActivityFlow = ({
@@ -273,64 +257,15 @@ export const RepDayActivityFlow = ({
     return markers;
   }, [startTime, endTime, totalMinutes]);
 
-  // Detect In-Home Sessions: Door knock → next funnel event(s)
-  // Duration = time from door knock to the LAST event in a batch (events within 2 min of each other)
-  const inHomeSessions = useMemo(() => {
-    if (events.length < 2 || !startTime) return [];
-    
-    const sessions: InHomeSession[] = [];
-    const doorKnocks = events.filter(e => e.type === 'doors_knocked');
-    
-    doorKnocks.forEach((doorKnock, idx) => {
-      const doorTime = doorKnock.timestamp.getTime();
-      const nextDoorTime = idx < doorKnocks.length - 1 
-        ? doorKnocks[idx + 1].timestamp.getTime() 
-        : (endTime?.getTime() || Date.now());
-      
-      // Find all funnel events between this door and the next door
-      const funnelEvents = events.filter(e => {
-        const t = e.timestamp.getTime();
-        return t > doorTime && t < nextDoorTime && IN_HOME_ACTIVITY_TYPES.includes(e.type);
-      });
-      
-      if (funnelEvents.length === 0) return; // No funnel activity = didn't get in
-      
-      // Find the end of the "batch" - last event in a cluster (events within 2 min of each other)
-      let batchEndTime = funnelEvents[0].timestamp.getTime();
-      for (let i = 1; i < funnelEvents.length; i++) {
-        const timeSincePrev = (funnelEvents[i].timestamp.getTime() - funnelEvents[i-1].timestamp.getTime()) / (1000 * 60);
-        if (timeSincePrev <= 2) {
-          // Still in the batch
-          batchEndTime = funnelEvents[i].timestamp.getTime();
-        } else {
-          // Gap in funnel events - stop at the batch end
-          break;
-        }
-      }
-      
-      const duration = (batchEndTime - doorTime) / (1000 * 60);
-      const startPos = ((doorTime - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
-      const endPos = ((batchEndTime - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
-      
-      // Collect events that are part of this session
-      const sessionEvents = funnelEvents.filter(e => e.timestamp.getTime() <= batchEndTime);
-      
-      sessions.push({
-        doorKnockTime: doorKnock.timestamp,
-        funnelEndTime: new Date(batchEndTime),
-        duration,
-        startPos: Math.max(0, startPos),
-        endPos: Math.min(100, endPos),
-        containsSale: sessionEvents.some(e => e.type === 'sale'),
-        containsTransition: sessionEvents.some(e => e.type === 'transitions'),
-        eventsInSession: [doorKnock, ...sessionEvents],
-      });
-    });
-    
-    return sessions;
-  }, [events, startTime, endTime, totalMinutes]);
+  // Stats for transitions and presentations (key coaching metrics)
+  // TRANSITION = rep got into a home
+  // PRESENTATION = rep presented
+  const transitionEvents = useMemo(() => 
+    events.filter(e => e.type === 'transitions'), [events]);
+  const presentationEvents = useMemo(() => 
+    events.filter(e => e.type === 'presentations'), [events]);
 
-  // Simplified gap detection: Only 30+ min gaps, excluding in-home sessions
+  // Simplified gap detection: Only 30+ min gaps
   const gaps = useMemo(() => {
     if (events.length < 2 || !startTime) return [];
     
@@ -346,18 +281,6 @@ export const RepDayActivityFlow = ({
       // Only show gaps of 30+ minutes
       if (gapMinutes < 30) continue;
       
-      // Check if this gap is covered by an in-home session
-      const isInSession = inHomeSessions.some(session => {
-        const sessionStart = session.doorKnockTime.getTime();
-        const sessionEnd = session.funnelEndTime.getTime();
-        // Gap overlaps with session
-        return (gapStart >= sessionStart && gapStart <= sessionEnd) ||
-               (gapEnd >= sessionStart && gapEnd <= sessionEnd) ||
-               (gapStart <= sessionStart && gapEnd >= sessionEnd);
-      });
-      
-      if (isInSession) continue;
-      
       const startPos = ((gapStart - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
       const endPos = ((gapEnd - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
       
@@ -368,10 +291,6 @@ export const RepDayActivityFlow = ({
         return overlapEnd > overlapStart;
       });
       
-      // Get surrounding events for context
-      const eventsBefore = getEventsInWindow(events.slice(0, i), prevEvent.timestamp, 10, 'before');
-      const eventsAfter = getEventsInWindow(events.slice(i), currEvent.timestamp, 10, 'after');
-      
       gapPeriods.push({
         start: startPos,
         end: endPos,
@@ -379,32 +298,30 @@ export const RepDayActivityFlow = ({
         startTime: prevEvent.timestamp,
         endTime: currEvent.timestamp,
         type: isBreak ? 'break' : 'inactivity',
-        eventsBefore: eventsBefore.length > 0 ? eventsBefore : [prevEvent],
-        eventsAfter: eventsAfter.length > 0 ? eventsAfter : [currEvent],
+        eventsBefore: [prevEvent],
+        eventsAfter: [currEvent],
       });
     }
     
     return gapPeriods;
-  }, [events, startTime, totalMinutes, parsedBreaks, inHomeSessions]);
+  }, [events, startTime, totalMinutes, parsedBreaks]);
 
-  // Summary stats - now uses inHomeSessions for accurate in-home tracking
+  // Summary stats - transitions = homes entered, presentations = presented
   const stats = useMemo(() => {
     const breakGaps = gaps.filter(g => g.type === 'break');
     const inactivityGaps = gaps.filter(g => g.type === 'inactivity');
     const salesCount = events.filter(e => e.type === 'sale').length;
-    const transitionCount = events.filter(e => e.type === 'transitions').length;
     
     return {
-      inHomeTime: inHomeSessions.reduce((sum, s) => sum + s.duration, 0),
-      inHomeCount: inHomeSessions.length,
-      transitionCount,
+      transitionCount: transitionEvents.length,
+      presentationCount: presentationEvents.length,
       breakTime: breakGaps.reduce((sum, g) => sum + g.duration, 0),
       inactivityTime: inactivityGaps.reduce((sum, g) => sum + g.duration, 0),
       inactivityCount: inactivityGaps.length,
       longestInactivity: inactivityGaps.length > 0 ? Math.max(...inactivityGaps.map(g => g.duration)) : 0,
       salesCount,
     };
-  }, [gaps, events, inHomeSessions]);
+  }, [gaps, events, transitionEvents, presentationEvents]);
 
   if (!startTime || events.length === 0) {
     return (
@@ -502,83 +419,6 @@ export const RepDayActivityFlow = ({
             />
           ))}
           
-          {/* In-Home Session blocks - emerald zones showing door→funnel activity */}
-          {inHomeSessions.map((session, idx) => {
-            const width = session.endPos - session.startPos;
-            
-            return (
-              <Popover key={`session-${idx}`}>
-                <PopoverTrigger asChild>
-                  <button
-                    className={cn(
-                      "absolute top-1/2 -translate-y-1/2 rounded cursor-pointer transition-all hover:opacity-80 active:scale-y-90",
-                      session.containsSale 
-                        ? "h-5 bg-green-500/25 border border-green-400/50" 
-                        : "h-4 bg-emerald-500/25 border border-emerald-400/40"
-                    )}
-                    style={{ left: `${session.startPos}%`, width: `${Math.max(width, 2)}%` }}
-                  >
-                    {/* Duration badge for wider sessions */}
-                    {width > 4 && (
-                      <span className={cn(
-                        "absolute -top-3.5 left-1/2 -translate-x-1/2 text-[9px] font-semibold px-1 rounded whitespace-nowrap",
-                        session.containsSale ? "text-green-400" : "text-emerald-500"
-                      )}>
-                        {formatDuration(session.duration)}
-                      </span>
-                    )}
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 p-0" side="top" align="center">
-                  <div className={cn(
-                    "px-3 py-2 border-b flex items-center justify-between",
-                    session.containsSale ? "bg-green-500/15 border-green-500/25" : "bg-emerald-500/10 border-emerald-500/20"
-                  )}>
-                    <div className="flex items-center gap-2">
-                      <Home className={cn("w-4 h-4", session.containsSale ? "text-green-400" : "text-emerald-500")} />
-                      <span className={cn("font-semibold text-sm", session.containsSale ? "text-green-400" : "text-emerald-500")}>
-                        {session.containsSale ? 'Sale Session' : 'In Home'}
-                      </span>
-                    </div>
-                    <span className="text-xs font-bold text-foreground">{formatDuration(session.duration)}</span>
-                  </div>
-                  <div className="px-3 py-1.5 bg-muted/30 text-[11px] text-muted-foreground text-center">
-                    {formatTimeOnly(session.doorKnockTime)} → {formatTimeOnly(session.funnelEndTime)}
-                  </div>
-                  <div className="p-3 space-y-2">
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Activity Flow</div>
-                    <div className="flex flex-wrap gap-1">
-                      {session.eventsInSession.map((e, i) => {
-                        const config = EVENT_CONFIG[e.type];
-                        if (!config) return null;
-                        const Icon = config.icon;
-                        return (
-                          <div 
-                            key={i}
-                            className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", config.bgColor + "/15")}
-                          >
-                            <Icon className={cn("w-3 h-3", config.color)} />
-                            <span className={config.textColor}>{config.shortLabel}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className={cn(
-                      "text-[10px] rounded px-2 py-1.5 italic",
-                      session.containsSale ? "text-green-400 bg-green-500/10" : "text-emerald-600 bg-emerald-500/10"
-                    )}>
-                      {session.containsSale 
-                        ? "💰 Closed the deal! Great in-home execution."
-                        : session.duration < 10 
-                          ? "🏠 Quick transition — likely planning to return later"
-                          : "🏠 Time spent presenting in the home"
-                      }
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            );
-          })}
           
           {/* Gap zones with popovers - only 30+ min gaps (breaks or inactivity) */}
           {gaps.map((gap, idx) => {
@@ -656,10 +496,10 @@ export const RepDayActivityFlow = ({
                       </div>
                     </div>
                     
-                    {/* Arrow */}
+                    {/* Arrow divider */}
                     <div className="flex items-center justify-center gap-2 text-muted-foreground/50">
                       <div className="flex-1 h-px bg-border" />
-                      <ChevronRight className="w-4 h-4" />
+                      <ArrowRight className="w-4 h-4" />
                       <div className="flex-1 h-px bg-border" />
                     </div>
                     
@@ -723,11 +563,9 @@ export const RepDayActivityFlow = ({
             const height = isSale ? 36 : isTransition ? 28 : isPresentation ? 20 : event.type === 'closes' ? 18 : 10;
             const width = isSale ? 8 : isTransition ? 5 : 2;
             
-            // Get surrounding events for context on tappable items
-            const surroundingEvents = isHighlight ? {
-              before: events.slice(Math.max(0, idx - 3), idx),
-              after: events.slice(idx + 1, Math.min(events.length, idx + 4)),
-            } : null;
+            // Get just 1-2 adjacent events for simple before/after context
+            const eventBefore = isHighlight ? getAdjacentEvent(events, idx, 'before') : null;
+            const eventAfter = isHighlight ? getAdjacentEvent(events, idx, 'after') : null;
             
             // Non-interactive markers for regular events
             if (!isHighlight) {
@@ -803,66 +641,59 @@ export const RepDayActivityFlow = ({
                     </div>
                   )}
                   
-                  {/* Context: What happened before/after */}
-                  <div className="p-3 space-y-3">
-                    {surroundingEvents && surroundingEvents.before.length > 0 && (
-                      <div className="space-y-1">
-                        <div className="text-[9px] text-muted-foreground uppercase tracking-wide">
-                          {isSale ? 'Path to Sale' : 'Leading Up'}
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {surroundingEvents.before.map((e, i) => {
-                            const c = EVENT_CONFIG[e.type];
+                  {/* Simple before/after context with times */}
+                  <div className="p-3 space-y-2">
+                    {eventBefore && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-muted-foreground">Before:</span>
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const c = EVENT_CONFIG[eventBefore.event.type];
                             if (!c) return null;
                             const Icon = c.icon;
                             return (
-                              <div key={i} className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", c.bgColor + "/15")}>
+                              <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", c.bgColor + "/15")}>
                                 <Icon className={cn("w-3 h-3", c.color)} />
                                 <span className={c.textColor}>{c.shortLabel}</span>
                               </div>
                             );
-                          })}
-                          <ChevronRight className="w-3 h-3 text-muted-foreground self-center" />
-                          <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ring-1", 
-                            isSale ? "bg-green-500/20 ring-green-500/50 text-green-400" : "bg-amber-500/20 ring-amber-500/50 text-amber-400"
-                          )}>
-                            {isSale ? <DollarSign className="w-3 h-3" /> : <ArrowRight className="w-3 h-3" />}
-                            {isSale ? 'SALE' : 'Trans'}
-                          </div>
+                          })()}
+                          <span className="text-[10px] text-muted-foreground">{eventBefore.time}</span>
                         </div>
                       </div>
                     )}
                     
-                    {surroundingEvents && surroundingEvents.after.length > 0 && (
-                      <div className="space-y-1">
-                        <div className="text-[9px] text-muted-foreground uppercase tracking-wide">After</div>
-                        <div className="flex flex-wrap gap-1">
-                          {surroundingEvents.after.map((e, i) => {
-                            const c = EVENT_CONFIG[e.type];
+                    {eventAfter && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-muted-foreground">After:</span>
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const c = EVENT_CONFIG[eventAfter.event.type];
                             if (!c) return null;
                             const Icon = c.icon;
                             return (
-                              <div key={i} className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", c.bgColor + "/15")}>
+                              <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", c.bgColor + "/15")}>
                                 <Icon className={cn("w-3 h-3", c.color)} />
                                 <span className={c.textColor}>{c.shortLabel}</span>
                               </div>
                             );
-                          })}
+                          })()}
+                          <span className="text-[10px] text-muted-foreground">{eventAfter.time}</span>
                         </div>
                       </div>
                     )}
                     
                     {/* Coach insight for transitions */}
                     {isTransition && (
-                      <div className="text-[10px] text-amber-400 bg-amber-500/10 rounded px-2 py-1.5 italic">
-                        🏠 Rep entered the home — this is where deals happen!
+                      <div className="text-[10px] text-amber-400 bg-amber-500/10 rounded px-2 py-1.5 italic mt-2">
+                        🏠 Rep entered the home
                       </div>
                     )}
                     
                     {/* Coach insight for sales */}
                     {isSale && (
-                      <div className="text-[10px] text-green-400 bg-green-500/10 rounded px-2 py-1.5 italic">
-                        💰 Great work! Track the funnel path to replicate success.
+                      <div className="text-[10px] text-green-400 bg-green-500/10 rounded px-2 py-1.5 italic mt-2">
+                        💰 Great close!
                       </div>
                     )}
                   </div>
@@ -909,10 +740,10 @@ export const RepDayActivityFlow = ({
             {stats.transitionCount} transition{stats.transitionCount > 1 ? 's' : ''}
           </span>
         )}
-        {stats.inHomeCount > 0 && (
-          <span className="flex items-center gap-1 text-emerald-500">
-            <Home className="w-3 h-3" />
-            ~{formatDuration(stats.inHomeTime)} presenting
+        {stats.presentationCount > 0 && (
+          <span className="flex items-center gap-1 text-orange-400">
+            <Presentation className="w-3 h-3" />
+            {stats.presentationCount} presentation{stats.presentationCount > 1 ? 's' : ''}
           </span>
         )}
         {stats.breakTime > 0 && (
