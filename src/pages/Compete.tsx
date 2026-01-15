@@ -13,6 +13,7 @@ import { useChallengeProgress } from "@/hooks/useChallengeProgress";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { CreateChallengeDrawer } from "@/components/leaderboard/CreateChallengeDrawer";
 import { CreateIncentiveDrawer } from "@/components/leaderboard/CreateIncentiveDrawer";
+import { ChallengeScoreSlider } from "@/components/competitions/ChallengeScoreSlider";
 import { Swords, Trophy, Gift, Loader2, Check, X, Flame, Plus, ChevronDown, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { hapticLight, hapticSuccess, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
-import { getInitials, getCleanName } from "@/utils/nameUtils";
+import { getInitials, getCleanName, getCleanFirstName } from "@/utils/nameUtils";
 
 const metricLabels: Record<string, string> = {
   fp_plus: 'FP+',
@@ -45,38 +46,38 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
     );
   }
 
+  const isGroupChallenge = challenge.type === 'group';
+
+  if (isGroupChallenge) {
+    const teamA = progress.participants.filter(p => p.team === 'a');
+    const teamB = progress.participants.filter(p => p.team === 'b');
+    const teamATotal = teamA.reduce((sum, p) => sum + (p.current_value || 0), 0);
+    const teamBTotal = teamB.reduce((sum, p) => sum + (p.current_value || 0), 0);
+
+    return (
+      <ChallengeScoreSlider
+        isTeamBattle
+        redTotal={teamATotal}
+        blueTotal={teamBTotal}
+        variant="compact"
+      />
+    );
+  }
+
+  // 1v1 challenge
   const myProgress = progress.participants.find(p => p.user_id === myUserId);
   const opponentProgress = progress.participants.find(p => p.user_id !== myUserId);
-  
   const myValue = myProgress?.current_value || 0;
   const theirValue = opponentProgress?.current_value || 0;
-  const isWinning = myValue > theirValue;
-  const isTied = myValue === theirValue;
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <div className={cn(
-          "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
-          isWinning ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600"
-        )}>
-          {myValue}
-        </div>
-        <span className="text-sm font-medium">You</span>
-      </div>
-      <Badge variant="secondary" className="text-xs">
-        {metricLabels[challenge.metric] || challenge.metric}
-      </Badge>
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">{opponentProgress?.rep_name?.split(' ')[0]}</span>
-        <div className={cn(
-          "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
-          !isWinning && !isTied ? "bg-green-500/20 text-green-600" : isTied ? "bg-yellow-500/20 text-yellow-600" : "bg-red-500/20 text-red-600"
-        )}>
-          {theirValue}
-        </div>
-      </div>
-    </div>
+    <ChallengeScoreSlider
+      myValue={myValue}
+      theirValue={theirValue}
+      variant="compact"
+      myLabel="You"
+      theirLabel={getCleanFirstName(opponentProgress?.rep_name)}
+    />
   );
 };
 
