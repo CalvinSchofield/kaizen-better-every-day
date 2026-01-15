@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 import { withTimeout } from "@/utils/withTimeout";
+import { hapticSuccess, hapticWarning, hapticMedium } from "@/utils/haptics";
+import { toast } from "sonner";
 
 export type ChallengeType = '1v1' | 'group';
 export type ChallengeMetric = 'fp_plus' | 'prmr' | 'transitions' | 'doors_knocked';
@@ -551,9 +553,68 @@ export const useRespondToChallenge = () => {
         console.error('[useRespondToChallenge] Notification error (non-fatal):', notifError);
       }
 
-      return { accepted: accept, newStatus };
+      return { accepted: accept, newStatus, challengeId };
     },
-    onSuccess: () => {
+    // OPTIMISTIC UPDATE - Instant UI feedback
+    onMutate: async ({ challengeId, accept }) => {
+      // Haptic feedback immediately
+      hapticMedium();
+      
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['my-active-challenges'] });
+      await queryClient.cancelQueries({ queryKey: ['challenges'] });
+
+      // Snapshot current data for rollback
+      const previousChallenges = queryClient.getQueryData(['my-active-challenges']);
+
+      // Optimistically update the cache - remove if declined, update acceptance if accepted
+      queryClient.setQueryData(['my-active-challenges'], (old: Challenge[] | undefined) => {
+        if (!old) return old;
+        
+        if (!accept) {
+          // If declining, remove from active challenges list immediately
+          return old.filter(c => c.id !== challengeId);
+        }
+        
+        // If accepting, update the participant status
+        return old.map(c => {
+          if (c.id !== challengeId) return c;
+          return {
+            ...c,
+            participants: c.participants?.map(p => ({
+              ...p,
+              // Note: We don't know the current user ID here, but the UI will refresh
+            })),
+          };
+        });
+      });
+
+      return { previousChallenges };
+    },
+    onError: (error, variables, context) => {
+      console.error('Error responding to challenge:', error);
+      
+      // Rollback on error
+      if (context?.previousChallenges) {
+        queryClient.setQueryData(['my-active-challenges'], context.previousChallenges);
+      }
+      
+      hapticWarning();
+      toast.error(`Failed to ${variables.accept ? 'accept' : 'decline'} challenge`, {
+        action: {
+          label: 'Retry',
+          onClick: () => queryClient.invalidateQueries({ queryKey: ['my-active-challenges'] }),
+        },
+      });
+    },
+    onSuccess: ({ accepted }) => {
+      if (accepted) {
+        hapticSuccess();
+        toast.success('Challenge accepted! 🎯');
+      } else {
+        toast.success('Challenge declined');
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['challenges'] });
       queryClient.invalidateQueries({ queryKey: ['my-active-challenges'] });
     },
