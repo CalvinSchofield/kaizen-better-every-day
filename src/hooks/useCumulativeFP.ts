@@ -16,28 +16,9 @@ export type CumulativeDataPoint = {
   movingAvgFp6: number | null;
   movingAvgFp12: number | null;
   dailyFp: number;
-  isKnockingDay: boolean; // doors >= 5 AND work_start AND work_end set
+  isKnockingDay: boolean; // doors >= 4 AND work_start AND work_end set
   knockingDayNumber: number; // 1-indexed count of knocking days up to this point
-  isPlannedFuture?: boolean; // true if this is a planned day that hasn't been worked yet
 }
-
-// Get today's date in user's local timezone
-const getTodayInTimezone = (timezone: string | null): string => {
-  try {
-    const tz = timezone || 'America/Los_Angeles';
-    const now = new Date();
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: tz,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-    return formatter.format(now);
-  } catch {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  }
-};
 
 export const useCumulativeFP = () => {
   const { efpModeEnabled, calculateEfp } = useEfpMode();
@@ -48,37 +29,16 @@ export const useCumulativeFP = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
 
-      // Fetch user's timezone and planned days in parallel
-      const [entriesResult, repResult, plannedDaysResult] = await Promise.all([
-        supabase
-          .from("daily_entries")
-          .select("entry_date, fp_plus, prmr, upgrade_prmr, is_finalized, doors_knocked, work_start_time, work_end_time")
-          .eq("user_id", user.id)
-          .eq("is_finalized", true)
-          .order("entry_date", { ascending: true }),
-        supabase
-          .from("reps")
-          .select("timezone")
-          .eq("user_id", user.id)
-          .single(),
-        supabase
-          .from("planned_work_days")
-          .select("planned_date")
-          .eq("user_id", user.id),
-      ]);
+      // Fetch only finalized entries - no placeholder for today
+      const { data: entries, error } = await supabase
+        .from("daily_entries")
+        .select("entry_date, fp_plus, prmr, upgrade_prmr, is_finalized, doors_knocked, work_start_time, work_end_time")
+        .eq("user_id", user.id)
+        .eq("is_finalized", true)
+        .order("entry_date", { ascending: true });
 
-      if (entriesResult.error) throw entriesResult.error;
-
-      const entries = entriesResult.data || [];
-      const userTimezone = repResult.data?.timezone || 'America/Los_Angeles';
-      const plannedDates = new Set(plannedDaysResult.data?.map(p => p.planned_date) || []);
-      const todayStr = getTodayInTimezone(userTimezone);
-      
-      // Check if today is in entries already
-      const todayInEntries = entries.some(e => e.entry_date === todayStr);
-      
-      // Check if today is a planned day and not yet in finalized entries
-      const todayIsPlanned = plannedDates.has(todayStr) && !todayInEntries;
+      if (error) throw error;
+      if (!entries) return [];
 
       // A knocking day requires: doors_knocked >= 4 AND work_start_time set AND work_end_time set
       const isKnockingDay = (entry: typeof entries[0]): boolean => {
@@ -97,9 +57,7 @@ export const useCumulativeFP = () => {
       let cumulativeFp = 0;
       let knockingDayCount = 0;
 
-      entries.forEach((entry, index) => {
-        // prmr = FP sales PRMR, upgrade_prmr = upgrade sales PRMR
-        // Total PRMR = prmr + upgrade_prmr
+      entries.forEach((entry) => {
         // prmr field IS total PRMR (already includes upgrade_prmr)
         const totalPrmr = entry.prmr || 0;
         const fpValue = entry.fp_plus || 0;
@@ -176,29 +134,6 @@ export const useCumulativeFP = () => {
           knockingDayNumber: knockingDayCount,
         });
       });
-
-      // Add today as a placeholder if it's planned but not yet worked
-      if (todayIsPlanned && dataPoints.length > 0) {
-        const lastPoint = dataPoints[dataPoints.length - 1];
-        dataPoints.push({
-          date: todayStr,
-          cumulative: lastPoint.cumulative,
-          movingAvg6: lastPoint.movingAvg6,
-          movingAvg12: lastPoint.movingAvg12,
-          dailyValue: 0,
-          cumulativePrmr: lastPoint.cumulativePrmr,
-          movingAvgPrmr6: lastPoint.movingAvgPrmr6,
-          movingAvgPrmr12: lastPoint.movingAvgPrmr12,
-          dailyPrmr: 0,
-          cumulativeFp: lastPoint.cumulativeFp,
-          movingAvgFp6: lastPoint.movingAvgFp6,
-          movingAvgFp12: lastPoint.movingAvgFp12,
-          dailyFp: 0,
-          isKnockingDay: false,
-          knockingDayNumber: lastPoint.knockingDayNumber,
-          isPlannedFuture: true,
-        });
-      }
 
       return dataPoints;
     },
