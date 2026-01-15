@@ -145,11 +145,60 @@ const formatDuration = (minutes: number): string => {
 };
 
 // Get the single closest event before/after with time
+// For "before" direction: detect batch-logged events (same timestamp) and look backward for the door knock
 const getAdjacentEvent = (events: TimelineEvent[], idx: number, direction: 'before' | 'after'): { event: TimelineEvent; time: string } | null => {
-  const targetIdx = direction === 'before' ? idx - 1 : idx + 1;
-  if (targetIdx < 0 || targetIdx >= events.length) return null;
-  const event = events[targetIdx];
-  return { event, time: formatTimeOnly(event.timestamp) };
+  const currentEvent = events[idx];
+  
+  if (direction === 'before') {
+    // Look for the most recent door knock before this event
+    // This handles "batch logging" where reps log DM, pitch, transition all at once after an interaction
+    // The door knock before those batch events tells us when they actually entered the home
+    
+    let searchIdx = idx - 1;
+    let foundDoorKnock: TimelineEvent | null = null;
+    
+    // First, check if there are events at the same timestamp (batch-logged)
+    const currentTime = currentEvent.timestamp.getTime();
+    const hasBatchEvents = searchIdx >= 0 && events[searchIdx].timestamp.getTime() === currentTime;
+    
+    if (hasBatchEvents) {
+      // Skip past all same-timestamp events and find the door knock before them
+      while (searchIdx >= 0 && events[searchIdx].timestamp.getTime() === currentTime) {
+        searchIdx--;
+      }
+      // Now look for a door knock
+      while (searchIdx >= 0) {
+        if (events[searchIdx].type === 'doors_knocked') {
+          foundDoorKnock = events[searchIdx];
+          break;
+        }
+        // Also check if this is a significantly earlier event (more than 2 minutes before)
+        // which would indicate the "real" start of this home interaction
+        const timeDiff = currentTime - events[searchIdx].timestamp.getTime();
+        if (timeDiff > 2 * 60 * 1000) {
+          // Found an event more than 2 min before - this is likely where they started
+          foundDoorKnock = events[searchIdx];
+          break;
+        }
+        searchIdx--;
+      }
+    }
+    
+    // If we found a door knock (or earlier event) from batch detection, use it
+    if (foundDoorKnock) {
+      return { event: foundDoorKnock, time: formatTimeOnly(foundDoorKnock.timestamp) };
+    }
+    
+    // Otherwise, just return the immediately preceding event
+    const targetIdx = idx - 1;
+    if (targetIdx < 0) return null;
+    return { event: events[targetIdx], time: formatTimeOnly(events[targetIdx].timestamp) };
+  }
+  
+  // For "after" direction, just get the next event
+  const targetIdx = idx + 1;
+  if (targetIdx >= events.length) return null;
+  return { event: events[targetIdx], time: formatTimeOnly(events[targetIdx].timestamp) };
 };
 
 export const RepDayActivityFlow = ({
@@ -755,7 +804,7 @@ export const RepDayActivityFlow = ({
         {stats.inactivityCount > 0 && (
           <span className="flex items-center gap-1 text-red-400">
             <AlertTriangle className="w-3 h-3" />
-            {stats.inactivityCount} gap{stats.inactivityCount > 1 ? 's' : ''} (30+ min) • longest {formatDuration(stats.longestInactivity)}
+            {stats.inactivityCount} gap{stats.inactivityCount > 1 ? 's' : ''} • longest {formatDuration(stats.longestInactivity)}
           </span>
         )}
       </div>
