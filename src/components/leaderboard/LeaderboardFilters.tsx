@@ -33,8 +33,8 @@ interface LeaderboardFiltersProps {
 const timeLabels: Record<TimeFilter, string> = {
   live: 'Live',
   yesterday: 'Yesterday',
-  week: 'Week',
-  month: 'Month',
+  week: 'This Week',
+  month: 'This Month',
   season: 'Preseason',
   ytd: 'YTD',
   custom: 'Custom',
