@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, User, Users } from "lucide-react";
+import { ChevronDown, ChevronRight, User, Users, Pencil } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,20 +11,45 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { getCleanName, getInitials } from "@/utils/nameUtils";
 import { cn } from "@/lib/utils";
 
+interface OrgRep {
+  id: string;
+  userId: string | null;
+  name: string;
+  teamId: string | null;
+  teamName: string | null;
+  recruiterUserId: string | null;
+  recruiterName?: string;
+  stage?: string | null;
+  notionPageId?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
 interface TreeNode {
   id: string;
   name: string;
   userId: string | null;
   stage: string | null;
   profilePhotoUrl?: string | null;
+  teamId?: string | null;
+  teamName?: string | null;
+  recruiterUserId?: string | null;
+  recruiterName?: string;
+  phone?: string | null;
+  email?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   children: TreeNode[];
 }
 
 interface RecruiterTreeViewProps {
   searchQuery: string;
+  onEditRep?: (rep: OrgRep) => void;
 }
 
-export const RecruiterTreeView = ({ searchQuery }: RecruiterTreeViewProps) => {
+export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewProps) => {
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
@@ -31,14 +57,16 @@ export const RecruiterTreeView = ({ searchQuery }: RecruiterTreeViewProps) => {
   const { data: treeData, isLoading } = useQuery({
     queryKey: ["recruiter-tree-data"],
     queryFn: async () => {
-      const [recruitsRes, repsRes] = await Promise.all([
-        supabase.from("recruits").select("id, name, recruiter_user_id, stage"),
+      const [recruitsRes, repsRes, teamsRes] = await Promise.all([
+        supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, phone, email, created_at, updated_at"),
         supabase.from("reps").select("user_id, name, profile_photo_url"),
+        supabase.from("teams").select("id, name"),
       ]);
 
       return {
         recruits: recruitsRes.data || [],
         reps: repsRes.data || [],
+        teams: teamsRes.data || [],
       };
     },
     staleTime: 1000 * 60 * 2,
@@ -48,10 +76,12 @@ export const RecruiterTreeView = ({ searchQuery }: RecruiterTreeViewProps) => {
   const tree = useMemo(() => {
     if (!treeData || !teamAccess) return null;
 
-    const { recruits, reps } = treeData;
+    const { recruits, reps, teams } = treeData;
     
-    // Create a map of user_id -> rep data
+    // Create maps for lookups
     const repMap = new Map(reps.map((r) => [r.user_id, r]));
+    const teamMap = new Map(teams.map((t) => [t.id, t.name]));
+    const recruitByName = new Map(recruits.map((r) => [getCleanName(r.name).toLowerCase(), r]));
     
     // Create a map of user_id -> their recruits
     const recruitsByRecruiter = new Map<string, typeof recruits>();
@@ -82,6 +112,10 @@ export const RecruiterTreeView = ({ searchQuery }: RecruiterTreeViewProps) => {
 
       const rep = repMap.get(userId);
       const recruiterRecruits = recruitsByRecruiter.get(userId) || [];
+      
+      // Find this user's recruit record for additional data
+      const repName = rep?.name || "";
+      const recruitRecord = recruitByName.get(getCleanName(repName).toLowerCase());
       
       // Get children nodes
       const children: TreeNode[] = recruiterRecruits
@@ -117,15 +151,31 @@ export const RecruiterTreeView = ({ searchQuery }: RecruiterTreeViewProps) => {
           userId: null,
           stage: r.stage,
           profilePhotoUrl: null,
+          teamId: r.team_id,
+          teamName: r.team_id ? teamMap.get(r.team_id) || null : null,
+          recruiterUserId: r.recruiter_user_id,
+          recruiterName: r.recruiter_user_id ? repMap.get(r.recruiter_user_id)?.name : undefined,
+          phone: r.phone,
+          email: r.email,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
           children: [],
         }));
 
       return {
-        id: userId,
+        id: recruitRecord?.id || userId,
         name: rep?.name || "Unknown",
         userId,
-        stage: null,
+        stage: recruitRecord?.stage || null,
         profilePhotoUrl: rep?.profile_photo_url,
+        teamId: recruitRecord?.team_id || null,
+        teamName: recruitRecord?.team_id ? teamMap.get(recruitRecord.team_id) || null : null,
+        recruiterUserId: recruitRecord?.recruiter_user_id || null,
+        recruiterName: recruitRecord?.recruiter_user_id ? repMap.get(recruitRecord.recruiter_user_id)?.name : undefined,
+        phone: recruitRecord?.phone || null,
+        email: recruitRecord?.email || null,
+        createdAt: recruitRecord?.created_at || null,
+        updatedAt: recruitRecord?.updated_at || null,
         children: [...children, ...leafRecruits].sort((a, b) => 
           b.children.length - a.children.length // Sort by number of recruits
         ),
@@ -235,6 +285,7 @@ export const RecruiterTreeView = ({ searchQuery }: RecruiterTreeViewProps) => {
           level={0}
           expandedNodes={displayExpandedNodes}
           onToggle={toggleNode}
+          onEdit={onEditRep}
         />
       ))}
     </div>
@@ -258,13 +309,35 @@ interface TreeNodeCardProps {
   level: number;
   expandedNodes: Set<string>;
   onToggle: (id: string) => void;
+  onEdit?: (rep: OrgRep) => void;
 }
 
-const TreeNodeCard = ({ node, level, expandedNodes, onToggle }: TreeNodeCardProps) => {
+const TreeNodeCard = ({ node, level, expandedNodes, onToggle, onEdit }: TreeNodeCardProps) => {
   const isExpanded = expandedNodes.has(node.id);
   const hasChildren = node.children.length > 0;
   const cleanName = getCleanName(node.name);
   const initials = getInitials(cleanName);
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onEdit) {
+      onEdit({
+        id: node.id,
+        userId: node.userId,
+        name: node.name,
+        teamId: node.teamId || null,
+        teamName: node.teamName || null,
+        recruiterUserId: node.recruiterUserId || null,
+        recruiterName: node.recruiterName,
+        stage: node.stage,
+        notionPageId: node.id,
+        phone: node.phone || null,
+        email: node.email || null,
+        createdAt: node.createdAt || null,
+        updatedAt: node.updatedAt || null,
+      });
+    }
+  };
 
   const getStageBadge = (stage: string | null) => {
     if (!stage) return null;
@@ -300,50 +373,59 @@ const TreeNodeCard = ({ node, level, expandedNodes, onToggle }: TreeNodeCardProp
 
       <Collapsible open={isExpanded && hasChildren} onOpenChange={() => hasChildren && onToggle(node.id)}>
         <div className="border rounded-lg bg-card overflow-hidden">
-          <CollapsibleTrigger asChild disabled={!hasChildren}>
-            <div 
-              className={cn(
-                "flex items-center justify-between p-3",
-                hasChildren && "cursor-pointer hover:bg-muted/50"
-              )}
-            >
-              <div className="flex items-center gap-3">
-                {hasChildren ? (
-                  isExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                  )
+          <div 
+            className={cn(
+              "flex items-center justify-between p-3",
+              (hasChildren || onEdit) && "cursor-pointer hover:bg-muted/50"
+            )}
+            onClick={hasChildren ? () => onToggle(node.id) : handleEdit}
+          >
+            <div className="flex items-center gap-3">
+              {hasChildren ? (
+                isExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
                 ) : (
-                  <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                )}
-                
-                <Avatar className="h-8 w-8 shrink-0">
-                  <AvatarImage src={node.profilePhotoUrl || undefined} />
-                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                )
+              ) : (
+                <User className="h-4 w-4 text-muted-foreground shrink-0" />
+              )}
+              
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarImage src={node.profilePhotoUrl || undefined} />
+                <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
 
-                <div className="flex flex-col min-w-0">
-                  <span className="font-medium truncate">{cleanName}</span>
-                  {node.stage && (
-                    <span className="text-xs text-muted-foreground">{node.stage}</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                {getStageBadge(node.stage)}
-                {hasChildren && (
-                  <Badge variant="secondary" className="text-xs">
-                    <Users className="h-3 w-3 mr-1" />
-                    {node.children.length}
-                  </Badge>
+              <div className="flex flex-col min-w-0">
+                <span className="font-medium truncate">{cleanName}</span>
+                {node.stage && (
+                  <span className="text-xs text-muted-foreground">{node.stage}</span>
                 )}
               </div>
             </div>
-          </CollapsibleTrigger>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {getStageBadge(node.stage)}
+              {hasChildren && (
+                <Badge variant="secondary" className="text-xs">
+                  <Users className="h-3 w-3 mr-1" />
+                  {node.children.length}
+                </Badge>
+              )}
+              {onEdit && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={handleEdit}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          </div>
 
           {hasChildren && (
             <CollapsibleContent>
@@ -355,6 +437,7 @@ const TreeNodeCard = ({ node, level, expandedNodes, onToggle }: TreeNodeCardProp
                     level={level + 1}
                     expandedNodes={expandedNodes}
                     onToggle={onToggle}
+                    onEdit={onEdit}
                   />
                 ))}
               </div>
