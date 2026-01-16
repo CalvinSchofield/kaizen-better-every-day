@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { format, addDays } from "date-fns";
+import { format, addDays, getDay, startOfDay } from "date-fns";
 
 interface PostContactDrawerProps {
   open: boolean;
@@ -110,13 +110,20 @@ export const PostContactDrawer = ({
   const handleQuickDateSelect = (option: QuickDateOption) => {
     setQuickDateOption(option);
     if (option === 'tomorrow') {
-      setScheduleDate(addDays(new Date(), 1));
+      let tomorrow = addDays(new Date(), 1);
+      if (getDay(tomorrow) === 0) tomorrow = addDays(tomorrow, 1);
+      setScheduleDate(tomorrow);
       setShowCalendar(false);
     } else if (option === '3days') {
-      setScheduleDate(addDays(new Date(), 3));
+      // Smart 3-day logic: if 3 days from now is Sunday, push to Monday (4 days)
+      let in3Days = addDays(new Date(), 3);
+      if (getDay(in3Days) === 0) in3Days = addDays(in3Days, 1);
+      setScheduleDate(in3Days);
       setShowCalendar(false);
     } else if (option === 'nextweek') {
-      setScheduleDate(addDays(new Date(), 7));
+      let nextWeek = addDays(new Date(), 7);
+      if (getDay(nextWeek) === 0) nextWeek = addDays(nextWeek, 1);
+      setScheduleDate(nextWeek);
       setShowCalendar(false);
     } else if (option === 'custom') {
       setShowCalendar(true);
@@ -467,7 +474,7 @@ export const PostContactDrawer = ({
                             mode="single"
                             selected={scheduleDate}
                             onSelect={handleCustomDateSelect}
-                            disabled={(date) => date < new Date()}
+                            disabled={(date) => date < startOfDay(new Date())}
                             initialFocus
                             className="p-3 pointer-events-auto"
                           />

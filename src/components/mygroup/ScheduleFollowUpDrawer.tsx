@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Calendar as CalendarIcon, Loader2, User, ChevronDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, addDays } from "date-fns";
+import { format, addDays, getDay, startOfDay } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -50,11 +50,26 @@ export const ScheduleFollowUpDrawer = ({
     recruitTeamLeader: recruit?.teamName, // Fallback for recruits not in reps table
   });
 
-  const quickDates = [
-    { label: 'Tomorrow', date: addDays(new Date(), 1) },
-    { label: 'In 3 days', date: addDays(new Date(), 3) },
-    { label: 'Next week', date: addDays(new Date(), 7) },
-  ];
+  // Generate quick dates that skip Sunday for "In 3 days"
+  const getQuickDates = () => {
+    const dates = [];
+    let tomorrow = addDays(new Date(), 1);
+    if (getDay(tomorrow) === 0) tomorrow = addDays(tomorrow, 1);
+    dates.push({ label: 'Tomorrow', date: tomorrow });
+    
+    // Smart 3-day logic: if 3 days from now is Sunday, push to Monday (4 days)
+    let in3Days = addDays(new Date(), 3);
+    if (getDay(in3Days) === 0) in3Days = addDays(in3Days, 1);
+    dates.push({ label: 'In 3 days', date: in3Days });
+    
+    let nextWeek = addDays(new Date(), 7);
+    if (getDay(nextWeek) === 0) nextWeek = addDays(nextWeek, 1);
+    dates.push({ label: 'Next week', date: nextWeek });
+    
+    return dates;
+  };
+
+  const quickDates = getQuickDates();
 
   const handleSchedule = async () => {
     if (!recruit || !selectedDate) return;
@@ -155,7 +170,7 @@ export const ScheduleFollowUpDrawer = ({
                 mode="single"
                 selected={selectedDate}
                 onSelect={setSelectedDate}
-                disabled={(date) => date < new Date()}
+                disabled={(date) => date < startOfDay(new Date())}
                 initialFocus
                 className="pointer-events-auto"
               />

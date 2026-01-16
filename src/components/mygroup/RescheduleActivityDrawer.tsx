@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Calendar as CalendarIcon, Loader2, User, ChevronDown } from "lucide-react";
-import { format, addDays, getDay } from "date-fns";
+import { format, addDays, getDay, startOfDay } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -194,7 +194,7 @@ export const RescheduleActivityDrawer = ({
                 mode="single"
                 selected={selectedDate}
                 onSelect={setSelectedDate}
-                disabled={(date) => date < new Date()}
+                disabled={(date) => date < startOfDay(new Date())}
                 initialFocus
                 className="pointer-events-auto"
               />
