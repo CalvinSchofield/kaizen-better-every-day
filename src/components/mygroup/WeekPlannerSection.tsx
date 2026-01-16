@@ -29,6 +29,7 @@ import {
 } from "date-fns";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
+import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 
 // Helper to get first name from full name
 const getFirstName = (name: string | null): string => {
@@ -225,17 +226,34 @@ export const WeekPlannerSection = ({
     [recommendations]
   );
 
-  const handlePrevWeek = () => {
+  const handlePrevWeek = useCallback(() => {
     setSelectedWeekStart(prev => subWeeks(prev, 1));
     setSelectedDateFilter(null);
-  };
-  const handleNextWeek = () => {
+  }, []);
+  const handleNextWeek = useCallback(() => {
     setSelectedWeekStart(prev => addWeeks(prev, 1));
     setSelectedDateFilter(null);
-  };
+  }, []);
   const handleToday = () => {
     setSelectedWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
     setSelectedDateFilter(null);
+  };
+
+  // Swipe navigation for mobile
+  const { swipeState, ...swipeHandlers } = useSwipeNavigation({
+    onSwipeLeft: handleNextWeek,
+    onSwipeRight: handlePrevWeek,
+  });
+
+  // Calculate swipe transform style for premium feel
+  const swipeStyle = swipeState.isSwiping ? {
+    transform: `translateX(${swipeState.direction === 'left' ? -swipeState.offset * 0.3 : swipeState.offset * 0.3}px)`,
+    opacity: 1 - (swipeState.offset * 0.002),
+    transition: 'none',
+  } : {
+    transform: 'translateX(0)',
+    opacity: 1,
+    transition: 'transform 0.2s ease-out, opacity 0.2s ease-out',
   };
   
   const handleDayClick = (day: Date) => {
@@ -351,8 +369,12 @@ export const WeekPlannerSection = ({
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          {/* Week Grid */}
-          <div className="grid grid-cols-7 gap-1">
+          {/* Week Grid - Swipeable */}
+          <div 
+            className="grid grid-cols-7 gap-1" 
+            style={swipeStyle}
+            {...swipeHandlers}
+          >
             {weekDays.map((day) => {
               const dateKey = format(day, 'yyyy-MM-dd');
               const dayTasks = scheduledTasks.get(dateKey) || [];
