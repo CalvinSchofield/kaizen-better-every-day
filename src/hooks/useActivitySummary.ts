@@ -32,6 +32,7 @@ interface ActivitySummaryData {
   };
   upfrontPay: number;
   totalMoneySpent: number;
+  hasInstallThisWeek: boolean; // True if any sale is installed OR scheduled this week (Sun-Sat local time)
   comparison?: {
     fpChange: number;
     prmrChange: number;
@@ -254,6 +255,45 @@ export const useActivitySummary = (repData: any) => {
         (Number(entry.fp_plus) || 0) > 0
       ).length;
       const isEmpty = workdayEntries.length === 0;
+
+      // Check if any sale has an install scheduled/installed this week (Sun-Sat in rep's local time)
+      // Get rep's timezone or default to local time
+      const repTimezone = repData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const nowInRepTz = new Date(now.toLocaleString('en-US', { timeZone: repTimezone }));
+      const weekStart = startOfWeek(nowInRepTz, { weekStartsOn: 0 }); // Sunday
+      const weekEnd = endOfWeek(nowInRepTz, { weekStartsOn: 0 }); // Saturday
+      const weekStartStr = format(weekStart, 'yyyy-MM-dd');
+      const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+
+      const hasInstallThisWeek = workdayEntries.some(entry => {
+        const salesLog = entry.sales_log as any[];
+        if (!salesLog || !Array.isArray(salesLog)) return false;
+        
+        return salesLog.some(sale => {
+          // Skip cancelled/never_installed sales
+          if (sale.install_status === 'cancelled' || sale.install_status === 'never_installed') {
+            return false;
+          }
+          
+          // If already installed, count it as having an install
+          if (sale.install_status === 'installed') {
+            // Check if installed_same_day or install date falls in this week
+            if (sale.installed_same_day || !sale.scheduled_install_date) {
+              // Same-day install - check if entry date is this week
+              return entry.entry_date >= weekStartStr && entry.entry_date <= weekEndStr;
+            }
+            // Scheduled install that's been confirmed - check scheduled date
+            return sale.scheduled_install_date >= weekStartStr && sale.scheduled_install_date <= weekEndStr;
+          }
+          
+          // Pending install - check scheduled_install_date
+          if (sale.install_status === 'pending' && sale.scheduled_install_date) {
+            return sale.scheduled_install_date >= weekStartStr && sale.scheduled_install_date <= weekEndStr;
+          }
+          
+          return false;
+        });
+      });
       
       // For blitz mode: Update dayNumber and title based on actual worked days
       // If today has no activity yet, show the last worked day number
@@ -549,6 +589,7 @@ export const useActivitySummary = (repData: any) => {
         dailyAverages,
         upfrontPay,
         totalMoneySpent: totals.moneySpent,
+        hasInstallThisWeek,
         comparison,
         chartData,
         comparisonChartData,
