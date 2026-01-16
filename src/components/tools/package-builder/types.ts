@@ -36,6 +36,15 @@ export const PACKAGE_CONFIGS: Record<'premium' | 'non-premium', PackageConfig> =
   },
 };
 
+// Generate service rate options (.99 increments)
+export const getServiceRateOptions = (min: number, max: number): number[] => {
+  const options: number[] = [];
+  for (let rate = max; rate >= min; rate -= 1) {
+    options.push(parseFloat(rate.toFixed(2)));
+  }
+  return options;
+};
+
 export const INSTALL_OPTIONS = [
   { value: 399, label: '$399' },
   { value: 199, label: '$199' },

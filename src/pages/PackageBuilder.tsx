@@ -8,6 +8,7 @@ import { PackageTypeSelector } from "@/components/tools/package-builder/PackageT
 import { EquipmentConfigurator } from "@/components/tools/package-builder/EquipmentConfigurator";
 import { ConfigurationOptions } from "@/components/tools/package-builder/ConfigurationOptions";
 import { PriceSummary } from "@/components/tools/package-builder/PriceSummary";
+import { PackagePresets, type PackagePreset } from "@/components/tools/package-builder/PackagePresets";
 import { 
   PACKAGE_CONFIGS, 
   EQUIPMENT_LIST, 
@@ -32,6 +33,14 @@ const PackageBuilder = () => {
       setQuantities(getDefaultQuantities());
       setServiceRate(PACKAGE_CONFIGS[type].serviceDefault);
     }
+  }, []);
+
+  // Handle preset selection - go to premium with preset equipment
+  const handlePresetSelect = useCallback((preset: PackagePreset) => {
+    setPackageType('premium');
+    setQuantities(preset.equipment);
+    setInstallFee(preset.installFee);
+    setServiceRate(PACKAGE_CONFIGS['premium'].serviceDefault);
   }, []);
 
   // Go back to package selection
@@ -155,6 +164,9 @@ const PackageBuilder = () => {
               </p>
             </div>
             <PackageTypeSelector onSelect={handlePackageSelect} />
+            
+            {/* Preset Packages */}
+            <PackagePresets onSelect={handlePresetSelect} />
           </motion.div>
         ) : isConfigurable ? (
           // Page 2: Equipment Configuration
