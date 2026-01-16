@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Calendar as CalendarIcon, Loader2, User, ChevronDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, addDays, startOfDay } from "date-fns";
+import { format, addDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -51,7 +51,6 @@ export const ScheduleFollowUpDrawer = ({
   });
 
   const quickDates = [
-    { label: 'Today', date: new Date() },
     { label: 'Tomorrow', date: addDays(new Date(), 1) },
     { label: 'In 3 days', date: addDays(new Date(), 3) },
     { label: 'Next week', date: addDays(new Date(), 7) },
@@ -156,7 +155,7 @@ export const ScheduleFollowUpDrawer = ({
                 mode="single"
                 selected={selectedDate}
                 onSelect={setSelectedDate}
-                disabled={(date) => startOfDay(date) < startOfDay(new Date())}
+                disabled={(date) => date < new Date()}
                 initialFocus
                 className="pointer-events-auto"
               />
