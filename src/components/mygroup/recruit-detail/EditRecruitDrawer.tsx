@@ -695,11 +695,48 @@ export const EditRecruitDrawer = ({
             <Label className="flex items-center gap-1">
               <span>⚠️</span> Things to Watch Out For
             </Label>
+            <div className="flex flex-wrap gap-1.5 mt-2 mb-2">
+              {[
+                'Considering internship for the summer',
+                'Looking at other D2D opportunities',
+                'Married - haven\'t met with spouse yet',
+                'Previous bad experience with D2D',
+              ].map((objection) => {
+                const isAdded = watchOutNotes.includes(objection);
+                return (
+                  <button
+                    key={objection}
+                    type="button"
+                    onClick={() => {
+                      if (isAdded) {
+                        // Remove it
+                        setWatchOutNotes(prev => 
+                          prev.replace(objection, '').replace(/\n{2,}/g, '\n').trim()
+                        );
+                      } else {
+                        // Add it
+                        setWatchOutNotes(prev => 
+                          prev ? `${prev.trim()}\n${objection}` : objection
+                        );
+                      }
+                    }}
+                    className={cn(
+                      "text-xs px-2.5 py-1 rounded-full border transition-all active:scale-95",
+                      isAdded 
+                        ? "bg-amber-500/20 border-amber-500/50 text-amber-700 dark:text-amber-300" 
+                        : "bg-muted/50 border-border text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    {isAdded ? '✓ ' : '+ '}{objection}
+                  </button>
+                );
+              })}
+            </div>
             <textarea 
               value={watchOutNotes} 
               onChange={(e) => setWatchOutNotes(e.target.value)}
               placeholder="Frequent objections, concerns, red flags..."
-              className="mt-1 w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             />
           </div>
         </div>
