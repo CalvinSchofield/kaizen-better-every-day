@@ -1,3 +1,4 @@
+import { Camera, Home, ShieldCheck } from "lucide-react";
 import { EQUIPMENT_LIST } from "./types";
 import { EquipmentCard } from "./EquipmentCard";
 import type { PackageType } from "./types";
@@ -7,6 +8,12 @@ interface EquipmentConfiguratorProps {
   quantities: Record<string, number>;
   onQuantityChange: (itemId: string, delta: number) => void;
 }
+
+const categoryConfig = {
+  'Cameras': { icon: Camera, order: 1 },
+  'Smart Home': { icon: Home, order: 2 },
+  'Security': { icon: ShieldCheck, order: 3 },
+};
 
 export const EquipmentConfigurator = ({
   packageType,
@@ -22,27 +29,32 @@ export const EquipmentConfigurator = ({
     return acc;
   }, {} as Record<string, typeof EQUIPMENT_LIST>);
 
-  const categoryOrder = ['System', 'Cameras', 'Recording', 'Sensors', 'Smart Home'];
+  const sortedCategories = Object.keys(categories).sort(
+    (a, b) => categoryConfig[a as keyof typeof categoryConfig].order - categoryConfig[b as keyof typeof categoryConfig].order
+  );
 
   return (
-    <div className="space-y-4">
-      {categoryOrder.map(categoryName => {
+    <div className="space-y-6">
+      {sortedCategories.map(categoryName => {
         const items = categories[categoryName];
-        if (!items || items.length === 0) return null;
+        const config = categoryConfig[categoryName as keyof typeof categoryConfig];
+        const CategoryIcon = config.icon;
 
         return (
           <div key={categoryName}>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">
-              {categoryName}
-            </h3>
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <div className="flex items-center gap-2 mb-3 px-1">
+              <CategoryIcon className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold">
+                {categoryName}
+              </h3>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
               {items.map(item => (
                 <EquipmentCard
                   key={item.id}
                   item={item}
                   quantity={quantities[item.id] || 0}
                   onQuantityChange={(delta) => onQuantityChange(item.id, delta)}
-                  isPanel={item.id === 'panel'}
                 />
               ))}
             </div>
