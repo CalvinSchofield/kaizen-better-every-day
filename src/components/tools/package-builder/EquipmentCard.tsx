@@ -47,15 +47,15 @@ export const EquipmentCard = ({
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center p-3 rounded-2xl border-2 transition-all duration-200 min-w-[100px]",
+        "relative flex flex-col items-center p-3 pt-4 rounded-2xl border-2 transition-all duration-200 min-w-[100px]",
         hasQuantity
           ? "border-primary bg-primary/5"
           : "border-border bg-card"
       )}
     >
-      {/* Quantity badge */}
+      {/* Quantity badge - positioned inside card for visibility */}
       {hasQuantity && (
-        <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center shadow-lg">
+        <div className="absolute top-1 right-1 min-w-[22px] h-[22px] px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
           {quantity}
         </div>
       )}

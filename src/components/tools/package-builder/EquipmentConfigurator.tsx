@@ -48,7 +48,7 @@ export const EquipmentConfigurator = ({
                 {categoryName}
               </h3>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+            <div className="flex gap-3 overflow-x-auto py-1 pb-2 scrollbar-hide -mx-4 px-4">
               {items.map(item => (
                 <EquipmentCard
                   key={item.id}
