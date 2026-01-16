@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, User, Users, Pencil } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -52,6 +52,14 @@ interface RecruiterTreeViewProps {
 export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewProps) => {
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
+
+  // Get actual authenticated user ID (not from accessibleUserIds which excludes self)
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentAuthUserId(data.user?.id || null);
+    });
+  }, []);
 
   // Fetch recruits and reps data
   const { data: treeData, isLoading } = useQuery({
@@ -74,7 +82,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
 
   // Build tree structure
   const tree = useMemo(() => {
-    if (!treeData || !teamAccess) return null;
+    if (!treeData || !teamAccess || !currentAuthUserId) return null;
 
     const recruits = treeData.recruits || [];
     const reps = treeData.reps || [];
@@ -95,8 +103,8 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       }
     });
 
-    // Find the root user ID - current user if they're a recruiter, or find top-level recruiters
-    const currentUserId = teamAccess.accessibleUserIds?.[0]; // First ID is usually self
+    // Use the actual authenticated user ID (accessibleUserIds excludes self for leaders)
+    const currentUserId = currentAuthUserId;
     
     // Get all recruiter IDs that appear in the data
     const allRecruiterIds = new Set(recruits.map(r => r.recruiter_user_id).filter(Boolean) as string[]);
@@ -216,7 +224,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
     }
 
     return rootNodes.sort((a, b) => b.children.length - a.children.length);
-  }, [treeData, teamAccess]);
+  }, [treeData, teamAccess, currentAuthUserId]);
 
   // Filter nodes based on search
   const filteredTree = useMemo(() => {
