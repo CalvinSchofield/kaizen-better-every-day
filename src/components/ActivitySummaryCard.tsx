@@ -187,23 +187,25 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
           </div>
         )}
 
-        {/* Upfront Pay */}
-        <div className="text-center pt-2 border-t">
-          <p className="text-sm font-semibold text-muted-foreground">
-            Anticipated Upfront Pay:{" "}
-            <span className="text-base text-green-800 dark:text-green-500">
-              ${summary.upfrontPay.toLocaleString()}
-            </span>
-          </p>
-          {summary.totalMoneySpent > 0 && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Spent: <span className="text-destructive">${summary.totalMoneySpent.toLocaleString()}</span>
-              {" → "}Net: <span className="text-green-700 dark:text-green-400 font-medium">
-                ${(summary.upfrontPay - summary.totalMoneySpent).toLocaleString()}
+        {/* Upfront Pay - Only show if rep has an install scheduled/installed this week */}
+        {summary.hasInstallThisWeek && (
+          <div className="text-center pt-2 border-t">
+            <p className="text-sm font-semibold text-muted-foreground">
+              Anticipated Upfront Pay:{" "}
+              <span className="text-base text-green-800 dark:text-green-500">
+                ${summary.upfrontPay.toLocaleString()}
               </span>
             </p>
-          )}
-        </div>
+            {summary.totalMoneySpent > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Spent: <span className="text-destructive">${summary.totalMoneySpent.toLocaleString()}</span>
+                {" → "}Net: <span className="text-green-700 dark:text-green-400 font-medium">
+                  ${(summary.upfrontPay - summary.totalMoneySpent).toLocaleString()}
+                </span>
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Daily Focus - AI generated one-liner */}
         {dailyFocus && summary.mode === "preseason" && (
