@@ -1,6 +1,6 @@
 import { useState, type MouseEvent } from "react";
 import { TrendingUp as UpgradeIcon } from "lucide-react";
-import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield, TrendingUp, Wallet, ClipboardCheck, Instagram, Info, ChevronDown, MessageSquare, GraduationCap } from "lucide-react";
+import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield, TrendingUp, Wallet, ClipboardCheck, Instagram, Info, ChevronDown, MessageSquare, GraduationCap, Calculator } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -91,6 +91,12 @@ const Tools = () => {
           description: "Common objections & responses",
           href: "/tools/objections",
           icon: MessageSquare,
+        },
+        {
+          title: "Package Builder",
+          description: "Quick monthly estimate calculator",
+          href: "/tools/package-builder",
+          icon: Calculator,
         },
         {
           title: "Useful Contacts",
