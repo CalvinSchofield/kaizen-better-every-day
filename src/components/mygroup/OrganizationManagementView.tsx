@@ -371,7 +371,10 @@ export const OrganizationManagementView = () => {
 
       {/* Recruiter Tree View */}
       {viewMode === "recruiter" && (
-        <RecruiterTreeView searchQuery={searchQuery} />
+        <RecruiterTreeView 
+          searchQuery={searchQuery} 
+          onEditRep={(rep) => setEditingRep(rep)}
+        />
       )}
 
       {/* Formal Structure View */}
