@@ -22,7 +22,7 @@ const packages = [
   {
     id: 'non-premium' as PackageType,
     label: 'Non-Premium Kit',
-    description: 'Budget-friendly option',
+    description: 'Credit or equipment flexibility',
     detail: 'Panel $599 • Service $44.99-$59.99',
     icon: Shield,
     available: true,
