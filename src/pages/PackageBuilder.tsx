@@ -49,17 +49,60 @@ const PackageBuilder = () => {
     setPackageType(null);
   }, []);
 
-  // Update quantity
+  // Update quantity with constraints
   const handleQuantityChange = useCallback((itemId: string, delta: number) => {
     setQuantities(prev => {
       const item = EQUIPMENT_LIST.find(i => i.id === itemId);
       if (!item) return prev;
       
       const currentQty = prev[itemId] || 0;
-      const newQty = Math.max(0, currentQty + delta);
+      let newQty = Math.max(0, currentQty + delta);
       
       if (item.maxQuantity && newQty > item.maxQuantity) {
         return prev;
+      }
+
+      // Constraint: Spotlights can't exceed outdoor cameras
+      if (itemId === 'spotlight-pro') {
+        const outdoorCount = prev['outdoor-pro'] || 0;
+        if (newQty > outdoorCount) {
+          newQty = outdoorCount;
+        }
+      }
+
+      // Constraint: DVR requires at least one camera
+      if (itemId === 'dvr' && newQty > 0) {
+        const cameraIds = ['doorbell-pro', 'outdoor-pro', 'spotlight-pro', 'indoor-pro'];
+        const totalCameras = cameraIds.reduce((sum, id) => sum + (prev[id] || 0), 0);
+        if (totalCameras === 0) {
+          return prev; // Can't add DVR without cameras
+        }
+      }
+
+      // Constraint: When reducing outdoor cameras, also reduce spotlights if needed
+      if (itemId === 'outdoor-pro' && delta < 0) {
+        const spotlightCount = prev['spotlight-pro'] || 0;
+        if (spotlightCount > newQty) {
+          const updatedQuantities = { ...prev, [itemId]: newQty, 'spotlight-pro': newQty };
+          if (newQty === 0) {
+            delete updatedQuantities[itemId];
+            if (newQty === 0) delete updatedQuantities['spotlight-pro'];
+          }
+          return updatedQuantities;
+        }
+      }
+
+      // Constraint: When removing last camera, also remove DVR
+      if (['doorbell-pro', 'outdoor-pro', 'spotlight-pro', 'indoor-pro'].includes(itemId) && delta < 0) {
+        const cameraIds = ['doorbell-pro', 'outdoor-pro', 'spotlight-pro', 'indoor-pro'];
+        const totalCameras = cameraIds.reduce((sum, id) => {
+          if (id === itemId) return sum + newQty;
+          return sum + (prev[id] || 0);
+        }, 0);
+        if (totalCameras === 0 && prev['dvr']) {
+          const { dvr, [itemId]: _, ...rest } = prev;
+          return rest;
+        }
       }
       
       if (newQty === 0) {
