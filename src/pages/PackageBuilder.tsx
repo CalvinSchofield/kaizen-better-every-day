@@ -135,16 +135,16 @@ const PackageBuilder = () => {
     // Calculate equipment total (including panel)
     let equipmentTotal = config.panelPrice;
     
-    // Count cameras for video service fee
-    const cameraIds = ['doorbell-pro', 'outdoor-pro', 'spotlight-pro', 'indoor-pro', 'dvr'];
+    // Count cameras for video service fee (only doorbell, outdoor, indoor - not spotlights or DVR)
+    const videoServiceCameraIds = ['doorbell-pro', 'outdoor-pro', 'indoor-pro'];
     let cameraCount = 0;
     
     EQUIPMENT_LIST.forEach(item => {
       const qty = quantities[item.id] || 0;
       equipmentTotal += item.price * qty;
       
-      // Count cameras
-      if (cameraIds.includes(item.id)) {
+      // Count only cameras that incur video service fee
+      if (videoServiceCameraIds.includes(item.id)) {
         cameraCount += qty;
       }
     });
