@@ -10,7 +10,8 @@ import {
   AlertTriangle,
   User,
   Search,
-  X
+  X,
+  GitBranch
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,8 @@ import { EditMgmtGroupDrawer } from "./org/EditMgmtGroupDrawer";
 import { EditTeamDrawer } from "./org/EditTeamDrawer";
 import { EditRepOrgDrawer } from "./org/EditRepOrgDrawer";
 import { CreateEntityDrawer } from "./org/CreateEntityDrawer";
+import { RecruiterTreeView } from "./org/RecruiterTreeView";
+import { cn } from "@/lib/utils";
 
 interface OrgRep {
   id: string;
@@ -63,9 +66,12 @@ interface OrgMgmtGroup {
   teamIds: string[];
 }
 
+type ViewMode = "formal" | "recruiter";
+
 export const OrganizationManagementView = () => {
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
   
+  const [viewMode, setViewMode] = useState<ViewMode>("formal");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
@@ -292,31 +298,61 @@ export const OrganizationManagementView = () => {
       {/* Header with create actions */}
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-lg">Organization Structure</h3>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" className="gap-1">
-              <Plus className="h-4 w-4" />
-              New
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-popover">
-            <DropdownMenuItem onClick={() => setCreateMode("mgmt_group")}>
-              <Building2 className="h-4 w-4 mr-2" />
-              New Management Group
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setCreateMode("team")}>
-              <Users className="h-4 w-4 mr-2" />
-              New Team
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {viewMode === "formal" && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <Plus className="h-4 w-4" />
+                New
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-popover">
+              <DropdownMenuItem onClick={() => setCreateMode("mgmt_group")}>
+                <Building2 className="h-4 w-4 mr-2" />
+                New Management Group
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCreateMode("team")}>
+                <Users className="h-4 w-4 mr-2" />
+                New Team
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+
+      {/* View Mode Toggle */}
+      <div className="flex gap-2 p-1 bg-muted/50 rounded-lg">
+        <button
+          onClick={() => setViewMode("formal")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-all",
+            viewMode === "formal" 
+              ? "bg-background shadow-sm text-foreground" 
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Building2 className="h-4 w-4" />
+          Formal
+        </button>
+        <button
+          onClick={() => setViewMode("recruiter")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-all",
+            viewMode === "recruiter" 
+              ? "bg-background shadow-sm text-foreground" 
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <GitBranch className="h-4 w-4" />
+          Recruiter Tree
+        </button>
       </div>
 
       {/* Search bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search teams or reps..."
+          placeholder={viewMode === "formal" ? "Search teams or reps..." : "Search recruiters..."}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9 pr-9"
@@ -333,115 +369,125 @@ export const OrganizationManagementView = () => {
         )}
       </div>
 
-      {/* Management Groups */}
-      <div className="space-y-2">
-        {filteredData.groups.map((group) => {
-          const isExpanded = displayExpandedGroups.has(group.id);
-          const groupTeams = filteredData.teams.filter((t) => t.mgmtGroupId === group.id);
-          
-          return (
-            <Collapsible key={group.id} open={isExpanded} onOpenChange={() => toggleGroup(group.id)}>
-              <div className="border rounded-lg bg-card">
-                <CollapsibleTrigger asChild>
-                  <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50">
-                    <div className="flex items-center gap-2">
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <Building2 className="h-4 w-4 text-primary" />
-                      <span className="font-medium">{group.name}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {groupTeams.length} teams
-                      </Badge>
-                      {!group.leadUserId && (
-                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          No leader
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {group.leadName && (
-                        <span className="text-sm text-muted-foreground">{group.leadName}</span>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingGroup(group);
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                </CollapsibleTrigger>
-                
-                <CollapsibleContent>
-                  <div className="border-t px-3 pb-3 space-y-2">
-                    {groupTeams.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-2 pl-6">No teams in this group</p>
-                    ) : (
-                      groupTeams.map((team) => (
-                        <TeamCard
-                          key={team.id}
-                          team={team}
-                          reps={filteredData.repsByTeam.get(team.id) || []}
-                          isExpanded={displayExpandedTeams.has(team.id)}
-                          onToggle={() => toggleTeam(team.id)}
-                          onEditTeam={() => setEditingTeam(team)}
-                          onEditRep={(rep) => setEditingRep(rep)}
-                        />
-                      ))
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
-          );
-        })}
-      </div>
-
-      {/* Unassigned Teams */}
-      {filteredData.unassignedTeams.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-            Unassigned Teams
-          </h4>
-          {filteredData.unassignedTeams.map((team) => (
-            <TeamCard
-              key={team.id}
-              team={team}
-              reps={filteredData.repsByTeam.get(team.id) || []}
-              isExpanded={displayExpandedTeams.has(team.id)}
-              onToggle={() => toggleTeam(team.id)}
-              onEditTeam={() => setEditingTeam(team)}
-              onEditRep={(rep) => setEditingRep(rep)}
-            />
-          ))}
-        </div>
+      {/* Recruiter Tree View */}
+      {viewMode === "recruiter" && (
+        <RecruiterTreeView searchQuery={searchQuery} />
       )}
 
-      {/* No results message */}
-      {lowerQuery && filteredData.groups.length === 0 && filteredData.unassignedTeams.length === 0 && (
-        <div className="text-center py-8 text-muted-foreground">
-          <Search className="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p>No results found for "{searchQuery}"</p>
-          <p className="text-sm">Try a different search term</p>
-        </div>
-      )}
+      {/* Formal Structure View */}
+      {viewMode === "formal" && (
+        <>
+          {/* Management Groups */}
+          <div className="space-y-2">
+            {filteredData.groups.map((group) => {
+              const isExpanded = displayExpandedGroups.has(group.id);
+              const groupTeams = filteredData.teams.filter((t) => t.mgmtGroupId === group.id);
+              
+              return (
+                <Collapsible key={group.id} open={isExpanded} onOpenChange={() => toggleGroup(group.id)}>
+                  <div className="border rounded-lg bg-card">
+                    <CollapsibleTrigger asChild>
+                      <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50">
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <Building2 className="h-4 w-4 text-primary" />
+                          <span className="font-medium">{group.name}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {groupTeams.length} teams
+                          </Badge>
+                          {!group.leadUserId && (
+                            <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              No leader
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {group.leadName && (
+                            <span className="text-sm text-muted-foreground">{group.leadName}</span>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingGroup(group);
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CollapsibleTrigger>
+                    
+                    <CollapsibleContent>
+                      <div className="border-t px-3 pb-3 space-y-2">
+                        {groupTeams.length === 0 ? (
+                          <p className="text-sm text-muted-foreground py-2 pl-6">No teams in this group</p>
+                        ) : (
+                          groupTeams.map((team) => (
+                            <TeamCard
+                              key={team.id}
+                              team={team}
+                              reps={filteredData.repsByTeam.get(team.id) || []}
+                              isExpanded={displayExpandedTeams.has(team.id)}
+                              onToggle={() => toggleTeam(team.id)}
+                              onEditTeam={() => setEditingTeam(team)}
+                              onEditRep={(rep) => setEditingRep(rep)}
+                            />
+                          ))
+                        )}
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+              );
+            })}
+          </div>
 
-      {!lowerQuery && groups.length === 0 && unassignedTeams.length === 0 && (
-        <div className="text-center py-8 text-muted-foreground">
-          <Building2 className="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p>No organization structure yet</p>
-          <p className="text-sm">Create your first management group or team to get started</p>
-        </div>
+          {/* Unassigned Teams */}
+          {filteredData.unassignedTeams.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                Unassigned Teams
+              </h4>
+              {filteredData.unassignedTeams.map((team) => (
+                <TeamCard
+                  key={team.id}
+                  team={team}
+                  reps={filteredData.repsByTeam.get(team.id) || []}
+                  isExpanded={displayExpandedTeams.has(team.id)}
+                  onToggle={() => toggleTeam(team.id)}
+                  onEditTeam={() => setEditingTeam(team)}
+                  onEditRep={(rep) => setEditingRep(rep)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* No results message */}
+          {lowerQuery && filteredData.groups.length === 0 && filteredData.unassignedTeams.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <Search className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>No results found for "{searchQuery}"</p>
+              <p className="text-sm">Try a different search term</p>
+            </div>
+          )}
+
+          {!lowerQuery && groups.length === 0 && unassignedTeams.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <Building2 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>No organization structure yet</p>
+              <p className="text-sm">Create your first management group or team to get started</p>
+            </div>
+          )}
+        </>
       )}
 
       {/* Drawers */}
