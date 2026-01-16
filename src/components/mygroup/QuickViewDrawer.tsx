@@ -43,7 +43,10 @@ export const QuickViewDrawer = ({
   const [viewMode, setViewMode] = useState<ViewMode>('board');
   const { data: teamAccess } = useTeamAccess();
 
-  const isAreaDirector = teamAccess?.accessLevel === 'area_director';
+  // Show org tab for leaders with downline access (AD, MGMT Lead, Team Lead)
+  const canViewOrg = teamAccess?.accessLevel === 'area_director' || 
+                     teamAccess?.accessLevel === 'mgmt_group_lead' || 
+                     teamAccess?.accessLevel === 'team_lead';
   const showBadge = viewMode === 'board';
 
   return (
@@ -65,7 +68,7 @@ export const QuickViewDrawer = ({
                 <TabsTrigger value="availability" className="px-2" title="Availability">
                   <Sun className="h-4 w-4" />
                 </TabsTrigger>
-                {isAreaDirector && (
+                {canViewOrg && (
                   <TabsTrigger value="org" className="px-2" title="Organization">
                     <Building2 className="h-4 w-4" />
                   </TabsTrigger>
