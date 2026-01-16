@@ -60,6 +60,7 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     image: '/images/products/doorbell-camera-pro.jpeg',
     category: 'Cameras',
     defaultQuantity: 1,
+    maxQuantity: 2,
   },
   { 
     id: 'outdoor-pro', 
