@@ -76,7 +76,9 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
   const tree = useMemo(() => {
     if (!treeData || !teamAccess) return null;
 
-    const { recruits, reps, teams } = treeData;
+    const recruits = treeData.recruits || [];
+    const reps = treeData.reps || [];
+    const teams = treeData.teams || [];
     
     // Create maps for lookups
     const repMap = new Map(reps.map((r) => [r.user_id, r]));
