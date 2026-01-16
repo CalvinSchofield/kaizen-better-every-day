@@ -6,7 +6,7 @@ export interface EquipmentItem {
   price: number;
   image?: string;
   icon?: string;
-  category: string;
+  category: 'Cameras' | 'Smart Home' | 'Security';
   maxQuantity?: number;
   defaultQuantity?: number;
 }
@@ -43,16 +43,6 @@ export const INSTALL_OPTIONS = [
 ];
 
 export const EQUIPMENT_LIST: EquipmentItem[] = [
-  // Panel - special, fixed at 1
-  { 
-    id: 'panel', 
-    label: 'Panel', 
-    price: 0, // Price varies by package type
-    image: '/images/products/vivint-app.jpeg',
-    category: 'System',
-    maxQuantity: 1,
-    defaultQuantity: 1,
-  },
   // Cameras
   { 
     id: 'doorbell-pro', 
@@ -86,39 +76,13 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     category: 'Cameras',
     defaultQuantity: 0,
   },
-  // Recording
   { 
     id: 'dvr', 
     label: '24/7 Playback', 
     price: 299.99, 
     image: '/images/products/vivint-playback.jpeg',
-    category: 'Recording',
+    category: 'Cameras',
     defaultQuantity: 1,
-  },
-  // Sensors
-  { 
-    id: 'door-window-sensor', 
-    label: 'Door/Window', 
-    price: 50, 
-    icon: 'DoorOpen',
-    category: 'Sensors',
-    defaultQuantity: 3,
-  },
-  { 
-    id: 'motion-sensor', 
-    label: 'Motion Sensor', 
-    price: 100, 
-    icon: 'Move',
-    category: 'Sensors',
-    defaultQuantity: 0,
-  },
-  { 
-    id: 'glass-break', 
-    label: 'Glass Break', 
-    price: 100, 
-    icon: 'Volume2',
-    category: 'Sensors',
-    defaultQuantity: 0,
   },
   // Smart Home
   { 
@@ -143,6 +107,31 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     price: 50, 
     icon: 'Warehouse',
     category: 'Smart Home',
+    defaultQuantity: 0,
+  },
+  // Security
+  { 
+    id: 'door-window-sensor', 
+    label: 'Door/Window', 
+    price: 50, 
+    icon: 'DoorOpen',
+    category: 'Security',
+    defaultQuantity: 3,
+  },
+  { 
+    id: 'motion-sensor', 
+    label: 'Motion Sensor', 
+    price: 100, 
+    icon: 'Move',
+    category: 'Security',
+    defaultQuantity: 0,
+  },
+  { 
+    id: 'glass-break', 
+    label: 'Glass Break', 
+    price: 100, 
+    icon: 'Volume2',
+    category: 'Security',
     defaultQuantity: 0,
   },
 ];

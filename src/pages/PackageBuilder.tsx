@@ -3,6 +3,7 @@ import { ArrowLeft, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { hapticMedium } from "@/utils/haptics";
+import { motion, AnimatePresence } from "framer-motion";
 import { PackageTypeSelector } from "@/components/tools/package-builder/PackageTypeSelector";
 import { EquipmentConfigurator } from "@/components/tools/package-builder/EquipmentConfigurator";
 import { ConfigurationOptions } from "@/components/tools/package-builder/ConfigurationOptions";
@@ -24,13 +25,19 @@ const PackageBuilder = () => {
   const [serviceRate, setServiceRate] = useState(59.99);
   const [warrantyEnabled, setWarrantyEnabled] = useState(true);
 
-  // Reset to defaults when package type changes
+  // Handle package selection - navigate to config page
   const handlePackageSelect = useCallback((type: PackageType) => {
-    setPackageType(type);
-    setQuantities(getDefaultQuantities());
     if (type === 'premium' || type === 'non-premium') {
+      setPackageType(type);
+      setQuantities(getDefaultQuantities());
       setServiceRate(PACKAGE_CONFIGS[type].serviceDefault);
     }
+  }, []);
+
+  // Go back to package selection
+  const handleBack = useCallback(() => {
+    hapticMedium();
+    setPackageType(null);
   }, []);
 
   // Update quantity
@@ -42,7 +49,6 @@ const PackageBuilder = () => {
       const currentQty = prev[itemId] || 0;
       const newQty = Math.max(0, currentQty + delta);
       
-      // Respect max quantity
       if (item.maxQuantity && newQty > item.maxQuantity) {
         return prev;
       }
@@ -55,15 +61,16 @@ const PackageBuilder = () => {
     });
   }, []);
 
-  // Reset everything
+  // Reset to defaults
   const handleReset = useCallback(() => {
     hapticMedium();
-    setPackageType(null);
-    setQuantities(getDefaultQuantities());
-    setInstallFee(399);
-    setServiceRate(59.99);
-    setWarrantyEnabled(true);
-  }, []);
+    if (packageType === 'premium' || packageType === 'non-premium') {
+      setQuantities(getDefaultQuantities());
+      setInstallFee(399);
+      setServiceRate(PACKAGE_CONFIGS[packageType].serviceDefault);
+      setWarrantyEnabled(true);
+    }
+  }, [packageType]);
 
   // Calculate prices
   const prices = useMemo(() => {
@@ -73,11 +80,10 @@ const PackageBuilder = () => {
 
     const config = PACKAGE_CONFIGS[packageType];
     
-    // Calculate equipment total
-    let equipmentTotal = config.panelPrice; // Panel price based on package
+    // Calculate equipment total (including panel)
+    let equipmentTotal = config.panelPrice;
     
     EQUIPMENT_LIST.forEach(item => {
-      if (item.id === 'panel') return; // Panel already counted
       const qty = quantities[item.id] || 0;
       equipmentTotal += item.price * qty;
     });
@@ -98,88 +104,90 @@ const PackageBuilder = () => {
   }, [packageType, quantities, installFee, serviceRate, warrantyEnabled]);
 
   const isConfigurable = packageType === 'premium' || packageType === 'non-premium';
+  const packageLabel = packageType === 'premium' ? 'Premium Kit' : 'Non-Premium Kit';
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/tools')}
+            onClick={packageType ? handleBack : () => navigate('/tools')}
             className="rounded-full"
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="font-semibold">Package Builder</h1>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleReset}
-            className="rounded-full"
-          >
-            <RotateCcw className="w-5 h-5" />
-          </Button>
+          <h1 className="font-semibold">
+            {packageType ? packageLabel : 'Package Builder'}
+          </h1>
+          {isConfigurable ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleReset}
+              className="rounded-full"
+            >
+              <RotateCcw className="w-5 h-5" />
+            </Button>
+          ) : (
+            <div className="w-10" /> // Spacer for centering
+          )}
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* Package Type Selection */}
-        <div>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Select Package Type
-          </h2>
-          <PackageTypeSelector
-            selected={packageType}
-            onSelect={handlePackageSelect}
-          />
-        </div>
-
-        {/* Equipment & Configuration - only show for active packages */}
-        {isConfigurable && (
-          <>
-            {/* Equipment Selection */}
-            <div>
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                Equipment
-              </h2>
-              <EquipmentConfigurator
-                packageType={packageType}
-                quantities={quantities}
-                onQuantityChange={handleQuantityChange}
-              />
+      <AnimatePresence mode="wait">
+        {!packageType ? (
+          // Page 1: Package Selection
+          <motion.div
+            key="selection"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="max-w-lg mx-auto px-4 py-6"
+          >
+            <div className="mb-6">
+              <h2 className="text-xl font-bold mb-1">Choose a Package</h2>
+              <p className="text-sm text-muted-foreground">
+                Select the financing option for your customer
+              </p>
             </div>
+            <PackageTypeSelector onSelect={handlePackageSelect} />
+          </motion.div>
+        ) : isConfigurable ? (
+          // Page 2: Equipment Configuration
+          <motion.div
+            key="config"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2 }}
+            className="max-w-lg mx-auto px-4 py-6 pb-40 space-y-6"
+          >
+            {/* Equipment Selection */}
+            <EquipmentConfigurator
+              packageType={packageType}
+              quantities={quantities}
+              onQuantityChange={handleQuantityChange}
+            />
 
             {/* Configuration Options */}
-            <div>
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                Pricing Options
-              </h2>
-              <ConfigurationOptions
-                packageType={packageType}
-                installFee={installFee}
-                onInstallFeeChange={setInstallFee}
-                serviceRate={serviceRate}
-                onServiceRateChange={setServiceRate}
-                warrantyEnabled={warrantyEnabled}
-                onWarrantyChange={setWarrantyEnabled}
-              />
-            </div>
-          </>
-        )}
+            <ConfigurationOptions
+              packageType={packageType}
+              installFee={installFee}
+              onInstallFeeChange={setInstallFee}
+              serviceRate={serviceRate}
+              onServiceRateChange={setServiceRate}
+              warrantyEnabled={warrantyEnabled}
+              onWarrantyChange={setWarrantyEnabled}
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
-        {/* Empty state for coming soon packages */}
-        {packageType && !isConfigurable && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">
-              This package type is coming soon!
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Sticky Price Summary */}
+      {/* Sticky Price Summary - only on config page */}
       {isConfigurable && (
         <PriceSummary
           equipmentMonthly={prices.equipmentMonthly}
