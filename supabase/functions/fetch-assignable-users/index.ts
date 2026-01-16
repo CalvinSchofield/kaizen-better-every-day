@@ -55,10 +55,10 @@ serve(async (req) => {
       return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]/gu, '').trim();
     };
 
-    // Get current user's rep data
+    // Get current user's rep data (to find THEIR upline, not the recruit's)
     const { data: currentRep } = await supabase
       .from('reps')
-      .select('user_id, name, id')
+      .select('user_id, name, id, team_leader')
       .eq('user_id', user.id)
       .single();
 
@@ -74,13 +74,9 @@ serve(async (req) => {
       });
     }
 
-    // Find the recruit by ID, or use the provided team leader as fallback
-    const recruit = recruitId 
-      ? allReps.find(r => r.id === recruitId)
-      : null;
-    
-    // Determine the starting team leader - either from the recruit record or the fallback
-    const startingTeamLeader = recruit?.team_leader || recruitTeamLeader;
+    // The upline should be based on the CURRENT USER's team leader chain, not the recruit's
+    // This allows a user to assign tasks to their upline leaders
+    const startingTeamLeader = currentRep?.team_leader;
     
     if (!startingTeamLeader) {
       console.log('No team leader found for recruit:', recruitId);
@@ -175,7 +171,7 @@ serve(async (req) => {
       level++;
     }
 
-    console.log(`Total assignable users: ${assignableUsers.length} for recruit ${recruit?.name || recruitId || 'unknown'}`);
+    console.log(`Total assignable users: ${assignableUsers.length} for current user ${currentRep?.name || user.id}`);
 
     return new Response(JSON.stringify({ assignableUsers }), {
       status: 200,
