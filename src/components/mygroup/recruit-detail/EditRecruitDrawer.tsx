@@ -88,6 +88,8 @@ export const EditRecruitDrawer = ({
   const [recruiterUserId, setRecruiterUserId] = useState('');
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [selectedMgmtId, setSelectedMgmtId] = useState('');
+  const [significantOtherName, setSignificantOtherName] = useState('');
+  const [watchOutNotes, setWatchOutNotes] = useState('');
   
   // Combobox states
   const [locationOpen, setLocationOpen] = useState(false);
@@ -326,6 +328,10 @@ export const EditRecruitDrawer = ({
         setRecruiterUserId(recruitDetails.recruiter_user_id);
       }
       
+      // Set new fields
+      setSignificantOtherName(recruitDetails.significant_other_name || '');
+      setWatchOutNotes(recruitDetails.watch_out_notes || '');
+      
       setFormInitialized(true);
     } else if (recruit) {
       // Fallback to the Recruit object if recruits table data isn't loaded yet
@@ -353,6 +359,10 @@ export const EditRecruitDrawer = ({
         setRecruiterUserId(recruit.recruiterUserId);
       }
       
+      // Set new fields - fallback to empty since Recruit type might not have these yet
+      setSignificantOtherName('');
+      setWatchOutNotes('');
+      
       setFormInitialized(true);
     }
   }, [open, recruit, recruitDetails, formInitialized, accessibleTeams]);
@@ -378,6 +388,8 @@ export const EditRecruitDrawer = ({
       toast.success('Recruit updated');
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.invalidateQueries({ queryKey: ['recruit-detail-live', recruit.id] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-details-extra', recruit.id] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-details-for-edit', recruit.id] });
       onSuccess?.();
       onOpenChange(false);
     },
@@ -403,6 +415,8 @@ export const EditRecruitDrawer = ({
       recruiterUserId,
       teamId: selectedTeamId || null,
       mgmtGroupId: selectedMgmtId || null,
+      significantOtherName: significantOtherName.trim(),
+      watchOutNotes: watchOutNotes.trim(),
     });
   };
 
@@ -663,6 +677,30 @@ export const EditRecruitDrawer = ({
             {selectedTeamId && filteredRecruiters.length === 0 && (
               <p className="text-xs text-muted-foreground mt-1">No accessible recruiters in this team</p>
             )}
+          </div>
+
+          {/* Significant Other Name */}
+          <div>
+            <Label>Significant Other</Label>
+            <Input 
+              value={significantOtherName} 
+              onChange={(e) => setSignificantOtherName(e.target.value)}
+              placeholder="Partner's name (optional)"
+              className="mt-1"
+            />
+          </div>
+
+          {/* Watch Out Notes */}
+          <div>
+            <Label className="flex items-center gap-1">
+              <span>⚠️</span> Things to Watch Out For
+            </Label>
+            <textarea 
+              value={watchOutNotes} 
+              onChange={(e) => setWatchOutNotes(e.target.value)}
+              placeholder="Frequent objections, concerns, red flags..."
+              className="mt-1 w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            />
           </div>
         </div>
 

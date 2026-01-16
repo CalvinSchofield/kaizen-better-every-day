@@ -46,6 +46,8 @@ serve(async (req) => {
       recruiterUserId,
       teamId,
       mgmtGroupId,
+      significantOtherName,
+      watchOutNotes,
     } = body;
 
     if (!recruitId) {
@@ -72,6 +74,8 @@ serve(async (req) => {
     if (recruiterUserId !== undefined) recruitsUpdates.recruiter_user_id = recruiterUserId || null;
     if (teamId !== undefined) recruitsUpdates.team_id = teamId || null;
     if (mgmtGroupId !== undefined) recruitsUpdates.mgmt_group_id = mgmtGroupId || null;
+    if (significantOtherName !== undefined) recruitsUpdates.significant_other_name = significantOtherName || null;
+    if (watchOutNotes !== undefined) recruitsUpdates.watch_out_notes = watchOutNotes || null;
 
     if (Object.keys(recruitsUpdates).length > 0) {
       recruitsUpdates.updated_at = new Date().toISOString();
