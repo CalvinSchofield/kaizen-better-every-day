@@ -1,9 +1,9 @@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { hapticLight, hapticSelection } from "@/utils/haptics";
-import { INSTALL_OPTIONS, PACKAGE_CONFIGS, getServiceRateOptions } from "./types";
+import { INSTALL_OPTIONS, PACKAGE_CONFIGS } from "./types";
 import type { PackageType } from "./types";
 
 interface ConfigurationOptionsProps {
@@ -26,7 +26,15 @@ export const ConfigurationOptions = ({
   onWarrantyChange,
 }: ConfigurationOptionsProps) => {
   const config = PACKAGE_CONFIGS[packageType];
-  const serviceOptions = getServiceRateOptions(config.serviceMin, config.serviceMax);
+
+  // Handle slider change - snap to .99 values
+  const handleServiceRateChange = (value: number[]) => {
+    hapticSelection();
+    // Round to nearest .99
+    const rounded = Math.round(value[0]) - 0.01;
+    const clamped = Math.max(config.serviceMin, Math.min(config.serviceMax, rounded));
+    onServiceRateChange(parseFloat(clamped.toFixed(2)));
+  };
 
   return (
     <div className="space-y-4 bg-card rounded-2xl p-4 border border-border">
@@ -56,33 +64,32 @@ export const ConfigurationOptions = ({
         </div>
       </div>
 
-      {/* Service Rate Picker */}
+      {/* Service Rate Slider */}
       <div>
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Service Rate
-        </Label>
-        <ScrollArea className="w-full whitespace-nowrap mt-2">
-          <div className="flex gap-2 pb-2">
-            {serviceOptions.map(rate => (
-              <button
-                key={rate}
-                onClick={() => {
-                  hapticSelection();
-                  onServiceRateChange(rate);
-                }}
-                className={cn(
-                  "flex-shrink-0 py-2 px-3 rounded-xl text-sm font-medium transition-all active:scale-[0.97]",
-                  serviceRate === rate
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted hover:bg-muted/80"
-                )}
-              >
-                ${rate.toFixed(2)}
-              </button>
-            ))}
-          </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        <div className="flex items-center justify-between mb-2">
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Service Rate
+          </Label>
+          <span className="text-lg font-bold text-primary">
+            ${serviceRate.toFixed(2)}
+          </span>
+        </div>
+        <Slider
+          value={[serviceRate + 0.01]}
+          onValueChange={handleServiceRateChange}
+          min={config.serviceMin + 0.01}
+          max={config.serviceMax + 0.01}
+          step={1}
+          className="mt-2"
+        />
+        <div className="flex justify-between mt-1">
+          <span className="text-[10px] text-muted-foreground">
+            ${config.serviceMin.toFixed(2)}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            ${config.serviceMax.toFixed(2)}
+          </span>
+        </div>
       </div>
 
       {/* Warranty Toggle */}
