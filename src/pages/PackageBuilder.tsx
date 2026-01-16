@@ -3,6 +3,7 @@ import { ArrowLeft, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { hapticMedium } from "@/utils/haptics";
+import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
 import { motion, AnimatePresence } from "framer-motion";
 import { PackageTypeSelector } from "@/components/tools/package-builder/PackageTypeSelector";
 import { EquipmentConfigurator } from "@/components/tools/package-builder/EquipmentConfigurator";
@@ -170,11 +171,24 @@ const PackageBuilder = () => {
   const isConfigurable = packageType === 'premium' || packageType === 'non-premium';
   const packageLabel = packageType === 'premium' ? 'Premium Kit' : 'Non-Premium Kit';
 
+  // Handle swipe back - different behavior based on current page
+  const handleSwipeBack = useCallback(() => {
+    if (packageType) {
+      handleBack();
+    } else {
+      navigate('/tools');
+    }
+  }, [packageType, handleBack, navigate]);
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
-        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+    <EdgeSwipeContainer onBack={handleSwipeBack}>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <div 
+          className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border"
+          style={{ paddingTop: 'var(--effective-safe-area-top)' }}
+        >
+          <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <Button
             variant="ghost"
             size="icon"
@@ -254,18 +268,19 @@ const PackageBuilder = () => {
         ) : null}
       </AnimatePresence>
 
-      {/* Sticky Price Summary - only on config page */}
-      {isConfigurable && (
-        <PriceSummary
-          equipmentMonthly={prices.equipmentMonthly}
-          serviceRate={serviceRate}
-          warrantyAmount={prices.warrantyAmount}
-          videoServiceFee={prices.videoServiceFee}
-          cameraCount={prices.cameraCount}
-          totalMonthly={prices.totalMonthly}
-        />
-      )}
-    </div>
+        {/* Sticky Price Summary - only on config page */}
+        {isConfigurable && (
+          <PriceSummary
+            equipmentMonthly={prices.equipmentMonthly}
+            serviceRate={serviceRate}
+            warrantyAmount={prices.warrantyAmount}
+            videoServiceFee={prices.videoServiceFee}
+            cameraCount={prices.cameraCount}
+            totalMonthly={prices.totalMonthly}
+          />
+        )}
+      </div>
+    </EdgeSwipeContainer>
   );
 };
 
