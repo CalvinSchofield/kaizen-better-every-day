@@ -7,6 +7,8 @@ interface PriceSummaryProps {
   equipmentMonthly: number;
   serviceRate: number;
   warrantyAmount: number;
+  videoServiceFee: number;
+  cameraCount: number;
   totalMonthly: number;
 }
 
@@ -14,6 +16,8 @@ export const PriceSummary = ({
   equipmentMonthly,
   serviceRate,
   warrantyAmount,
+  videoServiceFee,
+  cameraCount,
   totalMonthly,
 }: PriceSummaryProps) => {
   const [expanded, setExpanded] = useState(false);
@@ -78,6 +82,12 @@ export const PriceSummary = ({
                     <span className="text-muted-foreground">Service</span>
                     <span className="font-medium">${serviceRate.toFixed(2)}</span>
                   </div>
+                  {videoServiceFee > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Video Service ({cameraCount} cam{cameraCount !== 1 ? 's' : ''})</span>
+                      <span className="font-medium">${videoServiceFee.toFixed(2)}</span>
+                    </div>
+                  )}
                   {warrantyAmount > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Warranty</span>

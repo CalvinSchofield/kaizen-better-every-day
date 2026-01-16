@@ -84,7 +84,7 @@ const PackageBuilder = () => {
   // Calculate prices
   const prices = useMemo(() => {
     if (!packageType || (packageType !== 'premium' && packageType !== 'non-premium')) {
-      return { equipmentTotal: 0, equipmentMonthly: 0, warrantyAmount: 0, totalMonthly: 0 };
+      return { equipmentTotal: 0, equipmentMonthly: 0, warrantyAmount: 0, videoServiceFee: 0, cameraCount: 0, totalMonthly: 0 };
     }
 
     const config = PACKAGE_CONFIGS[packageType];
@@ -92,9 +92,18 @@ const PackageBuilder = () => {
     // Calculate equipment total (including panel)
     let equipmentTotal = config.panelPrice;
     
+    // Count cameras for video service fee
+    const cameraIds = ['doorbell-pro', 'outdoor-pro', 'spotlight-pro', 'indoor-pro', 'dvr'];
+    let cameraCount = 0;
+    
     EQUIPMENT_LIST.forEach(item => {
       const qty = quantities[item.id] || 0;
       equipmentTotal += item.price * qty;
+      
+      // Count cameras
+      if (cameraIds.includes(item.id)) {
+        cameraCount += qty;
+      }
     });
 
     // Add install fee
@@ -103,13 +112,16 @@ const PackageBuilder = () => {
     // Equipment monthly (60 month financing)
     const equipmentMonthly = equipmentTotal / 60;
 
+    // Video service fee ($5 per camera)
+    const videoServiceFee = cameraCount * 5;
+
     // Warranty
     const warrantyAmount = warrantyEnabled ? config.warrantyPrice : 0;
 
     // Total monthly
-    const totalMonthly = equipmentMonthly + serviceRate + warrantyAmount;
+    const totalMonthly = equipmentMonthly + serviceRate + videoServiceFee + warrantyAmount;
 
-    return { equipmentTotal, equipmentMonthly, warrantyAmount, totalMonthly };
+    return { equipmentTotal, equipmentMonthly, warrantyAmount, videoServiceFee, cameraCount, totalMonthly };
   }, [packageType, quantities, installFee, serviceRate, warrantyEnabled]);
 
   const isConfigurable = packageType === 'premium' || packageType === 'non-premium';
@@ -205,6 +217,8 @@ const PackageBuilder = () => {
           equipmentMonthly={prices.equipmentMonthly}
           serviceRate={serviceRate}
           warrantyAmount={prices.warrantyAmount}
+          videoServiceFee={prices.videoServiceFee}
+          cameraCount={prices.cameraCount}
           totalMonthly={prices.totalMonthly}
         />
       )}
