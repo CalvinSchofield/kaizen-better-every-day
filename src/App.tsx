@@ -35,6 +35,7 @@ import Customers from "./pages/Customers";
 import Objections from "./pages/Objections";
 import RampToBlitz from "./pages/RampToBlitz";
 import UpgradeCheatSheet from "./pages/UpgradeCheatSheet";
+import PackageBuilder from "./pages/PackageBuilder";
 import WeeklyRecapBuilder from "./pages/WeeklyRecapBuilder";
 import ProductKnowledge from "./pages/ProductKnowledge";
 import AdminBlitzes from "./pages/AdminBlitzes";
@@ -163,6 +164,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <UpgradeCheatSheet />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tools/package-builder"
+              element={
+                <ProtectedRoute>
+                  <PackageBuilder />
                 </ProtectedRoute>
               }
             />
