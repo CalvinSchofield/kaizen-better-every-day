@@ -46,7 +46,7 @@ interface VetBlitzCardProps {
   isLoadingTeam?: boolean;
   onTeamMemberUpdate?: (notionPageId: string, updates: Partial<TeamMember>) => void;
   onCommitmentChange?: () => void;
-  accessLevel?: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'none';
+  accessLevel?: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
   mgmtGroups?: Array<{ id: string; name: string }>;
   teams?: Array<{ id: string; name: string }>;
 }

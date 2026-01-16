@@ -29,7 +29,7 @@ export type TeamFilter =
 interface ReportsTeamFilterProps {
   teams: Team[];
   mgmtGroups: MgmtGroup[];
-  accessLevel: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'none';
+  accessLevel: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
   selectedFilter: TeamFilter;
   onFilterChange: (filter: TeamFilter) => void;
   repCount?: number;

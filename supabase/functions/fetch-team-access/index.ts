@@ -70,10 +70,16 @@ Deno.serve(async (req) => {
       .from('reps')
       .select('id, user_id, name, team_leader, recruiter, phone, year, stage, ramp_phase_1_complete');
 
+    // Fetch all recruits to check for recruiter relationships
+    const { data: allRecruits } = await supabase
+      .from('recruits')
+      .select('id, name, recruiter_user_id, team_id, mgmt_group_id, stage, year, phone');
+
     const mgmtGroupsData = mgmtGroupsRaw || [];
     const teamsData = teamsRaw || [];
     const teamMgmtGroups = teamMgmtGroupsRaw || [];
     const repsData = allReps || [];
+    const recruitsData = allRecruits || [];
 
     // Build mgmt groups with their team IDs
     const mgmtGroups = mgmtGroupsData.map(g => {
@@ -213,6 +219,15 @@ Deno.serve(async (req) => {
       accessLevel = 'area_director';
     }
 
+    // NEW: Check if user has recruited anyone (grants 'recruiter' access if no formal role)
+    if (accessLevel === 'none') {
+      const directRecruits = recruitsData.filter(r => r.recruiter_user_id === user.id);
+      if (directRecruits.length > 0) {
+        accessLevel = 'recruiter';
+        console.log(`User ${user.email} granted recruiter access (${directRecruits.length} direct recruits)`);
+      }
+    }
+
     console.log(`User ${user.email} has accessLevel: ${accessLevel}`);
 
     // Helper to get team info for a rep
@@ -344,6 +359,32 @@ Deno.serve(async (req) => {
       };
     };
 
+    // Helper to build recruit data (for recruiter access level)
+    const buildRecruitAsRepData = (recruit: any) => {
+      // Find matching rep if exists
+      const matchingRep = repsData.find(r => r.id === recruit.id || r.user_id === recruit.id);
+      
+      // Get team/mgmt info from recruit record
+      const team = teamsData.find(t => t.id === recruit.team_id);
+      const mgmtGroup = mgmtGroupsData.find(g => g.id === recruit.mgmt_group_id);
+      
+      return {
+        id: recruit.id,
+        userId: matchingRep?.user_id || null,
+        name: recruit.name,
+        phone: recruit.phone || matchingRep?.phone || null,
+        year: recruit.year || matchingRep?.year || null,
+        stage: recruit.stage || matchingRep?.stage || null,
+        isTeamLead: false,
+        teamId: recruit.team_id || null,
+        teamName: team?.name || null,
+        mgmtGroupId: recruit.mgmt_group_id || null,
+        mgmtGroupName: mgmtGroup?.name || null,
+        isGhostRep: !matchingRep?.user_id,
+        rampPhase1Complete: matchingRep?.ramp_phase_1_complete || false,
+      };
+    };
+
     let accessibleUserIds: string[] = [];
     let accessibleReps: any[] = [];
 
@@ -396,6 +437,47 @@ Deno.serve(async (req) => {
         }
         console.log(`Team lead (${userTeams.map(t => t.name).join(', ')}) has access to ${accessibleReps.length} reps (excluding self)`);
       }
+    } else if (accessLevel === 'recruiter') {
+      // NEW: Recruiters see their direct and indirect recruits
+      const addedIds = new Set<string>();
+      
+      // Helper to recursively get recruits downline
+      const getDownlineRecruits = (recruiterId: string, depth: number = 0): any[] => {
+        if (depth > 6) return []; // Prevent infinite recursion
+        
+        const directRecruits = recruitsData.filter(r => r.recruiter_user_id === recruiterId);
+        const result: any[] = [];
+        
+        for (const recruit of directRecruits) {
+          if (addedIds.has(recruit.id)) continue;
+          addedIds.add(recruit.id);
+          
+          result.push(recruit);
+          
+          // Recursively get recruits of this recruit
+          const indirectRecruits = getDownlineRecruits(recruit.id, depth + 1);
+          result.push(...indirectRecruits);
+        }
+        
+        return result;
+      };
+      
+      const allDownlineRecruits = getDownlineRecruits(user.id);
+      
+      for (const recruit of allDownlineRecruits) {
+        // Find matching rep record if exists
+        const matchingRep = repsData.find(r => r.id === recruit.id);
+        
+        if (matchingRep) {
+          if (matchingRep.user_id) accessibleUserIds.push(matchingRep.user_id);
+          accessibleReps.push(buildRepData(matchingRep));
+        } else {
+          // Use recruit data directly if no rep record
+          accessibleReps.push(buildRecruitAsRepData(recruit));
+        }
+      }
+      
+      console.log(`Recruiter has access to ${accessibleReps.length} recruits in their downline`);
     }
 
     // Log team counts for debugging

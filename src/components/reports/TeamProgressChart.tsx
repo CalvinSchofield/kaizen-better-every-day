@@ -49,7 +49,7 @@ interface TeamProgressChartProps {
   dailyTrendByRep?: DailyTrendByEntity;
   dailyTrendByTeam?: DailyTrendByEntity;
   dailyTrendByMgmt?: DailyTrendByEntity;
-  accessLevel: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'none';
+  accessLevel: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
   isLoading?: boolean;
 }
 
