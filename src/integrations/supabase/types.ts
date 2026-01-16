@@ -1218,11 +1218,13 @@ export type Database = {
           ramp_phase_4_complete: boolean | null
           recruiter_user_id: string | null
           recruitment_source: string | null
+          significant_other_name: string | null
           slack_joined: boolean | null
           stage: string | null
           team_id: string | null
           trainings_complete: boolean | null
           updated_at: string | null
+          watch_out_notes: string | null
           year: string | null
         }
         Insert: {
@@ -1246,11 +1248,13 @@ export type Database = {
           ramp_phase_4_complete?: boolean | null
           recruiter_user_id?: string | null
           recruitment_source?: string | null
+          significant_other_name?: string | null
           slack_joined?: boolean | null
           stage?: string | null
           team_id?: string | null
           trainings_complete?: boolean | null
           updated_at?: string | null
+          watch_out_notes?: string | null
           year?: string | null
         }
         Update: {
@@ -1274,11 +1278,13 @@ export type Database = {
           ramp_phase_4_complete?: boolean | null
           recruiter_user_id?: string | null
           recruitment_source?: string | null
+          significant_other_name?: string | null
           slack_joined?: boolean | null
           stage?: string | null
           team_id?: string | null
           trainings_complete?: boolean | null
           updated_at?: string | null
+          watch_out_notes?: string | null
           year?: string | null
         }
         Relationships: [

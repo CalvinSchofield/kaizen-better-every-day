@@ -73,6 +73,22 @@ export const DetailsTab = ({
   const isRookie = recruitRepData && (recruitRepData.year === 'Rookie' || !recruitRepData.year);
   const hasCompletedOnboarding = recruitRepData?.onboarding_complete === true;
   
+  // Fetch additional recruit details for the new fields
+  const { data: recruitDetails } = useQuery({
+    queryKey: ['recruit-details-extra', recruit.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('recruits')
+        .select('significant_other_name, watch_out_notes')
+        .eq('id', recruit.id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30 * 1000, // 30 seconds
+  });
+  
   // Check if user has leader access (can edit)
   const canEdit = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
   // Check if user is area director (can delete)
@@ -314,7 +330,29 @@ export const DetailsTab = ({
           </p>
         )}
       </div>
-      
+
+      {/* Watch Out For Section - shown if there are notes */}
+      {recruitDetails?.watch_out_notes && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-sm font-medium mb-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <span>Watch Out For</span>
+          </div>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+            {recruitDetails.watch_out_notes}
+          </p>
+        </div>
+      )}
+
+      {/* Significant Other - shown if there's a name */}
+      {recruitDetails?.significant_other_name && (
+        <div className="bg-muted/50 border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+            <span>💍 Significant Other</span>
+          </div>
+          <p className="font-medium">{recruitDetails.significant_other_name}</p>
+        </div>
+      )}
       {/* Edit Recruit Drawer */}
       <EditRecruitDrawer
         open={editDrawerOpen}
