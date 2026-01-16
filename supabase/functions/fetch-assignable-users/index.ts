@@ -82,6 +82,7 @@ serve(async (req) => {
     const recruitsData = allRecruits || [];
     
     // Build assignable users by following the recruiter_user_id chain
+    // IMPORTANT: Start from the RECRUIT being viewed (recruitId), not the current user
     const assignableUsers: Array<{
       userId: string;
       name: string;
@@ -92,33 +93,22 @@ serve(async (req) => {
     const addedUserIds = new Set<string>();
     const visitedIds = new Set<string>();
 
-    // Find the current user's recruit record to get their recruiter
-    // Match by rep.id = recruit.id OR by user_id
-    let currentRecruitRecord = recruitsData.find(r => r.id === currentRep?.id);
+    // Find the TARGET recruit record (the person being viewed, e.g., Noah)
+    let targetRecruitRecord = recruitsData.find(r => r.id === recruitId);
     
-    // If not found by rep.id, try to find by matching the rep's user_id
-    if (!currentRecruitRecord && currentRep?.user_id) {
-      // Look for a recruit where the recruiter matches by user_id
-      currentRecruitRecord = recruitsData.find(r => r.recruiter_user_id === currentRep.user_id);
-      // Actually we need to find the recruit that IS this user, not recruits OF this user
-      // Let's try matching by name as fallback
-      if (!currentRecruitRecord) {
-        const currentRepNameClean = stripEmojis(currentRep.name).toLowerCase();
-        currentRecruitRecord = recruitsData.find(r => {
-          const recruitNameClean = stripEmojis(r.name).toLowerCase();
-          return recruitNameClean === currentRepNameClean;
-        });
-      }
+    // If not found by ID, try matching by name
+    if (!targetRecruitRecord && recruitId) {
+      console.log(`Could not find recruit by ID ${recruitId}, trying name match`);
     }
 
-    console.log(`Current user: ${currentRep?.name}, found recruit record: ${currentRecruitRecord?.id || 'none'}`);
+    console.log(`Target recruit: ${targetRecruitRecord?.name || recruitId}, recruiter_user_id: ${targetRecruitRecord?.recruiter_user_id || 'none'}`);
 
-    // Start walking up the recruiter chain
-    let currentRecruiterId = currentRecruitRecord?.recruiter_user_id;
+    // Start walking up the recruiter chain FROM THE RECRUIT BEING VIEWED
+    let currentRecruiterId = targetRecruitRecord?.recruiter_user_id;
     let level = 0;
     const maxLevels = 10;
 
-    console.log(`Starting upline chain from recruiter_user_id: ${currentRecruiterId}`);
+    console.log(`Starting upline chain from recruit's recruiter_user_id: ${currentRecruiterId}`);
 
     while (currentRecruiterId && level < maxLevels && !visitedIds.has(currentRecruiterId)) {
       visitedIds.add(currentRecruiterId);
