@@ -55,7 +55,7 @@ serve(async (req) => {
       return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]/gu, '').trim();
     };
 
-    // Get current user's rep data (to find THEIR upline, not the recruit's)
+    // Get current user's rep data
     const { data: currentRep } = await supabase
       .from('reps')
       .select('user_id, name, id, team_leader')
@@ -67,6 +67,11 @@ serve(async (req) => {
       .from('reps')
       .select('user_id, name, id, team_leader');
 
+    // Get all recruits to follow the recruiter chain
+    const { data: allRecruits } = await supabase
+      .from('recruits')
+      .select('id, name, recruiter_user_id');
+
     if (!allReps || allReps.length === 0) {
       return new Response(JSON.stringify({ assignableUsers: [] }), {
         status: 200,
@@ -74,21 +79,9 @@ serve(async (req) => {
       });
     }
 
-    // The upline should be based on the CURRENT USER's team leader chain, not the recruit's
-    // This allows a user to assign tasks to their upline leaders
-    const startingTeamLeader = currentRep?.team_leader;
+    const recruitsData = allRecruits || [];
     
-    if (!startingTeamLeader) {
-      console.log('No team leader found for recruit:', recruitId);
-      return new Response(JSON.stringify({ assignableUsers: [] }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log('Finding assignable users starting from team_leader:', startingTeamLeader);
-
-    // Build upline chain for the recruit
+    // Build assignable users by following the recruiter_user_id chain
     const assignableUsers: Array<{
       userId: string;
       name: string;
@@ -96,79 +89,135 @@ serve(async (req) => {
       repId: string;
     }> = [];
 
-    // Function to find a rep by name (handles emoji matching)
-    const findRepByName = (targetName: string | null): typeof allReps[0] | undefined => {
-      if (!targetName) return undefined;
-      const cleanTarget = stripEmojis(targetName).toLowerCase();
-      return allReps.find(r => {
-        const cleanName = stripEmojis(r.name).toLowerCase();
-        return cleanName.includes(cleanTarget) || cleanTarget.includes(cleanName);
-      });
-    };
-
-    // Start with the recruit's team leader and go up the chain
-    let currentTeamLeader = startingTeamLeader;
-    let level = 0;
-    const maxLevels = 10; // Prevent infinite loops
     const addedUserIds = new Set<string>();
-    const visitedNames = new Set<string>(); // Prevent infinite loops from circular references
+    const visitedIds = new Set<string>();
 
-    console.log(`Starting upline chain from team_leader: ${currentTeamLeader}`);
+    // Find the current user's recruit record to get their recruiter
+    // Match by rep.id = recruit.id OR by user_id
+    let currentRecruitRecord = recruitsData.find(r => r.id === currentRep?.id);
+    
+    // If not found by rep.id, try to find by matching the rep's user_id
+    if (!currentRecruitRecord && currentRep?.user_id) {
+      // Look for a recruit where the recruiter matches by user_id
+      currentRecruitRecord = recruitsData.find(r => r.recruiter_user_id === currentRep.user_id);
+      // Actually we need to find the recruit that IS this user, not recruits OF this user
+      // Let's try matching by name as fallback
+      if (!currentRecruitRecord) {
+        const currentRepNameClean = stripEmojis(currentRep.name).toLowerCase();
+        currentRecruitRecord = recruitsData.find(r => {
+          const recruitNameClean = stripEmojis(r.name).toLowerCase();
+          return recruitNameClean === currentRepNameClean;
+        });
+      }
+    }
 
-    while (currentTeamLeader && level < maxLevels) {
-      const cleanCurrentLeader = stripEmojis(currentTeamLeader).toLowerCase();
+    console.log(`Current user: ${currentRep?.name}, found recruit record: ${currentRecruitRecord?.id || 'none'}`);
+
+    // Start walking up the recruiter chain
+    let currentRecruiterId = currentRecruitRecord?.recruiter_user_id;
+    let level = 0;
+    const maxLevels = 10;
+
+    console.log(`Starting upline chain from recruiter_user_id: ${currentRecruiterId}`);
+
+    while (currentRecruiterId && level < maxLevels && !visitedIds.has(currentRecruiterId)) {
+      visitedIds.add(currentRecruiterId);
+
+      // Find the rep record for this recruiter
+      const recruiterRep = allReps.find(r => r.user_id === currentRecruiterId);
       
-      // Prevent infinite loop if we've seen this name before
-      if (visitedNames.has(cleanCurrentLeader)) {
-        console.log(`Already visited ${currentTeamLeader}, stopping chain`);
+      if (!recruiterRep) {
+        console.log(`Could not find rep for recruiter_user_id: ${currentRecruiterId}`);
         break;
       }
-      visitedNames.add(cleanCurrentLeader);
 
-      const leader = findRepByName(currentTeamLeader);
-      
-      if (!leader) {
-        console.log(`Could not find leader matching: ${currentTeamLeader}`);
-        break;
-      }
-
-      if (!leader.user_id) {
-        console.log(`Leader ${leader.name} has no user_id, continuing chain`);
-        currentTeamLeader = leader.team_leader;
-        level++;
-        continue;
-      }
-
-      // Don't add the current user to the list (they're the default "Me" option)
-      // Also don't add duplicates
-      if (leader.user_id !== user.id && !addedUserIds.has(leader.user_id)) {
-        const role = level === 0 ? 'Team Leader' : level === 1 ? 'Upline' : 'Senior Leader';
-        // Strip emojis from the name for clean display
-        const cleanName = stripEmojis(leader.name) || leader.name;
+      // Don't add the current user to the list
+      if (recruiterRep.user_id !== user.id && !addedUserIds.has(recruiterRep.user_id!)) {
+        const role = level === 0 ? 'Recruiter' : level === 1 ? 'Upline' : 'Senior Leader';
+        const cleanName = stripEmojis(recruiterRep.name) || recruiterRep.name;
+        
         assignableUsers.push({
-          userId: leader.user_id,
+          userId: recruiterRep.user_id!,
           name: cleanName,
           role,
-          repId: leader.id || '',
+          repId: recruiterRep.id || '',
         });
-        addedUserIds.add(leader.user_id);
-        console.log(`Added ${leader.name} as ${role} (level ${level})`);
-      } else if (leader.user_id === user.id) {
-        console.log(`Skipping ${leader.name} (current user)`);
+        addedUserIds.add(recruiterRep.user_id!);
+        console.log(`Added ${recruiterRep.name} as ${role} (level ${level})`);
       }
 
-      // Move up the chain - use the leader's team_leader
-      const nextLeader = leader.team_leader;
-      console.log(`${leader.name}'s team_leader is: ${nextLeader}`);
+      // Find the next level up - get the recruiter's recruit record
+      let nextRecruitRecord = recruitsData.find(r => r.id === recruiterRep.id);
       
-      // Stop if no next leader or self-referential
-      if (!nextLeader) {
-        console.log('No next team_leader, stopping chain');
-        break;
+      // Fallback: try matching by name
+      if (!nextRecruitRecord) {
+        const recruiterNameClean = stripEmojis(recruiterRep.name).toLowerCase();
+        nextRecruitRecord = recruitsData.find(r => {
+          const recruitNameClean = stripEmojis(r.name).toLowerCase();
+          return recruitNameClean === recruiterNameClean;
+        });
       }
-      
-      currentTeamLeader = nextLeader;
+
+      currentRecruiterId = nextRecruitRecord?.recruiter_user_id;
       level++;
+    }
+
+    // FALLBACK: If no recruiter chain found, try the old team_leader chain
+    if (assignableUsers.length === 0 && currentRep?.team_leader) {
+      console.log('No recruiter chain found, falling back to team_leader chain');
+      
+      const findRepByName = (targetName: string | null): typeof allReps[0] | undefined => {
+        if (!targetName) return undefined;
+        const cleanTarget = stripEmojis(targetName).toLowerCase();
+        return allReps.find(r => {
+          const cleanName = stripEmojis(r.name).toLowerCase();
+          return cleanName.includes(cleanTarget) || cleanTarget.includes(cleanName);
+        });
+      };
+
+      let currentTeamLeader = currentRep.team_leader;
+      const visitedNames = new Set<string>();
+      level = 0;
+
+      while (currentTeamLeader && level < maxLevels) {
+        const cleanCurrentLeader = stripEmojis(currentTeamLeader).toLowerCase();
+        
+        if (visitedNames.has(cleanCurrentLeader)) {
+          console.log(`Already visited ${currentTeamLeader}, stopping chain`);
+          break;
+        }
+        visitedNames.add(cleanCurrentLeader);
+
+        const leader = findRepByName(currentTeamLeader);
+        
+        if (!leader) {
+          console.log(`Could not find leader matching: ${currentTeamLeader}`);
+          break;
+        }
+
+        if (!leader.user_id) {
+          console.log(`Leader ${leader.name} has no user_id, continuing chain`);
+          currentTeamLeader = leader.team_leader;
+          level++;
+          continue;
+        }
+
+        if (leader.user_id !== user.id && !addedUserIds.has(leader.user_id)) {
+          const role = level === 0 ? 'Team Leader' : level === 1 ? 'Upline' : 'Senior Leader';
+          const cleanName = stripEmojis(leader.name) || leader.name;
+          assignableUsers.push({
+            userId: leader.user_id,
+            name: cleanName,
+            role,
+            repId: leader.id || '',
+          });
+          addedUserIds.add(leader.user_id);
+          console.log(`Added ${leader.name} as ${role} (level ${level}) via team_leader fallback`);
+        }
+
+        currentTeamLeader = leader.team_leader;
+        level++;
+      }
     }
 
     console.log(`Total assignable users: ${assignableUsers.length} for current user ${currentRep?.name || user.id}`);

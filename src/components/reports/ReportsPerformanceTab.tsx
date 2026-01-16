@@ -55,7 +55,7 @@ interface ReportsPerformanceTabProps {
   dailyTrendByRep?: any;
   dailyTrendByTeam?: any;
   dailyTrendByMgmt?: any;
-  accessLevel: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'none';
+  accessLevel: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
   cumulativeLoading?: boolean;
   
   canceledStats?: any;
