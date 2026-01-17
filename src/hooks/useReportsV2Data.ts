@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, subDays, startOfYear } from "date-fns";
+import { format, subDays } from "date-fns";
 import { useTeamLiveData } from "./useTeamLiveData";
 import { useTeamInsightsData } from "./useTeamInsightsData";
 import { 
@@ -159,7 +159,10 @@ export const useReportsV2Data = ({
   const fourteenDaysAgo = format(subDays(today, 14), 'yyyy-MM-dd');
   const yesterday = format(subDays(today, 1), 'yyyy-MM-dd');
   const todayStr = format(today, 'yyyy-MM-dd');
-  const yearStart = format(startOfYear(today), 'yyyy-MM-dd');
+  
+  // Use preseason start (Sept 28, 2025) for proper knocking days count, not Jan 1
+  const PRESEASON_START = '2025-09-28';
+  const yearStart = PRESEASON_START;
 
   const baselineQuery = useQuery({
     queryKey: ['team-baseline', userIds, fourteenDaysAgo],
