@@ -418,6 +418,95 @@ export const RecruitDetailDrawer = ({
     window.location.href = `sms:${contactForHelp.phone}?body=${encodeURIComponent(helpMessage)}`;
   };
 
+  // Handle direct iPad assignment from FocusCard
+  const handleAssignIpad = async () => {
+    if (!recruit) return;
+    
+    const queryKey = ['recruit-rep-data', recruit.id, recruit.email, recruit.name];
+    
+    try {
+      // Check if recruitRepData exists - if not, we need to create the rep record first
+      if (!recruitRepData) {
+        // Create ghost rep record first
+        let teamLeaderName: string | null = null;
+        let teamLeaderPhone: string | null = null;
+        
+        if (recruit.recruiterUserId) {
+          const { data: recruiterData } = await supabase
+            .from('reps')
+            .select('name, phone')
+            .eq('user_id', recruit.recruiterUserId)
+            .single();
+          
+          if (recruiterData) {
+            teamLeaderName = recruiterData.name;
+            teamLeaderPhone = recruiterData.phone;
+          }
+        }
+        
+        const { error: createError } = await supabase.from('reps').insert({
+          id: recruit.id, // Use same ID as recruit for linkage
+          name: recruit.name,
+          email: recruit.email || null,
+          phone: recruit.phone || null,
+          stage: recruit.stage || 'Signed',
+          year: 'Rookie',
+          team_leader: teamLeaderName,
+          team_leader_phone: teamLeaderPhone,
+          onboarding_complete: false,
+          trainings_complete: false,
+          slack_joined: false,
+          ramp_phase_1_complete: false,
+          ramp_phase_2_complete: false,
+          ramp_phase_3_complete: false,
+          ramp_phase_4_complete: false,
+          blitz_ready: false,
+          ipad_assigned: true, // Already set to true since that's why we're here
+        });
+        
+        if (createError) throw createError;
+        
+        toast.success('iPad assigned');
+        queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.id], exact: false });
+        queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+        return;
+      }
+      
+      // Rep record exists, just update iPad status
+      // Optimistic update
+      queryClient.setQueryData(queryKey, (old: any) => 
+        old ? { ...old, ipad_assigned: true } : old
+      );
+      
+      const { error: updateError } = await supabase
+        .from('reps')
+        .update({ ipad_assigned: true })
+        .eq('id', recruit.id);
+      
+      if (updateError) throw updateError;
+      
+      // Also call edge function to sync
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase.functions.invoke('update-rookie-status', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: { rookieId: recruit.id, ipadAssigned: true },
+        });
+      }
+      
+      toast.success('iPad assigned');
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.id], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+    } catch (error) {
+      console.error('Failed to assign iPad:', error);
+      // Rollback optimistic update
+      queryClient.setQueryData(queryKey, (old: any) => 
+        old ? { ...old, ipad_assigned: false } : old
+      );
+      toast.error("Couldn't assign iPad");
+    }
+  };
+
   const handleStageChange = (newStage: string) => {
     setPendingStage(newStage);
     if (newStage === 'Potential Follow Up') {
@@ -863,6 +952,7 @@ export const RecruitDetailDrawer = ({
                 recruitRepData={recruitRepData || null}
                 recruitGoals={recruitGoals || null}
                 onNavigateToTab={setActiveTab}
+                onAssignIpad={handleAssignIpad}
               />
             </div>
             
