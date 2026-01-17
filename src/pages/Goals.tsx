@@ -223,41 +223,53 @@ const Goals = () => {
   // Today's progress from entry (EFP or FP+ based on mode)
   // IMPORTANT: Include RUNNING totals from unfinalized sales_log for live "behind" calculation
   const todayUnfinalizedPrmr = useMemo(() => {
-    if (!todayEntry || todayEntry.is_finalized) {
-      // If finalized, use the saved values
-      return (todayEntry?.prmr || 0) + ((todayEntry as any)?.upgrade_prmr || 0);
+    if (!todayEntry) return 0;
+    
+    // If finalized, use the saved prmr value (already includes upgrades)
+    if (todayEntry.is_finalized) {
+      return todayEntry.prmr || 0;
     }
+    
     // If not finalized, calculate from sales_log for running total
     const salesLog = (todayEntry as any)?.sales_log || [];
     if (salesLog.length > 0) {
       // Exclude never_installed sales from totals
       return salesLog
         .filter((sale: any) => sale.install_status !== 'never_installed')
-        .reduce((sum: number, sale: any) => sum + (sale.prmr || 0), 0);
+        .reduce((sum: number, sale: any) => sum + (Number(sale.prmr) || 0), 0);
     }
-    // Fallback to prmr field if no sales_log
-    return (todayEntry?.prmr || 0) + ((todayEntry as any)?.upgrade_prmr || 0);
+    
+    // Fallback to prmr field if no sales_log (prmr already includes upgrade_prmr)
+    return todayEntry.prmr || 0;
   }, [todayEntry]);
 
   const todayUnfinalizedFpPlus = useMemo(() => {
-    if (!todayEntry || todayEntry.is_finalized) {
-      // If finalized, use the saved values
-      const upgradePrmr = (todayEntry as any)?.upgrade_prmr || 0;
-      return (todayEntry?.fp_plus || 0) + (upgradePrmr / 85);
+    if (!todayEntry) return 0;
+    
+    // If finalized, use the saved fp_plus value
+    if (todayEntry.is_finalized) {
+      return todayEntry.fp_plus || 0;
     }
+    
     // If not finalized, calculate from sales_log for running total
     const salesLog = (todayEntry as any)?.sales_log || [];
     if (salesLog.length > 0) {
       // Exclude never_installed sales from totals
       const fundedSales = salesLog.filter((s: any) => s.install_status !== 'never_installed');
-      const fpSales = fundedSales.filter((s: any) => s.type === 'fp');
-      const upgradeSales = fundedSales.filter((s: any) => s.type === 'upgrade');
-      const upgradePrmr = upgradeSales.reduce((sum: number, s: any) => sum + (s.prmr || 0), 0);
-      return fpSales.length + (upgradePrmr / 85);
+      let fp = 0;
+      fundedSales.forEach((sale: any) => {
+        const salePrmr = Number(sale.prmr) || 0;
+        if (sale.type === 'fp') {
+          fp += 1;
+        } else if (sale.type === 'upgrade') {
+          fp += salePrmr / 85;
+        }
+      });
+      return fp;
     }
+    
     // Fallback to fp_plus field if no sales_log
-    const upgradePrmr = (todayEntry as any)?.upgrade_prmr || 0;
-    return (todayEntry?.fp_plus || 0) + (upgradePrmr / 85);
+    return todayEntry.fp_plus || 0;
   }, [todayEntry]);
 
   const todayProgress = efpModeEnabled 

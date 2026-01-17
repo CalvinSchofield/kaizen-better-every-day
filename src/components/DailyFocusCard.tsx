@@ -49,21 +49,31 @@ export const DailyFocusCard = ({ repData, heroMode = false }: DailyFocusCardProp
   const { todayFP, todayPRMR } = useMemo(() => {
     if (!entry) return { todayFP: 0, todayPRMR: 0 };
     
-    const salesLog = entry.sales_log as Array<{ fp?: number; prmr?: number; upgrade_prmr?: number }> | null;
+    const salesLog = entry.sales_log as Array<{ type?: string; prmr?: number; install_status?: string }> | null;
     if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
       let totalFP = 0;
       let totalPRMR = 0;
       salesLog.forEach(sale => {
-        totalFP += (sale.fp || 0) + ((sale.upgrade_prmr || 0) / 85);
-        totalPRMR += (sale.prmr || 0) + (sale.upgrade_prmr || 0);
+        // Skip sales that were never installed
+        if (sale.install_status === 'never_installed') return;
+        
+        const salePrmr = Number(sale.prmr) || 0;
+        totalPRMR += salePrmr;
+        
+        if (sale.type === 'fp') {
+          totalFP += 1;
+        } else if (sale.type === 'upgrade') {
+          totalFP += salePrmr / 85;
+        }
       });
       return { todayFP: totalFP, todayPRMR: totalPRMR };
     }
     
-    const entryAny = entry as any;
+    // Fallback to entry-level values for legacy entries
+    // NOTE: prmr field IS total PRMR (already includes upgrade_prmr)
     return { 
       todayFP: entry.fp_plus || 0, 
-      todayPRMR: (entry.prmr || 0) + (entryAny.upgrade_prmr || 0) 
+      todayPRMR: entry.prmr || 0
     };
   }, [entry]);
 
