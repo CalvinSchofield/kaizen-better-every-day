@@ -155,8 +155,9 @@ export const SwipeableBlitzItem = ({
           drag="x"
           dragConstraints={{ left: -140, right: 140 }}
           dragElastic={0.15}
+          dragDirectionLock
           onDragEnd={handleDragEnd}
-          style={{ x }}
+          style={{ x, touchAction: 'pan-y' }}
           animate={controls}
           whileTap={{ cursor: 'grabbing' }}
           className={cn(
