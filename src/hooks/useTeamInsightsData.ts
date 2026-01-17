@@ -26,6 +26,7 @@ interface RepInfo {
   user_id: string;
   name: string;
   year: string;
+  timezone?: string;
   teamName?: string;
   mgmtGroupName?: string;
 }
@@ -175,6 +176,7 @@ interface TeamInsightsData {
     userId: string;
     name: string;
     year: string;
+    timezone?: string;
     teamName: string;
     mgmtGroupName: string;
     doors: number;
@@ -189,6 +191,8 @@ interface TeamInsightsData {
     upgradePRMR: number;
     doorsToFpRatio: number;
     hoursWorked: number;
+    avgStartTime?: string;
+    avgEndTime?: string;
   }>;
 
   // Grouped data
@@ -912,6 +916,39 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           return acc;
         }, 0);
 
+        // Calculate average start and end times for this rep (in their local timezone)
+        const repTimezone = rep.timezone || 'America/Los_Angeles';
+        const startTimeMinutes: number[] = [];
+        const endTimeMinutes: number[] = [];
+        
+        repEntries.forEach(e => {
+          if (e.work_start_time) {
+            try {
+              const { hour, minute } = calculateLocalTime(e.work_start_time, repTimezone);
+              startTimeMinutes.push(hour * 60 + minute);
+            } catch {}
+          }
+          if (e.work_end_time) {
+            try {
+              const { hour, minute } = calculateLocalTime(e.work_end_time, repTimezone);
+              endTimeMinutes.push(hour * 60 + minute);
+            } catch {}
+          }
+        });
+        
+        let avgStartTime: string | undefined;
+        let avgEndTime: string | undefined;
+        
+        if (startTimeMinutes.length > 0) {
+          const avgStart = Math.round(startTimeMinutes.reduce((a, b) => a + b, 0) / startTimeMinutes.length);
+          avgStartTime = decimalToTime(avgStart / 60);
+        }
+        
+        if (endTimeMinutes.length > 0) {
+          const avgEnd = Math.round(endTimeMinutes.reduce((a, b) => a + b, 0) / endTimeMinutes.length);
+          avgEndTime = decimalToTime(avgEnd / 60);
+        }
+
         const upgradeFP = repTotals.upgradePRMR / 85;
         const daysWorked = repEntries.length;
 
@@ -919,6 +956,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           userId: rep.user_id,
           name: rep.name,
           year: rep.year,
+          timezone: rep.timezone,
           teamName: rep.teamName || 'No Team',
           mgmtGroupName: rep.mgmtGroupName || 'No Group',
           doors: repTotals.doors,
@@ -933,6 +971,8 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           upgradePRMR: repTotals.upgradePRMR,
           doorsToFpRatio: repTotals.fp > 0 ? repTotals.doors / repTotals.fp : 0,
           hoursWorked: repHours,
+          avgStartTime,
+          avgEndTime,
           daysWorked,
         };
       });

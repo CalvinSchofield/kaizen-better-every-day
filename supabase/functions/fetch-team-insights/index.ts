@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
       })(),
       supabase
         .from('reps')
-        .select('user_id, name, year, id')
+        .select('user_id, name, year, id, timezone')
         .in('user_id', filteredUserIds),
     ]);
 

@@ -19,6 +19,8 @@ interface WorkingRepForDrawer {
   timezone?: string;
   workStartTime?: string;
   workEndTime?: string;
+  avgStartTime?: string;
+  avgEndTime?: string;
   hoursWorked: number;
   doors: number;
   transitions: number;

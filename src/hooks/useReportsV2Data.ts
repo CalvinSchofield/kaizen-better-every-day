@@ -68,6 +68,7 @@ export interface RepWithEffort {
   userId: string;
   name: string;
   year?: string;
+  timezone?: string;
   teamName?: string;
   phone?: string;
   doors: number;
@@ -81,6 +82,8 @@ export interface RepWithEffort {
   hoursWorked: number;
   workStartTime?: string;
   workEndTime?: string;
+  avgStartTime?: string;
+  avgEndTime?: string;
   effort: EffortResult;
 }
 
@@ -617,6 +620,7 @@ export const useReportsV2Data = ({
           userId: rep.userId,
           name: rep.name,
           year: rep.year,
+          timezone: rep.timezone,
           teamName: rep.teamName,
           doors: rep.doors,
           dms: rep.dms,
@@ -627,6 +631,8 @@ export const useReportsV2Data = ({
           fp: rep.fp,
           prmr: rep.prmr,
           hoursWorked: rep.hoursWorked,
+          avgStartTime: rep.avgStartTime,
+          avgEndTime: rep.avgEndTime,
           effort,
         };
       });
