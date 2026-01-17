@@ -1,22 +1,28 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sale } from './useDailyEntry';
+import { useCurrentUserId } from './useCurrentUserId';
 
 // Global summer start date - April 12, 2026
 const GLOBAL_SUMMER_START = '2026-04-12';
 
 export const usePreseasonFP = () => {
+  // Get user ID reliably to prevent race conditions
+  const { userId, isReady: authReady } = useCurrentUserId();
+
   const { data, isLoading } = useQuery({
-    queryKey: ['preseason-fp-total'],
+    // Include userId in query key to prevent caching 0 values for wrong user
+    queryKey: ['preseason-fp-total', userId],
+    // Only run query when we have a valid user ID
+    enabled: authReady && !!userId,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { totalFP: 0, totalPRMR: 0, totalEFP: 0 };
+      if (!userId) return { totalFP: 0, totalPRMR: 0, totalEFP: 0, knockingDays: 0 };
 
       // Query all finalized entries before summer start date
       const { data: entries, error } = await supabase
         .from('daily_entries')
         .select('fp_plus, prmr, upgrade_prmr, sales_log, doors_knocked, work_start_time, work_end_time')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('is_finalized', true)
         .lt('entry_date', GLOBAL_SUMMER_START);
 
@@ -97,7 +103,8 @@ export const usePreseasonFP = () => {
         knockingDays,
       };
     },
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    staleTime: 1000 * 60 * 2, // Cache for 2 minutes (reduced from 5)
+    gcTime: 1000 * 60 * 10, // Keep in garbage collection for 10 minutes
   });
 
   return { 
@@ -111,6 +118,6 @@ export const usePreseasonFP = () => {
     fundedEFP: data?.fundedEFP ?? 0,
     // Knocking days for pace calculations
     knockingDays: data?.knockingDays ?? 0,
-    isLoading 
+    isLoading: isLoading || !authReady
   };
 };

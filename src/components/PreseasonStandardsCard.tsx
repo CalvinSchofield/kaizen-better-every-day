@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { getCommitmentPaceStatus, PaceStatus } from "@/utils/paceCalculator";
 import { calculateSalesPace } from "@/utils/salesPaceCalculator";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 
 interface CommitmentItem {
   key: string;
@@ -29,52 +30,29 @@ interface CommitmentItem {
 export const PreseasonStandardsCard = () => {
   const navigate = useNavigate();
   const { goals, isLoading, hasGoalsAccess } = useRepGoals();
-  const { totalFP: preseasonFP, totalEFP: preseasonEFP, totalPRMR: preseasonPRMR } = usePreseasonFP();
+  const { totalFP: preseasonFP, totalEFP: preseasonEFP, totalPRMR: preseasonPRMR, knockingDays } = usePreseasonFP();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { count: repsWithSaleCount } = useRepsWithSaleCount();
   const { plannedDays } = usePlannedDays();
   const [isExpanded, setIsExpanded] = useState(false);
+  const { userId, isReady: authReady } = useCurrentUserId();
 
-  // Fetch user's personal summer start date and knocking days
+  // Fetch user's personal summer start date
   const { data: seasonConfig } = useQuery({
-    queryKey: ['season-config-pace'],
+    queryKey: ['season-config-pace', userId],
+    enabled: authReady && !!userId,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!userId) return null;
       
       const { data } = await supabase
         .from('season_config')
         .select('personal_summer_start')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single();
       
       return data;
     },
     staleTime: 5 * 60 * 1000,
-  });
-
-  // Fetch knocking days count for accurate pace calculation
-  const { data: knockingDaysData } = useQuery({
-    queryKey: ['preseason-knocking-days-count'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { knockingDays: 0 };
-      
-      const { data: entries } = await supabase
-        .from('daily_entries')
-        .select('entry_date, doors_knocked, work_start_time, work_end_time')
-        .eq('user_id', user.id)
-        .eq('is_finalized', true)
-        .gte('entry_date', '2025-09-28')
-        .lte('entry_date', '2026-04-11');
-      
-      const knockingDays = entries?.filter(e => 
-        (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time
-      ).length || 0;
-      
-      return { knockingDays };
-    },
-    staleTime: 2 * 60 * 1000,
   });
 
   const personalSummerStart = seasonConfig?.personal_summer_start;
@@ -86,7 +64,7 @@ export const PreseasonStandardsCard = () => {
     return calculateSalesPace({
       goals,
       plannedDays,
-      knockingDays: knockingDaysData?.knockingDays || 0,
+      knockingDays: knockingDays || 0,
       currentFpPlus: preseasonFP,
       currentPrmr: preseasonPRMR,
       efpModeEnabled,
@@ -94,7 +72,7 @@ export const PreseasonStandardsCard = () => {
       activeTier: 'preseason',
       personalSummerStart,
     });
-  }, [goals, plannedDays, knockingDaysData, preseasonFP, preseasonPRMR, efpModeEnabled, calculateEfp, personalSummerStart]);
+  }, [goals, plannedDays, knockingDays, preseasonFP, preseasonPRMR, efpModeEnabled, calculateEfp, personalSummerStart]);
 
   // Don't show if no goals access or goals not set up
   if (!hasGoalsAccess || isLoading) return null;
