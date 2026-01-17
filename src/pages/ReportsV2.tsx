@@ -344,12 +344,35 @@ export const ReportsV2Page = () => {
         periodLabel={getPeriodLabel()}
         goalPeriodLabel={getGoalPeriodLabel()}
         isLiveView={effectivePreset === 'today'}
+        funnelData={funnelData}
+        workingRepsData={repsWithEffort.map(rep => ({
+          userId: rep.userId,
+          name: rep.name,
+          year: rep.year,
+          timezone: undefined,
+          workStartTime: rep.workStartTime,
+          workEndTime: rep.workEndTime,
+          hoursWorked: rep.hoursWorked,
+          doors: rep.doors,
+          transitions: rep.transitions,
+          presentations: rep.presentations,
+          fp: rep.fp,
+          prmr: rep.prmr,
+          isWorking: !rep.workEndTime && !!rep.workStartTime,
+        }))}
+        goalPaceResults={teamGoalStatusDetails ? [
+          ...teamGoalStatusDetails.onPace,
+          ...teamGoalStatusDetails.atRisk,
+          ...teamGoalStatusDetails.behind,
+          ...teamGoalStatusDetails.noGoals,
+        ] : []}
         constraint={constraint}
         actions={actions}
         teamGoalStatus={teamGoalStatus}
         teamGoalStatusDetails={teamGoalStatusDetails}
         teamBaseline={teamBaseline}
         isLoading={isLoading}
+        onRepClick={handleRepClick}
       />
 
       {/* Section 2: Effort */}
