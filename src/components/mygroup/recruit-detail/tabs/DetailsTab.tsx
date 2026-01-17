@@ -291,9 +291,22 @@ export const DetailsTab = ({
           <SelectContent>
             {/* Progression Stages */}
             {PROGRESSION_STAGES.map((stage) => {
-              // For early-stage recruits, allow moving to 100 List, Reached Out, Evaluating, and Signed
-              const allowedForEarlyStage = ['100 List', 'Reached Out', 'Evaluating', 'Signed'].includes(stage);
-              const isDisabled = stageLocked && stage !== recruit.stage && !(isEarlyStage && allowedForEarlyStage);
+              // Early stages that should always be accessible for backward movement
+              const earlyStagesList = ['100 List', 'Reached Out', 'Evaluating'];
+              const isEarlyStageOption = earlyStagesList.includes(stage);
+              
+              // For early-stage recruits, allow moving freely between early stages and to Signed
+              const allowedForEarlyStage = [...earlyStagesList, 'Signed'].includes(stage);
+              
+              // For Signed+ recruits, always allow moving back to early stages (rare corrections)
+              // But lock forward progression until onboarding is complete
+              const isBackwardMove = isEarlyStageOption && !isEarlyStage;
+              
+              const isDisabled = stageLocked && 
+                stage !== recruit.stage && 
+                !isBackwardMove && // Allow backward moves even when locked
+                !(isEarlyStage && allowedForEarlyStage);
+              
               return (
                 <SelectItem 
                   key={stage} 
