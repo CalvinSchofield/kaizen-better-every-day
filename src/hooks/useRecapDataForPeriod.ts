@@ -146,12 +146,13 @@ function calculateDealBreakdown(entries: any[], timezone: string = 'America/Los_
   const allDeals: ParsedDeal[] = [];
   let totalFpFromEntries = 0;
   let totalUpgradePrmr = 0;
+  // NOTE: prmr field IS total PRMR (already includes upgrade_prmr)
   let totalPrmrFromEntries = 0;
   
   entries.forEach(entry => {
     totalFpFromEntries += entry.fp_plus || 0;
     totalUpgradePrmr += entry.upgrade_prmr || 0;
-    totalPrmrFromEntries += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
+    totalPrmrFromEntries += entry.prmr || 0; // prmr already includes upgrade_prmr
     
     if (entry.sales_log && Array.isArray(entry.sales_log)) {
       entry.sales_log.forEach((sale: any) => {
