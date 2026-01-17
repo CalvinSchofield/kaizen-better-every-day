@@ -300,10 +300,12 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
           style={{
             bottom: cardPosition === 'bottom' ? `calc(${32 + cardOffset}px + env(safe-area-inset-bottom, 0px))` : 'auto',
             top: cardPosition === 'top' ? `calc(${80 + cardOffset}px + var(--effective-safe-area-top, 0px))` : 'auto',
+            touchAction: 'pan-y',
           }}
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={0.2}
+          dragDirectionLock
           onDragEnd={handleDragEnd}
           initial={{ y: cardPosition === 'bottom' ? 100 : -100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}

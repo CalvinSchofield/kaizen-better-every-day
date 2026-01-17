@@ -371,7 +371,7 @@ export const WeekPlannerSection = ({
         <CardContent className="pt-0">
           {/* Week Grid - Swipeable */}
           <div 
-            className="grid grid-cols-7 gap-1" 
+            className="grid grid-cols-7 gap-1 touch-pan-y" 
             style={swipeStyle}
             {...swipeHandlers}
           >

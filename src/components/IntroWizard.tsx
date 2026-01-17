@@ -260,7 +260,7 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
 
       {/* Slide content - swipeable area */}
       <div 
-        className="flex-1 flex items-center justify-center overflow-hidden px-6"
+        className="flex-1 flex items-center justify-center overflow-hidden px-6 touch-pan-y"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
