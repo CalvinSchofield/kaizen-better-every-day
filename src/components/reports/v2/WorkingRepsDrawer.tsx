@@ -15,6 +15,8 @@ interface WorkingRepData {
   timezone?: string;
   workStartTime?: string;
   workEndTime?: string;
+  avgStartTime?: string;
+  avgEndTime?: string;
   hoursWorked: number;
   doors: number;
   transitions: number;
@@ -85,14 +87,61 @@ export const WorkingRepsDrawer = ({
   const notStartedReps = reps.filter(r => !r.isWorking && r.hoursWorked === 0);
   
   // Calculate summary stats
-  const avgStartTime = calculateAverageTime(
-    reps.map(r => r.workStartTime),
-    reps.map(r => r.timezone)
-  );
-  const avgEndTime = calculateAverageTime(
-    finishedReps.map(r => r.workEndTime),
-    finishedReps.map(r => r.timezone)
-  );
+  // For historical views, use pre-computed avgStartTime/avgEndTime from the data
+  // For live views, calculate from actual timestamps
+  const avgStartTime = isLiveView 
+    ? calculateAverageTime(reps.map(r => r.workStartTime), reps.map(r => r.timezone))
+    : (() => {
+        // Calculate average from pre-computed avgStartTime strings
+        const validTimes = reps.filter(r => r.avgStartTime).map(r => r.avgStartTime!);
+        if (validTimes.length === 0) return null;
+        // All avgStartTime values are already formatted strings, just use the first as representative
+        // Or calculate a proper average by parsing them
+        const minuteTotals = validTimes.map(t => {
+          const match = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
+          if (!match) return null;
+          let hours = parseInt(match[1]);
+          const mins = parseInt(match[2]);
+          const period = match[3].toUpperCase();
+          if (period === 'PM' && hours !== 12) hours += 12;
+          if (period === 'AM' && hours === 12) hours = 0;
+          return hours * 60 + mins;
+        }).filter((m): m is number => m !== null);
+        
+        if (minuteTotals.length === 0) return null;
+        const avgMinutes = Math.round(minuteTotals.reduce((a, b) => a + b, 0) / minuteTotals.length);
+        const hours = Math.floor(avgMinutes / 60);
+        const minutes = avgMinutes % 60;
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+        return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+      })();
+      
+  const avgEndTime = isLiveView
+    ? calculateAverageTime(finishedReps.map(r => r.workEndTime), finishedReps.map(r => r.timezone))
+    : (() => {
+        const validTimes = reps.filter(r => r.avgEndTime).map(r => r.avgEndTime!);
+        if (validTimes.length === 0) return null;
+        const minuteTotals = validTimes.map(t => {
+          const match = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
+          if (!match) return null;
+          let hours = parseInt(match[1]);
+          const mins = parseInt(match[2]);
+          const period = match[3].toUpperCase();
+          if (period === 'PM' && hours !== 12) hours += 12;
+          if (period === 'AM' && hours === 12) hours = 0;
+          return hours * 60 + mins;
+        }).filter((m): m is number => m !== null);
+        
+        if (minuteTotals.length === 0) return null;
+        const avgMinutes = Math.round(minuteTotals.reduce((a, b) => a + b, 0) / minuteTotals.length);
+        const hours = Math.floor(avgMinutes / 60);
+        const minutes = avgMinutes % 60;
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+        return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+      })();
+      
   const totalHours = reps.reduce((sum, r) => sum + r.hoursWorked, 0);
   const avgHoursWorked = reps.length > 0 ? totalHours / reps.filter(r => r.hoursWorked > 0).length : 0;
   
@@ -105,50 +154,59 @@ export const WorkingRepsDrawer = ({
     return `${h}h ${m}m`;
   };
 
-  const RepRow = ({ rep }: { rep: WorkingRepData }) => (
-    <div 
-      className={cn(
-        "flex items-center gap-3 p-3 rounded-lg bg-muted/30 cursor-pointer",
-        "hover:bg-muted/50 active:scale-[0.98] transition-all"
-      )}
-      onClick={() => onRepClick?.(rep.userId)}
-    >
-      <Avatar className="h-9 w-9">
-        <AvatarFallback className="text-xs bg-primary/10 text-primary">
-          {getInitials(rep.name)}
-        </AvatarFallback>
-      </Avatar>
-      
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-medium truncate">{getFirstName(rep.name)}</span>
-          {rep.year && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-              {rep.year}
-            </Badge>
-          )}
-          {rep.isWorking && (
-            <div className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[10px] text-green-600 dark:text-green-400">Working</span>
-            </div>
-          )}
-        </div>
+  const RepRow = ({ rep }: { rep: WorkingRepData }) => {
+    // For historical views, show avgStartTime/avgEndTime; for live, show workStartTime/workEndTime
+    const displayStartTime = isLiveView 
+      ? formatLocalTime(rep.workStartTime, rep.timezone)
+      : (rep.avgStartTime || '—');
+    const displayEndTime = isLiveView
+      ? formatLocalTime(rep.workEndTime, rep.timezone)
+      : (rep.avgEndTime || '—');
+    
+    return (
+      <div 
+        className={cn(
+          "flex items-center gap-3 p-3 rounded-lg bg-muted/30 cursor-pointer",
+          "hover:bg-muted/50 active:scale-[0.98] transition-all"
+        )}
+        onClick={() => onRepClick?.(rep.userId)}
+      >
+        <Avatar className="h-9 w-9">
+          <AvatarFallback className="text-xs bg-primary/10 text-primary">
+            {getInitials(rep.name)}
+          </AvatarFallback>
+        </Avatar>
         
-        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-          <span className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {formatLocalTime(rep.workStartTime, rep.timezone)}
-            {rep.workEndTime && !rep.isWorking && (
-              <> – {formatLocalTime(rep.workEndTime, rep.timezone)}</>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium truncate">{getFirstName(rep.name)}</span>
+            {rep.year && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                {rep.year}
+              </Badge>
             )}
-          </span>
-          <span className="flex items-center gap-1">
-            <Timer className="w-3 h-3" />
-            {formatHours(rep.hoursWorked)}
-          </span>
+            {rep.isWorking && (
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-[10px] text-green-600 dark:text-green-400">Working</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {displayStartTime}
+              {(isLiveView ? (rep.workEndTime && !rep.isWorking) : rep.avgEndTime) && (
+                <> – {displayEndTime}</>
+              )}
+            </span>
+            <span className="flex items-center gap-1">
+              <Timer className="w-3 h-3" />
+              {formatHours(rep.hoursWorked)}
+            </span>
+          </div>
         </div>
-      </div>
       
       <div className="text-right">
         {rep.fp > 0 ? (
@@ -179,7 +237,8 @@ export const WorkingRepsDrawer = ({
       
       <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
     </div>
-  );
+    );
+  };
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
