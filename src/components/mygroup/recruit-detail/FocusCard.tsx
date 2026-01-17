@@ -24,13 +24,15 @@ interface FocusCardProps {
   recruitRepData: RecruitRepData | null;
   recruitGoals: RecruitGoals | null;
   onNavigateToTab: (tab: TabType) => void;
+  onAssignIpad?: () => void;
 }
 
 export const FocusCard = ({ 
   recruit, 
   recruitRepData, 
   recruitGoals,
-  onNavigateToTab 
+  onNavigateToTab,
+  onAssignIpad
 }: FocusCardProps) => {
   const { allBlitzes } = useBlitzes();
   const recruitFirstName = getFirstName(recruit.name);
@@ -403,7 +405,14 @@ export const FocusCard = ({
             size="sm" 
             variant={focusIssue.type === 'critical' ? 'destructive' : 'secondary'}
             className="shrink-0 text-xs h-8"
-            onClick={() => onNavigateToTab(focusIssue.actionTab!)}
+            onClick={() => {
+              // If this is an iPad assignment action, call onAssignIpad directly
+              if (focusIssue.actionLabel === 'Assign iPad' && onAssignIpad) {
+                onAssignIpad();
+              } else {
+                onNavigateToTab(focusIssue.actionTab!);
+              }
+            }}
           >
             {focusIssue.actionLabel}
           </Button>
