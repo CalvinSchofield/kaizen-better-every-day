@@ -4,6 +4,28 @@ import { Sale } from './useDailyEntry';
 import { toast } from 'sonner';
 import { hapticSuccess, hapticWarning } from '@/utils/haptics';
 
+// Helper to clear localStorage caches for sales-dependent hooks
+// This ensures instant-loading hooks show accurate data after mutations
+const clearSalesDependentCaches = () => {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      
+      // Clear sales-dependent caches
+      if (key.startsWith('preseason-fp-cache-') ||
+          key.startsWith('ytd-prmr-cache-') ||
+          key.startsWith('cumulative-fp-cache-')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 interface UpdateSaleParams {
   entryId: string;
   entryDate: string;
@@ -131,6 +153,10 @@ export const useSaleUpdate = () => {
       hapticSuccess();
       toast.success('Sale updated');
       
+      // Clear localStorage caches for instant-loading hooks
+      // This ensures the next visit shows accurate data
+      clearSalesDependentCaches();
+      
       // CRITICAL: Invalidate ALL sales-dependent queries with refetchType: 'all'
       // This ensures challenges, incentives, and leaderboards all update when PRMR changes
       const salesDependentKeys = [
@@ -138,10 +164,11 @@ export const useSaleUpdate = () => {
         'all-daily-entries',
         'daily-entries',
         'preseason-fp-total',
+        'ytd-prmr-total',
+        'cumulative-fp',
         'canceled-stats',
         'activity-summary',
         'insights-data',
-        'cumulative-fp',
         'customer-sales',
         // Leaderboards
         'today-leaderboard',
@@ -255,6 +282,10 @@ export const useSaleUpdate = () => {
       hapticSuccess();
       toast.success('Sale removed');
       
+      // Clear localStorage caches for instant-loading hooks
+      // This ensures the next visit shows accurate data
+      clearSalesDependentCaches();
+      
       // CRITICAL: Invalidate ALL sales-dependent queries with refetchType: 'all'
       // This ensures challenges, incentives, and leaderboards all update when sales are deleted
       const salesDependentKeys = [
@@ -262,10 +293,11 @@ export const useSaleUpdate = () => {
         'all-daily-entries',
         'daily-entries',
         'preseason-fp-total',
+        'ytd-prmr-total',
+        'cumulative-fp',
         'canceled-stats',
         'activity-summary',
         'insights-data',
-        'cumulative-fp',
         'customer-sales',
         'pending-installs',
         // Leaderboards
