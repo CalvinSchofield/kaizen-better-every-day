@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, startOfDay, endOfDay, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 
 interface DailyEntry {
   user_id: string;
@@ -359,6 +360,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
       );
 
       // Calculate totals for the period (use ALL entries)
+      // For unfinalized entries, recalculate FP+ and PRMR from sales_log
       const totals = entries.reduce((acc, entry) => {
         acc.doors += entry.doors_knocked || 0;
         acc.dms += entry.decision_makers || 0;
@@ -366,10 +368,29 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
         acc.transitions += entry.transitions || 0;
         acc.presentations += entry.presentations || 0;
         acc.closes += entry.closes || 0;
-        acc.fp += entry.fp_plus || 0;
-        // prmr field IS total PRMR (already includes upgrade_prmr as subset)
-        acc.prmr += entry.prmr || 0;
-        acc.upgradePRMR += entry.upgrade_prmr || 0;
+        
+        // For unfinalized entries with sales_log, calculate from sales_log
+        // For finalized entries or entries without sales_log, use column values
+        const isFinalized = (entry as any).is_finalized === true;
+        const salesLog = entry.sales_log as any[] | null;
+        const hasSalesLog = salesLog && Array.isArray(salesLog) && salesLog.length > 0;
+        
+        if (!isFinalized && hasSalesLog) {
+          // Recalculate from sales_log for unfinalized entries
+          const calculated = calculateFromSalesLog(salesLog);
+          acc.fp += calculated.fp;
+          acc.prmr += calculated.prmr;
+          // Calculate upgrade PRMR from sales_log
+          const upgradePrmr = salesLog
+            .filter((s: any) => s.type === 'upgrade' && s.install_status !== 'never_installed')
+            .reduce((sum: number, s: any) => sum + (Number(s.prmr) || 0), 0);
+          acc.upgradePRMR += upgradePrmr;
+        } else {
+          // Use column values for finalized entries or entries without sales_log
+          acc.fp += entry.fp_plus || 0;
+          acc.prmr += entry.prmr || 0;
+          acc.upgradePRMR += entry.upgrade_prmr || 0;
+        }
         acc.daysWorked += 1;
         
         // Calculate work hours
@@ -400,9 +421,9 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
         
         // Parse sales_log for FP count and PRMR averages (only funded sales)
         // Fall back to column values for entries without sales_log (pre-feature entries)
-        const salesLog = entry.sales_log || [];
-        const fundedSales = Array.isArray(salesLog) 
-          ? salesLog.filter((sale: any) => sale.install_status !== 'cancelled')
+        const salesLogForCounts = entry.sales_log || [];
+        const fundedSales = Array.isArray(salesLogForCounts) 
+          ? salesLogForCounts.filter((sale: any) => sale.install_status !== 'cancelled')
           : [];
         
         if (fundedSales.length > 0) {
@@ -437,7 +458,18 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
 
       // Activity-based totals for ratios
       const activityTotals = entriesWithActivity.reduce((acc, entry) => {
-        acc.fp += entry.fp_plus || 0;
+        // For unfinalized entries with sales_log, calculate from sales_log
+        const isFinalized = (entry as any).is_finalized === true;
+        const activitySalesLog = entry.sales_log as any[] | null;
+        const hasActivitySalesLog = activitySalesLog && Array.isArray(activitySalesLog) && activitySalesLog.length > 0;
+        
+        if (!isFinalized && hasActivitySalesLog) {
+          const calculated = calculateFromSalesLog(activitySalesLog);
+          acc.fp += calculated.fp;
+        } else {
+          acc.fp += entry.fp_plus || 0;
+        }
+        
         acc.doors += entry.doors_knocked || 0;
         acc.pitches += entry.pitches || 0;
         acc.transitions += entry.transitions || 0;
@@ -881,17 +913,44 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
       // Rep breakdown
       const repBreakdown = reps.map(rep => {
         const repEntries = entries.filter(e => e.user_id === rep.user_id);
-        const repTotals = repEntries.reduce((acc, e) => ({
-          doors: acc.doors + (e.doors_knocked || 0),
-          dms: acc.dms + (e.decision_makers || 0),
-          pitches: acc.pitches + (e.pitches || 0),
-          transitions: acc.transitions + (e.transitions || 0),
-          presentations: acc.presentations + (e.presentations || 0),
-          closes: acc.closes + (e.closes || 0),
-          fp: acc.fp + (e.fp_plus || 0),
-          prmr: acc.prmr + (e.prmr || 0),
-          upgradePRMR: acc.upgradePRMR + (e.upgrade_prmr || 0),
-        }), { doors: 0, dms: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0, upgradePRMR: 0 });
+        const repTotals = repEntries.reduce((acc, e) => {
+          // For unfinalized entries with sales_log, calculate from sales_log
+          const isFinalized = (e as any).is_finalized === true;
+          const entrySalesLog = e.sales_log as any[] | null;
+          const hasEntrySalesLog = entrySalesLog && Array.isArray(entrySalesLog) && entrySalesLog.length > 0;
+          
+          let entryFp = 0;
+          let entryPrmr = 0;
+          let entryUpgradePrmr = 0;
+          
+          if (!isFinalized && hasEntrySalesLog) {
+            // Recalculate from sales_log for unfinalized entries
+            const calculated = calculateFromSalesLog(entrySalesLog);
+            entryFp = calculated.fp;
+            entryPrmr = calculated.prmr;
+            // Calculate upgrade PRMR from sales_log
+            entryUpgradePrmr = entrySalesLog
+              .filter((s: any) => s.type === 'upgrade' && s.install_status !== 'never_installed')
+              .reduce((sum: number, s: any) => sum + (Number(s.prmr) || 0), 0);
+          } else {
+            // Use column values for finalized entries or entries without sales_log
+            entryFp = e.fp_plus || 0;
+            entryPrmr = e.prmr || 0;
+            entryUpgradePrmr = e.upgrade_prmr || 0;
+          }
+          
+          return {
+            doors: acc.doors + (e.doors_knocked || 0),
+            dms: acc.dms + (e.decision_makers || 0),
+            pitches: acc.pitches + (e.pitches || 0),
+            transitions: acc.transitions + (e.transitions || 0),
+            presentations: acc.presentations + (e.presentations || 0),
+            closes: acc.closes + (e.closes || 0),
+            fp: acc.fp + entryFp,
+            prmr: acc.prmr + entryPrmr,
+            upgradePRMR: acc.upgradePRMR + entryUpgradePrmr,
+          };
+        }, { doors: 0, dms: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0, upgradePRMR: 0 });
 
         const repHours = repEntries.reduce((acc, e) => {
           if (e.work_start_time && e.work_end_time) {
