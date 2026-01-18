@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEfpMode } from "./useEfpMode";
+import { useCurrentUserId } from "./useCurrentUserId";
 
 export type CumulativeDataPoint = {
   date: string;
@@ -20,20 +21,55 @@ export type CumulativeDataPoint = {
   knockingDayNumber: number; // 1-indexed count of knocking days up to this point
 }
 
+const CACHE_KEY_PREFIX = 'cumulative-fp-cache-';
+const CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes (shorter for chart data)
+
+// Get cached data for instant loading
+const getCachedCumulativeFP = (userId: string, efpModeEnabled: boolean): CumulativeDataPoint[] | undefined => {
+  try {
+    const cached = localStorage.getItem(`${CACHE_KEY_PREFIX}${userId}-${efpModeEnabled}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.timestamp && Date.now() - parsed.timestamp < CACHE_DURATION_MS) {
+        return parsed.data;
+      }
+    }
+  } catch {
+    // Ignore cache errors
+  }
+  return undefined;
+};
+
+// Save to cache for instant loading
+const setCachedCumulativeFP = (userId: string, efpModeEnabled: boolean, data: CumulativeDataPoint[]): void => {
+  try {
+    localStorage.setItem(`${CACHE_KEY_PREFIX}${userId}-${efpModeEnabled}`, JSON.stringify({
+      data,
+      timestamp: Date.now()
+    }));
+  } catch {
+    // Ignore cache errors
+  }
+};
+
 export const useCumulativeFP = () => {
   const { efpModeEnabled, calculateEfp } = useEfpMode();
+  const { userId, isReady: authReady } = useCurrentUserId();
+
+  // Get initial data from cache for instant display
+  const initialData = userId ? getCachedCumulativeFP(userId, efpModeEnabled) : undefined;
 
   return useQuery({
-    queryKey: ["cumulative-fp", efpModeEnabled],
+    queryKey: ["cumulative-fp", userId, efpModeEnabled],
+    enabled: authReady && !!userId,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
+      if (!userId) return [];
 
       // Fetch only finalized entries - no placeholder for today
       const { data: entries, error } = await supabase
         .from("daily_entries")
         .select("entry_date, fp_plus, prmr, upgrade_prmr, is_finalized, doors_knocked, work_start_time, work_end_time")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("is_finalized", true)
         .order("entry_date", { ascending: true });
 
@@ -135,9 +171,15 @@ export const useCumulativeFP = () => {
         });
       });
 
+      // Cache the result for instant loading
+      if (userId) {
+        setCachedCumulativeFP(userId, efpModeEnabled, dataPoints);
+      }
+
       return dataPoints;
     },
     staleTime: 60 * 1000, // 60 seconds - ensures quick refresh after mutations
     gcTime: 10 * 60 * 1000, // 10 minutes
+    initialData,
   });
 };
