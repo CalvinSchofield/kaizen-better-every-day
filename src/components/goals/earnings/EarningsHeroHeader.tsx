@@ -8,6 +8,8 @@ interface EarningsHeroHeaderProps {
   monthlyExpenses: number;
   isProjected: boolean;
   isOpen: boolean;
+  projectionsAvailable: boolean;
+  summerKnockingDays: number;
   onToggleProjected: (projected: boolean) => void;
 }
 
@@ -16,6 +18,8 @@ export const EarningsHeroHeader = ({
   monthlyExpenses,
   isProjected,
   isOpen,
+  projectionsAvailable,
+  summerKnockingDays,
   onToggleProjected,
 }: EarningsHeroHeaderProps) => {
   const formatCurrency = (amount: number) => {
@@ -44,25 +48,31 @@ export const EarningsHeroHeader = ({
           <span className="font-semibold">Earnings Breakdown</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Mode Toggle Dots */}
-          <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => handleToggle(false)}
-              className={cn(
-                "w-2 h-2 rounded-full transition-all duration-200",
-                !isProjected ? "bg-primary scale-125" : "bg-muted-foreground/30"
-              )}
-              aria-label="Current earnings"
-            />
-            <button
-              onClick={() => handleToggle(true)}
-              className={cn(
-                "w-2 h-2 rounded-full transition-all duration-200",
-                isProjected ? "bg-primary scale-125" : "bg-muted-foreground/30"
-              )}
-              aria-label="Projected earnings"
-            />
-          </div>
+          {/* Mode Toggle Dots - Only show if projections are available */}
+          {projectionsAvailable ? (
+            <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => handleToggle(false)}
+                className={cn(
+                  "w-2 h-2 rounded-full transition-all duration-200",
+                  !isProjected ? "bg-primary scale-125" : "bg-muted-foreground/30"
+                )}
+                aria-label="Current earnings"
+              />
+              <button
+                onClick={() => handleToggle(true)}
+                className={cn(
+                  "w-2 h-2 rounded-full transition-all duration-200",
+                  isProjected ? "bg-primary scale-125" : "bg-muted-foreground/30"
+                )}
+                aria-label="Projected earnings"
+              />
+            </div>
+          ) : (
+            <div className="text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
+              {18 - summerKnockingDays} days until projections
+            </div>
+          )}
           <ChevronDown className={cn(
             "w-4 h-4 text-muted-foreground transition-transform duration-200",
             isOpen && "rotate-180"
