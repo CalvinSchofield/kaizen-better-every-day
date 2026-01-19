@@ -148,10 +148,13 @@ const Compete = () => {
     }
   };
 
-  const isLoading = loadingChallenges || loadingIncentives || loadingUser;
+  // Only show loading skeleton if we have NO cached data at all
+  // If we have any cached challenges/incentives, show them instantly
+  const hasCachedData = !!challenges || !!incentives;
+  const isInitialLoading = (loadingChallenges || loadingIncentives || loadingUser) && !hasCachedData;
   const hasActiveContent = activeChallenges.length > 0 || pendingChallenges.length > 0 || activeIncentives.length > 0;
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <Layout>
         <CompeteSkeleton />
