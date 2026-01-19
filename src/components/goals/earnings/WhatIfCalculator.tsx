@@ -10,7 +10,7 @@ interface WhatIfCalculatorProps {
   currentFp: number;
   avgPrmrPerFp: number;
   rentType: string;
-  weeksWorking: number;
+  weeksWorking: number; // Full season weeks for forecast
   spendingRate: number;
   efpModeEnabled: boolean;
   defaultExpanded?: boolean;
@@ -50,8 +50,9 @@ export const WhatIfCalculator = ({
     const fpGoal = parseInt(customFpGoal) || 0;
     if (fpGoal <= 0) return null;
 
-    // Calculate total PRMR based on FP goal and avg PRMR per FP
-    const totalPrmr = fpGoal * avgPrmrPerFp;
+    // Calculate total PRMR: EFP/FP+ × 85 (standard PRMR per deal)
+    // This is a forecast, so we use the fixed 85 rate, not the user's current avg
+    const totalPrmr = fpGoal * 85;
     
     // Get tier based on FP+
     const tier = getTier(fpGoal);
@@ -65,7 +66,7 @@ export const WhatIfCalculator = ({
     const backend1 = totalBackend * 0.70;
     const backend2 = totalBackend * 0.30;
     
-    // Deductions
+    // Deductions - use full season weeks since this is a forecast
     const rentCost = getRentCost(rentType, weeksWorking);
     const anticipatedSpending = spendingRate * fpGoal;
     
@@ -83,10 +84,11 @@ export const WhatIfCalculator = ({
       backend2,
       totalGrossPay,
       rentCost,
+      weeksWorking,
       anticipatedSpending,
       netPay,
     };
-  }, [customFpGoal, avgPrmrPerFp, rentType, weeksWorking, spendingRate]);
+  }, [customFpGoal, rentType, weeksWorking, spendingRate]);
 
   const presets = [100, 150, 200, 300, 500];
 
@@ -233,7 +235,7 @@ export const WhatIfCalculator = ({
                       
                       <div className="space-y-1">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Rent ({weeksWorking} wks)</span>
+                          <span className="text-muted-foreground">Rent ({scenario.weeksWorking} wks)</span>
                           <span className="text-destructive">-{formatCurrency(scenario.rentCost)}</span>
                         </div>
                         {scenario.rentBonus > 0 && (

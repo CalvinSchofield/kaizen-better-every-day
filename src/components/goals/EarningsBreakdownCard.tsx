@@ -261,7 +261,19 @@ export const EarningsBreakdownCard = () => {
     
     const rentType = goals?.rent_type || 'No Rent';
     const weeksWorking = goals?.weeks_working || 18;
-    const rentCost = getRentCost(rentType, weeksWorking);
+    
+    // Calculate weeks worked so far for "Current" view
+    // If preseason, 0 rent. If summer, count weeks since summer start
+    let weeksWorkedSoFar = 0;
+    if (isSummerStarted) {
+      const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+      const weeksSinceSummerStart = Math.floor((today.getTime() - summerStartDate.getTime()) / msPerWeek);
+      weeksWorkedSoFar = Math.max(0, Math.min(weeksSinceSummerStart + 1, weeksWorking)); // +1 because first week counts
+    }
+    
+    // Rent for current (actual weeks so far) vs projected (full season)
+    const currentRentCost = getRentCost(rentType, weeksWorkedSoFar);
+    const projectedRentCost = getRentCost(rentType, weeksWorking);
     
     const calculatedSpendingRate = totalFP > 0 && totalSpent > 0 
       ? totalSpent / totalFP 
@@ -274,8 +286,8 @@ export const EarningsBreakdownCard = () => {
     const projectedFp = totalFP + (fpPerDay * remainingDays);
     const projectedSpending = spendingRate * projectedFp;
     
-    const netPay = totalGrossPay - rentCost + rentBonus - totalSpent;
-    const projectedNetPay = projectedTotalGrossPay - rentCost + projectedRentBonus - projectedSpending;
+    const netPay = totalGrossPay - currentRentCost + rentBonus - totalSpent;
+    const projectedNetPay = projectedTotalGrossPay - projectedRentCost + projectedRentBonus - projectedSpending;
     
     return {
       upfrontPay,
@@ -298,11 +310,13 @@ export const EarningsBreakdownCard = () => {
       summerKnockingDays,
       projectionsAvailable,
       isRookie,
-      rentCost,
+      currentRentCost,
+      projectedRentCost,
       rentBonus,
       projectedRentBonus,
       rentType,
       weeksWorking,
+      weeksWorkedSoFar,
       anticipatedSpending: totalSpent,
       projectedSpending,
       spendingRate,
@@ -352,6 +366,8 @@ export const EarningsBreakdownCard = () => {
     backend2: metrics.projectedBackend2,
     totalGross: metrics.projectedTotalGrossPay,
     rentBonus: metrics.projectedRentBonus,
+    rentCost: metrics.projectedRentCost,
+    weeksDisplay: metrics.weeksWorking,
     spending: metrics.projectedSpending,
     netPay: metrics.projectedNetPay,
   } : {
@@ -360,6 +376,8 @@ export const EarningsBreakdownCard = () => {
     backend2: metrics.backend2,
     totalGross: metrics.totalGrossPay,
     rentBonus: metrics.rentBonus,
+    rentCost: metrics.currentRentCost,
+    weeksDisplay: metrics.weeksWorkedSoFar,
     spending: metrics.anticipatedSpending,
     netPay: metrics.netPay,
   };
@@ -425,11 +443,11 @@ export const EarningsBreakdownCard = () => {
                       {/* Net Pay Waterfall */}
                       <NetPayWaterfall
                         grossPay={displayMetrics.totalGross}
-                        rentCost={metrics.rentCost}
+                        rentCost={displayMetrics.rentCost}
                         rentBonus={displayMetrics.rentBonus}
                         spending={displayMetrics.spending}
                         netPay={displayMetrics.netPay}
-                        weeksWorking={metrics.weeksWorking}
+                        weeksWorking={displayMetrics.weeksDisplay}
                         rentType={metrics.rentType}
                         isProjected={effectiveShowProjected}
                         efpModeEnabled={metrics.efpModeEnabled}
