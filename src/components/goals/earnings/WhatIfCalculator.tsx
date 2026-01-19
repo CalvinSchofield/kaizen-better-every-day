@@ -13,6 +13,7 @@ interface WhatIfCalculatorProps {
   weeksWorking: number;
   spendingRate: number;
   efpModeEnabled: boolean;
+  defaultExpanded?: boolean;
 }
 
 export const WhatIfCalculator = ({
@@ -22,9 +23,10 @@ export const WhatIfCalculator = ({
   weeksWorking,
   spendingRate,
   efpModeEnabled,
+  defaultExpanded = true,
 }: WhatIfCalculatorProps) => {
-  // Start expanded by default - this is now a prominent feature when projections aren't available
-  const [isExpanded, setIsExpanded] = useState(true);
+  // Expanded state controlled by prop - prominent when projections unavailable, collapsed when available
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [customFpGoal, setCustomFpGoal] = useState<string>('');
 
   const fpLabel = efpModeEnabled ? 'EFP' : 'FP+';

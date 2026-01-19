@@ -12,6 +12,7 @@ interface EarningsHeroHeaderProps {
   summerKnockingDays: number;
   currentFp: number;
   isRookie: boolean;
+  isSummerStarted: boolean;
   onToggleProjected: (projected: boolean) => void;
 }
 
@@ -24,6 +25,7 @@ export const EarningsHeroHeader = ({
   summerKnockingDays,
   currentFp,
   isRookie,
+  isSummerStarted,
   onToggleProjected,
 }: EarningsHeroHeaderProps) => {
   const formatCurrency = (amount: number) => {
@@ -73,18 +75,21 @@ export const EarningsHeroHeader = ({
               />
             </div>
           ) : (
-            <div className="text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
-              {isRookie ? (
-                // Rookies need 36 days OR 20 FP+
-                currentFp >= 20 
-                  ? `${36 - summerKnockingDays} days until projections`
-                  : summerKnockingDays >= 36
-                    ? `${(20 - currentFp).toFixed(1)} FP+ until projections`
-                    : `${36 - summerKnockingDays} days or ${(20 - currentFp).toFixed(1)} FP+`
-              ) : (
-                `${18 - summerKnockingDays} days until projections`
-              )}
-            </div>
+            // Only show countdown badge if summer has started
+            isSummerStarted && (
+              <div className="text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
+                {isRookie ? (
+                  // Rookies need 36 days OR 20 FP+
+                  currentFp >= 20 
+                    ? `${36 - summerKnockingDays} days until projections`
+                    : summerKnockingDays >= 36
+                      ? `${(20 - currentFp).toFixed(1)} FP+ until projections`
+                      : `${36 - summerKnockingDays} days or ${(20 - currentFp).toFixed(1)} FP+`
+                ) : (
+                  `${18 - summerKnockingDays} days until projections`
+                )}
+              </div>
+            )
           )}
           <ChevronDown className={cn(
             "w-4 h-4 text-muted-foreground transition-transform duration-200",
