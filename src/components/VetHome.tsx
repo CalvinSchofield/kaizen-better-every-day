@@ -94,10 +94,8 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const { totalPRMR: ytdPRMR } = useYTDPRMR();
   const { efpModeEnabled } = useEfpMode();
   
-  // Auto-refresh on component mount (when PWA reopens)
-  useEffect(() => {
-    onSync();
-  }, []);
+  // Removed auto-refresh on mount to prevent reload flicker
+  // Data freshness is handled by staleTime + realtime subscriptions
 
   // Get next upcoming blitz from committed blitzes
   const nextBlitz = repData.committed_blitzes && Array.isArray(repData.committed_blitzes) 

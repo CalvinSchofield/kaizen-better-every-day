@@ -5,6 +5,7 @@ import { useRepData } from "./useRepData";
 import { useCurrentUserId } from "./useCurrentUserId";
 import { hapticSuccess, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
+import { syncGoalsSetupFlag, hasCompletedGoalsSetup } from "@/lib/goalsSetupCache";
 
 export interface TrainingWeekHistory {
   week_start: string; // ISO date string (Sunday)
@@ -161,6 +162,8 @@ export const useRepGoals = () => {
         data: goals,
         timestamp: Date.now(),
       }));
+      // Also sync the sticky setup flag
+      syncGoalsSetupFlag(userId, goals.setup_complete);
     } catch {
       // Ignore cache errors
     }

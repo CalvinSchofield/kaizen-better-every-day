@@ -5,13 +5,14 @@ import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useFocusTier, FocusTier } from "@/hooks/useFocusTier";
 import { usePersonalBenchmarks } from "@/hooks/usePersonalBenchmarks";
-import { Target, Flame, Zap, Trophy, TrendingDown, Lightbulb, TrendingUp, Heart } from "lucide-react";
+import { Target, Flame, Zap, Trophy, TrendingDown, Lightbulb, TrendingUp, Heart, Loader2 } from "lucide-react";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "@/hooks/useRepData";
 import { getLearningCurvePrincipleMessage, calculatePaceContext, calculateSuggestedStretchGoal } from "@/utils/learningCurveData";
+import { hasCompletedGoalsSetup } from "@/lib/goalsSetupCache";
 
 // Season boundaries
 const PRESEASON_END = '2026-04-11';
@@ -35,13 +36,16 @@ interface GoalProgressCardProps {
 
 export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgressCardProps) => {
   const navigate = useNavigate();
-  const { goals } = useRepGoals();
+  const { goals, isLoading: goalsLoading } = useRepGoals();
   const { totalFP: preseasonFP, totalEFP: preseasonEFP } = usePreseasonFP();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { plannedDays } = usePlannedDays();
   const { repData } = useRepData();
   const today = getLocalToday();
   const todayStr = format(today, 'yyyy-MM-dd');
+  
+  // Check sticky flag for safe-empty-state pattern
+  const stickySetupComplete = hasCompletedGoalsSetup(repData?.user_id);
 
   // Find the latest finalized entry date - this is the "through date" for pace calculations
   // Finalization signals day complete, not the calendar date
@@ -355,7 +359,25 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   }, [isInPreseason, displayPreseasonGoal, totalSeasonKnockingDays, fundedFocusTierGoal, currentProgress, entries, today, plannedDays]);
 
   // Check if user has no goals set up - show engaging prompt (AFTER ALL hooks/useMemos)
+  // Use sticky flag to prevent CTA flash during hydration
   if (!goals || !goals.setup_complete) {
+    // If sticky flag indicates setup was completed before, show loading placeholder instead of CTA
+    if (stickySetupComplete || goalsLoading) {
+      return (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-muted/30 via-card to-muted/20 border border-border/50 p-5">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-2xl bg-muted/50">
+              <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
+            </div>
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-32 bg-muted/50 rounded animate-pulse" />
+              <div className="h-3 w-48 bg-muted/30 rounded animate-pulse" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div 
         className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-card to-accent/10 border border-primary/20 p-5 cursor-pointer group transition-all duration-300 hover:shadow-lg hover:border-primary/30 hover:scale-[1.01]"
