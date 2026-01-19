@@ -9,7 +9,6 @@ import { useRepData } from '@/hooks/useRepData';
 import { usePreseasonFP } from '@/hooks/usePreseasonFP';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
 import { getTier, getRentCost } from '@/utils/payscaleCalculator';
-import { calculateUpfrontPay, calculateTotalPay } from '@/utils/roiCalculations';
 import { hapticLight } from '@/utils/haptics';
 
 // Modular components
@@ -160,18 +159,29 @@ export const EarningsBreakdownCard = () => {
     const payRate = tier.rate;
     const rentBonus = tier.rentBonus || 0;
     
-    const upfrontPay = calculateUpfrontPay(totalPrmr);
-    const totalGrossPay = calculateTotalPay(totalPrmr, payRate);
+    // Correct pay calculation:
+    // Total Gross = Total PRMR × Rate
+    // Upfront = 4 × Total PRMR (paid weekly as installs happen)
+    // Backend = Total Gross - Upfront (what's left after upfront is paid)
+    // Backend 1 = 70% of (preseason+summer backend) - Late October 2026
+    // Backend 2 = 30% of (preseason+summer backend) + 100% extension backend - Late January 2027
     
-    const preseasonSummerPay = preseasonSummerPrmr * payRate;
+    const upfrontPay = totalPrmr * 4; // Upfront is 4× PRMR
+    const totalGrossPay = totalPrmr * payRate; // Total is PRMR × Rate
+    
+    // Calculate backend for preseason+summer (before Aug 30)
+    const preseasonSummerGross = preseasonSummerPrmr * payRate;
     const preseasonSummerUpfront = preseasonSummerPrmr * 4;
-    const preseasonSummerBackend = Math.max(0, preseasonSummerPay - preseasonSummerUpfront);
+    const preseasonSummerBackend = Math.max(0, preseasonSummerGross - preseasonSummerUpfront);
     
-    const extensionPay = extensionPrmr * payRate;
+    // Calculate backend for extension period (Aug 30 - Sept 27)
+    const extensionGross = extensionPrmr * payRate;
     const extensionUpfront = extensionPrmr * 4;
-    const extensionBackend = Math.max(0, extensionPay - extensionUpfront);
+    const extensionBackend = Math.max(0, extensionGross - extensionUpfront);
     
+    // Backend 1 = 70% of preseason+summer backend (Late October 2026)
     const backend1 = preseasonSummerBackend * 0.70;
+    // Backend 2 = 30% of preseason+summer backend + 100% of extension backend (Late January 2027)
     const backend2 = (preseasonSummerBackend * 0.30) + extensionBackend;
     
     // Projection calculations
@@ -205,19 +215,20 @@ export const EarningsBreakdownCard = () => {
     
     const projectedTotalPrmr = totalPrmr + projectedAdditionalPrmr;
     
-    const projectedUpfrontPay = calculateUpfrontPay(projectedTotalPrmr);
-    const projectedTotalGrossPay = calculateTotalPay(projectedTotalPrmr, projectedPayRate);
+    const projectedUpfrontPay = projectedTotalPrmr * 4;
+    const projectedTotalGrossPay = projectedTotalPrmr * projectedPayRate;
     
     const projectedPreseasonSummerPrmr = preseasonSummerPrmr + projectedPreExtensionPrmr;
     const projectedExtensionPrmrTotal = extensionPrmr + projectedExtensionPrmr;
     
-    const projectedPreseasonSummerPay = projectedPreseasonSummerPrmr * projectedPayRate;
+    // Projected backend calculations
+    const projectedPreseasonSummerGross = projectedPreseasonSummerPrmr * projectedPayRate;
     const projectedPreseasonSummerUpfront = projectedPreseasonSummerPrmr * 4;
-    const projectedPreseasonSummerBackend = Math.max(0, projectedPreseasonSummerPay - projectedPreseasonSummerUpfront);
+    const projectedPreseasonSummerBackend = Math.max(0, projectedPreseasonSummerGross - projectedPreseasonSummerUpfront);
     
-    const projectedExtensionPay = projectedExtensionPrmrTotal * projectedPayRate;
+    const projectedExtensionGross = projectedExtensionPrmrTotal * projectedPayRate;
     const projectedExtensionUpfront = projectedExtensionPrmrTotal * 4;
-    const projectedExtensionBackend = Math.max(0, projectedExtensionPay - projectedExtensionUpfront);
+    const projectedExtensionBackend = Math.max(0, projectedExtensionGross - projectedExtensionUpfront);
     
     const projectedBackend1 = projectedPreseasonSummerBackend * 0.70;
     const projectedBackend2 = (projectedPreseasonSummerBackend * 0.30) + projectedExtensionBackend;
