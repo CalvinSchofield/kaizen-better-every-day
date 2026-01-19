@@ -25,6 +25,7 @@ import Insights from "./pages/Insights";
 import Settings from "./pages/Settings";
 import TeamReports from "./pages/TeamReports";
 import Auth from "./pages/Auth";
+import AuthCallback from "./pages/AuthCallback";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 import Goals from "./pages/Goals";
@@ -87,6 +88,7 @@ const App = () => {
             <ScrollToTop />
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/setup" element={<ProtectedRoute><SetupFlow /></ProtectedRoute>} />
             <Route
