@@ -159,8 +159,18 @@ export const EarningsBreakdownCard = () => {
     const totalKnockingDays = salesData?.totalKnockingDays || preseasonKnockingDays || 0;
     const summerKnockingDays = salesData?.summerKnockingDays || 0;
     
-    // Projections only available after 18+ summer knocking days
-    const projectionsAvailable = summerKnockingDays >= 18;
+    // Check if user is a rookie
+    const isRookie = repData?.year === 'Rookie' || repData?.year === '2025' || repData?.year === '2026';
+    
+    // Calculate FP+ for rookie threshold
+    const currentFpForThreshold = totalFP;
+    
+    // Projections availability logic:
+    // - Rookies: 36+ summer knocking days OR 20+ FP+
+    // - Everyone else: 18+ summer knocking days
+    const rookieProjectionsAvailable = summerKnockingDays >= 36 || currentFpForThreshold >= 20;
+    const standardProjectionsAvailable = summerKnockingDays >= 18;
+    const projectionsAvailable = isRookie ? rookieProjectionsAvailable : standardProjectionsAvailable;
     
     if (totalPrmr === 0 && totalKnockingDays === 0) return null;
     
@@ -282,6 +292,7 @@ export const EarningsBreakdownCard = () => {
       totalKnockingDays,
       summerKnockingDays,
       projectionsAvailable,
+      isRookie,
       rentCost,
       rentBonus,
       projectedRentBonus,
@@ -364,6 +375,8 @@ export const EarningsBreakdownCard = () => {
                 isOpen={isOpen}
                 projectionsAvailable={metrics.projectionsAvailable}
                 summerKnockingDays={metrics.summerKnockingDays}
+                currentFp={metrics.currentFp}
+                isRookie={metrics.isRookie}
                 onToggleProjected={setShowProjected}
               />
             </CollapsibleTrigger>
