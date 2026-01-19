@@ -146,7 +146,9 @@ export const useRepGoals = () => {
       
       return parsedData as RepGoals | null;
     },
-    enabled: authReady && !!userId,
+    // Enable as soon as we have a userId (from cache or verified auth)
+    // This prevents the query from being stuck in "loading" state during hydration
+    enabled: !!userId,
     staleTime: 5 * 60 * 1000,
     refetchOnMount: false, // Don't refetch if we have cached data
     initialData,

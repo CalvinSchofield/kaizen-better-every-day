@@ -177,7 +177,7 @@ const Goals = () => {
       
       return result;
     },
-    enabled: authReady && !!userId,
+    enabled: !!userId, // Enable as soon as we have a userId (from cache or auth)
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
     refetchOnMount: false,
@@ -206,7 +206,7 @@ const Goals = () => {
       
       return data;
     },
-    enabled: authReady && !!userId,
+    enabled: !!userId, // Enable as soon as we have a userId (from cache or auth)
     staleTime: 30 * 60 * 1000, // 30 minutes - this rarely changes
     gcTime: 60 * 60 * 1000, // 1 hour
     refetchOnMount: false,
