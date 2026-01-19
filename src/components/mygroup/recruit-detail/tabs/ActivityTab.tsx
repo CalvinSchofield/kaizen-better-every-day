@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { format, parseISO, isToday, isYesterday, isThisWeek, isFuture, isTomorrow, isPast } from "date-fns";
 import { 
   Phone, 
@@ -12,6 +12,7 @@ import {
   PhoneCall,
   PhoneMissed,
   UserCircle,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,7 @@ import {
   ActivitySocialBar, 
   NewActivityIndicator 
 } from "../ActivitySocialFeatures";
+import { ActivityCommentsDrawer } from "../ActivityCommentsDrawer";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 
 interface ActivityTabProps {
@@ -57,6 +59,10 @@ export const ActivityTab = ({
   // Get current user ID to compare with assigned_to_user_id
   const { userId: currentUserId } = useCurrentUserId();
   
+  // State for comments drawer
+  const [selectedActivityForComments, setSelectedActivityForComments] = useState<RecruitActivity | null>(null);
+  const [isCommentsDrawerOpen, setIsCommentsDrawerOpen] = useState(false);
+  
   // Get activity IDs for social features
   const activityIds = activities.map(a => a.id);
   
@@ -70,6 +76,18 @@ export const ActivityTab = ({
   
   // Real-time subscriptions for reactions/comments - called as a proper hook
   useActivitySocialRealtime(activityIds);
+  
+  // Handle activity tap - open comments drawer
+  const handleActivityTap = (activity: RecruitActivity) => {
+    setSelectedActivityForComments(activity);
+    setIsCommentsDrawerOpen(true);
+  };
+  
+  // Check if activity has substantive notes (50+ chars)
+  const isSubstantiveNote = (notes: string | null | undefined): boolean => {
+    if (!notes) return false;
+    return notes.length >= 50;
+  };
   
   // Mark as read when tab opens
   useEffect(() => {
@@ -354,6 +372,9 @@ export const ActivityTab = ({
                     const isOverdue = isScheduledPending && activity.next_action_due && 
                       isPast(parseISO(activity.next_action_due)) && !isToday(parseISO(activity.next_action_due));
                     
+                    // Check if this is a substantive note (50+ chars)
+                    const hasSubstantiveNote = isSubstantiveNote(activity.notes);
+                    
                     return (
                       <button
                         key={activity.id}
@@ -364,9 +385,11 @@ export const ActivityTab = ({
                             ? 'bg-destructive/5 hover:bg-destructive/10 border border-destructive/20'
                             : isScheduledPending
                             ? 'bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/20'
+                            : hasSubstantiveNote
+                            ? 'bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/30'
                             : 'bg-muted/50 hover:bg-muted'
                         }`}
-                        onClick={() => onActivityClick(activity)}
+                        onClick={() => handleActivityTap(activity)}
                       >
                         <div className="flex items-start gap-3">
                           <div className="mt-0.5 shrink-0">
@@ -381,6 +404,10 @@ export const ActivityTab = ({
                                 }`}>
                                   {isScheduledCompleted ? 'Completed' : isOverdue ? 'Overdue' : getActivityLabel(activity.activity_type, activity.notes)}
                                 </span>
+                                {/* Substantive note indicator */}
+                                {hasSubstantiveNote && !isScheduledActivity && (
+                                  <Sparkles className="h-3 w-3 text-amber-500" />
+                                )}
                                 {/* New indicator for activities from other users */}
                                 <NewActivityIndicator isNew={isNewActivity(activity)} />
                                 {/* For non-scheduled activities, show the time */}
@@ -412,9 +439,9 @@ export const ActivityTab = ({
                             </div>
                           )}
                           
-                          {/* Main content text - one line only */}
+                          {/* Main content text - show full text, not truncated */}
                           {mainText && (
-                            <p className={`text-xs mt-1 line-clamp-1 ${
+                            <p className={`text-xs mt-1 whitespace-pre-wrap ${
                               isScheduledCompleted ? 'text-muted-foreground/70 line-through' : 'text-muted-foreground'
                             }`}>
                               {mainText}
@@ -435,6 +462,8 @@ export const ActivityTab = ({
                             activityId={activity.id}
                             reactions={reactions}
                             commentCounts={commentCounts}
+                            loggedByUserId={activity.logged_by_user_id}
+                            isSubstantive={hasSubstantiveNote}
                           />
                         </div>
                       </div>
@@ -447,6 +476,20 @@ export const ActivityTab = ({
           })}
         </div>
       )}
+      
+      {/* Comments Drawer */}
+      <ActivityCommentsDrawer
+        activity={selectedActivityForComments}
+        isOpen={isCommentsDrawerOpen}
+        onClose={() => {
+          setIsCommentsDrawerOpen(false);
+          setSelectedActivityForComments(null);
+        }}
+        loggerInfo={selectedActivityForComments?.logged_by_user_id && selectedActivityForComments.logged_by_user_id !== 'optimistic'
+          ? loggerInfo[selectedActivityForComments.logged_by_user_id]
+          : null
+        }
+      />
     </div>
   );
 };
