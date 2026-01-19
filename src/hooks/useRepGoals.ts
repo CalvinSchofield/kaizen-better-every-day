@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "./useRepData";
+import { useCurrentUserId } from "./useCurrentUserId";
 import { hapticSuccess, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
 
@@ -106,23 +107,28 @@ const getCachedGoals = (userId: string): RepGoals | null => {
 export const useRepGoals = () => {
   const queryClient = useQueryClient();
   const { repData } = useRepData();
+  // Use useCurrentUserId for instant cache access before repData loads
+  const { userId, isReady: authReady } = useCurrentUserId();
+  
+  // Get initial data from cache for INSTANT display (before repData loads)
+  const initialData = userId ? getCachedGoals(userId) : undefined;
 
   const { data: goals, isLoading, error, refetch } = useQuery({
-    queryKey: ['rep-goals', repData?.user_id],
+    queryKey: ['rep-goals', userId],
     queryFn: async () => {
-      if (!repData?.user_id) return null;
+      if (!userId) return null;
 
       const { data, error } = await supabase
         .from('rep_goals')
         .select('*')
-        .eq('user_id', repData.user_id)
+        .eq('user_id', userId)
         .maybeSingle();
 
       if (error) throw error;
       
-      // Update cache
+      // Update cache for instant load next time
       if (data) {
-        localStorage.setItem(`rep-goals-cache-${repData.user_id}`, JSON.stringify({
+        localStorage.setItem(`rep-goals-cache-${userId}`, JSON.stringify({
           data,
           timestamp: Date.now()
         }));
@@ -138,14 +144,15 @@ export const useRepGoals = () => {
       
       return parsedData as RepGoals | null;
     },
-    enabled: !!repData?.user_id,
+    enabled: authReady && !!userId,
     staleTime: 5 * 60 * 1000,
-    initialData: repData?.user_id ? getCachedGoals(repData.user_id) : undefined,
+    refetchOnMount: false, // Don't refetch if we have cached data
+    initialData,
   });
 
   // Check if we need to reset training progress for new week
   const checkAndResetWeeklyProgress = async () => {
-    if (!goals || !repData?.user_id) return;
+    if (!goals || !userId) return;
     
     const currentWeekStart = getCurrentWeekStart();
     const storedWeekStart = goals.training_week_start;
@@ -172,7 +179,7 @@ export const useRepGoals = () => {
           training_week_start: currentWeekStart,
           training_hours_history: JSON.parse(JSON.stringify(trimmedHistory)),
         })
-        .eq('user_id', repData.user_id);
+        .eq('user_id', userId);
       
       queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
     } else if (!storedWeekStart) {
@@ -180,7 +187,7 @@ export const useRepGoals = () => {
       await supabase
         .from('rep_goals')
         .update({ training_week_start: currentWeekStart })
-        .eq('user_id', repData.user_id);
+        .eq('user_id', userId);
     }
   };
 
@@ -189,7 +196,7 @@ export const useRepGoals = () => {
 
   const upsertGoalsMutation = useMutation({
     mutationFn: async (updates: Partial<RepGoals>) => {
-      if (!repData?.user_id) throw new Error('No user ID');
+      if (!userId) throw new Error('No user ID');
       
       // Ensure week start is set when updating training progress
       const currentWeekStart = getCurrentWeekStart();
@@ -235,7 +242,7 @@ export const useRepGoals = () => {
       const { data, error } = await supabase
         .from('rep_goals')
         .upsert({
-          user_id: repData.user_id,
+          user_id: userId,
           ...finalUpdates,
         }, { onConflict: 'user_id' })
         .select()
@@ -247,13 +254,13 @@ export const useRepGoals = () => {
     // OPTIMISTIC UPDATE - Instant UI feedback
     onMutate: async (updates) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['rep-goals', repData?.user_id] });
+      await queryClient.cancelQueries({ queryKey: ['rep-goals', userId] });
 
       // Snapshot current data for rollback
-      const previousGoals = queryClient.getQueryData(['rep-goals', repData?.user_id]);
+      const previousGoals = queryClient.getQueryData(['rep-goals', userId]);
 
       // Optimistically update the cache
-      queryClient.setQueryData(['rep-goals', repData?.user_id], (old: RepGoals | null | undefined) => {
+      queryClient.setQueryData(['rep-goals', userId], (old: RepGoals | null | undefined) => {
         if (!old) return old;
         return { ...old, ...updates };
       });
@@ -265,7 +272,7 @@ export const useRepGoals = () => {
       
       // Rollback on error
       if (context?.previousGoals) {
-        queryClient.setQueryData(['rep-goals', repData?.user_id], context.previousGoals);
+        queryClient.setQueryData(['rep-goals', userId], context.previousGoals);
       }
       
       hapticWarning();

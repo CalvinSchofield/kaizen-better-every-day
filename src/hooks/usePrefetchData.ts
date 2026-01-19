@@ -47,7 +47,7 @@ export const usePrefetchData = (userId: string | undefined) => {
           staleTime: 15 * 60 * 1000,
         }),
 
-        // Rep goals
+        // Rep goals for Goals page instant load
         queryClient.prefetchQuery({
           queryKey: ['rep-goals', userId],
           queryFn: async () => {
