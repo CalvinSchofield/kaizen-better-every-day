@@ -438,15 +438,17 @@ export const EarningsBreakdownCard = () => {
                         />
                       )}
                       
-                      {/* What If Calculator */}
-                      <WhatIfCalculator
-                        currentFp={metrics.currentFp}
-                        avgPrmrPerFp={metrics.totalPrmr > 0 && metrics.currentFp > 0 ? metrics.totalPrmr / metrics.currentFp : 85}
-                        rentType={metrics.rentType}
-                        weeksWorking={metrics.weeksWorking}
-                        spendingRate={metrics.spendingRate}
-                        efpModeEnabled={metrics.efpModeEnabled}
-                      />
+                      {/* What If Calculator - only when projections NOT available */}
+                      {!metrics.projectionsAvailable && (
+                        <WhatIfCalculator
+                          currentFp={metrics.currentFp}
+                          avgPrmrPerFp={metrics.totalPrmr > 0 && metrics.currentFp > 0 ? metrics.totalPrmr / metrics.currentFp : 85}
+                          rentType={metrics.rentType}
+                          weeksWorking={metrics.weeksWorking}
+                          spendingRate={metrics.spendingRate}
+                          efpModeEnabled={metrics.efpModeEnabled}
+                        />
+                      )}
                       
                       {/* Dynamic Insight */}
                       <EarningsInsight
