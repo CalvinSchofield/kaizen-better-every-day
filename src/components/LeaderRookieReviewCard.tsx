@@ -125,43 +125,45 @@ export const LeaderRookieReviewCard = () => {
           const watchedVideos = Array.isArray(rep.watched_videos) ? rep.watched_videos : [];
 
           // Check PRE-RAMP onboarding steps first (these come before Phase 1)
-          // Step 1: Basic Onboarding - self-reported but not verified
-          if ((rep.self_reported_onboarding_complete || rep.onboarding_complete === false) && !rep.onboarding_complete) {
+          // ONLY show rookies who have SELF-REPORTED completion and are awaiting verification
+          
+          // Step 1: Basic Onboarding - must be self-reported to appear
+          if (rep.self_reported_onboarding_complete && !rep.onboarding_complete) {
             rookiesNeedingReview.push({
               id: rep.id,
               name: rep.name,
               currentPhase: null,
               onboardingStep: 'onboarding',
               selfServiceComplete: true,
-              selfReported: !!rep.self_reported_onboarding_complete,
+              selfReported: true,
               completedItems: ['Completed Vivint onboarding portal']
             });
             return;
           }
 
-          // Step 2: Required Trainings - self-reported but not verified
-          if (rep.onboarding_complete && (rep.self_reported_trainings_complete || rep.trainings_complete === false) && !rep.trainings_complete) {
+          // Step 2: Required Trainings - must be self-reported to appear
+          if (rep.onboarding_complete && rep.self_reported_trainings_complete && !rep.trainings_complete) {
             rookiesNeedingReview.push({
               id: rep.id,
               name: rep.name,
               currentPhase: null,
               onboardingStep: 'trainings',
               selfServiceComplete: true,
-              selfReported: !!rep.self_reported_trainings_complete,
+              selfReported: true,
               completedItems: ['Passed all required training modules']
             });
             return;
           }
 
-          // Step 3: Join Slack - self-reported but not verified
-          if (rep.onboarding_complete && rep.trainings_complete && (rep.self_reported_slack_joined || rep.slack_joined === false) && !rep.slack_joined) {
+          // Step 3: Join Slack - must be self-reported to appear
+          if (rep.onboarding_complete && rep.trainings_complete && rep.self_reported_slack_joined && !rep.slack_joined) {
             rookiesNeedingReview.push({
               id: rep.id,
               name: rep.name,
               currentPhase: null,
               onboardingStep: 'slack',
               selfServiceComplete: true,
-              selfReported: !!rep.self_reported_slack_joined,
+              selfReported: true,
               completedItems: ['Joined Slack and posted intro']
             });
             return;
