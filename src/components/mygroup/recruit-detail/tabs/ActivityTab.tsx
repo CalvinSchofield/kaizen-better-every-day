@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { format, parseISO, isToday, isYesterday, isThisWeek, isFuture, isTomorrow, isPast } from "date-fns";
 import { 
   Phone, 
@@ -19,8 +20,21 @@ import { RecruitActivity } from "@/hooks/useGroupRecruits";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getInitials } from "@/utils/nameUtils";
+import { 
+  useActivityReactions, 
+  useActivityCommentCounts, 
+  useUnreadActivityCount,
+  useMarkActivitiesRead,
+  useActivitySocialRealtime
+} from "@/hooks/useActivitySocial";
+import { 
+  ActivitySocialBar, 
+  NewActivityIndicator 
+} from "../ActivitySocialFeatures";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 
 interface ActivityTabProps {
+  recruitId: string;
   activities: RecruitActivity[];
   onLogActivity: () => void;
   onScheduleFollowUp: () => void;
@@ -33,6 +47,7 @@ interface LoggerInfo {
 }
 
 export const ActivityTab = ({
+  recruitId,
   activities,
   onLogActivity,
   onScheduleFollowUp,
@@ -40,14 +55,58 @@ export const ActivityTab = ({
 }: ActivityTabProps) => {
   
   // Get current user ID to compare with assigned_to_user_id
-  const { data: currentUserId } = useQuery({
-    queryKey: ['current-user-id'],
+  const { userId: currentUserId } = useCurrentUserId();
+  
+  // Get activity IDs for social features
+  const activityIds = activities.map(a => a.id);
+  
+  // Social features hooks
+  const { data: reactions = {} } = useActivityReactions(activityIds);
+  const { data: commentCounts = {} } = useActivityCommentCounts(activityIds);
+  const markAsRead = useMarkActivitiesRead();
+  
+  // Detect unread count
+  const unreadCount = useUnreadActivityCount(recruitId, activities);
+  
+  // Real-time subscriptions for reactions/comments
+  useEffect(() => {
+    if (activityIds.length === 0) return;
+    const unsubscribe = useActivitySocialRealtime(activityIds);
+    return unsubscribe;
+  }, [activityIds.join(',')]);
+  
+  // Mark as read when tab opens
+  useEffect(() => {
+    if (recruitId && activities.length > 0) {
+      markAsRead.mutate(recruitId);
+    }
+  }, [recruitId, activities.length]);
+  
+  // Get read status for "new" indicators
+  const { data: readStatus } = useQuery({
+    queryKey: ['activity-read-status', recruitId, currentUserId],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      return user?.id || null;
+      if (!recruitId || !currentUserId) return null;
+      const { data } = await supabase
+        .from('recruit_activity_read_status')
+        .select('last_seen_at')
+        .eq('recruit_id', recruitId)
+        .eq('user_id', currentUserId)
+        .maybeSingle();
+      return data;
     },
-    staleTime: Infinity,
+    enabled: !!recruitId && !!currentUserId,
   });
+  
+  const lastSeenAt = readStatus?.last_seen_at 
+    ? new Date(readStatus.last_seen_at) 
+    : new Date(0);
+  
+  // Check if an activity is "new" (created by someone else after last seen)
+  const isNewActivity = (activity: RecruitActivity) => {
+    return activity.logged_by_user_id !== currentUserId && 
+      new Date(activity.created_at) > lastSeenAt;
+  };
 
   // Get assignee names for activities assigned to others
   const assignedUserIds = [...new Set(
@@ -318,7 +377,7 @@ export const ActivityTab = ({
                             {getActivityIcon(activity.activity_type, activity.notes, isCompleted, isOverdue)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            {/* Header row: type, time, and logger avatar */}
+                            {/* Header row: type, time, new indicator, and logger avatar */}
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className={`text-sm font-medium capitalize shrink-0 ${
@@ -326,6 +385,8 @@ export const ActivityTab = ({
                                 }`}>
                                   {isScheduledCompleted ? 'Completed' : isOverdue ? 'Overdue' : getActivityLabel(activity.activity_type, activity.notes)}
                                 </span>
+                                {/* New indicator for activities from other users */}
+                                <NewActivityIndicator isNew={isNewActivity(activity)} />
                                 {/* For non-scheduled activities, show the time */}
                                 {!isScheduledActivity && (
                                   <span className="text-xs text-muted-foreground shrink-0">
@@ -372,6 +433,13 @@ export const ActivityTab = ({
                               </Badge>
                             </div>
                           )}
+                          
+                          {/* Social features - reactions and comment count */}
+                          <ActivitySocialBar
+                            activityId={activity.id}
+                            reactions={reactions}
+                            commentCounts={commentCounts}
+                          />
                         </div>
                       </div>
                     </button>
