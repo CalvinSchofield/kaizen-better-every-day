@@ -39,6 +39,7 @@ import { usePageTour } from "@/hooks/usePageTour";
 import { PageTour } from "@/components/PageTour";
 import { goalsTourSteps } from "@/config/pageTours";
 import { calculatePaceContext, getLearningCurvePrincipleMessage, calculateSuggestedStretchGoal } from "@/utils/learningCurveData";
+import { hasCompletedGoalsSetup } from "@/lib/goalsSetupCache";
 
 interface CommittedBlitz {
   id: string;
@@ -683,10 +684,28 @@ const Goals = () => {
   const hasGoalsData = !!goals;
   const canDecideSetup = authReady && !!userId && !isLoading;
   const isDataLoading = repDataInitializing || repDataLoading || !repData;
+  
+  // Check sticky flag - if user has EVER completed setup, never show wizard during hydration
+  const stickySetupComplete = hasCompletedGoalsSetup(userId);
 
-  // Show loading skeleton only when we truly have no cached goals yet.
+  // Show loading skeleton only when we truly have no cached goals yet AND sticky flag is not set.
   // This prevents the setup wizard from flashing while goals are still loading.
-  if (!hasGoalsData && (!canDecideSetup || isDataLoading)) {
+  if (!hasGoalsData && (!canDecideSetup || isDataLoading) && !stickySetupComplete) {
+    return (
+      <Layout>
+        <div className="p-4 space-y-6">
+          <div className="flex justify-center py-8">
+            <Skeleton className="h-56 w-56 rounded-full" />
+          </div>
+          <Skeleton className="h-20 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+        </div>
+      </Layout>
+    );
+  }
+  
+  // If we have sticky flag but no goals data yet, show a minimal loading state (not wizard)
+  if (stickySetupComplete && !hasGoalsData) {
     return (
       <Layout>
         <div className="p-4 space-y-6">
@@ -721,8 +740,8 @@ const Goals = () => {
     );
   }
 
-  // Setup wizard state (only once goals are definitively known incomplete)
-  if ((canDecideSetup && !goals?.setup_complete) || showSetupWizard) {
+  // Setup wizard state (only once goals are definitively known incomplete AND sticky flag not set)
+  if ((canDecideSetup && !goals?.setup_complete && !stickySetupComplete) || showSetupWizard) {
     return (
       <Layout>
         <div className="p-4">

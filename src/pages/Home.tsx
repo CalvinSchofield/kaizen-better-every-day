@@ -83,10 +83,8 @@ const Home = () => {
   // Subscribe to realtime sales updates for immediate data sync
   useSalesRealtime();
   
-  // Auto-refresh on component mount (when PWA reopens)
-  useEffect(() => {
-    refetch();
-  }, []);
+  // Removed auto-refresh on mount to prevent reload flicker
+  // Data freshness is handled by staleTime + realtime subscriptions
   
   // Fetch next upcoming blitz from committed blitzes stored in Notion
   useEffect(() => {

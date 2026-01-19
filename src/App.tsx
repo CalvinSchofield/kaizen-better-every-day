@@ -14,6 +14,7 @@ import { NativeAppPromo } from "./components/NativeAppPromo";
 import TrackWithLayout from "./components/TrackWithLayout";
 import SetupFlow from "./components/SetupFlow";
 import { ChallengeWinListener } from "./components/ChallengeWinListener";
+import { HydrationGate } from "./components/HydrationGate";
 import { HeaderProvider } from "./contexts/HeaderContext";
 import Home from "./pages/Home";
 import Training from "./pages/Training";
@@ -77,17 +78,18 @@ const App = () => {
         buster: 'v3', // Bump this to invalidate all cached data - 2026.01.14
       }}
     >
-      <HeaderProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <OfflineIndicator />
-          <NativeAppPromo />
-          <ChallengeWinListener />
-          <BrowserRouter>
-            <ScrollToTop />
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
+      <HydrationGate>
+        <HeaderProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <OfflineIndicator />
+            <NativeAppPromo />
+            <ChallengeWinListener />
+            <BrowserRouter>
+              <ScrollToTop />
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/setup" element={<ProtectedRoute><SetupFlow /></ProtectedRoute>} />
@@ -330,10 +332,11 @@ const App = () => {
         />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-        </TooltipProvider>
-      </HeaderProvider>
+            </Routes>
+          </BrowserRouter>
+          </TooltipProvider>
+        </HeaderProvider>
+      </HydrationGate>
     </PersistQueryClientProvider>
   );
 };
