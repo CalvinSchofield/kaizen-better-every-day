@@ -18,6 +18,7 @@ import { FPCumulativeChart } from "@/components/FPCumulativeChart";
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import { MeVsMeMotivationCard } from "@/components/MeVsMeMotivationCard";
 import { ActiveChallengesCard } from "@/components/ActiveChallengesCard";
+import { LeaderRookieReviewCard } from "@/components/LeaderRookieReviewCard";
 import { useState, useMemo } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +28,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useDailyEntry, DailyEntry } from "@/hooks/useDailyEntry";
 import { useToast } from "@/hooks/use-toast";
 import { useKnockingState, KnockingState } from "@/hooks/useKnockingState";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 
 interface KnockingModeHomeProps {
   variant: "vet" | "rookie";
@@ -53,11 +55,16 @@ export const KnockingModeHome = ({
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const { isOnActiveBlitz } = useAppMode(repData);
   const { entry, deleteEntry } = useDailyEntry();
+  const { data: teamAccess } = useTeamAccess();
   
   // State-based layout using rep's timezone
   const { state: knockingState, hasActivity } = useKnockingState({ 
     timezone: repData?.timezone 
   });
+  
+  // Leader check - show review card only for non-rookie leaders
+  const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
+  const showLeaderReviewCard = isLeader && variant !== 'rookie';
 
   // Check if entry is a real database entry (has id)
   const isRealEntry = (e: typeof entry): e is DailyEntry => {
@@ -180,6 +187,9 @@ export const KnockingModeHome = ({
       <div className="max-w-4xl mx-auto px-4 -mt-4 pb-8 home-card-container">
         {/* Pending Install Alert - shows after 7 PM if pending installs */}
         <PendingInstallAlertCard />
+        
+        {/* Leader Rookie Review Card - shows for non-rookie leaders */}
+        {showLeaderReviewCard && <LeaderRookieReviewCard />}
         
         {/* Period Recap CTA - shows when recap is available and not yet viewed */}
         <RecapCTACard />

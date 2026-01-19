@@ -23,7 +23,15 @@ Deno.serve(async (req) => {
       rampPhase1Complete,
       rampPhase2Complete,
       rampPhase3Complete,
-      rampPhase4Complete
+      rampPhase4Complete,
+      // NEW: Self-reported flags (set by rookie)
+      selfReportedOnboarding,
+      selfReportedTrainings,
+      selfReportedSlack,
+      // NEW: Leader verification flags for pre-ramp onboarding
+      onboardingComplete,
+      trainingsComplete,
+      slackJoined
     } = await req.json();
 
     if (!rookieId) {
@@ -36,8 +44,14 @@ Deno.serve(async (req) => {
                                rampPhase2Complete !== undefined || 
                                rampPhase3Complete !== undefined || 
                                rampPhase4Complete !== undefined;
+    const hasSelfReportedUpdate = selfReportedOnboarding !== undefined ||
+                                  selfReportedTrainings !== undefined ||
+                                  selfReportedSlack !== undefined;
+    const hasLeaderVerification = onboardingComplete !== undefined ||
+                                  trainingsComplete !== undefined ||
+                                  slackJoined !== undefined;
 
-    if (!hasOnboardingUpdate && !hasIpadUpdate && !hasRampPhaseUpdate) {
+    if (!hasOnboardingUpdate && !hasIpadUpdate && !hasRampPhaseUpdate && !hasSelfReportedUpdate && !hasLeaderVerification) {
       throw new Error("At least one field must be provided for update");
     }
 
@@ -48,6 +62,44 @@ Deno.serve(async (req) => {
 
     if (hasIpadUpdate) {
       updateData.ipad_assigned = ipadAssigned;
+    }
+
+    // Handle self-reported flags (set by rookie when they click "I'm Done")
+    if (hasSelfReportedUpdate) {
+      if (selfReportedOnboarding !== undefined) {
+        updateData.self_reported_onboarding_complete = selfReportedOnboarding;
+      }
+      if (selfReportedTrainings !== undefined) {
+        updateData.self_reported_trainings_complete = selfReportedTrainings;
+      }
+      if (selfReportedSlack !== undefined) {
+        updateData.self_reported_slack_joined = selfReportedSlack;
+      }
+    }
+
+    // Handle leader verification for pre-ramp onboarding steps
+    if (hasLeaderVerification) {
+      if (onboardingComplete === true) {
+        updateData.onboarding_complete = true;
+        updateData.self_reported_onboarding_complete = true; // Also mark self-reported
+        updateData.ramp_to_blitz_phase = 'Onboarding ✅';
+      }
+      if (trainingsComplete === true) {
+        updateData.onboarding_complete = true; // Prerequisite
+        updateData.trainings_complete = true;
+        updateData.self_reported_onboarding_complete = true;
+        updateData.self_reported_trainings_complete = true;
+        updateData.ramp_to_blitz_phase = 'Required Trainings ✅';
+      }
+      if (slackJoined === true) {
+        updateData.onboarding_complete = true; // Prerequisites
+        updateData.trainings_complete = true;
+        updateData.slack_joined = true;
+        updateData.self_reported_onboarding_complete = true;
+        updateData.self_reported_trainings_complete = true;
+        updateData.self_reported_slack_joined = true;
+        updateData.ramp_to_blitz_phase = 'Slack ✅';
+      }
     }
 
     if (hasRampPhaseUpdate) {

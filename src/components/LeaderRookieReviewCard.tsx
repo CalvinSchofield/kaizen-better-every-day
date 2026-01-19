@@ -1,23 +1,27 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, Clock, Check, X, Circle, Users } from "lucide-react";
+import { ChevronRight, Clock, Check, X, Circle, Users, ClipboardCheck, GraduationCap, MessageSquare } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useRepData } from "@/hooks/useRepData";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { OnboardingVerificationDrawer, ONBOARDING_STEPS, OnboardingStepType } from "@/components/mygroup/OnboardingVerificationDrawer";
 
 interface RookieNeedingReview {
   id: string;
   name: string;
-  currentPhase: number;
+  currentPhase: number | null; // null for onboarding steps
+  onboardingStep: OnboardingStepType | null; // for pre-ramp steps
   selfServiceComplete: boolean;
+  selfReported: boolean;
   completedItems: string[];
 }
 
-// Define self-service items and leader-required items for each phase
+// Define self-service items and leader-required items for each ramp phase
 const PHASE_ITEMS: Record<number, { 
   label: string; 
   selfServiceItems: { id: string; label: string }[];
@@ -78,6 +82,7 @@ const PHASE_ITEMS: Record<number, {
 export const LeaderRookieReviewCard = () => {
   const queryClient = useQueryClient();
   const { data: teamAccess } = useTeamAccess();
+  const { repData: viewerRepData } = useRepData();
   const [rookiesReady, setRookiesReady] = useState<RookieNeedingReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRookie, setSelectedRookie] = useState<RookieNeedingReview | null>(null);
@@ -85,9 +90,12 @@ export const LeaderRookieReviewCard = () => {
 
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
   const accessibleReps = teamAccess?.accessibleReps || [];
+  
+  // Exclude rookies from seeing this card (even if they have recruited someone)
+  const isViewerRookie = viewerRepData?.year === 'Rookie' || viewerRepData?.year === '2025' || viewerRepData?.year === '2026';
 
   useEffect(() => {
-    if (!isLeader || accessibleReps.length === 0) {
+    if (!isLeader || isViewerRookie || accessibleReps.length === 0) {
       setLoading(false);
       return;
     }
@@ -105,7 +113,7 @@ export const LeaderRookieReviewCard = () => {
 
         const { data: repsData } = await supabase
           .from('reps')
-          .select('id, name, year, watched_videos, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, committed_blitzes, user_id')
+          .select('id, name, year, watched_videos, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, committed_blitzes, user_id, self_reported_onboarding_complete, self_reported_trainings_complete, self_reported_slack_joined')
           .in('id', accessibleIds);
 
         const rookiesNeedingReview: RookieNeedingReview[] = [];
@@ -116,8 +124,55 @@ export const LeaderRookieReviewCard = () => {
 
           const watchedVideos = Array.isArray(rep.watched_videos) ? rep.watched_videos : [];
 
+          // Check PRE-RAMP onboarding steps first (these come before Phase 1)
+          // Step 1: Basic Onboarding - self-reported but not verified
+          if ((rep.self_reported_onboarding_complete || rep.onboarding_complete === false) && !rep.onboarding_complete) {
+            rookiesNeedingReview.push({
+              id: rep.id,
+              name: rep.name,
+              currentPhase: null,
+              onboardingStep: 'onboarding',
+              selfServiceComplete: true,
+              selfReported: !!rep.self_reported_onboarding_complete,
+              completedItems: ['Completed Vivint onboarding portal']
+            });
+            return;
+          }
+
+          // Step 2: Required Trainings - self-reported but not verified
+          if (rep.onboarding_complete && (rep.self_reported_trainings_complete || rep.trainings_complete === false) && !rep.trainings_complete) {
+            rookiesNeedingReview.push({
+              id: rep.id,
+              name: rep.name,
+              currentPhase: null,
+              onboardingStep: 'trainings',
+              selfServiceComplete: true,
+              selfReported: !!rep.self_reported_trainings_complete,
+              completedItems: ['Passed all required training modules']
+            });
+            return;
+          }
+
+          // Step 3: Join Slack - self-reported but not verified
+          if (rep.onboarding_complete && rep.trainings_complete && (rep.self_reported_slack_joined || rep.slack_joined === false) && !rep.slack_joined) {
+            rookiesNeedingReview.push({
+              id: rep.id,
+              name: rep.name,
+              currentPhase: null,
+              onboardingStep: 'slack',
+              selfServiceComplete: true,
+              selfReported: !!rep.self_reported_slack_joined,
+              completedItems: ['Joined Slack and posted intro']
+            });
+            return;
+          }
+
+          // Now check RAMP PHASES (after all pre-ramp steps are verified)
+          if (!rep.onboarding_complete || !rep.trainings_complete || !rep.slack_joined) {
+            return; // Still in pre-ramp onboarding
+          }
+
           // Check Phase 1 self-service completion
-          // Self-service: videos watched + goals reviewed (via sections or legacy) OR texted leader
           const phase1VideosDone = watchedVideos.includes("what-is-blitz") && watchedVideos.includes("how-pay-works");
           const phase1GoalsReviewed = (
             (watchedVideos.includes('phase1-goals-why') && watchedVideos.includes('phase1-goals-what') && watchedVideos.includes('phase1-goals-how')) ||
@@ -135,13 +190,15 @@ export const LeaderRookieReviewCard = () => {
               id: rep.id,
               name: rep.name,
               currentPhase: 1,
+              onboardingStep: null,
               selfServiceComplete: true,
+              selfReported: false,
               completedItems
             });
             return;
           }
 
-          // Check Phase 2 - include waiting on pitch feedback state
+          // Check Phase 2
           if (rep.ramp_phase_1_complete) {
             const phase2SelfComplete = 
               watchedVideos.includes("phase2-product") &&
@@ -159,7 +216,9 @@ export const LeaderRookieReviewCard = () => {
                 id: rep.id,
                 name: rep.name,
                 currentPhase: 2,
+                onboardingStep: null,
                 selfServiceComplete: true,
+                selfReported: false,
                 completedItems
               });
               return;
@@ -180,7 +239,9 @@ export const LeaderRookieReviewCard = () => {
                 id: rep.id,
                 name: rep.name,
                 currentPhase: 3,
+                onboardingStep: null,
                 selfServiceComplete: true,
+                selfReported: false,
                 completedItems
               });
               return;
@@ -201,11 +262,24 @@ export const LeaderRookieReviewCard = () => {
                 id: rep.id,
                 name: rep.name,
                 currentPhase: 4,
+                onboardingStep: null,
                 selfServiceComplete: true,
+                selfReported: false,
                 completedItems
               });
             }
           }
+        });
+
+        // Sort: onboarding steps first (earlier in journey), then by phase
+        rookiesNeedingReview.sort((a, b) => {
+          if (a.onboardingStep && !b.onboardingStep) return -1;
+          if (!a.onboardingStep && b.onboardingStep) return 1;
+          if (a.onboardingStep && b.onboardingStep) {
+            const order = ['onboarding', 'trainings', 'slack'];
+            return order.indexOf(a.onboardingStep) - order.indexOf(b.onboardingStep);
+          }
+          return (a.currentPhase || 0) - (b.currentPhase || 0);
         });
 
         setRookiesReady(rookiesNeedingReview);
@@ -217,7 +291,7 @@ export const LeaderRookieReviewCard = () => {
     };
 
     fetchRookiesNeedingReview();
-  }, [isLeader, accessibleReps]);
+  }, [isLeader, isViewerRookie, accessibleReps]);
 
   const handleConfirmPhase = async () => {
     if (!selectedRookie) return;
@@ -227,29 +301,44 @@ export const LeaderRookieReviewCard = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
       
-      const phaseParams: Record<string, boolean> = {};
-      phaseParams[`rampPhase${selectedRookie.currentPhase}Complete`] = true;
+      const body: Record<string, any> = { rookieId: selectedRookie.id };
+      
+      if (selectedRookie.onboardingStep) {
+        // Leader verification for onboarding steps
+        if (selectedRookie.onboardingStep === 'onboarding') {
+          body.onboardingComplete = true;
+        } else if (selectedRookie.onboardingStep === 'trainings') {
+          body.trainingsComplete = true;
+        } else if (selectedRookie.onboardingStep === 'slack') {
+          body.slackJoined = true;
+        }
+      } else if (selectedRookie.currentPhase) {
+        // Ramp phase verification
+        body[`rampPhase${selectedRookie.currentPhase}Complete`] = true;
+      }
 
       const { error } = await supabase.functions.invoke('update-rookie-status', {
         headers: { Authorization: `Bearer ${session.access_token}` },
-        body: {
-          rookieId: selectedRookie.id,
-          ...phaseParams
-        }
+        body
       });
 
       if (error) throw error;
 
-      toast.success(`Phase ${selectedRookie.currentPhase} verified for ${selectedRookie.name}!`);
+      const stepLabel = selectedRookie.onboardingStep 
+        ? ONBOARDING_STEPS[selectedRookie.onboardingStep].label
+        : `Phase ${selectedRookie.currentPhase}`;
+      
+      toast.success(`${stepLabel} verified for ${selectedRookie.name}!`);
 
       setRookiesReady(prev => prev.filter(r => r.id !== selectedRookie.id));
       setSelectedRookie(null);
 
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
     } catch (error: any) {
-      console.error('Error confirming phase:', error);
-      toast.error('Failed to verify phase', {
+      console.error('Error confirming step:', error);
+      toast.error('Failed to verify step', {
         description: error.message || 'Please try again'
       });
     } finally {
@@ -257,11 +346,28 @@ export const LeaderRookieReviewCard = () => {
     }
   };
 
-  if (!isLeader || loading || rookiesReady.length === 0) {
+  if (!isLeader || isViewerRookie || loading || rookiesReady.length === 0) {
     return null;
   }
 
-  const phaseInfo = selectedRookie ? PHASE_ITEMS[selectedRookie.currentPhase] : null;
+  // Count breakdown for badge
+  const onboardingCount = rookiesReady.filter(r => r.onboardingStep).length;
+  const phaseCount = rookiesReady.filter(r => r.currentPhase).length;
+  
+  const phaseInfo = selectedRookie?.currentPhase ? PHASE_ITEMS[selectedRookie.currentPhase] : null;
+
+  const getStepIcon = (step: OnboardingStepType | null) => {
+    if (!step) return Clock;
+    const icons = { onboarding: ClipboardCheck, trainings: GraduationCap, slack: MessageSquare };
+    return icons[step];
+  };
+
+  const getStepLabel = (rookie: RookieNeedingReview) => {
+    if (rookie.onboardingStep) {
+      return ONBOARDING_STEPS[rookie.onboardingStep].label;
+    }
+    return `Phase ${rookie.currentPhase}`;
+  };
 
   return (
     <>
@@ -284,8 +390,10 @@ export const LeaderRookieReviewCard = () => {
               </div>
               <p className="text-sm text-muted-foreground">
                 {rookiesReady.length === 1 
-                  ? `${rookiesReady[0].name} completed Phase ${rookiesReady[0].currentPhase} self-service` 
-                  : `${rookiesReady.length} rookies waiting for phase verification`}
+                  ? `${rookiesReady[0].name} completed ${getStepLabel(rookiesReady[0])}` 
+                  : onboardingCount > 0 && phaseCount > 0
+                    ? `${onboardingCount} onboarding, ${phaseCount} ramp phases`
+                    : `${rookiesReady.length} rookies waiting for verification`}
               </p>
             </div>
             
@@ -294,129 +402,153 @@ export const LeaderRookieReviewCard = () => {
 
           {rookiesReady.length > 1 && (
             <div className="mt-3 pt-3 border-t border-amber-500/20 space-y-2">
-              {rookiesReady.map((rookie) => (
-                <button
-                  key={rookie.id}
-                  className="flex items-center justify-between w-full text-left px-3 py-2 rounded-lg hover:bg-amber-500/10 transition-colors"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedRookie(rookie);
-                  }}
-                >
-                  <span className="text-sm font-medium">{rookie.name}</span>
-                  <Badge variant="outline" className="text-xs">
-                    Phase {rookie.currentPhase}
-                  </Badge>
-                </button>
-              ))}
+              {rookiesReady.map((rookie) => {
+                const StepIcon = getStepIcon(rookie.onboardingStep);
+                return (
+                  <button
+                    key={rookie.id}
+                    className="flex items-center justify-between w-full text-left px-3 py-2 rounded-lg hover:bg-amber-500/10 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedRookie(rookie);
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <StepIcon className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{rookie.name}</span>
+                    </div>
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs ${rookie.onboardingStep ? 'border-blue-500/50 text-blue-600' : ''}`}
+                    >
+                      {getStepLabel(rookie)}
+                    </Badge>
+                  </button>
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Phase Verification Drawer */}
-      <Drawer open={!!selectedRookie} onOpenChange={(open) => !open && setSelectedRookie(null)}>
-        <DrawerContent className="max-h-[90dvh]">
-          <DrawerHeader className="border-b border-border pb-4">
-            <DrawerTitle className="text-center">
-              Verify Phase {selectedRookie?.currentPhase}
-            </DrawerTitle>
-          </DrawerHeader>
-          
-          <div className="p-4 space-y-5 overflow-y-auto">
-            {/* Rookie Info */}
-            <div className="text-center">
-              <h3 className="text-lg font-semibold">{selectedRookie?.name}</h3>
-              <p className="text-sm text-muted-foreground">
-                {phaseInfo?.label}
-              </p>
-            </div>
+      {/* Onboarding Step Verification Drawer */}
+      {selectedRookie?.onboardingStep && (
+        <OnboardingVerificationDrawer
+          open={!!selectedRookie?.onboardingStep}
+          onOpenChange={(open) => !open && setSelectedRookie(null)}
+          recruitName={selectedRookie.name}
+          step={selectedRookie.onboardingStep}
+          selfReported={selectedRookie.selfReported}
+          isSubmitting={isSubmitting}
+          onConfirm={handleConfirmPhase}
+        />
+      )}
 
-            {/* Phase Overview */}
-            <div className="space-y-4">
-              {/* Self-Service Items (Completed by Rep) */}
-              <div className="bg-emerald-500/5 rounded-xl p-4 border border-emerald-500/20">
-                <div className="flex items-center gap-2 mb-3">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                    Rep completed on their own
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  {phaseInfo?.selfServiceItems.map((item, idx) => {
-                    const isCompleted = selectedRookie?.completedItems.includes(item.label);
-                    return (
-                      <div key={idx} className="flex items-start gap-2">
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                          isCompleted ? 'bg-emerald-500' : 'bg-muted'
-                        }`}>
-                          {isCompleted ? (
-                            <Check className="h-3 w-3 text-white" />
-                          ) : (
-                            <Circle className="h-3 w-3 text-muted-foreground" />
-                          )}
+      {/* Ramp Phase Verification Drawer */}
+      {selectedRookie?.currentPhase && (
+        <Drawer open={!!selectedRookie?.currentPhase} onOpenChange={(open) => !open && setSelectedRookie(null)}>
+          <DrawerContent className="max-h-[90dvh]">
+            <DrawerHeader className="border-b border-border pb-4">
+              <DrawerTitle className="text-center">
+                Verify Phase {selectedRookie?.currentPhase}
+              </DrawerTitle>
+            </DrawerHeader>
+            
+            <div className="p-4 space-y-5 overflow-y-auto">
+              {/* Rookie Info */}
+              <div className="text-center">
+                <h3 className="text-lg font-semibold">{selectedRookie?.name}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {phaseInfo?.label}
+                </p>
+              </div>
+
+              {/* Phase Overview */}
+              <div className="space-y-4">
+                {/* Self-Service Items (Completed by Rep) */}
+                <div className="bg-emerald-500/5 rounded-xl p-4 border border-emerald-500/20">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                      Rep completed on their own
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {phaseInfo?.selfServiceItems.map((item, idx) => {
+                      const isCompleted = selectedRookie?.completedItems.includes(item.label);
+                      return (
+                        <div key={idx} className="flex items-start gap-2">
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                            isCompleted ? 'bg-emerald-500' : 'bg-muted'
+                          }`}>
+                            {isCompleted ? (
+                              <Check className="h-3 w-3 text-white" />
+                            ) : (
+                              <Circle className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </div>
+                          <span className={`text-sm ${isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
+                            {item.label}
+                          </span>
                         </div>
-                        <span className={`text-sm ${isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
-                          {item.label}
-                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Leader-Required Items */}
+                <div className="bg-primary/5 rounded-xl p-4 border border-primary/20">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users className="w-4 h-4 text-primary" />
+                    <p className="text-sm font-semibold text-primary">
+                      You verify together
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    {phaseInfo?.leaderItems.map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-2">
+                        <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+                          <Check className="h-3 w-3 text-primary" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium">{item.label}</span>
+                          <p className="text-xs text-muted-foreground">{item.description}</p>
+                        </div>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Leader-Required Items */}
-              <div className="bg-primary/5 rounded-xl p-4 border border-primary/20">
-                <div className="flex items-center gap-2 mb-3">
-                  <Users className="w-4 h-4 text-primary" />
-                  <p className="text-sm font-semibold text-primary">
-                    You verify together
-                  </p>
-                </div>
-                <div className="space-y-3">
-                  {phaseInfo?.leaderItems.map((item, idx) => (
-                    <div key={idx} className="flex items-start gap-2">
-                      <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
-                        <Check className="h-3 w-3 text-primary" />
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium">{item.label}</span>
-                        <p className="text-xs text-muted-foreground">{item.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              {/* Confirmation Note */}
+              <p className="text-xs text-center text-muted-foreground px-4">
+                By verifying, you confirm you've completed the leader items with {selectedRookie?.name} and they're ready to move on to {selectedRookie?.currentPhase === 4 ? 'Blitz!' : `Phase ${(selectedRookie?.currentPhase || 0) + 1}`}.
+              </p>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setSelectedRookie(null)}
+                  disabled={isSubmitting}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                  onClick={handleConfirmPhase}
+                  disabled={isSubmitting}
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  {isSubmitting ? 'Verifying...' : 'Verify Phase'}
+                </Button>
               </div>
             </div>
-
-            {/* Confirmation Note */}
-            <p className="text-xs text-center text-muted-foreground px-4">
-              By verifying, you confirm you've completed the leader items with {selectedRookie?.name} and they're ready to move on to {selectedRookie?.currentPhase === 4 ? 'Blitz!' : `Phase ${(selectedRookie?.currentPhase || 0) + 1}`}.
-            </p>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setSelectedRookie(null)}
-                disabled={isSubmitting}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                onClick={handleConfirmPhase}
-                disabled={isSubmitting}
-              >
-                <Check className="h-4 w-4 mr-2" />
-                {isSubmitting ? 'Verifying...' : 'Verify Phase'}
-              </Button>
-            </div>
-          </div>
-        </DrawerContent>
-      </Drawer>
+          </DrawerContent>
+        </Drawer>
+      )}
     </>
   );
 };

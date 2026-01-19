@@ -1,14 +1,23 @@
-import { ChevronRight, Check, ExternalLink, MessageSquare, GraduationCap, ClipboardCheck } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, Check, ExternalLink, MessageSquare, GraduationCap, ClipboardCheck, Clock, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { RampHeroProgress } from "@/components/ramp/RampHeroProgress";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { PhaseData, PhaseId } from "@/pages/RampToBlitz";
 import type { RepData } from "@/hooks/useRepData";
 
 interface RookieRampHeroSectionProps {
   repData: RepData;
   prerequisites: {
+    onboarding: boolean;
+    trainings: boolean;
+    slack: boolean;
+  };
+  selfReported?: {
     onboarding: boolean;
     trainings: boolean;
     slack: boolean;
@@ -22,6 +31,7 @@ interface RookieRampHeroSectionProps {
 export const RookieRampHeroSection = ({
   repData,
   prerequisites,
+  selfReported = { onboarding: false, trainings: false, slack: false },
   phases,
   activePhase,
   onPhaseSelect,
@@ -39,6 +49,9 @@ export const RookieRampHeroSection = ({
           title="Complete Your Onboarding"
           description="Get fully onboarded in the system so you can get paid."
           complete={prerequisites.onboarding}
+          selfReported={selfReported.onboarding}
+          repId={repData.id}
+          selfReportField="selfReportedOnboarding"
           icon={ClipboardCheck}
           primaryAction={{
             label: "Finish Onboarding",
@@ -56,6 +69,10 @@ export const RookieRampHeroSection = ({
           title="Finish Required Trainings"
           description="Complete the mandatory Vivint modules and quizzes so you're cleared to sell."
           complete={prerequisites.trainings}
+          selfReported={selfReported.trainings}
+          repId={repData.id}
+          selfReportField="selfReportedTrainings"
+          locked={!prerequisites.onboarding}
           icon={GraduationCap}
           primaryAction={{
             label: "Open Training Portal",
@@ -68,6 +85,10 @@ export const RookieRampHeroSection = ({
           title="Join the Team Slack"
           description="Join the group and introduce yourself so the team knows who you are."
           complete={prerequisites.slack}
+          selfReported={selfReported.slack}
+          repId={repData.id}
+          selfReportField="selfReportedSlack"
+          locked={!prerequisites.trainings}
           icon={MessageSquare}
           primaryAction={{
             label: "Join Slack",
@@ -119,6 +140,10 @@ interface OnboardingStepCardProps {
   title: string;
   description: string;
   complete: boolean;
+  selfReported: boolean;
+  repId: string;
+  selfReportField: 'selfReportedOnboarding' | 'selfReportedTrainings' | 'selfReportedSlack';
+  locked?: boolean;
   icon: React.ComponentType<{ className?: string }>;
   primaryAction: {
     label: string;
@@ -140,16 +165,55 @@ const OnboardingStepCard = ({
   title,
   description,
   complete,
+  selfReported,
+  repId,
+  selfReportField,
+  locked = false,
   icon: Icon,
   primaryAction,
   secondaryAction,
   introGuidance,
 }: OnboardingStepCardProps) => {
+  const queryClient = useQueryClient();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const openLink = (href: string) => {
     window.open(href, '_blank', 'noopener,noreferrer');
   };
 
-  // Completed cards are collapsed - just show title and checkmark
+  const handleMarkDone = async () => {
+    setIsSubmitting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const { error } = await supabase.functions.invoke('update-rookie-status', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: {
+          rookieId: repId,
+          [selfReportField]: true
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success("Nice work! Your leader will verify this step.", {
+        description: "They'll check and mark it complete shortly."
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
+    } catch (error: any) {
+      console.error('Error marking step done:', error);
+      toast.error('Failed to mark as done', {
+        description: error.message || 'Please try again'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Completed cards - show checkmark and complete state
   if (complete) {
     return (
       <Card className="border-success/30 bg-card transition-all">
@@ -168,6 +232,49 @@ const OnboardingStepCard = ({
     );
   }
 
+  // Self-reported but awaiting verification
+  if (selfReported && !complete) {
+    return (
+      <Card className="border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20 transition-all">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3">
+            <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-amber-500/20 text-amber-600">
+              <Clock className="w-4 h-4" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-medium text-foreground">
+                {title}
+              </h3>
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Awaiting leader verification
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Locked state
+  if (locked) {
+    return (
+      <Card className="border-border bg-muted/30 transition-all opacity-60">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3">
+            <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
+              <span className="font-bold text-sm">{step}</span>
+            </div>
+            <h3 className="font-medium text-muted-foreground flex-1">
+              {title}
+            </h3>
+            <span className="text-xs text-muted-foreground">Locked</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Active state - show full card with actions
   return (
     <Card className="border-border transition-all">
       <CardContent className="p-4">
@@ -229,6 +336,22 @@ const OnboardingStepCard = ({
                   </ul>
                 </div>
               )}
+
+              {/* I'm Done button */}
+              <Button
+                onClick={handleMarkDone}
+                variant="outline"
+                className="w-full gap-2 mt-3 border-emerald-500/50 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                size="sm"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4" />
+                )}
+                {isSubmitting ? "Saving..." : "I'm Done"}
+              </Button>
             </div>
           </div>
         </div>

@@ -1504,6 +1504,9 @@ export type Database = {
           rsvp_first_window_ack_blitz_ids: string[]
           rsvp_second_window_ack_blitz_ids: string[]
           sales_logger_enabled: boolean | null
+          self_reported_onboarding_complete: boolean | null
+          self_reported_slack_joined: boolean | null
+          self_reported_trainings_complete: boolean | null
           slack_joined: boolean | null
           stage: string | null
           team_leader: string | null
@@ -1560,6 +1563,9 @@ export type Database = {
           rsvp_first_window_ack_blitz_ids?: string[]
           rsvp_second_window_ack_blitz_ids?: string[]
           sales_logger_enabled?: boolean | null
+          self_reported_onboarding_complete?: boolean | null
+          self_reported_slack_joined?: boolean | null
+          self_reported_trainings_complete?: boolean | null
           slack_joined?: boolean | null
           stage?: string | null
           team_leader?: string | null
@@ -1616,6 +1622,9 @@ export type Database = {
           rsvp_first_window_ack_blitz_ids?: string[]
           rsvp_second_window_ack_blitz_ids?: string[]
           sales_logger_enabled?: boolean | null
+          self_reported_onboarding_complete?: boolean | null
+          self_reported_slack_joined?: boolean | null
+          self_reported_trainings_complete?: boolean | null
           slack_joined?: boolean | null
           stage?: string | null
           team_leader?: string | null
