@@ -1,34 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendWebPush } from "../_shared/web-push.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// Helper to send web push
-async function sendWebPush(
-  subscription: { endpoint: string; p256dh: string; auth: string },
-  payload: object,
-  vapidPublicKey: string,
-  vapidPrivateKey: string
-): Promise<{ success: boolean; status?: number }> {
-  try {
-    const response = await fetch(subscription.endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "TTL": "86400",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    return { success: response.ok, status: response.status };
-  } catch (error) {
-    console.error("Push notification error:", error);
-    return { success: false };
-  }
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -41,9 +18,17 @@ serve(async (req) => {
     const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
     const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
 
+    if (!vapidPublicKey || !vapidPrivateKey) {
+      console.error("[send-mention-notification] VAPID keys not configured");
+      return new Response(
+        JSON.stringify({ error: "VAPID keys not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { mentionedUserIds, commenterId, commenterName, recruitName, activityId, commentContent } = await req.json();
+    const { mentionedUserIds, commenterId, commenterName, recruitName, activityId, recruitId, commentContent } = await req.json();
 
     if (!mentionedUserIds || mentionedUserIds.length === 0) {
       return new Response(
@@ -53,6 +38,17 @@ serve(async (req) => {
     }
 
     console.log(`[send-mention-notification] Processing ${mentionedUserIds.length} mentions from ${commenterName}`);
+
+    // If recruitId not provided, fetch it from the activity
+    let finalRecruitId = recruitId;
+    if (!finalRecruitId && activityId) {
+      const { data: activity } = await supabase
+        .from("recruit_activities")
+        .select("recruit_id")
+        .eq("id", activityId)
+        .single();
+      finalRecruitId = activity?.recruit_id;
+    }
 
     let successCount = 0;
     const today = new Date().toISOString().split("T")[0];
@@ -70,19 +66,15 @@ serve(async (req) => {
         .select("*")
         .eq("user_id", mentionedUserId);
 
-      if (!subscriptions || subscriptions.length === 0) {
-        console.log(`[send-mention-notification] No push subscription for user ${mentionedUserId}`);
-        
-        // Also check APNs tokens for native apps
-        const { data: apnsTokens } = await supabase
-          .from("apns_device_tokens")
-          .select("*")
-          .eq("user_id", mentionedUserId);
+      // Also check APNs tokens for native apps
+      const { data: apnsTokens } = await supabase
+        .from("apns_device_tokens")
+        .select("*")
+        .eq("user_id", mentionedUserId);
 
-        if (!apnsTokens || apnsTokens.length === 0) {
-          console.log(`[send-mention-notification] No APNs token for user ${mentionedUserId} either`);
-          continue;
-        }
+      if ((!subscriptions || subscriptions.length === 0) && (!apnsTokens || apnsTokens.length === 0)) {
+        console.log(`[send-mention-notification] No push subscription or APNs token for user ${mentionedUserId}`);
+        continue;
       }
 
       // Compose notification
@@ -91,6 +83,11 @@ serve(async (req) => {
         ? `In a comment on ${recruitName}'s activity: "${commentContent.substring(0, 50)}${commentContent.length > 50 ? '...' : ''}"`
         : `"${commentContent.substring(0, 80)}${commentContent.length > 80 ? '...' : ''}"`;
 
+      // Build deep link URL with query params for direct navigation
+      const deepLinkUrl = finalRecruitId && activityId
+        ? `/my-group?recruitId=${finalRecruitId}&activityId=${activityId}`
+        : "/my-group";
+
       // Send to web push subscriptions
       for (const sub of subscriptions || []) {
         const result = await sendWebPush(
@@ -98,17 +95,16 @@ serve(async (req) => {
           {
             title,
             body,
-            url: "/my-group",
+            url: deepLinkUrl,
             type: "mention",
-            data: { activityId },
           },
-          vapidPublicKey || "",
-          vapidPrivateKey || ""
+          vapidPublicKey,
+          vapidPrivateKey
         );
 
         if (result.success) {
           successCount++;
-          console.log(`[send-mention-notification] Sent to user ${mentionedUserId}`);
+          console.log(`[send-mention-notification] Sent web push to user ${mentionedUserId}`);
 
           // Log the notification
           await supabase.from("notification_logs").insert({
@@ -120,13 +116,22 @@ serve(async (req) => {
               commenter_name: commenterName,
               recruit_name: recruitName,
               activity_id: activityId,
+              recruit_id: finalRecruitId,
             },
           });
         } else if (result.status === 410 || result.status === 404) {
           // Clean up expired subscription
           await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
           console.log(`[send-mention-notification] Cleaned up expired subscription for user ${mentionedUserId}`);
+        } else {
+          console.error(`[send-mention-notification] Failed to send to ${mentionedUserId}:`, result.error);
         }
+      }
+
+      // TODO: Add APNs sending for native iOS when ready
+      // For now, log that we have APNs tokens but can't send yet
+      if (apnsTokens && apnsTokens.length > 0) {
+        console.log(`[send-mention-notification] User ${mentionedUserId} has ${apnsTokens.length} APNs tokens (native push not yet implemented)`);
       }
     }
 

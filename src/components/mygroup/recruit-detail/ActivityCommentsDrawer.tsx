@@ -24,6 +24,7 @@ interface RecruitActivity {
   assigned_to_user_id: string | null;
   assignment_status: string | null;
   completed_at: string | null;
+  recruit_id?: string | null;
 }
 
 interface LoggerInfo {
@@ -37,6 +38,7 @@ interface ActivityCommentsDrawerProps {
   onClose: () => void;
   loggerInfo?: LoggerInfo | null;
   recruitName?: string;
+  recruitId?: string;
 }
 
 export const ActivityCommentsDrawer = ({
@@ -45,6 +47,7 @@ export const ActivityCommentsDrawer = ({
   onClose,
   loggerInfo,
   recruitName,
+  recruitId,
 }: ActivityCommentsDrawerProps) => {
   const { userId: currentUserId } = useCurrentUserId();
   const { data: reactions = {} } = useActivityReactions(activity ? [activity.id] : []);
@@ -273,6 +276,7 @@ export const ActivityCommentsDrawer = ({
             activityId={activity.id} 
             commenterName={commenterName}
             recruitName={recruitName}
+            recruitId={recruitId || activity.recruit_id || undefined}
           />
         </div>
       </DrawerContent>

@@ -497,6 +497,7 @@ export const ActivityTab = ({
           ? loggerInfo[selectedActivityForComments.logged_by_user_id]
           : null
         }
+        recruitId={recruitId}
       />
     </div>
   );

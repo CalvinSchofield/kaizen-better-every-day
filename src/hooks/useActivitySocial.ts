@@ -167,12 +167,14 @@ export const useAddComment = () => {
       mentionedUserIds = [],
       commenterName,
       recruitName,
+      recruitId,
     }: { 
       activityId: string; 
       content: string;
       mentionedUserIds?: string[];
       commenterName?: string;
       recruitName?: string;
+      recruitId?: string;
     }) => {
       if (!userId) throw new Error('Not authenticated');
       
@@ -210,6 +212,7 @@ export const useAddComment = () => {
               commenterName: commenterName || 'Someone',
               recruitName,
               activityId,
+              recruitId,
               commentContent: content.trim(),
             },
           });
