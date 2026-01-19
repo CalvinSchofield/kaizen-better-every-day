@@ -24,6 +24,7 @@ import { DetailsTab } from "./tabs/DetailsTab";
 import { PhaseVerificationDrawer } from "../PhaseVerificationDrawer";
 import { ScheduledActivityActionSheet } from "../ScheduledActivityActionSheet";
 import { ScheduleFollowUpDrawer } from "../ScheduleFollowUpDrawer";
+import { RescheduleActivityDrawer } from "../RescheduleActivityDrawer";
 import { PostContactDrawer } from "../PostContactDrawer";
 
 // Import all the dialog components from the original file
@@ -117,6 +118,8 @@ export const RecruitDetailDrawer = ({
   const [activityShake, setActivityShake] = useState(false);
   const [scheduledActionSheetOpen, setScheduledActionSheetOpen] = useState(false);
   const [scheduledActivityForAction, setScheduledActivityForAction] = useState<RecruitActivity | null>(null);
+  const [rescheduleActivityDrawerOpen, setRescheduleActivityDrawerOpen] = useState(false);
+  const [rescheduleActivity, setRescheduleActivity] = useState<RecruitActivity | null>(null);
   const [pendingEmail, setPendingEmail] = useState('');
   const [isSavingEmail, setIsSavingEmail] = useState(false);
 
@@ -868,23 +871,10 @@ export const RecruitDetailDrawer = ({
     });
   };
 
-  // Handler for rescheduling a scheduled activity
+  // Handler for rescheduling a scheduled activity - opens the full reschedule drawer
   const handleRescheduleActivity = (activity: RecruitActivity) => {
-    // Open the schedule follow-up drawer with pre-filled data
-    setActivityType('next_step');
-    setActivityNotes(activity.notes || activity.next_action || '');
-    setNextAction(activity.next_action || '');
-    setNextActionDue(''); // Clear so they pick new date
-    setIsDirectSchedule(true);
-    setLogActivityOpen(true);
-    
-    // Delete the old scheduled activity
-    deleteActivityMutation.mutate(activity.id, {
-      onError: () => {
-        // Silent fail - the new schedule will work anyway
-        console.warn('Could not delete old scheduled activity');
-      }
-    });
+    setRescheduleActivity(activity);
+    setRescheduleActivityDrawerOpen(true);
   };
 
   // Handler for deleting a scheduled activity from the action sheet
@@ -1431,6 +1421,21 @@ export const RecruitDetailDrawer = ({
         recruit={recruit}
         onComplete={() => {
           queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
+        }}
+      />
+
+      {/* Reschedule Activity Drawer - for rescheduling existing scheduled activities */}
+      <RescheduleActivityDrawer
+        open={rescheduleActivityDrawerOpen}
+        onOpenChange={(open) => {
+          setRescheduleActivityDrawerOpen(open);
+          if (!open) setRescheduleActivity(null);
+        }}
+        recruit={recruit}
+        activity={rescheduleActivity}
+        onComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
+          queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
         }}
       />
     </>
