@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { User } from "lucide-react";
+import { hapticLight } from "@/utils/haptics";
 
 interface RecruitSearchDrawerProps {
   open: boolean;
@@ -80,6 +81,7 @@ export const RecruitSearchDrawer = ({
   }, [recruits, searchQuery]);
 
   const handleSelect = (recruit: Recruit) => {
+    hapticLight();
     onRecruitSelect(recruit);
     onOpenChange(false);
     setSearchQuery("");
