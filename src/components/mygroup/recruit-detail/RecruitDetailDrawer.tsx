@@ -933,7 +933,7 @@ export const RecruitDetailDrawer = ({
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent className="max-h-[90dvh]">
           <DrawerHeader className="pb-2">
-            <RecruitHeader recruit={recruit} isLeaderOfLeaders={isLeaderOfLeaders} />
+            <RecruitHeader recruit={recruit} isLeaderOfLeaders={isLeaderOfLeaders} recruitRepData={recruitRepData} />
           </DrawerHeader>
           
           <div className="px-4 pb-4 overflow-y-auto">

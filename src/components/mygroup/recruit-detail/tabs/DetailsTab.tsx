@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { getDaysUntilBlitz, formatDaysUntilBlitz, parseDateAsLocal, formatBlitzDate } from "@/utils/blitzDateUtils";
@@ -17,6 +17,7 @@ import {
   Trash2,
   UserPlus,
   Loader2,
+  Heart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,7 @@ import { ALL_STAGES, getFirstName } from "../utils";
 import { STAGES, EXIT_STAGES as EXIT_STAGE_LIST } from "@/utils/stageConstants";
 import { EditRecruitDrawer } from "../EditRecruitDrawer";
 import { DeleteRecruitConfirmDrawer } from "../DeleteRecruitConfirmDrawer";
+import { cn } from "@/lib/utils";
 
 interface DetailsTabProps {
   recruit: Recruit;
@@ -53,11 +55,18 @@ interface DetailsTabProps {
 }
 
 // Exit stages that are always allowed and permanent exit stages that need confirmation
-// Note: confirmation is now handled in RecruitDetailDrawer, not here
 const EXIT_STAGES: string[] = [...EXIT_STAGE_LIST];
 
 // Separate stages into progression and exit for display purposes
 const PROGRESSION_STAGES = ALL_STAGES.filter(s => !EXIT_STAGES.includes(s));
+
+// Quick objections for Watch Out For section
+const QUICK_OBJECTIONS = [
+  'Considering internship',
+  'Other D2D opportunities',
+  'Haven\'t met spouse yet',
+  'Bad D2D experience',
+];
 
 export const DetailsTab = ({
   recruit,
@@ -100,7 +109,6 @@ export const DetailsTab = ({
   const isEarlyStage = earlyStages.some(s => stageLower.includes(s));
   
   // Only lock stages for signed+ rookies who haven't completed onboarding
-  // Early-stage recruits can move freely between 100 List, Reached Out, Evaluating, and Signed
   const stageLocked = isRookie && !hasCompletedOnboarding && !isEarlyStage;
   
   // Check if recruit is Signed or beyond (for exit stage filtering)
@@ -108,7 +116,6 @@ export const DetailsTab = ({
   const isSignedOrBeyond = signedPlusStages.some(s => stageLower.includes(s)) && !stageLower.includes('not interested');
   
   // For Signed+ recruits, only these exit stages make sense
-  // Not Interested is only for early stage (100 List, Reached Out, Evaluating)
   const availableExitStages = isSignedOrBeyond
     ? EXIT_STAGES.filter(s => s === STAGES.POTENTIAL_FOLLOW_UP || s === STAGES.SIGNED_BUT_NOT_INTERESTED)
     : EXIT_STAGES;
@@ -184,15 +191,115 @@ export const DetailsTab = ({
   };
   
   const handleStageSelect = (newStage: string) => {
-    // Pass stage change directly to parent - confirmation is handled there
     onStageChange(newStage);
   };
 
   return (
     <div className="space-y-4">
-      {/* Edit Button - only for leaders */}
-      {canEdit && (
-        <div className="flex gap-2">
+      {/* 1. QUICK CONTEXT CARDS - Most important info first */}
+      
+      {/* Watch Out For Section - PROMOTED to top */}
+      {recruitDetails?.watch_out_notes && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <span>Watch Out For</span>
+            </div>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="h-6 px-2 text-xs"
+              onClick={() => setEditDrawerOpen(true)}
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+            {recruitDetails.watch_out_notes}
+          </p>
+        </div>
+      )}
+
+      {/* Significant Other - shown if there's a name */}
+      {recruitDetails?.significant_other_name && (
+        <div className="bg-muted/50 border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+            <Heart className="h-3.5 w-3.5" />
+            <span>Significant Other</span>
+          </div>
+          <p className="font-medium">{recruitDetails.significant_other_name}</p>
+        </div>
+      )}
+      
+      {/* 2. BLITZ STATUS - Consolidated Card */}
+      <BlitzStatusCard 
+        recruit={recruit}
+        recruitRepData={recruitRepData}
+        queryClient={queryClient}
+      />
+      
+      {/* 3. STAGE SELECTOR */}
+      <div className={stageShake ? 'animate-shake' : ''}>
+        <Label className="text-sm text-muted-foreground">Stage</Label>
+        <Select 
+          value={recruit.stage} 
+          onValueChange={handleStageSelect}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {/* Progression Stages */}
+            {PROGRESSION_STAGES.map((stage) => {
+              const earlyStagesList = ['100 List', 'Reached Out', 'Evaluating'];
+              const isEarlyStageOption = earlyStagesList.includes(stage);
+              const allowedForEarlyStage = [...earlyStagesList, 'Signed'].includes(stage);
+              const isBackwardMove = isEarlyStageOption && !isEarlyStage;
+              
+              const isDisabled = stageLocked && 
+                stage !== recruit.stage && 
+                !isBackwardMove && 
+                !(isEarlyStage && allowedForEarlyStage);
+              
+              return (
+                <SelectItem 
+                  key={stage} 
+                  value={stage}
+                  disabled={isDisabled}
+                  className={isDisabled ? 'opacity-50' : ''}
+                >
+                  {stage}
+                </SelectItem>
+              );
+            })}
+            
+            <SelectSeparator className="my-1" />
+            
+            <div className="px-2 py-1">
+              <span className="text-xs text-muted-foreground">Exit Options</span>
+            </div>
+            {availableExitStages.map((stage) => (
+              <SelectItem 
+                key={stage} 
+                value={stage}
+                className="text-muted-foreground"
+              >
+                {stage}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {stageLocked && (
+          <p className="text-xs text-muted-foreground mt-1">
+            Most stages locked until Onboarding ✅ is complete
+          </p>
+        )}
+      </div>
+      
+      {/* 4. ACTIONS */}
+      <div className="flex gap-2">
+        {canEdit && (
           <Button
             variant="outline"
             size="sm"
@@ -200,22 +307,21 @@ export const DetailsTab = ({
             className="flex-1"
           >
             <Pencil className="h-4 w-4 mr-2" />
-            Edit Recruit Details
+            Edit Details
           </Button>
-          
-          {/* Delete Button - only for area directors */}
-          {isAreaDirector && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDeleteDrawerOpen(true)}
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      )}
+        )}
+        
+        {isAreaDirector && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDeleteDrawerOpen(true)}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
       
       {/* Create App Account Button - for recruits without reps record */}
       {canCreateAppAccount && (
@@ -256,116 +362,13 @@ export const DetailsTab = ({
         </div>
       )}
       
-      {/* iPad Assignment - only show for Signed+ stages */}
-      {isRookie && !isEarlyStage && !recruitRepData?.ramp_phase_4_complete && (
-        <IpadAssignmentCard 
-          recruit={recruit}
-          recruitRepData={recruitRepData}
-          queryClient={queryClient}
-        />
-      )}
-      
-      {/* Blitz Commitments - show for all */}
-      <BlitzManagementSection 
+      {/* 5. BLITZ HISTORY - Collapsed by default */}
+      <BlitzCommitmentsSection 
         recruit={recruit}
         recruitRepData={recruitRepData}
         queryClient={queryClient}
       />
       
-      {/* Blitz Readiness Warnings - already filters internally */}
-      <BlitzReadinessWarnings 
-        recruit={recruit}
-        recruitRepData={recruitRepData}
-      />
-      
-      {/* Stage Selector */}
-      <div className={stageShake ? 'animate-shake' : ''}>
-        <Label className="text-sm text-muted-foreground">Stage</Label>
-        <Select 
-          value={recruit.stage} 
-          onValueChange={handleStageSelect}
-        >
-          <SelectTrigger className="mt-1">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {/* Progression Stages */}
-            {PROGRESSION_STAGES.map((stage) => {
-              // Early stages that should always be accessible for backward movement
-              const earlyStagesList = ['100 List', 'Reached Out', 'Evaluating'];
-              const isEarlyStageOption = earlyStagesList.includes(stage);
-              
-              // For early-stage recruits, allow moving freely between early stages and to Signed
-              const allowedForEarlyStage = [...earlyStagesList, 'Signed'].includes(stage);
-              
-              // For Signed+ recruits, always allow moving back to early stages (rare corrections)
-              // But lock forward progression until onboarding is complete
-              const isBackwardMove = isEarlyStageOption && !isEarlyStage;
-              
-              const isDisabled = stageLocked && 
-                stage !== recruit.stage && 
-                !isBackwardMove && // Allow backward moves even when locked
-                !(isEarlyStage && allowedForEarlyStage);
-              
-              return (
-                <SelectItem 
-                  key={stage} 
-                  value={stage}
-                  disabled={isDisabled}
-                  className={isDisabled ? 'opacity-50' : ''}
-                >
-                  {stage}
-                </SelectItem>
-              );
-            })}
-            
-            {/* Separator before exit stages */}
-            <SelectSeparator className="my-1" />
-            
-            {/* Exit Stages - filtered based on current stage */}
-            <div className="px-2 py-1">
-              <span className="text-xs text-muted-foreground">Exit Options</span>
-            </div>
-            {availableExitStages.map((stage) => (
-              <SelectItem 
-                key={stage} 
-                value={stage}
-                className="text-muted-foreground"
-              >
-                {stage}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {stageLocked && (
-          <p className="text-xs text-muted-foreground mt-1">
-            Most stages locked until Onboarding ✅ is complete
-          </p>
-        )}
-      </div>
-
-      {/* Watch Out For Section - shown if there are notes */}
-      {recruitDetails?.watch_out_notes && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
-          <div className="flex items-center gap-2 text-sm font-medium mb-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <span>Watch Out For</span>
-          </div>
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-            {recruitDetails.watch_out_notes}
-          </p>
-        </div>
-      )}
-
-      {/* Significant Other - shown if there's a name */}
-      {recruitDetails?.significant_other_name && (
-        <div className="bg-muted/50 border border-border rounded-xl p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-            <span>💍 Significant Other</span>
-          </div>
-          <p className="font-medium">{recruitDetails.significant_other_name}</p>
-        </div>
-      )}
       {/* Edit Recruit Drawer */}
       <EditRecruitDrawer
         open={editDrawerOpen}
@@ -391,8 +394,8 @@ export const DetailsTab = ({
   );
 };
 
-// iPad Assignment Card
-const IpadAssignmentCard = ({ 
+// Consolidated Blitz Status Card - replaces IpadAssignmentCard + BlitzReadinessWarnings
+const BlitzStatusCard = ({ 
   recruit, 
   recruitRepData,
   queryClient 
@@ -401,13 +404,76 @@ const IpadAssignmentCard = ({
   recruitRepData: RecruitRepData | null;
   queryClient: any;
 }) => {
-  const hasIpad = recruitRepData?.ipad_assigned ?? false;
+  const { allBlitzes } = useBlitzes();
+  const isRookie = recruitRepData && (recruitRepData.year === 'Rookie' || !recruitRepData.year);
   
-  const handleToggle = async (checked: boolean) => {
-    // Use the full query key that matches RecruitDetailDrawer
+  // Check if recruit is in a stage where blitz matters (Signed+)
+  const stageLower = (recruit.stage || '').toLowerCase();
+  const earlyStages = ['100_list', '100 list', 'evaluating', 'reached_out', 'reached out'];
+  const exitStages = ['not interested', 'potential follow up', 'signed but not interested'];
+  const isEarlyStage = earlyStages.some(s => stageLower.includes(s));
+  const isExitStage = exitStages.some(s => stageLower.includes(s));
+  const isSignedOrBeyond = !isEarlyStage && !isExitStage;
+  
+  // Calculate closest upcoming blitz from committed blitzes
+  const closestBlitz = useMemo(() => {
+    if (!recruitRepData?.committed_blitzes || !allBlitzes.length) return null;
+    
+    const committedIds = (recruitRepData.committed_blitzes as (string | { id: string })[])
+      .map(b => typeof b === 'string' ? b : (b as { id: string })?.id);
+    
+    if (committedIds.length === 0) return null;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const committedUpcoming = allBlitzes
+      .filter(blitz => committedIds.includes(blitz.id))
+      .filter(blitz => {
+        if (!blitz.date) return false;
+        const blitzDate = parseDateAsLocal(blitz.date);
+        return blitzDate && blitzDate >= today;
+      })
+      .sort((a, b) => {
+        const dateA = parseDateAsLocal(a.date);
+        const dateB = parseDateAsLocal(b.date);
+        return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+      });
+    
+    if (committedUpcoming.length === 0) return null;
+    
+    const closest = committedUpcoming[0];
+    const blitzDate = parseDateAsLocal(closest.date);
+    if (!blitzDate) return null;
+    
+    const diffTime = blitzDate.getTime() - today.getTime();
+    const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return { ...closest, daysUntil };
+  }, [recruitRepData?.committed_blitzes, allBlitzes]);
+  
+  // Only show for Signed+ rookies
+  if (!isRookie || !isSignedOrBeyond) return null;
+  
+  const hasIpad = recruitRepData?.ipad_assigned ?? false;
+  const isRampComplete = recruitRepData?.ramp_phase_4_complete === true;
+  const currentPhase = [
+    recruitRepData?.ramp_phase_1_complete,
+    recruitRepData?.ramp_phase_2_complete,
+    recruitRepData?.ramp_phase_3_complete,
+    recruitRepData?.ramp_phase_4_complete,
+  ].filter(Boolean).length;
+  
+  const isReady = hasIpad && isRampComplete;
+  const hasBlitzCommitment = closestBlitz !== null;
+  const isBlitzApproaching = hasBlitzCommitment && closestBlitz.daysUntil <= 21;
+  
+  // Don't show card if they're already ready and no upcoming blitz
+  if (isReady && !hasBlitzCommitment) return null;
+  
+  const handleToggleIpad = async (checked: boolean) => {
     const queryKey = ['recruit-rep-data', recruit.id, recruit.email, recruit.name];
     
-    // Optimistic update
     queryClient.setQueryData(queryKey, (old: any) => 
       old ? { ...old, ipad_assigned: checked } : old
     );
@@ -429,7 +495,6 @@ const IpadAssignmentCard = ({
       }
       
       toast.success(checked ? 'iPad assigned' : 'iPad unassigned');
-      // Invalidate both the specific recruit query and the list
       queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.id], exact: false });
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
     } catch (error) {
@@ -441,34 +506,62 @@ const IpadAssignmentCard = ({
   };
 
   return (
-    <div className={`rounded-xl p-4 ${hasIpad ? 'bg-muted/50' : 'bg-amber-500/10 border border-amber-500/30'}`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-            hasIpad ? 'bg-muted' : 'bg-amber-500/20'
-          }`}>
-            <Tablet className={`h-5 w-5 ${hasIpad ? 'text-muted-foreground' : 'text-amber-600'}`} />
+    <div className={cn(
+      "rounded-xl border p-4 space-y-3",
+      !isReady && isBlitzApproaching ? "bg-destructive/5 border-destructive/30" : "bg-muted/50 border-border"
+    )}>
+      {/* Next Blitz Header */}
+      {hasBlitzCommitment && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Plane className={cn("h-4 w-4", !isReady && isBlitzApproaching ? "text-destructive" : "text-primary")} />
+            <span className="font-medium text-sm">{closestBlitz.name}</span>
           </div>
-          <div>
-            <p className={`text-sm font-medium ${hasIpad ? 'text-muted-foreground' : 'text-amber-700 dark:text-amber-400'}`}>
-              {hasIpad ? 'iPad Assigned' : 'No iPad Assigned'}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {hasIpad ? 'Ready for the field' : 'Needs iPad before blitz'}
-            </p>
+          <Badge variant={isReady ? "secondary" : isBlitzApproaching ? "destructive" : "secondary"} className="text-xs">
+            {formatDaysUntilBlitz(closestBlitz.daysUntil)}
+          </Badge>
+        </div>
+      )}
+      
+      {/* Readiness Checklist */}
+      <div className="flex flex-wrap gap-2">
+        <div className={cn(
+          "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full",
+          hasIpad ? "bg-green-500/10 text-green-700 dark:text-green-400" : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+        )}>
+          {hasIpad ? <Check className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+          <span>iPad</span>
+        </div>
+        <div className={cn(
+          "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full",
+          isRampComplete ? "bg-green-500/10 text-green-700 dark:text-green-400" : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+        )}>
+          {isRampComplete ? <Check className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+          <span>Phase {currentPhase}/4</span>
+        </div>
+      </div>
+      
+      {/* Actions row */}
+      {!isReady && (
+        <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Tablet className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">iPad</span>
+            </div>
+            <Switch
+              checked={hasIpad}
+              onCheckedChange={handleToggleIpad}
+            />
           </div>
         </div>
-        <Switch
-          checked={hasIpad}
-          onCheckedChange={handleToggle}
-        />
-      </div>
+      )}
     </div>
   );
 };
 
-// Blitz Management Section
-const BlitzManagementSection = ({ 
+// Blitz Commitments Section (Collapsed)
+const BlitzCommitmentsSection = ({ 
   recruit, 
   recruitRepData, 
   queryClient 
@@ -498,7 +591,7 @@ const BlitzManagementSection = ({
     staleTime: 30000,
   });
   
-  // Fetch committed blitzes from recruit_blitzes table (fallback for recruits without rep record)
+  // Fetch committed blitzes from recruit_blitzes table
   const { data: recruitBlitzesData = [] } = useQuery({
     queryKey: ['recruit-blitzes-commitments', recruit?.id],
     queryFn: async () => {
@@ -512,12 +605,11 @@ const BlitzManagementSection = ({
       return data.map(d => d.blitz_id);
     },
     enabled: !!recruit?.id,
-    staleTime: 5000, // Lower stale time for faster UI sync
+    staleTime: 5000,
   });
   
-  // Extract committed blitz data - prioritize reps table, then recruit_blitzes, then legacy Notion data
+  // Extract committed blitz data
   const committedBlitzData = useMemo(() => {
-    // Priority 1: reps.committed_blitzes (for recruits with rep record)
     const rawFromSupabase = recruitRepData?.committed_blitzes;
     if (rawFromSupabase && Array.isArray(rawFromSupabase) && rawFromSupabase.length > 0) {
       const ids: string[] = [];
@@ -533,12 +625,10 @@ const BlitzManagementSection = ({
       return { ids, names };
     }
     
-    // Priority 2: recruit_blitzes table (for recruits WITHOUT rep record - like Weston)
     if (recruitBlitzesData.length > 0) {
       return { ids: recruitBlitzesData, names: [] as string[] };
     }
     
-    // Priority 3: Legacy Notion data
     const rawFromNotion = recruit?.committedBlitzes;
     if (!rawFromNotion || !Array.isArray(rawFromNotion)) return { ids: [] as string[], names: [] as string[] };
     
@@ -555,16 +645,13 @@ const BlitzManagementSection = ({
     return { ids, names };
   }, [recruitRepData?.committed_blitzes, recruitBlitzesData, recruit?.committedBlitzes]);
   
-  // Helper to check if a blitz is committed (by ID or name match)
   const isBlitzCommitted = useCallback((blitz: { id: string; name: string }) => {
     return committedBlitzData.ids.includes(blitz.id) || 
            committedBlitzData.names.includes(blitz.name.toLowerCase().trim());
   }, [committedBlitzData]);
   
-  // For backward compatibility, keep committedBlitzIds for the update function
   const committedBlitzIds = committedBlitzData.ids;
   
-  const now = new Date();
   const pastBlitzes = useMemo(() => {
     return allPastBlitzes.filter(blitz => isBlitzCommitted(blitz));
   }, [allPastBlitzes, isBlitzCommitted]);
@@ -581,12 +668,9 @@ const BlitzManagementSection = ({
       ? committedBlitzIds.filter(id => id !== blitzId)
       : [...committedBlitzIds, blitzId];
     
-    // Optimistic update for reps table data
     queryClient.setQueryData(['recruit-rep-data', recruit.id, recruit.email, recruit.name], (old: any) => 
       old ? { ...old, committed_blitzes: newCommittedBlitzIds } : old
     );
-    
-    // Optimistic update for recruit_blitzes table (for recruits without rep record)
     queryClient.setQueryData(['recruit-blitzes-commitments', recruit.id], newCommittedBlitzIds);
     
     try {
@@ -606,12 +690,10 @@ const BlitzManagementSection = ({
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.id, recruit.email, recruit.name] });
       queryClient.invalidateQueries({ queryKey: ['recruit-blitzes-commitments', recruit.id] });
-      // Clear declined status if committing
       if (!isCurrentlyCommitted) {
         queryClient.invalidateQueries({ queryKey: ['recruit-declined-blitzes', recruit.id] });
       }
     } catch (error) {
-      // Rollback both optimistic updates
       queryClient.setQueryData(['recruit-rep-data', recruit.id, recruit.email, recruit.name], (old: any) => 
         old ? { ...old, committed_blitzes: committedBlitzIds } : old
       );
@@ -629,17 +711,7 @@ const BlitzManagementSection = ({
     const parts: string[] = [];
     if (committedFutureCount > 0) parts.push(`${committedFutureCount} upcoming`);
     if (pastBlitzes.length > 0) parts.push(`${pastBlitzes.length} attended`);
-    if (declinedFutureCount > 0) {
-      // Show the actual blitz name(s) that were declined
-      const declinedBlitzNames = futureBlitzes
-        .filter(b => declinedBlitzIds.includes(b.id) && !isBlitzCommitted(b))
-        .map(b => b.name);
-      if (declinedBlitzNames.length === 1) {
-        parts.push(`declined ${declinedBlitzNames[0]}`);
-      } else {
-        parts.push(`${declinedFutureCount} declined`);
-      }
-    }
+    if (declinedFutureCount > 0) parts.push(`${declinedFutureCount} declined`);
     return parts.join(' · ');
   };
   
@@ -651,10 +723,10 @@ const BlitzManagementSection = ({
         <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Plane className="h-5 w-5 text-primary" />
+              <History className="h-5 w-5 text-primary" />
             </div>
             <div className="text-left">
-              <p className="text-sm font-medium">Blitz Commitments</p>
+              <p className="text-sm font-medium">Blitz History</p>
               <p className="text-xs text-muted-foreground">{getSummaryText()}</p>
             </div>
           </div>
@@ -771,103 +843,5 @@ const BlitzManagementSection = ({
         </div>
       </CollapsibleContent>
     </Collapsible>
-  );
-};
-
-// Blitz Readiness Warnings
-const BlitzReadinessWarnings = ({ 
-  recruit, 
-  recruitRepData 
-}: { 
-  recruit: Recruit;
-  recruitRepData: RecruitRepData | null;
-}) => {
-  const { allBlitzes } = useBlitzes();
-  
-  // Calculate closest upcoming blitz from committed blitzes
-  const closestBlitz = useMemo(() => {
-    if (!recruitRepData?.committed_blitzes || !allBlitzes.length) return null;
-    
-    const committedIds = (recruitRepData.committed_blitzes as (string | { id: string })[])
-      .map(b => typeof b === 'string' ? b : (b as { id: string })?.id);
-    
-    if (committedIds.length === 0) return null;
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const committedUpcoming = allBlitzes
-      .filter(blitz => committedIds.includes(blitz.id))
-      .filter(blitz => {
-        if (!blitz.date) return false;
-        const blitzDate = parseDateAsLocal(blitz.date);
-        return blitzDate && blitzDate >= today;
-      })
-      .sort((a, b) => {
-        const dateA = parseDateAsLocal(a.date);
-        const dateB = parseDateAsLocal(b.date);
-        return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
-      });
-    
-    if (committedUpcoming.length === 0) return null;
-    
-    const closest = committedUpcoming[0];
-    const blitzDate = parseDateAsLocal(closest.date);
-    if (!blitzDate) return null;
-    
-    const diffTime = blitzDate.getTime() - today.getTime();
-    const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    return { name: closest.name, daysUntil };
-  }, [recruitRepData?.committed_blitzes, allBlitzes]);
-  
-  if (!recruitRepData) return null;
-  
-  // Vets and Sophomores don't need ramp-to-blitz, so skip ramp warnings for them
-  const isRookie = recruitRepData.year === 'Rookie' || !recruitRepData.year;
-  
-  // Check if recruit is in a stage where iPad matters (Signed+, excluding exit stages)
-  const stageLower = (recruit.stage || '').toLowerCase();
-  const earlyStages = ['100_list', '100 list', 'evaluating', 'reached_out', 'reached out'];
-  const exitStages = ['not interested', 'potential follow up', 'signed but not interested'];
-  const isEarlyStage = earlyStages.some(s => stageLower.includes(s));
-  const isExitStage = exitStages.some(s => stageLower.includes(s));
-  const isSignedOrBeyond = !isEarlyStage && !isExitStage;
-  
-  const committedBlitzes = recruitRepData.committed_blitzes as string[] | null;
-  const hasBlitzCommitment = committedBlitzes && committedBlitzes.length > 0;
-  const daysToBlitz = closestBlitz?.daysUntil ?? null;
-  const isBlitzApproaching = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 21;
-  
-  const isRampComplete = recruitRepData.ramp_phase_4_complete === true;
-  const isOnboardingComplete = recruitRepData.onboarding_complete === true;
-  const hasIpad = recruitRepData.ipad_assigned === true;
-  
-  // Only show warnings for Signed+ stages
-  const showIpadWarning = isSignedOrBeyond && !hasIpad && isRookie; // Only rookies need iPad tracking
-  const showOnboardingWarning = isSignedOrBeyond && !isOnboardingComplete && isRookie; // Only rookies need onboarding
-  const showRampWarning = isSignedOrBeyond && !isRampComplete && isRookie; // Only rookies need ramp-to-blitz
-  
-  const hasReadinessIssues = hasBlitzCommitment && isBlitzApproaching && (showRampWarning || showOnboardingWarning || showIpadWarning);
-  
-  if (!hasReadinessIssues) return null;
-  
-  const issues: string[] = [];
-  if (showOnboardingWarning) issues.push('Onboarding incomplete');
-  if (showRampWarning) issues.push('Ramp to Blitz incomplete');
-  if (showIpadWarning) issues.push('No iPad assigned');
-  
-  return (
-    <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4">
-      <div className="flex items-center gap-2 text-sm font-medium text-destructive mb-2">
-        <AlertTriangle className="h-4 w-4" />
-        Blitz {formatDaysUntilBlitz(daysToBlitz)} - Not Ready
-      </div>
-      <ul className="text-xs text-destructive/80 space-y-1 ml-6">
-        {issues.map((issue, i) => (
-          <li key={i}>• {issue}</li>
-        ))}
-      </ul>
-    </div>
   );
 };
