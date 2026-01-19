@@ -154,6 +154,7 @@ export const RescheduleActivityDrawer = ({
               onMentionsChange={setTaskMentions}
               placeholder="e.g., Call to discuss blitz dates, Follow up on signing paperwork..."
               rows={3}
+              recruitId={recruit?.id}
             />
           </div>
 

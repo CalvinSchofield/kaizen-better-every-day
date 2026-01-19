@@ -373,6 +373,7 @@ export const PostContactDrawer = ({
                 }
                 rows={3}
                 autoFocus={!isCall}
+                recruitId={recruit?.id}
               />
             </div>
           )}
@@ -510,6 +511,7 @@ export const PostContactDrawer = ({
                           : "Call to discuss blitz dates... (type @ to mention)"
                       }
                       rows={3}
+                      recruitId={recruit?.id}
                     />
                   </div>
 

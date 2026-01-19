@@ -27,13 +27,55 @@ interface MentionInputProps {
   className?: string;
   autoFocus?: boolean;
   rows?: number;
+  /** Optional recruit ID to filter mentions to upline/downline users who can see this recruit */
+  recruitId?: string;
 }
 
-// Hook to get mentionable users (team members)
-export const useMentionableUsers = () => {
+// Hook to get mentionable users - filtered by recruit context if recruitId provided
+export const useMentionableUsers = (recruitId?: string) => {
   return useQuery({
-    queryKey: ['mentionable-users'],
+    queryKey: ['mentionable-users', recruitId],
     queryFn: async () => {
+      // If recruitId provided, use the assignable users edge function for filtered list
+      if (recruitId) {
+        const { data, error } = await supabase.functions.invoke('fetch-assignable-users', {
+          body: { recruitId }
+        });
+        
+        if (error) {
+          console.error('Error fetching assignable users for mentions:', error);
+          // Fall back to all reps
+          const { data: reps, error: repsError } = await supabase
+            .from('reps')
+            .select('user_id, name, profile_photo_url')
+            .not('user_id', 'is', null)
+            .order('name');
+          if (repsError) throw repsError;
+          return (reps || []).filter(r => r.user_id) as MentionUser[];
+        }
+        
+        // Map assignable users to MentionUser format
+        const assignableUsers = data?.assignableUsers || [];
+        
+        // Also get the profile photos for these users
+        const userIds = assignableUsers.map((u: any) => u.userId).filter(Boolean);
+        if (userIds.length === 0) return [];
+        
+        const { data: reps } = await supabase
+          .from('reps')
+          .select('user_id, name, profile_photo_url')
+          .in('user_id', userIds);
+        
+        const photoMap = new Map((reps || []).map(r => [r.user_id, r.profile_photo_url]));
+        
+        return assignableUsers.map((u: any) => ({
+          user_id: u.userId,
+          name: u.name,
+          profile_photo_url: photoMap.get(u.userId) || null,
+        })) as MentionUser[];
+      }
+      
+      // Default: fetch all reps
       const { data, error } = await supabase
         .from('reps')
         .select('user_id, name, profile_photo_url')
@@ -80,6 +122,7 @@ export const MentionInput = ({
   className,
   autoFocus = false,
   rows = 2,
+  recruitId,
 }: MentionInputProps) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionQuery, setSuggestionQuery] = useState("");
@@ -89,7 +132,7 @@ export const MentionInput = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  const { data: users = [] } = useMentionableUsers();
+  const { data: users = [] } = useMentionableUsers(recruitId);
   const { userId: currentUserId } = useCurrentUserId();
   
   // Filter users based on query - exclude current user

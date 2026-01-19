@@ -218,6 +218,7 @@ export const CommentInput = ({ activityId, onCommentAdded, commenterName, recrui
         placeholder="Add a comment... (use @ to mention)"
         className="h-9 text-sm"
         autoFocus
+        recruitId={recruitId}
       />
       <Button
         type="submit"

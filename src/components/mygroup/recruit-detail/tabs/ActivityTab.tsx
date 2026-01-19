@@ -77,8 +77,14 @@ export const ActivityTab = ({
   // Real-time subscriptions for reactions/comments - called as a proper hook
   useActivitySocialRealtime(activityIds);
   
-  // Handle activity tap - open comments drawer
+  // Handle activity tap - for scheduled activities use the action sheet, otherwise open comments
   const handleActivityTap = (activity: RecruitActivity) => {
+    // For scheduled activities (next_step type), use the parent's action sheet handler
+    if (activity.activity_type === 'next_step') {
+      onActivityClick(activity);
+      return;
+    }
+    // For other activities, open the comments drawer
     setSelectedActivityForComments(activity);
     setIsCommentsDrawerOpen(true);
   };

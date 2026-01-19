@@ -5,7 +5,6 @@ import { format, addDays, getDay, startOfDay } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Textarea } from "@/components/ui/textarea";
 import { 
   Drawer, 
   DrawerContent, 
@@ -18,6 +17,7 @@ import { Recruit, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useAssignableUsers, AssignableUser } from "@/hooks/useAssignableUsers";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { MentionInput } from "./recruit-detail/MentionInput";
 
 interface ScheduleFollowUpDrawerProps {
   open: boolean;
@@ -40,6 +40,7 @@ export const ScheduleFollowUpDrawer = ({
 }: ScheduleFollowUpDrawerProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(addDays(new Date(), 1));
   const [notes, setNotes] = useState('');
+  const [notesMentions, setNotesMentions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<AssignableUser | null>(null);
   const [showAssigneePopover, setShowAssigneePopover] = useState(false);
@@ -95,6 +96,7 @@ export const ScheduleFollowUpDrawer = ({
       onOpenChange(false);
       onComplete?.();
       setNotes('');
+      setNotesMentions([]);
       setSelectedDate(addDays(new Date(), 1));
       setSelectedAssignee(null);
     } catch (error) {
@@ -122,12 +124,13 @@ export const ScheduleFollowUpDrawer = ({
             <label className="text-sm font-medium mb-2 block">
               What's the next step?
             </label>
-            <Textarea
+            <MentionInput
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g., Call to discuss blitz dates, Follow up on signing paperwork..."
-              className="resize-none"
+              onChange={setNotes}
+              onMentionsChange={setNotesMentions}
+              placeholder="e.g., Call to discuss blitz dates... (type @ to mention)"
               rows={3}
+              recruitId={recruit?.id}
             />
           </div>
 
