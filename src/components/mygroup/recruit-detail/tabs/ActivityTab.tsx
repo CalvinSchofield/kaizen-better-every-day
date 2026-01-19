@@ -375,6 +375,12 @@ export const ActivityTab = ({
                     // Check if this is a substantive note (50+ chars)
                     const hasSubstantiveNote = isSubstantiveNote(activity.notes);
                     
+                    // Check if this is logged by the current user
+                    const isOwnActivity = activity.logged_by_user_id === currentUserId;
+                    
+                    // Substantive highlight: only show yellow if BOTH substantive AND unread (from someone else)
+                    const showSubstantiveHighlight = hasSubstantiveNote && !isOwnActivity && isNewActivity(activity);
+                    
                     return (
                       <button
                         key={activity.id}
@@ -385,7 +391,7 @@ export const ActivityTab = ({
                             ? 'bg-destructive/5 hover:bg-destructive/10 border border-destructive/20'
                             : isScheduledPending
                             ? 'bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/20'
-                            : hasSubstantiveNote
+                            : showSubstantiveHighlight
                             ? 'bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/30'
                             : 'bg-muted/50 hover:bg-muted'
                         }`}
@@ -404,8 +410,8 @@ export const ActivityTab = ({
                                 }`}>
                                   {isScheduledCompleted ? 'Completed' : isOverdue ? 'Overdue' : getActivityLabel(activity.activity_type, activity.notes)}
                                 </span>
-                                {/* Substantive note indicator */}
-                                {hasSubstantiveNote && !isScheduledActivity && (
+                                {/* Substantive note indicator - only for unread substantive notes */}
+                                {showSubstantiveHighlight && !isScheduledActivity && (
                                   <Sparkles className="h-3 w-3 text-amber-500" />
                                 )}
                                 {/* New indicator for activities from other users */}
@@ -457,14 +463,16 @@ export const ActivityTab = ({
                             </div>
                           )}
                           
-                          {/* Social features - reactions and comment count */}
-                          <ActivitySocialBar
-                            activityId={activity.id}
-                            reactions={reactions}
-                            commentCounts={commentCounts}
-                            loggedByUserId={activity.logged_by_user_id}
-                            isSubstantive={hasSubstantiveNote}
-                          />
+                          {/* Social features - reactions and comment count (hide for own activities) */}
+                          {!isOwnActivity && (
+                            <ActivitySocialBar
+                              activityId={activity.id}
+                              reactions={reactions}
+                              commentCounts={commentCounts}
+                              loggedByUserId={activity.logged_by_user_id}
+                              isSubstantive={showSubstantiveHighlight}
+                            />
+                          )}
                         </div>
                       </div>
                     </button>
