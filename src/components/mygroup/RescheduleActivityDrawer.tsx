@@ -25,6 +25,8 @@ interface RescheduleActivityDrawerProps {
   recruit: Recruit | null;
   activity: RecruitActivity | null;
   onComplete?: () => void;
+  /** If true, preserve existing date instead of resetting to next available day */
+  isEditMode?: boolean;
 }
 
 // Strip emojis from name
@@ -49,6 +51,7 @@ export const RescheduleActivityDrawer = ({
   recruit,
   activity,
   onComplete,
+  isEditMode = false,
 }: RescheduleActivityDrawerProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(getNextAvailableDay());
   const [taskText, setTaskText] = useState("");
@@ -63,11 +66,19 @@ export const RescheduleActivityDrawer = ({
     recruitTeamLeader: recruit?.teamName,
   });
 
-  // Reset form when activity changes
+  // Reset form when activity changes - prioritize notes over next_action for full context
   useEffect(() => {
     if (activity && open) {
-      setTaskText(activity.next_action || activity.notes || "Follow-up");
-      setSelectedDate(getNextAvailableDay());
+      // Prioritize notes (detailed text) over next_action (often generic like "Follow-up")
+      setTaskText(activity.notes || activity.next_action || "Follow-up");
+      
+      // In edit mode, preserve the existing date if available
+      if (isEditMode && activity.next_action_due) {
+        const [year, month, day] = activity.next_action_due.split('-').map(Number);
+        setSelectedDate(new Date(year, month - 1, day));
+      } else {
+        setSelectedDate(getNextAvailableDay());
+      }
       
       // Pre-select the existing assignee if there is one
       if (activity.assigned_to_user_id && assignableUsers.length > 0) {
@@ -77,7 +88,7 @@ export const RescheduleActivityDrawer = ({
         setSelectedAssignee(null);
       }
     }
-  }, [activity, open, assignableUsers]);
+  }, [activity, open, assignableUsers, isEditMode]);
 
   // Generate quick dates that skip Sunday
   const getQuickDates = () => {
@@ -138,7 +149,7 @@ export const RescheduleActivityDrawer = ({
       <DrawerContent>
         <DrawerHeader className="border-b">
           <DrawerTitle>
-            Reschedule for {stripEmojis(recruit.name)}
+            {isEditMode ? 'Edit Task' : 'Reschedule'} for {stripEmojis(recruit.name)}
           </DrawerTitle>
         </DrawerHeader>
         

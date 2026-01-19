@@ -124,6 +124,7 @@ export const RecruitDetailDrawer = ({
   const [scheduledActivityForAction, setScheduledActivityForAction] = useState<RecruitActivity | null>(null);
   const [rescheduleActivityDrawerOpen, setRescheduleActivityDrawerOpen] = useState(false);
   const [rescheduleActivity, setRescheduleActivity] = useState<RecruitActivity | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [pendingEmail, setPendingEmail] = useState('');
   const [isSavingEmail, setIsSavingEmail] = useState(false);
 
@@ -875,9 +876,17 @@ export const RecruitDetailDrawer = ({
     });
   };
 
-  // Handler for rescheduling a scheduled activity - opens the full reschedule drawer
+  // Handler for editing a scheduled activity - opens the full drawer in edit mode (preserves date)
+  const handleEditActivity = (activity: RecruitActivity) => {
+    setRescheduleActivity(activity);
+    setIsEditMode(true);
+    setRescheduleActivityDrawerOpen(true);
+  };
+
+  // Handler for rescheduling a scheduled activity - opens the drawer focused on picking a new date
   const handleRescheduleActivity = (activity: RecruitActivity) => {
     setRescheduleActivity(activity);
+    setIsEditMode(false);
     setRescheduleActivityDrawerOpen(true);
   };
 
@@ -1422,6 +1431,7 @@ export const RecruitDetailDrawer = ({
           if (!open) setScheduledActivityForAction(null);
         }}
         onMarkComplete={handleMarkScheduledComplete}
+        onEdit={handleEditActivity}
         onReschedule={handleRescheduleActivity}
         onDelete={handleDeleteScheduledActivity}
       />
@@ -1441,10 +1451,14 @@ export const RecruitDetailDrawer = ({
         open={rescheduleActivityDrawerOpen}
         onOpenChange={(open) => {
           setRescheduleActivityDrawerOpen(open);
-          if (!open) setRescheduleActivity(null);
+          if (!open) {
+            setRescheduleActivity(null);
+            setIsEditMode(false);
+          }
         }}
         recruit={recruit}
         activity={rescheduleActivity}
+        isEditMode={isEditMode}
         onComplete={() => {
           queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
           queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
