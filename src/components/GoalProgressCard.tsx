@@ -6,6 +6,7 @@ import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useFocusTier, FocusTier } from "@/hooks/useFocusTier";
 import { usePersonalBenchmarks } from "@/hooks/usePersonalBenchmarks";
 import { Target, Flame, Zap, Trophy, TrendingDown, Lightbulb, TrendingUp, Heart, Loader2 } from "lucide-react";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -41,11 +42,12 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { plannedDays } = usePlannedDays();
   const { repData } = useRepData();
+  const { userId } = useCurrentUserId();
   const today = getLocalToday();
   const todayStr = format(today, 'yyyy-MM-dd');
   
-  // Check sticky flag for safe-empty-state pattern
-  const stickySetupComplete = hasCompletedGoalsSetup(repData?.user_id);
+  // Check sticky flag for safe-empty-state pattern - use userId from hook for instant access
+  const stickySetupComplete = hasCompletedGoalsSetup(userId || repData?.user_id);
 
   // Find the latest finalized entry date - this is the "through date" for pace calculations
   // Finalization signals day complete, not the calendar date
