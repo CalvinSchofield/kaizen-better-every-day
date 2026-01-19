@@ -206,8 +206,9 @@ export const ActivityDigestView = ({
                 {activities.map((activity) => {
                   const isSubstantive = isSubstantiveNote(activity.notes);
                   const isScheduledActivity = activity.activity_type === 'next_step';
+                  // For scheduled activities, prefer showing notes (the actual content) over generic next_action
                   const mainText = isScheduledActivity 
-                    ? (activity.next_action || activity.notes)
+                    ? (activity.notes || activity.next_action)
                     : activity.notes;
                   const likeCount = (reactions[activity.id] || []).length;
                   const commentCount = commentCounts[activity.id] || 0;

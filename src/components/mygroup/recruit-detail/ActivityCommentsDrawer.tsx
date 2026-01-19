@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
-import { Heart, MessageCircle, X, Phone, PhoneCall, PhoneMissed, Users, MessageSquare, Calendar, CheckCircle2, AlertCircle, Pencil, Check } from "lucide-react";
+import { MessageCircle, X, Phone, PhoneCall, PhoneMissed, Users, MessageSquare, Calendar, CheckCircle2, AlertCircle, Pencil, Check } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -99,16 +99,13 @@ export const ActivityCommentsDrawer = ({
 
   const isCompleted = activity.assignment_status === 'completed' || !!activity.completed_at;
   const isScheduledActivity = activity.activity_type === 'next_step';
+  // For scheduled activities, prefer showing notes (the actual content) over generic next_action
   const mainText = isScheduledActivity 
-    ? (activity.next_action || activity.notes)
+    ? (activity.notes || activity.next_action)
     : activity.notes;
   
-  // Check if this is the current user's own activity
+  // Check if this is the current user's own activity (for edit permission)
   const isOwnActivity = activity.logged_by_user_id === currentUserId;
-  
-  // Get reaction count for display
-  const activityReactions = reactions[activity.id] || [];
-  const likeCount = activityReactions.filter((r: any) => r.reaction_type === 'like').length;
 
   // Handle edit start
   const handleStartEdit = () => {
@@ -249,16 +246,13 @@ export const ActivityCommentsDrawer = ({
               </div>
             )}
             
-            {/* Reactions Bar - Only show reaction button if NOT own activity */}
+            {/* Reactions Bar - Pass loggedByUserId to prevent self-liking */}
             <div className="flex items-center gap-4 pt-2 border-t">
-              {!isOwnActivity ? (
-                <ReactionButton activityId={activity.id} reactions={reactions} />
-              ) : (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Heart className={cn("h-3.5 w-3.5", likeCount > 0 && "fill-red-500 text-red-500")} />
-                  {likeCount > 0 && <span>{likeCount}</span>}
-                </div>
-              )}
+              <ReactionButton 
+                activityId={activity.id} 
+                reactions={reactions} 
+                loggedByUserId={activity.logged_by_user_id} 
+              />
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <MessageCircle className="h-3.5 w-3.5" />
                 <span>Comments</span>

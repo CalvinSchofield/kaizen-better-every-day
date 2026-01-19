@@ -359,10 +359,10 @@ export const ActivityTab = ({
                       activity.next_action !== activity.notes &&
                       !activity.notes?.includes(activity.next_action);
                     
-                    // For scheduled activities, prefer showing next_action as the main text
+                    // For scheduled activities, prefer showing notes (the actual content) over generic next_action
                     const isScheduledActivity = activity.activity_type === 'next_step';
                     const mainText = isScheduledActivity 
-                      ? (activity.next_action || activity.notes)
+                      ? (activity.notes || activity.next_action)
                       : activity.notes;
                     
                     // Check if scheduled activity is completed or overdue
