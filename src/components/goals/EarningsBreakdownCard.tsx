@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { DollarSign, TrendingUp, ChevronDown, Receipt, Home, Gift, PiggyBank, Pencil, Check, X } from 'lucide-react';
+import { DollarSign, TrendingUp, ChevronDown, Receipt, Home, Gift, PiggyBank, Pencil, Check, X, Target, Calendar } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
@@ -10,9 +10,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useRepGoals } from '@/hooks/useRepGoals';
 import { useRepData } from '@/hooks/useRepData';
 import { usePreseasonFP } from '@/hooks/usePreseasonFP';
+import { usePlannedDays } from '@/hooks/usePlannedDays';
 import { getTier, getRentCost } from '@/utils/payscaleCalculator';
 import { calculateUpfrontPay, calculateTotalPay } from '@/utils/roiCalculations';
 import { cn } from '@/lib/utils';
+import { differenceInDays, parseISO, isAfter, isBefore } from 'date-fns';
 
 interface Sale {
   prmr?: number;
@@ -25,6 +27,7 @@ interface Sale {
 // Season date constants
 const PRESEASON_START = '2025-09-28';
 const PRESEASON_END = '2026-04-11';
+const SUMMER_START = '2026-04-12';
 const EXTENSION_START = '2026-08-30';
 const SEASON_END = '2026-09-27';
 
@@ -32,13 +35,35 @@ export const EarningsBreakdownCard = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditingSpendingRate, setIsEditingSpendingRate] = useState(false);
   const [customRateInput, setCustomRateInput] = useState('');
+  const [showProjected, setShowProjected] = useState(true);
   
   const { goals, updateGoals } = useRepGoals();
   const { repData } = useRepData();
-  const { totalFP, fundedPRMR } = usePreseasonFP();
+  const { totalFP, fundedPRMR, knockingDays: preseasonKnockingDays } = usePreseasonFP();
+  const { plannedDays } = usePlannedDays();
   
   // Check if user has EFP mode enabled
   const efpModeEnabled = repData?.efp_mode_enabled ?? false;
+  
+  // Fetch user's season config for personal summer dates
+  const { data: seasonConfig } = useQuery({
+    queryKey: ['earnings-season-config', repData?.user_id],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      
+      const { data, error } = await supabase
+        .from('season_config')
+        .select('personal_summer_start, personal_summer_end')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (error) return null;
+      return data;
+    },
+    enabled: !!repData?.user_id,
+    staleTime: 30 * 60 * 1000,
+  });
   
   // Fetch all sales with spending data for the entire season
   const { data: salesData, isLoading } = useQuery({
@@ -49,7 +74,7 @@ export const EarningsBreakdownCard = () => {
       
       const { data: entries, error } = await supabase
         .from('daily_entries')
-        .select('sales_log, prmr, entry_date, is_finalized')
+        .select('sales_log, prmr, entry_date, is_finalized, doors_knocked, work_start_time, work_end_time')
         .eq('user_id', user.id)
         .eq('is_finalized', true)
         .gte('entry_date', PRESEASON_START)
@@ -59,14 +84,26 @@ export const EarningsBreakdownCard = () => {
       
       let totalSpent = 0;
       let totalPrmr = 0;
-      let preseasonSummerPrmr = 0; // Preseason + Summer main (before extension)
+      let preseasonPrmr = 0;
+      let summerMainPrmr = 0; // Summer before extension
       let extensionPrmr = 0;
       let dealsCount = 0;
       let dealsWithSpending = 0;
+      let totalKnockingDays = 0;
+      let summerKnockingDays = 0;
       
       entries?.forEach(entry => {
         const salesLog = entry.sales_log as Sale[] | null;
         const entryDate = entry.entry_date;
+        
+        // Count knocking days (doors >= 4, has start/end time)
+        const isKnockingDay = (entry.doors_knocked || 0) >= 4 && entry.work_start_time && entry.work_end_time;
+        if (isKnockingDay) {
+          totalKnockingDays++;
+          if (entryDate >= SUMMER_START) {
+            summerKnockingDays++;
+          }
+        }
         
         if (salesLog && Array.isArray(salesLog)) {
           salesLog.forEach(sale => {
@@ -84,8 +121,10 @@ export const EarningsBreakdownCard = () => {
             // Categorize by period
             if (entryDate >= EXTENSION_START) {
               extensionPrmr += prmr;
+            } else if (entryDate >= SUMMER_START) {
+              summerMainPrmr += prmr;
             } else {
-              preseasonSummerPrmr += prmr;
+              preseasonPrmr += prmr;
             }
           });
         }
@@ -94,17 +133,21 @@ export const EarningsBreakdownCard = () => {
       return {
         totalSpent,
         totalPrmr,
-        preseasonSummerPrmr,
+        preseasonPrmr,
+        summerMainPrmr,
         extensionPrmr,
+        preseasonSummerPrmr: preseasonPrmr + summerMainPrmr, // Non-extension PRMR
         dealsCount,
         dealsWithSpending,
+        totalKnockingDays,
+        summerKnockingDays,
       };
     },
     enabled: !!repData?.user_id,
     staleTime: 5 * 60 * 1000,
   });
   
-  // Calculate all earnings metrics
+  // Calculate all earnings metrics including projections
   const metrics = useMemo(() => {
     const totalPrmr = salesData?.totalPrmr || fundedPRMR || 0;
     const preseasonSummerPrmr = salesData?.preseasonSummerPrmr || totalPrmr;
@@ -112,8 +155,9 @@ export const EarningsBreakdownCard = () => {
     const totalSpent = salesData?.totalSpent || 0;
     const dealsCount = salesData?.dealsCount || 0;
     const dealsWithSpending = salesData?.dealsWithSpending || 0;
+    const totalKnockingDays = salesData?.totalKnockingDays || preseasonKnockingDays || 0;
     
-    if (totalPrmr === 0) return null;
+    if (totalPrmr === 0 && totalKnockingDays === 0) return null;
     
     // Get tier rate based on FP+
     const customPayLevel = goals?.custom_payscale_fp ?? null;
@@ -122,27 +166,75 @@ export const EarningsBreakdownCard = () => {
     const payRate = tier.rate;
     const rentBonus = tier.rentBonus || 0;
     
-    // Pay calculations
+    // Current earnings calculations
     const upfrontPay = calculateUpfrontPay(totalPrmr);
     const totalGrossPay = calculateTotalPay(totalPrmr, payRate);
     const totalBackend = totalGrossPay - upfrontPay;
     
-    // Backend split calculations
-    // Preseason + Summer Main backend (everything before extension)
+    // Backend split calculations for current earnings
     const preseasonSummerPay = preseasonSummerPrmr * payRate;
     const preseasonSummerUpfront = preseasonSummerPrmr * 4;
     const preseasonSummerBackend = Math.max(0, preseasonSummerPay - preseasonSummerUpfront);
     
-    // Extension backend (100% of extension period)
     const extensionPay = extensionPrmr * payRate;
     const extensionUpfront = extensionPrmr * 4;
     const extensionBackend = Math.max(0, extensionPay - extensionUpfront);
     
-    // Backend 1 = 70% of preseason + summer main backend
     const backend1 = preseasonSummerBackend * 0.70;
-    
-    // Backend 2 = 30% of preseason + summer main backend + 100% of extension backend
     const backend2 = (preseasonSummerBackend * 0.30) + extensionBackend;
+    
+    // === PROJECTION CALCULATIONS ===
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    
+    // Use personal summer dates if available
+    const personalSummerStart = seasonConfig?.personal_summer_start || SUMMER_START;
+    const personalSummerEnd = seasonConfig?.personal_summer_end || SEASON_END;
+    
+    // Calculate current pace (PRMR per knocking day)
+    const prmrPerDay = totalKnockingDays > 0 ? totalPrmr / totalKnockingDays : 0;
+    const fpPerDay = totalKnockingDays > 0 ? totalFP / totalKnockingDays : 0;
+    
+    // Calculate remaining planned days
+    const futurePlannedDays = plannedDays?.filter(d => d.planned_date > todayStr && d.planned_date <= personalSummerEnd) || [];
+    const remainingDays = futurePlannedDays.length;
+    
+    // Also count extension days from planned days
+    const extensionPlannedDays = futurePlannedDays.filter(d => d.planned_date >= EXTENSION_START).length;
+    const preExtensionPlannedDays = remainingDays - extensionPlannedDays;
+    
+    // Project future PRMR
+    const projectedAdditionalPrmr = prmrPerDay * remainingDays;
+    const projectedPreExtensionPrmr = prmrPerDay * preExtensionPlannedDays;
+    const projectedExtensionPrmr = prmrPerDay * extensionPlannedDays;
+    
+    // Project future FP+ for tier calculation
+    const projectedTotalFp = totalFP + (fpPerDay * remainingDays);
+    const projectedTier = getTier(projectedTotalFp);
+    const projectedPayRate = projectedTier.rate;
+    const projectedRentBonus = projectedTier.rentBonus || 0;
+    
+    // Project total PRMR
+    const projectedTotalPrmr = totalPrmr + projectedAdditionalPrmr;
+    
+    // Projected pay calculations
+    const projectedUpfrontPay = calculateUpfrontPay(projectedTotalPrmr);
+    const projectedTotalGrossPay = calculateTotalPay(projectedTotalPrmr, projectedPayRate);
+    
+    // Projected backend splits
+    const projectedPreseasonSummerPrmr = preseasonSummerPrmr + projectedPreExtensionPrmr;
+    const projectedExtensionPrmrTotal = extensionPrmr + projectedExtensionPrmr;
+    
+    const projectedPreseasonSummerPay = projectedPreseasonSummerPrmr * projectedPayRate;
+    const projectedPreseasonSummerUpfront = projectedPreseasonSummerPrmr * 4;
+    const projectedPreseasonSummerBackend = Math.max(0, projectedPreseasonSummerPay - projectedPreseasonSummerUpfront);
+    
+    const projectedExtensionPay = projectedExtensionPrmrTotal * projectedPayRate;
+    const projectedExtensionUpfront = projectedExtensionPrmrTotal * 4;
+    const projectedExtensionBackend = Math.max(0, projectedExtensionPay - projectedExtensionUpfront);
+    
+    const projectedBackend1 = projectedPreseasonSummerBackend * 0.70;
+    const projectedBackend2 = (projectedPreseasonSummerBackend * 0.30) + projectedExtensionBackend;
     
     // Deductions
     const rentType = goals?.rent_type || 'No Rent';
@@ -150,39 +242,55 @@ export const EarningsBreakdownCard = () => {
     const rentCost = getRentCost(rentType, weeksWorking);
     
     // Spending rate calculation
-    // Calculate spending per FP+ (or EFP based on mode)
-    const fpCount = efpModeEnabled ? totalFP : totalFP; // Both use same FP+ for now
+    const fpCount = totalFP;
     const calculatedSpendingRate = fpCount > 0 && totalSpent > 0 
       ? totalSpent / fpCount 
       : 0;
     
-    // Use custom rate if set, otherwise calculated rate
     const customRate = goals?.custom_spending_rate;
     const spendingRate = customRate ?? calculatedSpendingRate;
-    
-    // Data accuracy (what % of deals have spending tracked)
     const dataAccuracy = dealsCount > 0 ? (dealsWithSpending / dealsCount) * 100 : 0;
     
-    // Anticipated total spending (current spent + projected based on rate)
-    const anticipatedSpending = totalSpent;
+    // Anticipated spending (current + projected)
+    const projectedFp = totalFP + (fpPerDay * remainingDays);
+    const projectedSpending = spendingRate * projectedFp;
     
     // Net calculations
-    const netPay = totalGrossPay - rentCost + rentBonus - anticipatedSpending;
+    const netPay = totalGrossPay - rentCost + rentBonus - totalSpent;
+    const projectedNetPay = projectedTotalGrossPay - rentCost + projectedRentBonus - projectedSpending;
     
     return {
-      // Pay breakdown
+      // Current pay breakdown
       upfrontPay,
       backend1,
       backend2,
       totalBackend,
       totalGrossPay,
       
+      // Projected pay breakdown
+      projectedUpfrontPay,
+      projectedBackend1,
+      projectedBackend2,
+      projectedTotalGrossPay,
+      projectedNetPay,
+      projectedTotalPrmr,
+      projectedPayRate,
+      projectedTotalFp,
+      
+      // Pace info
+      prmrPerDay,
+      fpPerDay,
+      remainingDays,
+      totalKnockingDays,
+      
       // Deductions
       rentCost,
       rentBonus,
+      projectedRentBonus,
       rentType,
       weeksWorking,
-      anticipatedSpending,
+      anticipatedSpending: totalSpent,
+      projectedSpending,
       
       // Spending rate
       spendingRate,
@@ -202,7 +310,7 @@ export const EarningsBreakdownCard = () => {
       fpCount,
       dealsCount,
     };
-  }, [salesData, fundedPRMR, totalFP, goals, efpModeEnabled]);
+  }, [salesData, fundedPRMR, totalFP, goals, efpModeEnabled, seasonConfig, plannedDays, preseasonKnockingDays]);
   
   const handleSaveCustomRate = useCallback(() => {
     const rate = parseFloat(customRateInput);
@@ -254,7 +362,7 @@ export const EarningsBreakdownCard = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-muted-foreground">
-                    Net: <span className="text-foreground font-bold">{formatCurrency(metrics.netPay)}</span>
+                    {showProjected ? 'Projected' : 'Current'}: <span className="text-foreground font-bold">{formatCurrency(showProjected ? metrics.projectedNetPay : metrics.netPay)}</span>
                   </span>
                   <ChevronDown className={cn(
                     "w-4 h-4 text-muted-foreground transition-transform duration-200",
@@ -275,10 +383,50 @@ export const EarningsBreakdownCard = () => {
                   transition={{ duration: 0.2 }}
                 >
                   <CardContent className="pt-0 px-4 pb-4 space-y-4">
+                    {/* View Toggle */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setShowProjected(false); }}
+                        className={cn(
+                          "flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all",
+                          !showProjected 
+                            ? "bg-primary text-primary-foreground" 
+                            : "bg-muted/50 text-muted-foreground"
+                        )}
+                      >
+                        Current
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setShowProjected(true); }}
+                        className={cn(
+                          "flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all",
+                          showProjected 
+                            ? "bg-primary text-primary-foreground" 
+                            : "bg-muted/50 text-muted-foreground"
+                        )}
+                      >
+                        Projected
+                      </button>
+                    </div>
+                    
+                    {/* Pace Banner (shown in projected mode) */}
+                    {showProjected && metrics.remainingDays > 0 && (
+                      <div className="rounded-xl bg-primary/10 p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">Based on current pace</span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-bold">${metrics.prmrPerDay.toFixed(0)}/day</div>
+                          <div className="text-[10px] text-muted-foreground">{metrics.remainingDays} days left</div>
+                        </div>
+                      </div>
+                    )}
+                    
                     {/* Pay Timeline Section */}
                     <div className="space-y-2">
                       <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Pay Timeline
+                        Pay Timeline {showProjected && '(Projected)'}
                       </div>
                       <div className="rounded-xl bg-muted/30 p-3 space-y-2">
                         <div className="flex justify-between items-center">
@@ -286,28 +434,36 @@ export const EarningsBreakdownCard = () => {
                             <span className="text-lg">💰</span>
                             <span className="text-sm">Upfront Pay (×4)</span>
                           </div>
-                          <span className="font-semibold">{formatCurrency(metrics.upfrontPay)}</span>
+                          <span className="font-semibold">
+                            {formatCurrency(showProjected ? metrics.projectedUpfrontPay : metrics.upfrontPay)}
+                          </span>
                         </div>
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
                             <span className="text-lg">📅</span>
                             <span className="text-sm">Backend 1 (70%)</span>
                           </div>
-                          <span className="font-semibold">{formatCurrency(metrics.backend1)}</span>
+                          <span className="font-semibold">
+                            {formatCurrency(showProjected ? metrics.projectedBackend1 : metrics.backend1)}
+                          </span>
                         </div>
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
                             <span className="text-lg">📅</span>
                             <span className="text-sm">Backend 2 (30% + Ext)</span>
                           </div>
-                          <span className="font-semibold">{formatCurrency(metrics.backend2)}</span>
+                          <span className="font-semibold">
+                            {formatCurrency(showProjected ? metrics.projectedBackend2 : metrics.backend2)}
+                          </span>
                         </div>
                         <div className="border-t border-border/50 pt-2 flex justify-between items-center">
                           <div className="flex items-center gap-2">
                             <TrendingUp className="w-4 h-4 text-success" />
                             <span className="text-sm font-medium">Gross Total</span>
                           </div>
-                          <span className="font-bold text-success">{formatCurrency(metrics.totalGrossPay)}</span>
+                          <span className="font-bold text-success">
+                            {formatCurrency(showProjected ? metrics.projectedTotalGrossPay : metrics.totalGrossPay)}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -329,20 +485,22 @@ export const EarningsBreakdownCard = () => {
                             <span className="font-semibold text-destructive">-{formatCurrency(metrics.rentCost)}</span>
                           </div>
                         )}
-                        {metrics.rentBonus > 0 && (
+                        {(showProjected ? metrics.projectedRentBonus : metrics.rentBonus) > 0 && (
                           <div className="flex justify-between items-center">
                             <div className="flex items-center gap-2">
                               <Gift className="w-4 h-4 text-success" />
                               <span className="text-sm">Rent Bonus</span>
                             </div>
-                            <span className="font-semibold text-success">+{formatCurrency(metrics.rentBonus)}</span>
+                            <span className="font-semibold text-success">
+                              +{formatCurrency(showProjected ? metrics.projectedRentBonus : metrics.rentBonus)}
+                            </span>
                           </div>
                         )}
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
                             <Receipt className="w-4 h-4 text-muted-foreground" />
                             <div className="flex flex-col">
-                              <span className="text-sm">Spending</span>
+                              <span className="text-sm">Spending {showProjected && '(Est.)'}</span>
                               {!isEditingSpendingRate && (
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); handleStartEdit(); }}
@@ -358,7 +516,9 @@ export const EarningsBreakdownCard = () => {
                               )}
                             </div>
                           </div>
-                          <span className="font-semibold text-destructive">-{formatCurrency(metrics.anticipatedSpending)}</span>
+                          <span className="font-semibold text-destructive">
+                            -{formatCurrency(showProjected ? metrics.projectedSpending : metrics.anticipatedSpending)}
+                          </span>
                         </div>
                         
                         {/* Custom rate editor */}
@@ -393,7 +553,9 @@ export const EarningsBreakdownCard = () => {
                             <PiggyBank className="w-4 h-4 text-success" />
                             <span className="text-sm font-medium">Net Total Pay</span>
                           </div>
-                          <span className="font-bold text-success">{formatCurrency(metrics.netPay)}</span>
+                          <span className="font-bold text-success">
+                            {formatCurrency(showProjected ? metrics.projectedNetPay : metrics.netPay)}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -401,18 +563,33 @@ export const EarningsBreakdownCard = () => {
                     {/* Summary Stats */}
                     <div className="grid grid-cols-3 gap-2">
                       <div className="p-2 rounded-lg bg-muted/50 text-center">
-                        <div className="text-lg font-bold">${metrics.payRate}</div>
+                        <div className="text-lg font-bold">${showProjected ? metrics.projectedPayRate : metrics.payRate}</div>
                         <div className="text-[10px] text-muted-foreground">/PRMR Rate</div>
                       </div>
                       <div className="p-2 rounded-lg bg-muted/50 text-center">
-                        <div className="text-lg font-bold">{metrics.dealsCount}</div>
-                        <div className="text-[10px] text-muted-foreground">Deals</div>
+                        <div className="text-lg font-bold">{metrics.totalKnockingDays}</div>
+                        <div className="text-[10px] text-muted-foreground">Days Worked</div>
                       </div>
                       <div className="p-2 rounded-lg bg-muted/50 text-center">
-                        <div className="text-lg font-bold">${metrics.totalPrmr.toLocaleString()}</div>
+                        <div className="text-lg font-bold">
+                          ${(showProjected ? metrics.projectedTotalPrmr : metrics.totalPrmr).toLocaleString()}
+                        </div>
                         <div className="text-[10px] text-muted-foreground">Total PRMR</div>
                       </div>
                     </div>
+                    
+                    {/* Tier Upgrade Indicator (projected mode) */}
+                    {showProjected && metrics.projectedPayRate > metrics.payRate && (
+                      <div className="rounded-xl bg-success/10 p-3 flex items-center gap-3">
+                        <TrendingUp className="w-5 h-5 text-success" />
+                        <div>
+                          <div className="text-sm font-medium text-success">Tier Upgrade Projected!</div>
+                          <div className="text-xs text-muted-foreground">
+                            ${metrics.payRate} → ${metrics.projectedPayRate}/PRMR at {Math.round(metrics.projectedTotalFp)} FP+
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </motion.div>
               </CollapsibleContent>
