@@ -1323,6 +1323,7 @@ export type Database = {
           cancel_rate: number | null
           could_do_fp_goal: number | null
           created_at: string | null
+          custom_fp_pace: number | null
           custom_payscale_fp: number | null
           custom_spending_rate: number | null
           focus_tier: string | null
@@ -1372,6 +1373,7 @@ export type Database = {
           cancel_rate?: number | null
           could_do_fp_goal?: number | null
           created_at?: string | null
+          custom_fp_pace?: number | null
           custom_payscale_fp?: number | null
           custom_spending_rate?: number | null
           focus_tier?: string | null
@@ -1421,6 +1423,7 @@ export type Database = {
           cancel_rate?: number | null
           could_do_fp_goal?: number | null
           created_at?: string | null
+          custom_fp_pace?: number | null
           custom_payscale_fp?: number | null
           custom_spending_rate?: number | null
           focus_tier?: string | null

@@ -58,6 +58,8 @@ export interface RepGoals {
   custom_payscale_fp: number | null;
   // Custom spending rate per EFP/FP+ for earnings calculations
   custom_spending_rate: number | null;
+  // Custom projected EFP/FP+ pace per day for earnings projections
+  custom_fp_pace: number | null;
   // Focus tier for summer goals (mustDo, willDo, couldDo)
   focus_tier: string | null;
   // Purpose statement - the "why" behind their goals
