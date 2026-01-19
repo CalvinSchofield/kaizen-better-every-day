@@ -16,7 +16,7 @@ import { CommitmentChips } from "@/components/goals/CommitmentChips";
 import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
 import { CalendarPlanningCard } from "@/components/goals/CalendarPlanningCard";
 import { CanceledStatsCard } from "@/components/goals/CanceledStatsCard";
-import { SpendingROICard } from "@/components/goals/SpendingROICard";
+import { EarningsBreakdownCard } from "@/components/goals/EarningsBreakdownCard";
 import { TrainingTimer } from "@/components/goals/TrainingTimer";
 import { BooksCompletionDrawer } from "@/components/goals/BooksSelectionDrawer";
 import { CommitmentEditorDrawer } from "@/components/goals/CommitmentEditorDrawer";
@@ -994,9 +994,9 @@ const Goals = () => {
           </Collapsible>
         </motion.div>
 
-        {/* Spending & ROI Card - only shows if user has spending data */}
+        {/* Earnings Breakdown Card - collapsible, defaults to closed */}
         <div className="px-4 pb-4">
-          <SpendingROICard />
+          <EarningsBreakdownCard />
         </div>
 
         {/* Canceled Stats */}
