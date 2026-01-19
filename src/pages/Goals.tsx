@@ -679,16 +679,13 @@ const Goals = () => {
     }
   };
 
-  // Loading state - show skeleton while repData OR goals are loading
-  // This prevents the wizard from flashing before data is ready
-  // isFetching catches the case where we have stale initialData but are still fetching fresh data
-  const isDataLoading = repDataInitializing || repDataLoading || isLoading || !repData;
+  // Loading state - only show skeleton if we have NO cached data at all
+  // If we have cached goals (even if stale), show them instantly - Monarch-style instant load
+  const hasGoalsData = !!goals;
+  const isDataLoading = repDataInitializing || repDataLoading || !repData;
   
-  // Also wait for goals fetch to complete if we don't have setup_complete yet
-  // This prevents flashing the setup wizard while data is being fetched
-  const isWaitingForGoals = isFetching && !goals?.setup_complete;
-  
-  if (isDataLoading || isWaitingForGoals) {
+  // Only show loading if we're missing essential data AND don't have cached goals
+  if (isDataLoading && !hasGoalsData) {
     return (
       <Layout>
         <div className="p-4 space-y-6">
