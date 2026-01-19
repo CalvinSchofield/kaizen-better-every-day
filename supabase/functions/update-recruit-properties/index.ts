@@ -40,6 +40,7 @@ serve(async (req) => {
       name,
       phone,
       email,
+      year,
       stage,
       location,
       recruitmentSource,
@@ -64,6 +65,7 @@ serve(async (req) => {
     if (name !== undefined) recruitsUpdates.name = name;
     if (phone !== undefined) recruitsUpdates.phone = phone;
     if (email !== undefined) recruitsUpdates.email = email;
+    if (year !== undefined) recruitsUpdates.year = year || null;
     if (stage !== undefined) recruitsUpdates.stage = stage;
     if (location !== undefined) {
       recruitsUpdates.location = Array.isArray(location) ? location.join(', ') : location;
@@ -96,6 +98,7 @@ serve(async (req) => {
     if (name !== undefined) repsUpdates.name = name;
     if (phone !== undefined) repsUpdates.phone = phone;
     if (email !== undefined) repsUpdates.email = email;
+    if (year !== undefined) repsUpdates.year = year || null;
     if (stage !== undefined) repsUpdates.stage = stage;
 
     if (Object.keys(repsUpdates).length > 0) {

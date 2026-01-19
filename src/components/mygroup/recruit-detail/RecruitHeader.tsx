@@ -1,15 +1,17 @@
 import { differenceInDays, parseISO } from "date-fns";
-import { Users, Clock, AlertTriangle } from "lucide-react";
+import { Users, Clock, AlertTriangle, Sprout } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { getFirstName, stripEmojis } from "./utils";
+import { RecruitRepData } from "./types";
 
 interface RecruitHeaderProps {
   recruit: Recruit;
   isLeaderOfLeaders: boolean;
+  recruitRepData?: RecruitRepData | null;
 }
 
-export const RecruitHeader = ({ recruit, isLeaderOfLeaders }: RecruitHeaderProps) => {
+export const RecruitHeader = ({ recruit, isLeaderOfLeaders, recruitRepData }: RecruitHeaderProps) => {
   const isStale = recruit.lastContact 
     ? differenceInDays(new Date(), parseISO(recruit.lastContact)) >= 7 
     : true;
@@ -17,6 +19,9 @@ export const RecruitHeader = ({ recruit, isLeaderOfLeaders }: RecruitHeaderProps
   const daysSinceContact = recruit.lastContact 
     ? differenceInDays(new Date(), parseISO(recruit.lastContact))
     : null;
+
+  // Get year from rep data or recruit (cast to any since recruits may not have year typed yet)
+  const year = recruitRepData?.year || (recruit as any).year;
 
   // Get stage color
   const getStageColor = () => {
@@ -31,14 +36,39 @@ export const RecruitHeader = ({ recruit, isLeaderOfLeaders }: RecruitHeaderProps
     return 'bg-muted-foreground';
   };
 
+  // Get year display
+  const getYearBadge = () => {
+    if (!year) return null;
+    if (year === 'Rookie' || year === '2025' || year === '2026') {
+      return { label: 'Rookie', icon: <Sprout className="h-3 w-3" />, variant: 'secondary' as const };
+    }
+    if (year === 'Sophomore') {
+      return { label: 'Soph', variant: 'outline' as const };
+    }
+    if (year === 'Vet') {
+      return { label: 'Vet', variant: 'outline' as const };
+    }
+    return null;
+  };
+
+  const yearBadge = getYearBadge();
+
   return (
     <div className="space-y-3">
       {/* Name and Stage */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className="text-xl font-bold truncate">
-            {stripEmojis(recruit.name)}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold truncate">
+              {stripEmojis(recruit.name)}
+            </h2>
+            {yearBadge && (
+              <Badge variant={yearBadge.variant} className="text-xs shrink-0 gap-1">
+                {yearBadge.icon}
+                {yearBadge.label}
+              </Badge>
+            )}
+          </div>
           {/* Team and Recruiter context for leaders of leaders */}
           {isLeaderOfLeaders && (
             <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">

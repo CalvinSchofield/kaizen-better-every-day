@@ -82,6 +82,7 @@ export const EditRecruitDrawer = ({
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [year, setYear] = useState('');
   const [stage, setStage] = useState('');
   const [location, setLocation] = useState('');
   const [recruitmentSource, setRecruitmentSource] = useState('');
@@ -307,6 +308,7 @@ export const EditRecruitDrawer = ({
       setName(recruitDetails.name || '');
       setPhone(recruitDetails.phone ? formatPhoneNumber(recruitDetails.phone.replace(/^\+1/, '')) : '');
       setEmail(recruitDetails.email || '');
+      setYear(recruitDetails.year || '');
       setStage(recruitDetails.stage || '');
       setLocation(recruitDetails.location || '');
       setRecruitmentSource(recruitDetails.recruitment_source || '');
@@ -338,6 +340,7 @@ export const EditRecruitDrawer = ({
       setName(recruit.name || '');
       setPhone(recruit.phone ? formatPhoneNumber(recruit.phone.replace(/^\+1/, '')) : '');
       setEmail(recruit.email || '');
+      setYear((recruit as any).year || '');
       setStage(recruit.stage || '');
       setLocation(recruit.location || '');
       setRecruitmentSource(recruit.recruitmentSource || '');
@@ -409,6 +412,7 @@ export const EditRecruitDrawer = ({
       name: name.trim(),
       phone: cleanPhone ? `+1${cleanPhone}` : '',
       email: email.trim(),
+      year: year || null,
       stage,
       location,
       recruitmentSource,
@@ -495,10 +499,26 @@ export const EditRecruitDrawer = ({
             />
           </div>
 
+          {/* Year */}
+          <div>
+            <Label>Year</Label>
+            <Select value={year || "__none__"} onValueChange={(v) => setYear(v === "__none__" ? "" : v)}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Select year" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Not set</SelectItem>
+                <SelectItem value="Rookie">Rookie (2025/2026)</SelectItem>
+                <SelectItem value="Sophomore">Sophomore</SelectItem>
+                <SelectItem value="Vet">Vet</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Stage */}
           <div>
             <Label>Stage</Label>
-            <Select value={stage} onValueChange={setStage}>
+            <Select value={stage || "__none__"} onValueChange={(v) => setStage(v === "__none__" ? "" : v)}>
               <SelectTrigger className="mt-1">
                 <SelectValue placeholder="Select stage" />
               </SelectTrigger>
