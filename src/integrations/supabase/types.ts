@@ -1324,6 +1324,7 @@ export type Database = {
           could_do_fp_goal: number | null
           created_at: string | null
           custom_payscale_fp: number | null
+          custom_spending_rate: number | null
           focus_tier: string | null
           id: string
           last_training_date: string | null
@@ -1372,6 +1373,7 @@ export type Database = {
           could_do_fp_goal?: number | null
           created_at?: string | null
           custom_payscale_fp?: number | null
+          custom_spending_rate?: number | null
           focus_tier?: string | null
           id?: string
           last_training_date?: string | null
@@ -1420,6 +1422,7 @@ export type Database = {
           could_do_fp_goal?: number | null
           created_at?: string | null
           custom_payscale_fp?: number | null
+          custom_spending_rate?: number | null
           focus_tier?: string | null
           id?: string
           last_training_date?: string | null

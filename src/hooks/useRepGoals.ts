@@ -56,6 +56,8 @@ export interface RepGoals {
   weekly_roleplay_logs: Record<string, number> | null;
   // Custom payscale FP level for ROI calculations
   custom_payscale_fp: number | null;
+  // Custom spending rate per EFP/FP+ for earnings calculations
+  custom_spending_rate: number | null;
   // Focus tier for summer goals (mustDo, willDo, couldDo)
   focus_tier: string | null;
   // Purpose statement - the "why" behind their goals
