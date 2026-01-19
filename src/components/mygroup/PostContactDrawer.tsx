@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { MentionInput } from "./recruit-detail/MentionInput";
 import { format, addDays, getDay, startOfDay } from "date-fns";
 
 interface PostContactDrawerProps {
@@ -64,6 +65,7 @@ export const PostContactDrawer = ({
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
   const [quickDateOption, setQuickDateOption] = useState<QuickDateOption | null>(null);
   const [scheduleNotes, setScheduleNotes] = useState('');
+  const [scheduleMentions, setScheduleMentions] = useState<string[]>([]);
   const [scheduleAssignee, setScheduleAssignee] = useState<string | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showAssigneePopover, setShowAssigneePopover] = useState(false);
@@ -84,6 +86,7 @@ export const PostContactDrawer = ({
       setScheduleDate(undefined);
       setQuickDateOption(null);
       setScheduleNotes('');
+      setScheduleMentions([]);
       setScheduleAssignee(null);
       setShowCalendar(false);
     }
@@ -258,6 +261,7 @@ export const PostContactDrawer = ({
       setScheduleDate(undefined);
       setQuickDateOption(null);
       setScheduleNotes('');
+      setScheduleMentions([]);
       setScheduleAssignee(null);
       onOpenChange(false);
       onComplete?.(wasConnected);
@@ -277,6 +281,7 @@ export const PostContactDrawer = ({
     setScheduleDate(undefined);
     setQuickDateOption(null);
     setScheduleNotes('');
+    setScheduleMentions([]);
     setScheduleAssignee(null);
     onOpenChange(false);
   };
@@ -488,21 +493,21 @@ export const PostContactDrawer = ({
                     )}
                   </div>
 
-                  {/* Task description */}
+                  {/* Task description with @mention support */}
                   <div>
                     <label className="text-sm font-medium mb-2 block text-muted-foreground">
                       What's the next step?
                     </label>
-                    <Textarea
+                    <MentionInput
                       value={scheduleNotes}
-                      onChange={(e) => setScheduleNotes(e.target.value)}
+                      onChange={setScheduleNotes}
+                      onMentionsChange={setScheduleMentions}
                       placeholder={
                         outcome === 'no_answer' 
-                          ? "Try calling again..." 
-                          : "Call to discuss blitz dates..."
+                          ? "Try calling again... (type @ to mention)" 
+                          : "Call to discuss blitz dates... (type @ to mention)"
                       }
-                      className="resize-none"
-                      rows={2}
+                      rows={3}
                     />
                   </div>
 

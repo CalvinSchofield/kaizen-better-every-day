@@ -26,6 +26,7 @@ interface MentionInputProps {
   placeholder?: string;
   className?: string;
   autoFocus?: boolean;
+  rows?: number;
 }
 
 // Hook to get mentionable users (team members)
@@ -78,13 +79,14 @@ export const MentionInput = ({
   placeholder = "Add a comment...",
   className,
   autoFocus = false,
+  rows = 2,
 }: MentionInputProps) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionQuery, setSuggestionQuery] = useState("");
   const [cursorPosition, setCursorPosition] = useState(0);
   const [confirmedMentions, setConfirmedMentions] = useState<ConfirmedMention[]>([]);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
   const { data: users = [] } = useMentionableUsers();
@@ -138,8 +140,8 @@ export const MentionInput = ({
     onMentionsChange(updatedMentions.map(m => m.userId));
   }, [onMentionsChange]);
   
-  // Check for @ trigger
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Check for @ trigger - works with textarea
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     const cursor = e.target.selectionStart || 0;
     
@@ -155,13 +157,15 @@ export const MentionInput = ({
     
     if (atIndex !== -1) {
       const textAfterAt = textBeforeCursor.slice(atIndex + 1);
+      // Check if there's a newline between @ and cursor
+      const hasNewline = textAfterAt.includes('\n');
       // Check if this @ is already a confirmed mention
       const isConfirmed = confirmedMentions.some(m => 
         m.startIndex === atIndex && newValue.slice(atIndex, m.endIndex) === `@${m.name}`
       );
       
-      if (!isConfirmed && !textAfterAt.includes(' ')) {
-        // Only trigger if not confirmed and no space yet
+      if (!isConfirmed && !textAfterAt.includes(' ') && !hasNewline) {
+        // Only trigger if not confirmed, no space, and no newline
         setSuggestionQuery(textAfterAt);
         setShowSuggestions(true);
       } else {
@@ -172,8 +176,8 @@ export const MentionInput = ({
     }
   };
   
-  // Handle keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  // Handle keyboard navigation - for both desktop and mobile
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (!showSuggestions || filteredUsers.length === 0) return;
     
     if (e.key === 'ArrowDown') {
@@ -228,7 +232,7 @@ export const MentionInput = ({
     
     // Focus back and set cursor position after the mention
     setTimeout(() => {
-      inputRef.current?.focus();
+      textareaRef.current?.focus();
     }, 0);
   }, [value, cursorPosition, confirmedMentions, onChange, onMentionsChange]);
   
@@ -290,26 +294,27 @@ export const MentionInput = ({
       {/* Highlight overlay - shows blue text for confirmed mentions */}
       {confirmedMentions.length > 0 && (
         <div 
-          className="absolute inset-0 pointer-events-none px-3 py-2 text-sm whitespace-pre overflow-hidden"
+          className="absolute inset-0 pointer-events-none px-3 py-2 text-sm whitespace-pre-wrap overflow-hidden break-words"
           style={{ 
             paddingTop: '9px',
-            lineHeight: '1.25rem',
+            lineHeight: '1.5rem',
           }}
         >
           {renderHighlightedText}
         </div>
       )}
       
-      {/* Actual input - transparent text when mention is confirmed */}
-      <input
-        ref={inputRef}
+      {/* Textarea for mobile-first multiline support */}
+      <textarea
+        ref={textareaRef}
         value={value}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         autoFocus={autoFocus}
+        rows={rows}
         className={cn(
-          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+          "flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none",
           confirmedMentions.length > 0 && "caret-foreground",
           className
         )}
@@ -322,7 +327,7 @@ export const MentionInput = ({
       
       {/* Show confirmed mentions count badge */}
       {confirmedMentions.length > 0 && (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-medium">
+        <div className="absolute right-2 top-2 flex items-center gap-1 bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-medium">
           <span>@{confirmedMentions.length}</span>
         </div>
       )}
