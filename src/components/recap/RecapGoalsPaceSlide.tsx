@@ -71,6 +71,14 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
   const { efpModeEnabled } = useEfpMode();
   const [showLearningCurve, setShowLearningCurve] = useState(false);
   
+  // Ensure dateRange dates are Date objects (may be serialized strings from cache)
+  const dateRangeStart = stats.dateRange.start instanceof Date 
+    ? stats.dateRange.start 
+    : new Date(stats.dateRange.start);
+  const dateRangeEnd = stats.dateRange.end instanceof Date 
+    ? stats.dateRange.end 
+    : new Date(stats.dateRange.end);
+  
   const isRookie = repData?.year === 'Rookie' || repData?.year === '1st Year';
   
   // Fetch user's personal summer dates and season config
@@ -91,12 +99,12 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
   
   // Fetch cumulative progress up to and during this period, plus planned days for pace calculation
   const { data: progressData, isLoading: progressLoading } = useQuery({
-    queryKey: ['cumulative-progress-recap', repData?.user_id, stats.dateRange.start.toISOString(), stats.dateRange.end.toISOString()],
+    queryKey: ['cumulative-progress-recap', repData?.user_id, dateRangeStart.toISOString(), dateRangeEnd.toISOString()],
     queryFn: async () => {
       if (!repData?.user_id) return null;
       
-      const startStr = format(stats.dateRange.start, 'yyyy-MM-dd');
-      const endStr = format(stats.dateRange.end, 'yyyy-MM-dd');
+      const startStr = format(dateRangeStart, 'yyyy-MM-dd');
+      const endStr = format(dateRangeEnd, 'yyyy-MM-dd');
       
       // Get entries before this period for starting cumulative
       const { data: beforeEntries } = await supabase
@@ -161,8 +169,8 @@ export function RecapGoalsPaceSlide({ stats }: RecapGoalsPaceSlideProps) {
     const personalSummerEnd = seasonConfig.personal_summer_end;
     
     const today = new Date();
-    const periodStart = stats.dateRange.start;
-    const periodEnd = stats.dateRange.end;
+    const periodStart = dateRangeStart;
+    const periodEnd = dateRangeEnd;
     const todayStr = format(today, 'yyyy-MM-dd');
     const periodEndStr = format(periodEnd, 'yyyy-MM-dd');
     
