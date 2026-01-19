@@ -51,6 +51,8 @@ interface RecruitDetailDrawerProps {
   onOpenChange: (open: boolean) => void;
   /** Called when recruit is moved to an exit stage (Not Interested, Signed but Not Interested) */
   onExitStage?: (recruitNotionId: string) => void;
+  /** Optional initial tab to open to (overrides default tab logic) */
+  initialTab?: TabType;
 }
 
 export const RecruitDetailDrawer = ({ 
@@ -58,7 +60,8 @@ export const RecruitDetailDrawer = ({
   activities: initialActivities, 
   open, 
   onOpenChange,
-  onExitStage 
+  onExitStage,
+  initialTab,
 }: RecruitDetailDrawerProps) => {
   // Determine default tab based on year and progress/stage
   const isRookie = recruitProp?.year === 'Rookie' || recruitProp?.year === '2025' || recruitProp?.year === '2026';
@@ -75,10 +78,11 @@ export const RecruitDetailDrawer = ({
   // Reset tab when drawer opens with a different recruit
   useEffect(() => {
     if (open && recruitProp) {
-      const newDefault: TabType = shouldDefaultToActivity ? 'activity' : 'progress';
-      setActiveTab(newDefault);
+      // Use initialTab if provided, otherwise use calculated default
+      const newTab: TabType = initialTab || (shouldDefaultToActivity ? 'activity' : 'progress');
+      setActiveTab(newTab);
     }
-  }, [open, recruitProp?.id, shouldDefaultToActivity]);
+  }, [open, recruitProp?.id, shouldDefaultToActivity, initialTab]);
   
   // Dialog states
   const [logActivityOpen, setLogActivityOpen] = useState(false);

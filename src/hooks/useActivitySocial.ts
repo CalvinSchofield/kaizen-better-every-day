@@ -454,3 +454,151 @@ export const useActivitySocialRealtime = (activityIds: string[]) => {
     };
   }, [activityIds, queryClient]);
 };
+
+// Extended activity type for digest view
+export interface UnreadActivity {
+  id: string;
+  recruit_id: string;
+  recruit_name: string;
+  activity_type: string;
+  notes: string | null;
+  next_action: string | null;
+  next_action_due: string | null;
+  created_at: string;
+  logged_by_user_id: string;
+  logger_name?: string;
+  logger_photo?: string | null;
+  assigned_to_user_id: string | null;
+  assignment_status: string | null;
+  completed_at: string | null;
+}
+
+// Hook to fetch all unread activities across all recruits
+export const useAllUnreadActivities = (recruitIds: string[]) => {
+  const { userId } = useCurrentUserId();
+  
+  return useQuery({
+    queryKey: ['all-unread-activities', recruitIds.join(','), userId],
+    queryFn: async () => {
+      if (!userId || recruitIds.length === 0) return [];
+      
+      // 1. Get all read statuses for current user
+      const { data: readStatuses } = await supabase
+        .from('recruit_activity_read_status')
+        .select('recruit_id, last_seen_at')
+        .eq('user_id', userId)
+        .in('recruit_id', recruitIds);
+      
+      // Create a map of recruit_id -> last_seen_at
+      const readStatusMap = new Map<string, Date>();
+      readStatuses?.forEach(rs => {
+        readStatusMap.set(rs.recruit_id, new Date(rs.last_seen_at));
+      });
+      
+      // 2. Get all activities from all recruits (limit to recent ones)
+      const { data: activities, error } = await supabase
+        .from('recruit_activities')
+        .select(`
+          id,
+          recruit_id,
+          activity_type,
+          notes,
+          next_action,
+          next_action_due,
+          created_at,
+          logged_by_user_id,
+          assigned_to_user_id,
+          assignment_status,
+          completed_at
+        `)
+        .in('recruit_id', recruitIds)
+        .neq('logged_by_user_id', userId) // Exclude own activities
+        .order('created_at', { ascending: false })
+        .limit(200);
+      
+      if (error) throw error;
+      if (!activities) return [];
+      
+      // 3. Filter to unread only (created after last_seen_at)
+      const unreadActivities = activities.filter(activity => {
+        const lastSeenAt = readStatusMap.get(activity.recruit_id) || new Date(0);
+        return new Date(activity.created_at) > lastSeenAt;
+      });
+      
+      // 4. Get recruit names
+      const recruitIdsToFetch = [...new Set(unreadActivities.map(a => a.recruit_id))];
+      const { data: recruits } = await supabase
+        .from('recruits')
+        .select('id, name')
+        .in('id', recruitIdsToFetch);
+      
+      const recruitMap = new Map(recruits?.map(r => [r.id, r.name]) || []);
+      
+      // 5. Get logger info
+      const loggerIds = [...new Set(unreadActivities.map(a => a.logged_by_user_id))];
+      const { data: loggers } = await supabase
+        .from('reps')
+        .select('user_id, name, profile_photo_url')
+        .in('user_id', loggerIds);
+      
+      const loggerMap = new Map(loggers?.map(l => [l.user_id, l]) || []);
+      
+      // 6. Combine all data
+      return unreadActivities.map(activity => ({
+        ...activity,
+        recruit_name: recruitMap.get(activity.recruit_id) || 'Unknown',
+        logger_name: loggerMap.get(activity.logged_by_user_id)?.name,
+        logger_photo: loggerMap.get(activity.logged_by_user_id)?.profile_photo_url,
+      })) as UnreadActivity[];
+    },
+    enabled: !!userId && recruitIds.length > 0,
+    staleTime: 30 * 1000,
+  });
+};
+
+// Hook to mark all activities as read for multiple recruits
+export const useMarkAllActivitiesRead = () => {
+  const queryClient = useQueryClient();
+  const { userId } = useCurrentUserId();
+  
+  return useMutation({
+    mutationFn: async (recruitIds: string[]) => {
+      if (!userId || recruitIds.length === 0) return;
+      
+      const now = new Date().toISOString();
+      
+      // Upsert read status for all recruits
+      const records = recruitIds.map(recruitId => ({
+        recruit_id: recruitId,
+        user_id: userId,
+        last_seen_at: now,
+      }));
+      
+      const { error } = await supabase
+        .from('recruit_activity_read_status')
+        .upsert(records, {
+          onConflict: 'recruit_id,user_id',
+        });
+      
+      if (error) throw error;
+    },
+    onMutate: () => {
+      hapticMedium();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['activity-read-status'] });
+      queryClient.invalidateQueries({ queryKey: ['all-unread-activities'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-activity-counts'] });
+      toast.success('All marked as read');
+    },
+    onError: () => {
+      toast.error('Failed to mark as read');
+    },
+  });
+};
+
+// Hook to get total unread count across all recruits
+export const useTotalUnreadCount = (recruitIds: string[]) => {
+  const { data: unreadActivities } = useAllUnreadActivities(recruitIds);
+  return unreadActivities?.length || 0;
+};
