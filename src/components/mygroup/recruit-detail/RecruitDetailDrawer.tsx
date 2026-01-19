@@ -67,8 +67,8 @@ export const RecruitDetailDrawer = ({
   const hasAllPhasesComplete = recruitProp?.phase4Complete === true;
   const isBlitzReady = recruitProp?.blitzReady === true;
   
-  // Default to 'activity' for: vets, sold recruits, or rookies with all phases complete/blitz ready
-  const shouldDefaultToActivity = isVet || hasSold || hasAllPhasesComplete || isBlitzReady;
+  // Default to 'activity' for: vets/sophs (no progress tab), sold recruits, or rookies with all phases complete/blitz ready
+  const shouldDefaultToActivity = !isRookie || isVet || hasSold || hasAllPhasesComplete || isBlitzReady;
   const defaultTab: TabType = shouldDefaultToActivity ? 'activity' : 'progress';
   const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
   
@@ -948,11 +948,16 @@ export const RecruitDetailDrawer = ({
             
             {/* Tabbed Content */}
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)} className="mt-4">
-              <TabsList className="w-full grid grid-cols-3">
-                <TabsTrigger value="progress" className="text-xs gap-1">
-                  <TrendingUp className="h-3.5 w-3.5" />
-                  Progress
-                </TabsTrigger>
+              <TabsList className={cn(
+                "w-full grid",
+                isRookie ? "grid-cols-3" : "grid-cols-2"
+              )}>
+                {isRookie && (
+                  <TabsTrigger value="progress" className="text-xs gap-1">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    Progress
+                  </TabsTrigger>
+                )}
                 <TabsTrigger value="activity" className="text-xs gap-1">
                   <Clock className="h-3.5 w-3.5" />
                   Activity
@@ -963,20 +968,23 @@ export const RecruitDetailDrawer = ({
                 </TabsTrigger>
               </TabsList>
               
-              <TabsContent value="progress" className="mt-4">
-                <ProgressTab 
-                  recruit={recruit}
-                  recruitRepData={recruitRepData || null}
-                  recruitGoals={recruitGoals || null}
-                  recruitYtdFP={recruitYtdFP}
-                  summerConfig={recruitSummerConfig}
-                  summerEntries={recruitSummerEntries}
-                  onOnboardingStepClick={handleOnboardingStepClick}
-                />
-              </TabsContent>
+              {isRookie && (
+                <TabsContent value="progress" className="mt-4">
+                  <ProgressTab 
+                    recruit={recruit}
+                    recruitRepData={recruitRepData || null}
+                    recruitGoals={recruitGoals || null}
+                    recruitYtdFP={recruitYtdFP}
+                    summerConfig={recruitSummerConfig}
+                    summerEntries={recruitSummerEntries}
+                    onOnboardingStepClick={handleOnboardingStepClick}
+                  />
+                </TabsContent>
+              )}
               
               <TabsContent value="activity" className="mt-4">
                 <ActivityTab 
+                  recruitId={recruit.id}
                   activities={activities}
                   onLogActivity={handleLogActivity}
                   onScheduleFollowUp={handleScheduleFollowUp}

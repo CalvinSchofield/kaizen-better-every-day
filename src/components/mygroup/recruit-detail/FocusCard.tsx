@@ -93,7 +93,8 @@ export const FocusCard = ({
     const isBlitzApproaching = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 21;
     const isBlitzImminent = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 7;
     
-    const isRookie = recruitRepData.year === 'Rookie' || !recruitRepData.year;
+    const isRookie = recruitRepData.year === 'Rookie' || recruitRepData.year === '2025' || recruitRepData.year === '2026' || !recruitRepData.year;
+    const isSophOrVet = !isRookie;
     
     // If any ramp phase is complete, onboarding is done (can't start ramp without completing onboarding)
     const hasAnyRampProgress = recruitRepData.ramp_phase_1_complete || 
@@ -120,6 +121,51 @@ export const FocusCard = ({
     const daysSinceContact = recruit.lastContact 
       ? differenceInDays(now, parseISO(recruit.lastContact))
       : null;
+    
+    // ========== SOPHS & VETS: Always show goal progress ==========
+    
+    if (isSophOrVet && isSignedOrBeyond) {
+      // Check if they have a preseason goal
+      const hasPreseasonGoal = recruitGoals?.preseason_fp_goal && recruitGoals.preseason_fp_goal > 0;
+      
+      if (hasPreseasonGoal) {
+        issues.push({
+          priority: 50,
+          type: 'low',
+          icon: 'target',
+          title: `Goal Progress`,
+          description: `${recruitFirstName} is working toward their preseason goal`,
+          actionTab: 'details'
+        });
+      } else {
+        issues.push({
+          priority: 55,
+          type: 'medium',
+          icon: 'target',
+          title: `No preseason goal set`,
+          description: `Help ${recruitFirstName} set a goal to track progress`,
+          actionLabel: 'View Details',
+          actionTab: 'details'
+        });
+      }
+      
+      // Still check for stale contact for sophs/vets
+      if (daysSinceContact && daysSinceContact >= 14) {
+        issues.push({
+          priority: 60,
+          type: 'medium',
+          icon: 'clock',
+          title: `${daysSinceContact} days since last contact`,
+          description: `Time to check in with ${recruitFirstName}`,
+          actionLabel: 'View Activity',
+          actionTab: 'activity'
+        });
+      }
+      
+      // Sort by priority and return highest
+      issues.sort((a, b) => b.priority - a.priority);
+      return issues[0] || null;
+    }
     
     // ========== EARLY STAGE: Focus on moving toward Signed ==========
     
