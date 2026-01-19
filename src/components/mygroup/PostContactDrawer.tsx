@@ -57,6 +57,7 @@ export const PostContactDrawer = ({
   
   const [outcome, setOutcome] = useState<'connected' | 'no_answer' | null>(null);
   const [notes, setNotes] = useState('');
+  const [notesMentions, setNotesMentions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [markTaskComplete, setMarkTaskComplete] = useState(true);
   
@@ -81,6 +82,7 @@ export const PostContactDrawer = ({
     if (open) {
       setOutcome(null);
       setNotes('');
+      setNotesMentions([]);
       setMarkTaskComplete(true);
       setShowScheduling(false);
       setScheduleDate(undefined);
@@ -356,19 +358,19 @@ export const PostContactDrawer = ({
                     : 'Add notes (optional)'
                 }
               </label>
-              <Textarea
+              <MentionInput
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={setNotes}
+                onMentionsChange={setNotesMentions}
                 placeholder={
                   isCall && outcome === 'connected' 
-                    ? "Quick notes about your conversation..." 
+                    ? "Quick notes... (type @ to mention)" 
                     : isCall
-                      ? "Left voicemail, will try again..."
+                      ? "Left voicemail... (type @ to mention)"
                       : method === 'text'
-                        ? "What did you text about?"
-                        : "What did you discuss?"
+                        ? "What did you text about? (type @ to mention)"
+                        : "What did you discuss? (type @ to mention)"
                 }
-                className="resize-none"
                 rows={3}
                 autoFocus={!isCall}
               />
