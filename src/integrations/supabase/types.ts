@@ -14,6 +14,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_comment_mentions: {
+        Row: {
+          comment_id: string
+          created_at: string
+          id: string
+          mentioned_user_id: string
+          notified_at: string | null
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          id?: string
+          mentioned_user_id: string
+          notified_at?: string | null
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          id?: string
+          mentioned_user_id?: string
+          notified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_comment_mentions_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "recruit_activity_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_dismissed_issues: {
         Row: {
           admin_user_id: string

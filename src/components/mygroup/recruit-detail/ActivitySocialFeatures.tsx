@@ -174,10 +174,13 @@ export const CommentsList = ({ activityId }: CommentsListProps) => {
 interface CommentInputProps {
   activityId: string;
   onCommentAdded?: () => void;
+  commenterName?: string;
+  recruitName?: string;
 }
 
-export const CommentInput = ({ activityId, onCommentAdded }: CommentInputProps) => {
+export const CommentInput = ({ activityId, onCommentAdded, commenterName, recruitName }: CommentInputProps) => {
   const [content, setContent] = useState('');
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const addComment = useAddComment();
   
   const handleSubmit = (e: React.FormEvent) => {
@@ -185,10 +188,17 @@ export const CommentInput = ({ activityId, onCommentAdded }: CommentInputProps) 
     if (!content.trim()) return;
     
     addComment.mutate(
-      { activityId, content: content.trim() },
+      { 
+        activityId, 
+        content: content.trim(),
+        mentionedUserIds,
+        commenterName,
+        recruitName,
+      },
       {
         onSuccess: () => {
           setContent('');
+          setMentionedUserIds([]);
           onCommentAdded?.();
         },
       }
@@ -197,12 +207,21 @@ export const CommentInput = ({ activityId, onCommentAdded }: CommentInputProps) 
   
   return (
     <form onSubmit={handleSubmit} className="flex gap-2">
-      <Input
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="Add a comment..."
-        className="flex-1 h-9 text-sm"
-      />
+      <div className="flex-1 relative">
+        <Input
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Add a comment... (use @ to mention)"
+          className="h-9 text-sm pr-2"
+        />
+        {mentionedUserIds.length > 0 && (
+          <div className="absolute right-2 top-1/2 -translate-y-1/2">
+            <span className="text-[10px] text-primary font-medium">
+              @{mentionedUserIds.length}
+            </span>
+          </div>
+        )}
+      </div>
       <Button
         type="submit"
         size="sm"

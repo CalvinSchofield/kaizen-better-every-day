@@ -155,7 +155,7 @@ export const useActivityComments = (activityId: string | null) => {
   });
 };
 
-// Hook to add a comment
+// Hook to add a comment with optional mentions
 export const useAddComment = () => {
   const queryClient = useQueryClient();
   const { userId } = useCurrentUserId();
@@ -163,13 +163,20 @@ export const useAddComment = () => {
   return useMutation({
     mutationFn: async ({ 
       activityId, 
-      content 
+      content,
+      mentionedUserIds = [],
+      commenterName,
+      recruitName,
     }: { 
       activityId: string; 
       content: string;
+      mentionedUserIds?: string[];
+      commenterName?: string;
+      recruitName?: string;
     }) => {
       if (!userId) throw new Error('Not authenticated');
       
+      // Insert the comment
       const { data, error } = await supabase
         .from('recruit_activity_comments')
         .insert({
@@ -181,6 +188,37 @@ export const useAddComment = () => {
         .single();
       
       if (error) throw error;
+      
+      // If there are mentions, store them and send notifications
+      if (mentionedUserIds.length > 0 && data) {
+        // Store mentions
+        const mentionRecords = mentionedUserIds.map(mentionedUserId => ({
+          comment_id: data.id,
+          mentioned_user_id: mentionedUserId,
+        }));
+        
+        await supabase
+          .from('activity_comment_mentions')
+          .insert(mentionRecords);
+        
+        // Send notification via edge function
+        try {
+          await supabase.functions.invoke('send-mention-notification', {
+            body: {
+              mentionedUserIds,
+              commenterId: userId,
+              commenterName: commenterName || 'Someone',
+              recruitName,
+              activityId,
+              commentContent: content.trim(),
+            },
+          });
+        } catch (notifyError) {
+          console.error('Failed to send mention notifications:', notifyError);
+          // Don't fail the comment if notification fails
+        }
+      }
+      
       return data;
     },
     onMutate: () => {
@@ -192,6 +230,55 @@ export const useAddComment = () => {
     },
     onError: () => {
       toast.error('Failed to add comment');
+    },
+  });
+};
+
+// Hook to update activity notes (only own activities)
+export const useUpdateActivityNotes = () => {
+  const queryClient = useQueryClient();
+  const { userId } = useCurrentUserId();
+  
+  return useMutation({
+    mutationFn: async ({ 
+      activityId, 
+      notes 
+    }: { 
+      activityId: string; 
+      notes: string;
+    }) => {
+      if (!userId) throw new Error('Not authenticated');
+      
+      // First verify the user owns this activity
+      const { data: activity, error: fetchError } = await supabase
+        .from('recruit_activities')
+        .select('logged_by_user_id')
+        .eq('id', activityId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      if (activity.logged_by_user_id !== userId) {
+        throw new Error('You can only edit your own activities');
+      }
+      
+      // Update the notes
+      const { error } = await supabase
+        .from('recruit_activities')
+        .update({ notes: notes.trim() })
+        .eq('id', activityId);
+      
+      if (error) throw error;
+    },
+    onMutate: () => {
+      hapticMedium();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      toast.success('Activity updated');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update activity');
     },
   });
 };
