@@ -34,21 +34,21 @@ export const PayTimelineChart = ({
   const timelineItems = [
     {
       label: 'Upfront (×4)',
-      subLabel: '~2 wks post-install',
+      subLabel: 'Paid weekly as installs happen',
       value: upfrontPay,
       color: 'bg-success',
       delay: 0,
     },
     {
       label: 'Backend 1 (70%)',
-      subLabel: 'Mid-season payout',
+      subLabel: 'Late October 2026',
       value: backend1,
       color: 'bg-primary',
       delay: 0.1,
     },
     {
       label: 'Backend 2 (30%+Ext)',
-      subLabel: 'End of season',
+      subLabel: 'Late January 2027',
       value: backend2,
       color: 'bg-primary/70',
       delay: 0.2,
