@@ -21,9 +21,10 @@ import { cn } from "@/lib/utils";
 interface ReactionButtonProps {
   activityId: string;
   reactions: Record<string, any[]>;
+  loggedByUserId?: string; // Add to check if user is reacting to own activity
 }
 
-export const ReactionButton = ({ activityId, reactions }: ReactionButtonProps) => {
+export const ReactionButton = ({ activityId, reactions, loggedByUserId }: ReactionButtonProps) => {
   const { userId } = useCurrentUserId();
   const toggleReaction = useToggleReaction();
   
@@ -31,10 +32,24 @@ export const ReactionButton = ({ activityId, reactions }: ReactionButtonProps) =
   const likeCount = activityReactions.filter(r => r.reaction_type === 'like').length;
   const hasUserLiked = activityReactions.some(r => r.user_id === userId && r.reaction_type === 'like');
   
+  // Don't allow users to like their own activities
+  const isOwnActivity = loggedByUserId === userId;
+  
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isOwnActivity) return; // Prevent liking own activity
     toggleReaction.mutate({ activityId, reactionType: 'like' });
   };
+  
+  // If own activity, show just the count (not clickable for liking)
+  if (isOwnActivity) {
+    return (
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Heart className={cn("h-3.5 w-3.5", likeCount > 0 && "fill-red-500 text-red-500")} />
+        {likeCount > 0 && <span>{likeCount}</span>}
+      </div>
+    );
+  }
   
   return (
     <button
@@ -74,16 +89,23 @@ interface ActivitySocialBarProps {
   activityId: string;
   reactions: Record<string, any[]>;
   commentCounts: Record<string, number>;
+  loggedByUserId?: string; // Add to pass through to ReactionButton
+  isSubstantive?: boolean; // For highlighting substantive notes
 }
 
 export const ActivitySocialBar = ({ 
   activityId, 
   reactions, 
-  commentCounts 
+  commentCounts,
+  loggedByUserId,
+  isSubstantive 
 }: ActivitySocialBarProps) => {
   return (
-    <div className="flex items-center gap-3 mt-2 pt-1.5 border-t border-border/30">
-      <ReactionButton activityId={activityId} reactions={reactions} />
+    <div className={cn(
+      "flex items-center gap-3 mt-2 pt-1.5 border-t border-border/30",
+      isSubstantive && "border-t-amber-500/40"
+    )}>
+      <ReactionButton activityId={activityId} reactions={reactions} loggedByUserId={loggedByUserId} />
       <CommentCount activityId={activityId} commentCounts={commentCounts} />
     </div>
   );
