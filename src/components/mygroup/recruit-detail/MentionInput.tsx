@@ -290,64 +290,12 @@ export const MentionInput = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   
-  // Render the text with highlighted mentions for the overlay
-  const renderHighlightedText = useMemo(() => {
-    if (confirmedMentions.length === 0) return null;
-    
-    let result: React.ReactNode[] = [];
-    let lastIndex = 0;
-    
-    // Sort mentions by start index
-    const sortedMentions = [...confirmedMentions].sort((a, b) => a.startIndex - b.startIndex);
-    
-    sortedMentions.forEach((mention, idx) => {
-      // Add text before the mention
-      if (mention.startIndex > lastIndex) {
-        result.push(
-          <span key={`text-${idx}`} className="invisible">
-            {value.slice(lastIndex, mention.startIndex)}
-          </span>
-        );
-      }
-      
-      // Add the mention (blue text)
-      result.push(
-        <span key={`mention-${idx}`} className="text-primary font-medium">
-          {value.slice(mention.startIndex, mention.endIndex)}
-        </span>
-      );
-      
-      lastIndex = mention.endIndex;
-    });
-    
-    // Add remaining text
-    if (lastIndex < value.length) {
-      result.push(
-        <span key="text-end" className="invisible">
-          {value.slice(lastIndex)}
-        </span>
-      );
-    }
-    
-    return result;
-  }, [value, confirmedMentions]);
+  // Note: We use a simple approach - text displays normally in the textarea
+  // The @mention badge shows how many mentions are confirmed
   
   return (
     <div ref={containerRef} className="relative flex-1">
-      {/* Highlight overlay - shows blue text for confirmed mentions */}
-      {confirmedMentions.length > 0 && (
-        <div 
-          className="absolute inset-0 pointer-events-none px-3 py-2 text-sm whitespace-pre-wrap overflow-hidden break-words"
-          style={{ 
-            paddingTop: '9px',
-            lineHeight: '1.5rem',
-          }}
-        >
-          {renderHighlightedText}
-        </div>
-      )}
-      
-      {/* Textarea for mobile-first multiline support */}
+      {/* Standard textarea - no overlay tricks, just plain text */}
       <textarea
         ref={textareaRef}
         value={value}
@@ -358,14 +306,8 @@ export const MentionInput = ({
         rows={rows}
         className={cn(
           "flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none",
-          confirmedMentions.length > 0 && "caret-foreground",
           className
         )}
-        style={{
-          // Make text visible but mentions show through from overlay
-          color: confirmedMentions.length > 0 ? 'transparent' : undefined,
-          caretColor: 'hsl(var(--foreground))',
-        }}
       />
       
       {/* Show confirmed mentions count badge */}
