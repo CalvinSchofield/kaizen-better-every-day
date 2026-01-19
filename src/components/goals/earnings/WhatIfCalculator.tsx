@@ -23,7 +23,8 @@ export const WhatIfCalculator = ({
   spendingRate,
   efpModeEnabled,
 }: WhatIfCalculatorProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Start expanded by default - this is now a prominent feature when projections aren't available
+  const [isExpanded, setIsExpanded] = useState(true);
   const [customFpGoal, setCustomFpGoal] = useState<string>('');
 
   const fpLabel = efpModeEnabled ? 'EFP' : 'FP+';
@@ -88,27 +89,30 @@ export const WhatIfCalculator = ({
   const presets = [100, 150, 200, 300, 500];
 
   return (
-    <div className="rounded-xl border border-border/50 bg-card/50 overflow-hidden">
-      {/* Header */}
+    <div className="rounded-xl border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-transparent overflow-hidden">
+      {/* Header - More prominent styling */}
       <button
         onClick={handleToggle}
-        className="w-full px-4 py-3 flex items-center justify-between"
+        className="w-full px-4 py-4 flex items-center justify-between bg-primary/5"
       >
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Calculator className="w-4 h-4 text-primary" />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+            <Calculator className="w-5 h-5 text-primary" />
           </div>
           <div className="text-left">
-            <span className="text-sm font-medium">What If Calculator</span>
-            <p className="text-xs text-muted-foreground">
-              See earnings for any {fpLabel} goal
+            <div className="flex items-center gap-2">
+              <span className="text-base font-semibold">Goal Scenario Calculator</span>
+              <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Model any {fpLabel} goal to see projected earnings
             </p>
           </div>
         </div>
         {isExpanded ? (
-          <ChevronUp className="w-5 h-5 text-muted-foreground" />
+          <ChevronUp className="w-5 h-5 text-primary" />
         ) : (
-          <ChevronDown className="w-5 h-5 text-muted-foreground" />
+          <ChevronDown className="w-5 h-5 text-primary" />
         )}
       </button>
 
