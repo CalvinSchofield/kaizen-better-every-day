@@ -4,7 +4,7 @@ import { format, addDays, getDay, startOfDay } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Textarea } from "@/components/ui/textarea";
+import { MentionInput } from "@/components/mygroup/recruit-detail/MentionInput";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Drawer, 
@@ -52,6 +52,7 @@ export const RescheduleActivityDrawer = ({
 }: RescheduleActivityDrawerProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(getNextAvailableDay());
   const [taskText, setTaskText] = useState("");
+  const [taskMentions, setTaskMentions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<AssignableUser | null>(null);
   const [showAssigneePopover, setShowAssigneePopover] = useState(false);
@@ -120,6 +121,7 @@ export const RescheduleActivityDrawer = ({
       onComplete?.();
       setSelectedDate(getNextAvailableDay());
       setTaskText("");
+      setTaskMentions([]);
       setSelectedAssignee(null);
     } catch (error) {
       console.error('Failed to reschedule:', error);
@@ -144,13 +146,13 @@ export const RescheduleActivityDrawer = ({
           {/* Editable task text */}
           <div>
             <label className="text-sm font-medium mb-2 block">
-              What's the next step?
+              What's the next step? (type @ to mention)
             </label>
-            <Textarea
+            <MentionInput
               value={taskText}
-              onChange={(e) => setTaskText(e.target.value)}
+              onChange={setTaskText}
+              onMentionsChange={setTaskMentions}
               placeholder="e.g., Call to discuss blitz dates, Follow up on signing paperwork..."
-              className="resize-none"
               rows={3}
             />
           </div>
