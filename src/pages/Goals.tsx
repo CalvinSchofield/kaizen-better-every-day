@@ -10,6 +10,7 @@ import { useBlitzes } from "@/hooks/useBlitzes";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { usePersonalBenchmarks } from "@/hooks/usePersonalBenchmarks";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { GoalSetupWizard } from "@/components/goals/GoalSetupWizard";
 import { GoalHeroRing, GoalTier } from "@/components/goals/GoalHeroRing";
 import { CommitmentChips } from "@/components/goals/CommitmentChips";
@@ -62,6 +63,8 @@ const Goals = () => {
     needsWeeklyCheck
   } = useRepGoals();
   const { repData, isInitializing: repDataInitializing, loading: repDataLoading } = useRepData();
+  // Use useCurrentUserId for instant cache access before repData loads
+  const { userId, isReady: authReady } = useCurrentUserId();
   const { 
     totalFP: totalFpPlus, 
     totalPRMR, 
@@ -107,10 +110,10 @@ const Goals = () => {
   const [confirmCommitBlitz, setConfirmCommitBlitz] = useState<{ id: string; name: string; date: string; endDate?: string | null; location?: string | null } | null>(null);
   const [confirmUncommitBlitz, setConfirmUncommitBlitz] = useState<{ id: string; name: string } | null>(null);
 
-  // Cache helpers for instant load
-  const getKnockingDaysCache = useCallback((userId: string) => {
+  // Cache helpers for instant load - using userId directly for immediate access
+  const getKnockingDaysCache = useCallback((uid: string) => {
     try {
-      const cached = localStorage.getItem(`goals-knocking-days-cache-${userId}`);
+      const cached = localStorage.getItem(`goals-knocking-days-cache-${uid}`);
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed.timestamp && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
@@ -121,9 +124,9 @@ const Goals = () => {
     return undefined;
   }, []);
 
-  const getSeasonConfigCache = useCallback((userId: string) => {
+  const getSeasonConfigCache = useCallback((uid: string) => {
     try {
-      const cached = localStorage.getItem(`goals-season-config-cache-${userId}`);
+      const cached = localStorage.getItem(`goals-season-config-cache-${uid}`);
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed.timestamp && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
@@ -133,19 +136,22 @@ const Goals = () => {
     } catch { /* ignore */ }
     return undefined;
   }, []);
+
+  // Get initial data from cache for instant display
+  const knockingDaysInitialData = userId ? getKnockingDaysCache(userId) : undefined;
+  const seasonConfigInitialData = userId ? getSeasonConfigCache(userId) : undefined;
 
   // Fetch knocking days count for pace calculation
   // Knocking day = doors >= 5 AND has work_start_time AND work_end_time
   const { data: workedDaysData } = useQuery({
-    queryKey: ['goals-knocking-days', repData?.user_id],
+    queryKey: ['goals-knocking-days', userId],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { knockingDays: 0 };
+      if (!userId) return { knockingDays: 0 };
       
       const { data: entries, error } = await supabase
         .from('daily_entries')
         .select('entry_date, doors_knocked, work_start_time, work_end_time')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('is_finalized', true)
         .gte('entry_date', PRESEASON_START)
         .lte('entry_date', PRESEASON_END);
@@ -161,7 +167,7 @@ const Goals = () => {
       
       // Cache for instant load
       try {
-        localStorage.setItem(`goals-knocking-days-cache-${repData?.user_id}`, JSON.stringify({
+        localStorage.setItem(`goals-knocking-days-cache-${userId}`, JSON.stringify({
           data: result,
           timestamp: Date.now()
         }));
@@ -169,28 +175,28 @@ const Goals = () => {
       
       return result;
     },
-    enabled: !!repData?.user_id,
+    enabled: authReady && !!userId,
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
     refetchOnMount: false,
-    initialData: repData?.user_id ? getKnockingDaysCache(repData.user_id) : undefined,
+    initialData: knockingDaysInitialData,
   });
 
   // Fetch user's personal summer dates to determine if their summer has started
   const { data: seasonConfig } = useQuery({
-    queryKey: ['season-config-for-goals-page', repData?.user_id],
+    queryKey: ['season-config-for-goals-page', userId],
     queryFn: async () => {
-      if (!repData?.user_id) return null;
+      if (!userId) return null;
       const { data, error } = await supabase
         .from('season_config')
         .select('personal_summer_start, personal_summer_end')
-        .eq('user_id', repData.user_id)
+        .eq('user_id', userId)
         .maybeSingle();
       if (error) throw error;
       
       // Cache for instant load
       try {
-        localStorage.setItem(`goals-season-config-cache-${repData.user_id}`, JSON.stringify({
+        localStorage.setItem(`goals-season-config-cache-${userId}`, JSON.stringify({
           data,
           timestamp: Date.now()
         }));
@@ -198,11 +204,11 @@ const Goals = () => {
       
       return data;
     },
-    enabled: !!repData?.user_id,
+    enabled: authReady && !!userId,
     staleTime: 30 * 60 * 1000, // 30 minutes - this rarely changes
     gcTime: 60 * 60 * 1000, // 1 hour
     refetchOnMount: false,
-    initialData: repData?.user_id ? getSeasonConfigCache(repData.user_id) : undefined,
+    initialData: seasonConfigInitialData,
   });
 
   // Calculate if user's personal summer has started (based on their personal_summer_start, not global date)
