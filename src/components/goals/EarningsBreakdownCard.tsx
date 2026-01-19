@@ -8,11 +8,11 @@ import { useRepGoals } from '@/hooks/useRepGoals';
 import { useRepData } from '@/hooks/useRepData';
 import { usePreseasonFP } from '@/hooks/usePreseasonFP';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
-import { getTier, getRentCost } from '@/utils/payscaleCalculator';
+import { getTier, getRentCost, formatCurrency } from '@/utils/payscaleCalculator';
 import { hapticLight } from '@/utils/haptics';
 
 // Modular components
-import { EarningsHeroHeader } from './earnings/EarningsHeroHeader';
+import { EarningsHeroHeader, EarningsMode } from './earnings/EarningsHeroHeader';
 import { PayTimelineChart } from './earnings/PayTimelineChart';
 import { NetPayWaterfall } from './earnings/NetPayWaterfall';
 import { SpendingRateSheet } from './earnings/SpendingRateSheet';
@@ -20,7 +20,7 @@ import { PaceProjectionSection } from './earnings/PaceProjectionSection';
 import { TierUpgradeCard } from './earnings/TierUpgradeCard';
 import { EarningsInsight } from './earnings/EarningsInsight';
 import { EarningsSummaryStats } from './earnings/EarningsSummaryStats';
-import { WhatIfCalculator } from './earnings/WhatIfCalculator';
+import { ModelModeContent } from './earnings/ModelModeContent';
 
 interface Sale {
   prmr?: number;
@@ -38,7 +38,8 @@ const SEASON_END = '2026-09-27';
 
 export const EarningsBreakdownCard = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [showProjected, setShowProjected] = useState(true);
+  const [mode, setMode] = useState<EarningsMode>('current');
+  const [modelFpGoal, setModelFpGoal] = useState<number | null>(null);
   const [isSpendingSheetOpen, setIsSpendingSheetOpen] = useState(false);
   
   const { goals, updateGoals } = useRepGoals();
@@ -357,10 +358,44 @@ export const EarningsBreakdownCard = () => {
     return null;
   }
   
-  // Force current view if projections aren't available
-  const effectiveShowProjected = metrics.projectionsAvailable && showProjected;
+  // Handle mode-based logic
+  const effectiveMode = mode === 'projected' && !metrics.projectionsAvailable ? 'current' : mode;
   
-  const displayMetrics = effectiveShowProjected ? {
+  // Calculate model metrics if in model mode
+  const modelMetrics = useMemo(() => {
+    if (!modelFpGoal || modelFpGoal <= 0) return null;
+    
+    const totalPrmr = modelFpGoal * 85;
+    const tier = getTier(modelFpGoal);
+    const payRate = tier.rate;
+    const rentBonus = tier.rentBonus || 0;
+    
+    const upfrontPay = totalPrmr * 4;
+    const totalGrossPay = totalPrmr * payRate;
+    const totalBackend = Math.max(0, totalGrossPay - upfrontPay);
+    const backend1 = totalBackend * 0.70;
+    const backend2 = totalBackend * 0.30;
+    
+    const rentCost = getRentCost(metrics.rentType, metrics.weeksWorking);
+    const anticipatedSpending = metrics.spendingRate * modelFpGoal;
+    const netPay = totalGrossPay + rentBonus - rentCost - anticipatedSpending;
+    
+    return {
+      upfrontPay,
+      backend1,
+      backend2,
+      totalGross: totalGrossPay,
+      rentBonus,
+      rentCost,
+      weeksDisplay: metrics.weeksWorking,
+      spending: anticipatedSpending,
+      netPay,
+      payRate,
+      totalPrmr,
+    };
+  }, [modelFpGoal, metrics.rentType, metrics.weeksWorking, metrics.spendingRate]);
+  
+  const displayMetrics = effectiveMode === 'model' && modelMetrics ? modelMetrics : effectiveMode === 'projected' ? {
     upfrontPay: metrics.projectedUpfrontPay,
     backend1: metrics.projectedBackend1,
     backend2: metrics.projectedBackend2,
@@ -382,6 +417,8 @@ export const EarningsBreakdownCard = () => {
     netPay: metrics.netPay,
   };
   
+  const efpLabel = metrics.efpModeEnabled ? 'EFP' : 'FP+';
+  
   return (
     <>
       <motion.div
@@ -395,14 +432,16 @@ export const EarningsBreakdownCard = () => {
               <EarningsHeroHeader
                 netPay={displayMetrics.netPay}
                 monthlyExpenses={goals?.monthly_expenses || 0}
-                isProjected={effectiveShowProjected}
+                mode={effectiveMode}
                 isOpen={isOpen}
                 projectionsAvailable={metrics.projectionsAvailable}
                 summerKnockingDays={metrics.summerKnockingDays}
                 currentFp={metrics.currentFp}
                 isRookie={metrics.isRookie}
                 isSummerStarted={metrics.isSummerStarted}
-                onToggleProjected={setShowProjected}
+                modelFpGoal={modelFpGoal || undefined}
+                efpLabel={efpLabel}
+                onModeChange={setMode}
               />
             </CollapsibleTrigger>
             
@@ -416,89 +455,94 @@ export const EarningsBreakdownCard = () => {
                     transition={{ duration: 0.2 }}
                   >
                     <CardContent className="pt-0 px-4 pb-4 space-y-5">
-                      {/* Pace Projection (only in projected mode when projections available) */}
-                      {effectiveShowProjected && metrics.remainingDays > 0 && (
-                        <PaceProjectionSection
-                          fpPerDay={metrics.fpPerDay}
-                          calculatedFpPerDay={metrics.calculatedFpPerDay}
-                          hasCustomPace={metrics.hasCustomPace}
-                          remainingDays={metrics.remainingDays}
-                          projectedTotalFp={metrics.projectedTotalFp}
-                          projectedPayRate={metrics.projectedPayRate}
+                      {/* Model Mode Content */}
+                      {effectiveMode === 'model' && (
+                        <ModelModeContent
+                          rentType={metrics.rentType}
+                          weeksWorking={metrics.weeksWorking}
+                          spendingRate={metrics.spendingRate}
                           efpModeEnabled={metrics.efpModeEnabled}
-                          onSavePace={handleSavePace}
-                          onResetPace={handleResetPace}
+                          onFpGoalChange={setModelFpGoal}
                         />
                       )}
                       
-                      {/* Pay Timeline */}
-                      <PayTimelineChart
-                        upfrontPay={displayMetrics.upfrontPay}
-                        backend1={displayMetrics.backend1}
-                        backend2={displayMetrics.backend2}
-                        totalGross={displayMetrics.totalGross}
-                        isProjected={effectiveShowProjected}
-                      />
-                      
-                      {/* Net Pay Waterfall */}
-                      <NetPayWaterfall
-                        grossPay={displayMetrics.totalGross}
-                        rentCost={displayMetrics.rentCost}
-                        rentBonus={displayMetrics.rentBonus}
-                        spending={displayMetrics.spending}
-                        netPay={displayMetrics.netPay}
-                        weeksWorking={displayMetrics.weeksDisplay}
-                        rentType={metrics.rentType}
-                        isProjected={effectiveShowProjected}
-                        efpModeEnabled={metrics.efpModeEnabled}
-                        spendingRate={metrics.spendingRate}
-                        hasCustomRate={metrics.hasCustomRate}
-                        dataAccuracy={metrics.dataAccuracy}
-                        onEditSpendingRate={() => setIsSpendingSheetOpen(true)}
-                      />
-                      
-                      {/* Summary Stats */}
-                      <EarningsSummaryStats
-                        payRate={metrics.payRate}
-                        totalKnockingDays={metrics.totalKnockingDays}
-                        totalPrmr={metrics.totalPrmr}
-                        isProjected={effectiveShowProjected}
-                        projectedPayRate={metrics.projectedPayRate}
-                        projectedTotalPrmr={metrics.projectedTotalPrmr}
-                      />
-                      
-                      {/* Tier Upgrade Card - only when projections available */}
-                      {effectiveShowProjected && (
-                        <TierUpgradeCard
-                          currentRate={metrics.payRate}
-                          projectedRate={metrics.projectedPayRate}
-                          projectedFp={metrics.projectedTotalFp}
-                        />
+                      {/* Current/Projected Mode Content */}
+                      {effectiveMode !== 'model' && (
+                        <>
+                          {/* Pace Projection (only in projected mode when projections available) */}
+                          {effectiveMode === 'projected' && metrics.remainingDays > 0 && (
+                            <PaceProjectionSection
+                              fpPerDay={metrics.fpPerDay}
+                              calculatedFpPerDay={metrics.calculatedFpPerDay}
+                              hasCustomPace={metrics.hasCustomPace}
+                              remainingDays={metrics.remainingDays}
+                              projectedTotalFp={metrics.projectedTotalFp}
+                              projectedPayRate={metrics.projectedPayRate}
+                              efpModeEnabled={metrics.efpModeEnabled}
+                              onSavePace={handleSavePace}
+                              onResetPace={handleResetPace}
+                            />
+                          )}
+                          
+                          {/* Pay Timeline */}
+                          <PayTimelineChart
+                            upfrontPay={displayMetrics.upfrontPay}
+                            backend1={displayMetrics.backend1}
+                            backend2={displayMetrics.backend2}
+                            totalGross={displayMetrics.totalGross}
+                            isProjected={effectiveMode === 'projected'}
+                          />
+                          
+                          {/* Net Pay Waterfall */}
+                          <NetPayWaterfall
+                            grossPay={displayMetrics.totalGross}
+                            rentCost={displayMetrics.rentCost}
+                            rentBonus={displayMetrics.rentBonus}
+                            spending={displayMetrics.spending}
+                            netPay={displayMetrics.netPay}
+                            weeksWorking={displayMetrics.weeksDisplay}
+                            rentType={metrics.rentType}
+                            isProjected={effectiveMode === 'projected'}
+                            efpModeEnabled={metrics.efpModeEnabled}
+                            spendingRate={metrics.spendingRate}
+                            hasCustomRate={metrics.hasCustomRate}
+                            dataAccuracy={metrics.dataAccuracy}
+                            onEditSpendingRate={() => setIsSpendingSheetOpen(true)}
+                          />
+                          
+                          {/* Summary Stats */}
+                          <EarningsSummaryStats
+                            payRate={metrics.payRate}
+                            totalKnockingDays={metrics.totalKnockingDays}
+                            totalPrmr={metrics.totalPrmr}
+                            isProjected={effectiveMode === 'projected'}
+                            projectedPayRate={metrics.projectedPayRate}
+                            projectedTotalPrmr={metrics.projectedTotalPrmr}
+                          />
+                          
+                          {/* Tier Upgrade Card - only when projections available */}
+                          {effectiveMode === 'projected' && (
+                            <TierUpgradeCard
+                              currentRate={metrics.payRate}
+                              projectedRate={metrics.projectedPayRate}
+                              projectedFp={metrics.projectedTotalFp}
+                            />
+                          )}
+                          
+                          {/* Dynamic Insight */}
+                          <EarningsInsight
+                            currentFp={metrics.currentFp}
+                            projectedFp={metrics.projectedTotalFp}
+                            fpPerDay={metrics.fpPerDay}
+                            remainingDays={metrics.remainingDays}
+                            currentRate={metrics.payRate}
+                            projectedRate={metrics.projectedPayRate}
+                            spendingRate={metrics.spendingRate}
+                            projectedSpending={metrics.projectedSpending}
+                            isProjected={effectiveMode === 'projected'}
+                          />
+                        </>
                       )}
-                      
-                      {/* What If Calculator - prominent when projections NOT available, collapsible option when available */}
-                      <WhatIfCalculator
-                        currentFp={metrics.currentFp}
-                        avgPrmrPerFp={metrics.totalPrmr > 0 && metrics.currentFp > 0 ? metrics.totalPrmr / metrics.currentFp : 85}
-                        rentType={metrics.rentType}
-                        weeksWorking={metrics.weeksWorking}
-                        spendingRate={metrics.spendingRate}
-                        efpModeEnabled={metrics.efpModeEnabled}
-                        defaultExpanded={!metrics.projectionsAvailable}
-                      />
-                      
-                      {/* Dynamic Insight */}
-                      <EarningsInsight
-                        currentFp={metrics.currentFp}
-                        projectedFp={metrics.projectedTotalFp}
-                        fpPerDay={metrics.fpPerDay}
-                        remainingDays={metrics.remainingDays}
-                        currentRate={metrics.payRate}
-                        projectedRate={metrics.projectedPayRate}
-                        spendingRate={metrics.spendingRate}
-                        projectedSpending={metrics.projectedSpending}
-                        isProjected={effectiveShowProjected}
-                      />
                     </CardContent>
                   </motion.div>
                 </CollapsibleContent>
