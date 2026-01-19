@@ -1,15 +1,22 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/utils/nameUtils";
 import { cn } from "@/lib/utils";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 
 interface MentionUser {
   user_id: string;
   name: string;
   profile_photo_url: string | null;
+}
+
+interface ConfirmedMention {
+  userId: string;
+  name: string;
+  startIndex: number;
+  endIndex: number;
 }
 
 interface MentionInputProps {
@@ -39,7 +46,7 @@ export const useMentionableUsers = () => {
   });
 };
 
-// Parse @mentions from text and return user IDs
+// Parse @mentions from text and return user IDs - only for confirmed mentions
 export const parseMentions = (text: string, users: MentionUser[]): string[] => {
   const mentionPattern = /@(\w+(?:\s+\w+)?)/g;
   const matches = text.match(mentionPattern) || [];
@@ -75,16 +82,61 @@ export const MentionInput = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionQuery, setSuggestionQuery] = useState("");
   const [cursorPosition, setCursorPosition] = useState(0);
+  const [confirmedMentions, setConfirmedMentions] = useState<ConfirmedMention[]>([]);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   const { data: users = [] } = useMentionableUsers();
+  const { userId: currentUserId } = useCurrentUserId();
   
-  // Filter users based on query
-  const filteredUsers = suggestionQuery
-    ? users.filter(u => 
+  // Filter users based on query - exclude current user
+  const filteredUsers = useMemo(() => {
+    if (!suggestionQuery && !showSuggestions) return [];
+    
+    return users
+      .filter(u => 
+        u.user_id !== currentUserId && // Exclude self
         u.name.toLowerCase().includes(suggestionQuery.toLowerCase())
-      ).slice(0, 5)
-    : [];
+      )
+      .slice(0, 6);
+  }, [suggestionQuery, showSuggestions, users, currentUserId]);
+  
+  // Reset selected index when suggestions change
+  useEffect(() => {
+    setSelectedSuggestionIndex(0);
+  }, [filteredUsers.length]);
+  
+  // Update confirmed mentions when value changes externally (e.g., cleared)
+  useEffect(() => {
+    if (!value) {
+      setConfirmedMentions([]);
+    }
+  }, [value]);
+  
+  // Find mentions in text and update state
+  const updateConfirmedMentions = useCallback((text: string, mentions: ConfirmedMention[]) => {
+    // Validate that all confirmed mentions still exist in the text
+    const validMentions = mentions.filter(m => {
+      const mentionText = `@${m.name}`;
+      const indexInText = text.indexOf(mentionText);
+      return indexInText !== -1;
+    });
+    
+    // Re-calculate positions for valid mentions
+    const updatedMentions = validMentions.map(m => {
+      const mentionText = `@${m.name}`;
+      const startIndex = text.indexOf(mentionText);
+      return {
+        ...m,
+        startIndex,
+        endIndex: startIndex + mentionText.length,
+      };
+    });
+    
+    setConfirmedMentions(updatedMentions);
+    onMentionsChange(updatedMentions.map(m => m.userId));
+  }, [onMentionsChange]);
   
   // Check for @ trigger
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,14 +146,22 @@ export const MentionInput = ({
     onChange(newValue);
     setCursorPosition(cursor);
     
+    // Update confirmed mentions based on new text
+    updateConfirmedMentions(newValue, confirmedMentions);
+    
     // Check if we're typing after an @
     const textBeforeCursor = newValue.slice(0, cursor);
     const atIndex = textBeforeCursor.lastIndexOf('@');
     
     if (atIndex !== -1) {
       const textAfterAt = textBeforeCursor.slice(atIndex + 1);
-      // Only show suggestions if we're right after @ or typing a name
-      if (!textAfterAt.includes(' ') || textAfterAt.split(' ').length <= 2) {
+      // Check if this @ is already a confirmed mention
+      const isConfirmed = confirmedMentions.some(m => 
+        m.startIndex === atIndex && newValue.slice(atIndex, m.endIndex) === `@${m.name}`
+      );
+      
+      if (!isConfirmed && !textAfterAt.includes(' ')) {
+        // Only trigger if not confirmed and no space yet
         setSuggestionQuery(textAfterAt);
         setShowSuggestions(true);
       } else {
@@ -110,10 +170,31 @@ export const MentionInput = ({
     } else {
       setShowSuggestions(false);
     }
+  };
+  
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || filteredUsers.length === 0) return;
     
-    // Update mentions
-    const mentionedIds = parseMentions(newValue, users);
-    onMentionsChange(mentionedIds);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedSuggestionIndex(prev => 
+        prev < filteredUsers.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedSuggestionIndex(prev => 
+        prev > 0 ? prev - 1 : filteredUsers.length - 1
+      );
+    } else if (e.key === 'Enter' && showSuggestions) {
+      e.preventDefault();
+      const selectedUser = filteredUsers[selectedSuggestionIndex];
+      if (selectedUser) {
+        selectUser(selectedUser);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
   };
   
   // Handle user selection from suggestions
@@ -124,62 +205,179 @@ export const MentionInput = ({
     
     if (atIndex !== -1) {
       const firstName = user.name.split(' ')[0];
-      const newValue = textBeforeCursor.slice(0, atIndex) + '@' + firstName + ' ' + textAfterCursor;
-      onChange(newValue);
+      const mentionText = `@${firstName}`;
+      const newValue = textBeforeCursor.slice(0, atIndex) + mentionText + ' ' + textAfterCursor;
       
-      // Update mentions
-      const mentionedIds = parseMentions(newValue, users);
-      onMentionsChange(mentionedIds);
+      // Add to confirmed mentions
+      const newMention: ConfirmedMention = {
+        userId: user.user_id,
+        name: firstName,
+        startIndex: atIndex,
+        endIndex: atIndex + mentionText.length,
+      };
+      
+      const updatedMentions = [...confirmedMentions, newMention];
+      setConfirmedMentions(updatedMentions);
+      onMentionsChange(updatedMentions.map(m => m.userId));
+      
+      onChange(newValue);
     }
     
     setShowSuggestions(false);
-    inputRef.current?.focus();
-  }, [value, cursorPosition, users, onChange, onMentionsChange]);
+    setSuggestionQuery("");
+    
+    // Focus back and set cursor position after the mention
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+  }, [value, cursorPosition, confirmedMentions, onChange, onMentionsChange]);
   
   // Close suggestions on click outside
   useEffect(() => {
-    const handleClickOutside = () => setShowSuggestions(false);
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   
+  // Render the text with highlighted mentions for the overlay
+  const renderHighlightedText = useMemo(() => {
+    if (confirmedMentions.length === 0) return null;
+    
+    let result: React.ReactNode[] = [];
+    let lastIndex = 0;
+    
+    // Sort mentions by start index
+    const sortedMentions = [...confirmedMentions].sort((a, b) => a.startIndex - b.startIndex);
+    
+    sortedMentions.forEach((mention, idx) => {
+      // Add text before the mention
+      if (mention.startIndex > lastIndex) {
+        result.push(
+          <span key={`text-${idx}`} className="invisible">
+            {value.slice(lastIndex, mention.startIndex)}
+          </span>
+        );
+      }
+      
+      // Add the mention (blue text)
+      result.push(
+        <span key={`mention-${idx}`} className="text-primary font-medium">
+          {value.slice(mention.startIndex, mention.endIndex)}
+        </span>
+      );
+      
+      lastIndex = mention.endIndex;
+    });
+    
+    // Add remaining text
+    if (lastIndex < value.length) {
+      result.push(
+        <span key="text-end" className="invisible">
+          {value.slice(lastIndex)}
+        </span>
+      );
+    }
+    
+    return result;
+  }, [value, confirmedMentions]);
+  
   return (
-    <div className="relative" onClick={e => e.stopPropagation()}>
-      <Input
+    <div ref={containerRef} className="relative flex-1">
+      {/* Highlight overlay - shows blue text for confirmed mentions */}
+      {confirmedMentions.length > 0 && (
+        <div 
+          className="absolute inset-0 pointer-events-none px-3 py-2 text-sm whitespace-pre overflow-hidden"
+          style={{ 
+            paddingTop: '9px',
+            lineHeight: '1.25rem',
+          }}
+        >
+          {renderHighlightedText}
+        </div>
+      )}
+      
+      {/* Actual input - transparent text when mention is confirmed */}
+      <input
         ref={inputRef}
         value={value}
         onChange={handleInputChange}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className={cn("pr-10", className)}
         autoFocus={autoFocus}
+        className={cn(
+          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+          confirmedMentions.length > 0 && "caret-foreground",
+          className
+        )}
+        style={{
+          // Make text visible but mentions show through from overlay
+          color: confirmedMentions.length > 0 ? 'transparent' : undefined,
+          caretColor: 'hsl(var(--foreground))',
+        }}
       />
       
-      {/* Mention Suggestions Dropdown */}
+      {/* Show confirmed mentions count badge */}
+      {confirmedMentions.length > 0 && (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-medium">
+          <span>@{confirmedMentions.length}</span>
+        </div>
+      )}
+      
+      {/* Mention Suggestions Dropdown - Instagram style */}
       {showSuggestions && filteredUsers.length > 0 && (
-        <div className="absolute bottom-full left-0 right-0 mb-1 bg-background border rounded-lg shadow-lg overflow-hidden z-50">
-          {filteredUsers.map(user => (
+        <div className="absolute bottom-full left-0 right-0 mb-1 bg-background border rounded-lg shadow-lg overflow-hidden z-50 max-h-[200px] overflow-y-auto">
+          <div className="px-2 py-1.5 border-b bg-muted/30">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+              Mention someone
+            </span>
+          </div>
+          {filteredUsers.map((user, index) => (
             <button
               key={user.user_id}
               type="button"
-              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted transition-colors text-left"
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 transition-colors text-left",
+                index === selectedSuggestionIndex 
+                  ? "bg-primary/10" 
+                  : "hover:bg-muted"
+              )}
               onClick={() => selectUser(user)}
+              onMouseEnter={() => setSelectedSuggestionIndex(index)}
             >
-              <Avatar className="h-6 w-6">
+              <Avatar className="h-8 w-8">
                 <AvatarImage src={user.profile_photo_url || undefined} alt={user.name} />
-                <AvatarFallback className="text-[10px] bg-muted">
+                <AvatarFallback className="text-xs bg-muted">
                   {getInitials(user.name)}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-sm">{user.name}</span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-medium truncate">{user.name}</span>
+                <span className="text-[11px] text-muted-foreground">
+                  @{user.name.split(' ')[0].toLowerCase()}
+                </span>
+              </div>
             </button>
           ))}
+        </div>
+      )}
+      
+      {/* Empty state when typing @ but no matches */}
+      {showSuggestions && filteredUsers.length === 0 && suggestionQuery && (
+        <div className="absolute bottom-full left-0 right-0 mb-1 bg-background border rounded-lg shadow-lg overflow-hidden z-50 p-3">
+          <p className="text-xs text-muted-foreground text-center">
+            No users found matching "@{suggestionQuery}"
+          </p>
         </div>
       )}
     </div>
   );
 };
 
-// Render text with highlighted mentions
+// Render text with highlighted mentions (for display in comments)
 export const MentionText = ({ text, className }: { text: string; className?: string }) => {
   const mentionPattern = /@(\w+)/g;
   const parts = text.split(mentionPattern);

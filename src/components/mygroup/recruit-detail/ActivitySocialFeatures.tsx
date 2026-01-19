@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Heart, MessageCircle, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -17,6 +16,7 @@ import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { getInitials } from "@/utils/nameUtils";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
+import { MentionInput, MentionText } from "./MentionInput";
 
 interface ReactionButtonProps {
   activityId: string;
@@ -163,7 +163,9 @@ export const CommentsList = ({ activityId }: CommentsListProps) => {
                 </button>
               )}
             </div>
-            <p className="text-sm text-foreground mt-0.5">{comment.content}</p>
+            <p className="text-sm text-foreground mt-0.5">
+              <MentionText text={comment.content} />
+            </p>
           </div>
         </div>
       ))}
@@ -206,27 +208,20 @@ export const CommentInput = ({ activityId, onCommentAdded, commenterName, recrui
   };
   
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2">
-      <div className="flex-1 relative">
-        <Input
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Add a comment... (use @ to mention)"
-          className="h-9 text-sm pr-2"
-        />
-        {mentionedUserIds.length > 0 && (
-          <div className="absolute right-2 top-1/2 -translate-y-1/2">
-            <span className="text-[10px] text-primary font-medium">
-              @{mentionedUserIds.length}
-            </span>
-          </div>
-        )}
-      </div>
+    <form onSubmit={handleSubmit} className="flex gap-2 items-center">
+      <MentionInput
+        value={content}
+        onChange={setContent}
+        onMentionsChange={setMentionedUserIds}
+        placeholder="Add a comment... (use @ to mention)"
+        className="h-9 text-sm"
+        autoFocus
+      />
       <Button
         type="submit"
         size="sm"
         disabled={!content.trim() || addComment.isPending}
-        className="h-9 px-3"
+        className="h-9 px-3 shrink-0"
       >
         <Send className="h-4 w-4" />
       </Button>
