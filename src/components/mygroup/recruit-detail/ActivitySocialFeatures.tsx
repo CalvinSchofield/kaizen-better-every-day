@@ -178,9 +178,10 @@ interface CommentInputProps {
   onCommentAdded?: () => void;
   commenterName?: string;
   recruitName?: string;
+  recruitId?: string;
 }
 
-export const CommentInput = ({ activityId, onCommentAdded, commenterName, recruitName }: CommentInputProps) => {
+export const CommentInput = ({ activityId, onCommentAdded, commenterName, recruitName, recruitId }: CommentInputProps) => {
   const [content, setContent] = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const addComment = useAddComment();
@@ -196,6 +197,7 @@ export const CommentInput = ({ activityId, onCommentAdded, commenterName, recrui
         mentionedUserIds,
         commenterName,
         recruitName,
+        recruitId,
       },
       {
         onSuccess: () => {

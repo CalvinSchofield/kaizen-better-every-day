@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
@@ -76,6 +76,7 @@ const FloatingAddButton = ({ visible, onClick }: { visible: boolean; onClick: ()
 
 const MyGroup = () => {
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: teamAccess, isLoading: accessLoading, error: teamAccessError, refetch: refetchTeamAccess } = useTeamAccess();
   const { data: groupData, isLoading: recruitsLoading, isLeader, error: recruitsError, refetch: refetchRecruits, lastUpdated, isPlaceholderData, isFetching } = useGroupRecruits();
   const { data: mySuggestions, isLoading: suggestionsLoading } = useMySuggestions();
@@ -115,6 +116,9 @@ const MyGroup = () => {
   
   // Track if we've processed the navigation state
   const [hasProcessedNavState, setHasProcessedNavState] = useState(false);
+  
+  // Track if we've processed URL deep link params
+  const [hasProcessedDeepLink, setHasProcessedDeepLink] = useState(false);
 
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
@@ -163,6 +167,27 @@ const MyGroup = () => {
       window.history.replaceState({}, document.title);
     }
   }, [hasProcessedNavState, isLoading, teamAccess, location.state, currentUserRep]);
+
+  // Handle deep link from push notifications (e.g., ?recruitId=xxx&activityId=yyy)
+  useEffect(() => {
+    if (hasProcessedDeepLink || isLoading) return;
+    
+    const recruitIdParam = searchParams.get('recruitId');
+    const activityIdParam = searchParams.get('activityId');
+    
+    if (recruitIdParam && groupData?.recruits) {
+      const targetRecruit = groupData.recruits.find(r => r.id === recruitIdParam);
+      if (targetRecruit) {
+        // Open the recruit detail drawer to the activity tab
+        setSelectedRecruit(targetRecruit);
+        setSelectedRecruitInitialTab('activity');
+        setHasProcessedDeepLink(true);
+        
+        // Clear URL params to prevent re-triggering
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [hasProcessedDeepLink, isLoading, searchParams, groupData?.recruits, setSearchParams]);
 
   const allRecruits = groupData?.recruits || [];
   const pendingSuggestions = groupData?.pendingSuggestions || [];

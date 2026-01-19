@@ -9,6 +9,11 @@ function getNotificationActions(type) {
         { action: 'test_button', title: '🧪 Test This Button' },
         { action: 'dismiss', title: '✓ Dismiss' }
       ];
+    case 'mention':
+      return [
+        { action: 'view', title: '💬 View Comment' },
+        { action: 'dismiss', title: '✓ Dismiss' }
+      ];
     case 'inactivity_save':
       return [
         { action: 'save', title: '💾 Save My Day' },
