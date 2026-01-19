@@ -679,16 +679,14 @@ const Goals = () => {
     }
   };
 
-  // Loading state - INSTANT LOAD from cache, only show skeleton if truly nothing cached
-  // Key insight: if we have cached goals with setup_complete=true, TRUST IT and show dashboard immediately
+  // Loading state - CACHE-FIRST. Never show the setup wizard until goals are definitively loaded.
   const hasGoalsData = !!goals;
-  const hasCachedSetupComplete = goals?.setup_complete === true;
+  const canDecideSetup = authReady && !!userId && !isLoading;
   const isDataLoading = repDataInitializing || repDataLoading || !repData;
-  
-  // Only show loading skeleton if:
-  // 1. We're missing essential data AND don't have cached goals, OR
-  // 2. We're loading AND don't have cached setup_complete (to prevent wizard flash)
-  if (isDataLoading && !hasGoalsData && !hasCachedSetupComplete) {
+
+  // Show loading skeleton only when we truly have no cached goals yet.
+  // This prevents the setup wizard from flashing while goals are still loading.
+  if (!hasGoalsData && (!canDecideSetup || isDataLoading)) {
     return (
       <Layout>
         <div className="p-4 space-y-6">
@@ -723,8 +721,8 @@ const Goals = () => {
     );
   }
 
-  // Setup wizard state (no goals set yet)
-  if (!goals?.setup_complete || showSetupWizard) {
+  // Setup wizard state (only once goals are definitively known incomplete)
+  if ((canDecideSetup && !goals?.setup_complete) || showSetupWizard) {
     return (
       <Layout>
         <div className="p-4">
