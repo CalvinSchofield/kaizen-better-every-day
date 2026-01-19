@@ -70,8 +70,11 @@ const Track = ({
   // Get counter layout config
   const counterLayoutConfig = (repData as any)?.counter_layout_config || undefined;
 
-  // Show skeleton loader while initializing auth OR loading data - prevents flash of wrong content
-  if (isInitializing || (loadingRepData && !repData)) {
+  // Only show skeleton if truly initializing AND we have no entry data
+  // If we have cached entry data, show it instantly - Monarch-style
+  const hasEntryData = entry && (entry.doors_knocked > 0 || entry.work_start_time);
+  
+  if (isInitializing && !hasEntryData) {
     return (
       <div className="flex flex-col h-full">
         <div className="flex-shrink-0 p-4">

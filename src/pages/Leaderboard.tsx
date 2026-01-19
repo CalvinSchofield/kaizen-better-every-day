@@ -103,8 +103,11 @@ const Leaderboard = () => {
 
   const { data: streakData } = useAwardStreaks(filterByYear);
 
-  // Show skeleton during initial load
-  if (!isUserInitialized || presetsLoading || timeFilter === null) {
+  // Only show skeleton if we truly have no data - instant load from cache otherwise
+  const hasCachedLeaderboard = !!expandedLeaderboard;
+  const isInitializing = !isUserInitialized || presetsLoading || timeFilter === null;
+  
+  if (isInitializing && !hasCachedLeaderboard) {
     return (
       <Layout>
         <LeaderboardSkeleton />
