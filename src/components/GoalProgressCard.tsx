@@ -274,7 +274,87 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     availableDaysToAdd: 0,
   };
 
-  // Check if user has no goals set up - show engaging prompt (AFTER all hooks)
+  // Tier selector handler - stops propagation to prevent navigating to goals page
+  const handleTierChange = async (tier: FocusTier, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await setFocusTier(tier);
+  };
+  
+  // Tier display labels
+  const tierLabels: Record<FocusTier, string> = {
+    mustDo: 'Must Do',
+    willDo: 'Will Do',
+    couldDo: 'Could Do',
+  };
+  
+  const isRookie = repData?.year === "Rookie";
+  
+  // Period progress from entries
+  const periodProgress = efpModeEnabled ? calculateEfp(periodTotals.prmr) : periodTotals.fpPlus;
+
+  // Goal values with cancel rate buffer applied (matches salesPaceCalculator)
+  const cancelRate = goals?.cancel_rate || 0;
+  const preseasonGoal = goals?.preseason_fp_goal || 0;
+  const fundedPreseasonGoal = cancelRate > 0 && cancelRate < 1 
+    ? preseasonGoal / (1 - cancelRate) 
+    : preseasonGoal;
+  const displayPreseasonGoal = efpModeEnabled ? fundedPreseasonGoal * conversionFactor : fundedPreseasonGoal;
+  
+  const mustDoGoal = goals?.must_do_fp_goal || 0;
+  const willDoGoal = goals?.will_do_fp_goal || 0;
+  const couldDoGoal = goals?.could_do_fp_goal || 0;
+  const fundedMustDo = cancelRate > 0 && cancelRate < 1 ? mustDoGoal / (1 - cancelRate) : mustDoGoal;
+  const fundedWillDo = cancelRate > 0 && cancelRate < 1 ? willDoGoal / (1 - cancelRate) : willDoGoal;
+  const fundedCouldDo = cancelRate > 0 && cancelRate < 1 ? couldDoGoal / (1 - cancelRate) : couldDoGoal;
+  const displayMustDo = efpModeEnabled ? fundedMustDo * conversionFactor : fundedMustDo;
+  const displayWillDo = efpModeEnabled ? fundedWillDo * conversionFactor : fundedWillDo;
+  const displayCouldDo = efpModeEnabled ? fundedCouldDo * conversionFactor : fundedCouldDo;
+
+  // ==========================================
+  // FIXED DAILY PACE (never changes)
+  // PRESEASON: Funded preseason goal / preseason knocking days
+  // SUMMER: (Funded tier goal - projected preseason total) / summer knocking days
+  // This matches Goals page calculation exactly
+  // ==========================================
+  const fixedDailyGoal = useMemo(() => {
+    if (totalSeasonKnockingDays <= 0) return 0;
+    
+    if (isInPreseason) {
+      // During preseason viewing preseason dates: simple division
+      return displayPreseasonGoal / totalSeasonKnockingDays;
+    } else {
+      // Viewing summer dates: subtract projected preseason progress first
+      // Use fundedFocusTierGoal (which is already the summer tier goal with buffer)
+      // Subtract what we're projected to hit in preseason based on current pace
+      const preseasonGoalForCalc = displayPreseasonGoal;
+      const preseasonDaysComplete = entries.filter(e => {
+        if (!e.is_finalized) return false;
+        if (e.entry_date > PRESEASON_END) return false;
+        return (e.doors_knocked || 0) >= 4 && !!e.work_start_time && !!e.work_end_time;
+      }).length;
+      
+      // Project preseason total based on current pace if still in preseason
+      const todayStrCalc = format(today, 'yyyy-MM-dd');
+      const stillInPreseason = todayStrCalc <= PRESEASON_END;
+      
+      let projectedPreseasonTotal = currentProgress;
+      if (stillInPreseason && preseasonDaysComplete > 0 && displayPreseasonGoal > 0) {
+        // Calculate pace and project
+        const pacePerDay = currentProgress / preseasonDaysComplete;
+        // Get remaining preseason planned days
+        const remainingPreseasonPlanned = plannedDays?.filter(d => 
+          d.planned_date > todayStrCalc && d.planned_date <= PRESEASON_END
+        ).length || 0;
+        projectedPreseasonTotal = currentProgress + (pacePerDay * remainingPreseasonPlanned);
+      }
+      
+      // Summer daily = (Summer goal - projected preseason) / summer knocking days
+      const remainingForSummer = Math.max(0, fundedFocusTierGoal - projectedPreseasonTotal);
+      return remainingForSummer / totalSeasonKnockingDays;
+    }
+  }, [isInPreseason, displayPreseasonGoal, totalSeasonKnockingDays, fundedFocusTierGoal, currentProgress, entries, today, plannedDays]);
+
+  // Check if user has no goals set up - show engaging prompt (AFTER ALL hooks/useMemos)
   if (!goals || !goals.setup_complete) {
     return (
       <div 
@@ -314,86 +394,6 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
       </div>
     );
   }
-
-  // Tier selector handler - stops propagation to prevent navigating to goals page
-  const handleTierChange = async (tier: FocusTier, e: React.MouseEvent) => {
-    e.stopPropagation();
-    await setFocusTier(tier);
-  };
-  
-  // Tier display labels
-  const tierLabels: Record<FocusTier, string> = {
-    mustDo: 'Must Do',
-    willDo: 'Will Do',
-    couldDo: 'Could Do',
-  };
-  
-  const isRookie = repData?.year === "Rookie";
-  
-  // Period progress from entries
-  const periodProgress = efpModeEnabled ? calculateEfp(periodTotals.prmr) : periodTotals.fpPlus;
-
-  // Goal values with cancel rate buffer applied (matches salesPaceCalculator)
-  const cancelRate = goals.cancel_rate || 0;
-  const preseasonGoal = goals.preseason_fp_goal || 0;
-  const fundedPreseasonGoal = cancelRate > 0 && cancelRate < 1 
-    ? preseasonGoal / (1 - cancelRate) 
-    : preseasonGoal;
-  const displayPreseasonGoal = efpModeEnabled ? fundedPreseasonGoal * conversionFactor : fundedPreseasonGoal;
-  
-  const mustDoGoal = goals.must_do_fp_goal || 0;
-  const willDoGoal = goals.will_do_fp_goal || 0;
-  const couldDoGoal = goals.could_do_fp_goal || 0;
-  const fundedMustDo = cancelRate > 0 && cancelRate < 1 ? mustDoGoal / (1 - cancelRate) : mustDoGoal;
-  const fundedWillDo = cancelRate > 0 && cancelRate < 1 ? willDoGoal / (1 - cancelRate) : willDoGoal;
-  const fundedCouldDo = cancelRate > 0 && cancelRate < 1 ? couldDoGoal / (1 - cancelRate) : couldDoGoal;
-  const displayMustDo = efpModeEnabled ? fundedMustDo * conversionFactor : fundedMustDo;
-  const displayWillDo = efpModeEnabled ? fundedWillDo * conversionFactor : fundedWillDo;
-  const displayCouldDo = efpModeEnabled ? fundedCouldDo * conversionFactor : fundedCouldDo;
-
-  // ==========================================
-  // FIXED DAILY PACE (never changes)
-  // PRESEASON: Funded preseason goal / preseason knocking days
-  // SUMMER: (Funded tier goal - projected preseason total) / summer knocking days
-  // This matches Goals page calculation exactly
-  // ==========================================
-  const fixedDailyGoal = useMemo(() => {
-    if (totalSeasonKnockingDays <= 0) return 0;
-    
-    if (isInPreseason) {
-      // During preseason viewing preseason dates: simple division
-      return displayPreseasonGoal / totalSeasonKnockingDays;
-    } else {
-      // Viewing summer dates: subtract projected preseason progress first
-      // Use fundedFocusTierGoal (which is already the summer tier goal with buffer)
-      // Subtract what we're projected to hit in preseason based on current pace
-      const preseasonGoalForCalc = displayPreseasonGoal;
-      const preseasonDaysComplete = entries.filter(e => {
-        if (!e.is_finalized) return false;
-        if (e.entry_date > PRESEASON_END) return false;
-        return (e.doors_knocked || 0) >= 4 && !!e.work_start_time && !!e.work_end_time;
-      }).length;
-      
-      // Project preseason total based on current pace if still in preseason
-      const todayStr = format(today, 'yyyy-MM-dd');
-      const stillInPreseason = todayStr <= PRESEASON_END;
-      
-      let projectedPreseasonTotal = currentProgress;
-      if (stillInPreseason && preseasonDaysComplete > 0 && displayPreseasonGoal > 0) {
-        // Calculate pace and project
-        const pacePerDay = currentProgress / preseasonDaysComplete;
-        // Get remaining preseason planned days
-        const remainingPreseasonPlanned = plannedDays?.filter(d => 
-          d.planned_date > todayStr && d.planned_date <= PRESEASON_END
-        ).length || 0;
-        projectedPreseasonTotal = currentProgress + (pacePerDay * remainingPreseasonPlanned);
-      }
-      
-      // Summer daily = (Summer goal - projected preseason) / summer knocking days
-      const remainingForSummer = Math.max(0, fundedFocusTierGoal - projectedPreseasonTotal);
-      return remainingForSummer / totalSeasonKnockingDays;
-    }
-  }, [isInPreseason, displayPreseasonGoal, totalSeasonKnockingDays, fundedFocusTierGoal, currentProgress, entries, today, plannedDays]);
 
   // ==========================================
   // PERIOD GOAL: What you should hit this entire week/month
