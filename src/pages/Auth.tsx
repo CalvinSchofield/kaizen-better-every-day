@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,17 +20,27 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
   // Check if PWA is installed
   const isPWA = isPWAInstalled();
+  
+  // Check if coming from password recovery callback
+  const isRecoveryFromCallback = searchParams.get('recovery') === 'true';
 
   useEffect(() => {
+    // If coming from callback with recovery flag, set password reset mode
+    if (isRecoveryFromCallback) {
+      setIsPasswordReset(true);
+      return; // Don't check session or redirect
+    }
+    
     // Listen for auth state changes to detect password recovery
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordReset(true);
-      } else if (event === 'SIGNED_IN' && session && !isPasswordReset) {
+      } else if (event === 'SIGNED_IN' && session && !isPasswordReset && !isRecoveryFromCallback) {
         const setupComplete = localStorage.getItem('kaizen-setup-complete');
         if (setupComplete) {
           navigate("/");
@@ -40,17 +50,21 @@ const Auth = () => {
       }
     });
 
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session && !isPasswordReset) {
-        const setupComplete = localStorage.getItem('kaizen-setup-complete');
-        if (setupComplete) {
-          navigate("/");
-        } else {
-          navigate("/setup");
+    // Check if user is already logged in (but not if we're doing password reset)
+    if (!isRecoveryFromCallback) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session && !isPasswordReset) {
+          const setupComplete = localStorage.getItem('kaizen-setup-complete');
+          if (setupComplete) {
+            navigate("/");
+          } else {
+            navigate("/setup");
+          }
         }
-      }
-    });
+      });
+    }
+
+    return () => subscription.unsubscribe();
 
     // Set default view based on signup history
     if (hasUserSignedUp()) {

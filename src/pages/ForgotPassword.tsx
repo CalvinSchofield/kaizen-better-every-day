@@ -20,7 +20,8 @@ const ForgotPassword = () => {
     setIsLoading(true);
 
     try {
-      const redirectUrl = `${window.location.origin}/auth`;
+      // Use dedicated callback page for proper token handling
+      const redirectUrl = `${window.location.origin}/auth/callback`;
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl,
