@@ -20,6 +20,7 @@ import { PaceProjectionSection } from './earnings/PaceProjectionSection';
 import { TierUpgradeCard } from './earnings/TierUpgradeCard';
 import { EarningsInsight } from './earnings/EarningsInsight';
 import { EarningsSummaryStats } from './earnings/EarningsSummaryStats';
+import { WhatIfCalculator } from './earnings/WhatIfCalculator';
 
 interface Sale {
   prmr?: number;
@@ -419,6 +420,16 @@ export const EarningsBreakdownCard = () => {
                           projectedFp={metrics.projectedTotalFp}
                         />
                       )}
+                      
+                      {/* What If Calculator */}
+                      <WhatIfCalculator
+                        currentFp={metrics.currentFp}
+                        avgPrmrPerFp={metrics.totalPrmr > 0 && metrics.currentFp > 0 ? metrics.totalPrmr / metrics.currentFp : 85}
+                        rentType={metrics.rentType}
+                        weeksWorking={metrics.weeksWorking}
+                        spendingRate={metrics.spendingRate}
+                        efpModeEnabled={metrics.efpModeEnabled}
+                      />
                       
                       {/* Dynamic Insight */}
                       <EarningsInsight
