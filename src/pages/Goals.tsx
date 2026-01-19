@@ -107,6 +107,33 @@ const Goals = () => {
   const [confirmCommitBlitz, setConfirmCommitBlitz] = useState<{ id: string; name: string; date: string; endDate?: string | null; location?: string | null } | null>(null);
   const [confirmUncommitBlitz, setConfirmUncommitBlitz] = useState<{ id: string; name: string } | null>(null);
 
+  // Cache helpers for instant load
+  const getKnockingDaysCache = useCallback((userId: string) => {
+    try {
+      const cached = localStorage.getItem(`goals-knocking-days-cache-${userId}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.timestamp && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+          return parsed.data;
+        }
+      }
+    } catch { /* ignore */ }
+    return undefined;
+  }, []);
+
+  const getSeasonConfigCache = useCallback((userId: string) => {
+    try {
+      const cached = localStorage.getItem(`goals-season-config-cache-${userId}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.timestamp && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+          return parsed.data;
+        }
+      }
+    } catch { /* ignore */ }
+    return undefined;
+  }, []);
+
   // Fetch knocking days count for pace calculation
   // Knocking day = doors >= 5 AND has work_start_time AND work_end_time
   const { data: workedDaysData } = useQuery({
@@ -130,10 +157,23 @@ const Goals = () => {
         (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time
       ).length || 0;
       
-      return { knockingDays };
+      const result = { knockingDays };
+      
+      // Cache for instant load
+      try {
+        localStorage.setItem(`goals-knocking-days-cache-${repData?.user_id}`, JSON.stringify({
+          data: result,
+          timestamp: Date.now()
+        }));
+      } catch { /* ignore */ }
+      
+      return result;
     },
     enabled: !!repData?.user_id,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    refetchOnMount: false,
+    initialData: repData?.user_id ? getKnockingDaysCache(repData.user_id) : undefined,
   });
 
   // Fetch user's personal summer dates to determine if their summer has started
@@ -147,9 +187,22 @@ const Goals = () => {
         .eq('user_id', repData.user_id)
         .maybeSingle();
       if (error) throw error;
+      
+      // Cache for instant load
+      try {
+        localStorage.setItem(`goals-season-config-cache-${repData.user_id}`, JSON.stringify({
+          data,
+          timestamp: Date.now()
+        }));
+      } catch { /* ignore */ }
+      
       return data;
     },
     enabled: !!repData?.user_id,
+    staleTime: 30 * 60 * 1000, // 30 minutes - this rarely changes
+    gcTime: 60 * 60 * 1000, // 1 hour
+    refetchOnMount: false,
+    initialData: repData?.user_id ? getSeasonConfigCache(repData.user_id) : undefined,
   });
 
   // Calculate if user's personal summer has started (based on their personal_summer_start, not global date)
