@@ -1463,6 +1463,11 @@ const Home = () => {
                 trainings: trainingsComplete,
                 slack: slackComplete,
               }}
+              selfReported={{
+                onboarding: repData.self_reported_onboarding_complete === true,
+                trainings: repData.self_reported_trainings_complete === true,
+                slack: repData.self_reported_slack_joined === true,
+              }}
               phases={rampPhasesData}
               activePhase={currentActivePhase}
               onPhaseSelect={setActiveRampPhase}

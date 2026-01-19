@@ -60,6 +60,9 @@ export interface RepData {
   rsvp_first_window_ack_blitz_ids: string[];
   rsvp_second_window_ack_blitz_ids: string[];
   updated_at: string | null;
+  self_reported_onboarding_complete: boolean | null;
+  self_reported_trainings_complete: boolean | null;
+  self_reported_slack_joined: boolean | null;
 }
 
 // Helper to get user-specific cache key
