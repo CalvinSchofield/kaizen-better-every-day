@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Calendar, Trash2, Phone, Users } from "lucide-react";
+import { Check, Calendar, Trash2, Phone, Users, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { RecruitActivity } from "@/hooks/useGroupRecruits";
@@ -9,6 +9,7 @@ interface ScheduledActivityActionSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onMarkComplete: (activity: RecruitActivity, completedType: 'phone_call' | 'in_person') => void;
+  onEdit: (activity: RecruitActivity) => void;
   onReschedule: (activity: RecruitActivity) => void;
   onDelete: (activity: RecruitActivity) => void;
 }
@@ -18,6 +19,7 @@ export const ScheduledActivityActionSheet = ({
   open,
   onOpenChange,
   onMarkComplete,
+  onEdit,
   onReschedule,
   onDelete,
 }: ScheduledActivityActionSheetProps) => {
@@ -38,6 +40,13 @@ export const ScheduledActivityActionSheet = ({
     if (activity) {
       onMarkComplete(activity, type);
       setShowTypeSelection(false);
+      onOpenChange(false);
+    }
+  };
+
+  const handleEdit = () => {
+    if (activity) {
+      onEdit(activity);
       onOpenChange(false);
     }
   };
@@ -141,6 +150,20 @@ export const ScheduledActivityActionSheet = ({
                   <div className="text-xs text-muted-foreground">Log as completed activity</div>
                 </div>
               </Button>
+
+              <Button
+                variant="outline"
+                className="w-full justify-start h-14 text-left"
+                onClick={handleEdit}
+              >
+                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center mr-3">
+                  <Pencil className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <div className="font-medium">Edit</div>
+                  <div className="text-xs text-muted-foreground">Change date, notes, or assignee</div>
+                </div>
+              </Button>
               
               <Button
                 variant="outline"
@@ -152,7 +175,7 @@ export const ScheduledActivityActionSheet = ({
                 </div>
                 <div>
                   <div className="font-medium">Reschedule</div>
-                  <div className="text-xs text-muted-foreground">Pick a new date</div>
+                  <div className="text-xs text-muted-foreground">Quick reschedule to a new date</div>
                 </div>
               </Button>
               
