@@ -162,6 +162,12 @@ export const EarningsBreakdownCard = () => {
     // Check if user is a rookie
     const isRookie = repData?.year === 'Rookie' || repData?.year === '2025' || repData?.year === '2026';
     
+    // Check if summer has started for this rep
+    const personalSummerStart = seasonConfig?.personal_summer_start;
+    const today = new Date();
+    const summerStartDate = personalSummerStart ? new Date(personalSummerStart) : new Date(SUMMER_START);
+    const isSummerStarted = today >= summerStartDate;
+    
     // Calculate FP+ for rookie threshold
     const currentFpForThreshold = totalFP;
     
@@ -206,7 +212,6 @@ export const EarningsBreakdownCard = () => {
     const backend2 = (preseasonSummerBackend * 0.30) + extensionBackend;
     
     // Projection calculations
-    const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
     
     const personalSummerEnd = seasonConfig?.personal_summer_end || SEASON_END;
@@ -309,6 +314,7 @@ export const EarningsBreakdownCard = () => {
       totalPrmr,
       currentFp: totalFP,
       efpModeEnabled,
+      isSummerStarted,
     };
   }, [salesData, fundedPRMR, totalFP, goals, efpModeEnabled, seasonConfig, plannedDays, preseasonKnockingDays]);
   
@@ -377,6 +383,7 @@ export const EarningsBreakdownCard = () => {
                 summerKnockingDays={metrics.summerKnockingDays}
                 currentFp={metrics.currentFp}
                 isRookie={metrics.isRookie}
+                isSummerStarted={metrics.isSummerStarted}
                 onToggleProjected={setShowProjected}
               />
             </CollapsibleTrigger>
@@ -451,17 +458,16 @@ export const EarningsBreakdownCard = () => {
                         />
                       )}
                       
-                      {/* What If Calculator - only when projections NOT available */}
-                      {!metrics.projectionsAvailable && (
-                        <WhatIfCalculator
-                          currentFp={metrics.currentFp}
-                          avgPrmrPerFp={metrics.totalPrmr > 0 && metrics.currentFp > 0 ? metrics.totalPrmr / metrics.currentFp : 85}
-                          rentType={metrics.rentType}
-                          weeksWorking={metrics.weeksWorking}
-                          spendingRate={metrics.spendingRate}
-                          efpModeEnabled={metrics.efpModeEnabled}
-                        />
-                      )}
+                      {/* What If Calculator - prominent when projections NOT available, collapsible option when available */}
+                      <WhatIfCalculator
+                        currentFp={metrics.currentFp}
+                        avgPrmrPerFp={metrics.totalPrmr > 0 && metrics.currentFp > 0 ? metrics.totalPrmr / metrics.currentFp : 85}
+                        rentType={metrics.rentType}
+                        weeksWorking={metrics.weeksWorking}
+                        spendingRate={metrics.spendingRate}
+                        efpModeEnabled={metrics.efpModeEnabled}
+                        defaultExpanded={!metrics.projectionsAvailable}
+                      />
                       
                       {/* Dynamic Insight */}
                       <EarningsInsight
