@@ -242,7 +242,39 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     };
   }, [plannedDays, entries, isInPreseason, personalSummerEnd, personalSummerStart, throughDateStr, todayStr]);
 
-  // Check if user has no goals set up - show engaging prompt
+  const conversionFactor = (goals?.avg_prmr_per_fp || 85) / 85;
+  const metricLabel = efpModeEnabled ? "EFP" : "FP+";
+
+  // Current cumulative progress - use preseason hook values directly
+  const currentProgress = efpModeEnabled ? (preseasonEFP || 0) : (preseasonFP || 0);
+  
+  // Get focus tier for summer goal selection - MUST be called unconditionally (React hooks rule)
+  const { focusTier, setFocusTier, fundedFocusTierGoal, allTiers } = useFocusTier(currentProgress);
+  
+  // Personal benchmarks for pace messaging - MUST be called unconditionally (React hooks rule)
+  const benchmarksQuery = usePersonalBenchmarks({
+    userId: repData?.user_id,
+    personalSummerStart: personalSummerStart,
+    personalSummerEnd: personalSummerEnd,
+    efpModeEnabled,
+    calculateEfp,
+    currentProgress,
+    futurePlannedDays: plannedDays?.length || 0,
+    fundedGoal: fundedFocusTierGoal,
+  });
+  
+  const benchmarks = benchmarksQuery.data || {
+    bestDay: 0,
+    currentAverage: 0,
+    knockingDaysCompleted: 0,
+    weekInSummer: 0,
+    hasEnoughData: false,
+    projectedFinal: 0,
+    canAddMoreDays: false,
+    availableDaysToAdd: 0,
+  };
+
+  // Check if user has no goals set up - show engaging prompt (AFTER all hooks)
   if (!goals || !goals.setup_complete) {
     return (
       <div 
@@ -283,38 +315,6 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     );
   }
 
-  const conversionFactor = (goals.avg_prmr_per_fp || 85) / 85;
-  const metricLabel = efpModeEnabled ? "EFP" : "FP+";
-
-  // Current cumulative progress - use preseason hook values directly
-  const currentProgress = efpModeEnabled ? (preseasonEFP || 0) : (preseasonFP || 0);
-  
-  // Get focus tier for summer goal selection
-  const { focusTier, setFocusTier, fundedFocusTierGoal, allTiers } = useFocusTier(currentProgress);
-  
-  // Personal benchmarks for pace messaging
-  const benchmarksQuery = usePersonalBenchmarks({
-    userId: repData?.user_id,
-    personalSummerStart: personalSummerStart,
-    personalSummerEnd: personalSummerEnd,
-    efpModeEnabled,
-    calculateEfp,
-    currentProgress,
-    futurePlannedDays: plannedDays?.length || 0,
-    fundedGoal: fundedFocusTierGoal,
-  });
-  
-  const benchmarks = benchmarksQuery.data || {
-    bestDay: 0,
-    currentAverage: 0,
-    knockingDaysCompleted: 0,
-    weekInSummer: 0,
-    hasEnoughData: false,
-    projectedFinal: 0,
-    canAddMoreDays: false,
-    availableDaysToAdd: 0,
-  };
-  
   // Tier selector handler - stops propagation to prevent navigating to goals page
   const handleTierChange = async (tier: FocusTier, e: React.MouseEvent) => {
     e.stopPropagation();
