@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea";
 import { CommentsList, CommentInput, ReactionButton } from "./ActivitySocialFeatures";
+import { MentionInput } from "./MentionInput";
 import { getInitials } from "@/utils/nameUtils";
 import { cn } from "@/lib/utils";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
@@ -185,12 +185,14 @@ export const ActivityCommentsDrawer = ({
             {/* Full Notes - With Edit Capability */}
             {isEditing ? (
               <div className="space-y-2">
-                <Textarea
+                <MentionInput
                   value={editedNotes}
-                  onChange={(e) => setEditedNotes(e.target.value)}
+                  onChange={setEditedNotes}
                   placeholder="Edit your notes..."
-                  className="min-h-[100px] text-sm"
+                  onMentionsChange={() => {}}
+                  rows={4}
                   autoFocus
+                  recruitId={recruitId || activity.recruit_id || undefined}
                 />
                 <div className="flex gap-2 justify-end">
                   <Button
