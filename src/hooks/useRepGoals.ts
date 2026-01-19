@@ -113,7 +113,7 @@ export const useRepGoals = () => {
   // Get initial data from cache for INSTANT display (before repData loads)
   const initialData = userId ? getCachedGoals(userId) : undefined;
 
-  const { data: goals, isLoading, error, refetch } = useQuery({
+  const { data: goals, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['rep-goals', userId],
     queryFn: async () => {
       if (!userId) return null;
@@ -319,6 +319,7 @@ export const useRepGoals = () => {
   return {
     goals,
     isLoading,
+    isFetching, // True when fetching fresh data (even with cached initialData)
     error,
     refetch,
     updateGoals,
