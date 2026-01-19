@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "./useRepData";
@@ -149,6 +150,21 @@ export const useRepGoals = () => {
     refetchOnMount: false, // Don't refetch if we have cached data
     initialData,
   });
+
+
+  // Keep localStorage cache in sync with the latest query/optimistic state.
+  // This is what prevents the Goals setup wizard from flashing on app restart.
+  useEffect(() => {
+    if (!userId || !goals) return;
+    try {
+      localStorage.setItem(`rep-goals-cache-${userId}`, JSON.stringify({
+        data: goals,
+        timestamp: Date.now(),
+      }));
+    } catch {
+      // Ignore cache errors
+    }
+  }, [userId, goals]);
 
   // Check if we need to reset training progress for new week
   const checkAndResetWeeklyProgress = async () => {
