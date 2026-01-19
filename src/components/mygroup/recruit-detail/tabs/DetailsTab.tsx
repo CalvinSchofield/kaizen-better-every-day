@@ -18,6 +18,7 @@ import {
   UserPlus,
   Loader2,
   Heart,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -505,12 +506,52 @@ const BlitzStatusCard = ({
     }
   };
 
+  // Check for past blitzes (blitzes where end_date is in the past)
+  const hasPastBlitz = useMemo(() => {
+    if (!recruitRepData?.committed_blitzes || !allBlitzes.length) return false;
+    
+    const committedIds = (recruitRepData.committed_blitzes as (string | { id: string })[])
+      .map(b => typeof b === 'string' ? b : (b as { id: string })?.id);
+    
+    if (committedIds.length === 0) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Find if any committed blitz has ended
+    return allBlitzes
+      .filter(blitz => committedIds.includes(blitz.id))
+      .some(blitz => {
+        const endDate = blitz.endDate ? parseDateAsLocal(blitz.endDate) : parseDateAsLocal(blitz.date);
+        return endDate && endDate < today;
+      });
+  }, [recruitRepData?.committed_blitzes, allBlitzes]);
+  
+  const isPostBlitz = hasPastBlitz && isRampComplete;
+
   return (
     <div className={cn(
       "rounded-xl border p-4 space-y-3",
-      !isReady && isBlitzApproaching ? "bg-destructive/5 border-destructive/30" : "bg-muted/50 border-border"
+      isPostBlitz 
+        ? "bg-primary/5 border-primary/20"
+        : !isReady && isBlitzApproaching 
+          ? "bg-destructive/5 border-destructive/30" 
+          : "bg-muted/50 border-border"
     )}>
-      {/* Next Blitz Header */}
+      {/* Post-Blitz: Show Goal Progress Instead */}
+      {isPostBlitz && !hasBlitzCommitment && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-primary" />
+            <span className="font-medium text-sm">Post-Blitz Progress</span>
+          </div>
+          <Badge variant="secondary" className="bg-emerald-500/20 text-emerald-600 text-xs">
+            Blitz Complete ✓
+          </Badge>
+        </div>
+      )}
+      
+      {/* Next Blitz Header - only show if upcoming blitz */}
       {hasBlitzCommitment && (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -523,26 +564,28 @@ const BlitzStatusCard = ({
         </div>
       )}
       
-      {/* Readiness Checklist */}
-      <div className="flex flex-wrap gap-2">
-        <div className={cn(
-          "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full",
-          hasIpad ? "bg-green-500/10 text-green-700 dark:text-green-400" : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-        )}>
-          {hasIpad ? <Check className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-          <span>iPad</span>
+      {/* Readiness Checklist - only show if not post-blitz without upcoming blitz */}
+      {(!isPostBlitz || hasBlitzCommitment) && (
+        <div className="flex flex-wrap gap-2">
+          <div className={cn(
+            "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full",
+            hasIpad ? "bg-green-500/10 text-green-700 dark:text-green-400" : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+          )}>
+            {hasIpad ? <Check className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+            <span>iPad</span>
+          </div>
+          <div className={cn(
+            "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full",
+            isRampComplete ? "bg-green-500/10 text-green-700 dark:text-green-400" : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+          )}>
+            {isRampComplete ? <Check className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+            <span>Phase {currentPhase}/4</span>
+          </div>
         </div>
-        <div className={cn(
-          "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full",
-          isRampComplete ? "bg-green-500/10 text-green-700 dark:text-green-400" : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-        )}>
-          {isRampComplete ? <Check className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-          <span>Phase {currentPhase}/4</span>
-        </div>
-      </div>
+      )}
       
-      {/* Actions row */}
-      {!isReady && (
+      {/* Actions row - only show if not ready and has upcoming blitz */}
+      {!isReady && (!isPostBlitz || hasBlitzCommitment) && (
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">

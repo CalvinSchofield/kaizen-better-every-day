@@ -334,7 +334,48 @@ export const FocusCard = ({
     
     // ========== LOW: All good! ==========
     
-    if (isRampPhase4Complete && hasIpad) {
+    // Check if recruit has a past blitz (post-blitz state)
+    const hasPastBlitz = (() => {
+      if (!recruitRepData?.committed_blitzes || !Array.isArray(recruitRepData.committed_blitzes)) return false;
+      const committedIds = (recruitRepData.committed_blitzes as (string | { id: string })[])
+        .map(b => typeof b === 'string' ? b : b.id);
+      if (committedIds.length === 0) return false;
+      
+      // Check if any committed blitz has ended (end_date in the past)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Import allBlitzes context isn't available here, so we check via closestBlitz
+      // If they're blitz ready but no upcoming blitz, they must have completed one
+      return isRampPhase4Complete && hasIpad && !closestBlitz;
+    })();
+    
+    // Post-blitz: Show goal progress instead of "Blitz ready!"
+    if (hasPastBlitz || (isRampPhase4Complete && hasIpad && !hasBlitzCommitment)) {
+      // Check if they have a preseason goal
+      const hasPreseasonGoal = recruitGoals?.preseason_fp_goal && recruitGoals.preseason_fp_goal > 0;
+      
+      if (hasPreseasonGoal) {
+        issues.push({
+          priority: 10,
+          type: 'low',
+          icon: 'target',
+          title: `Goal Progress`,
+          description: `${recruitFirstName} is working toward their preseason goal`,
+          actionTab: 'progress'
+        });
+      } else {
+        issues.push({
+          priority: 15,
+          type: 'medium',
+          icon: 'target',
+          title: `No preseason goal set`,
+          description: `Help ${recruitFirstName} set a goal to track progress`,
+          actionLabel: 'View Progress',
+          actionTab: 'progress'
+        });
+      }
+    } else if (isRampPhase4Complete && hasIpad) {
       issues.push({
         priority: 10,
         type: 'low',
@@ -348,7 +389,7 @@ export const FocusCard = ({
     // Sort by priority and return highest
     issues.sort((a, b) => b.priority - a.priority);
     return issues[0] || null;
-  }, [recruit, recruitRepData, recruitFirstName, closestBlitz]);
+  }, [recruit, recruitRepData, recruitFirstName, closestBlitz, recruitGoals]);
   
   if (!focusIssue) return null;
   
