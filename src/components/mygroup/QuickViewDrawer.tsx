@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutGrid, Sun, Building2 } from "lucide-react";
+import { LayoutGrid, Sun, Building2, Bell } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { 
   Drawer, 
@@ -11,16 +11,19 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RecruitKanbanBoard } from "./RecruitKanbanBoard";
 import { SummerAvailabilityView } from "./SummerAvailabilityView";
 import { OrganizationManagementView } from "./OrganizationManagementView";
+import { ActivityDigestView } from "./ActivityDigestView";
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useTotalUnreadCount } from "@/hooks/useActivitySocial";
 
-type ViewMode = 'board' | 'availability' | 'org';
+type ViewMode = 'board' | 'availability' | 'org' | 'digest';
 
 interface QuickViewDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recruits: Recruit[];
   activities: RecruitActivity[];
+  onOpenRecruitDetail?: (recruitId: string, initialTab?: string) => void;
 }
 
 const getDrawerTitle = (viewMode: ViewMode) => {
@@ -29,6 +32,8 @@ const getDrawerTitle = (viewMode: ViewMode) => {
       return 'Summer Availability';
     case 'org':
       return 'Organization';
+    case 'digest':
+      return 'Activity Digest';
     default:
       return 'All Recruits';
   }
@@ -38,16 +43,30 @@ export const QuickViewDrawer = ({
   open, 
   onOpenChange, 
   recruits,
-  activities 
+  activities,
+  onOpenRecruitDetail,
 }: QuickViewDrawerProps) => {
   const [viewMode, setViewMode] = useState<ViewMode>('board');
   const { data: teamAccess } = useTeamAccess();
+
+  // Get recruit IDs for unread count
+  const recruitIds = recruits.map(r => r.id);
+  const unreadCount = useTotalUnreadCount(recruitIds);
 
   // Show org tab for leaders with downline access (AD, MGMT Lead, Team Lead)
   const canViewOrg = teamAccess?.accessLevel === 'area_director' || 
                      teamAccess?.accessLevel === 'mgmt_group_lead' || 
                      teamAccess?.accessLevel === 'team_lead';
   const showBadge = viewMode === 'board';
+
+  // Handle activity tap from digest - close drawer and open recruit detail
+  const handleActivityTap = (recruitId: string, activityId: string) => {
+    onOpenChange(false);
+    // Small delay to allow drawer close animation
+    setTimeout(() => {
+      onOpenRecruitDetail?.(recruitId, 'activity');
+    }, 150);
+  };
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -59,11 +78,24 @@ export const QuickViewDrawer = ({
               {showBadge && (
                 <Badge variant="secondary">{recruits.length}</Badge>
               )}
+              {viewMode === 'digest' && unreadCount > 0 && (
+                <Badge variant="destructive" className="text-[10px] h-5 px-1.5">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Badge>
+              )}
             </DrawerTitle>
             <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
               <TabsList className="h-8">
                 <TabsTrigger value="board" className="px-2" title="Board">
                   <LayoutGrid className="h-4 w-4" />
+                </TabsTrigger>
+                <TabsTrigger value="digest" className="px-2 relative" title="Activity Digest">
+                  <Bell className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[9px] rounded-full h-3.5 min-w-[14px] flex items-center justify-center px-0.5">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="availability" className="px-2" title="Availability">
                   <Sun className="h-4 w-4" />
@@ -81,6 +113,11 @@ export const QuickViewDrawer = ({
         <div className="overflow-y-auto p-4" style={{ maxHeight: 'calc(90vh - 80px)' }}>
           {viewMode === 'board' ? (
             <RecruitKanbanBoard recruits={recruits} activities={activities} />
+          ) : viewMode === 'digest' ? (
+            <ActivityDigestView 
+              recruitIds={recruitIds} 
+              onActivityTap={handleActivityTap}
+            />
           ) : viewMode === 'availability' ? (
             <SummerAvailabilityView />
           ) : (

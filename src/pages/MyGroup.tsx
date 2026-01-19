@@ -94,6 +94,7 @@ const MyGroup = () => {
   const [attentionDrawerOpen, setAttentionDrawerOpen] = useState(false);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
+  const [selectedRecruitInitialTab, setSelectedRecruitInitialTab] = useState<'details' | 'activity' | 'progress' | undefined>(undefined);
   
   // Contact and Schedule drawer state
   const [contactMethodDrawerOpen, setContactMethodDrawerOpen] = useState(false);
@@ -1086,13 +1087,26 @@ const MyGroup = () => {
         onOpenChange={setQuickViewOpen}
         recruits={filteredRecruits}
         activities={filteredActivities}
+        onOpenRecruitDetail={(recruitId, initialTab) => {
+          const recruit = filteredRecruits.find(r => r.id === recruitId);
+          if (recruit) {
+            setSelectedRecruitInitialTab(initialTab as 'details' | 'activity' | 'progress' | undefined);
+            setSelectedRecruit(recruit);
+          }
+        }}
       />
       <div data-tour="group-recruit-drawer">
         <RecruitDetailDrawer
           open={!!selectedRecruit}
-          onOpenChange={(open) => !open && setSelectedRecruit(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedRecruit(null);
+              setSelectedRecruitInitialTab(undefined);
+            }
+          }}
           recruit={selectedRecruit}
           activities={filteredActivities.filter(a => a.recruit_id === selectedRecruit?.id)}
+          initialTab={selectedRecruitInitialTab}
           onExitStage={(notionPageId) => {
             // Dismiss the recruit from hero/recommendations when moved to exit stage
             dismissRecruit(notionPageId);
