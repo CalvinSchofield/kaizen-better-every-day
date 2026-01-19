@@ -65,9 +65,10 @@ export const useAppMode = (repData?: any) => {
 
 
   // Get cached season config for instant loading
+  // Use the unified cache key 'kaizen-current-user-id' for consistency
   const getCachedSeasonConfig = (): SeasonConfig | null => {
     try {
-      const userId = localStorage.getItem('current-user-id');
+      const userId = localStorage.getItem('kaizen-current-user-id');
       if (userId) {
         const cached = localStorage.getItem(`season-config-cache-${userId}`);
         if (cached) {

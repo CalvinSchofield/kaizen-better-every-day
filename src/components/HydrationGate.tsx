@@ -10,17 +10,20 @@ interface HydrationGateProps {
  * until auth is ready and persisted cache can be used.
  * 
  * This prevents per-page skeleton/wizard flashes by ensuring:
- * 1. We have a known userId (from cache or verified auth)
+ * 1. We have a VERIFIED userId (not just cached, which could be stale)
  * 2. React Query persistence has restored
  * 
- * ONLY shows on true cold launch - never on navigation within the app.
+ * CRITICAL FIX: We now wait for authVerified to be true, not just canUseCachedData.
+ * This prevents the issue where a stale cached userId causes the app to render
+ * with empty/wrong data when the actual Supabase session is expired.
  */
 export const HydrationGate = ({ children }: HydrationGateProps) => {
-  const { canUseCachedData } = useCurrentUserId();
+  const { userId, authVerified } = useCurrentUserId();
   
-  // If we have a cached userId OR auth has verified, render children immediately
-  // This gate only blocks when we have NO idea who the user is
-  if (canUseCachedData) {
+  // CRITICAL: Wait for auth to be verified before rendering
+  // This prevents stale cached userId from causing empty data display
+  // The verification is quick (<200ms) so the UX impact is minimal
+  if (authVerified) {
     return <>{children}</>;
   }
   

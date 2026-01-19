@@ -55,10 +55,35 @@ export const useCurrentUserId = () => {
     const cachedUserId = getCachedUserId();
     
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error } = await supabase.auth.getUser();
       if (!mounted) return;
       
       const newUserId = user?.id ?? null;
+      
+      // CRITICAL: If we had a cached userId but auth returns null/error,
+      // the session is invalid/expired - clear all caches to prevent stale data display
+      if (cachedUserId && !newUserId) {
+        console.log('[useCurrentUserId] Session invalid/expired, clearing all caches');
+        clearAllRepCaches();
+        // Also clear other app caches that might cause stale UI
+        try {
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (
+              key.startsWith('rep-') ||
+              key.startsWith('season-config-cache-') ||
+              key.startsWith('goals-setup-') ||
+              key === 'current-user-id' // Also clear the inconsistent key used by useAppMode
+            )) {
+              keysToRemove.push(key);
+            }
+          }
+          keysToRemove.forEach(key => localStorage.removeItem(key));
+        } catch {
+          // Ignore storage errors
+        }
+      }
       
       // If user changed (e.g., different account), clear old user's caches
       if (cachedUserId && newUserId && cachedUserId !== newUserId) {
@@ -80,6 +105,29 @@ export const useCurrentUserId = () => {
       
       const newUserId = session?.user?.id ?? null;
       const currentCached = getCachedUserId();
+      
+      // Handle session expiry/logout - clear all caches
+      if (currentCached && !newUserId) {
+        console.log('[useCurrentUserId] Auth change: session ended, clearing caches');
+        clearAllRepCaches();
+        try {
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (
+              key.startsWith('rep-') ||
+              key.startsWith('season-config-cache-') ||
+              key.startsWith('goals-setup-') ||
+              key === 'current-user-id'
+            )) {
+              keysToRemove.push(key);
+            }
+          }
+          keysToRemove.forEach(key => localStorage.removeItem(key));
+        } catch {
+          // Ignore storage errors
+        }
+      }
       
       // If user changed, clear old caches
       if (currentCached && newUserId && currentCached !== newUserId) {
