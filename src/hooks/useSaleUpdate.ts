@@ -13,10 +13,13 @@ const clearSalesDependentCaches = () => {
       const key = localStorage.key(i);
       if (!key) continue;
       
-      // Clear sales-dependent caches
+      // Clear sales-dependent caches including goals (earnings projections depend on sales)
       if (key.startsWith('preseason-fp-cache-') ||
           key.startsWith('ytd-prmr-cache-') ||
-          key.startsWith('cumulative-fp-cache-')) {
+          key.startsWith('cumulative-fp-cache-') ||
+          key.startsWith('rep-goals-cache-') ||
+          key.startsWith('goals-knocking-days-cache-') ||
+          key.startsWith('goals-season-config-cache-')) {
         keysToRemove.push(key);
       }
     }
