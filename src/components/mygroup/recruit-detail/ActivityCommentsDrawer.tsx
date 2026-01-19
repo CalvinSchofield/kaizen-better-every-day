@@ -1,15 +1,17 @@
+import { useState } from "react";
 import { format, parseISO } from "date-fns";
-import { Heart, MessageCircle, X, Phone, PhoneCall, PhoneMissed, Users, MessageSquare, Calendar, CheckCircle2, AlertCircle } from "lucide-react";
+import { Heart, MessageCircle, X, Phone, PhoneCall, PhoneMissed, Users, MessageSquare, Calendar, CheckCircle2, AlertCircle, Pencil, Check } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { CommentsList, CommentInput, ReactionButton } from "./ActivitySocialFeatures";
 import { getInitials } from "@/utils/nameUtils";
 import { cn } from "@/lib/utils";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
-import { useActivityReactions } from "@/hooks/useActivitySocial";
+import { useActivityReactions, useUpdateActivityNotes } from "@/hooks/useActivitySocial";
 
 interface RecruitActivity {
   id: string;
@@ -34,6 +36,7 @@ interface ActivityCommentsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   loggerInfo?: LoggerInfo | null;
+  recruitName?: string;
 }
 
 export const ActivityCommentsDrawer = ({
@@ -41,9 +44,15 @@ export const ActivityCommentsDrawer = ({
   isOpen,
   onClose,
   loggerInfo,
+  recruitName,
 }: ActivityCommentsDrawerProps) => {
   const { userId: currentUserId } = useCurrentUserId();
   const { data: reactions = {} } = useActivityReactions(activity ? [activity.id] : []);
+  const updateNotes = useUpdateActivityNotes();
+  
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedNotes, setEditedNotes] = useState("");
   
   if (!activity) return null;
   
@@ -101,6 +110,34 @@ export const ActivityCommentsDrawer = ({
   const activityReactions = reactions[activity.id] || [];
   const likeCount = activityReactions.filter((r: any) => r.reaction_type === 'like').length;
 
+  // Handle edit start
+  const handleStartEdit = () => {
+    setEditedNotes(activity.notes || "");
+    setIsEditing(true);
+  };
+
+  // Handle save edit
+  const handleSaveEdit = () => {
+    updateNotes.mutate(
+      { activityId: activity.id, notes: editedNotes },
+      {
+        onSuccess: () => {
+          setIsEditing(false);
+          // Update will be reflected via query invalidation
+        },
+      }
+    );
+  };
+
+  // Handle cancel edit
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedNotes("");
+  };
+
+  // Get current user's name for mention notifications
+  const commenterName = loggerInfo?.name?.split(' ')[0] || 'Someone';
+
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="max-h-[90vh]">
@@ -145,12 +182,61 @@ export const ActivityCommentsDrawer = ({
               </div>
             </div>
             
-            {/* Full Notes - NOT TRUNCATED */}
-            {mainText && (
-              <div className="bg-muted/50 rounded-lg p-3">
-                <p className="text-sm whitespace-pre-wrap">{mainText}</p>
+            {/* Full Notes - With Edit Capability */}
+            {isEditing ? (
+              <div className="space-y-2">
+                <Textarea
+                  value={editedNotes}
+                  onChange={(e) => setEditedNotes(e.target.value)}
+                  placeholder="Edit your notes..."
+                  className="min-h-[100px] text-sm"
+                  autoFocus
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelEdit}
+                    disabled={updateNotes.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveEdit}
+                    disabled={updateNotes.isPending}
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Save
+                  </Button>
+                </div>
               </div>
-            )}
+            ) : mainText ? (
+              <div className="bg-muted/50 rounded-lg p-3 relative group">
+                <p className="text-sm whitespace-pre-wrap pr-8">{mainText}</p>
+                {/* Edit button - only for own activities */}
+                {isOwnActivity && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={handleStartEdit}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            ) : isOwnActivity ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={handleStartEdit}
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Add notes
+              </Button>
+            ) : null}
             
             {/* Next Action if different */}
             {!isScheduledActivity && activity.next_action && activity.next_action !== activity.notes && (
@@ -189,7 +275,11 @@ export const ActivityCommentsDrawer = ({
         
         {/* Comment Input - Fixed at bottom */}
         <div className="p-4 border-t bg-background">
-          <CommentInput activityId={activity.id} />
+          <CommentInput 
+            activityId={activity.id} 
+            commenterName={commenterName}
+            recruitName={recruitName}
+          />
         </div>
       </DrawerContent>
     </Drawer>
