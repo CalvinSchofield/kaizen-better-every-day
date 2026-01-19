@@ -36,6 +36,8 @@ export const EarningsBreakdownCard = () => {
   const [isEditingSpendingRate, setIsEditingSpendingRate] = useState(false);
   const [customRateInput, setCustomRateInput] = useState('');
   const [showProjected, setShowProjected] = useState(true);
+  const [isEditingPace, setIsEditingPace] = useState(false);
+  const [customPaceInput, setCustomPaceInput] = useState('');
   
   const { goals, updateGoals } = useRepGoals();
   const { repData } = useRepData();
@@ -191,9 +193,13 @@ export const EarningsBreakdownCard = () => {
     const personalSummerStart = seasonConfig?.personal_summer_start || SUMMER_START;
     const personalSummerEnd = seasonConfig?.personal_summer_end || SEASON_END;
     
-    // Calculate current pace (PRMR per knocking day)
+    // Calculate current pace (FP+ per knocking day)
+    const calculatedFpPerDay = totalKnockingDays > 0 ? totalFP / totalKnockingDays : 0;
     const prmrPerDay = totalKnockingDays > 0 ? totalPrmr / totalKnockingDays : 0;
-    const fpPerDay = totalKnockingDays > 0 ? totalFP / totalKnockingDays : 0;
+    
+    // Use custom pace if set, otherwise use calculated
+    const customFpPace = goals?.custom_fp_pace ?? null;
+    const fpPerDay = customFpPace ?? calculatedFpPerDay;
     
     // Calculate remaining planned days
     const futurePlannedDays = plannedDays?.filter(d => d.planned_date > todayStr && d.planned_date <= personalSummerEnd) || [];
@@ -203,10 +209,14 @@ export const EarningsBreakdownCard = () => {
     const extensionPlannedDays = futurePlannedDays.filter(d => d.planned_date >= EXTENSION_START).length;
     const preExtensionPlannedDays = remainingDays - extensionPlannedDays;
     
-    // Project future PRMR
-    const projectedAdditionalPrmr = prmrPerDay * remainingDays;
-    const projectedPreExtensionPrmr = prmrPerDay * preExtensionPlannedDays;
-    const projectedExtensionPrmr = prmrPerDay * extensionPlannedDays;
+    // Calculate PRMR per FP+ ratio to derive PRMR projections from FP+ pace
+    const prmrPerFp = totalFP > 0 ? totalPrmr / totalFP : 85; // Default to average PRMR if no data
+    const effectivePrmrPerDay = fpPerDay * prmrPerFp;
+    
+    // Project future using FP+ pace
+    const projectedAdditionalPrmr = effectivePrmrPerDay * remainingDays;
+    const projectedPreExtensionPrmr = effectivePrmrPerDay * preExtensionPlannedDays;
+    const projectedExtensionPrmr = effectivePrmrPerDay * extensionPlannedDays;
     
     // Project future FP+ for tier calculation
     const projectedTotalFp = totalFP + (fpPerDay * remainingDays);
@@ -280,6 +290,8 @@ export const EarningsBreakdownCard = () => {
       // Pace info
       prmrPerDay,
       fpPerDay,
+      calculatedFpPerDay,
+      hasCustomPace: customFpPace !== null && customFpPace !== undefined,
       remainingDays,
       totalKnockingDays,
       
@@ -330,6 +342,26 @@ export const EarningsBreakdownCard = () => {
     setCustomRateInput(metrics?.spendingRate?.toFixed(0) || '');
     setIsEditingSpendingRate(true);
   }, [metrics?.spendingRate]);
+  
+  // Custom pace handlers
+  const handleSaveCustomPace = useCallback(() => {
+    const pace = parseFloat(customPaceInput);
+    if (!isNaN(pace) && pace >= 0) {
+      updateGoals({ custom_fp_pace: pace });
+    }
+    setIsEditingPace(false);
+    setCustomPaceInput('');
+  }, [customPaceInput, updateGoals]);
+  
+  const handleClearCustomPace = useCallback(() => {
+    updateGoals({ custom_fp_pace: null });
+    setIsEditingPace(false);
+  }, [updateGoals]);
+  
+  const handleStartPaceEdit = useCallback(() => {
+    setCustomPaceInput(metrics?.fpPerDay?.toFixed(2) || '');
+    setIsEditingPace(true);
+  }, [metrics?.fpPerDay]);
   
   // Don't show if no data
   if (isLoading || !metrics) {
@@ -411,15 +443,82 @@ export const EarningsBreakdownCard = () => {
                     
                     {/* Pace Banner (shown in projected mode) */}
                     {showProjected && metrics.remainingDays > 0 && (
-                      <div className="rounded-xl bg-primary/10 p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Target className="w-4 h-4 text-primary" />
-                          <span className="text-sm font-medium">Based on current pace</span>
+                      <div className="rounded-xl bg-primary/10 p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Target className="w-4 h-4 text-primary" />
+                            <span className="text-sm font-medium">
+                              {metrics.hasCustomPace ? 'Custom projection' : 'Based on current pace'}
+                            </span>
+                          </div>
+                          <div className="text-right flex items-center gap-2">
+                            {isEditingPace ? (
+                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  value={customPaceInput}
+                                  onChange={(e) => setCustomPaceInput(e.target.value)}
+                                  className="h-7 w-16 text-right text-sm px-2"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveCustomPace();
+                                    if (e.key === 'Escape') setIsEditingPace(false);
+                                  }}
+                                />
+                                <span className="text-sm text-muted-foreground">{efpModeEnabled ? 'EFP' : 'FP+'}/day</span>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={handleSaveCustomPace}
+                                >
+                                  <Check className="w-3 h-3 text-success" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => setIsEditingPace(false)}
+                                >
+                                  <X className="w-3 h-3 text-muted-foreground" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <div>
+                                  <div className="text-sm font-bold">
+                                    {metrics.fpPerDay.toFixed(2)} {efpModeEnabled ? 'EFP' : 'FP+'}/day
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground">{metrics.remainingDays} days left</div>
+                                </div>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={(e) => { e.stopPropagation(); handleStartPaceEdit(); }}
+                                >
+                                  <Pencil className="w-3 h-3 text-muted-foreground" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-sm font-bold">${metrics.prmrPerDay.toFixed(0)}/day</div>
-                          <div className="text-[10px] text-muted-foreground">{metrics.remainingDays} days left</div>
-                        </div>
+                        {metrics.hasCustomPace && !isEditingPace && (
+                          <div className="mt-2 flex items-center justify-between text-[10px]">
+                            <span className="text-muted-foreground">
+                              Actual pace: {metrics.calculatedFpPerDay.toFixed(2)} {efpModeEnabled ? 'EFP' : 'FP+'}/day
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 text-[10px] px-2"
+                              onClick={(e) => { e.stopPropagation(); handleClearCustomPace(); }}
+                            >
+                              Reset to actual
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                     
