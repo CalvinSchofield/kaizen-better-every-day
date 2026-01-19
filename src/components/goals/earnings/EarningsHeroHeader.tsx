@@ -54,25 +54,36 @@ export const EarningsHeroHeader = ({
           <span className="font-semibold">Earnings Breakdown</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Mode Toggle Dots - Only show if projections are available */}
+          {/* Segment Control - Only show if projections are available */}
           {projectionsAvailable ? (
-            <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <div 
+              className="flex bg-muted rounded-full p-0.5" 
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
                 onClick={() => handleToggle(false)}
                 className={cn(
-                  "w-2 h-2 rounded-full transition-all duration-200",
-                  !isProjected ? "bg-primary scale-125" : "bg-muted-foreground/30"
+                  "px-3 py-1 text-xs font-medium rounded-full transition-all duration-200",
+                  !isProjected 
+                    ? "bg-background text-foreground shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground"
                 )}
                 aria-label="Current earnings"
-              />
+              >
+                Current
+              </button>
               <button
                 onClick={() => handleToggle(true)}
                 className={cn(
-                  "w-2 h-2 rounded-full transition-all duration-200",
-                  isProjected ? "bg-primary scale-125" : "bg-muted-foreground/30"
+                  "px-3 py-1 text-xs font-medium rounded-full transition-all duration-200",
+                  isProjected 
+                    ? "bg-background text-foreground shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground"
                 )}
                 aria-label="Projected earnings"
-              />
+              >
+                Projected
+              </button>
             </div>
           ) : (
             // Only show countdown badge if summer has started
