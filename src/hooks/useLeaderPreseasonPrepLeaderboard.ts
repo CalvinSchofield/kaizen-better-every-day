@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getTrainingPaceStatus, getWeekStartDateString } from "@/utils/timezoneUtils";
 import { useTeamAccess } from "./useTeamAccess";
+import { useCurrentUserId } from "./useCurrentUserId";
 
 export type LeaderboardMetric = 'overall' | 'books' | 'training' | 'roleplays' | 'mnl';
 
@@ -53,11 +54,39 @@ export interface LeaderboardEntry {
 // Valid stages for preseason prep tracking
 const VALID_STAGES = ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
 
+// Cache helpers for instant load
+const getCachedLeaderboard = (metric: LeaderboardMetric, showMyTeamOnly: boolean, userId: string | null) => {
+  try {
+    const cached = localStorage.getItem(`leader-prep-leaderboard-cache-${metric}-${showMyTeamOnly}-${userId || 'anon'}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      // Cache valid for 5 minutes
+      if (parsed.timestamp && Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+        return parsed.data;
+      }
+    }
+  } catch { /* ignore */ }
+  return undefined;
+};
+
+const setCachedLeaderboard = (metric: LeaderboardMetric, showMyTeamOnly: boolean, userId: string | null, data: any) => {
+  try {
+    localStorage.setItem(`leader-prep-leaderboard-cache-${metric}-${showMyTeamOnly}-${userId || 'anon'}`, JSON.stringify({
+      data,
+      timestamp: Date.now()
+    }));
+  } catch { /* ignore */ }
+};
+
 export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall', showMyTeamOnly: boolean = false) => {
   const { data: teamAccess, isLoading: isLoadingTeamAccess } = useTeamAccess();
+  const { userId: currentUserId, isReady: authReady } = useCurrentUserId();
   
   // Only run when teamAccess is fully loaded and has accessibleReps
   const hasAccessibleReps = teamAccess?.accessibleReps && teamAccess.accessibleReps.length > 0;
+  
+  // Get initial data from cache for instant display
+  const initialData = getCachedLeaderboard(metric, showMyTeamOnly, currentUserId);
   
   return useQuery({
     queryKey: ['leader-preseason-prep-leaderboard-weekly', metric, showMyTeamOnly, hasAccessibleReps ? teamAccess.accessibleReps.length : 0],
@@ -361,7 +390,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         });
       }
 
-      return {
+      const result = {
         entries: sortedEntries,
         totalParticipants: rookiesWithStandardsCount, // Those who have set up standards
         totalRookies,
@@ -373,9 +402,16 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
           avgScore: stats.rookieCount > 0 ? Math.round(stats.totalScore / stats.rookieCount) : 0,
         })).sort((a, b) => b.totalScore - a.totalScore),
       };
+      
+      // Cache for instant load next time
+      setCachedLeaderboard(metric, showMyTeamOnly, currentUserId, result);
+      
+      return result;
     },
     staleTime: 2 * 60 * 1000,
     // Only enable when teamAccess is loaded AND has accessibleReps
-    enabled: !!teamAccess && hasAccessibleReps,
+    enabled: authReady && !!teamAccess && hasAccessibleReps,
+    refetchOnMount: false, // Trust cache on mount
+    initialData,
   });
 };

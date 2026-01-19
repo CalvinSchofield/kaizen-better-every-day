@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getTrainingPaceStatus, getWeekStartDateString } from "@/utils/timezoneUtils";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 
 export type LeaderboardMetric = 'overall' | 'books' | 'training' | 'roleplays' | 'mnl';
 
@@ -52,17 +53,37 @@ export interface LeaderboardEntry {
 // Valid stages for preseason prep tracking (Signed and beyond)
 const VALID_STAGES = ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
 
+// Cache helpers for instant load
+const getCachedLeaderboard = (metric: LeaderboardMetric, userId: string | null) => {
+  try {
+    const cached = localStorage.getItem(`preseason-prep-leaderboard-cache-${metric}-${userId || 'anon'}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      // Cache valid for 5 minutes
+      if (parsed.timestamp && Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+        return parsed.data;
+      }
+    }
+  } catch { /* ignore */ }
+  return undefined;
+};
+
+const setCachedLeaderboard = (metric: LeaderboardMetric, userId: string | null, data: any) => {
+  try {
+    localStorage.setItem(`preseason-prep-leaderboard-cache-${metric}-${userId || 'anon'}`, JSON.stringify({
+      data,
+      timestamp: Date.now()
+    }));
+  } catch { /* ignore */ }
+};
+
 export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall') => {
   const { data: teamAccess } = useTeamAccess();
+  // Use instant userId hook for immediate cache access
+  const { userId: currentUserId, isReady: authReady } = useCurrentUserId();
   
-  const { data: currentUserId } = useQuery({
-    queryKey: ['current-user-id'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      return user?.id || null;
-    },
-    staleTime: Infinity,
-  });
+  // Get initial data from cache for instant display
+  const initialData = getCachedLeaderboard(metric, currentUserId);
 
   return useQuery({
     queryKey: ['preseason-prep-leaderboard-weekly', metric, currentUserId, teamAccess?.accessibleReps?.length],
@@ -314,7 +335,7 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
         ? sortedEntries.find(e => e.id === currentUserRepId)
         : undefined;
 
-      return {
+      const result = {
         entries: sortedEntries,
         currentUserRank,
         currentUserEntry,
@@ -322,8 +343,15 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
         totalParticipants: rookiesWithStandards,
         rookiesWithoutStandards,
       };
+      
+      // Cache for instant load next time
+      setCachedLeaderboard(metric, currentUserId, result);
+      
+      return result;
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
-    enabled: currentUserId !== undefined && teamAccess !== undefined,
+    enabled: authReady && teamAccess !== undefined,
+    refetchOnMount: false, // Trust cache on mount
+    initialData,
   });
 };

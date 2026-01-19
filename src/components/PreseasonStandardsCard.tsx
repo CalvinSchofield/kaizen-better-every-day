@@ -74,9 +74,16 @@ export const PreseasonStandardsCard = () => {
     });
   }, [goals, plannedDays, knockingDays, preseasonFP, preseasonPRMR, efpModeEnabled, calculateEfp, personalSummerStart]);
 
-  // Don't show if no goals access or goals not set up
-  if (!hasGoalsAccess || isLoading) return null;
-  if (!goals?.setup_complete) return null;
+  // INSTANT LOAD: Show cached goals immediately, only hide if truly no access after loading
+  // Key insight: if goals?.setup_complete is true (from cache), show the card immediately
+  const hasGoalsFromCache = goals?.setup_complete === true;
+  
+  // Don't show if no goals access AND we're not loading (i.e., we know for sure user doesn't have access)
+  if (!hasGoalsAccess && !isLoading) return null;
+  // Don't show if goals not set up AND we've confirmed loading is done
+  if (!hasGoalsFromCache && !isLoading) return null;
+  // If still loading with no cached goals, return null (prevents skeleton flash, layout will settle)
+  if (isLoading && !hasGoalsFromCache) return null;
 
   // Build commitment items from goals (excluding blitzes - shown in separate card)
   const commitments: CommitmentItem[] = [
