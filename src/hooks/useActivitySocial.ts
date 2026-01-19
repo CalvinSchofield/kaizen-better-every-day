@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUserId } from "./useCurrentUserId";
@@ -324,41 +325,45 @@ export const useUnreadActivityCount = (recruitId: string | null, activities: Arr
 export const useActivitySocialRealtime = (activityIds: string[]) => {
   const queryClient = useQueryClient();
   
-  // Subscribe to reactions
-  const reactionsChannel = supabase
-    .channel('activity-reactions-realtime')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'recruit_activity_reactions',
-      },
-      () => {
-        queryClient.invalidateQueries({ queryKey: ['activity-reactions'] });
-      }
-    )
-    .subscribe();
-  
-  // Subscribe to comments
-  const commentsChannel = supabase
-    .channel('activity-comments-realtime')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'recruit_activity_comments',
-      },
-      () => {
-        queryClient.invalidateQueries({ queryKey: ['activity-comments'] });
-        queryClient.invalidateQueries({ queryKey: ['activity-comment-counts'] });
-      }
-    )
-    .subscribe();
-  
-  return () => {
-    supabase.removeChannel(reactionsChannel);
-    supabase.removeChannel(commentsChannel);
-  };
+  useEffect(() => {
+    if (activityIds.length === 0) return;
+    
+    // Subscribe to reactions
+    const reactionsChannel = supabase
+      .channel('activity-reactions-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'recruit_activity_reactions',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['activity-reactions'] });
+        }
+      )
+      .subscribe();
+    
+    // Subscribe to comments
+    const commentsChannel = supabase
+      .channel('activity-comments-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'recruit_activity_comments',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['activity-comments'] });
+          queryClient.invalidateQueries({ queryKey: ['activity-comment-counts'] });
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(reactionsChannel);
+      supabase.removeChannel(commentsChannel);
+    };
+  }, [activityIds, queryClient]);
 };

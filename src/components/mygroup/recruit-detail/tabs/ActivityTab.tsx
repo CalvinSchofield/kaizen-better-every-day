@@ -68,12 +68,8 @@ export const ActivityTab = ({
   // Detect unread count
   const unreadCount = useUnreadActivityCount(recruitId, activities);
   
-  // Real-time subscriptions for reactions/comments
-  useEffect(() => {
-    if (activityIds.length === 0) return;
-    const unsubscribe = useActivitySocialRealtime(activityIds);
-    return unsubscribe;
-  }, [activityIds.join(',')]);
+  // Real-time subscriptions for reactions/comments - called as a proper hook
+  useActivitySocialRealtime(activityIds);
   
   // Mark as read when tab opens
   useEffect(() => {
