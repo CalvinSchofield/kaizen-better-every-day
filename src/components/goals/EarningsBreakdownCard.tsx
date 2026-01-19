@@ -93,6 +93,7 @@ export const EarningsBreakdownCard = () => {
       let dealsCount = 0;
       let dealsWithSpending = 0;
       let totalKnockingDays = 0;
+      let summerKnockingDays = 0; // Track summer knocking days separately
       
       entries?.forEach(entry => {
         const salesLog = entry.sales_log as Sale[] | null;
@@ -101,6 +102,10 @@ export const EarningsBreakdownCard = () => {
         const isKnockingDay = (entry.doors_knocked || 0) >= 4 && entry.work_start_time && entry.work_end_time;
         if (isKnockingDay) {
           totalKnockingDays++;
+          // Count summer knocking days (April 12 onwards)
+          if (entryDate >= SUMMER_START) {
+            summerKnockingDays++;
+          }
         }
         
         if (salesLog && Array.isArray(salesLog)) {
@@ -136,6 +141,7 @@ export const EarningsBreakdownCard = () => {
         dealsCount,
         dealsWithSpending,
         totalKnockingDays,
+        summerKnockingDays,
       };
     },
     enabled: !!repData?.user_id,
@@ -151,6 +157,10 @@ export const EarningsBreakdownCard = () => {
     const dealsCount = salesData?.dealsCount || 0;
     const dealsWithSpending = salesData?.dealsWithSpending || 0;
     const totalKnockingDays = salesData?.totalKnockingDays || preseasonKnockingDays || 0;
+    const summerKnockingDays = salesData?.summerKnockingDays || 0;
+    
+    // Projections only available after 18+ summer knocking days
+    const projectionsAvailable = summerKnockingDays >= 18;
     
     if (totalPrmr === 0 && totalKnockingDays === 0) return null;
     
@@ -270,6 +280,8 @@ export const EarningsBreakdownCard = () => {
       hasCustomPace: customFpPace !== null && customFpPace !== undefined,
       remainingDays,
       totalKnockingDays,
+      summerKnockingDays,
+      projectionsAvailable,
       rentCost,
       rentBonus,
       projectedRentBonus,
@@ -314,7 +326,10 @@ export const EarningsBreakdownCard = () => {
     return null;
   }
   
-  const displayMetrics = showProjected ? {
+  // Force current view if projections aren't available
+  const effectiveShowProjected = metrics.projectionsAvailable && showProjected;
+  
+  const displayMetrics = effectiveShowProjected ? {
     upfrontPay: metrics.projectedUpfrontPay,
     backend1: metrics.projectedBackend1,
     backend2: metrics.projectedBackend2,
@@ -345,8 +360,10 @@ export const EarningsBreakdownCard = () => {
               <EarningsHeroHeader
                 netPay={displayMetrics.netPay}
                 monthlyExpenses={goals?.monthly_expenses || 0}
-                isProjected={showProjected}
+                isProjected={effectiveShowProjected}
                 isOpen={isOpen}
+                projectionsAvailable={metrics.projectionsAvailable}
+                summerKnockingDays={metrics.summerKnockingDays}
                 onToggleProjected={setShowProjected}
               />
             </CollapsibleTrigger>
@@ -361,8 +378,8 @@ export const EarningsBreakdownCard = () => {
                     transition={{ duration: 0.2 }}
                   >
                     <CardContent className="pt-0 px-4 pb-4 space-y-5">
-                      {/* Pace Projection (only in projected mode) */}
-                      {showProjected && metrics.remainingDays > 0 && (
+                      {/* Pace Projection (only in projected mode when projections available) */}
+                      {effectiveShowProjected && metrics.remainingDays > 0 && (
                         <PaceProjectionSection
                           fpPerDay={metrics.fpPerDay}
                           calculatedFpPerDay={metrics.calculatedFpPerDay}
@@ -382,7 +399,7 @@ export const EarningsBreakdownCard = () => {
                         backend1={displayMetrics.backend1}
                         backend2={displayMetrics.backend2}
                         totalGross={displayMetrics.totalGross}
-                        isProjected={showProjected}
+                        isProjected={effectiveShowProjected}
                       />
                       
                       {/* Net Pay Waterfall */}
@@ -394,7 +411,7 @@ export const EarningsBreakdownCard = () => {
                         netPay={displayMetrics.netPay}
                         weeksWorking={metrics.weeksWorking}
                         rentType={metrics.rentType}
-                        isProjected={showProjected}
+                        isProjected={effectiveShowProjected}
                         efpModeEnabled={metrics.efpModeEnabled}
                         spendingRate={metrics.spendingRate}
                         hasCustomRate={metrics.hasCustomRate}
@@ -407,13 +424,13 @@ export const EarningsBreakdownCard = () => {
                         payRate={metrics.payRate}
                         totalKnockingDays={metrics.totalKnockingDays}
                         totalPrmr={metrics.totalPrmr}
-                        isProjected={showProjected}
+                        isProjected={effectiveShowProjected}
                         projectedPayRate={metrics.projectedPayRate}
                         projectedTotalPrmr={metrics.projectedTotalPrmr}
                       />
                       
-                      {/* Tier Upgrade Card */}
-                      {showProjected && (
+                      {/* Tier Upgrade Card - only when projections available */}
+                      {effectiveShowProjected && (
                         <TierUpgradeCard
                           currentRate={metrics.payRate}
                           projectedRate={metrics.projectedPayRate}
@@ -441,7 +458,7 @@ export const EarningsBreakdownCard = () => {
                         projectedRate={metrics.projectedPayRate}
                         spendingRate={metrics.spendingRate}
                         projectedSpending={metrics.projectedSpending}
-                        isProjected={showProjected}
+                        isProjected={effectiveShowProjected}
                       />
                     </CardContent>
                   </motion.div>
