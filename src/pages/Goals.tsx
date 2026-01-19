@@ -679,13 +679,16 @@ const Goals = () => {
     }
   };
 
-  // Loading state - only show skeleton if we have NO cached data at all
-  // If we have cached goals (even if stale), show them instantly - Monarch-style instant load
+  // Loading state - INSTANT LOAD from cache, only show skeleton if truly nothing cached
+  // Key insight: if we have cached goals with setup_complete=true, TRUST IT and show dashboard immediately
   const hasGoalsData = !!goals;
+  const hasCachedSetupComplete = goals?.setup_complete === true;
   const isDataLoading = repDataInitializing || repDataLoading || !repData;
   
-  // Only show loading if we're missing essential data AND don't have cached goals
-  if (isDataLoading && !hasGoalsData) {
+  // Only show loading skeleton if:
+  // 1. We're missing essential data AND don't have cached goals, OR
+  // 2. We're loading AND don't have cached setup_complete (to prevent wizard flash)
+  if (isDataLoading && !hasGoalsData && !hasCachedSetupComplete) {
     return (
       <Layout>
         <div className="p-4 space-y-6">

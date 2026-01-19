@@ -393,12 +393,13 @@ export const LeaderPreseasonPrepLeaderboard = () => {
   const [showMyTeamOnly, setShowMyTeamOnly] = useState(false);
   const { data, isLoading, isFetching } = useLeaderPreseasonPrepLeaderboard(selectedMetric, showMyTeamOnly);
 
-  // Show skeleton while loading or fetching initial data
-  // Also show skeleton if data is not yet available (query not enabled)
-  if (isLoading || (!data && isFetching)) return <LeaderboardSkeleton />;
+  // INSTANT LOAD: Show cached data immediately, only show skeleton if truly no cached data
+  const hasCachedData = !!data;
+  
+  // Show skeleton only if loading AND no cached data (first-time only)
+  if (isLoading && !hasCachedData) return <LeaderboardSkeleton />;
 
   // Only show nothing if data was fetched successfully and there's truly no rookies at all
-  // Don't return null if data is undefined (not yet loaded)
   if (data && !showMyTeamOnly && data.totalRookies === 0) return null;
 
   const entriesWithActivity = data?.entries.filter(e => getMetricValue(e, selectedMetric) > 0) || [];

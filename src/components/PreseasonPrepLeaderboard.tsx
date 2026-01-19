@@ -242,10 +242,30 @@ export const PreseasonPrepLeaderboard = () => {
   const navigate = useNavigate();
   const [selectedMetric, setSelectedMetric] = useState<LeaderboardMetric>('overall');
   const [isExpanded, setIsExpanded] = useState(false);
-  const { data, isLoading } = usePreseasonPrepLeaderboard(selectedMetric);
+  const { data, isLoading, isFetching } = usePreseasonPrepLeaderboard(selectedMetric);
 
+  // INSTANT LOAD: Show cached data immediately, only show skeleton if truly nothing
+  const hasCachedData = !!data;
+  
   // Show nothing only if we've loaded and there's truly no data
   if (!isLoading && !data) return null;
+  
+  // If loading but no cached data, show skeleton (first-time only)
+  if (isLoading && !hasCachedData) {
+    return (
+      <Card className="mb-6 overflow-hidden">
+        <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-4 pt-4 pb-3">
+          <Skeleton className="h-6 w-32 mb-2" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <CardContent className="p-4 pt-3">
+          <Skeleton className="h-12 w-full mb-2" />
+          <Skeleton className="h-12 w-full mb-2" />
+          <Skeleton className="h-12 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   const entriesWithActivity = data?.entries.filter(e => getMetricValue(e, selectedMetric) > 0) || [];
   const entriesWithoutActivity = data?.entries.filter(e => getMetricValue(e, selectedMetric) === 0) || [];
@@ -297,11 +317,11 @@ export const PreseasonPrepLeaderboard = () => {
           )}
         </div>
 
-        {/* User Status - Loading State */}
-        {isLoading && <UserStatusSkeleton />}
+        {/* User Status - Loading State (only when no cached data) */}
+        {isLoading && !hasCachedData && <UserStatusSkeleton />}
 
         {/* User Status - No Standards Set Up */}
-        {!isLoading && !userHasStandards && (
+        {hasCachedData && !userHasStandards && (
           <div className="rounded-lg p-3 bg-background/60 border border-dashed border-primary/30">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -326,7 +346,7 @@ export const PreseasonPrepLeaderboard = () => {
         )}
 
         {/* User Status - Has Standards */}
-        {!isLoading && userHasStandards && data?.currentUserEntry && (
+        {hasCachedData && userHasStandards && data?.currentUserEntry && (
           <div className={cn(
             "rounded-lg p-3 transition-all",
             userHasActivity 
