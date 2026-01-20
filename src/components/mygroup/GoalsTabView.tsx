@@ -143,18 +143,28 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
     enabled: !!teamAccess?.accessibleUserIds?.length,
   });
 
-  // Fetch planned work days - FULL SEASON RANGE for accurate pace calculation
+  // Fetch planned work days (via backend function so leaders can see downline)
   const { data: plannedDaysData, isLoading: plannedLoading } = useQuery({
     queryKey: ['goals-tab-planned', teamAccess?.accessibleUserIds],
     queryFn: async () => {
-      if (!teamAccess?.accessibleUserIds?.length) return [];
-      const { data } = await supabase
-        .from('planned_work_days')
-        .select('user_id, planned_date')
-        .in('user_id', teamAccess.accessibleUserIds)
-        .gte('planned_date', PRESEASON_START)
-        .lte('planned_date', DEFAULT_SUMMER_END);
-      return data || [];
+      if (!teamAccess?.accessibleUserIds?.length) return [] as Array<{ user_id: string; planned_date: string }>;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return [];
+
+      const { data, error } = await supabase.functions.invoke('fetch-downline-planned-days', {
+        body: {
+          userIds: teamAccess.accessibleUserIds,
+          startDate: PRESEASON_START,
+          endDate: DEFAULT_SUMMER_END,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      return (data?.plannedDays || []) as Array<{ user_id: string; planned_date: string }>;
     },
     enabled: !!teamAccess?.accessibleUserIds?.length,
   });
