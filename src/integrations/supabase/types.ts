@@ -922,6 +922,51 @@ export type Database = {
         }
         Relationships: []
       }
+      official_totals: {
+        Row: {
+          created_at: string | null
+          fp_plus: number | null
+          id: string
+          knocking_days: number | null
+          last_verified_at: string | null
+          notes: string | null
+          prmr: number | null
+          season_type: string
+          season_year: number
+          updated_at: string | null
+          user_id: string
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          fp_plus?: number | null
+          id?: string
+          knocking_days?: number | null
+          last_verified_at?: string | null
+          notes?: string | null
+          prmr?: number | null
+          season_type: string
+          season_year: number
+          updated_at?: string | null
+          user_id: string
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          fp_plus?: number | null
+          id?: string
+          knocking_days?: number | null
+          last_verified_at?: string | null
+          notes?: string | null
+          prmr?: number | null
+          season_type?: string
+          season_year?: number
+          updated_at?: string | null
+          user_id?: string
+          verified_by?: string | null
+        }
+        Relationships: []
+      }
       personal_recaps: {
         Row: {
           created_at: string | null
