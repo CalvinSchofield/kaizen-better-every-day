@@ -133,12 +133,13 @@ export const FocusCard = ({
       if (hasPreseasonGoal) {
         const goal = recruitGoals.preseason_fp_goal!;
         const progressPercent = Math.min((recruitYtdFP / goal) * 100, 100);
+        const metricLabel = recruitRepData?.efp_mode_enabled ? 'EFP' : 'FP+';
         issues.push({
           priority: 50,
           type: 'low',
           icon: 'target',
           title: `Goal Progress`,
-          description: `${recruitYtdFP.toFixed(1)} / ${goal} EFP (${progressPercent.toFixed(0)}%)`,
+          description: `${recruitYtdFP.toFixed(1)} / ${goal} ${metricLabel} (${progressPercent.toFixed(0)}%)`,
           actionTab: 'details'
         });
       } else {
@@ -408,12 +409,13 @@ export const FocusCard = ({
       if (hasPreseasonGoal) {
         const goal = recruitGoals.preseason_fp_goal!;
         const progressPercent = Math.min((recruitYtdFP / goal) * 100, 100);
+        const metricLabel = recruitRepData?.efp_mode_enabled ? 'EFP' : 'FP+';
         issues.push({
           priority: 10,
           type: 'low',
           icon: 'target',
           title: `Goal Progress`,
-          description: `${recruitYtdFP.toFixed(1)} / ${goal} EFP (${progressPercent.toFixed(0)}%)`,
+          description: `${recruitYtdFP.toFixed(1)} / ${goal} ${metricLabel} (${progressPercent.toFixed(0)}%)`,
           actionTab: 'progress'
         });
       } else {
