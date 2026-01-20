@@ -463,6 +463,7 @@ export const EarningsBreakdownCard = () => {
                           spendingRate={metrics.spendingRate}
                           efpModeEnabled={metrics.efpModeEnabled}
                           onFpGoalChange={setModelFpGoal}
+                          year={repData?.year}
                         />
                       )}
                       
