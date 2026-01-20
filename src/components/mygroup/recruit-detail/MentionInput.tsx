@@ -339,19 +339,24 @@ export const MentionInput = ({
   
   return (
     <div ref={containerRef} className="relative flex-1">
-      {/* Highlight layer - renders colored mentions behind textarea */}
+      {/* Highlight layer - renders colored mentions over textarea */}
       <div 
         className={cn(
           "absolute inset-0 pointer-events-none rounded-md border border-transparent px-3 py-2 text-sm overflow-hidden whitespace-pre-wrap break-words",
+          "text-foreground",
           className
         )}
-        style={{ minHeight: `${minHeight}px` }}
+        style={{ 
+          minHeight: `${minHeight}px`,
+          wordBreak: 'break-word',
+          overflowWrap: 'break-word',
+        }}
         aria-hidden="true"
       >
         {renderHighlightedText()}
       </div>
       
-      {/* Actual textarea - transparent text so highlights show through */}
+      {/* Actual textarea - completely transparent text, only caret visible */}
       <textarea
         ref={textareaRef}
         value={value}
@@ -361,15 +366,16 @@ export const MentionInput = ({
         placeholder={placeholder}
         rows={rows}
         className={cn(
-          "flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none",
-          // Make text visible but mentions will appear highlighted due to overlay
-          "text-foreground caret-foreground",
+          "flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none",
+          "caret-foreground",
           className
         )}
         style={{ 
           minHeight: `${minHeight}px`,
-          // Use caretColor to make cursor visible, keep text visible too
-          WebkitTextFillColor: 'currentcolor',
+          color: 'transparent',
+          caretColor: 'hsl(var(--foreground))',
+          wordBreak: 'break-word',
+          overflowWrap: 'break-word',
         }}
       />
       
