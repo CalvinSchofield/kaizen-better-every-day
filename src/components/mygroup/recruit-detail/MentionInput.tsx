@@ -292,7 +292,7 @@ export const MentionInput = ({
       
       if (matchedUser) {
         // Add highlighted mention
-        html += `<span class="text-primary font-medium" data-mention-name="${mentionName}" data-mention-user-id="${matchedUser.user_id}" contenteditable="false">@${mentionName}</span>`;
+        html += `<span class="text-cyan-500 font-semibold" data-mention-name="${mentionName}" data-mention-user-id="${matchedUser.user_id}" contenteditable="false">@${mentionName}</span>`;
         newMentions.push({
           userId: matchedUser.user_id,
           name: mentionName,
@@ -527,7 +527,7 @@ export const MentionText = ({ text, className }: { text: string; className?: str
         // Every odd index is a mention (captured group)
         if (i % 2 === 1) {
           return (
-            <span key={i} className="text-primary font-medium">
+            <span key={i} className="text-cyan-500 font-semibold">
               @{part}
             </span>
           );
