@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Plus, Trash2, GripVertical } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ interface BlitzFormDrawerProps {
 }
 
 export default function BlitzFormDrawer({ open, onClose, blitz, onSuccess }: BlitzFormDrawerProps) {
+  const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
@@ -192,6 +194,10 @@ export default function BlitzFormDrawer({ open, onClose, blitz, onSuccess }: Bli
         toast({ title: "Blitz created successfully" });
       }
 
+      // Invalidate all blitz-related caches to refresh data app-wide
+      await queryClient.invalidateQueries({ queryKey: ['blitzes'] });
+      await queryClient.invalidateQueries({ queryKey: ['blitz-attendance'] });
+      
       onSuccess();
     } catch (error: any) {
       console.error("Error saving blitz:", error);
