@@ -32,6 +32,7 @@ import { RookieRampHeroSection } from "@/components/RookieRampHeroSection";
 import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
 import { hapticSuccess, hapticMedium, hapticWarning } from "@/utils/haptics";
 import type { PhaseData, PhaseId } from "@/pages/RampToBlitz";
+import { SyncPromptTrigger } from "@/components/catchup/WeeklySyncPrompt";
 
 import { PreseasonPrepLeaderboard } from "@/components/PreseasonPrepLeaderboard";
 
@@ -1867,6 +1868,13 @@ const Home = () => {
           scrollbar-width: none;
         }
       `}</style>
+      
+      {/* Weekly sync prompt - shows on Sunday evening/Monday morning */}
+      <SyncPromptTrigger 
+        seasonType="preseason"
+        seasonStartDate="2025-09-28"
+        seasonEndDate="2026-04-11"
+      />
     </div>
   );
 };
