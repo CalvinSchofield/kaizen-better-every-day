@@ -222,6 +222,20 @@ All colors MUST be HSL.
     --header-padding-top: max(0.75rem, var(--effective-safe-area-top));
     --nav-height: 4.5rem;
     --nav-padding-bottom: max(0.5rem, var(--effective-safe-area-bottom));
+    
+    /* Keyboard height - set dynamically by useKeyboardViewport hook */
+    --keyboard-height: 0px;
+  }
+  
+  /* When iOS keyboard is open, ensure proper viewport behavior */
+  html.keyboard-open {
+    /* Force the viewport to account for keyboard */
+    height: calc(100% + var(--keyboard-height));
+  }
+  
+  html.keyboard-open #root {
+    /* Ensure scrollability when keyboard is open */
+    -webkit-overflow-scrolling: touch;
   }
   
   #root {

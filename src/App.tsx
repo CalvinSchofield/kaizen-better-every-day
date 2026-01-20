@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Layout from "./components/Layout";
 import { useSafeAreaFallback } from "./hooks/useSafeAreaFallback";
+import { useKeyboardViewport } from "./hooks/useKeyboardViewport";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
 import OfflineIndicator from "./components/OfflineIndicator";
@@ -65,6 +66,8 @@ const App = () => {
   // Apply safe area fallback for iOS PWA mode when env() fails
   useSafeAreaFallback();
   
+  // Handle iOS keyboard viewport issues
+  useKeyboardViewport();
 
   // Service worker registration is handled in main.tsx
 
