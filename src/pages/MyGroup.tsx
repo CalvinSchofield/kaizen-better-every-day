@@ -15,6 +15,7 @@ import { useRecruitActivitiesRealtime, useRecruitSuggestionsRealtime, useRepsRea
 import { useSummerRecommendations, SummerRepData } from "@/hooks/useSummerRecommendations";
 import { useRecordsTracking } from "@/hooks/useRecordsTracking";
 import { useLeaderInteractions } from "@/hooks/useLeaderInteractions";
+import { useTotalUnreadCount } from "@/hooks/useActivitySocial";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid, Search } from "lucide-react";
@@ -27,6 +28,7 @@ import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
 import { ContactMethodDrawer } from "@/components/mygroup/ContactMethodDrawer";
 import { ScheduleFollowUpDrawer } from "@/components/mygroup/ScheduleFollowUpDrawer";
 import { GoalsPaceDrawer } from "@/components/mygroup/GoalsPaceDrawer";
+import { UnreadActivityPrompt } from "@/components/mygroup/UnreadActivityPrompt";
 import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendations";
 import UpcomingTeamEventsCard from "@/components/mygroup/UpcomingTeamEventsCard";
 import { AddRecruitDrawer } from "@/components/mygroup/AddRecruitDrawer";
@@ -94,8 +96,12 @@ const MyGroup = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [attentionDrawerOpen, setAttentionDrawerOpen] = useState(false);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
+  const [quickViewInitialTab, setQuickViewInitialTab] = useState<'board' | 'availability' | 'org' | 'digest' | 'goals' | undefined>(undefined);
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
   const [selectedRecruitInitialTab, setSelectedRecruitInitialTab] = useState<'details' | 'activity' | 'progress' | undefined>(undefined);
+  
+  // Unread activity prompt state
+  const [dismissedAtUnreadCount, setDismissedAtUnreadCount] = useState<number | null>(null);
   
   // Contact and Schedule drawer state
   const [contactMethodDrawerOpen, setContactMethodDrawerOpen] = useState(false);
@@ -198,6 +204,11 @@ const MyGroup = () => {
   useRecruitActivitiesRealtime(recruitIds);
   useRecruitSuggestionsRealtime(currentUserRep?.id || null);
   useRepsRealtime(recruitIds);
+  
+  // Get total unread activity count for prompts and badges
+  const unreadActivityCount = useTotalUnreadCount(recruitIds);
+  const showUnreadPrompt = isLeader && unreadActivityCount > 0 && 
+    (dismissedAtUnreadCount === null || unreadActivityCount > dismissedAtUnreadCount);
 
   // Fetch tasks assigned to current user
   const { data: assignedTasks = [] } = useAssignedTasks(allRecruits);
@@ -865,9 +876,18 @@ const MyGroup = () => {
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={() => setQuickViewOpen(true)}
+          onClick={() => {
+            setQuickViewInitialTab(undefined);
+            setQuickViewOpen(true);
+          }}
+          className="relative"
         >
           <LayoutGrid className="h-4 w-4" />
+          {unreadActivityCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[8px] rounded-full h-4 min-w-[16px] flex items-center justify-center px-1 font-medium">
+              {unreadActivityCount > 9 ? '9+' : unreadActivityCount}
+            </span>
+          )}
         </Button>
       )}
     </div>
@@ -932,6 +952,18 @@ const MyGroup = () => {
                   isLoading={!isHeroDataStable}
                 />
               </div>
+
+              {/* Unread Activity Prompt */}
+              {showUnreadPrompt && (
+                <UnreadActivityPrompt
+                  unreadCount={unreadActivityCount}
+                  onTap={() => {
+                    setQuickViewInitialTab('digest');
+                    setQuickViewOpen(true);
+                  }}
+                  onDismiss={() => setDismissedAtUnreadCount(unreadActivityCount)}
+                />
+              )}
 
             {/* Undo Banner */}
             <AnimatePresence>
@@ -1109,9 +1141,13 @@ const MyGroup = () => {
       />
       <QuickViewDrawer
         open={quickViewOpen}
-        onOpenChange={setQuickViewOpen}
+        onOpenChange={(open) => {
+          setQuickViewOpen(open);
+          if (!open) setQuickViewInitialTab(undefined);
+        }}
         recruits={filteredRecruits}
         activities={filteredActivities}
+        initialTab={quickViewInitialTab}
         onOpenRecruitDetail={(recruitId, initialTab) => {
           const recruit = filteredRecruits.find(r => r.id === recruitId);
           if (recruit) {

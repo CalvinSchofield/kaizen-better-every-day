@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LayoutGrid, Sun, Building2, Bell, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -25,6 +25,7 @@ interface QuickViewDrawerProps {
   recruits: Recruit[];
   activities: RecruitActivity[];
   onOpenRecruitDetail?: (recruitId: string, initialTab?: string) => void;
+  initialTab?: ViewMode;
 }
 
 const getDrawerTitle = (viewMode: ViewMode) => {
@@ -48,13 +49,25 @@ export const QuickViewDrawer = ({
   recruits,
   activities,
   onOpenRecruitDetail,
+  initialTab,
 }: QuickViewDrawerProps) => {
-  const [viewMode, setViewMode] = useState<ViewMode>('board');
+  const [viewMode, setViewMode] = useState<ViewMode>(initialTab || 'board');
   const { data: teamAccess } = useTeamAccess();
 
   // Get recruit IDs for unread count
   const recruitIds = recruits.map(r => r.id);
   const unreadCount = useTotalUnreadCount(recruitIds);
+
+  // Auto-switch to digest tab when opening with many unreads, or respect initialTab
+  useEffect(() => {
+    if (open) {
+      if (initialTab) {
+        setViewMode(initialTab);
+      } else if (unreadCount >= 5) {
+        setViewMode('digest');
+      }
+    }
+  }, [open, initialTab, unreadCount]);
 
   // Show org/goals tabs for leaders with downline access (AD, MGMT Lead, Team Lead)
   const canViewOrg = teamAccess?.accessLevel === 'area_director' || 
