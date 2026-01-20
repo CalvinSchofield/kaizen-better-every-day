@@ -4,7 +4,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Trophy, Users, Target, Clock, Eye, EyeOff, Pencil, XCircle, Loader2, CheckCircle2, Circle, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,7 @@ const metricLabels: Record<IncentiveMetric, string> = {
 export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: IncentiveDetailSheetProps) => {
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [showWinners, setShowWinners] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const cancelMutation = useCancelIncentive();
   
   const { data: currentUser } = useQuery({
@@ -85,38 +86,14 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                     <Pencil className="h-4 w-4" />
                   </Button>
                   {canCancel && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Cancel Incentive?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will cancel "{incentive.title}" and notify all participants. This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Keep Active</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={handleCancel}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            disabled={cancelMutation.isPending}
-                          >
-                            {cancelMutation.isPending ? (
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            ) : null}
-                            Cancel Incentive
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-destructive active:scale-95 transition-transform"
+                      onClick={() => setShowCancelConfirm(true)}
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </Button>
                   )}
                 </div>
               )}
@@ -479,6 +456,40 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
         open={showEditDrawer}
         onOpenChange={setShowEditDrawer}
       />
+      
+      {/* Cancel Confirmation Drawer */}
+      <Drawer open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Cancel Incentive?</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This will cancel "{incentive.title}" and notify all participants. This action cannot be undone.
+            </p>
+            <div className="flex flex-col gap-3">
+              <Button
+                variant="destructive"
+                className="w-full py-6 text-lg font-semibold active:scale-[0.98] transition-transform"
+                onClick={handleCancel}
+                disabled={cancelMutation.isPending}
+              >
+                {cancelMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Cancel Incentive
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full py-6 text-lg font-semibold active:scale-[0.98] transition-transform"
+                onClick={() => setShowCancelConfirm(false)}
+              >
+                Keep Active
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };
