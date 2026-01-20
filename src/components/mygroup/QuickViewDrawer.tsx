@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutGrid, Sun, Building2, Bell } from "lucide-react";
+import { LayoutGrid, Sun, Building2, Bell, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { 
   Drawer, 
@@ -12,11 +12,12 @@ import { RecruitKanbanBoard } from "./RecruitKanbanBoard";
 import { SummerAvailabilityView } from "./SummerAvailabilityView";
 import { OrganizationManagementView } from "./OrganizationManagementView";
 import { ActivityDigestView } from "./ActivityDigestView";
+import { GoalsTabView } from "./GoalsTabView";
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useTotalUnreadCount } from "@/hooks/useActivitySocial";
 
-type ViewMode = 'board' | 'availability' | 'org' | 'digest';
+type ViewMode = 'board' | 'availability' | 'org' | 'digest' | 'goals';
 
 interface QuickViewDrawerProps {
   open: boolean;
@@ -34,6 +35,8 @@ const getDrawerTitle = (viewMode: ViewMode) => {
       return 'Organization';
     case 'digest':
       return 'Activity Digest';
+    case 'goals':
+      return 'Team Goals';
     default:
       return 'All Recruits';
   }
@@ -53,10 +56,11 @@ export const QuickViewDrawer = ({
   const recruitIds = recruits.map(r => r.id);
   const unreadCount = useTotalUnreadCount(recruitIds);
 
-  // Show org tab for leaders with downline access (AD, MGMT Lead, Team Lead)
+  // Show org/goals tabs for leaders with downline access (AD, MGMT Lead, Team Lead)
   const canViewOrg = teamAccess?.accessLevel === 'area_director' || 
                      teamAccess?.accessLevel === 'mgmt_group_lead' || 
                      teamAccess?.accessLevel === 'team_lead';
+  const canViewGoals = canViewOrg || teamAccess?.accessLevel === 'recruiter';
   const showBadge = viewMode === 'board';
 
   // Handle activity tap from digest - close drawer and open recruit detail
@@ -65,6 +69,14 @@ export const QuickViewDrawer = ({
     // Small delay to allow drawer close animation
     setTimeout(() => {
       onOpenRecruitDetail?.(recruitId, 'activity');
+    }, 150);
+  };
+
+  // Handle rep click from goals tab - close drawer and open recruit detail
+  const handleGoalsRepClick = (notionPageId: string) => {
+    onOpenChange(false);
+    setTimeout(() => {
+      onOpenRecruitDetail?.(notionPageId, 'details');
     }, 150);
   };
 
@@ -100,6 +112,11 @@ export const QuickViewDrawer = ({
                 <TabsTrigger value="availability" className="px-2" title="Availability">
                   <Sun className="h-4 w-4" />
                 </TabsTrigger>
+                {canViewGoals && (
+                  <TabsTrigger value="goals" className="px-2" title="Goals">
+                    <Target className="h-4 w-4" />
+                  </TabsTrigger>
+                )}
                 {canViewOrg && (
                   <TabsTrigger value="org" className="px-2" title="Organization">
                     <Building2 className="h-4 w-4" />
@@ -120,6 +137,8 @@ export const QuickViewDrawer = ({
             />
           ) : viewMode === 'availability' ? (
             <SummerAvailabilityView />
+          ) : viewMode === 'goals' ? (
+            <GoalsTabView onRepClick={handleGoalsRepClick} />
           ) : (
             <OrganizationManagementView />
           )}
