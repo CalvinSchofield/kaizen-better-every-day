@@ -5,16 +5,7 @@ import { UserX, Mail, LogOut } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 
 const SetupFlow = () => {
   const navigate = useNavigate();
@@ -369,39 +360,46 @@ const SetupFlow = () => {
                 {isRequestingAccess ? "Sending..." : "Request Access"}
               </Button>
 
-              <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Access Request</AlertDialogTitle>
-                    <AlertDialogDescription asChild>
-                      <div className="space-y-3">
-                        <p>The following information will be sent to your area director:</p>
-                        <div className="bg-muted rounded-lg p-3 space-y-2">
-                          <div>
-                            <span className="text-xs text-muted-foreground">Name:</span>
-                            <p className="font-medium text-foreground">{userName || "Not provided"}</p>
-                          </div>
-                          <div>
-                            <span className="text-xs text-muted-foreground">Email:</span>
-                            <p className="font-medium text-foreground">{userEmail || "Not provided"}</p>
-                          </div>
-                        </div>
+              <Drawer open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+                <DrawerContent>
+                  <DrawerHeader>
+                    <DrawerTitle>Confirm Access Request</DrawerTitle>
+                  </DrawerHeader>
+                  <div className="p-4 space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      The following information will be sent to your area director:
+                    </p>
+                    <div className="bg-muted rounded-lg p-3 space-y-2">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Name:</span>
+                        <p className="font-medium text-foreground">{userName || "Not provided"}</p>
                       </div>
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
-                      onClick={() => {
-                        setShowConfirmDialog(false);
-                        handleRequestAccess();
-                      }}
-                    >
-                      Send Request
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                      <div>
+                        <span className="text-xs text-muted-foreground">Email:</span>
+                        <p className="font-medium text-foreground">{userEmail || "Not provided"}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      <Button
+                        className="w-full py-6 text-lg font-semibold active:scale-[0.98] transition-transform"
+                        onClick={() => {
+                          setShowConfirmDialog(false);
+                          handleRequestAccess();
+                        }}
+                      >
+                        Send Request
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full py-6 text-lg font-semibold active:scale-[0.98] transition-transform"
+                        onClick={() => setShowConfirmDialog(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </DrawerContent>
+              </Drawer>
 
               <Button
                 variant="outline"

@@ -2,11 +2,9 @@ import { useState } from "react";
 import { format, parseISO } from "date-fns";
 import { MessageCircle, X, Phone, PhoneCall, PhoneMissed, Users, MessageSquare, Calendar, CheckCircle2, AlertCircle, Pencil, Check, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CommentsList, CommentInput, ReactionButton } from "./ActivitySocialFeatures";
 import { MentionInput } from "./MentionInput";
 import { getInitials } from "@/utils/nameUtils";
@@ -335,27 +333,35 @@ export const ActivityCommentsDrawer = ({
         </div>
       </DrawerContent>
       
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this activity?</AlertDialogTitle>
-            <AlertDialogDescription>
+      {/* Delete Confirmation Drawer */}
+      <Drawer open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Delete this activity?</DrawerTitle>
+            <DrawerDescription>
               This will permanently remove this {getActivityLabel(activity.activity_type, activity.notes).toLowerCase()} from the timeline. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="p-4 flex flex-col gap-3">
+            <Button
+              variant="destructive"
+              className="w-full py-6 text-lg font-semibold active:scale-[0.98] transition-transform"
               onClick={confirmDelete}
               disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full py-6 text-lg font-semibold active:scale-[0.98] transition-transform"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </Drawer>
   );
 };
