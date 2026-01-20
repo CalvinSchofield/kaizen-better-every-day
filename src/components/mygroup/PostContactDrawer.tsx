@@ -206,6 +206,15 @@ export const PostContactDrawer = ({
           if (scheduleError) {
             console.error('Failed to schedule follow-up:', scheduleError);
           } else {
+            // Sync notes to recruit.next_action for display consistency
+            await supabase
+              .from('recruits')
+              .update({
+                next_action: scheduleNotes || 'Follow up',
+                next_action_due: scheduleDate.toISOString(),
+              })
+              .eq('id', recruit.id);
+            
             scheduledFollowUp = true;
             queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
             queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });

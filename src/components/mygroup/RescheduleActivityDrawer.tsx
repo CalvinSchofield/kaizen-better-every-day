@@ -124,6 +124,7 @@ export const RescheduleActivityDrawer = ({
         nextActionDue: dateOnlyString,
         nextAction: taskText.trim() || undefined,
         assignedToUserId: selectedAssignee?.userId,
+        recruitId: recruit.id,
       });
       
       const assigneeText = selectedAssignee ? ` (assigned to ${selectedAssignee.name})` : '';
