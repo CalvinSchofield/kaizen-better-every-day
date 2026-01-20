@@ -1019,6 +1019,7 @@ export const useUpdateRecruitActivity = () => {
       nextAction,
       nextActionDue,
       assignedToUserId,
+      recruitId,
     }: { 
       activityId: string; 
       notes?: string;
@@ -1026,6 +1027,7 @@ export const useUpdateRecruitActivity = () => {
       nextAction?: string;
       nextActionDue?: string;
       assignedToUserId?: string | null;
+      recruitId?: string;
     }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
@@ -1054,7 +1056,20 @@ export const useUpdateRecruitActivity = () => {
         .eq('id', activityId);
 
       if (error) throw error;
-      return { activityId, notes, createdAt, nextAction, nextActionDue, assignedToUserId };
+
+      // Sync to recruit record for display consistency (if we have recruitId and nextAction/nextActionDue)
+      if (recruitId && (nextAction || nextActionDue)) {
+        const recruitUpdateData: Record<string, any> = {};
+        if (nextAction) recruitUpdateData.next_action = nextAction;
+        if (nextActionDue) recruitUpdateData.next_action_due = nextActionDue;
+        
+        await supabase
+          .from('recruits')
+          .update(recruitUpdateData)
+          .eq('id', recruitId);
+      }
+
+      return { activityId, notes, createdAt, nextAction, nextActionDue, assignedToUserId, recruitId };
     },
     onMutate: async ({ activityId, notes, createdAt, nextAction, nextActionDue, assignedToUserId }) => {
       await queryClient.cancelQueries({ queryKey: ['group-recruits'] });

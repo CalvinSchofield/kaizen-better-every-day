@@ -86,7 +86,10 @@ Deno.serve(async (req) => {
       updateData.last_contact = today;
     }
     
-    if (nextAction) {
+    // For scheduled activities (next_step), prefer notes over generic nextAction for display consistency
+    if (activityType === 'next_step' && notes) {
+      updateData.next_action = notes;
+    } else if (nextAction) {
       updateData.next_action = nextAction;
     }
     
