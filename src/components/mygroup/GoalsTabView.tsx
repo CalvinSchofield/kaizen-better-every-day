@@ -8,13 +8,19 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Target, TrendingUp, TrendingDown, Minus, AlertTriangle, 
-  CheckCircle2, Calendar, Pencil, Sun
+  CheckCircle2, Calendar, Sun, ArrowUpDown
 } from "lucide-react";
-import { format, parseISO, differenceInDays, isAfter, startOfDay } from "date-fns";
+import { format, parseISO, isAfter, startOfDay } from "date-fns";
 import { stripEmojis } from "./recruit-detail/utils";
 import { EditSummerDatesDrawer } from "./EditSummerDatesDrawer";
 import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { calculateSalesPace, SalesPaceInput } from "@/utils/salesPaceCalculator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Season constants
 const PRESEASON_START = '2025-09-28';
@@ -23,7 +29,7 @@ const DEFAULT_SUMMER_START = '2026-04-12';
 const DEFAULT_SUMMER_END = '2026-09-27';
 
 type PaceStatus = 'ahead' | 'on-track' | 'behind' | 'critical' | 'no-goals';
-type SeasonFilter = 'auto' | 'preseason' | 'summer';
+type SortOption = 'at-risk' | 'alphabetical' | 'by-year';
 
 interface RepGoalInfo {
   userId: string;
@@ -71,11 +77,11 @@ interface GoalsTabViewProps {
 
 export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
   const [statusFilter, setStatusFilter] = useState<PaceStatus | 'all'>('all');
+  const [sortOption, setSortOption] = useState<SortOption>('at-risk');
   const [editingPerson, setEditingPerson] = useState<RepGoalInfo | null>(null);
   const { data: teamAccess, isLoading: teamAccessLoading } = useTeamAccess();
   
   const today = startOfDay(new Date());
-  const todayStr = format(today, 'yyyy-MM-dd');
   
   // Check if we're in preseason globally
   const isGlobalPreseason = !isAfter(today, parseISO(PRESEASON_END));
@@ -137,7 +143,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
     enabled: !!teamAccess?.accessibleUserIds?.length,
   });
 
-  // Fetch planned work days
+  // Fetch planned work days - FULL SEASON RANGE for accurate pace calculation
   const { data: plannedDaysData, isLoading: plannedLoading } = useQuery({
     queryKey: ['goals-tab-planned', teamAccess?.accessibleUserIds],
     queryFn: async () => {
@@ -146,7 +152,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
         .from('planned_work_days')
         .select('user_id, planned_date')
         .in('user_id', teamAccess.accessibleUserIds)
-        .gte('planned_date', todayStr);
+        .gte('planned_date', PRESEASON_START)
+        .lte('planned_date', DEFAULT_SUMMER_END);
       return data || [];
     },
     enabled: !!teamAccess?.accessibleUserIds?.length,
@@ -278,7 +285,6 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
         };
       })
       .sort((a, b) => {
-        // Sort by status priority, then by pace percentage
         const statusOrder: Record<PaceStatus, number> = {
           critical: 0,
           behind: 1,
@@ -286,11 +292,27 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           ahead: 3,
           'no-goals': 4,
         };
+
+        if (sortOption === 'alphabetical') {
+          return a.name.localeCompare(b.name);
+        }
+        
+        if (sortOption === 'by-year') {
+          const yearOrder: Record<string, number> = { 'Rookie': 0, 'Sophomore': 1, 'Vet': 2 };
+          const yearDiff = (yearOrder[a.year] || 3) - (yearOrder[b.year] || 3);
+          if (yearDiff !== 0) return yearDiff;
+          // Within same year, sort by status
+          const statusDiff = statusOrder[a.paceStatus] - statusOrder[b.paceStatus];
+          if (statusDiff !== 0) return statusDiff;
+          return a.pacePercentage - b.pacePercentage;
+        }
+        
+        // Default: at-risk first (by status priority, then by pace percentage)
         const statusDiff = statusOrder[a.paceStatus] - statusOrder[b.paceStatus];
         if (statusDiff !== 0) return statusDiff;
         return a.pacePercentage - b.pacePercentage;
       });
-  }, [repsData, goalsData, configData, entriesData, plannedDaysData, isGlobalPreseason, today]);
+  }, [repsData, goalsData, configData, entriesData, plannedDaysData, isGlobalPreseason, today, sortOption]);
 
   // Filter by status
   const filteredReps = useMemo(() => {
@@ -356,16 +378,41 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
     <div className="space-y-4">
       {/* Summary Header */}
       <div className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-2xl p-4">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
-            <Target className="h-5 w-5 text-primary" />
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+              <Target className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Team Goals</h3>
+              <p className="text-xs text-muted-foreground">
+                {isGlobalPreseason ? 'Preseason' : 'Summer'} • {stats.total} reps tracked
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-semibold text-foreground">Team Goals</h3>
-            <p className="text-xs text-muted-foreground">
-              {isGlobalPreseason ? 'Preseason' : 'Summer'} • {stats.total} reps tracked
-            </p>
-          </div>
+          
+          {/* Sort dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 px-2">
+                <ArrowUpDown className="h-4 w-4 mr-1" />
+                <span className="text-xs">
+                  {sortOption === 'at-risk' ? 'At Risk' : sortOption === 'alphabetical' ? 'A-Z' : 'Year'}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setSortOption('at-risk')}>
+                At Risk First
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortOption('alphabetical')}>
+                Alphabetical
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortOption('by-year')}>
+                By Year
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Status filter buttons */}
