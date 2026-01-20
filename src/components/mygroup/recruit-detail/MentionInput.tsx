@@ -369,28 +369,97 @@ export const MentionInput = ({
     }
   }, [confirmedMentions, onChange, onMentionsChange]);
   
-  // Handle keyboard navigation
+  // Handle keyboard navigation and mention deletion
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!showSuggestions || filteredUsers.length === 0) return;
-    
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedSuggestionIndex(prev => 
-        prev < filteredUsers.length - 1 ? prev + 1 : 0
-      );
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedSuggestionIndex(prev => 
-        prev > 0 ? prev - 1 : filteredUsers.length - 1
-      );
-    } else if (e.key === 'Enter' && showSuggestions) {
-      e.preventDefault();
-      const selectedUser = filteredUsers[selectedSuggestionIndex];
-      if (selectedUser) {
-        selectUser(selectedUser);
+    // Handle mention dropdown navigation
+    if (showSuggestions && filteredUsers.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => 
+          prev < filteredUsers.length - 1 ? prev + 1 : 0
+        );
+        return;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => 
+          prev > 0 ? prev - 1 : filteredUsers.length - 1
+        );
+        return;
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const selectedUser = filteredUsers[selectedSuggestionIndex];
+        if (selectedUser) {
+          selectUser(selectedUser);
+        }
+        return;
+      } else if (e.key === 'Escape') {
+        setShowSuggestions(false);
+        return;
       }
-    } else if (e.key === 'Escape') {
-      setShowSuggestions(false);
+    }
+    
+    // Handle Backspace to delete mention spans
+    if (e.key === 'Backspace' && editorRef.current) {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
+      
+      const range = selection.getRangeAt(0);
+      
+      // Check if cursor is right after a mention span
+      if (range.collapsed && range.startOffset === 0) {
+        const prevSibling = range.startContainer.previousSibling as HTMLElement | null;
+        if (prevSibling?.dataset?.mentionName) {
+          e.preventDefault();
+          prevSibling.remove();
+          handleInput();
+          return;
+        }
+      }
+      
+      // Check if cursor is inside or at the boundary of the editor and previous is mention
+      if (range.collapsed) {
+        const container = range.startContainer;
+        if (container.nodeType === Node.ELEMENT_NODE) {
+          const el = container as HTMLElement;
+          const childAtOffset = el.childNodes[range.startOffset - 1] as HTMLElement | undefined;
+          if (childAtOffset?.dataset?.mentionName) {
+            e.preventDefault();
+            childAtOffset.remove();
+            handleInput();
+            return;
+          }
+        }
+      }
+    }
+    
+    // Handle Delete key for forward deletion of mentions
+    if (e.key === 'Delete' && editorRef.current) {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
+      
+      const range = selection.getRangeAt(0);
+      
+      if (range.collapsed) {
+        const container = range.startContainer;
+        const nextSibling = container.nextSibling as HTMLElement | null;
+        if (nextSibling?.dataset?.mentionName) {
+          e.preventDefault();
+          nextSibling.remove();
+          handleInput();
+          return;
+        }
+        
+        if (container.nodeType === Node.ELEMENT_NODE) {
+          const el = container as HTMLElement;
+          const childAtOffset = el.childNodes[range.startOffset] as HTMLElement | undefined;
+          if (childAtOffset?.dataset?.mentionName) {
+            e.preventDefault();
+            childAtOffset.remove();
+            handleInput();
+            return;
+          }
+        }
+      }
     }
   };
   
