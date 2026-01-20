@@ -23,6 +23,7 @@ interface FocusCardProps {
   recruit: Recruit;
   recruitRepData: RecruitRepData | null;
   recruitGoals: RecruitGoals | null;
+  recruitYtdFP?: number;
   onNavigateToTab: (tab: TabType) => void;
   onAssignIpad?: () => void;
 }
@@ -31,6 +32,7 @@ export const FocusCard = ({
   recruit, 
   recruitRepData, 
   recruitGoals,
+  recruitYtdFP = 0,
   onNavigateToTab,
   onAssignIpad
 }: FocusCardProps) => {
@@ -129,12 +131,14 @@ export const FocusCard = ({
       const hasPreseasonGoal = recruitGoals?.preseason_fp_goal && recruitGoals.preseason_fp_goal > 0;
       
       if (hasPreseasonGoal) {
+        const goal = recruitGoals.preseason_fp_goal!;
+        const progressPercent = Math.min((recruitYtdFP / goal) * 100, 100);
         issues.push({
           priority: 50,
           type: 'low',
           icon: 'target',
           title: `Goal Progress`,
-          description: `${recruitFirstName} is working toward their preseason goal`,
+          description: `${recruitYtdFP.toFixed(1)} / ${goal} EFP (${progressPercent.toFixed(0)}%)`,
           actionTab: 'details'
         });
       } else {
@@ -402,12 +406,14 @@ export const FocusCard = ({
       const hasPreseasonGoal = recruitGoals?.preseason_fp_goal && recruitGoals.preseason_fp_goal > 0;
       
       if (hasPreseasonGoal) {
+        const goal = recruitGoals.preseason_fp_goal!;
+        const progressPercent = Math.min((recruitYtdFP / goal) * 100, 100);
         issues.push({
           priority: 10,
           type: 'low',
           icon: 'target',
           title: `Goal Progress`,
-          description: `${recruitFirstName} is working toward their preseason goal`,
+          description: `${recruitYtdFP.toFixed(1)} / ${goal} EFP (${progressPercent.toFixed(0)}%)`,
           actionTab: 'progress'
         });
       } else {
@@ -435,7 +441,7 @@ export const FocusCard = ({
     // Sort by priority and return highest
     issues.sort((a, b) => b.priority - a.priority);
     return issues[0] || null;
-  }, [recruit, recruitRepData, recruitFirstName, closestBlitz, recruitGoals]);
+  }, [recruit, recruitRepData, recruitFirstName, closestBlitz, recruitGoals, recruitYtdFP]);
   
   if (!focusIssue) return null;
   
