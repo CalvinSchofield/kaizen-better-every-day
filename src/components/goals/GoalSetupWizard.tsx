@@ -678,10 +678,10 @@ export const GoalSetupWizard = ({
                   type="button"
                   onClick={() => toggleBlitzSelection(blitz.id)}
                   className={cn(
-                    "w-full p-4 rounded-xl border text-left transition-all",
+                    "w-full p-4 rounded-xl border text-left transition-all duration-150 active:scale-[0.98]",
                     isSelected
                       ? "border-primary bg-primary/10 ring-2 ring-primary"
-                      : "border-border hover:border-primary/50"
+                      : "border-border"
                   )}
                 >
                   <div className="flex items-start gap-3">

@@ -104,7 +104,7 @@ const CounterCard = ({ label, value, field, onCounterChange }: CounterCardProps)
 
   return (
     <Card
-      className={`flex flex-col items-center justify-center h-full min-h-[160px] cursor-pointer select-none touch-none bg-card hover:shadow-md transition-all ${
+      className={`flex flex-col items-center justify-center h-full min-h-[160px] cursor-pointer select-none touch-none bg-card transition-all ${
         isAnimating ? 'scale-105 shadow-lg' : 'scale-100'
       }`}
       onTouchStart={handleTouchStart}

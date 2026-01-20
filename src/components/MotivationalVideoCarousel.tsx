@@ -84,10 +84,10 @@ export const MotivationalVideoCarousel = () => {
       rel="noopener noreferrer"
       className="group block animate-fade-in"
     >
-      <Card className="overflow-hidden hover:border-primary transition-all hover:shadow-lg">
+      <Card className="overflow-hidden transition-all duration-150 active:scale-[0.98]">
         <div className="relative aspect-video bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="bg-primary/90 rounded-full p-6 group-hover:scale-110 transition-transform">
+            <div className="bg-primary/90 rounded-full p-6 transition-transform">
               <Play className="w-12 h-12 text-primary-foreground fill-current" />
             </div>
           </div>

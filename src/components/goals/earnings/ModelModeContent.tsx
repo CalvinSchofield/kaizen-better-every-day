@@ -118,7 +118,7 @@ export const ModelModeContent = ({
           className={`relative rounded-xl border-2 transition-all duration-200 ${
             isInputFocused 
               ? 'border-primary bg-primary/5' 
-              : 'border-border hover:border-primary/50 bg-muted/30'
+              : 'border-border bg-muted/30'
           }`}
         >
           <Input
@@ -147,11 +147,7 @@ export const ModelModeContent = ({
               variant={customFpGoal === preset.toString() ? 'default' : 'outline'}
               size="sm"
               onClick={() => handlePreset(preset)}
-              className={`flex-1 min-w-0 font-semibold transition-all active:scale-95 ${
-                customFpGoal === preset.toString() 
-                  ? '' 
-                  : 'hover:bg-primary/10 hover:border-primary/50'
-              }`}
+              className="flex-1 min-w-0 font-semibold"
             >
               {preset}
             </Button>

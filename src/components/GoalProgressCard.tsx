@@ -382,7 +382,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     
     return (
       <div 
-        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-card to-accent/10 border border-primary/20 p-5 cursor-pointer group transition-all duration-300 hover:shadow-lg hover:border-primary/30 hover:scale-[1.01]"
+        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-card to-accent/10 border border-primary/20 p-5 cursor-pointer group transition-all duration-150 active:scale-[0.98] active:shadow-sm"
         onClick={() => navigate('/goals')}
       >
         {/* Animated background elements */}
@@ -390,7 +390,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
         <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-accent/20 rounded-full blur-xl animate-pulse" style={{ animationDelay: '1s' }} />
         
         <div className="relative flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-primary/15 group-hover:bg-primary/20 transition-colors">
+          <div className="p-3 rounded-2xl bg-primary/15 transition-colors">
             <Target className="h-6 w-6 text-primary" />
           </div>
           <div className="flex-1">
