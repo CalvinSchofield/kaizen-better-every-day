@@ -239,6 +239,12 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
         let futurePlannedDays = 0;
         let daysRemaining = 0;
 
+        // Determine the active goal for this rep
+        const activeGoal = isRepInPreseason 
+          ? (goals?.preseason_fp_goal || 0)
+          : (goals?.will_do_fp_goal || goals?.must_do_fp_goal || 0);
+        const hasGoals = goals?.setup_complete && activeGoal > 0;
+
         if (paceResult) {
           expectedAtThisPoint = paceResult.expectedAtThisPoint;
           variance = paceResult.paceVariance;
@@ -246,14 +252,42 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           futurePlannedDays = paceResult.futurePlannedDays;
           daysRemaining = paceResult.futurePlannedDays;
           
-          pacePercentage = expectedAtThisPoint > 0 
-            ? (currentFpPlus / expectedAtThisPoint) * 100 
-            : (currentFpPlus > 0 ? 100 : 0);
+          // Calculate pace percentage based on progress vs goal (simpler, more accurate)
+          const goalToUse = paceResult.fundedGoal;
+          pacePercentage = goalToUse > 0 ? (currentFpPlus / goalToUse) * 100 : 0;
 
-          if (pacePercentage >= 100) paceStatus = 'ahead';
-          else if (pacePercentage >= 85) paceStatus = 'on-track';
-          else if (pacePercentage >= 65) paceStatus = 'behind';
-          else paceStatus = 'critical';
+          // Determine status based on variance (ahead/behind expected pace)
+          if (variance >= 0) {
+            paceStatus = variance > 1 ? 'ahead' : 'on-track';
+          } else {
+            // Behind - check severity based on how far behind
+            const behindPercentage = expectedAtThisPoint > 0 
+              ? (Math.abs(variance) / expectedAtThisPoint) * 100 
+              : 100;
+            paceStatus = behindPercentage > 35 ? 'critical' : 'behind';
+          }
+        } else if (hasGoals) {
+          // Has goals but no pace result (likely 0 planned days in current season)
+          // Count total future planned days (all seasons) to show meaningful data
+          const todayStr = format(today, 'yyyy-MM-dd');
+          const totalFuturePlanned = plannedDays.filter(d => d.planned_date > todayStr).length;
+          futurePlannedDays = totalFuturePlanned;
+          daysRemaining = totalFuturePlanned;
+          
+          if (knockingDays === 0 && currentFpPlus === 0) {
+            // Haven't started yet - show as needing to plan/start
+            paceStatus = totalFuturePlanned > 0 ? 'on-track' : 'behind';
+            pacePercentage = 0;
+          } else {
+            // Have worked but no future days planned
+            pacePercentage = activeGoal > 0 ? (currentFpPlus / activeGoal) * 100 : 0;
+            paceStatus = 'behind'; // No future days is concerning
+          }
+          
+          // Calculate simple daily target
+          if (daysRemaining > 0 && activeGoal > 0) {
+            dailyTarget = Math.max(0, activeGoal - currentFpPlus) / daysRemaining;
+          }
         }
 
         return {
