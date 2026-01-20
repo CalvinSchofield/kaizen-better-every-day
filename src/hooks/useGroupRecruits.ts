@@ -382,7 +382,7 @@ export const useGroupRecruits = () => {
         const { data: matchingRecruits } = await supabase
           .from('recruits')
           .select(`
-            id, email, name, phone, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due,
+            id, email, name, phone, stage, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due,
             teams:team_id(id, name),
             mgmt_groups:mgmt_group_id(id, name),
             recruiter:recruiter_user_id(id, name, user_id)
@@ -399,7 +399,7 @@ export const useGroupRecruits = () => {
         const { data: nameMatchedRecruits } = await supabase
           .from('recruits')
           .select(`
-            id, email, name, phone, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due,
+            id, email, name, phone, stage, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due,
             teams:team_id(id, name),
             mgmt_groups:mgmt_group_id(id, name),
             recruiter:recruiter_user_id(id, name, user_id)
@@ -471,12 +471,15 @@ export const useGroupRecruits = () => {
         const mgmtGroupData = (matchingRecruit as any)?.mgmt_groups as { id: string; name: string } | null;
         const recruiterData = (matchingRecruit as any)?.recruiter as { id: string; name: string; user_id: string } | null;
 
+        // Use recruit's stage as source of truth when available (fixes sync drift for recruits without email)
+        const authorityStage = matchingRecruit?.stage ?? r.stage;
+
         return {
           id: unifiedId,
           name: r.name,
           phone: r.phone || '',
           email: r.email || '',
-          stage: canonicalizeStage(r.stage),
+          stage: canonicalizeStage(authorityStage),
           recruiterId: recruiterData?.id || null,
           recruiterName: recruiterData?.name || r.recruiter || r.team_leader || null,
           recruiterUserId: recruiterData?.user_id || (matchingRecruit as any)?.recruiter_user_id || null,
