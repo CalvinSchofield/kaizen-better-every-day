@@ -127,6 +127,10 @@ export const RecruitDetailDrawer = ({
   const [isEditMode, setIsEditMode] = useState(false);
   const [pendingEmail, setPendingEmail] = useState('');
   const [isSavingEmail, setIsSavingEmail] = useState(false);
+  
+  // Smart task completion prompt state
+  const [pendingTaskPromptOpen, setPendingTaskPromptOpen] = useState(false);
+  const [pendingTaskToComplete, setPendingTaskToComplete] = useState<RecruitActivity | null>(null);
 
   const updateStageMutation = useUpdateRecruitStage();
   const logActivityMutation = useLogRecruitActivity();
@@ -896,6 +900,13 @@ export const RecruitDetailDrawer = ({
     setDeleteConfirmOpen(true);
   };
 
+  // Find pending tasks for this recruit
+  const pendingTasks = activities.filter(
+    a => a.activity_type === 'next_step' && 
+         a.assignment_status === 'pending' && 
+         !a.completed_at
+  );
+
   const handleSaveActivity = () => {
     if (!activityNotes && activityType !== 'next_step') { toast.error('Please add notes'); return; }
     logActivityMutation.mutate({
@@ -908,8 +919,19 @@ export const RecruitDetailDrawer = ({
       updateLastContact: activityType === 'phone_call' || activityType === 'in_person',
     }, {
       onSuccess: () => {
-        toast.success('Activity logged');
         setLogActivityOpen(false);
+        
+        // Check if there's a pending task and this was a contact activity (phone/in-person)
+        const isContactActivity = activityType === 'phone_call' || activityType === 'in_person';
+        if (isContactActivity && pendingTasks.length > 0) {
+          // Show prompt to mark pending task complete
+          setPendingTaskToComplete(pendingTasks[0]);
+          setPendingTaskPromptOpen(true);
+          toast.success('Activity logged');
+        } else {
+          toast.success('Activity logged');
+        }
+        
         setActivityNotes(''); setNextAction(''); setNextActionDue('');
         // Invalidate both the activities query and the group-recruits query for full refresh
         queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
@@ -917,6 +939,39 @@ export const RecruitDetailDrawer = ({
       },
       onError: () => { toast.error("Couldn't save activity"); setActivityShake(true); setTimeout(() => setActivityShake(false), 500); }
     });
+  };
+  
+  // Handle marking the pending task as complete from the prompt
+  const handleMarkPendingTaskComplete = async () => {
+    if (!pendingTaskToComplete) return;
+    
+    try {
+      const { error } = await supabase
+        .from('recruit_activities')
+        .update({
+          assignment_status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', pendingTaskToComplete.id);
+      
+      if (error) throw error;
+      
+      toast.success('Task marked complete!');
+      queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+    } catch (error) {
+      console.error('Failed to mark task complete:', error);
+      toast.error("Couldn't mark task complete");
+    } finally {
+      setPendingTaskPromptOpen(false);
+      setPendingTaskToComplete(null);
+    }
+  };
+
+  const handleSkipPendingTask = () => {
+    setPendingTaskPromptOpen(false);
+    setPendingTaskToComplete(null);
   };
 
   const getActivityIcon = (type: string, notes?: string | null) => {
@@ -1045,6 +1100,44 @@ export const RecruitDetailDrawer = ({
               <div><Label>Notes</Label><Textarea value={activityNotes} onChange={(e) => setActivityNotes(e.target.value)} placeholder="What happened?" className="mt-1" rows={3} /></div>
             )}
             <Button className="w-full" onClick={handleSaveActivity} disabled={logActivityMutation.isPending}>{logActivityMutation.isPending ? 'Saving...' : 'Save Activity'}</Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Pending Task Completion Prompt */}
+      <Drawer open={pendingTaskPromptOpen} onOpenChange={(open) => { if (!open) handleSkipPendingTask(); }}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Mark scheduled task complete?</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            {pendingTaskToComplete && (
+              <div className="bg-amber-500/10 rounded-lg p-4 border border-amber-500/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="h-4 w-4 text-amber-600" />
+                  <span className="text-xs font-medium text-amber-600">Scheduled Task</span>
+                </div>
+                <p className="text-sm font-medium">
+                  {pendingTaskToComplete.notes || pendingTaskToComplete.next_action || 'Follow up'}
+                </p>
+                {pendingTaskToComplete.next_action_due && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Due: {format(parseISO(pendingTaskToComplete.next_action_due), 'MMM d, yyyy')}
+                  </p>
+                )}
+              </div>
+            )}
+            <p className="text-sm text-muted-foreground">
+              You just logged contact with {recruitFirstName}. Would you like to mark this scheduled task as complete?
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={handleSkipPendingTask}>
+                Keep Open
+              </Button>
+              <Button className="flex-1" onClick={handleMarkPendingTaskComplete}>
+                Mark Complete
+              </Button>
+            </div>
           </div>
         </DrawerContent>
       </Drawer>
