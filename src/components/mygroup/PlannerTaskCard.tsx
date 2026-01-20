@@ -177,7 +177,7 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
             )}
           </div>
           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-            {activity.next_action || 'Follow up'}
+            {activity.notes || activity.next_action || 'Follow up'}
           </p>
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
             <Badge variant="outline" className="text-xs">

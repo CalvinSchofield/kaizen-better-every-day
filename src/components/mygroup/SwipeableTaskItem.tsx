@@ -172,7 +172,11 @@ export const SwipeableTaskItem = ({
   };
 
   // Determine what to display as the action/reason text
-  const displayReason = activity?.next_action || reason;
+  // For scheduled activities (next_step), prefer notes over generic next_action
+  const isScheduledActivity = activity?.activity_type === 'next_step';
+  const displayReason = isScheduledActivity 
+    ? (activity?.notes || activity?.next_action || reason)
+    : (activity?.next_action || reason);
 
   return (
     <div ref={constraintsRef} className="relative overflow-hidden rounded-lg">
