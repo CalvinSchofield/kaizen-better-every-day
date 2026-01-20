@@ -954,6 +954,7 @@ export const RecruitDetailDrawer = ({
                 recruit={recruit}
                 recruitRepData={recruitRepData || null}
                 recruitGoals={recruitGoals || null}
+                recruitYtdFP={recruitYtdFP}
                 onNavigateToTab={setActiveTab}
                 onAssignIpad={handleAssignIpad}
               />
