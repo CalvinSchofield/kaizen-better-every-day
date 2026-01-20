@@ -289,7 +289,7 @@ export const TodaysFocusHero = ({
           </div>
           
           <p className="text-sm text-muted-foreground mb-3">
-            {activity.next_action || 'Follow-up'} was due {dueDate ? format(dueDate, 'MMM d') : 'previously'}
+            {activity.notes || activity.next_action || 'Follow-up'} was due {dueDate ? format(dueDate, 'MMM d') : 'previously'}
           </p>
         </div>
 
@@ -381,7 +381,7 @@ export const TodaysFocusHero = ({
           </div>
           
           <p className="text-sm text-muted-foreground mb-3">
-            {activity.next_action || 'Follow-up'}
+            {activity.notes || activity.next_action || 'Follow-up'}
           </p>
         </div>
 
