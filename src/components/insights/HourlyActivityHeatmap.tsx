@@ -203,15 +203,15 @@ export const HourlyActivityHeatmap = ({ hourlyActivity, peakHours, hourRange }: 
                         <div
                           key={hour}
                           className={cn(
-                            "w-6 h-6 rounded transition-all hover:scale-110 cursor-pointer relative group",
+                            "w-6 h-6 rounded transition-all cursor-pointer relative",
                             getIntensity(count, activityMax),
                             isPeak && "ring-2 ring-primary"
                           )}
                           title={`${formatHour(hour)}: ${count} ${activity.label.toLowerCase()}`}
                         >
                           {count > 0 && (
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <span className="text-xs font-semibold text-foreground">{count}</span>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-[10px] font-semibold text-foreground/80">{count}</span>
                             </div>
                           )}
                         </div>

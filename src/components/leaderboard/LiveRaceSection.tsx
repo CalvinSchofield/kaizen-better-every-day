@@ -321,7 +321,7 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
                     {isCurrentUser && !entry.profilePhotoUrl && (
                       <button 
                         onClick={() => setShowPhotoUpload(entry.userId)}
-                        className="absolute -bottom-0.5 -right-0.5 h-4 w-4 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
+                        className="absolute -bottom-0.5 -right-0.5 h-4 w-4 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-sm active:scale-90 transition-transform"
                       >
                         <Camera className="h-2.5 w-2.5" />
                       </button>

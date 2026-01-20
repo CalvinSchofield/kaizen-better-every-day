@@ -434,7 +434,7 @@ export const CalendarView = ({
                 onClick={() => handleDayClick(day)}
                 className={`
                   aspect-square p-1.5 rounded-lg border transition-all relative
-                  ${isSunday && !sundayHasData ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
+                  ${isSunday && !sundayHasData ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
                   ${isTodayDate ? 'border-primary border-2' : 'border-border'}
                   ${!isCurrentMonth ? 'opacity-40' : ''}
                   ${isKnocking && (!isSunday || sundayHasData) ? 'bg-primary/10' : isPlanned && !hasEntry ? 'bg-accent/30' : 'bg-card'}

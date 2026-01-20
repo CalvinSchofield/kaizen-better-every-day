@@ -66,11 +66,11 @@ export const PackageTypeSelector = ({ onSelect }: PackageTypeSelectorProps) => {
             }}
             disabled={isDisabled}
             className={cn(
-              "relative w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-200",
+              "relative w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-150",
               "active:scale-[0.98]",
               isDisabled 
                 ? "opacity-50 cursor-not-allowed border-border" 
-                : "border-border hover:border-primary hover:shadow-lg hover:shadow-primary/10"
+                : "border-border"
             )}
           >
             {/* Icon */}

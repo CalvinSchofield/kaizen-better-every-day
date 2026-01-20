@@ -92,10 +92,9 @@ export const GoalTierCard = ({
   return (
     <Card 
       className={cn(
-        "transition-all duration-200 cursor-pointer",
+        "transition-all duration-150 cursor-pointer active:scale-[0.98]",
         isComplete && "opacity-60",
-        isCurrentTarget && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-        !isComplete && !isCurrentTarget && "hover:shadow-md"
+        isCurrentTarget && "ring-2 ring-primary ring-offset-2 ring-offset-background"
       )}
       onClick={onClick}
     >
