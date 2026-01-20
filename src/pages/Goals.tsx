@@ -11,6 +11,7 @@ import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { usePersonalBenchmarks } from "@/hooks/usePersonalBenchmarks";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import { useEffectiveFP } from "@/hooks/useEffectiveFP";
 import { GoalSetupWizard } from "@/components/goals/GoalSetupWizard";
 import { GoalHeroRing, GoalTier } from "@/components/goals/GoalHeroRing";
 import { CommitmentChips } from "@/components/goals/CommitmentChips";
@@ -22,6 +23,8 @@ import { TrainingTimer } from "@/components/goals/TrainingTimer";
 import { BooksCompletionDrawer } from "@/components/goals/BooksSelectionDrawer";
 import { CommitmentEditorDrawer } from "@/components/goals/CommitmentEditorDrawer";
 import { PurposeCard } from "@/components/goals/PurposeCard";
+import { CatchUpWizard } from "@/components/catchup/CatchUpWizard";
+import { SyncDiscrepancyIndicator } from "@/components/catchup/SyncDiscrepancyIndicator";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
@@ -96,10 +99,18 @@ const Goals = () => {
   const [showTrainingTimer, setShowTrainingTimer] = useState(false);
   const [showBlitzEditor, setShowBlitzEditor] = useState(false);
   const [showBooksDrawer, setShowBooksDrawer] = useState(false);
+  const [showCatchUpWizard, setShowCatchUpWizard] = useState(false);
   const [activeTier, setActiveTier] = useState<GoalTier>('preseason');
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
+  
+  // Effective FP hook for verified totals
+  const { data: effectiveFPData } = useEffectiveFP({
+    seasonType: 'preseason',
+    seasonStartDate: PRESEASON_START,
+    seasonEndDate: PRESEASON_END,
+  });
 
   const handleTourStepAction = useCallback((action: string) => {
     if (action === 'openGoalsCalendarPlanning') {
@@ -866,10 +877,24 @@ const Goals = () => {
       <div className="pb-24">
         {/* Header Actions */}
         <div className="flex items-center justify-between p-4 pb-0">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-2.5 py-1.5 rounded-full">
-            <span className="font-medium">
-              {Math.round((goals.cancel_rate ?? (isRookie ? 0.10 : 0.10)) * 100)}% cancel buffer
-            </span>
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-muted-foreground bg-muted/50 px-2.5 py-1.5 rounded-full">
+              <span className="font-medium">
+                {Math.round((goals.cancel_rate ?? (isRookie ? 0.10 : 0.10)) * 100)}% cancel buffer
+              </span>
+            </div>
+            {/* Sync discrepancy indicator */}
+            {effectiveFPData && (effectiveFPData.needsVerification || effectiveFPData.hasDiscrepancy) && (
+              <SyncDiscrepancyIndicator
+                hasDiscrepancy={effectiveFPData.hasDiscrepancy}
+                discrepancyAmount={effectiveFPData.discrepancyAmount}
+                daysSinceVerification={effectiveFPData.daysSinceVerification}
+                needsVerification={effectiveFPData.needsVerification}
+                hasOfficialTotals={effectiveFPData.hasOfficialTotals}
+                onSyncClick={() => setShowCatchUpWizard(true)}
+                variant="compact"
+              />
+            )}
           </div>
           <div className="flex gap-2">
             <Button
@@ -1265,6 +1290,16 @@ const Goals = () => {
         onComplete={completeTour}
         onSkip={skipTour}
         onStepAction={handleTourStepAction}
+      />
+      
+      {/* Catch-up wizard for syncing official totals */}
+      <CatchUpWizard
+        open={showCatchUpWizard}
+        onOpenChange={setShowCatchUpWizard}
+        seasonType="preseason"
+        onComplete={() => {
+          toast.success("Your official totals have been saved!");
+        }}
       />
     </Layout>
   );
