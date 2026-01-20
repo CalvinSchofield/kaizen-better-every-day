@@ -1,10 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, TrendingUp } from 'lucide-react';
+import { Sparkles, TrendingUp, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { getTier, getRentCost, formatCurrency } from '@/utils/payscaleCalculator';
-import { hapticMedium } from '@/utils/haptics';
+import { hapticMedium, hapticLight } from '@/utils/haptics';
 
 interface ModelModeContentProps {
   rentType: string;
@@ -12,7 +12,24 @@ interface ModelModeContentProps {
   spendingRate: number;
   efpModeEnabled: boolean;
   onFpGoalChange: (fpGoal: number | null) => void;
+  year?: string;
 }
+
+// Year-based presets
+const getPresetsForYear = (year: string | undefined): number[] => {
+  switch (year) {
+    case 'Rookie':
+    case '2025':
+    case '2026':
+      return [40, 60, 80, 100, 140];
+    case 'Sophomore':
+      return [60, 80, 100, 120, 160];
+    case 'Vet':
+      return [80, 100, 120, 160, 200];
+    default:
+      return [60, 80, 100, 120, 160]; // Default to Soph presets
+  }
+};
 
 export const ModelModeContent = ({
   rentType,
@@ -20,10 +37,13 @@ export const ModelModeContent = ({
   spendingRate,
   efpModeEnabled,
   onFpGoalChange,
+  year,
 }: ModelModeContentProps) => {
   const [customFpGoal, setCustomFpGoal] = useState<string>('');
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const fpLabel = efpModeEnabled ? 'EFP' : 'FP+';
+  const presets = useMemo(() => getPresetsForYear(year), [year]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^0-9]/g, '');
@@ -37,6 +57,15 @@ export const ModelModeContent = ({
     setCustomFpGoal(value.toString());
     onFpGoalChange(value);
   }, [onFpGoalChange]);
+
+  const handleInputFocus = useCallback(() => {
+    hapticLight();
+    setIsInputFocused(true);
+  }, []);
+
+  const handleInputBlur = useCallback(() => {
+    setIsInputFocused(false);
+  }, []);
 
   const scenario = useMemo(() => {
     const fpGoal = parseInt(customFpGoal) || 0;
@@ -81,35 +110,48 @@ export const ModelModeContent = ({
     };
   }, [customFpGoal, rentType, weeksWorking, spendingRate]);
 
-  const presets = [100, 150, 200, 300, 500];
-
   return (
     <div className="space-y-4">
       {/* Input Section */}
       <div className="space-y-3">
-        <div className="relative">
+        <div 
+          className={`relative rounded-xl border-2 transition-all duration-200 ${
+            isInputFocused 
+              ? 'border-primary bg-primary/5' 
+              : 'border-border hover:border-primary/50 bg-muted/30'
+          }`}
+        >
           <Input
             type="text"
             inputMode="numeric"
-            placeholder={`Enter ${fpLabel} goal (e.g., 500)`}
+            placeholder={`Tap to enter ${fpLabel} goal`}
             value={customFpGoal}
             onChange={handleInputChange}
-            className="text-lg font-semibold text-center pr-16"
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            className="text-lg font-semibold text-center pr-16 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
           />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-            {fpLabel}
-          </span>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {fpLabel}
+            </span>
+          </div>
         </div>
         
         {/* Quick Presets */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2">
           {presets.map((preset) => (
             <Button
               key={preset}
               variant={customFpGoal === preset.toString() ? 'default' : 'outline'}
               size="sm"
               onClick={() => handlePreset(preset)}
-              className="flex-1 min-w-[3.5rem]"
+              className={`flex-1 min-w-0 font-semibold transition-all active:scale-95 ${
+                customFpGoal === preset.toString() 
+                  ? '' 
+                  : 'hover:bg-primary/10 hover:border-primary/50'
+              }`}
             >
               {preset}
             </Button>
