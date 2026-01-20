@@ -1,17 +1,22 @@
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
-import { MessageCircle, X, Phone, PhoneCall, PhoneMissed, Users, MessageSquare, Calendar, CheckCircle2, AlertCircle, Pencil, Check } from "lucide-react";
+import { MessageCircle, X, Phone, PhoneCall, PhoneMissed, Users, MessageSquare, Calendar, CheckCircle2, AlertCircle, Pencil, Check, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CommentsList, CommentInput, ReactionButton } from "./ActivitySocialFeatures";
 import { MentionInput } from "./MentionInput";
 import { getInitials } from "@/utils/nameUtils";
 import { cn } from "@/lib/utils";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { useActivityReactions, useUpdateActivityNotes } from "@/hooks/useActivitySocial";
+import { useDeleteRecruitActivity } from "@/hooks/useGroupRecruits";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { hapticMedium, hapticWarning } from "@/utils/haptics";
 
 interface RecruitActivity {
   id: string;
@@ -52,10 +57,16 @@ export const ActivityCommentsDrawer = ({
   const { userId: currentUserId } = useCurrentUserId();
   const { data: reactions = {} } = useActivityReactions(activity ? [activity.id] : []);
   const updateNotes = useUpdateActivityNotes();
+  const deleteActivity = useDeleteRecruitActivity();
+  const queryClient = useQueryClient();
   
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
   const [editedNotes, setEditedNotes] = useState("");
+  
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   if (!activity) return null;
   
@@ -133,6 +144,33 @@ export const ActivityCommentsDrawer = ({
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditedNotes("");
+  };
+
+  // Handle delete
+  const handleDelete = () => {
+    hapticWarning();
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (!activity) return;
+    setIsDeleting(true);
+    hapticMedium();
+    
+    deleteActivity.mutate(activity.id, {
+      onSuccess: () => {
+        toast.success('Activity deleted');
+        setShowDeleteConfirm(false);
+        setIsDeleting(false);
+        queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruitId] });
+        queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+        onClose();
+      },
+      onError: () => {
+        toast.error("Couldn't delete activity");
+        setIsDeleting(false);
+      },
+    });
   };
 
   // Get current user's name for mention notifications
@@ -252,16 +290,30 @@ export const ActivityCommentsDrawer = ({
             )}
             
             {/* Reactions Bar - Pass loggedByUserId to prevent self-liking */}
-            <div className="flex items-center gap-4 pt-2 border-t">
-              <ReactionButton 
-                activityId={activity.id} 
-                reactions={reactions} 
-                loggedByUserId={activity.logged_by_user_id} 
-              />
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <MessageCircle className="h-3.5 w-3.5" />
-                <span>Comments</span>
+            <div className="flex items-center justify-between pt-2 border-t">
+              <div className="flex items-center gap-4">
+                <ReactionButton 
+                  activityId={activity.id} 
+                  reactions={reactions} 
+                  loggedByUserId={activity.logged_by_user_id} 
+                />
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  <span>Comments</span>
+                </div>
               </div>
+              
+              {/* Delete button - only for own activities */}
+              {isOwnActivity && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive h-8 px-2 active:scale-95 transition-transform"
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
             
             {/* Comments Section */}
@@ -282,6 +334,28 @@ export const ActivityCommentsDrawer = ({
           />
         </div>
       </DrawerContent>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this activity?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this {getActivityLabel(activity.activity_type, activity.notes).toLowerCase()} from the timeline. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Drawer>
   );
 };
