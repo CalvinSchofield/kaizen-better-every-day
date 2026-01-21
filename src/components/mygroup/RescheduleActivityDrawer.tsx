@@ -16,6 +16,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Recruit, RecruitActivity, useUpdateRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useAssignableUsers, AssignableUser } from "@/hooks/useAssignableUsers";
+import { useActivityCalendarEvent } from "@/hooks/useActivityCalendarEvents";
+import { AddToCalendarPrompt } from "./AddToCalendarPrompt";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -60,11 +62,19 @@ export const RescheduleActivityDrawer = ({
   const [selectedAssignee, setSelectedAssignee] = useState<AssignableUser | null>(null);
   const [showAssigneePopover, setShowAssigneePopover] = useState(false);
   
+  // Calendar prompt state
+  const [showCalendarPrompt, setShowCalendarPrompt] = useState(false);
+  const [scheduledDateString, setScheduledDateString] = useState<string>('');
+  const [previousDateString, setPreviousDateString] = useState<string | undefined>(undefined);
+  
   const updateActivityMutation = useUpdateRecruitActivity();
   const { data: assignableUsers = [], isLoading: assignableUsersLoading } = useAssignableUsers({
     recruitId: recruit?.id,
     recruitTeamLeader: recruit?.teamName,
   });
+  
+  // Check if user has this activity in their calendar
+  const { data: existingCalendarEvent } = useActivityCalendarEvent(activity?.id || null);
 
   // Reset form when activity changes - prioritize notes over next_action for full context
   useEffect(() => {
@@ -119,6 +129,9 @@ export const RescheduleActivityDrawer = ({
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const dateOnlyString = formatInTimeZone(selectedDate, userTimezone, 'yyyy-MM-dd');
       
+      // Store previous date for calendar update prompt
+      const prevDate = activity.next_action_due || undefined;
+      
       await updateActivityMutation.mutateAsync({
         activityId: activity.id,
         nextActionDue: dateOnlyString,
@@ -129,18 +142,34 @@ export const RescheduleActivityDrawer = ({
       
       const assigneeText = selectedAssignee ? ` (assigned to ${selectedAssignee.name})` : '';
       toast.success(`Rescheduled for ${format(selectedDate, 'MMM d')}${assigneeText}`);
-      onOpenChange(false);
-      onComplete?.();
-      setSelectedDate(getNextAvailableDay());
-      setTaskText("");
-      setTaskMentions([]);
-      setSelectedAssignee(null);
+      
+      // If user had this in their calendar, show prompt to update
+      if (existingCalendarEvent) {
+        setScheduledDateString(dateOnlyString);
+        setPreviousDateString(prevDate);
+        setShowCalendarPrompt(true);
+      } else {
+        handleCloseComplete();
+      }
     } catch (error) {
       console.error('Failed to reschedule:', error);
       toast.error('Failed to reschedule');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCloseComplete = () => {
+    onOpenChange(false);
+    onComplete?.();
+    // Reset state
+    setSelectedDate(getNextAvailableDay());
+    setTaskText("");
+    setTaskMentions([]);
+    setSelectedAssignee(null);
+    setShowCalendarPrompt(false);
+    setScheduledDateString('');
+    setPreviousDateString(undefined);
   };
 
   if (!recruit || !activity) return null;
@@ -282,33 +311,48 @@ export const RescheduleActivityDrawer = ({
           </div>
         </div>
 
-        <DrawerFooter className="border-t">
-          <Button 
-            onClick={handleReschedule}
-            disabled={!selectedDate || isLoading}
-            className="w-full"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Rescheduling...
-              </>
-            ) : (
-              <>
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                Reschedule for {selectedDate ? format(selectedDate, 'MMM d') : '...'}
-              </>
-            )}
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isLoading}
-            className="w-full"
-          >
-            Cancel
-          </Button>
-        </DrawerFooter>
+        {/* Calendar Prompt - shown after successful reschedule if user had it in calendar */}
+        {showCalendarPrompt && activity && scheduledDateString && (
+          <AddToCalendarPrompt
+            activityId={activity.id}
+            recruit={recruit}
+            scheduledDate={scheduledDateString}
+            notes={taskText}
+            onClose={handleCloseComplete}
+            isReschedule={true}
+            previousDate={previousDateString}
+          />
+        )}
+
+        {!showCalendarPrompt && (
+          <DrawerFooter className="border-t">
+            <Button 
+              onClick={handleReschedule}
+              disabled={!selectedDate || isLoading}
+              className="w-full"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Rescheduling...
+                </>
+              ) : (
+                <>
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  Reschedule for {selectedDate ? format(selectedDate, 'MMM d') : '...'}
+                </>
+              )}
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+              className="w-full"
+            >
+              Cancel
+            </Button>
+          </DrawerFooter>
+        )}
       </DrawerContent>
     </Drawer>
   );

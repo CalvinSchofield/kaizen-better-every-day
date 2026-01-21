@@ -18,6 +18,7 @@ import { useAssignableUsers, AssignableUser } from "@/hooks/useAssignableUsers";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MentionInput } from "./recruit-detail/MentionInput";
+import { AddToCalendarPrompt } from "./AddToCalendarPrompt";
 
 interface ScheduleFollowUpDrawerProps {
   open: boolean;
@@ -44,6 +45,11 @@ export const ScheduleFollowUpDrawer = ({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<AssignableUser | null>(null);
   const [showAssigneePopover, setShowAssigneePopover] = useState(false);
+  
+  // Calendar prompt state
+  const [showCalendarPrompt, setShowCalendarPrompt] = useState(false);
+  const [scheduledActivityId, setScheduledActivityId] = useState<string | null>(null);
+  const [scheduledDateString, setScheduledDateString] = useState<string>('');
   
   const logActivityMutation = useLogRecruitActivity();
   const { data: assignableUsers = [], isLoading: assignableUsersLoading } = useAssignableUsers({
@@ -82,7 +88,7 @@ export const ScheduleFollowUpDrawer = ({
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const dateOnlyString = formatInTimeZone(selectedDate, userTimezone, 'yyyy-MM-dd');
       
-      await logActivityMutation.mutateAsync({
+      const result = await logActivityMutation.mutateAsync({
         recruitId: recruit.id,
         activityType: 'next_step',
         notes: notes || `Follow up scheduled for ${format(selectedDate, 'MMM d')}`,
@@ -93,18 +99,34 @@ export const ScheduleFollowUpDrawer = ({
       
       const assigneeText = selectedAssignee ? ` (assigned to ${selectedAssignee.name})` : '';
       toast.success(`Follow-up scheduled for ${format(selectedDate, 'MMM d')}${assigneeText}`);
-      onOpenChange(false);
-      onComplete?.();
-      setNotes('');
-      setNotesMentions([]);
-      setSelectedDate(addDays(new Date(), 1));
-      setSelectedAssignee(null);
+      
+      // Show calendar prompt instead of closing immediately
+      if (result?.id) {
+        setScheduledActivityId(result.id);
+        setScheduledDateString(dateOnlyString);
+        setShowCalendarPrompt(true);
+      } else {
+        handleCloseComplete();
+      }
     } catch (error) {
       console.error('Failed to schedule follow-up:', error);
       toast.error('Failed to schedule follow-up');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCloseComplete = () => {
+    onOpenChange(false);
+    onComplete?.();
+    // Reset state
+    setNotes('');
+    setNotesMentions([]);
+    setSelectedDate(addDays(new Date(), 1));
+    setSelectedAssignee(null);
+    setShowCalendarPrompt(false);
+    setScheduledActivityId(null);
+    setScheduledDateString('');
   };
 
   if (!recruit) return null;
@@ -246,33 +268,46 @@ export const ScheduleFollowUpDrawer = ({
           </div>
         </div>
 
-        <DrawerFooter className="border-t">
-          <Button 
-            onClick={handleSchedule}
-            disabled={!selectedDate || isLoading}
-            className="w-full"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Scheduling...
-              </>
-            ) : (
-              <>
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                Schedule for {selectedDate ? format(selectedDate, 'MMM d') : '...'}
-              </>
-            )}
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isLoading}
-            className="w-full"
-          >
-            Cancel
-          </Button>
-        </DrawerFooter>
+        {/* Calendar Prompt - shown after successful scheduling */}
+        {showCalendarPrompt && scheduledActivityId && scheduledDateString && (
+          <AddToCalendarPrompt
+            activityId={scheduledActivityId}
+            recruit={recruit}
+            scheduledDate={scheduledDateString}
+            notes={notes}
+            onClose={handleCloseComplete}
+          />
+        )}
+
+        {!showCalendarPrompt && (
+          <DrawerFooter className="border-t">
+            <Button 
+              onClick={handleSchedule}
+              disabled={!selectedDate || isLoading}
+              className="w-full"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Scheduling...
+                </>
+              ) : (
+                <>
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  Schedule for {selectedDate ? format(selectedDate, 'MMM d') : '...'}
+                </>
+              )}
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+              className="w-full"
+            >
+              Cancel
+            </Button>
+          </DrawerFooter>
+        )}
       </DrawerContent>
     </Drawer>
   );

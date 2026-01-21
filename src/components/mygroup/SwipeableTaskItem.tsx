@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SkipMenu } from "./SkipMenu";
+import { CalendarBadge } from "./AddToCalendarPrompt";
 
 // Sticky threshold - must drag past this to commit
 const SWIPE_COMMIT_THRESHOLD = 100;
@@ -246,6 +247,8 @@ export const SwipeableTaskItem = ({
               <Badge variant="outline" className="text-xs">
                 {recruit.stage}
               </Badge>
+              {/* Calendar badge if user has this in their calendar */}
+              {activity && <CalendarBadge activityId={activity.id} />}
               {/* Show assignee badge if assigned to someone else */}
               {isAssignedToOther && assigneeName && (
                 <Badge variant="outline" className="text-[10px] gap-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30">
