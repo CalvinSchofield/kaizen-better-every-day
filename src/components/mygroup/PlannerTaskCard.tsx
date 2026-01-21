@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { CalendarBadge } from "./AddToCalendarPrompt";
 
 // Helper to strip emojis from names
 const stripEmojis = (text: string | null): string | null => {
@@ -183,6 +184,8 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
             <Badge variant="outline" className="text-xs">
               {recruit.stage}
             </Badge>
+            {/* Calendar badge if user has this in their calendar */}
+            <CalendarBadge activityId={activity.id} />
             {/* Show assignee badge if assigned to someone else */}
             {isAssignedToOther && assigneeName && (
               <Badge variant="outline" className="text-[10px] gap-1 bg-indigo-500/10 text-indigo-600 border-indigo-500/30">

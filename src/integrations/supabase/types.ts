@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_calendar_events: {
+        Row: {
+          activity_id: string
+          added_at: string
+          calendar_date: string
+          calendar_time: string | null
+          event_title: string | null
+          id: string
+          recruit_name: string | null
+          user_id: string
+        }
+        Insert: {
+          activity_id: string
+          added_at?: string
+          calendar_date: string
+          calendar_time?: string | null
+          event_title?: string | null
+          id?: string
+          recruit_name?: string | null
+          user_id: string
+        }
+        Update: {
+          activity_id?: string
+          added_at?: string
+          calendar_date?: string
+          calendar_time?: string | null
+          event_title?: string | null
+          id?: string
+          recruit_name?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_calendar_events_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "recruit_activities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_comment_mentions: {
         Row: {
           comment_id: string
