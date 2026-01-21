@@ -133,14 +133,15 @@ export const ScheduleFollowUpDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent>
-        <DrawerHeader className="border-b">
+      <DrawerContent className="max-h-[85svh] flex flex-col">
+        <DrawerHeader className="border-b flex-shrink-0">
           <DrawerTitle>
             Schedule Follow-up with {stripEmojis(recruit.name)}
           </DrawerTitle>
         </DrawerHeader>
         
-        <div className="p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          <div className="p-4 space-y-4">
           {/* Next steps - required */}
           <div>
             <label className="text-sm font-medium mb-2 block">
@@ -266,18 +267,19 @@ export const ScheduleFollowUpDrawer = ({
               </Button>
             )}
           </div>
-        </div>
+          </div>
 
-        {/* Calendar Prompt - shown after successful scheduling */}
-        {showCalendarPrompt && scheduledActivityId && scheduledDateString && (
-          <AddToCalendarPrompt
-            activityId={scheduledActivityId}
-            recruit={recruit}
-            scheduledDate={scheduledDateString}
-            notes={notes}
-            onClose={handleCloseComplete}
-          />
-        )}
+          {/* Calendar Prompt - shown after successful scheduling */}
+          {showCalendarPrompt && scheduledActivityId && scheduledDateString && (
+            <AddToCalendarPrompt
+              activityId={scheduledActivityId}
+              recruit={recruit}
+              scheduledDate={scheduledDateString}
+              notes={notes}
+              onClose={handleCloseComplete}
+            />
+          )}
+        </div>
 
         {!showCalendarPrompt && (
           <DrawerFooter className="border-t">
