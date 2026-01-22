@@ -155,7 +155,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
 
   // Count days in period: WORKED (finalized entries) + REMAINING PLANNED (after latest finalized, not yet worked)
   // IMPORTANT: Use finalization as the trigger for "day complete", not calendar date
-  const { daysWorkedInPeriod, totalDaysInPeriod } = useMemo(() => {
+  const { daysWorkedInPeriod, totalDaysInPeriod, hasUnfinalizedActivity } = useMemo(() => {
     const periodStart = viewMode === "month" 
       ? startOfMonth(currentDate) 
       : startOfWeek(currentDate);
@@ -173,6 +173,16 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
       if (!e.is_finalized) return false; // Only count finalized entries as "worked"
       return (e.doors_knocked || 0) >= 4 && !!e.work_start_time && !!e.work_end_time;
     }).length;
+    
+    // Check if there's an unfinalized entry in this period with any activity
+    const unfinalizedWithActivity = entries.some(e => {
+      if (e.entry_date < periodStartStr || e.entry_date > periodEndStr) return false;
+      if (e.is_finalized) return false;
+      // Has activity if there's sales_log data or doors knocked
+      const hasSales = Array.isArray(e.sales_log) && e.sales_log.length > 0;
+      const hasDoors = (e.doors_knocked || 0) > 0;
+      return hasSales || hasDoors;
+    });
     
     // Get dates that have finalized entries (as a set for quick lookup)
     const workedDatesSet = new Set(
@@ -200,7 +210,8 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     // Total = worked + future planned + today (if applicable)
     return {
       daysWorkedInPeriod: workedDays,
-      totalDaysInPeriod: workedDays + futurePlanned + (includesToday ? 1 : 0)
+      totalDaysInPeriod: workedDays + futurePlanned + (includesToday ? 1 : 0),
+      hasUnfinalizedActivity: unfinalizedWithActivity
     };
   }, [entries, plannedDays, currentDate, viewMode, throughDateStr, todayStr]);
 
@@ -515,7 +526,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
           <div>
             <h3 className="text-sm font-semibold text-foreground">{periodLabel} Goal</h3>
             <p className="text-[11px] text-muted-foreground">
-              {daysWorkedInPeriod} of {totalDaysInPeriod} days done
+              {daysWorkedInPeriod} of {totalDaysInPeriod} days done{hasUnfinalizedActivity && <span className="text-primary"> (today in progress)</span>}
             </p>
           </div>
         </div>
