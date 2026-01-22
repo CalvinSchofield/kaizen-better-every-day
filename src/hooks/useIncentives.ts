@@ -255,6 +255,7 @@ export interface UpdateIncentiveInput {
   reward?: string;
   target_value?: number;
   end_date?: string;
+  visibility?: IncentiveVisibility;
   eligible_user_ids?: string[];
 }
 
@@ -285,6 +286,7 @@ export const useUpdateIncentive = () => {
       if (input.reward !== undefined) updateFields.reward = input.reward;
       if (input.target_value !== undefined) updateFields.target_value = input.target_value;
       if (input.end_date !== undefined) updateFields.end_date = input.end_date;
+      if (input.visibility !== undefined) updateFields.visibility = input.visibility;
 
       if (Object.keys(updateFields).length > 0) {
         const { error: updateError } = await supabase

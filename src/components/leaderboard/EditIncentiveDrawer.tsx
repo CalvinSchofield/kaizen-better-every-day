@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { Incentive, useUpdateIncentive } from "@/hooks/useIncentives";
+import { Incentive, IncentiveVisibility, useUpdateIncentive } from "@/hooks/useIncentives";
 import { SmartParticipantPicker } from "./SmartParticipantPicker";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, CalendarIcon, ChevronLeft } from "lucide-react";
+import { Loader2, CalendarIcon, ChevronLeft, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 
@@ -28,6 +29,7 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [allSelected, setAllSelected] = useState(false);
+  const [visibility, setVisibility] = useState<IncentiveVisibility>('private');
 
   const { data: teamAccess } = useTeamAccess();
   const updateMutation = useUpdateIncentive();
@@ -59,6 +61,7 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
       setReward(incentive.reward);
       setTargetValue(incentive.target_value?.toString() || '1');
       setEndDate(parseISO(incentive.end_date));
+      setVisibility(incentive.visibility);
       
       // Set selected user IDs from eligible reps
       const eligibleIds = incentive.eligible_reps?.map(r => r.user_id) || [];
@@ -122,6 +125,7 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
         reward,
         target_value: parseInt(targetValue) || 1,
         end_date: endDate ? format(endDate, 'yyyy-MM-dd') : undefined,
+        visibility,
         eligible_user_ids: effectiveUserIds,
       });
       toast.success('Incentive updated! 🏆');
@@ -177,6 +181,33 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
                   value={targetValue}
                   onChange={(e) => setTargetValue(e.target.value)}
                 />
+              </div>
+
+              <div className="space-y-3">
+                <Label>Visibility</Label>
+                <RadioGroup
+                  value={visibility}
+                  onValueChange={(v) => setVisibility(v as IncentiveVisibility)}
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="private" id="visibility-private" />
+                    <Label htmlFor="visibility-private" className="flex items-center gap-1.5 text-sm font-normal cursor-pointer">
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      Private
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="public" id="visibility-public" />
+                    <Label htmlFor="visibility-public" className="flex items-center gap-1.5 text-sm font-normal cursor-pointer">
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      Public
+                    </Label>
+                  </div>
+                </RadioGroup>
+                <p className="text-xs text-muted-foreground">
+                  Public incentives are visible to everyone. Private ones are only visible to participants.
+                </p>
               </div>
 
               <div className="p-3 rounded-xl bg-muted/50 border border-border">
