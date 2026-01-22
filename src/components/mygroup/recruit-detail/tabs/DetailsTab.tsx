@@ -417,6 +417,7 @@ const BlitzStatusCard = ({
   const isSignedOrBeyond = !isEarlyStage && !isExitStage;
   
   // Calculate closest upcoming blitz from committed blitzes
+  // IMPORTANT: All useMemo hooks MUST be called before any conditional returns
   const closestBlitz = useMemo(() => {
     if (!recruitRepData?.committed_blitzes || !allBlitzes.length) return null;
     
@@ -452,8 +453,30 @@ const BlitzStatusCard = ({
     
     return { ...closest, daysUntil };
   }, [recruitRepData?.committed_blitzes, allBlitzes]);
+
+  // Check for past blitzes (blitzes where end_date is in the past)
+  // IMPORTANT: This useMemo MUST be called before any conditional returns
+  const hasPastBlitz = useMemo(() => {
+    if (!recruitRepData?.committed_blitzes || !allBlitzes.length) return false;
+    
+    const committedIds = (recruitRepData.committed_blitzes as (string | { id: string })[])
+      .map(b => typeof b === 'string' ? b : (b as { id: string })?.id);
+    
+    if (committedIds.length === 0) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Find if any committed blitz has ended
+    return allBlitzes
+      .filter(blitz => committedIds.includes(blitz.id))
+      .some(blitz => {
+        const endDate = blitz.endDate ? parseDateAsLocal(blitz.endDate) : parseDateAsLocal(blitz.date);
+        return endDate && endDate < today;
+      });
+  }, [recruitRepData?.committed_blitzes, allBlitzes]);
   
-  // Only show for Signed+ rookies
+  // Only show for Signed+ rookies - AFTER all hooks are called
   if (!isRookie || !isSignedOrBeyond) return null;
   
   const hasIpad = recruitRepData?.ipad_assigned ?? false;
@@ -505,27 +528,6 @@ const BlitzStatusCard = ({
       toast.error("Couldn't update iPad status");
     }
   };
-
-  // Check for past blitzes (blitzes where end_date is in the past)
-  const hasPastBlitz = useMemo(() => {
-    if (!recruitRepData?.committed_blitzes || !allBlitzes.length) return false;
-    
-    const committedIds = (recruitRepData.committed_blitzes as (string | { id: string })[])
-      .map(b => typeof b === 'string' ? b : (b as { id: string })?.id);
-    
-    if (committedIds.length === 0) return false;
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    // Find if any committed blitz has ended
-    return allBlitzes
-      .filter(blitz => committedIds.includes(blitz.id))
-      .some(blitz => {
-        const endDate = blitz.endDate ? parseDateAsLocal(blitz.endDate) : parseDateAsLocal(blitz.date);
-        return endDate && endDate < today;
-      });
-  }, [recruitRepData?.committed_blitzes, allBlitzes]);
   
   const isPostBlitz = hasPastBlitz && isRampComplete;
 
