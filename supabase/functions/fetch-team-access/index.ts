@@ -270,7 +270,11 @@ Deno.serve(async (req) => {
       // Otherwise look up by team_leader field
       if (rep.team_leader) {
         const leaderName = rep.team_leader.toLowerCase().trim();
-        const team = teamKeyToTeam.get(leaderName);
+        // Strip emoji prefix for matching
+        const cleanLeaderName = leaderName.replace(/^[^\p{L}]*/u, '').trim();
+        const firstToken = cleanLeaderName.split(/\s+/)[0];
+        
+        const team = teamKeyToTeam.get(firstToken);
         if (team) {
           const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(team.id));
           return {
@@ -282,16 +286,63 @@ Deno.serve(async (req) => {
           };
         }
 
-        // team_leader doesn't match a known team - trace up the recruiter chain
-        // to find the first person who IS on a known team
+        // team_leader doesn't match a known team - FIRST try tracing up the team_leader chain
+        // e.g., Weston -> team_leader: "Calder Severson" -> find Calder -> Calder's team_leader: "Calvin" -> matches team
+        const teamLeaderFullName = normalizeFullName(rep.team_leader);
+        if (teamLeaderFullName) {
+          let current = repsData.find(r => normalizeFullName(r.name) === teamLeaderFullName);
+          for (let depth = 0; depth < 6 && current; depth++) {
+            // Check if current rep's team_leader matches a known team
+            if (current.team_leader) {
+              const currentLeaderClean = current.team_leader.toLowerCase().replace(/^[^\p{L}]*/u, '').trim();
+              const currentFirstToken = currentLeaderClean.split(/\s+/)[0];
+              const currentTeam = teamKeyToTeam.get(currentFirstToken);
+              if (currentTeam) {
+                const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(currentTeam.id));
+                console.log(`Resolved ${rep.name} to ${currentTeam.name} via team_leader lineage (${current.name} -> ${current.team_leader})`);
+                return {
+                  isTeamLead: false,
+                  teamId: currentTeam.id,
+                  teamName: currentTeam.name,
+                  mgmtGroupId: mgmtGroup?.id || null,
+                  mgmtGroupName: mgmtGroup?.name || null,
+                };
+              }
+            }
+
+            // Check if current rep is themselves a team lead
+            if (current.user_id) {
+              const currentTeamsAsLead = userIdToTeams.get(current.user_id);
+              if (currentTeamsAsLead && currentTeamsAsLead.length > 0) {
+                const currentTeam = currentTeamsAsLead[0];
+                const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(currentTeam.id));
+                console.log(`Resolved ${rep.name} to ${currentTeam.name} via team_leader who is team lead (${current.name})`);
+                return {
+                  isTeamLead: false,
+                  teamId: currentTeam.id,
+                  teamName: currentTeam.name,
+                  mgmtGroupId: mgmtGroup?.id || null,
+                  mgmtGroupName: mgmtGroup?.name || null,
+                };
+              }
+            }
+
+            // Go up one level via THEIR team_leader
+            const nextKey = normalizeFullName(current.team_leader);
+            current = nextKey ? repsData.find(r => normalizeFullName(r.name) === nextKey) : undefined;
+          }
+        }
+
+        // FALLBACK: Also try the recruiter chain if team_leader chain failed
         const recruiterKey = normalizeFullName(rep.recruiter);
         if (recruiterKey) {
           let current = repsData.find(r => normalizeFullName(r.name) === recruiterKey);
           for (let depth = 0; depth < 6 && current; depth++) {
             // Check if current rep's team_leader matches a known team
             if (current.team_leader) {
-              const currentLeaderName = current.team_leader.toLowerCase().trim();
-              const currentTeam = teamKeyToTeam.get(currentLeaderName);
+              const currentLeaderClean = current.team_leader.toLowerCase().replace(/^[^\p{L}]*/u, '').trim();
+              const currentFirstToken = currentLeaderClean.split(/\s+/)[0];
+              const currentTeam = teamKeyToTeam.get(currentFirstToken);
               if (currentTeam) {
                 const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(currentTeam.id));
                 console.log(`Resolved ${rep.name} to ${currentTeam.name} via recruiter lineage (${current.name})`);

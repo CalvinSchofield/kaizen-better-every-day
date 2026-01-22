@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+import { ChallengeVisibility } from "./useChallenges";
 
 export interface ChallengeEditProposal {
   id: string;
@@ -10,6 +11,7 @@ export interface ChallengeEditProposal {
   proposed_changes: {
     stakes?: string;
     end_date?: string;
+    visibility?: ChallengeVisibility;
   };
   status: 'pending' | 'approved' | 'rejected';
   resolved_at: string | null;
@@ -113,7 +115,7 @@ export const useProposeEdit = () => {
       changes,
     }: {
       challengeId: string;
-      changes: { stakes?: string; end_date?: string };
+      changes: { stakes?: string; end_date?: string; visibility?: ChallengeVisibility };
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -243,10 +245,11 @@ export const useRespondToEditProposal = () => {
 
       if (allResponded && allApproved) {
         // Apply the changes to the challenge
-        const changes = proposal.proposed_changes as { stakes?: string; end_date?: string };
+        const changes = proposal.proposed_changes as { stakes?: string; end_date?: string; visibility?: ChallengeVisibility };
         const updateData: Record<string, string> = {};
         if (changes.stakes !== undefined) updateData.stakes = changes.stakes;
         if (changes.end_date !== undefined) updateData.end_date = changes.end_date;
+        if (changes.visibility !== undefined) updateData.visibility = changes.visibility;
 
         if (Object.keys(updateData).length > 0) {
           await supabase
