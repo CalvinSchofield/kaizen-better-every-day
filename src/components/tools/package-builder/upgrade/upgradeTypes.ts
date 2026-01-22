@@ -6,6 +6,7 @@ export interface UpgradeEquipmentItem {
   icon?: string;
   category: 'Cameras' | 'Smart Home' | 'Security';
   incursVideoFee?: boolean; // Whether this item can have a $5/mo video fee
+  alwaysNewCamera?: boolean; // If true, always counts as new (no toggle) - e.g., indoor cameras
 }
 
 export interface UpgradeCameraSelection {
@@ -47,6 +48,7 @@ export const UPGRADE_EQUIPMENT_LIST: UpgradeEquipmentItem[] = [
     image: '/images/products/indoor-camera-pro.jpeg',
     category: 'Cameras',
     incursVideoFee: true,
+    alwaysNewCamera: true, // Indoor cameras always incur $5/mo video fee
   },
   { 
     id: 'dvr', 

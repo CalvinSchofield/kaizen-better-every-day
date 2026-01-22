@@ -152,17 +152,18 @@ const PackageBuilder = () => {
         return rest;
       }
       
-      // When increasing quantity, ensure newCameraCount doesn't exceed quantity
-      if (delta > 0 && item.incursVideoFee) {
+      // Handle alwaysNewCamera items (like indoor cameras) - auto-set newCameraCount = quantity
+      if (item.alwaysNewCamera) {
+        setNewCameraCounts(prevCounts => ({ ...prevCounts, [itemId]: newQty }));
+      } else if (delta > 0 && item.incursVideoFee) {
+        // When increasing quantity, ensure newCameraCount doesn't exceed quantity
         setNewCameraCounts(prevCounts => {
           const currentNewCams = prevCounts[itemId] || 0;
           // If no new cameras set yet, don't auto-add (user must opt-in)
           return prevCounts;
         });
-      }
-      
-      // When decreasing quantity, ensure newCameraCount doesn't exceed new quantity
-      if (delta < 0 && item.incursVideoFee) {
+      } else if (delta < 0 && item.incursVideoFee) {
+        // When decreasing quantity, ensure newCameraCount doesn't exceed new quantity
         setNewCameraCounts(prevCounts => {
           const currentNewCams = prevCounts[itemId] || 0;
           if (currentNewCams > newQty) {
@@ -262,6 +263,7 @@ const PackageBuilder = () => {
         totalMonthly: 0,
         financingMonths: UPGRADE_CONFIG.longFinancingMonths,
         amountNeededFor60Mo: 0,
+        prmr: 0,
       };
     }
 
@@ -273,10 +275,16 @@ const PackageBuilder = () => {
       equipmentTotal += UPGRADE_CONFIG.panelPrice;
     }
     
-    // Add equipment costs
+    // Add equipment costs and calculate base PRMR (equipment cost only, no install fee)
+    let equipmentOnlyTotal = 0;
+    if (upgradePanelIncluded) {
+      equipmentOnlyTotal += UPGRADE_CONFIG.panelPrice;
+    }
+    
     UPGRADE_EQUIPMENT_LIST.forEach(item => {
       const qty = upgradeQuantities[item.id] || 0;
       equipmentTotal += item.price * qty;
+      equipmentOnlyTotal += item.price * qty;
     });
 
     // Estimate total with tax to determine financing term
@@ -295,11 +303,16 @@ const PackageBuilder = () => {
     // Calculate equipment monthly
     const equipmentMonthly = equipmentTotal / financingMonths;
 
-    // Count new cameras for video service fee
+    // Count new cameras for video service fee (including always-new cameras like indoor)
     let newCameraCount = 0;
     UPGRADE_EQUIPMENT_LIST.forEach(item => {
       if (item.incursVideoFee) {
-        newCameraCount += newCameraCounts[item.id] || 0;
+        if (item.alwaysNewCamera) {
+          // Always-new cameras (indoor) use full quantity
+          newCameraCount += upgradeQuantities[item.id] || 0;
+        } else {
+          newCameraCount += newCameraCounts[item.id] || 0;
+        }
       }
     });
 
@@ -308,6 +321,10 @@ const PackageBuilder = () => {
 
     // Total monthly (equipment + video service only, no warranty or service rate)
     const totalMonthly = equipmentMonthly + videoServiceFee;
+    
+    // Calculate PRMR: equipment total (without install fee) divided by 60, plus $5 per new camera
+    // This matches the edge function logic: equipmentTotal / 60 + (newCameraCount * 5)
+    const prmr = (equipmentOnlyTotal / 60) + (newCameraCount * 5);
 
     return { 
       equipmentTotal, 
@@ -319,6 +336,7 @@ const PackageBuilder = () => {
       totalMonthly,
       financingMonths,
       amountNeededFor60Mo,
+      prmr,
     };
   }, [packageType, upgradeQuantities, newCameraCounts, upgradePanelIncluded]);
 
@@ -498,6 +516,7 @@ const PackageBuilder = () => {
             totalMonthly={upgradePrices.totalMonthly}
             financingMonths={upgradePrices.financingMonths}
             amountNeededFor60Mo={upgradePrices.amountNeededFor60Mo}
+            prmr={upgradePrices.prmr}
           />
         )}
       </div>
