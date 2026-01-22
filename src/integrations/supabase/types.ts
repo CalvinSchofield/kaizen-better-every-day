@@ -1406,6 +1406,7 @@ export type Database = {
         Row: {
           badge_id: string | null
           blitz_ready: boolean | null
+          caution_notes: string | null
           created_at: string | null
           email: string | null
           id: string
@@ -1426,6 +1427,7 @@ export type Database = {
           recruitment_source: string | null
           significant_other_name: string | null
           slack_joined: boolean | null
+          spouse_name: string | null
           stage: string | null
           team_id: string | null
           trainings_complete: boolean | null
@@ -1436,6 +1438,7 @@ export type Database = {
         Insert: {
           badge_id?: string | null
           blitz_ready?: boolean | null
+          caution_notes?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
@@ -1456,6 +1459,7 @@ export type Database = {
           recruitment_source?: string | null
           significant_other_name?: string | null
           slack_joined?: boolean | null
+          spouse_name?: string | null
           stage?: string | null
           team_id?: string | null
           trainings_complete?: boolean | null
@@ -1466,6 +1470,7 @@ export type Database = {
         Update: {
           badge_id?: string | null
           blitz_ready?: boolean | null
+          caution_notes?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
@@ -1486,6 +1491,7 @@ export type Database = {
           recruitment_source?: string | null
           significant_other_name?: string | null
           slack_joined?: boolean | null
+          spouse_name?: string | null
           stage?: string | null
           team_id?: string | null
           trainings_complete?: boolean | null

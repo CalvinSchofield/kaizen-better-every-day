@@ -3,6 +3,7 @@ import { useSubmitSuggestion, useMySuggestions } from "@/hooks/useGroupRecruits"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   Drawer, 
   DrawerContent, 
@@ -34,10 +35,11 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Clock, CheckCircle2, XCircle, AlertCircle, Loader2, Check, ChevronsUpDown, Plus } from "lucide-react";
+import { Clock, CheckCircle2, XCircle, AlertCircle, Loader2, Check, ChevronsUpDown, Plus, ChevronLeft, User, MapPin, Sparkles, Users, AlertTriangle, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
+import { hapticLight, hapticMedium, hapticSuccess } from "@/utils/haptics";
 
 interface SuggestionPrefill {
   suggestionId: string;
@@ -82,172 +84,150 @@ const US_STATES = [
   'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming',
 ];
 
+// Popular recruitment sources as tappable cards
+const RECRUITMENT_SOURCES = [
+  { id: 'Referral', label: 'Referral', emoji: '👥' },
+  { id: 'Social Media', label: 'Social Media', emoji: '📱' },
+  { id: 'Church', label: 'Church', emoji: '⛪' },
+  { id: 'School', label: 'School', emoji: '🎓' },
+  { id: 'Work', label: 'Work', emoji: '💼' },
+  { id: 'Family', label: 'Family', emoji: '👨‍👩‍👧‍👦' },
+];
+
+// Stages as segment buttons
+const RECRUIT_STAGES = ['100 List', 'Reached Out', 'Evaluating', 'Signed'] as const;
+
 // Format phone number as user types
 const formatPhoneNumber = (value: string) => {
-  // Extract only digits
   let digits = value.replace(/\D/g, '');
-  
-  // Strip leading "1" country code if present (11 digits starting with 1)
   if (digits.length === 11 && digits.startsWith('1')) {
     digits = digits.slice(1);
   }
-  
-  // Format the 10-digit number
   if (digits.length <= 3) return digits;
   if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
 };
 
-// Normalize string for comparison (lowercase, trim, remove extra spaces)
+// Normalize string for comparison
 const normalizeString = (str: string) => str.toLowerCase().trim().replace(/\s+/g, ' ');
 
-// Location Combobox with search functionality
+// Step indicator component
+const StepIndicator = ({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) => (
+  <div className="flex items-center justify-center gap-1.5 py-2">
+    {Array.from({ length: totalSteps }, (_, i) => (
+      <div
+        key={i}
+        className={cn(
+          "h-1.5 rounded-full transition-all duration-300",
+          i === currentStep 
+            ? "w-6 bg-primary" 
+            : i < currentStep 
+              ? "w-1.5 bg-primary/50" 
+              : "w-1.5 bg-muted"
+        )}
+      />
+    ))}
+  </div>
+);
+
+// Location Combobox with search
 interface LocationComboboxProps {
   value: string;
   onValueChange: (value: string) => void;
   options: string[];
-  showCustomLocation: boolean;
-  customLocation: string;
-  onCustomLocationChange: (value: string) => void;
-  onCancelCustom: () => void;
   hasError: boolean;
 }
 
-const LocationCombobox = ({
-  value,
-  onValueChange,
-  options,
-  showCustomLocation,
-  customLocation,
-  onCustomLocationChange,
-  onCancelCustom,
-  hasError,
-}: LocationComboboxProps) => {
+const LocationCombobox = ({ value, onValueChange, options, hasError }: LocationComboboxProps) => {
   const [open, setOpen] = useState(false);
 
-  if (showCustomLocation) {
-    return (
-      <div>
-        <Label className={hasError ? 'text-destructive' : ''}>
-          Location (State) *
-        </Label>
-        <div className="mt-1 space-y-2">
-          <Input
-            value={customLocation}
-            onChange={(e) => onCustomLocationChange(e.target.value)}
-            placeholder="Enter new state name"
-            className={hasError ? 'border-destructive ring-destructive' : ''}
-          />
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onCancelCustom}
-            >
-              Cancel
-            </Button>
-            {customLocation && (
-              <p className="text-xs text-muted-foreground flex items-center">
-                <AlertCircle className="h-3 w-3 mr-1" />
-                New location will be created
-              </p>
-            )}
-          </div>
-          {hasError && (
-            <p className="text-xs text-destructive">Location is required</p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div>
-      <Label className={hasError ? 'text-destructive' : ''}>
-        Location (State) *
-      </Label>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className={cn(
-              "w-full justify-between mt-1 font-normal",
-              !value && "text-muted-foreground",
-              hasError && "border-destructive ring-destructive"
-            )}
-          >
-            {value || "Search or select state..."}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Type to search states..." />
-            <CommandList>
-              <CommandEmpty>No state found.</CommandEmpty>
-              <CommandGroup>
-                {options.map((loc) => (
-                  <CommandItem
-                    key={loc}
-                    value={loc}
-                    onSelect={() => {
-                      onValueChange(loc);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === loc ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {loc}
-                  </CommandItem>
-                ))}
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn(
+            "w-full justify-between font-normal h-12 text-base",
+            !value && "text-muted-foreground",
+            hasError && "border-destructive ring-destructive"
+          )}
+        >
+          {value || "Select state..."}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search states..." />
+          <CommandList>
+            <CommandEmpty>No state found.</CommandEmpty>
+            <CommandGroup>
+              {options.map((loc) => (
                 <CommandItem
-                  value="__add_new__"
+                  key={loc}
+                  value={loc}
                   onSelect={() => {
-                    onValueChange('__custom__');
+                    onValueChange(loc);
                     setOpen(false);
+                    hapticLight();
                   }}
-                  className="text-primary"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add new state...
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === loc ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {loc}
                 </CommandItem>
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-      {hasError && (
-        <p className="text-xs text-destructive mt-1">Location is required</p>
-      )}
-    </div>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };
 
+// Animation variants
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 100 : -100,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction: number) => ({
+    x: direction < 0 ? 100 : -100,
+    opacity: 0,
+  }),
+};
+
 export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSuggestionApproved, onRecruitCreated }: AddRecruitDrawerProps) => {
+  // Wizard step state
+  const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(0);
+  
   // Form state
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [location, setLocation] = useState('');
-  const [customLocation, setCustomLocation] = useState('');
-  const [showCustomLocation, setShowCustomLocation] = useState(false);
   const [recruitmentSource, setRecruitmentSource] = useState('');
   const [selectedRecruiter, setSelectedRecruiter] = useState('');
   const [selectedTeam, setSelectedTeam] = useState('');
-  const [selectedStage, setSelectedStage] = useState('100 List');
+  const [selectedStage, setSelectedStage] = useState<string>('100 List');
+  const [spouseName, setSpouseName] = useState('');
+  const [cautionNotes, setCautionNotes] = useState('');
+  
+  // Rep suggestion state
   const [relationship, setRelationship] = useState('');
   const [notes, setNotes] = useState('');
   const [showMySuggestions, setShowMySuggestions] = useState(false);
-  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
-
-  // Available stages for new recruits
-  const RECRUIT_STAGES = ['100 List', 'Reached Out', 'Evaluating', 'Signed'] as const;
 
   const queryClient = useQueryClient();
   const submitMutation = useSubmitSuggestion();
@@ -256,8 +236,9 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
   const isMgmtOrAbove = teamAccess?.accessLevel === 'mgmt_group_lead' || teamAccess?.accessLevel === 'area_director';
+  const totalSteps = isLeader ? 5 : 3; // Leaders have 5 steps, reps have 3
 
-  // Fetch property options from Supabase
+  // Fetch property options
   const { data: notionOptions, isLoading: optionsLoading } = useQuery({
     queryKey: ['property-options'],
     queryFn: async () => {
@@ -268,7 +249,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
         recruitmentSourceOptions: string[];
       };
     },
-    staleTime: 1000 * 60 * 60, // Cache for 1 hour
+    staleTime: 1000 * 60 * 60,
   });
 
   type CurrentRepIdentity = {
@@ -281,7 +262,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     email?: string | null;
   };
 
-  // Get current user's rep data (robust: user_id first, then email fallback)
+  // Get current user's rep data
   const { data: currentRep } = useQuery<CurrentRepIdentity | null>({
     queryKey: ['current-rep-for-suggestion'],
     queryFn: async () => {
@@ -320,9 +301,6 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     queryKey: ['team-leader-id', currentRep?.team_leader],
     queryFn: async () => {
       if (!currentRep?.team_leader) return null;
-
-      // Team leader field might be partial name (e.g., "Calvin") but db has full name with emojis
-      // Use ILIKE for fuzzy matching
       const searchName = currentRep.team_leader.trim();
       
       const { data } = await supabase
@@ -337,8 +315,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     enabled: !!currentRep?.team_leader && !isLeader,
   });
 
-  // Get all recruiters from accessible reps - filtered to active Signed+ stages only
-  // Always include the current user + any prefilled/selected recruiter so the Select never shows a blank value.
+  // Get all recruiters from accessible reps
   const allRecruiters = useMemo(() => {
     const accessible = teamAccess?.accessibleReps || [];
     if (accessible.length === 0) return [];
@@ -346,89 +323,32 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     const currentUserId = currentRep?.authUserId;
 
     const base = accessible.filter((r) => {
-      if (!r.name) return false;
-      if (!r.id) return false; // Need id to save
-
-      // Always include current user regardless of stage
-      if (currentUserId && r.userId === currentUserId) {
-        return true;
-      }
+      if (!r.name || !r.id) return false;
+      if (currentUserId && r.userId === currentUserId) return true;
 
       const stageLower = (r.stage || '').toLowerCase();
-
-      // Exclude exit/inactive stages first
       const excludePatterns = [
-        'not interested',
-        'left',
-        'potential',
-        'follow up',
-        '100 list',
-        '100_list',
-        'reached out',
-        'reached_out',
-        'evaluating',
+        'not interested', 'left', 'potential', 'follow up',
+        '100 list', '100_list', 'reached out', 'reached_out', 'evaluating',
       ];
-      if (excludePatterns.some((p) => stageLower.includes(p))) {
-        return false;
-      }
-
-      // Include only: Signed, Shadow/Shadowed, Sold variants
+      if (excludePatterns.some((p) => stageLower.includes(p))) return false;
       return stageLower.includes('signed') || stageLower.includes('shadow') || stageLower.includes('sold');
     });
 
     const byId = new Map<string, any>();
     base.forEach((r) => byId.set(r.id, r));
 
-    const requiredIds = [
-      currentRep?.id,
-      suggestionPrefill?.suggestedByNotionId,
-      selectedRecruiter,
-    ].filter(Boolean) as string[];
-
+    const requiredIds = [currentRep?.id, suggestionPrefill?.suggestedByNotionId, selectedRecruiter].filter(Boolean) as string[];
     for (const repId of requiredIds) {
       if (byId.has(repId)) continue;
-
       const match = accessible.find((r) => r.id === repId);
-      if (match?.name && match?.id) {
-        byId.set(match.id, match);
-        continue;
-      }
-
-      // Last resort: if we only know the current user's id + name, still make the Select show something.
-      if (currentRep?.id === repId && currentRep?.name) {
-        byId.set(repId, {
-          userId: currentRep.authUserId,
-          name: currentRep.name,
-          id: repId,
-        });
-      }
+      if (match?.name && match?.id) byId.set(match.id, match);
     }
 
     return Array.from(byId.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  }, [
-    teamAccess?.accessibleReps,
-    currentRep?.authUserId,
-    currentRep?.id,
-    currentRep?.name,
-    suggestionPrefill?.suggestedByNotionId,
-    selectedRecruiter,
-  ]);
+  }, [teamAccess?.accessibleReps, currentRep?.authUserId, currentRep?.id, suggestionPrefill?.suggestedByNotionId, selectedRecruiter]);
 
-  // Filter recruiters based on selected team (but always keep the currently selected recruiter visible)
-  const filteredRecruiters = useMemo(() => {
-    const base = !selectedTeam ? allRecruiters : allRecruiters.filter((r) => r.teamId === selectedTeam);
-
-    if (!selectedRecruiter) return base;
-
-    const selected = allRecruiters.find((r) => r.id === selectedRecruiter);
-    if (!selected) return base;
-
-    if (base.some((r) => r.id === selectedRecruiter)) return base;
-
-    return [...base, selected];
-  }, [allRecruiters, selectedTeam, selectedRecruiter]);
-
-  // Filter teams based on selected recruiter's team
+  // Filter teams based on selected recruiter
   const filteredTeams = useMemo(() => {
     if (!teamAccess?.teams) return [];
     if (!selectedRecruiter) return teamAccess.teams;
@@ -440,55 +360,47 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     return teamAccess.teams;
   }, [teamAccess?.teams, selectedRecruiter, allRecruiters]);
 
-  // Combined location options: all 50 states + any custom ones from existing data
+  // Combined location options
   const locationOptions = useMemo(() => {
     const existingLocations = notionOptions?.locationOptions || [];
     const combined = new Set([...US_STATES, ...existingLocations]);
     return Array.from(combined).sort();
   }, [notionOptions?.locationOptions]);
 
-  // Track if we've already initialized defaults for this open session
+  // All recruitment source options
+  const allSourceOptions = useMemo(() => {
+    const apiSources = notionOptions?.recruitmentSourceOptions || [];
+    const presetIds = RECRUITMENT_SOURCES.map(s => s.id);
+    return [...RECRUITMENT_SOURCES, ...apiSources.filter(s => !presetIds.includes(s)).map(s => ({ id: s, label: s, emoji: '📋' }))];
+  }, [notionOptions?.recruitmentSourceOptions]);
+
+  // Track initialization
   const hasInitializedRef = useRef(false);
 
-  // Reset the ref when drawer closes
   useEffect(() => {
     if (!open) {
       hasInitializedRef.current = false;
+      setStep(0);
+      setDirection(0);
     }
   }, [open]);
 
-  // Pre-fill form when opening with suggestion data - only runs once per open
+  // Pre-fill form when opening
   useEffect(() => {
     if (!open || hasInitializedRef.current) return;
-    
-    // Mark as initialized immediately to prevent re-runs
     hasInitializedRef.current = true;
 
-    // Async helper to resolve and apply team from recruiter
     const applyTeamFromRecruiter = async (recruiterId: string) => {
       if (!recruiterId) return;
-
       const recruiterData = allRecruiters.find((r) => r.id === recruiterId);
       if (recruiterData?.teamId) {
         setSelectedTeam(recruiterData.teamId);
         return;
       }
-
-      const leadUserId =
-        recruiterData?.userId ||
-        (recruiterId === currentRep?.id ? currentRep?.authUserId : null);
-
+      const leadUserId = recruiterData?.userId || (recruiterId === currentRep?.id ? currentRep?.authUserId : null);
       if (!leadUserId) return;
-
-      const { data } = await supabase
-        .from('teams')
-        .select('id')
-        .eq('lead_user_id', leadUserId)
-        .maybeSingle();
-
-      if (data?.id) {
-        setSelectedTeam(data.id);
-      }
+      const { data } = await supabase.from('teams').select('id').eq('lead_user_id', leadUserId).maybeSingle();
+      if (data?.id) setSelectedTeam(data.id);
     };
 
     if (suggestionPrefill) {
@@ -496,19 +408,14 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       setPhone(formatPhoneNumber(suggestionPrefill.phone.replace(/^\+1/, '')));
       setRelationship(suggestionPrefill.relationship || '');
       setNotes(suggestionPrefill.notes || '');
-
-      // Set recruiter to the suggester's notion page ID if available
       if (suggestionPrefill.suggestedByNotionId) {
         setSelectedRecruiter(suggestionPrefill.suggestedByNotionId);
         void applyTeamFromRecruiter(suggestionPrefill.suggestedByNotionId);
       }
     } else if (isLeader) {
-      // Default to current user when no prefill
       const currentUserId = currentRep?.authUserId;
       const currentUserData = currentUserId ? allRecruiters.find((r) => r.userId === currentUserId) : null;
-
       const defaultRecruiterId = currentUserData?.id || currentRep?.id || '';
-
       if (defaultRecruiterId) {
         setSelectedRecruiter(defaultRecruiterId);
         void applyTeamFromRecruiter(defaultRecruiterId);
@@ -519,6 +426,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   // When recruiter changes, auto-set their team
   const handleRecruiterChange = (recruiterId: string) => {
     setSelectedRecruiter(recruiterId);
+    hapticLight();
 
     void (async () => {
       const recruiterData = allRecruiters.find((r) => r.id === recruiterId);
@@ -526,27 +434,14 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
         setSelectedTeam(recruiterData.teamId);
         return;
       }
-
-      // Fallback: derive team from the team lead relationship in the teams table
-      const leadUserId =
-        recruiterData?.userId ||
-        (recruiterId === currentRep?.id ? currentRep?.authUserId : null);
-
+      const leadUserId = recruiterData?.userId || (recruiterId === currentRep?.id ? currentRep?.authUserId : null);
       if (!leadUserId) return;
-
-      const { data } = await supabase
-        .from('teams')
-        .select('id')
-        .eq('lead_user_id', leadUserId)
-        .maybeSingle();
-
-      if (data?.id) {
-        setSelectedTeam(data.id);
-      }
+      const { data } = await supabase.from('teams').select('id').eq('lead_user_id', leadUserId).maybeSingle();
+      if (data?.id) setSelectedTeam(data.id);
     })();
   };
 
-  // Create recruit mutation for leaders
+  // Create recruit mutation
   const createRecruitMutation = useMutation({
     mutationFn: async (recruitData: {
       name: string;
@@ -557,6 +452,8 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       teamId?: string;
       mgmtGroupId?: string;
       stage?: string;
+      spouseName?: string;
+      cautionNotes?: string;
     }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
@@ -567,29 +464,23 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       });
 
       if (error) throw error;
-      
-      // Handle duplicate email error specifically
-      if (data?.duplicateEmail) {
-        throw new Error(data.error);
-      }
+      if (data?.duplicateEmail) throw new Error(data.error);
       if (data?.error) throw new Error(data.error);
       
       return data;
     },
     onSuccess: (data) => {
+      hapticSuccess();
       toast.success('Recruit added!', {
         description: `${data.name} has been added to your pipeline`,
       });
-      // Invalidate and refetch immediately
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.refetchQueries({ queryKey: ['group-recruits'] });
       
-      // If this was from a suggestion, notify parent to mark it approved
       if (suggestionPrefill && onSuggestionApproved) {
         onSuggestionApproved();
       }
       
-      // Notify parent about the newly created recruit (for auto-opening detail drawer)
       if (onRecruitCreated && data.recruitId) {
         onRecruitCreated(data.recruitId, data.name);
       }
@@ -606,179 +497,75 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   });
 
   const resetForm = () => {
+    setStep(0);
+    setDirection(0);
     setName('');
     setPhone('');
     setEmail('');
     setLocation('');
-    setCustomLocation('');
-    setShowCustomLocation(false);
     setRecruitmentSource('');
     setSelectedRecruiter('');
     setSelectedTeam('');
     setSelectedStage('100 List');
+    setSpouseName('');
+    setCautionNotes('');
     setRelationship('');
     setNotes('');
-    setAttemptedSubmit(false);
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneNumber(e.target.value);
-    setPhone(formatted);
+    setPhone(formatPhoneNumber(e.target.value));
   };
 
-  const handleLocationChange = (value: string) => {
-    if (value === '__custom__') {
-      setShowCustomLocation(true);
-      setLocation('');
-    } else {
-      setShowCustomLocation(false);
-      setLocation(value);
+  // Navigation
+  const goNext = () => {
+    if (step < totalSteps - 1) {
+      setDirection(1);
+      setStep(s => s + 1);
+      hapticLight();
     }
   };
 
-  const validateCustomLocation = (value: string): boolean => {
-    const trimmed = value.trim();
-    if (!trimmed) return false;
-    
-    const normalizedNew = normalizeString(trimmed);
-    
-    // Check if it matches an existing location (case-insensitive)
-    const existingMatch = locationOptions.find(
-      loc => normalizeString(loc) === normalizedNew
-    );
-    
-    if (existingMatch) {
-      toast.error(`"${trimmed}" already exists as "${existingMatch}"`, {
-        description: 'Please select it from the dropdown instead',
-      });
-      return false;
+  const goBack = () => {
+    if (step > 0) {
+      setDirection(-1);
+      setStep(s => s - 1);
+      hapticLight();
     }
-
-    // Check for similar/typo (Levenshtein distance or simple check)
-    const possibleTypo = locationOptions.find(loc => {
-      const normalizedExisting = normalizeString(loc);
-      // Check if starts with same letters or is very similar
-      return normalizedExisting.startsWith(normalizedNew.slice(0, 3)) ||
-             normalizedNew.startsWith(normalizedExisting.slice(0, 3));
-    });
-
-    if (possibleTypo) {
-      const confirmed = window.confirm(
-        `Did you mean "${possibleTypo}"? Click OK to use "${possibleTypo}" or Cancel to add "${trimmed}" as a new location.`
-      );
-      if (confirmed) {
-        setLocation(possibleTypo);
-        setShowCustomLocation(false);
-        setCustomLocation('');
-        return false;
-      }
-    }
-    
-    // Basic validation - should look like a location name (2+ chars, alpha only with spaces)
-    if (!/^[A-Za-z\s]{2,}$/.test(trimmed)) {
-      toast.error('Invalid location format', {
-        description: 'Location should contain only letters and spaces',
-      });
-      return false;
-    }
-    
-    return true;
   };
 
-  // Signed stage requires email
-  const isSignedStage = selectedStage === 'Signed';
-  const emailRequired = isSignedStage;
+  // Validation
+  const isStep1Valid = name.trim() !== '' && phone.trim() !== '';
+  const isStep2Valid = location !== '';
+  const isStep3Valid = recruitmentSource !== '';
+  const isStep4Valid = selectedRecruiter !== '' || !!currentRep?.id;
+  
   const isValidEmail = (val: string) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
-
-  // Check if leader form is valid
-  const isLeaderFormValid = useMemo(() => {
-    const finalLocation = showCustomLocation ? customLocation.trim() : location;
-    const emailValid = !emailRequired || (email.trim() !== '' && isValidEmail(email));
-    return (
-      name.trim() !== '' &&
-      phone.trim() !== '' &&
-      finalLocation !== '' &&
-      recruitmentSource !== '' &&
-      (selectedRecruiter || currentRep?.id) &&
-      emailValid
-    );
-  }, [name, phone, email, location, customLocation, showCustomLocation, recruitmentSource, selectedRecruiter, currentRep?.id, emailRequired]);
-
-  // Validation helpers
-  const getFieldError = (field: 'name' | 'phone' | 'email' | 'location' | 'recruitmentSource' | 'recruiter') => {
-    if (!attemptedSubmit) return false;
-    const finalLocation = showCustomLocation ? customLocation.trim() : location;
-    switch (field) {
-      case 'name': return !name.trim();
-      case 'phone': return !phone.trim();
-      case 'email': return emailRequired && (!email.trim() || !isValidEmail(email));
-      case 'location': return !finalLocation;
-      case 'recruitmentSource': return !recruitmentSource;
-      case 'recruiter': return !(selectedRecruiter || currentRep?.id);
-      default: return false;
-    }
-  };
+  const isSignedStage = selectedStage === 'Signed';
+  const emailValid = !isSignedStage || (email.trim() !== '' && isValidEmail(email));
 
   const handleLeaderSubmit = async () => {
-    setAttemptedSubmit(true);
-    const finalLocation = showCustomLocation ? customLocation.trim() : location;
-    const recruiterId = selectedRecruiter || currentRep?.id;
-
-    // Validate all required fields
-    const missingFields: string[] = [];
-    if (!name.trim()) missingFields.push('Name');
-    if (!phone.trim()) missingFields.push('Phone');
-    if (!finalLocation) missingFields.push('Location');
-    if (!recruitmentSource) missingFields.push('Recruitment source');
-    if (!recruiterId) missingFields.push('Recruiter');
-    
-    // Email required for Signed stage
-    if (emailRequired && !email.trim()) {
-      missingFields.push('Email (required for Signed)');
-    } else if (email.trim() && !isValidEmail(email)) {
-      toast.error('Invalid email format');
-      return;
-    }
-
-    if (missingFields.length > 0) {
-      toast.error('Missing required fields', {
-        description: missingFields.join(', '),
-      });
-      return;
-    }
-    
-    if (showCustomLocation && !validateCustomLocation(customLocation)) {
-      return;
-    }
-
-    // Clean phone number for storage
     const cleanPhone = phone.replace(/\D/g, '');
+    
+    if (!emailValid) {
+      toast.error('Valid email required for Signed stage');
+      return;
+    }
 
     await createRecruitMutation.mutateAsync({
       name: name.trim(),
       phone: cleanPhone ? `+1${cleanPhone}` : '',
       email: email.trim() || undefined,
-      location: finalLocation,
+      location,
       recruitmentSource,
       teamId: selectedTeam || undefined,
       stage: selectedStage,
+      spouseName: spouseName.trim() || undefined,
+      cautionNotes: cautionNotes.trim() || undefined,
     });
   };
 
   const handleRepSubmit = async () => {
-    setAttemptedSubmit(true);
-
-    const missingFields: string[] = [];
-    if (!name.trim()) missingFields.push('Name');
-    if (!phone.trim()) missingFields.push('Phone');
-    
-    if (missingFields.length > 0) {
-      toast.error('Missing required fields', {
-        description: missingFields.join(', '),
-      });
-      return;
-    }
-    
     if (!teamLeaderData?.user_id) {
       toast.error('Could not find your team leader');
       return;
@@ -794,6 +581,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
         suggestedByName: currentRep?.name || 'Unknown',
       });
 
+      hapticSuccess();
       toast.success('Suggestion submitted!', {
         description: `${currentRep?.team_leader} will review ${name}`,
       });
@@ -823,11 +611,560 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     }
   };
 
+  // Get recruiter display name
+  const recruiterName = useMemo(() => {
+    const recruiter = allRecruiters.find(r => r.id === selectedRecruiter);
+    return recruiter?.name || currentRep?.name || 'You';
+  }, [selectedRecruiter, allRecruiters, currentRep?.name]);
+
+  // Get team display name
+  const teamName = useMemo(() => {
+    const team = filteredTeams.find(t => t.id === selectedTeam);
+    return team?.name || '';
+  }, [selectedTeam, filteredTeams]);
+
+  // Render step content for leaders
+  const renderLeaderStep = () => {
+    switch (step) {
+      case 0: // Who are they?
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <User className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold">Who are they?</h3>
+              <p className="text-sm text-muted-foreground">Let's start with the basics</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <Label>Name</Label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Their full name"
+                  className="h-12 text-base mt-1"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <Label>Phone</Label>
+                <Input
+                  value={phone}
+                  onChange={handlePhoneChange}
+                  placeholder="(555) 123-4567"
+                  type="tel"
+                  className="h-12 text-base mt-1"
+                />
+              </div>
+
+              <div>
+                <Label>Email {isSignedStage && <span className="text-destructive">*</span>}</Label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="their.email@example.com"
+                  className="h-12 text-base mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Required when moving to Signed</p>
+              </div>
+            </div>
+
+            <Button 
+              className="w-full h-12"
+              onClick={goNext}
+              disabled={!isStep1Valid}
+            >
+              Continue
+            </Button>
+          </div>
+        );
+
+      case 1: // Where are they?
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <MapPin className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold">Where are they from?</h3>
+              <p className="text-sm text-muted-foreground">Select their home state</p>
+            </div>
+
+            <LocationCombobox
+              value={location}
+              onValueChange={setLocation}
+              options={locationOptions}
+              hasError={false}
+            />
+
+            <Button 
+              className="w-full h-12"
+              onClick={goNext}
+              disabled={!isStep2Valid}
+            >
+              Continue
+            </Button>
+          </div>
+        );
+
+      case 2: // How did you find them?
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <Sparkles className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold">How did you find them?</h3>
+              <p className="text-sm text-muted-foreground">Select their recruitment source</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {allSourceOptions.slice(0, 8).map((source) => (
+                <button
+                  key={source.id}
+                  type="button"
+                  onClick={() => {
+                    setRecruitmentSource(source.id);
+                    hapticLight();
+                  }}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all",
+                    recruitmentSource === source.id 
+                      ? "border-primary bg-primary/5" 
+                      : "border-border hover:border-primary/50"
+                  )}
+                >
+                  <span className="text-2xl mb-1">{source.emoji}</span>
+                  <span className="text-sm font-medium">{source.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Stage Selection */}
+            <div className="space-y-2">
+              <Label>Pipeline Stage</Label>
+              <div className="flex gap-1 p-1 bg-muted rounded-lg">
+                {RECRUIT_STAGES.map((stage) => (
+                  <button
+                    key={stage}
+                    type="button"
+                    onClick={() => {
+                      setSelectedStage(stage);
+                      hapticLight();
+                    }}
+                    className={cn(
+                      "flex-1 py-2 px-2 text-xs font-medium rounded-md transition-all",
+                      selectedStage === stage 
+                        ? "bg-background shadow-sm" 
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {stage}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button 
+              className="w-full h-12"
+              onClick={goNext}
+              disabled={!isStep3Valid}
+            >
+              Continue
+            </Button>
+          </div>
+        );
+
+      case 3: // Team & Notes
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <Users className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold">Team Assignment</h3>
+              <p className="text-sm text-muted-foreground">Assign to a recruiter and add notes</p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Recruiter */}
+              <div>
+                <Label>Recruiter</Label>
+                <Select value={selectedRecruiter} onValueChange={handleRecruiterChange}>
+                  <SelectTrigger className="h-12 mt-1">
+                    <SelectValue placeholder="Select recruiter" />
+                  </SelectTrigger>
+                  <SelectContent modal={false}>
+                    {allRecruiters.map((recruiter) => (
+                      <SelectItem key={recruiter.id} value={recruiter.id}>
+                        <div className="flex flex-col items-start">
+                          <span>{recruiter.name} {recruiter.id === currentRep?.id ? '(You)' : ''}</span>
+                          {recruiter.teamName && (
+                            <span className="text-xs text-muted-foreground">{recruiter.teamName}</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Team selection for MGMT leads */}
+              {isMgmtOrAbove && filteredTeams.length > 0 && (
+                <div>
+                  <Label>Team</Label>
+                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                    <SelectTrigger className="h-12 mt-1">
+                      <SelectValue placeholder="Select team" />
+                    </SelectTrigger>
+                    <SelectContent modal={false}>
+                      {filteredTeams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Spouse Name */}
+              <div>
+                <Label className="flex items-center gap-1.5">
+                  <Heart className="h-3.5 w-3.5 text-pink-500" />
+                  Spouse/Partner Name
+                </Label>
+                <Input
+                  value={spouseName}
+                  onChange={(e) => setSpouseName(e.target.value)}
+                  placeholder="Optional"
+                  className="h-12 mt-1"
+                />
+              </div>
+
+              {/* Caution Notes */}
+              <div>
+                <Label className="flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                  Things to Look Out For
+                </Label>
+                <Textarea
+                  value={cautionNotes}
+                  onChange={(e) => setCautionNotes(e.target.value)}
+                  placeholder="Any concerns or notes for the team..."
+                  className="mt-1"
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <Button 
+              className="w-full h-12"
+              onClick={goNext}
+              disabled={!isStep4Valid}
+            >
+              Review
+            </Button>
+          </div>
+        );
+
+      case 4: // Review & Confirm
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-3">
+                <CheckCircle2 className="h-6 w-6 text-green-500" />
+              </div>
+              <h3 className="text-lg font-semibold">Review & Add</h3>
+              <p className="text-sm text-muted-foreground">Confirm the details below</p>
+            </div>
+
+            <div className="bg-muted/50 rounded-xl p-4 space-y-3">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Name</span>
+                <span className="font-medium">{name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Phone</span>
+                <span className="font-medium">{phone}</span>
+              </div>
+              {email && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Email</span>
+                  <span className="font-medium">{email}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Location</span>
+                <span className="font-medium">{location}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Source</span>
+                <span className="font-medium">{recruitmentSource}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Stage</span>
+                <Badge variant="secondary">{selectedStage}</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Recruiter</span>
+                <span className="font-medium">{recruiterName}</span>
+              </div>
+              {teamName && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Team</span>
+                  <span className="font-medium">{teamName}</span>
+                </div>
+              )}
+              {spouseName && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Spouse</span>
+                  <span className="font-medium">{spouseName}</span>
+                </div>
+              )}
+              {cautionNotes && (
+                <div className="pt-2 border-t">
+                  <div className="flex items-center gap-1.5 text-amber-600 mb-1">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <span className="text-xs font-medium">Watch Out</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{cautionNotes}</p>
+                </div>
+              )}
+            </div>
+
+            <Button 
+              className="w-full h-12"
+              onClick={handleLeaderSubmit}
+              disabled={createRecruitMutation.isPending}
+            >
+              {createRecruitMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Adding...
+                </>
+              ) : (
+                'Add to Pipeline'
+              )}
+            </Button>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  // Render step content for reps (simplified flow)
+  const renderRepStep = () => {
+    if (showMySuggestions) {
+      return (
+        <div className="space-y-3">
+          {mySuggestions?.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              No suggestions yet
+            </p>
+          ) : (
+            mySuggestions?.map((suggestion) => (
+              <div key={suggestion.id} className="bg-muted/50 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{suggestion.name}</span>
+                  {getStatusBadge(suggestion.status)}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">{suggestion.phone}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Submitted {format(parseISO(suggestion.created_at), 'MMM d, yyyy')}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      );
+    }
+
+    switch (step) {
+      case 0:
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <User className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold">Who do you know?</h3>
+              <p className="text-sm text-muted-foreground">Tell us about someone who'd be great</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <Label>Name</Label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Their full name"
+                  className="h-12 text-base mt-1"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <Label>Phone</Label>
+                <Input
+                  value={phone}
+                  onChange={handlePhoneChange}
+                  placeholder="(555) 123-4567"
+                  type="tel"
+                  className="h-12 text-base mt-1"
+                />
+              </div>
+            </div>
+
+            <Button 
+              className="w-full h-12"
+              onClick={goNext}
+              disabled={!isStep1Valid}
+            >
+              Continue
+            </Button>
+          </div>
+        );
+
+      case 1:
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <Users className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold">How do you know {name.split(' ')[0] || 'them'}?</h3>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {RELATIONSHIPS.map((rel) => (
+                <button
+                  key={rel}
+                  type="button"
+                  onClick={() => {
+                    setRelationship(rel);
+                    hapticLight();
+                  }}
+                  className={cn(
+                    "p-3 rounded-xl border-2 transition-all text-center",
+                    relationship === rel 
+                      ? "border-primary bg-primary/5" 
+                      : "border-border hover:border-primary/50"
+                  )}
+                >
+                  <span className="text-sm font-medium">{rel}</span>
+                </button>
+              ))}
+            </div>
+
+            <div>
+              <Label>Notes (optional)</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Any helpful context..."
+                className="mt-1"
+                rows={2}
+              />
+            </div>
+
+            <Button 
+              className="w-full h-12"
+              onClick={goNext}
+            >
+              Review
+            </Button>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-3">
+                <CheckCircle2 className="h-6 w-6 text-green-500" />
+              </div>
+              <h3 className="text-lg font-semibold">Review & Submit</h3>
+            </div>
+
+            <div className="bg-muted/50 rounded-xl p-4 space-y-3">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Name</span>
+                <span className="font-medium">{name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Phone</span>
+                <span className="font-medium">{phone}</span>
+              </div>
+              {relationship && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Relationship</span>
+                  <span className="font-medium">{relationship}</span>
+                </div>
+              )}
+              {notes && (
+                <div className="pt-2 border-t">
+                  <span className="text-xs text-muted-foreground">Notes</span>
+                  <p className="text-sm mt-1">{notes}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
+              <p>
+                Your suggestion will be sent to <strong>{currentRep?.team_leader || 'your team leader'}</strong> for review.
+              </p>
+            </div>
+
+            <Button 
+              className="w-full h-12"
+              onClick={handleRepSubmit}
+              disabled={submitMutation.isPending}
+            >
+              {submitMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Submitting...
+                </>
+              ) : (
+                'Submit Suggestion'
+              )}
+            </Button>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[90dvh]">
-        <DrawerHeader>
-          <DrawerTitle>{isLeader ? 'Add Recruit' : 'Suggest a Recruit'}</DrawerTitle>
+        <DrawerHeader className="pb-0">
+          <div className="flex items-center justify-between">
+            {step > 0 && !showMySuggestions ? (
+              <Button variant="ghost" size="icon" onClick={goBack}>
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            ) : (
+              <div className="w-10" />
+            )}
+            <DrawerTitle className="text-center flex-1">
+              {isLeader ? 'Add Recruit' : 'Suggest a Recruit'}
+            </DrawerTitle>
+            <div className="w-10" />
+          </div>
+          
+          {!showMySuggestions && (
+            <StepIndicator currentStep={step} totalSteps={totalSteps} />
+          )}
         </DrawerHeader>
 
         <div className="px-4 pb-6 overflow-y-auto">
@@ -851,302 +1188,26 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
             </div>
           )}
 
-          {!isLeader && showMySuggestions ? (
-            // Rep's suggestion history
-            <div className="space-y-3">
-              {mySuggestions?.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No suggestions yet
-                </p>
-              ) : (
-                mySuggestions?.map((suggestion) => (
-                  <div
-                    key={suggestion.id}
-                    className="bg-muted/50 rounded-lg p-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{suggestion.name}</span>
-                      {getStatusBadge(suggestion.status)}
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {suggestion.phone}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Submitted {format(parseISO(suggestion.created_at), 'MMM d, yyyy')}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-          ) : isLeader ? (
-            // Leader's direct add form
-            <div className="space-y-4">
-              {optionsLoading && (
-                <div className="flex items-center justify-center py-4 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Loading options...
-                </div>
-              )}
-
-              <div>
-                <Label className={getFieldError('name') ? 'text-destructive' : ''}>
-                  Name *
-                </Label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Their full name"
-                  className={`mt-1 ${getFieldError('name') ? 'border-destructive ring-destructive' : ''}`}
-                />
-                {getFieldError('name') && (
-                  <p className="text-xs text-destructive mt-1">Name is required</p>
-                )}
-              </div>
-
-              <div>
-                <Label className={getFieldError('phone') ? 'text-destructive' : ''}>
-                  Phone *
-                </Label>
-                <Input
-                  value={phone}
-                  onChange={handlePhoneChange}
-                  placeholder="(555) 123-4567"
-                  type="tel"
-                  className={`mt-1 ${getFieldError('phone') ? 'border-destructive ring-destructive' : ''}`}
-                />
-                {getFieldError('phone') && (
-                  <p className="text-xs text-destructive mt-1">Phone is required</p>
-                )}
-              </div>
-
-              {/* Email - required for Signed stage */}
-              <div>
-                <Label className={getFieldError('email') ? 'text-destructive' : ''}>
-                  Email {emailRequired ? '*' : ''}
-                </Label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="their.email@example.com"
-                  className={`mt-1 ${getFieldError('email') ? 'border-destructive ring-destructive' : ''}`}
-                />
-                {getFieldError('email') && (
-                  <p className="text-xs text-destructive mt-1">Valid email required for Signed stage</p>
-                )}
-                {!emailRequired && (
-                  <p className="text-xs text-muted-foreground mt-1">Required when moving to Signed</p>
-                )}
-              </div>
-
-              <LocationCombobox
-                value={showCustomLocation ? customLocation : location}
-                onValueChange={(val) => {
-                  if (val === '__custom__') {
-                    setShowCustomLocation(true);
-                    setLocation('');
-                  } else {
-                    setShowCustomLocation(false);
-                    setCustomLocation('');
-                    setLocation(val);
-                  }
-                }}
-                options={locationOptions}
-                showCustomLocation={showCustomLocation}
-                customLocation={customLocation}
-                onCustomLocationChange={setCustomLocation}
-                onCancelCustom={() => {
-                  setShowCustomLocation(false);
-                  setCustomLocation('');
-                }}
-                hasError={getFieldError('location')}
-              />
-
-              <div>
-                <Label className={getFieldError('recruitmentSource') ? 'text-destructive' : ''}>
-                  How did you recruit them? *
-                </Label>
-                <Select value={recruitmentSource} onValueChange={setRecruitmentSource}>
-                  <SelectTrigger className={`mt-1 ${getFieldError('recruitmentSource') ? 'border-destructive ring-destructive' : ''}`}>
-                    <SelectValue placeholder="Select source" />
-                  </SelectTrigger>
-                  <SelectContent modal={false}>
-                    {notionOptions?.recruitmentSourceOptions.map((source) => (
-                      <SelectItem key={source} value={source}>
-                        {source}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {getFieldError('recruitmentSource') && (
-                  <p className="text-xs text-destructive mt-1">Recruitment source is required</p>
-                )}
-              </div>
-
-              {/* Stage Selection */}
-              <div>
-                <Label>Stage</Label>
-                <Select value={selectedStage} onValueChange={setSelectedStage}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select stage" />
-                  </SelectTrigger>
-                  <SelectContent modal={false}>
-                    {RECRUIT_STAGES.map((stage) => (
-                      <SelectItem key={stage} value={stage}>
-                        {stage}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className={getFieldError('recruiter') ? 'text-destructive' : ''}>
-                  Recruiter *
-                </Label>
-                <div className="flex gap-2 mt-1">
-                  <Select value={selectedRecruiter} onValueChange={handleRecruiterChange}>
-                    <SelectTrigger className={`flex-1 ${getFieldError('recruiter') ? 'border-destructive ring-destructive' : ''}`}>
-                      <SelectValue placeholder="Select recruiter" />
-                    </SelectTrigger>
-                    <SelectContent modal={false}>
-                      {filteredRecruiters?.map((recruiter) => (
-                        <SelectItem key={recruiter.id} value={recruiter.id}>
-                          <div className="flex flex-col items-start">
-                            <span>{recruiter.name} {recruiter.id === currentRep?.id ? '(You)' : ''}</span>
-                            {recruiter.teamName && (
-                              <span className="text-xs text-muted-foreground">{recruiter.teamName}</span>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedRecruiter && (
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="icon"
-                      className="shrink-0"
-                      onClick={() => setSelectedRecruiter('')}
-                    >
-                      <span className="sr-only">Clear</span>
-                      ×
-                    </Button>
-                  )}
-                </div>
-                {getFieldError('recruiter') && (
-                  <p className="text-xs text-destructive mt-1">Recruiter is required</p>
-                )}
-              </div>
-
-              {/* Team selection for MGMT leads */}
-              {isMgmtOrAbove && filteredTeams.length > 0 && (
-                <div>
-                  <Label>Team</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select team" />
-                      </SelectTrigger>
-                      <SelectContent modal={false}>
-                        {filteredTeams.map((team) => (
-                          <SelectItem key={team.id} value={team.id}>
-                            {team.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {selectedTeam && (
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="icon"
-                        className="shrink-0"
-                        onClick={() => setSelectedTeam('')}
-                      >
-                        <span className="sr-only">Clear</span>
-                        ×
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <Button 
-                className="w-full" 
-                onClick={handleLeaderSubmit}
-                disabled={createRecruitMutation.isPending || !isLeaderFormValid}
-              >
-                {createRecruitMutation.isPending ? 'Adding...' : 'Add Recruit'}
-              </Button>
-            </div>
-          ) : (
-            // Rep's suggestion form
-            <div className="space-y-4">
-              <div>
-                <Label>Name *</Label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Their full name"
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <Label>Phone *</Label>
-                <Input
-                  value={phone}
-                  onChange={handlePhoneChange}
-                  placeholder="(555) 123-4567"
-                  type="tel"
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <Label>How do you know them?</Label>
-                <Select value={relationship} onValueChange={setRelationship}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select relationship" />
-                  </SelectTrigger>
-                  <SelectContent modal={false}>
-                    {RELATIONSHIPS.map((rel) => (
-                      <SelectItem key={rel} value={rel}>
-                        {rel}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Notes (optional)</Label>
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Any helpful context..."
-                  className="mt-1"
-                  rows={3}
-                />
-              </div>
-
-              <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
-                <p>
-                  Your suggestion will be sent to <strong>{currentRep?.team_leader || 'your team leader'}</strong> for review.
-                </p>
-              </div>
-
-              <Button 
-                className="w-full" 
-                onClick={handleRepSubmit}
-                disabled={submitMutation.isPending || !name || !phone}
-              >
-                {submitMutation.isPending ? 'Submitting...' : 'Submit Suggestion'}
-              </Button>
+          {optionsLoading && step === 2 && (
+            <div className="flex items-center justify-center py-4 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Loading options...
             </div>
           )}
+
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={showMySuggestions ? 'suggestions' : step}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+            >
+              {isLeader ? renderLeaderStep() : renderRepStep()}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </DrawerContent>
     </Drawer>
