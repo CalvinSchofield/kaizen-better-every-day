@@ -106,7 +106,10 @@ export const UPGRADE_CONFIG = {
   panelPrice: 500,
   installFee: 99,
   videoFeePerCamera: 5,
-  financingMonths: 60,
+  financingThreshold: 1000, // Below this, 36 months; above, 60 months
+  shortFinancingMonths: 36,
+  longFinancingMonths: 60,
+  estimatedTaxRate: 0.08, // 8% tax estimate
 };
 
 export const getUpgradeDefaultQuantities = (): Record<string, number> => {

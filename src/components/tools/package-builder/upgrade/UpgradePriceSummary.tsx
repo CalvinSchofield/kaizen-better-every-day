@@ -1,25 +1,34 @@
 import { useState } from "react";
-import { ChevronUp, ChevronDown, Video } from "lucide-react";
+import { ChevronUp, ChevronDown, Video, AlertTriangle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { UPGRADE_CONFIG } from "./upgradeTypes";
 
 interface UpgradePriceSummaryProps {
   equipmentTotal: number;
+  installFee: number;
+  panelIncluded: boolean;
   equipmentMonthly: number;
   videoServiceFee: number;
   newCameraCount: number;
   totalMonthly: number;
+  financingMonths: number;
+  amountNeededFor60Mo: number;
 }
 
 export const UpgradePriceSummary = ({
   equipmentTotal,
+  installFee,
+  panelIncluded,
   equipmentMonthly,
   videoServiceFee,
   newCameraCount,
   totalMonthly,
+  financingMonths,
+  amountNeededFor60Mo,
 }: UpgradePriceSummaryProps) => {
   const [expanded, setExpanded] = useState(false);
+  const isShortFinancing = financingMonths === UPGRADE_CONFIG.shortFinancingMonths;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50">
@@ -36,16 +45,24 @@ export const UpgradePriceSummary = ({
             className="w-full p-4 flex items-center justify-between active:bg-accent/50 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center",
+                isShortFinancing ? "bg-amber-500/10" : "bg-primary/10"
+              )}>
                 {expanded ? (
-                  <ChevronDown className="w-5 h-5 text-primary" />
+                  <ChevronDown className={cn("w-5 h-5", isShortFinancing ? "text-amber-500" : "text-primary")} />
                 ) : (
-                  <ChevronUp className="w-5 h-5 text-primary" />
+                  <ChevronUp className={cn("w-5 h-5", isShortFinancing ? "text-amber-500" : "text-primary")} />
                 )}
               </div>
               <div className="text-left">
                 <p className="text-xs text-muted-foreground">Added to Monthly Bill</p>
-                <p className="text-sm text-muted-foreground">(upgrade equipment)</p>
+                <p className={cn(
+                  "text-sm",
+                  isShortFinancing ? "text-amber-500" : "text-muted-foreground"
+                )}>
+                  ({financingMonths} months)
+                </p>
               </div>
             </div>
             <motion.div
@@ -73,17 +90,34 @@ export const UpgradePriceSummary = ({
                 className="overflow-hidden"
               >
                 <div className="px-4 pb-4 space-y-2 border-t border-border pt-3">
+                  {/* 36-month warning and recommendation */}
+                  {isShortFinancing && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-3">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                        <div className="text-xs">
+                          <p className="font-medium text-amber-500 mb-1">36-Month Financing</p>
+                          <p className="text-muted-foreground">
+                            Add ~${Math.ceil(amountNeededFor60Mo)} more equipment to qualify for 60-month financing and lower monthly payments.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Equipment breakdown */}
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Equipment ({UPGRADE_CONFIG.financingMonths} mo)</span>
+                    <span className="text-muted-foreground">Equipment ({financingMonths} mo)</span>
                     <span className="font-medium">${equipmentMonthly.toFixed(2)}</span>
                   </div>
                   
                   {/* Equipment total info */}
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground/70 pl-2">
-                      (${equipmentTotal.toFixed(0)} total • incl. ${UPGRADE_CONFIG.panelPrice} panel + ${UPGRADE_CONFIG.installFee} install)
-                    </span>
+                  <div className="text-xs text-muted-foreground/70 pl-2 space-y-0.5">
+                    <p>${equipmentTotal.toFixed(0)} total</p>
+                    <p className="flex flex-wrap gap-x-2">
+                      {panelIncluded && <span>• ${UPGRADE_CONFIG.panelPrice} panel</span>}
+                      <span>• ${installFee} install</span>
+                    </p>
                   </div>
 
                   {/* Video Service Fee */}

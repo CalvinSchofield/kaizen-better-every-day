@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { hapticMedium } from "@/utils/haptics";
 import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
 import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 import { PackageTypeSelector } from "@/components/tools/package-builder/PackageTypeSelector";
 import { EquipmentConfigurator } from "@/components/tools/package-builder/EquipmentConfigurator";
 import { ConfigurationOptions } from "@/components/tools/package-builder/ConfigurationOptions";
@@ -38,6 +39,7 @@ const PackageBuilder = () => {
   // State for upgrade packages
   const [upgradeQuantities, setUpgradeQuantities] = useState<Record<string, number>>(getUpgradeDefaultQuantities());
   const [newCameraCounts, setNewCameraCounts] = useState<Record<string, number>>(getUpgradeDefaultNewCameraCounts());
+  const [upgradePanelIncluded, setUpgradePanelIncluded] = useState(false);
 
   // Handle package selection - navigate to config page
   const handlePackageSelect = useCallback((type: PackageType) => {
@@ -49,6 +51,7 @@ const PackageBuilder = () => {
       setPackageType(type);
       setUpgradeQuantities(getUpgradeDefaultQuantities());
       setNewCameraCounts(getUpgradeDefaultNewCameraCounts());
+      setUpgradePanelIncluded(false);
     }
   }, []);
 
@@ -199,6 +202,7 @@ const PackageBuilder = () => {
     } else if (packageType === 'upgrade') {
       setUpgradeQuantities(getUpgradeDefaultQuantities());
       setNewCameraCounts(getUpgradeDefaultNewCameraCounts());
+      setUpgradePanelIncluded(false);
     }
   }, [packageType]);
 
@@ -248,11 +252,26 @@ const PackageBuilder = () => {
   // Calculate prices for upgrade packages
   const upgradePrices = useMemo(() => {
     if (packageType !== 'upgrade') {
-      return { equipmentTotal: 0, equipmentMonthly: 0, videoServiceFee: 0, newCameraCount: 0, totalMonthly: 0 };
+      return { 
+        equipmentTotal: 0, 
+        installFee: UPGRADE_CONFIG.installFee,
+        panelIncluded: false,
+        equipmentMonthly: 0, 
+        videoServiceFee: 0, 
+        newCameraCount: 0, 
+        totalMonthly: 0,
+        financingMonths: UPGRADE_CONFIG.longFinancingMonths,
+        amountNeededFor60Mo: 0,
+      };
     }
 
-    // Start with panel and install
-    let equipmentTotal = UPGRADE_CONFIG.panelPrice + UPGRADE_CONFIG.installFee;
+    // Start with install fee
+    let equipmentTotal = UPGRADE_CONFIG.installFee;
+    
+    // Add panel if included
+    if (upgradePanelIncluded) {
+      equipmentTotal += UPGRADE_CONFIG.panelPrice;
+    }
     
     // Add equipment costs
     UPGRADE_EQUIPMENT_LIST.forEach(item => {
@@ -260,8 +279,21 @@ const PackageBuilder = () => {
       equipmentTotal += item.price * qty;
     });
 
-    // Calculate equipment monthly (60 month financing)
-    const equipmentMonthly = equipmentTotal / UPGRADE_CONFIG.financingMonths;
+    // Estimate total with tax to determine financing term
+    const estimatedWithTax = equipmentTotal * (1 + UPGRADE_CONFIG.estimatedTaxRate);
+    
+    // Determine financing term based on threshold
+    const financingMonths = estimatedWithTax >= UPGRADE_CONFIG.financingThreshold 
+      ? UPGRADE_CONFIG.longFinancingMonths 
+      : UPGRADE_CONFIG.shortFinancingMonths;
+    
+    // Calculate how much more is needed for 60-month financing
+    const amountNeededFor60Mo = estimatedWithTax < UPGRADE_CONFIG.financingThreshold
+      ? (UPGRADE_CONFIG.financingThreshold - estimatedWithTax) / (1 + UPGRADE_CONFIG.estimatedTaxRate)
+      : 0;
+
+    // Calculate equipment monthly
+    const equipmentMonthly = equipmentTotal / financingMonths;
 
     // Count new cameras for video service fee
     let newCameraCount = 0;
@@ -277,8 +309,18 @@ const PackageBuilder = () => {
     // Total monthly (equipment + video service only, no warranty or service rate)
     const totalMonthly = equipmentMonthly + videoServiceFee;
 
-    return { equipmentTotal, equipmentMonthly, videoServiceFee, newCameraCount, totalMonthly };
-  }, [packageType, upgradeQuantities, newCameraCounts]);
+    return { 
+      equipmentTotal, 
+      installFee: UPGRADE_CONFIG.installFee,
+      panelIncluded: upgradePanelIncluded,
+      equipmentMonthly, 
+      videoServiceFee, 
+      newCameraCount, 
+      totalMonthly,
+      financingMonths,
+      amountNeededFor60Mo,
+    };
+  }, [packageType, upgradeQuantities, newCameraCounts, upgradePanelIncluded]);
 
   const isConfigurable = packageType === 'premium' || packageType === 'non-premium';
   const isUpgrade = packageType === 'upgrade';
@@ -388,17 +430,36 @@ const PackageBuilder = () => {
             transition={{ duration: 0.2 }}
             className="max-w-lg mx-auto px-4 py-6 pb-40 space-y-6"
           >
-            {/* Fixed upgrade info */}
-            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4">
+            {/* Upgrade info header with panel toggle */}
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-foreground">Upgrade Package</p>
-                  <p className="text-xs text-muted-foreground">Panel $500 • Install $99 (fixed)</p>
+                  <p className="text-xs text-muted-foreground">Install $99 (fixed) • +$5/mo per new cam</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Select equipment below</p>
-                  <p className="text-xs text-emerald-500">+$5/mo per new camera</p>
+              </div>
+              
+              {/* Panel toggle */}
+              <div className="flex items-center justify-between pt-2 border-t border-emerald-500/20">
+                <div>
+                  <p className="text-sm font-medium">Add Panel</p>
+                  <p className="text-xs text-muted-foreground">$500 (optional)</p>
                 </div>
+                <button
+                  onClick={() => {
+                    hapticMedium();
+                    setUpgradePanelIncluded(!upgradePanelIncluded);
+                  }}
+                  className={cn(
+                    "w-12 h-7 rounded-full transition-colors relative",
+                    upgradePanelIncluded ? "bg-emerald-500" : "bg-muted"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-transform",
+                    upgradePanelIncluded ? "translate-x-6" : "translate-x-1"
+                  )} />
+                </button>
               </div>
             </div>
 
@@ -429,10 +490,14 @@ const PackageBuilder = () => {
         {isUpgrade && (
           <UpgradePriceSummary
             equipmentTotal={upgradePrices.equipmentTotal}
+            installFee={upgradePrices.installFee}
+            panelIncluded={upgradePrices.panelIncluded}
             equipmentMonthly={upgradePrices.equipmentMonthly}
             videoServiceFee={upgradePrices.videoServiceFee}
             newCameraCount={upgradePrices.newCameraCount}
             totalMonthly={upgradePrices.totalMonthly}
+            financingMonths={upgradePrices.financingMonths}
+            amountNeededFor60Mo={upgradePrices.amountNeededFor60Mo}
           />
         )}
       </div>
