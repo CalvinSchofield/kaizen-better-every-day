@@ -30,7 +30,9 @@ export const UpgradeEquipmentCard = ({
   const Icon = item.icon ? iconMap[item.icon] : null;
   const hasQuantity = quantity > 0;
   const canDecrease = quantity > 0;
-  const showVideoFeeControl = item.incursVideoFee && quantity > 0;
+  // Show video fee control only for items that incur fee AND are not "always new" (like indoor)
+  const showVideoFeeControl = item.incursVideoFee && quantity > 0 && !item.alwaysNewCamera;
+  const showAlwaysNewBadge = item.alwaysNewCamera && quantity > 0;
 
   const handleDecrease = () => {
     if (canDecrease) {
@@ -121,7 +123,7 @@ export const UpgradeEquipmentCard = ({
         </button>
       </div>
 
-      {/* Video Fee Control - only for cameras that incur video fee */}
+      {/* Video Fee Control - only for cameras that incur fee and are not always new */}
       {showVideoFeeControl && (
         <div className="mt-3 pt-2 border-t border-border/50 w-full">
           <div className="flex items-center justify-center gap-1 mb-1">
@@ -163,6 +165,16 @@ export const UpgradeEquipmentCard = ({
           <p className="text-[9px] text-center text-muted-foreground mt-1">
             new cams
           </p>
+        </div>
+      )}
+      
+      {/* Always-new badge for indoor cameras */}
+      {showAlwaysNewBadge && (
+        <div className="mt-3 pt-2 border-t border-border/50 w-full">
+          <div className="flex items-center justify-center gap-1">
+            <Video className="w-3 h-3 text-emerald-500" />
+            <span className="text-[10px] text-emerald-500 font-medium">+$5/mo each</span>
+          </div>
         </div>
       )}
     </div>

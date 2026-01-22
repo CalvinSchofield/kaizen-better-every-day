@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronUp, ChevronDown, Video, AlertTriangle, Sparkles } from "lucide-react";
+import { ChevronUp, ChevronDown, Video, AlertTriangle, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { UPGRADE_CONFIG } from "./upgradeTypes";
@@ -14,6 +14,7 @@ interface UpgradePriceSummaryProps {
   totalMonthly: number;
   financingMonths: number;
   amountNeededFor60Mo: number;
+  prmr: number;
 }
 
 export const UpgradePriceSummary = ({
@@ -26,6 +27,7 @@ export const UpgradePriceSummary = ({
   totalMonthly,
   financingMonths,
   amountNeededFor60Mo,
+  prmr,
 }: UpgradePriceSummaryProps) => {
   const [expanded, setExpanded] = useState(false);
   const isShortFinancing = financingMonths === UPGRADE_CONFIG.shortFinancingMonths;
@@ -56,27 +58,49 @@ export const UpgradePriceSummary = ({
                 )}
               </div>
               <div className="text-left">
-                <p className="text-xs text-muted-foreground">Added to Monthly Bill</p>
+                <p className="text-xs text-muted-foreground">Added to Monthly</p>
                 <p className={cn(
                   "text-sm",
                   isShortFinancing ? "text-amber-500" : "text-muted-foreground"
                 )}>
-                  ({financingMonths} months)
+                  ({financingMonths} mo)
                 </p>
               </div>
             </div>
-            <motion.div
-              key={totalMonthly.toFixed(2)}
-              initial={{ scale: 1.1, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 300, damping: 20 }}
-              className="text-right"
-            >
-              <p className="text-3xl font-bold text-foreground">
-                +${totalMonthly.toFixed(2)}
-              </p>
-              <p className="text-xs text-muted-foreground">/month</p>
-            </motion.div>
+            
+            {/* Two-column display: Monthly + PRMR */}
+            <div className="flex items-center gap-4">
+              {/* PRMR */}
+              <motion.div
+                key={`prmr-${prmr.toFixed(0)}`}
+                initial={{ scale: 1.1, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="text-right"
+              >
+                <p className="text-lg font-bold text-emerald-500">
+                  ${prmr.toFixed(0)}
+                </p>
+                <p className="text-[10px] text-muted-foreground">PRMR</p>
+              </motion.div>
+              
+              {/* Divider */}
+              <div className="w-px h-8 bg-border" />
+              
+              {/* Monthly */}
+              <motion.div
+                key={totalMonthly.toFixed(2)}
+                initial={{ scale: 1.1, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="text-right"
+              >
+                <p className="text-2xl font-bold text-foreground">
+                  +${totalMonthly.toFixed(2)}
+                </p>
+                <p className="text-[10px] text-muted-foreground">/month</p>
+              </motion.div>
+            </div>
           </button>
 
           {/* Breakdown - expandable */}
