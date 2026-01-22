@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { hapticLight, hapticMedium, hapticSuccess } from "@/utils/haptics";
+import { getCleanName } from "@/utils/nameUtils";
 
 interface SuggestionPrefill {
   suggestionId: string;
@@ -360,6 +361,12 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     return teamAccess.teams;
   }, [teamAccess?.teams, selectedRecruiter, allRecruiters]);
 
+  // Filter recruiters by selected team (only show recruiters on that team)
+  const filteredRecruiters = useMemo(() => {
+    if (!selectedTeam) return allRecruiters;
+    return allRecruiters.filter(r => r.teamId === selectedTeam || r.id === currentRep?.id);
+  }, [allRecruiters, selectedTeam, currentRep?.id]);
+
   // Combined location options
   const locationOptions = useMemo(() => {
     const existingLocations = notionOptions?.locationOptions || [];
@@ -583,7 +590,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
 
       hapticSuccess();
       toast.success('Suggestion submitted!', {
-        description: `${currentRep?.team_leader} will review ${name}`,
+        description: `${getCleanName(currentRep?.team_leader)} will review ${name}`,
       });
 
       resetForm();
@@ -614,13 +621,13 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   // Get recruiter display name
   const recruiterName = useMemo(() => {
     const recruiter = allRecruiters.find(r => r.id === selectedRecruiter);
-    return recruiter?.name || currentRep?.name || 'You';
+    return getCleanName(recruiter?.name) || getCleanName(currentRep?.name) || 'You';
   }, [selectedRecruiter, allRecruiters, currentRep?.name]);
 
   // Get team display name
   const teamName = useMemo(() => {
     const team = filteredTeams.find(t => t.id === selectedTeam);
-    return team?.name || '';
+    return getCleanName(team?.name) || '';
   }, [selectedTeam, filteredTeams]);
 
   // Render step content for leaders
@@ -799,12 +806,12 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
                     <SelectValue placeholder="Select recruiter" />
                   </SelectTrigger>
                   <SelectContent modal={false}>
-                    {allRecruiters.map((recruiter) => (
+                    {filteredRecruiters.map((recruiter) => (
                       <SelectItem key={recruiter.id} value={recruiter.id}>
                         <div className="flex flex-col items-start">
-                          <span>{recruiter.name} {recruiter.id === currentRep?.id ? '(You)' : ''}</span>
+                          <span>{getCleanName(recruiter.name)} {recruiter.id === currentRep?.id ? '(You)' : ''}</span>
                           {recruiter.teamName && (
-                            <span className="text-xs text-muted-foreground">{recruiter.teamName}</span>
+                            <span className="text-xs text-muted-foreground">{getCleanName(recruiter.teamName)}</span>
                           )}
                         </div>
                       </SelectItem>
@@ -824,7 +831,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
                     <SelectContent modal={false}>
                       {filteredTeams.map((team) => (
                         <SelectItem key={team.id} value={team.id}>
-                          {team.name}
+                          {getCleanName(team.name)}
                         </SelectItem>
                       ))}
                     </SelectContent>

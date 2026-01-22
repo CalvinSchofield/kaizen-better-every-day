@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MentionInput } from "./recruit-detail/MentionInput";
 import { AddToCalendarPrompt } from "./AddToCalendarPrompt";
+import { getCleanName } from "@/utils/nameUtils";
 
 interface ScheduleFollowUpDrawerProps {
   open: boolean;
@@ -26,12 +27,6 @@ interface ScheduleFollowUpDrawerProps {
   recruit: Recruit | null;
   onComplete?: () => void;
 }
-
-// Strip emojis from name
-const stripEmojis = (text: string | null): string | null => {
-  if (!text) return null;
-  return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '').trim();
-};
 
 export const ScheduleFollowUpDrawer = ({
   open,
@@ -136,7 +131,7 @@ export const ScheduleFollowUpDrawer = ({
       <DrawerContent className="max-h-[85svh] flex flex-col">
         <DrawerHeader className="border-b flex-shrink-0">
           <DrawerTitle>
-            Schedule Follow-up with {stripEmojis(recruit.name)}
+            Schedule Follow-up with {getCleanName(recruit.name)}
           </DrawerTitle>
         </DrawerHeader>
         
@@ -220,7 +215,7 @@ export const ScheduleFollowUpDrawer = ({
                   >
                     <span className="flex items-center gap-2">
                       <User className="h-4 w-4" />
-                      {selectedAssignee ? selectedAssignee.name : "Me (default)"}
+                      {selectedAssignee ? getCleanName(selectedAssignee.name) : "Me (default)"}
                     </span>
                     <ChevronDown className="h-4 w-4 opacity-50" />
                   </Button>
@@ -249,7 +244,7 @@ export const ScheduleFollowUpDrawer = ({
                         }}
                       >
                         <User className="h-4 w-4 mr-2" />
-                        <span className="flex-1 text-left">{user.name}</span>
+                        <span className="flex-1 text-left">{getCleanName(user.name)}</span>
                         <span className="text-xs text-muted-foreground ml-2">{user.role}</span>
                       </Button>
                     ))}

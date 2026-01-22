@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getLocalDateString } from "@/lib/utils";
+import { getCleanName } from "@/utils/nameUtils";
 
 interface LeaderboardEntry {
   userId: string;
@@ -70,7 +71,7 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
         users?.map((user) => [
           user.user_id,
           { 
-            name: user.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim(),
+            name: getCleanName(user.name),
             year: user.year 
           },
         ]) || []
