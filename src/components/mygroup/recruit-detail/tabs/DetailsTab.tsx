@@ -529,27 +529,33 @@ const BlitzStatusCard = ({
     }
   };
   
-  const isPostBlitz = hasPastBlitz && isRampComplete;
+  // Show progress section if ramp complete OR has past blitz (not requiring both)
+  // This ensures we show preseason progress even for recruits who shadowed but haven't been on a blitz yet
+  const showProgressSection = hasPastBlitz || isRampComplete;
 
   return (
     <div className={cn(
       "rounded-xl border p-4 space-y-3",
-      isPostBlitz 
+      showProgressSection 
         ? "bg-primary/5 border-primary/20"
         : !isReady && isBlitzApproaching 
           ? "bg-destructive/5 border-destructive/30" 
           : "bg-muted/50 border-border"
     )}>
-      {/* Post-Blitz: Show Goal Progress Instead */}
-      {isPostBlitz && !hasBlitzCommitment && (
+      {/* Progress section: Show for ramp complete OR past blitz */}
+      {showProgressSection && !hasBlitzCommitment && (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Target className="h-4 w-4 text-primary" />
-            <span className="font-medium text-sm">Post-Blitz Progress</span>
+            <span className="font-medium text-sm">
+              {hasPastBlitz ? 'Post-Blitz Progress' : 'Preseason Progress'}
+            </span>
           </div>
-          <Badge variant="secondary" className="bg-emerald-500/20 text-emerald-600 text-xs">
-            Blitz Complete ✓
-          </Badge>
+          {hasPastBlitz && (
+            <Badge variant="secondary" className="bg-emerald-500/20 text-emerald-600 text-xs">
+              Blitz Complete ✓
+            </Badge>
+          )}
         </div>
       )}
       
@@ -566,8 +572,8 @@ const BlitzStatusCard = ({
         </div>
       )}
       
-      {/* Readiness Checklist - only show if not post-blitz without upcoming blitz */}
-      {(!isPostBlitz || hasBlitzCommitment) && (
+      {/* Readiness Checklist - only show if not in progress view without upcoming blitz */}
+      {(!showProgressSection || hasBlitzCommitment) && (
         <div className="flex flex-wrap gap-2">
           <div className={cn(
             "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full",
@@ -587,7 +593,7 @@ const BlitzStatusCard = ({
       )}
       
       {/* Actions row - only show if not ready and has upcoming blitz */}
-      {!isReady && (!isPostBlitz || hasBlitzCommitment) && (
+      {!isReady && (!showProgressSection || hasBlitzCommitment) && (
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
