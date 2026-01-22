@@ -232,6 +232,13 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
           {/* Step 2: Participants */}
           {step === 2 && (
             <>
+              <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm">
+                <span className="text-muted-foreground">Duration:</span>{' '}
+                <span className="font-medium">
+                  {format(parseISO(incentive.start_date), 'MMM d')} - {endDate ? format(endDate, 'MMM d') : '...'}
+                </span>
+              </div>
+
               <SmartParticipantPicker
                 allReps={allEligibleReps}
                 selectedUserIds={selectedUserIds}
