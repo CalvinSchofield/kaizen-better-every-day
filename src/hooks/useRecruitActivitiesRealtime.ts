@@ -60,9 +60,21 @@ export const useRecruitActivitiesRealtime = (recruitNotionIds: string[]) => {
                 }
                 break;
               case 'UPDATE':
-                updatedActivities = updatedActivities.map((a: RecruitActivity) =>
-                  a.id === newActivity?.id ? newActivity : a
-                );
+                // Check if this is a task completion (assignment_status changed to completed)
+                const isTaskCompletion = newActivity?.assignment_status === 'completed' && 
+                  newActivity?.completed_at;
+                
+                if (isTaskCompletion) {
+                  // For task completions, update the activity with all new fields
+                  // This is critical for the overdue hero card to stop showing completed tasks
+                  updatedActivities = updatedActivities.map((a: RecruitActivity) =>
+                    a.id === newActivity?.id ? { ...a, ...newActivity } : a
+                  );
+                } else {
+                  updatedActivities = updatedActivities.map((a: RecruitActivity) =>
+                    a.id === newActivity?.id ? newActivity : a
+                  );
+                }
                 break;
               case 'DELETE':
                 updatedActivities = updatedActivities.filter(
@@ -76,6 +88,14 @@ export const useRecruitActivitiesRealtime = (recruitNotionIds: string[]) => {
               activities: updatedActivities,
             };
           });
+
+          // For task completions, force a full refetch to ensure hero card updates
+          const isTaskCompletionEvent = newActivity?.assignment_status === 'completed' && 
+            newActivity?.completed_at;
+          if (isTaskCompletionEvent) {
+            // Force immediate refetch to update hero card and overdue calculations
+            queryClient.invalidateQueries({ queryKey: ['group-recruits'], refetchType: 'all' });
+          }
 
           // Also invalidate assigned-tasks for immediate sync of task assignments
           queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
