@@ -1,66 +1,28 @@
-export type PackageType = 'premium' | 'non-premium' | 'pay-in-four' | 'home-protect' | 'upgrade';
-
-export interface EquipmentItem {
+export interface UpgradeEquipmentItem {
   id: string;
   label: string;
   price: number;
   image?: string;
   icon?: string;
   category: 'Cameras' | 'Smart Home' | 'Security';
-  maxQuantity?: number;
-  defaultQuantity?: number;
+  incursVideoFee?: boolean; // Whether this item can have a $5/mo video fee
 }
 
-export interface PackageConfig {
-  panelPrice: number;
-  serviceMin: number;
-  serviceMax: number;
-  serviceDefault: number;
-  warrantyPrice: number;
+export interface UpgradeCameraSelection {
+  quantity: number;
+  newCameraCount: number; // Number that get $5/mo video fee
 }
 
-export const PACKAGE_CONFIGS: Record<'premium' | 'non-premium', PackageConfig> = {
-  premium: {
-    panelPrice: 1799,
-    serviceMin: 24.99,
-    serviceMax: 59.99,
-    serviceDefault: 59.99,
-    warrantyPrice: 7.99,
-  },
-  'non-premium': {
-    panelPrice: 599,
-    serviceMin: 44.99,
-    serviceMax: 59.99,
-    serviceDefault: 59.99,
-    warrantyPrice: 7.99,
-  },
-};
-
-// Generate service rate options (.99 increments)
-export const getServiceRateOptions = (min: number, max: number): number[] => {
-  const options: number[] = [];
-  for (let rate = max; rate >= min; rate -= 1) {
-    options.push(parseFloat(rate.toFixed(2)));
-  }
-  return options;
-};
-
-export const INSTALL_OPTIONS = [
-  { value: 399, label: '$399' },
-  { value: 199, label: '$199' },
-  { value: 0, label: '$0' },
-];
-
-export const EQUIPMENT_LIST: EquipmentItem[] = [
-  // Cameras
+// Equipment available for upgrades (same as PRMR calculator)
+export const UPGRADE_EQUIPMENT_LIST: UpgradeEquipmentItem[] = [
+  // Cameras with video fee
   { 
     id: 'doorbell-pro', 
     label: 'Doorbell Pro', 
     price: 249.99, 
     image: '/images/products/doorbell-camera-pro.jpeg',
     category: 'Cameras',
-    defaultQuantity: 1,
-    maxQuantity: 2,
+    incursVideoFee: true,
   },
   { 
     id: 'outdoor-pro', 
@@ -68,7 +30,7 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     price: 399.99, 
     image: '/images/products/outdoor-camera-pro.jpeg',
     category: 'Cameras',
-    defaultQuantity: 2,
+    incursVideoFee: true,
   },
   { 
     id: 'spotlight-pro', 
@@ -76,7 +38,7 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     price: 249.99, 
     icon: 'Lightbulb',
     category: 'Cameras',
-    defaultQuantity: 2,
+    incursVideoFee: false, // No video fee for spotlights
   },
   { 
     id: 'indoor-pro', 
@@ -84,7 +46,7 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     price: 249.99, 
     image: '/images/products/indoor-camera-pro.jpeg',
     category: 'Cameras',
-    defaultQuantity: 0,
+    incursVideoFee: true,
   },
   { 
     id: 'dvr', 
@@ -92,7 +54,7 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     price: 299.99, 
     image: '/images/products/vivint-playback.jpeg',
     category: 'Cameras',
-    defaultQuantity: 1,
+    incursVideoFee: false, // No video fee for DVR
   },
   // Smart Home
   { 
@@ -101,7 +63,6 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     price: 179.99, 
     image: '/images/products/smart-lock.jpeg',
     category: 'Smart Home',
-    defaultQuantity: 0,
   },
   { 
     id: 'thermostat', 
@@ -109,7 +70,6 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     price: 199.99, 
     image: '/images/products/smart-thermostat.jpeg',
     category: 'Smart Home',
-    defaultQuantity: 0,
   },
   { 
     id: 'garage', 
@@ -117,7 +77,6 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     price: 50, 
     icon: 'Warehouse',
     category: 'Smart Home',
-    defaultQuantity: 0,
   },
   // Security
   { 
@@ -126,7 +85,6 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     price: 50, 
     icon: 'DoorOpen',
     category: 'Security',
-    defaultQuantity: 3,
   },
   { 
     id: 'motion-sensor', 
@@ -134,7 +92,6 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     price: 100, 
     icon: 'Move',
     category: 'Security',
-    defaultQuantity: 0,
   },
   { 
     id: 'glass-break', 
@@ -142,16 +99,20 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     price: 100, 
     icon: 'Volume2',
     category: 'Security',
-    defaultQuantity: 0,
   },
 ];
 
-export const getDefaultQuantities = (): Record<string, number> => {
-  const defaults: Record<string, number> = {};
-  EQUIPMENT_LIST.forEach(item => {
-    if (item.defaultQuantity && item.defaultQuantity > 0) {
-      defaults[item.id] = item.defaultQuantity;
-    }
-  });
-  return defaults;
+export const UPGRADE_CONFIG = {
+  panelPrice: 500,
+  installFee: 99,
+  videoFeePerCamera: 5,
+  financingMonths: 60,
+};
+
+export const getUpgradeDefaultQuantities = (): Record<string, number> => {
+  return {};
+};
+
+export const getUpgradeDefaultNewCameraCounts = (): Record<string, number> => {
+  return {};
 };
