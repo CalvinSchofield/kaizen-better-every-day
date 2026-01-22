@@ -256,17 +256,26 @@ export const PostSaveSuccessSheet = ({
   const handleViewCalendar = async () => {
     onOpenChange(false);
     // Refetch to ensure Calendar shows fresh data after save
-    await queryClient.refetchQueries({ queryKey: ['all-daily-entries'] });
-    await queryClient.refetchQueries({ queryKey: ['preseason-fp-total'] });
+    // Use Promise.all for parallel refetching
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ['all-daily-entries'] }),
+      queryClient.refetchQueries({ queryKey: ['preseason-fp-total'] }),
+      queryClient.refetchQueries({ queryKey: ['cumulative-fp'] }),
+      queryClient.refetchQueries({ queryKey: ['worked-days-data'] }),
+    ]);
     navigate('/calendar');
   };
 
   const handleViewInsights = async () => {
     onOpenChange(false);
     // Refetch to ensure Insights shows fresh data after save
-    await queryClient.refetchQueries({ queryKey: ['all-daily-entries'] });
-    await queryClient.refetchQueries({ queryKey: ['preseason-fp-total'] });
-    await queryClient.refetchQueries({ queryKey: ['insights-data'] });
+    // Use Promise.all for parallel refetching
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ['all-daily-entries'] }),
+      queryClient.refetchQueries({ queryKey: ['preseason-fp-total'] }),
+      queryClient.refetchQueries({ queryKey: ['insights-data'] }),
+      queryClient.refetchQueries({ queryKey: ['cumulative-fp'] }),
+    ]);
     navigate('/insights');
   };
   
