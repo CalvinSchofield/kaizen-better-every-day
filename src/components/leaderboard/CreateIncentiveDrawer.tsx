@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SmartParticipantPicker } from "./SmartParticipantPicker";
 import { Trophy, DollarSign, ArrowRightLeft, Footprints, Loader2, Eye, EyeOff, Users, User, ChevronLeft, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
-import { format, addDays, startOfWeek, endOfWeek } from "date-fns";
+import { format, startOfWeek, endOfWeek } from "date-fns";
 
 interface CreateIncentiveDrawerProps {
   open: boolean;
@@ -29,7 +29,7 @@ const metrics: { key: IncentiveMetric; label: string; icon: typeof Trophy }[] = 
 ];
 
 export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDrawerProps) => {
-  const [step, setStep] = useState(1); // 1: basic info, 2: participants, 3: dates & settings
+  const [step, setStep] = useState(1); // 1: basic info + duration, 2: participants, 3: confirm
   const [title, setTitle] = useState('');
   const [reward, setReward] = useState('');
   const [metric, setMetric] = useState<IncentiveMetric>('transitions');
@@ -40,8 +40,7 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(new Date());
   const [isPublic, setIsPublic] = useState(true);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [showPersonPicker, setShowPersonPicker] = useState(false);
-  const [allSelected, setAllSelected] = useState(true); // Track "all selected" state explicitly
+  const [allSelected, setAllSelected] = useState(true);
 
   const { data: teamAccess } = useTeamAccess();
   const createMutation = useCreateIncentive();
@@ -64,21 +63,12 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
 
   // Include current user in the list (leaders should see themselves)
   const allEligibleReps = useMemo(() => {
-    const reps = teamAccess?.accessibleReps.filter(r => r.userId) || [];
-    
-    // Make sure current user is included if not already in list
-    if (currentUserRep?.user_id && !reps.some(r => r.userId === currentUserRep.user_id)) {
-      // Current user might not be in accessibleReps if they're a leader
-      // We'll rely on SmartParticipantPicker to handle this case
-    }
-    
-    return reps;
-  }, [teamAccess, currentUserRep]);
+    return teamAccess?.accessibleReps.filter(r => r.userId) || [];
+  }, [teamAccess]);
 
   // Compute effective user IDs based on explicit all-selected state
   const effectiveUserIds = useMemo(() => {
     if (allSelected) {
-      // When all selected, include all eligible reps that have userId
       return allEligibleReps.map(r => r.userId!).filter(Boolean);
     }
     return selectedUserIds;
@@ -86,7 +76,6 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
 
   const toggleUser = (userId: string) => {
     if (allSelected) {
-      // First click when all selected - deselect this user
       const newSelection = allEligibleReps.map(r => r.userId!).filter(id => id !== userId);
       setSelectedUserIds(newSelection);
       setAllSelected(false);
@@ -114,7 +103,6 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
     if (duration === 'today') {
       return { start: today, end: today };
     } else if (duration === 'week') {
-      // Sunday to Saturday in local time
       const weekStart = startOfWeek(today, { weekStartsOn: 0 });
       const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
       return { start: weekStart, end: weekEnd };
@@ -135,8 +123,6 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
     }
 
     const { start, end } = getDateRange();
-
-    // Use rep's timezone or fall back to browser timezone
     const creatorTimezone = currentUserRep?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     try {
@@ -173,11 +159,18 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
     setIsPublic(true);
     setSelectedUserIds([]);
     setAllSelected(true);
-    setShowPersonPicker(false);
   };
 
   const canProceedFromStep1 = title.trim() && reward.trim();
   const canProceedFromStep2 = effectiveUserIds.length > 0;
+
+  // Date range summary for display
+  const dateRangeSummary = useMemo(() => {
+    const { start, end } = getDateRange();
+    if (duration === 'today') return 'Today';
+    if (duration === 'week') return 'This Week';
+    return `${format(start, 'MMM d')} - ${format(end, 'MMM d')}`;
+  }, [duration, customStartDate, customEndDate]);
 
   return (
     <Drawer open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetForm(); }}>
@@ -191,13 +184,13 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
           <DrawerTitle className="flex-1">
             {step === 1 && 'New Incentive'}
             {step === 2 && 'Select Participants'}
-            {step === 3 && 'Duration & Settings'}
+            {step === 3 && 'Confirm & Create'}
           </DrawerTitle>
           <span className="text-xs text-muted-foreground">{step}/3</span>
         </DrawerHeader>
 
         <div className="p-4 space-y-6 overflow-y-auto">
-          {/* Step 1: Basic Info */}
+          {/* Step 1: Basic Info + Duration */}
           {step === 1 && (
             <>
               <div className="space-y-2">
@@ -291,45 +284,7 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
                 />
               </div>
 
-              <Button 
-                onClick={() => setStep(2)} 
-                className="w-full" 
-                disabled={!canProceedFromStep1}
-              >
-                Next: Select Participants
-              </Button>
-            </>
-          )}
-
-          {/* Step 2: Participants */}
-          {step === 2 && (
-            <>
-              <SmartParticipantPicker
-                allReps={allEligibleReps}
-                selectedUserIds={selectedUserIds}
-                allSelected={allSelected}
-                onToggleUser={toggleUser}
-                onSelectAll={selectAll}
-                onClear={clearSelection}
-                currentUserId={currentUserRep?.user_id}
-                currentUserRep={currentUserRep}
-                dateRange={getDateRange()}
-                showSelfInList={true}
-              />
-
-              <Button 
-                onClick={() => setStep(3)} 
-                className="w-full"
-                disabled={!canProceedFromStep2}
-              >
-                Next: Duration & Settings
-              </Button>
-            </>
-          )}
-
-          {/* Step 3: Duration & Settings */}
-          {step === 3 && (
-            <>
+              {/* Duration - MOVED TO STEP 1 */}
               <div className="space-y-3">
                 <Label>Duration</Label>
                 <div className="flex gap-2 flex-wrap">
@@ -390,6 +345,60 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
                     </div>
                   </div>
                 )}
+              </div>
+
+              <Button 
+                onClick={() => setStep(2)} 
+                className="w-full" 
+                disabled={!canProceedFromStep1}
+              >
+                Next: Select Participants
+              </Button>
+            </>
+          )}
+
+          {/* Step 2: Participants */}
+          {step === 2 && (
+            <>
+              <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm">
+                <span className="text-muted-foreground">Duration:</span> <span className="font-medium">{dateRangeSummary}</span>
+              </div>
+
+              <SmartParticipantPicker
+                allReps={allEligibleReps}
+                selectedUserIds={selectedUserIds}
+                allSelected={allSelected}
+                onToggleUser={toggleUser}
+                onSelectAll={selectAll}
+                onClear={clearSelection}
+                currentUserId={currentUserRep?.user_id}
+                currentUserRep={currentUserRep}
+                dateRange={getDateRange()}
+                showSelfInList={true}
+              />
+
+              <Button 
+                onClick={() => setStep(3)} 
+                className="w-full"
+                disabled={!canProceedFromStep2}
+              >
+                Next: Confirm
+              </Button>
+            </>
+          )}
+
+          {/* Step 3: Confirm & Settings */}
+          {step === 3 && (
+            <>
+              {/* Summary */}
+              <div className="space-y-3 p-4 rounded-xl bg-muted/50 border border-border">
+                <h3 className="font-semibold">{title}</h3>
+                <div className="text-sm space-y-1">
+                  <p><span className="text-muted-foreground">Reward:</span> {reward}</p>
+                  <p><span className="text-muted-foreground">Goal:</span> {targetType === 'first_to' ? 'First to' : targetType === 'anyone_who' ? 'Anyone who gets' : 'Group total of'} {targetValue} {metrics.find(m => m.key === metric)?.label}</p>
+                  <p><span className="text-muted-foreground">Duration:</span> {dateRangeSummary}</p>
+                  <p><span className="text-muted-foreground">Participants:</span> {allSelected ? `All (${allEligibleReps.length})` : `${effectiveUserIds.length} selected`}</p>
+                </div>
               </div>
 
               {/* Privacy Toggle */}

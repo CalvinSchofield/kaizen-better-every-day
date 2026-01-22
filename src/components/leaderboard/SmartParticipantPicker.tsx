@@ -1,12 +1,13 @@
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarCheck, CalendarX, Loader2 } from "lucide-react";
+import { CalendarCheck, CalendarX, Loader2, Search, X } from "lucide-react";
 import { format } from "date-fns";
 import { getInitials } from "@/utils/nameUtils";
 
@@ -31,9 +32,9 @@ interface SmartParticipantPickerProps {
   onSelectAll: () => void;
   onClear: () => void;
   currentUserId?: string | null;
-  currentUserRep?: { user_id: string; name: string } | null; // Pass current user's rep data
+  currentUserRep?: { user_id: string; name: string } | null;
   dateRange?: { start: Date; end: Date };
-  showSelfInList?: boolean; // Whether to include current user in list
+  showSelfInList?: boolean;
 }
 
 // Normalize stage for filtering - maps display stages to canonical forms
@@ -41,7 +42,6 @@ const normalizeStage = (stage: string | null | undefined): string | null => {
   if (!stage) return null;
   const lower = stage.toLowerCase().trim();
   
-  // Map various stage formats to canonical forms
   if (lower.includes('signed')) return 'signed';
   if (lower.includes('shadow') && lower.includes('✅')) return 'shadow_complete';
   if (lower.includes('shadow')) return 'shadow_complete';
@@ -69,7 +69,9 @@ export const SmartParticipantPicker = ({
   dateRange,
   showSelfInList = true,
 }: SmartParticipantPickerProps) => {
-  // Fetch planned work days within date range - use local date format to avoid timezone issues
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Fetch planned work days within date range
   const { data: plannedWorkDays, isLoading: isLoadingPlannedDays } = useQuery({
     queryKey: ['planned-work-days-for-picker', dateRange ? format(dateRange.start, 'yyyy-MM-dd') : null, dateRange ? format(dateRange.end, 'yyyy-MM-dd') : null],
     queryFn: async () => {
@@ -102,7 +104,7 @@ export const SmartParticipantPicker = ({
     staleTime: 60 * 1000,
   });
 
-  // Fetch active daily entries within date range - users who are actively working
+  // Fetch active daily entries within date range
   const { data: activeEntries, isLoading: isLoadingActiveEntries } = useQuery({
     queryKey: ['active-entries-for-picker', dateRange ? format(dateRange.start, 'yyyy-MM-dd') : null, dateRange ? format(dateRange.end, 'yyyy-MM-dd') : null],
     queryFn: async () => {
@@ -111,7 +113,6 @@ export const SmartParticipantPicker = ({
       const startStr = format(dateRange.start, 'yyyy-MM-dd');
       const endStr = format(dateRange.end, 'yyyy-MM-dd');
       
-      // Fetch entries that have any activity (doors, pitches, sales, etc.)
       const { data, error } = await supabase
         .from('daily_entries')
         .select('user_id, entry_date, doors_knocked, pitches, decision_makers, transitions, presentations, closes, work_start_time')
@@ -123,7 +124,6 @@ export const SmartParticipantPicker = ({
         return {};
       }
       
-      // Check if user has ANY activity in the date range
       const userHasActivity: Record<string, boolean> = {};
       data?.forEach(row => {
         if (row.user_id) {
@@ -134,7 +134,7 @@ export const SmartParticipantPicker = ({
             (row.transitions && row.transitions > 0) ||
             (row.presentations && row.presentations > 0) ||
             (row.closes && row.closes > 0) ||
-            row.work_start_time; // Has started working
+            row.work_start_time;
           
           if (hasActivity) {
             userHasActivity[row.user_id] = true;
@@ -145,7 +145,7 @@ export const SmartParticipantPicker = ({
       return userHasActivity;
     },
     enabled: !!dateRange,
-    staleTime: 30 * 1000, // 30 seconds for more real-time feel
+    staleTime: 30 * 1000,
   });
 
   const isLoadingWorkStatus = isLoadingPlannedDays || isLoadingActiveEntries;
@@ -154,16 +154,14 @@ export const SmartParticipantPicker = ({
   const combinedReps = useMemo(() => {
     let reps = [...allReps];
     
-    // Add current user to list if showSelfInList is true and they're not already in the list
     if (showSelfInList && currentUserId && currentUserRep) {
       const selfExists = reps.some(r => r.userId === currentUserId);
       if (!selfExists) {
-        // Create a rep entry for the current user
         reps.unshift({
           id: currentUserId,
           userId: currentUserId,
           name: currentUserRep.name,
-          stage: 'signed', // Assume active stage for self
+          stage: 'signed',
         });
       }
     }
@@ -171,10 +169,22 @@ export const SmartParticipantPicker = ({
     return reps;
   }, [allReps, currentUserId, currentUserRep, showSelfInList]);
 
+  // Filter reps by search query
+  const searchFilteredReps = useMemo(() => {
+    if (!searchQuery.trim()) return combinedReps;
+    
+    const query = searchQuery.toLowerCase().trim();
+    return combinedReps.filter(rep => 
+      rep.name.toLowerCase().includes(query) ||
+      rep.teamName?.toLowerCase().includes(query) ||
+      rep.mgmtGroupName?.toLowerCase().includes(query)
+    );
+  }, [combinedReps, searchQuery]);
+
   // Filter and sort reps, grouped by team
-  const { workingByTeam, notWorkingByTeam, eligibleCount } = useMemo(() => {
+  const { workingByTeam, notWorkingByTeam, eligibleCount, workingCount, notWorkingCount } = useMemo(() => {
     // First, filter to only active stages and those with userId
-    const eligibleReps = combinedReps.filter(rep => {
+    const eligibleReps = searchFilteredReps.filter(rep => {
       if (!rep.userId) return false;
       
       // Current user is always eligible if showSelfInList
@@ -240,8 +250,10 @@ export const SmartParticipantPicker = ({
       workingByTeam: groupByTeam(working),
       notWorkingByTeam: groupByTeam(notWorking),
       eligibleCount: eligibleReps.length,
+      workingCount: working.length,
+      notWorkingCount: notWorking.length,
     };
-  }, [combinedReps, plannedWorkDays, activeEntries, currentUserId, showSelfInList]);
+  }, [searchFilteredReps, plannedWorkDays, activeEntries, currentUserId, showSelfInList]);
 
   const renderRepItem = (rep: Rep, isSelf: boolean = false) => {
     if (!rep.userId) return null;
@@ -301,6 +313,25 @@ export const SmartParticipantPicker = ({
         </div>
       </div>
 
+      {/* Search Input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input 
+          placeholder="Search participants..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9 pr-9"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
       <div className="p-3 rounded-xl bg-muted/50 border border-border mb-2">
         <p className="text-sm font-medium">
           {allSelected 
@@ -321,13 +352,26 @@ export const SmartParticipantPicker = ({
           </div>
         )}
 
+        {/* Empty search state */}
+        {!isLoadingWorkStatus && searchQuery && !hasWorkingReps && !hasNotWorkingReps && (
+          <div className="text-center py-4 text-sm text-muted-foreground">
+            No participants match "{searchQuery}"
+            <button
+              onClick={() => setSearchQuery('')}
+              className="block mx-auto mt-2 text-primary hover:underline text-xs"
+            >
+              Clear search
+            </button>
+          </div>
+        )}
+
         {/* Working reps section */}
         {!isLoadingWorkStatus && hasWorkingReps && (
           <>
             {dateRange && (
               <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
                 <CalendarCheck className="h-3 w-3 text-green-500" />
-                <span>Working / Planning to work</span>
+                <span>Planning to work ({workingCount})</span>
               </div>
             )}
             {Array.from(workingByTeam.entries()).map(([teamName, reps]) => 
@@ -342,7 +386,7 @@ export const SmartParticipantPicker = ({
             <Separator className="my-1" />
             <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
               <CalendarX className="h-3 w-3 text-muted-foreground" />
-              <span>Not working during this period</span>
+              <span>Not planning to work ({notWorkingCount})</span>
             </div>
           </div>
         )}
@@ -356,8 +400,8 @@ export const SmartParticipantPicker = ({
           </>
         )}
 
-        {/* Empty state */}
-        {!isLoadingWorkStatus && !hasWorkingReps && !hasNotWorkingReps && (
+        {/* Empty state (no search) */}
+        {!isLoadingWorkStatus && !searchQuery && !hasWorkingReps && !hasNotWorkingReps && (
           <div className="text-center py-4 text-sm text-muted-foreground">
             No eligible participants found
           </div>

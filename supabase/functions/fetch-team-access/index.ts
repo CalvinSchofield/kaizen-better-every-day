@@ -329,10 +329,11 @@ Deno.serve(async (req) => {
         }
       }
 
+      // No matching team found - group under "Other" instead of fake "Team [Name]"
       return {
         isTeamLead: false,
         teamId: null,
-        teamName: rep.team_leader ? `Team ${rep.team_leader}` : null,
+        teamName: null,
         mgmtGroupId: null,
         mgmtGroupName: null,
       };
