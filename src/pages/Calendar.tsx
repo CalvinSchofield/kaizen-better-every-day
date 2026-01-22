@@ -1,5 +1,6 @@
 import { CalendarView } from "@/components/CalendarView";
 import { useRepData } from "@/hooks/useRepData";
+import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar as CalendarIcon, Lock } from "lucide-react";
@@ -65,31 +66,13 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
     ? new Date(seasonConfig.personal_summer_end) 
     : undefined;
 
-  // Check if user is a pre-blitz rookie
-  const year = repData?.year || "Rookie";
-  const isRookie = year === "Rookie";
-  
+  // Check if user is a pre-blitz rookie - use centralized hook
+  const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
+
+  // Get blitzes for CalendarView
   const blitzes = repData?.committed_blitzes 
     ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
     : [];
-  
-  const now = new Date();
-  const hasAttendedOrOnBlitz = blitzes.some((blitz: any) => {
-    if (!blitz.date || !blitz.endDate) return false;
-    const yearNum = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${yearNum}-${month}-${day}`;
-    const blitzStartStr = blitz.date;
-    const isStartingToday = todayStr === blitzStartStr;
-    const startDate = new Date(blitz.date + 'T00:00:00');
-    const endDate = new Date(blitz.endDate + 'T23:59:59');
-    const isCurrentlyActive = now >= startDate && now <= endDate;
-    const hasEnded = endDate < now;
-    return isStartingToday || isCurrentlyActive || hasEnded;
-  });
-
-  const isPreBlitzRookie = isRookie && !hasAttendedOrOnBlitz;
 
   // Page tour - only show for users who can access the calendar
   const { showTour, completeTour, skipTour } = usePageTour({

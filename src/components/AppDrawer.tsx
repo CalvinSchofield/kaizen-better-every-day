@@ -18,6 +18,7 @@ import { useAppMode } from "@/hooks/useAppMode";
 import { useRepData } from "@/hooks/useRepData";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useMyActiveChallenges } from "@/hooks/useChallenges";
+import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -52,39 +53,11 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
     return !!myParticipant;
   }).length || 0;
 
-  // Check if user is a pre-blitz rookie
+  // Check if user is a pre-blitz rookie - use centralized hook
   const year = repData?.year || "Rookie";
-  const isRookie = year === "Rookie";
   const isVetOrSoph = year === "Vet" || year === "Sophomore";
-  
-  const blitzes = repData?.committed_blitzes 
-    ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
-    : [];
-  const now = new Date();
-  const hasAttendedBlitz = blitzes.some((blitz: any) => {
-    if (!blitz.date || !blitz.endDate) return false;
-    
-    // Check if today matches the blitz start date (unlock immediately on blitz day)
-    // Use local date, not UTC, to avoid timezone conversion issues
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`;
-    const blitzStartStr = blitz.date;
-    const isStartingToday = todayStr === blitzStartStr;
-    
-    // Check if blitz is currently active (between start and end date)
-    const startDate = new Date(blitz.date + 'T00:00:00');
-    const endDate = new Date(blitz.endDate + 'T23:59:59');
-    const isCurrentlyActive = now >= startDate && now <= endDate;
-    
-    // Check if blitz has ended (past)
-    const hasEnded = endDate < now;
-    
-    return isStartingToday || isCurrentlyActive || hasEnded;
-  });
-
-  const isCalendarLocked = isRookie && !hasAttendedBlitz;
+  const { isPreBlitzRookie, isRookie } = useRookieUnlockStatus(repData);
+  const isCalendarLocked = isPreBlitzRookie;
 
   // Strip emojis from firstName
   const cleanFirstName = firstName?.replace(/[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Component}]/gu, '').trim();

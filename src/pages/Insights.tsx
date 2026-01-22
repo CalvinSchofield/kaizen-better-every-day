@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useInsightsData } from '@/hooks/useInsightsData';
 import { useRepData } from '@/hooks/useRepData';
+import { useRookieUnlockStatus } from '@/hooks/useRookieUnlockStatus';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { useCumulativeFP } from '@/hooks/useCumulativeFP';
 import { useAvailableInsightsPresets, InsightsDatePreset, PRESEASON_START, SUMMER_START } from '@/hooks/useAvailableDatePresets';
@@ -165,29 +166,8 @@ export default function Insights() {
     else if (period === 'lastMonth') { setHasUserSelectedPreset(true); setDatePreset('lastMonth'); }
   }, [searchParams]);
 
-  const year = repData?.year || "Rookie";
-  const isRookie = year === "Rookie";
-  
-  const blitzes = repData?.committed_blitzes 
-    ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
-    : [];
-  
-  const now = new Date();
-  const hasAttendedOrOnBlitz = blitzes.some((blitz: any) => {
-    if (!blitz.date || !blitz.endDate) return false;
-    const yearNum = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${yearNum}-${month}-${day}`;
-    const isStartingToday = todayStr === blitz.date;
-    const startDate = new Date(blitz.date + 'T00:00:00');
-    const endDate = new Date(blitz.endDate + 'T23:59:59');
-    const isCurrentlyActive = now >= startDate && now <= endDate;
-    const hasEnded = endDate < now;
-    return isStartingToday || isCurrentlyActive || hasEnded;
-  });
-
-  const isPreBlitzRookie = isRookie && !hasAttendedOrOnBlitz;
+  // Check if user is a pre-blitz rookie - use centralized hook
+  const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
   
   const getDateRange = (preset: DatePreset) => {
     const now = new Date();

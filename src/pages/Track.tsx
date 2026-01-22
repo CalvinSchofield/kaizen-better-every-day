@@ -1,5 +1,6 @@
 import { Lock, BarChart3 } from "lucide-react";
 import { useRepData } from "@/hooks/useRepData";
+import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TimeTrackingBar } from "@/components/TimeTrackingBar";
@@ -91,40 +92,8 @@ const Track = ({
     );
   }
   
-  // Check if user is a pre-blitz rookie - only after data is loaded
-  const year = repData?.year || "Rookie";
-  const isRookie = year === "Rookie";
-  
-  // Check if rookie has attended a blitz OR is currently on an active blitz
-  const blitzes = repData?.committed_blitzes 
-    ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
-    : [];
-  
-  const now = new Date();
-  const hasAttendedOrOnBlitz = blitzes.some((blitz: any) => {
-    if (!blitz.date || !blitz.endDate) return false;
-    
-    // Check if today matches the blitz start date (unlock immediately on blitz day)
-    // Use local date, not UTC, to avoid timezone conversion issues
-    const yearNum = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${yearNum}-${month}-${day}`;
-    const blitzStartStr = blitz.date;
-    const isStartingToday = todayStr === blitzStartStr;
-    
-    // Check if blitz is currently active (between start and end date)
-    const startDate = new Date(blitz.date + 'T00:00:00');
-    const endDate = new Date(blitz.endDate + 'T23:59:59');
-    const isCurrentlyActive = now >= startDate && now <= endDate;
-    
-    // Check if blitz has ended (past)
-    const hasEnded = endDate < now;
-    
-    return isStartingToday || isCurrentlyActive || hasEnded;
-  });
-
-  const isPreBlitzRookie = isRookie && !hasAttendedOrOnBlitz;
+  // Check if user is a pre-blitz rookie - use centralized hook
+  const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
 
   // Show locked state for pre-blitz rookies
   if (isPreBlitzRookie) {
