@@ -45,6 +45,8 @@ serve(async (req) => {
       teamId,
       mgmtGroupId,
       stage,
+      spouseName,
+      cautionNotes,
     } = await req.json();
 
     if (!name) {
@@ -128,6 +130,8 @@ serve(async (req) => {
         recruiter_user_id: user.id,
         team_id: finalTeamId || null,
         mgmt_group_id: finalMgmtGroupId || null,
+        spouse_name: spouseName || null,
+        caution_notes: cautionNotes || null,
       })
       .select('id')
       .single();

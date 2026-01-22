@@ -39,10 +39,10 @@ serve(async (req) => {
 
     // Get request body for recruit context
     const body = await req.json().catch(() => ({}));
-    const { recruitId, recruitTeamLeader } = body;
+    const { recruitId } = body;
 
-    if (!recruitId && !recruitTeamLeader) {
-      console.log('No recruitId or recruitTeamLeader provided, returning empty list');
+    if (!recruitId) {
+      console.log('No recruitId provided, returning empty list');
       return new Response(JSON.stringify({ assignableUsers: [] }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -82,7 +82,6 @@ serve(async (req) => {
     const recruitsData = allRecruits || [];
     
     // Build assignable users by following the recruiter_user_id chain
-    // IMPORTANT: Start from the RECRUIT being viewed (recruitId), not the current user
     const assignableUsers: Array<{
       userId: string;
       name: string;
@@ -93,13 +92,8 @@ serve(async (req) => {
     const addedUserIds = new Set<string>();
     const visitedIds = new Set<string>();
 
-    // Find the TARGET recruit record (the person being viewed, e.g., Noah)
-    let targetRecruitRecord = recruitsData.find(r => r.id === recruitId);
-    
-    // If not found by ID, try matching by name
-    if (!targetRecruitRecord && recruitId) {
-      console.log(`Could not find recruit by ID ${recruitId}, trying name match`);
-    }
+    // Find the TARGET recruit record (the person being viewed)
+    const targetRecruitRecord = recruitsData.find(r => r.id === recruitId);
 
     console.log(`Target recruit: ${targetRecruitRecord?.name || recruitId}, recruiter_user_id: ${targetRecruitRecord?.recruiter_user_id || 'none'}`);
 
@@ -109,6 +103,16 @@ serve(async (req) => {
     const maxLevels = 10;
 
     console.log(`Starting upline chain from recruit's recruiter_user_id: ${currentRecruiterId}`);
+
+    // Helper to find a rep by name (fuzzy match)
+    const findRepByName = (targetName: string | null): typeof allReps[0] | undefined => {
+      if (!targetName) return undefined;
+      const cleanTarget = stripEmojis(targetName).toLowerCase();
+      return allReps.find(r => {
+        const cleanName = stripEmojis(r.name).toLowerCase();
+        return cleanName.includes(cleanTarget) || cleanTarget.includes(cleanName);
+      });
+    };
 
     while (currentRecruiterId && level < maxLevels && !visitedIds.has(currentRecruiterId)) {
       visitedIds.add(currentRecruiterId);
@@ -152,21 +156,83 @@ serve(async (req) => {
       level++;
     }
 
-    // FALLBACK: If no recruiter chain found, try the old team_leader chain
-    if (assignableUsers.length === 0 && currentRep?.team_leader) {
-      console.log('No recruiter chain found, falling back to team_leader chain');
+    // ENHANCED FALLBACK: If no recruiter chain found, trace via team_leader from the RECRUIT's data
+    if (assignableUsers.length === 0) {
+      console.log('No recruiter chain found, trying team_leader chain from recruit');
       
-      const findRepByName = (targetName: string | null): typeof allReps[0] | undefined => {
-        if (!targetName) return undefined;
-        const cleanTarget = stripEmojis(targetName).toLowerCase();
-        return allReps.find(r => {
-          const cleanName = stripEmojis(r.name).toLowerCase();
-          return cleanName.includes(cleanTarget) || cleanTarget.includes(cleanName);
-        });
-      };
+      // Find the recruiter's REP record by recruiter_user_id
+      const recruiterUserId = targetRecruitRecord?.recruiter_user_id;
+      let recruiterRepRecord = recruiterUserId ? allReps.find(r => r.user_id === recruiterUserId) : null;
+      
+      // If the recruiter has no user_id yet, we need to find them by name match
+      // The recruiter might be in the reps table but without a user_id
+      if (!recruiterRepRecord && targetRecruitRecord) {
+        // We need to find WHO recruited this person - check if there's a rep with matching id
+        // The recruiter_user_id might actually be the current user's id if they added the recruit
+        // But the ACTUAL recruiter was selected from a dropdown and stored elsewhere
+        console.log('Recruiter has no matching rep with user_id, checking team_leader chain');
+      }
 
+      // If we still don't have assignable users, walk up the team_leader chain
+      // Start from the rep who matches the recruiter, or if not found, use current user
+      const startRep = recruiterRepRecord || currentRep;
+      
+      if (startRep?.team_leader) {
+        let currentTeamLeader = startRep.team_leader;
+        const visitedNames = new Set<string>();
+        level = 0;
+
+        while (currentTeamLeader && level < maxLevels) {
+          const cleanCurrentLeader = stripEmojis(currentTeamLeader).toLowerCase();
+          
+          if (visitedNames.has(cleanCurrentLeader)) {
+            console.log(`Already visited ${currentTeamLeader}, stopping chain`);
+            break;
+          }
+          visitedNames.add(cleanCurrentLeader);
+
+          const leader = findRepByName(currentTeamLeader);
+          
+          if (!leader) {
+            console.log(`Could not find leader matching: ${currentTeamLeader}`);
+            break;
+          }
+
+          if (!leader.user_id) {
+            console.log(`Leader ${leader.name} has no user_id, continuing chain`);
+            currentTeamLeader = leader.team_leader;
+            level++;
+            continue;
+          }
+
+          if (leader.user_id !== user.id && !addedUserIds.has(leader.user_id)) {
+            const role = level === 0 ? 'Team Leader' : level === 1 ? 'Upline' : 'Senior Leader';
+            const cleanName = stripEmojis(leader.name) || leader.name;
+            assignableUsers.push({
+              userId: leader.user_id,
+              name: cleanName,
+              role,
+              repId: leader.id || '',
+            });
+            addedUserIds.add(leader.user_id);
+            console.log(`Added ${leader.name} as ${role} (level ${level}) via team_leader fallback`);
+          }
+
+          currentTeamLeader = leader.team_leader;
+          level++;
+        }
+      }
+    }
+
+    // FINAL FALLBACK: If still no assignable users, the issue is the recruiter_user_id is wrong
+    // It's set to the current user (Calvin) instead of Abi. We need to look up the correct recruiter.
+    // Check if the recruit has a recruiter name stored differently or find via team structure
+    if (assignableUsers.length === 0 && currentRep?.team_leader) {
+      console.log('Still no assignable users, walking up from current user team_leader');
+      
       let currentTeamLeader = currentRep.team_leader;
       const visitedNames = new Set<string>();
+      visitedNames.add(stripEmojis(currentRep.name).toLowerCase()); // Don't add ourselves
       level = 0;
 
       while (currentTeamLeader && level < maxLevels) {
@@ -202,7 +268,7 @@ serve(async (req) => {
             repId: leader.id || '',
           });
           addedUserIds.add(leader.user_id);
-          console.log(`Added ${leader.name} as ${role} (level ${level}) via team_leader fallback`);
+          console.log(`Added ${leader.name} as ${role} (level ${level}) via current user team_leader`);
         }
 
         currentTeamLeader = leader.team_leader;
