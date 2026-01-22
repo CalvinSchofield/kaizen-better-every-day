@@ -10,6 +10,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useHeader } from "@/contexts/HeaderContext";
 import { getCachedLayoutState, setCachedLayoutState } from "@/lib/queryPersister";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 
 interface LayoutProps {
   children: ReactNode;
@@ -57,38 +58,9 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
     }
   }, [repData?.year, isLeader, isKnockingMode]);
   
-  // Check if user is a pre-blitz rookie - use effective values
-  const isRookie = effectiveYear === "Rookie";
-  
-  
-  const blitzes = repData?.committed_blitzes 
-    ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
-    : [];
-  const now = new Date();
-  const hasAttendedBlitz = blitzes.some((blitz: any) => {
-    if (!blitz.date || !blitz.endDate) return false;
-    
-    // Check if today matches the blitz start date (unlock immediately on blitz day)
-    // Use local date, not UTC, to avoid timezone conversion issues
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`;
-    const blitzStartStr = blitz.date;
-    const isStartingToday = todayStr === blitzStartStr;
-    
-    // Check if blitz is currently active (between start and end date)
-    const startDate = new Date(blitz.date + 'T00:00:00');
-    const endDate = new Date(blitz.endDate + 'T23:59:59');
-    const isCurrentlyActive = now >= startDate && now <= endDate;
-    
-    // Check if blitz has ended (past)
-    const hasEnded = endDate < now;
-    
-    return isStartingToday || isCurrentlyActive || hasEnded;
-  });
-
-  const isTrackLocked = isRookie && !hasAttendedBlitz;
+  // Check if user is a pre-blitz rookie - use centralized hook
+  const { isPreBlitzRookie, isUnlocked } = useRookieUnlockStatus(repData);
+  const isTrackLocked = isPreBlitzRookie;
   
   // Reset collapsed state on route change
   useEffect(() => {
@@ -216,8 +188,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   // Dynamic navigation based on mode and user type - use effective values
   const getNavItems = () => {
     const isVetOrSoph = effectiveYear === "Vet" || effectiveYear === "Sophomore";
-    const isPostBlitzRookie = effectiveYear === "Rookie" && hasAttendedBlitz;
-    const isPreBlitzRookie = effectiveYear === "Rookie" && !hasAttendedBlitz;
+    const isPostBlitzRookieNav = effectiveYear === "Rookie" && isUnlocked;
+    const isPreBlitzRookieNav = effectiveYear === "Rookie" && !isUnlocked;
     const hasCompletedPhase1 = repData?.ramp_phase_1_complete === true;
 
     if (effectiveIsKnockingMode) {
@@ -250,7 +222,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
       ];
     }
     
-    if (isVetOrSoph || isPostBlitzRookie) {
+    if (isVetOrSoph || isPostBlitzRookieNav) {
       // Non-leader Vets/Sophs/Post-blitz: Home, Tools, Calendar, Goals (action: Training)
       return [
         { path: "/", icon: Home, label: "Home" },
@@ -261,7 +233,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
     }
 
     // Pre-blitz Rookies
-    if (isPreBlitzRookie) {
+    if (isPreBlitzRookieNav) {
       // Home, Tools, Calendar, Goals (action: Training)
       return [
         { path: "/", icon: Home, label: "Home" },
@@ -283,7 +255,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   // Get the action button based on mode and user type
   const getActionButton = () => {
     const isVetOrSoph = effectiveYear === "Vet" || effectiveYear === "Sophomore";
-    const isPostBlitzRookie = effectiveYear === "Rookie" && hasAttendedBlitz;
+    const isPostBlitzRookieAction = effectiveYear === "Rookie" && isUnlocked;
     
     if (effectiveIsKnockingMode) {
       // KNOCKING MODE: Track is always the action
