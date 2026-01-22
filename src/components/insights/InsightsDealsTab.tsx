@@ -599,7 +599,7 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
             </div>
             
             <p className="text-xs text-muted-foreground">
-              Sales by hour of day (your local time)
+              Sales by hour of day (local time when sold)
             </p>
             
             {/* Hour labels row */}

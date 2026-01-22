@@ -131,6 +131,7 @@ interface ParsedDeal {
   difficulty: string;
   date: string;
   timestamp: string;
+  entry_timezone: string; // Timezone where the sale was recorded
 }
 
 function difficultyToNumber(difficulty: string): number {
@@ -167,6 +168,7 @@ function calculateDealBreakdown(entries: any[], timezone: string = 'America/Los_
           difficulty: sale.difficulty || 'medium',
           date: entry.entry_date,
           timestamp: sale.timestamp || entry.entry_date,
+          entry_timezone: entry.timezone || timezone, // Use entry's timezone, fall back to passed timezone
         });
       });
     }
@@ -267,13 +269,8 @@ function calculateDealBreakdown(entries: any[], timezone: string = 'America/Los_
       try {
         const date = new Date(deal.timestamp);
         if (!isNaN(date.getTime())) {
-          // Get local hour in user's timezone
-          const formatter = new Intl.DateTimeFormat('en-US', {
-            timeZone: timezone,
-            hour: 'numeric',
-            hour12: false,
-          });
-          const hour = parseInt(formatter.format(date), 10);
+          // Use the entry's timezone where the sale was recorded
+          const hour = getLocalHour(deal.timestamp, deal.entry_timezone);
           
           if (hour >= 0 && hour < 24) {
             hasSaleTimeData = true;

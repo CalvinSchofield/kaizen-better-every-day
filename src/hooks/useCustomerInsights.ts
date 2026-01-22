@@ -6,6 +6,7 @@ import { isWithinInterval, parseISO, differenceInDays, format, startOfWeek, endO
 
 interface SaleWithDate extends Sale {
   entry_date: string;
+  entry_timezone: string | null; // Timezone where the sale was recorded
 }
 
 export interface RoiTrendDataPoint {
@@ -126,7 +127,7 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
 
       const { data, error } = await supabase
         .from('daily_entries')
-        .select('entry_date, sales_log')
+        .select('entry_date, sales_log, timezone')
         .eq('user_id', user.id)
         .not('sales_log', 'is', null)
         .order('entry_date', { ascending: false });
@@ -144,6 +145,7 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
               sales.push({
                 ...sale,
                 entry_date: entry.entry_date,
+                entry_timezone: entry.timezone,
               });
             }
           }
@@ -514,7 +516,7 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
     // CRM data count
     const dealsWithCrmData = filteredSales.filter(s => s.customer_name || s.customer_account_number || s.customer_phone).length;
 
-    // Sales by Hour heatmap - parse timestamp from each sale (stored in local time)
+    // Sales by Hour heatmap - use each sale's entry timezone for accurate local time display
     const salesByHourMap: Record<number, { fresh: number; takeover: number; diy: number; upgrade: number }> = {};
     
     // Initialize all hours
@@ -522,13 +524,29 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       salesByHourMap[h] = { fresh: 0, takeover: 0, diy: 0, upgrade: 0 };
     }
     
-    // Count sales by hour and type
+    // Helper to get hour in specific timezone
+    const getHourInTimezone = (timestamp: string, timezone: string): number => {
+      try {
+        const date = new Date(timestamp);
+        const localTime = new Intl.DateTimeFormat('en-US', {
+          timeZone: timezone,
+          hour: 'numeric',
+          hour12: false,
+        }).format(date);
+        return parseInt(localTime);
+      } catch {
+        return new Date(timestamp).getHours();
+      }
+    };
+    
+    // Count sales by hour and type - using the timezone where the sale was recorded
     let salesWithTimestampCount = 0;
     for (const sale of filteredSales) {
       if (sale.timestamp) {
         try {
-          const saleTime = parseISO(sale.timestamp);
-          const hour = saleTime.getHours();
+          // Use the entry's timezone (where the sale happened), not current viewer timezone
+          const saleTimezone = sale.entry_timezone || 'America/Los_Angeles';
+          const hour = getHourInTimezone(sale.timestamp, saleTimezone);
           salesWithTimestampCount++;
           
           if (sale.type === 'upgrade') {
