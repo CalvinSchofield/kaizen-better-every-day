@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { Calendar, Clock, Phone, X, Check } from "lucide-react";
+import { Calendar, Clock, Phone, X } from "lucide-react";
 import { format, parse } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { TimePicker, formatTime12, getDefaultTime } from "@/components/ui/time-picker";
+import { InlineTimePicker, formatTime12, getDefaultTime } from "@/components/ui/time-picker";
 import { 
-  addToCalendar, 
   getCalendarTitle, 
   buildCalendarDescription,
   CalendarEventData 
 } from "@/utils/calendarLinks";
+import { addToNativeCalendar } from "@/utils/nativeCalendar";
 import { useAddCalendarEvent, useActivityCalendarEvent, useUpdateCalendarEvent } from "@/hooks/useActivityCalendarEvents";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { toast } from "sonner";
@@ -37,7 +37,6 @@ export function AddToCalendarPrompt({
   previousDate,
 }: AddToCalendarPromptProps) {
   const [selectedTime, setSelectedTime] = useState(getDefaultTime());
-  const [showTimePicker, setShowTimePicker] = useState(false);
   
   const addCalendarEventMutation = useAddCalendarEvent();
   const updateCalendarEventMutation = useUpdateCalendarEvent();
@@ -60,7 +59,7 @@ export function AddToCalendarPrompt({
     };
     
     // Add to native calendar
-    addToCalendar(calendarEvent);
+    await addToNativeCalendar(calendarEvent);
     
     // Track in our database
     try {
@@ -101,22 +100,24 @@ export function AddToCalendarPrompt({
   };
   
   const formattedDate = format(parse(scheduledDate, 'yyyy-MM-dd', new Date()), 'EEEE, MMM d');
-  const displayTime = formatTime12(selectedTime);
+  const eventTitle = getCalendarTitle(recruit.name, notes);
   
   return (
-    <div className="border-t border-border bg-muted/30 p-4 space-y-4 animate-in slide-in-from-bottom-2 duration-200">
+    <div className="border-t border-border bg-gradient-to-b from-muted/50 to-muted/20 p-4 space-y-4 animate-in slide-in-from-bottom-2 duration-200">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-primary" />
-          <span className="font-medium">
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <Calendar className="h-4 w-4 text-primary" />
+          </div>
+          <span className="font-semibold">
             {isReschedule ? 'Update Calendar?' : 'Add to Calendar?'}
           </span>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8"
+          className="h-8 w-8 rounded-full"
           onClick={onClose}
         >
           <X className="h-4 w-4" />
@@ -125,71 +126,63 @@ export function AddToCalendarPrompt({
       
       {/* Previous date warning for reschedule */}
       {isReschedule && previousDate && (
-        <div className="text-sm text-muted-foreground bg-warning/10 border border-warning/20 rounded-md px-3 py-2">
-          You had this in your calendar for {format(parse(previousDate, 'yyyy-MM-dd', new Date()), 'MMM d')}.
-          Update to the new date?
+        <div className="text-sm text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+          Previously scheduled for {format(parse(previousDate, 'yyyy-MM-dd', new Date()), 'MMM d')} — update to new date?
         </div>
       )}
       
-      {/* Event Preview */}
-      <div className="bg-background rounded-lg border p-3 space-y-2">
-        <div className="font-medium text-sm">
-          {getCalendarTitle(recruit.name, notes)}
-        </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="h-4 w-4" />
-          <span>{formattedDate}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Clock className="h-4 w-4" />
-          <span>{displayTime}</span>
-        </div>
-        {recruit.phone && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Phone className="h-4 w-4" />
-            <span>{recruit.phone}</span>
+      {/* Event Card - Streamlined Design */}
+      <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
+        {/* Event Title */}
+        <div className="px-4 py-3 border-b border-border/50">
+          <div className="font-semibold text-base">
+            {eventTitle}
           </div>
-        )}
+        </div>
+        
+        {/* Event Details */}
+        <div className="divide-y divide-border/50">
+          {/* Date Row */}
+          <div className="flex items-center gap-3 px-4 py-3">
+            <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className="text-sm">{formattedDate}</span>
+          </div>
+          
+          {/* Time Row - Tappable */}
+          <div className="flex items-center gap-3 px-4 py-3">
+            <div className="h-4 w-4 flex-shrink-0" /> {/* Spacer for alignment */}
+            <InlineTimePicker
+              value={selectedTime}
+              onChange={setSelectedTime}
+            />
+            <span className="text-xs text-muted-foreground ml-auto">Tap to change</span>
+          </div>
+          
+          {/* Phone Row */}
+          {recruit.phone && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <span className="text-sm text-muted-foreground">{recruit.phone}</span>
+            </div>
+          )}
+        </div>
       </div>
       
-      {/* Time Picker Toggle */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="w-full justify-between"
-        onClick={() => setShowTimePicker(!showTimePicker)}
-      >
-        <span className="flex items-center gap-2">
-          <Clock className="h-4 w-4" />
-          Select Time
-        </span>
-        <span className="text-muted-foreground">{displayTime}</span>
-      </Button>
-      
-      {/* Time Picker */}
-      {showTimePicker && (
-        <TimePicker
-          value={selectedTime}
-          onChange={setSelectedTime}
-          className="animate-in fade-in-50 duration-200"
-        />
-      )}
-      
       {/* Actions */}
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         <Button
-          variant="outline"
+          variant="ghost"
           className="flex-1"
           onClick={onClose}
         >
           Skip
         </Button>
         <Button
-          className="flex-1"
+          className="flex-1 gap-2"
           onClick={handleAddToCalendar}
           disabled={addCalendarEventMutation.isPending || updateCalendarEventMutation.isPending}
         >
-          <Calendar className="h-4 w-4 mr-2" />
+          <Calendar className="h-4 w-4" />
           Add to Calendar
         </Button>
       </div>
