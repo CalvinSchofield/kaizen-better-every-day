@@ -517,6 +517,13 @@ const PackageBuilder = () => {
             financingMonths={upgradePrices.financingMonths}
             amountNeededFor60Mo={upgradePrices.amountNeededFor60Mo}
             prmr={upgradePrices.prmr}
+            onQuickAdd={(itemId, count) => {
+              // Add the specified count of items
+              setUpgradeQuantities(prev => ({
+                ...prev,
+                [itemId]: (prev[itemId] || 0) + count,
+              }));
+            }}
           />
         )}
       </div>

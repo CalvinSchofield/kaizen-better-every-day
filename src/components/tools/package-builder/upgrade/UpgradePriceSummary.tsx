@@ -15,6 +15,7 @@ interface UpgradePriceSummaryProps {
   financingMonths: number;
   amountNeededFor60Mo: number;
   prmr: number;
+  onQuickAdd?: (itemId: string, count: number) => void;
 }
 
 export const UpgradePriceSummary = ({
@@ -28,9 +29,21 @@ export const UpgradePriceSummary = ({
   financingMonths,
   amountNeededFor60Mo,
   prmr,
+  onQuickAdd,
 }: UpgradePriceSummaryProps) => {
   const [expanded, setExpanded] = useState(false);
   const isShortFinancing = financingMonths === UPGRADE_CONFIG.shortFinancingMonths;
+  
+  // Cheapest equipment is Door/Window sensor at $50
+  const cheapestItemId = 'door-window-sensor';
+  const cheapestItemPrice = 50;
+  const sensorsNeeded = Math.ceil(amountNeededFor60Mo / cheapestItemPrice);
+  
+  const handleQuickAdd = () => {
+    if (onQuickAdd && sensorsNeeded > 0) {
+      onQuickAdd(cheapestItemId, sensorsNeeded);
+    }
+  };
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50">
@@ -119,11 +132,19 @@ export const UpgradePriceSummary = ({
                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-3">
                       <div className="flex items-start gap-2">
                         <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                        <div className="text-xs">
+                        <div className="text-xs flex-1">
                           <p className="font-medium text-amber-500 mb-1">36-Month Financing</p>
-                          <p className="text-muted-foreground">
-                            Add ~${Math.ceil(amountNeededFor60Mo)} more equipment to qualify for 60-month financing and lower monthly payments.
+                          <p className="text-muted-foreground mb-2">
+                            Add ~${Math.ceil(amountNeededFor60Mo)} more to qualify for 60-month financing.
                           </p>
+                          {onQuickAdd && sensorsNeeded > 0 && (
+                            <button
+                              onClick={handleQuickAdd}
+                              className="w-full py-2 px-3 bg-amber-500 text-white text-xs font-medium rounded-lg active:scale-[0.98] transition-transform"
+                            >
+                              + Add {sensorsNeeded} Door/Window Sensor{sensorsNeeded > 1 ? 's' : ''} (+${sensorsNeeded * cheapestItemPrice})
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
