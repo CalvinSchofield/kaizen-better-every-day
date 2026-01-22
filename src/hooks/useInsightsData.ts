@@ -727,13 +727,15 @@ export const useInsightsData = (
       rangeEntries.forEach(entry => {
         if (entry.counter_timestamps && typeof entry.counter_timestamps === 'object') {
           const timestamps = entry.counter_timestamps as Record<string, string[]>;
+          // Use each entry's timezone to show timestamps in the local time when they occurred
+          const entryTimezone = entry.timezone || userTimezone;
           
           ['doors_knocked', 'pitches', 'transitions', 'presentations', 'closes'].forEach(field => {
             const fieldTimestamps = timestamps[field] || [];
             const activityKey = field === 'doors_knocked' ? 'doors' : field as 'pitches' | 'transitions' | 'presentations' | 'closes';
             
             fieldTimestamps.forEach((timestamp: string) => {
-              const local = calculateLocalTime(timestamp, userTimezone);
+              const local = calculateLocalTime(timestamp, entryTimezone);
               hourlyActivity[activityKey][local.hour] = (hourlyActivity[activityKey][local.hour] || 0) + 1;
               
               // Track min/max hours from actual data
