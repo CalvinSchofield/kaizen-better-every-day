@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Challenge } from "@/hooks/useChallenges";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Challenge, ChallengeVisibility } from "@/hooks/useChallenges";
 import { useProposeEdit } from "@/hooks/useChallengeEdits";
 import { format, parseISO } from "date-fns";
-import { CalendarIcon, ChevronLeft, Loader2 } from "lucide-react";
+import { CalendarIcon, ChevronLeft, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -21,12 +22,15 @@ interface EditChallengeDrawerProps {
 export const EditChallengeDrawer = ({ challenge, open, onOpenChange }: EditChallengeDrawerProps) => {
   const [stakes, setStakes] = useState(challenge.stakes || '');
   const [endDate, setEndDate] = useState<Date | undefined>(parseISO(challenge.end_date));
+  const [visibility, setVisibility] = useState<ChallengeVisibility>(challenge.visibility);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   const proposeEditMutation = useProposeEdit();
 
-  const hasChanges = stakes !== (challenge.stakes || '') || 
-    (endDate && format(endDate, 'yyyy-MM-dd') !== challenge.end_date);
+  const hasChanges = 
+    stakes !== (challenge.stakes || '') || 
+    (endDate && format(endDate, 'yyyy-MM-dd') !== challenge.end_date) ||
+    visibility !== challenge.visibility;
 
   const handleSubmit = async () => {
     if (!hasChanges) {
@@ -34,7 +38,7 @@ export const EditChallengeDrawer = ({ challenge, open, onOpenChange }: EditChall
       return;
     }
 
-    const changes: { stakes?: string; end_date?: string } = {};
+    const changes: { stakes?: string; end_date?: string; visibility?: ChallengeVisibility } = {};
     
     if (stakes !== (challenge.stakes || '')) {
       changes.stakes = stakes;
@@ -42,6 +46,10 @@ export const EditChallengeDrawer = ({ challenge, open, onOpenChange }: EditChall
     
     if (endDate && format(endDate, 'yyyy-MM-dd') !== challenge.end_date) {
       changes.end_date = format(endDate, 'yyyy-MM-dd');
+    }
+
+    if (visibility !== challenge.visibility) {
+      changes.visibility = visibility;
     }
 
     try {
@@ -61,6 +69,7 @@ export const EditChallengeDrawer = ({ challenge, open, onOpenChange }: EditChall
       // Reset form on close
       setStakes(challenge.stakes || '');
       setEndDate(parseISO(challenge.end_date));
+      setVisibility(challenge.visibility);
     }
     onOpenChange(newOpen);
   };
@@ -101,6 +110,39 @@ export const EditChallengeDrawer = ({ challenge, open, onOpenChange }: EditChall
                 Current: {challenge.stakes || 'None'}
               </p>
             )}
+          </div>
+
+          {/* Visibility */}
+          <div className="space-y-3">
+            <Label>Visibility</Label>
+            <RadioGroup
+              value={visibility}
+              onValueChange={(v) => setVisibility(v as ChallengeVisibility)}
+              className="flex gap-4"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="private" id="challenge-visibility-private" />
+                <Label htmlFor="challenge-visibility-private" className="flex items-center gap-1.5 text-sm font-normal cursor-pointer">
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  Private
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="public" id="challenge-visibility-public" />
+                <Label htmlFor="challenge-visibility-public" className="flex items-center gap-1.5 text-sm font-normal cursor-pointer">
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                  Public
+                </Label>
+              </div>
+            </RadioGroup>
+            {visibility !== challenge.visibility && (
+              <p className="text-xs text-muted-foreground">
+                Current: {challenge.visibility === 'public' ? 'Public' : 'Private'}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Public challenges are visible to everyone. Private ones are only visible to participants.
+            </p>
           </div>
 
           {/* End Date */}
