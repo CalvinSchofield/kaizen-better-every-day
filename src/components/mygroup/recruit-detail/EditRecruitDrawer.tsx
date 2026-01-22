@@ -393,6 +393,9 @@ export const EditRecruitDrawer = ({
       queryClient.invalidateQueries({ queryKey: ['recruit-detail-live', recruit.id] });
       queryClient.invalidateQueries({ queryKey: ['recruit-details-extra', recruit.id] });
       queryClient.invalidateQueries({ queryKey: ['recruit-details-for-edit', recruit.id] });
+      // Invalidate assignable/mentionable users cache when recruiter changes
+      queryClient.invalidateQueries({ queryKey: ['assignable-users', recruit.id] });
+      queryClient.invalidateQueries({ queryKey: ['mentionable-users', recruit.id] });
       onSuccess?.();
       onOpenChange(false);
     },
