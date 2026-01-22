@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { RecruitActivity } from "./useGroupRecruits";
+import { toast } from "sonner";
 
 /**
  * Hook that subscribes to realtime updates for recruit_activities table.
@@ -10,6 +11,14 @@ import { RecruitActivity } from "./useGroupRecruits";
  */
 export const useRecruitActivitiesRealtime = (recruitNotionIds: string[]) => {
   const queryClient = useQueryClient();
+  const currentUserIdRef = useRef<string | null>(null);
+
+  // Fetch current user ID once on mount
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      currentUserIdRef.current = data.user?.id || null;
+    });
+  }, []);
 
   useEffect(() => {
     if (recruitNotionIds.length === 0) return;
@@ -25,7 +34,7 @@ export const useRecruitActivitiesRealtime = (recruitNotionIds: string[]) => {
           schema: 'public',
           table: 'recruit_activities',
         },
-        (payload) => {
+        async (payload) => {
           console.log('[Realtime] recruit_activities change:', payload.eventType, payload);
           
           const newActivity = payload.new as RecruitActivity | undefined;
@@ -70,6 +79,35 @@ export const useRecruitActivitiesRealtime = (recruitNotionIds: string[]) => {
 
           // Also invalidate assigned-tasks for immediate sync of task assignments
           queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+
+          // Check if this activity update affects the current user's calendar
+          // Only notify if someone ELSE rescheduled an activity that WE have in our calendar
+          if (payload.eventType === 'UPDATE' && newActivity && currentUserIdRef.current) {
+            const oldDue = (oldActivity as any)?.next_action_due;
+            const newDue = (newActivity as any)?.next_action_due;
+            
+            // Only check if the due date actually changed
+            if (oldDue && newDue && oldDue !== newDue) {
+              // Check if current user has this activity in their calendar
+              const { data: calendarEvent } = await supabase
+                .from('activity_calendar_events')
+                .select('id')
+                .eq('activity_id', newActivity.id)
+                .eq('user_id', currentUserIdRef.current)
+                .maybeSingle();
+              
+              if (calendarEvent) {
+                // Only show toast if someone else made the change
+                const updatedBy = (newActivity as any)?.logged_by_user_id;
+                if (updatedBy && updatedBy !== currentUserIdRef.current) {
+                  toast.info('A task in your calendar was rescheduled', {
+                    description: 'You may want to update your calendar',
+                    duration: 6000,
+                  });
+                }
+              }
+            }
+          }
         }
       )
       .subscribe((status) => {

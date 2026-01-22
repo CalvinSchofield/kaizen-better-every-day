@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { UserCheck, PhoneMissed, Loader2, CheckCircle2, ChevronDown, ChevronUp, CalendarDays, User } from "lucide-react";
+import { AddToCalendarPrompt } from "./AddToCalendarPrompt";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -70,6 +71,11 @@ export const PostContactDrawer = ({
   const [scheduleAssignee, setScheduleAssignee] = useState<string | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showAssigneePopover, setShowAssigneePopover] = useState(false);
+  
+  // Calendar prompt state
+  const [showCalendarPrompt, setShowCalendarPrompt] = useState(false);
+  const [scheduledActivityId, setScheduledActivityId] = useState<string | null>(null);
+  const [scheduledDateString, setScheduledDateString] = useState<string | null>(null);
   
   const logActivityMutation = useLogRecruitActivity();
   const queryClient = useQueryClient();
@@ -187,10 +193,11 @@ export const PostContactDrawer = ({
 
       // Create scheduled follow-up if user filled in scheduling
       let scheduledFollowUp = false;
+      let newActivityId: string | null = null;
       if (showScheduling && scheduleDate) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const { error: scheduleError } = await supabase
+          const { data: insertedActivity, error: scheduleError } = await supabase
             .from('recruit_activities')
             .insert({
               recruit_id: recruit.id,
@@ -201,11 +208,15 @@ export const PostContactDrawer = ({
               next_action: scheduleNotes || 'Follow up',
               next_action_due: scheduleDate.toISOString(),
               notes: scheduleNotes || null,
-            });
+            })
+            .select('id')
+            .single();
           
           if (scheduleError) {
             console.error('Failed to schedule follow-up:', scheduleError);
           } else {
+            newActivityId = insertedActivity?.id || null;
+            
             // Sync notes to recruit.next_action for display consistency
             await supabase
               .from('recruits')
@@ -264,18 +275,26 @@ export const PostContactDrawer = ({
         toast.success(`Logged ${method === 'text' ? 'text' : 'meeting'} with ${firstName}`);
       }
       
-      // Reset and close
-      setOutcome(null);
-      setNotes('');
-      setMarkTaskComplete(true);
-      setShowScheduling(false);
-      setScheduleDate(undefined);
-      setQuickDateOption(null);
-      setScheduleNotes('');
-      setScheduleMentions([]);
-      setScheduleAssignee(null);
-      onOpenChange(false);
-      onComplete?.(wasConnected);
+      // If we scheduled a follow-up, show the calendar prompt instead of closing immediately
+      if (scheduledFollowUp && newActivityId && scheduleDate) {
+        setScheduledActivityId(newActivityId);
+        setScheduledDateString(scheduleDate.toISOString());
+        setShowCalendarPrompt(true);
+        // Don't close drawer yet - let calendar prompt handle it
+      } else {
+        // Reset and close
+        setOutcome(null);
+        setNotes('');
+        setMarkTaskComplete(true);
+        setShowScheduling(false);
+        setScheduleDate(undefined);
+        setQuickDateOption(null);
+        setScheduleNotes('');
+        setScheduleMentions([]);
+        setScheduleAssignee(null);
+        onOpenChange(false);
+        onComplete?.(wasConnected);
+      }
     } catch (error) {
       console.error('Failed to log contact:', error);
       toast.error('Failed to log contact');
@@ -294,7 +313,16 @@ export const PostContactDrawer = ({
     setScheduleNotes('');
     setScheduleMentions([]);
     setScheduleAssignee(null);
+    setShowCalendarPrompt(false);
+    setScheduledActivityId(null);
+    setScheduledDateString(null);
     onOpenChange(false);
+  };
+  
+  const handleCalendarPromptClose = () => {
+    // Reset everything and close
+    handleClose();
+    onComplete?.(true); // Mark as connected since we scheduled follow-up
   };
 
   if (!recruit) return null;
@@ -580,33 +608,46 @@ export const PostContactDrawer = ({
           )}
         </div>
 
-        <DrawerFooter className="border-t">
-          <Button 
-            onClick={handleSubmit}
-            disabled={!canSubmit || isLoading}
-            className="w-full"
-            size="lg"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : showScheduling && scheduleDate ? (
-              "Save & Schedule"
-            ) : (
-              "Save & Continue"
-            )}
-          </Button>
-          <Button 
-            variant="ghost"
-            onClick={handleClose}
-            disabled={isLoading}
-            className="w-full text-muted-foreground"
-          >
-            Skip for now
-          </Button>
-        </DrawerFooter>
+        {/* Calendar Prompt - shown after successful scheduling */}
+        {showCalendarPrompt && scheduledActivityId && scheduledDateString && recruit && (
+          <AddToCalendarPrompt
+            activityId={scheduledActivityId}
+            recruit={recruit}
+            scheduledDate={scheduledDateString}
+            notes={scheduleNotes}
+            onClose={handleCalendarPromptClose}
+          />
+        )}
+
+        {!showCalendarPrompt && (
+          <DrawerFooter className="border-t">
+            <Button 
+              onClick={handleSubmit}
+              disabled={!canSubmit || isLoading}
+              className="w-full"
+              size="lg"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : showScheduling && scheduleDate ? (
+                "Save & Schedule"
+              ) : (
+                "Save & Continue"
+              )}
+            </Button>
+            <Button 
+              variant="ghost"
+              onClick={handleClose}
+              disabled={isLoading}
+              className="w-full text-muted-foreground"
+            >
+              Skip for now
+            </Button>
+          </DrawerFooter>
+        )}
       </DrawerContent>
     </Drawer>
   );
