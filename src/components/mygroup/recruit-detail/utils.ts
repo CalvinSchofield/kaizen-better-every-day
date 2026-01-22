@@ -1,15 +1,11 @@
 import { STAGES, STAGE_DESCRIPTIONS } from "@/utils/stageConstants";
+import { getCleanName, getCleanFirstName } from "@/utils/nameUtils";
 
-// Helper to strip emojis from names for cleaner display
-export const stripEmojis = (text: string | null): string | null => {
-  if (!text) return null;
-  return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '').trim();
-};
+// Re-export for backward compatibility
+export { getCleanName as stripEmojis };
 
 export const getFirstName = (name: string | null): string => {
-  if (!name) return '';
-  const cleaned = stripEmojis(name) || '';
-  return cleaned.split(' ')[0];
+  return getCleanFirstName(name);
 };
 
 // Re-export STAGES for backward compatibility

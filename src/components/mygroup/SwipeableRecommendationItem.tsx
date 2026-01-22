@@ -7,6 +7,7 @@ import { RecruitRecommendation } from "@/hooks/useRecruitingRecommendations";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
 import { SkipMenu } from "./SkipMenu";
+import { getCleanName } from "@/utils/nameUtils";
 
 // Sticky threshold - must drag past this to commit
 const SWIPE_COMMIT_THRESHOLD = 100;
@@ -21,12 +22,6 @@ const BADGE_STYLES: Record<RecruitRecommendation['reasonBadge'], string> = {
   'pipeline': 'bg-blue-500/10 text-blue-600 border-blue-500/20',
   'stale': 'bg-amber-500/10 text-amber-600 border-amber-500/20',
   'overdue': 'bg-red-500/10 text-red-600 border-red-500/20',
-};
-
-// Strip emojis from name
-const stripEmojis = (text: string | null): string | null => {
-  if (!text) return null;
-  return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '').trim();
 };
 
 interface SwipeableRecommendationItemProps {
@@ -155,7 +150,7 @@ export const SwipeableRecommendationItem = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-medium text-sm">
-                {stripEmojis(recommendation.recruit.name)}
+                {getCleanName(recommendation.recruit.name)}
               </span>
               <Badge 
                 variant="outline" 

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { tiebreakerCompare, YearRank } from "@/utils/leaderboardTiebreaker";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+import { getCleanName } from "@/utils/nameUtils";
 interface RankingEntry {
   userId: string;
   name: string;
@@ -118,7 +119,7 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             if (!repInfo) return null;
             const value = Number(entry[field]) || 0;
             if (value === 0) return null;
-            const cleanName = repInfo.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
+            const cleanName = getCleanName(repInfo.name);
             // User is "working" if entry is unfinalized and has activity
             const isWorking = !entry.is_finalized && (
               (entry.doors_knocked ?? 0) > 0 ||
@@ -181,7 +182,7 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             }
             
             if (value === 0) return null;
-            const cleanName = repInfo.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
+            const cleanName = getCleanName(repInfo.name);
             const isWorking = !entry.is_finalized && (
               (entry.doors_knocked ?? 0) > 0 ||
               (entry.decision_makers ?? 0) > 0 ||
