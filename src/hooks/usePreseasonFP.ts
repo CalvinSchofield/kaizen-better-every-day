@@ -48,6 +48,15 @@ const setCachedPreseasonFP = (userId: string, data: PreseasonFPData): void => {
   }
 };
 
+// Clear cache - exported so it can be called when saving entries
+export const clearPreseasonFPCache = (userId: string): void => {
+  try {
+    localStorage.removeItem(`${CACHE_KEY_PREFIX}${userId}`);
+  } catch {
+    // Ignore errors
+  }
+};
+
 export const usePreseasonFP = () => {
   // Get user ID reliably to prevent race conditions
   const { userId, isReady: authReady } = useCurrentUserId();
@@ -153,10 +162,10 @@ export const usePreseasonFP = () => {
 
       return result;
     },
-    staleTime: 1000 * 60 * 2, // Cache for 2 minutes
+    staleTime: 0, // Always refetch when invalidated - critical for showing fresh data after save
     gcTime: 1000 * 60 * 10, // Keep in garbage collection for 10 minutes
-    // Use cached data as initial data for instant display
-    initialData,
+    // Use cached data as placeholder (not initialData) to prevent blocking refetch
+    placeholderData: initialData,
   });
 
   return { 

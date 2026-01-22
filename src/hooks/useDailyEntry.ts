@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { clearPreseasonFPCache } from './usePreseasonFP';
 
 // Helper to get backup from localStorage
 const getBackupFromStorage = (userId: string, entryDate: string): Partial<DailyEntry> | null => {
@@ -376,7 +377,13 @@ export const useDailyEntry = (date?: string) => {
         }
       }
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
+      // Clear localStorage caches that might have stale data
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        clearPreseasonFPCache(user.id);
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['daily-entry', variables.saveDate], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['daily-entries'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['all-daily-entries'], refetchType: 'all' });

@@ -36,6 +36,7 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
       if (error) throw error;
       return data || [];
     },
+    staleTime: 0, // Always refetch when invalidated - critical for showing today's data after save
   });
 
   // Fetch season config for personal summer dates
