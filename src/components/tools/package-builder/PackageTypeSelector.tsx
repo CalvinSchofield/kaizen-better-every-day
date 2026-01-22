@@ -1,4 +1,4 @@
-import { Package, CreditCard, Shield, Home, ChevronRight } from "lucide-react";
+import { Package, CreditCard, Shield, Home, ChevronRight, ArrowUpCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { hapticMedium } from "@/utils/haptics";
@@ -29,13 +29,22 @@ const packages = [
     accent: 'from-blue-500/20 to-blue-500/5',
   },
   {
+    id: 'upgrade' as PackageType,
+    label: 'Upgrade',
+    description: 'Existing customer add-on',
+    detail: 'Panel $500 • Install $99 • +$5/new cam',
+    icon: ArrowUpCircle,
+    available: true,
+    accent: 'from-emerald-500/20 to-emerald-500/5',
+  },
+  {
     id: 'pay-in-four' as PackageType,
     label: 'Pay in Four',
     description: '4 equal payments',
     detail: 'Split into 4 installments',
     icon: CreditCard,
     available: false,
-    accent: 'from-emerald-500/20 to-emerald-500/5',
+    accent: 'from-violet-500/20 to-violet-500/5',
   },
   {
     id: 'home-protect' as PackageType,

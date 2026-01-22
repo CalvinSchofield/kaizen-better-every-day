@@ -16,16 +16,28 @@ import {
   getDefaultQuantities,
   type PackageType 
 } from "@/components/tools/package-builder/types";
+import { UpgradeEquipmentConfigurator } from "@/components/tools/package-builder/upgrade/UpgradeEquipmentConfigurator";
+import { UpgradePriceSummary } from "@/components/tools/package-builder/upgrade/UpgradePriceSummary";
+import { 
+  UPGRADE_EQUIPMENT_LIST, 
+  UPGRADE_CONFIG,
+  getUpgradeDefaultQuantities,
+  getUpgradeDefaultNewCameraCounts,
+} from "@/components/tools/package-builder/upgrade/upgradeTypes";
 
 const PackageBuilder = () => {
   const navigate = useNavigate();
   
-  // State
+  // State for regular packages
   const [packageType, setPackageType] = useState<PackageType | null>(null);
   const [quantities, setQuantities] = useState<Record<string, number>>(getDefaultQuantities());
   const [installFee, setInstallFee] = useState(399);
   const [serviceRate, setServiceRate] = useState(59.99);
   const [warrantyEnabled, setWarrantyEnabled] = useState(true);
+  
+  // State for upgrade packages
+  const [upgradeQuantities, setUpgradeQuantities] = useState<Record<string, number>>(getUpgradeDefaultQuantities());
+  const [newCameraCounts, setNewCameraCounts] = useState<Record<string, number>>(getUpgradeDefaultNewCameraCounts());
 
   // Handle package selection - navigate to config page
   const handlePackageSelect = useCallback((type: PackageType) => {
@@ -33,6 +45,10 @@ const PackageBuilder = () => {
       setPackageType(type);
       setQuantities(getDefaultQuantities());
       setServiceRate(PACKAGE_CONFIGS[type].serviceDefault);
+    } else if (type === 'upgrade') {
+      setPackageType(type);
+      setUpgradeQuantities(getUpgradeDefaultQuantities());
+      setNewCameraCounts(getUpgradeDefaultNewCameraCounts());
     }
   }, []);
 
@@ -50,7 +66,7 @@ const PackageBuilder = () => {
     setPackageType(null);
   }, []);
 
-  // Update quantity with constraints
+  // Update quantity with constraints (regular packages)
   const handleQuantityChange = useCallback((itemId: string, delta: number) => {
     setQuantities(prev => {
       const item = EQUIPMENT_LIST.find(i => i.id === itemId);
@@ -114,6 +130,64 @@ const PackageBuilder = () => {
     });
   }, []);
 
+  // Update upgrade quantity with constraints
+  const handleUpgradeQuantityChange = useCallback((itemId: string, delta: number) => {
+    setUpgradeQuantities(prev => {
+      const item = UPGRADE_EQUIPMENT_LIST.find(i => i.id === itemId);
+      if (!item) return prev;
+      
+      const currentQty = prev[itemId] || 0;
+      const newQty = Math.max(0, currentQty + delta);
+      
+      if (newQty === 0) {
+        const { [itemId]: _, ...rest } = prev;
+        // Also remove from new camera counts
+        setNewCameraCounts(prevCounts => {
+          const { [itemId]: __, ...restCounts } = prevCounts;
+          return restCounts;
+        });
+        return rest;
+      }
+      
+      // When increasing quantity, ensure newCameraCount doesn't exceed quantity
+      if (delta > 0 && item.incursVideoFee) {
+        setNewCameraCounts(prevCounts => {
+          const currentNewCams = prevCounts[itemId] || 0;
+          // If no new cameras set yet, don't auto-add (user must opt-in)
+          return prevCounts;
+        });
+      }
+      
+      // When decreasing quantity, ensure newCameraCount doesn't exceed new quantity
+      if (delta < 0 && item.incursVideoFee) {
+        setNewCameraCounts(prevCounts => {
+          const currentNewCams = prevCounts[itemId] || 0;
+          if (currentNewCams > newQty) {
+            return { ...prevCounts, [itemId]: newQty };
+          }
+          return prevCounts;
+        });
+      }
+      
+      return { ...prev, [itemId]: newQty };
+    });
+  }, []);
+
+  // Update new camera count for video fee
+  const handleNewCameraCountChange = useCallback((itemId: string, delta: number) => {
+    setNewCameraCounts(prev => {
+      const currentCount = prev[itemId] || 0;
+      const maxCount = upgradeQuantities[itemId] || 0;
+      const newCount = Math.max(0, Math.min(maxCount, currentCount + delta));
+      
+      if (newCount === 0) {
+        const { [itemId]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [itemId]: newCount };
+    });
+  }, [upgradeQuantities]);
+
   // Reset to defaults
   const handleReset = useCallback(() => {
     hapticMedium();
@@ -122,10 +196,13 @@ const PackageBuilder = () => {
       setInstallFee(399);
       setServiceRate(PACKAGE_CONFIGS[packageType].serviceDefault);
       setWarrantyEnabled(true);
+    } else if (packageType === 'upgrade') {
+      setUpgradeQuantities(getUpgradeDefaultQuantities());
+      setNewCameraCounts(getUpgradeDefaultNewCameraCounts());
     }
   }, [packageType]);
 
-  // Calculate prices
+  // Calculate prices for regular packages
   const prices = useMemo(() => {
     if (!packageType || (packageType !== 'premium' && packageType !== 'non-premium')) {
       return { equipmentTotal: 0, equipmentMonthly: 0, warrantyAmount: 0, videoServiceFee: 0, cameraCount: 0, totalMonthly: 0 };
@@ -168,8 +245,44 @@ const PackageBuilder = () => {
     return { equipmentTotal, equipmentMonthly, warrantyAmount, videoServiceFee, cameraCount, totalMonthly };
   }, [packageType, quantities, installFee, serviceRate, warrantyEnabled]);
 
+  // Calculate prices for upgrade packages
+  const upgradePrices = useMemo(() => {
+    if (packageType !== 'upgrade') {
+      return { equipmentTotal: 0, equipmentMonthly: 0, videoServiceFee: 0, newCameraCount: 0, totalMonthly: 0 };
+    }
+
+    // Start with panel and install
+    let equipmentTotal = UPGRADE_CONFIG.panelPrice + UPGRADE_CONFIG.installFee;
+    
+    // Add equipment costs
+    UPGRADE_EQUIPMENT_LIST.forEach(item => {
+      const qty = upgradeQuantities[item.id] || 0;
+      equipmentTotal += item.price * qty;
+    });
+
+    // Calculate equipment monthly (60 month financing)
+    const equipmentMonthly = equipmentTotal / UPGRADE_CONFIG.financingMonths;
+
+    // Count new cameras for video service fee
+    let newCameraCount = 0;
+    UPGRADE_EQUIPMENT_LIST.forEach(item => {
+      if (item.incursVideoFee) {
+        newCameraCount += newCameraCounts[item.id] || 0;
+      }
+    });
+
+    // Video service fee ($5 per new camera only)
+    const videoServiceFee = newCameraCount * UPGRADE_CONFIG.videoFeePerCamera;
+
+    // Total monthly (equipment + video service only, no warranty or service rate)
+    const totalMonthly = equipmentMonthly + videoServiceFee;
+
+    return { equipmentTotal, equipmentMonthly, videoServiceFee, newCameraCount, totalMonthly };
+  }, [packageType, upgradeQuantities, newCameraCounts]);
+
   const isConfigurable = packageType === 'premium' || packageType === 'non-premium';
-  const packageLabel = packageType === 'premium' ? 'Premium Kit' : 'Non-Premium Kit';
+  const isUpgrade = packageType === 'upgrade';
+  const packageLabel = packageType === 'premium' ? 'Premium Kit' : packageType === 'non-premium' ? 'Non-Premium Kit' : packageType === 'upgrade' ? 'Upgrade' : 'Package Builder';
 
   // Handle swipe back - different behavior based on current page
   const handleSwipeBack = useCallback(() => {
@@ -200,7 +313,7 @@ const PackageBuilder = () => {
           <h1 className="font-semibold">
             {packageType ? packageLabel : 'Package Builder'}
           </h1>
-          {isConfigurable ? (
+          {(isConfigurable || isUpgrade) ? (
             <Button
               variant="ghost"
               size="icon"
@@ -238,7 +351,7 @@ const PackageBuilder = () => {
             <PackagePresets onSelect={handlePresetSelect} />
           </motion.div>
         ) : isConfigurable ? (
-          // Page 2: Equipment Configuration
+          // Page 2: Regular Equipment Configuration
           <motion.div
             key="config"
             initial={{ opacity: 0, x: 20 }}
@@ -265,10 +378,42 @@ const PackageBuilder = () => {
               onWarrantyChange={setWarrantyEnabled}
             />
           </motion.div>
+        ) : isUpgrade ? (
+          // Page 2: Upgrade Equipment Configuration
+          <motion.div
+            key="upgrade-config"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2 }}
+            className="max-w-lg mx-auto px-4 py-6 pb-40 space-y-6"
+          >
+            {/* Fixed upgrade info */}
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Upgrade Package</p>
+                  <p className="text-xs text-muted-foreground">Panel $500 • Install $99 (fixed)</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Select equipment below</p>
+                  <p className="text-xs text-emerald-500">+$5/mo per new camera</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Upgrade Equipment Selection */}
+            <UpgradeEquipmentConfigurator
+              quantities={upgradeQuantities}
+              newCameraCounts={newCameraCounts}
+              onQuantityChange={handleUpgradeQuantityChange}
+              onNewCameraCountChange={handleNewCameraCountChange}
+            />
+          </motion.div>
         ) : null}
       </AnimatePresence>
 
-        {/* Sticky Price Summary - only on config page */}
+        {/* Sticky Price Summary - regular packages */}
         {isConfigurable && (
           <PriceSummary
             equipmentMonthly={prices.equipmentMonthly}
@@ -277,6 +422,17 @@ const PackageBuilder = () => {
             videoServiceFee={prices.videoServiceFee}
             cameraCount={prices.cameraCount}
             totalMonthly={prices.totalMonthly}
+          />
+        )}
+
+        {/* Sticky Price Summary - upgrade packages */}
+        {isUpgrade && (
+          <UpgradePriceSummary
+            equipmentTotal={upgradePrices.equipmentTotal}
+            equipmentMonthly={upgradePrices.equipmentMonthly}
+            videoServiceFee={upgradePrices.videoServiceFee}
+            newCameraCount={upgradePrices.newCameraCount}
+            totalMonthly={upgradePrices.totalMonthly}
           />
         )}
       </div>
