@@ -109,6 +109,8 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const isInPreseason = isViewedDateInPreseason;
 
   // Calculate period totals (week or month) from entries prop
+  // Calculate period totals - includes BOTH finalized and unfinalized entries
+  // Unfinalized entries use real-time calculation from sales_log
   const periodTotals = useMemo(() => {
     const weekStart = startOfWeek(currentDate);
     const weekEnd = endOfWeek(currentDate);
@@ -122,9 +124,30 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
         ? entryDate >= monthStart && entryDate <= monthEnd
         : entryDate >= weekStart && entryDate <= weekEnd;
 
-      if (isInView && entry.is_finalized) {
+      if (!isInView) return totals;
+
+      if (entry.is_finalized) {
+        // Finalized: use stored column values
         totals.fpPlus += entry.fp_plus || 0;
         totals.prmr += entry.prmr || 0;
+      } else {
+        // Unfinalized: calculate from sales_log for live data
+        const salesLog = entry.sales_log || [];
+        if (Array.isArray(salesLog)) {
+          for (const sale of salesLog) {
+            // Skip never_installed sales (they don't count)
+            if (sale.install_status === 'never_installed') continue;
+            
+            const salePrmr = Number(sale.prmr) || 0;
+            totals.prmr += salePrmr;
+            
+            if (sale.type === 'fp') {
+              totals.fpPlus += 1;
+            } else if (sale.type === 'upgrade') {
+              totals.fpPlus += salePrmr / 85;
+            }
+          }
+        }
       }
       return totals;
     }, { fpPlus: 0, prmr: 0 });

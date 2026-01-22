@@ -273,6 +273,7 @@ export const CalendarView = ({
     : today >= weekStart && today <= weekEnd;
 
   // Calculate totals for the current view (memoized)
+  // IMPORTANT: Includes BOTH finalized entries AND unfinalized entries (live sales from sales_log)
   const viewTotals = useMemo(() => entries.reduce((totals, entry) => {
     // Parse entry_date as local date to avoid timezone issues
     const [year, month, day] = entry.entry_date.split('-').map(Number);
@@ -281,74 +282,104 @@ export const CalendarView = ({
       ? isSameMonth(entryDate, currentDate)
       : entryDate >= weekStart && entryDate <= weekEnd;
 
-    if (isInView && entry.is_finalized) {
+    if (!isInView) return totals;
+
+    // For unfinalized entries, calculate FP+/PRMR from sales_log (live data)
+    // For finalized entries, use the stored column values
+    if (entry.is_finalized) {
+      // Finalized: use stored values
       totals.fpPlus += entry.fp_plus || 0;
       totals.prmr += entry.prmr || 0;
       totals.upgradePrmr += entry.upgrade_prmr || 0;
-      totals.doorsKnocked += entry.doors_knocked || 0;
-      totals.decisionMakers += entry.decision_makers || 0;
-      totals.pitches += entry.pitches || 0;
-      totals.transitions += entry.transitions || 0;
-      totals.presentations += entry.presentations || 0;
-      totals.closes += entry.closes || 0;
       totals.daysWorked += 1;
-
-      // Parse sales_log to get FP count and PRMR breakdown (only funded sales)
-      // Fall back to column values for entries without sales_log (pre-feature entries)
+    } else {
+      // Unfinalized: calculate from sales_log for accurate live data
       const salesLog = entry.sales_log || [];
-      const fundedSales = Array.isArray(salesLog) 
-        ? salesLog.filter((sale: any) => sale.install_status !== 'cancelled' && sale.install_status !== 'never_installed')
-        : [];
-      
-      if (fundedSales.length > 0) {
-        // Use sales_log data
-        fundedSales.forEach((sale: any) => {
+      if (Array.isArray(salesLog)) {
+        for (const sale of salesLog) {
+          // Skip cancelled/never installed sales
+          if (sale.install_status === 'never_installed') continue;
+          
+          const salePrmr = Number(sale.prmr) || 0;
+          totals.prmr += salePrmr;
+          
           if (sale.type === 'fp') {
-            totals.fpCount += 1;
-            totals.fpPrmrTotal += sale.prmr || 0;
+            totals.fpPlus += 1;
           } else if (sale.type === 'upgrade') {
-            totals.upgradeCount += 1;
-            totals.upgradePrmrTotal += sale.prmr || 0;
+            totals.fpPlus += salePrmr / 85;
+            totals.upgradePrmr += salePrmr;
           }
-        });
-      } else if ((entry.fp_plus || 0) > 0 || (entry.prmr || 0) > 0) {
-        // Fallback for pre-sales_log entries: derive from column values
-        const upgradeFp = (entry.upgrade_prmr || 0) / 85;
-        const newFp = (entry.fp_plus || 0) - upgradeFp;
-        const newPrmr = (entry.prmr || 0) - (entry.upgrade_prmr || 0);
-        
-        if (newFp > 0) {
-          totals.fpCount += Math.round(newFp);
-          totals.fpPrmrTotal += newPrmr;
-        }
-        if ((entry.upgrade_prmr || 0) > 0) {
-          totals.upgradeCount += Math.round(upgradeFp);
-          totals.upgradePrmrTotal += entry.upgrade_prmr || 0;
         }
       }
-
-      // Calculate total work time in minutes
-      if (entry.work_start_time && entry.work_end_time) {
-        const start = new Date(entry.work_start_time);
-        const end = new Date(entry.work_end_time);
-        let workMinutes = (end.getTime() - start.getTime()) / 1000 / 60;
-
-        // Subtract break periods
-        if (entry.break_periods && Array.isArray(entry.break_periods)) {
-          const breakMinutes = entry.break_periods.reduce((sum: number, period: any) => {
-            if (period.start && period.end) {
-              const breakStart = new Date(period.start);
-              const breakEnd = new Date(period.end);
-              return sum + ((breakEnd.getTime() - breakStart.getTime()) / 1000 / 60);
-            }
-            return sum;
-          }, 0);
-          workMinutes -= breakMinutes;
-        }
-
-        totals.totalWorkMinutes += workMinutes;
+      // Count as a worked day if there's activity
+      if ((entry.doors_knocked || 0) >= 4) {
+        totals.daysWorked += 1;
       }
     }
+
+    // Activity counters (both finalized and unfinalized)
+    totals.doorsKnocked += entry.doors_knocked || 0;
+    totals.decisionMakers += entry.decision_makers || 0;
+    totals.pitches += entry.pitches || 0;
+    totals.transitions += entry.transitions || 0;
+    totals.presentations += entry.presentations || 0;
+    totals.closes += entry.closes || 0;
+
+    // Parse sales_log to get FP count and PRMR breakdown (only funded sales)
+    const salesLog = entry.sales_log || [];
+    const fundedSales = Array.isArray(salesLog) 
+      ? salesLog.filter((sale: any) => sale.install_status !== 'cancelled' && sale.install_status !== 'never_installed')
+      : [];
+    
+    if (fundedSales.length > 0) {
+      // Use sales_log data
+      fundedSales.forEach((sale: any) => {
+        if (sale.type === 'fp') {
+          totals.fpCount += 1;
+          totals.fpPrmrTotal += sale.prmr || 0;
+        } else if (sale.type === 'upgrade') {
+          totals.upgradeCount += 1;
+          totals.upgradePrmrTotal += sale.prmr || 0;
+        }
+      });
+    } else if (entry.is_finalized && ((entry.fp_plus || 0) > 0 || (entry.prmr || 0) > 0)) {
+      // Fallback for pre-sales_log entries: derive from column values (finalized only)
+      const upgradeFp = (entry.upgrade_prmr || 0) / 85;
+      const newFp = (entry.fp_plus || 0) - upgradeFp;
+      const newPrmr = (entry.prmr || 0) - (entry.upgrade_prmr || 0);
+      
+      if (newFp > 0) {
+        totals.fpCount += Math.round(newFp);
+        totals.fpPrmrTotal += newPrmr;
+      }
+      if ((entry.upgrade_prmr || 0) > 0) {
+        totals.upgradeCount += Math.round(upgradeFp);
+        totals.upgradePrmrTotal += entry.upgrade_prmr || 0;
+      }
+    }
+
+    // Calculate total work time in minutes (finalized entries only have reliable times)
+    if (entry.is_finalized && entry.work_start_time && entry.work_end_time) {
+      const start = new Date(entry.work_start_time);
+      const end = new Date(entry.work_end_time);
+      let workMinutes = (end.getTime() - start.getTime()) / 1000 / 60;
+
+      // Subtract break periods
+      if (entry.break_periods && Array.isArray(entry.break_periods)) {
+        const breakMinutes = entry.break_periods.reduce((sum: number, period: any) => {
+          if (period.start && period.end) {
+            const breakStart = new Date(period.start);
+            const breakEnd = new Date(period.end);
+            return sum + ((breakEnd.getTime() - breakStart.getTime()) / 1000 / 60);
+          }
+          return sum;
+        }, 0);
+        workMinutes -= breakMinutes;
+      }
+
+      totals.totalWorkMinutes += workMinutes;
+    }
+
     return totals;
   }, { 
     fpPlus: 0, 
