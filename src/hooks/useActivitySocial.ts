@@ -602,6 +602,10 @@ export const useMarkAllActivitiesRead = () => {
 
 // Hook to get total unread count across all recruits
 export const useTotalUnreadCount = (recruitIds: string[]) => {
-  const { data: unreadActivities } = useAllUnreadActivities(recruitIds);
+  const { data: unreadActivities, isLoading, isFetching } = useAllUnreadActivities(recruitIds);
+  
+  // Return 0 while initially loading to prevent flash of stale cached data on app open
+  if (isLoading) return 0;
+  
   return unreadActivities?.length || 0;
 };
