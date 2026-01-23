@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Incentive, IncentiveMetric } from "./useIncentives";
+import { Incentive, IncentiveMetric, isIncentiveStillVisible } from "./useIncentives";
 import { useEffect } from "react";
 import { toZonedTime } from "date-fns-tz";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
@@ -215,7 +215,11 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
         timeRemaining,
       } as IncentiveProgressData;
     },
-    enabled: !!incentive && incentive.status === 'active',
+    // Enable for active incentives OR completed incentives still in visibility window
+    enabled: !!incentive && (
+      incentive.status === 'active' || 
+      (incentive.status === 'completed' && isIncentiveStillVisible(incentive, incentive.eligible_reps?.map(r => r.timezone) || []))
+    ),
     staleTime: 30 * 1000, // 30 seconds - ensures quick refresh after mutations
   });
 };

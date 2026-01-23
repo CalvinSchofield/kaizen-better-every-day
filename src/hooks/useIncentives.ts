@@ -12,6 +12,7 @@ export interface EligibleRep {
   user_id: string;
   rep_name?: string;
   profile_photo_url?: string;
+  timezone?: string; // For visibility calculations
 }
 
 export interface Incentive {
@@ -31,11 +32,67 @@ export interface Incentive {
   winner_user_ids: string[] | null; // For 'anyone_who' type with multiple winners
   created_at: string;
   completed_at: string | null;
+  creator_timezone: string | null;
   // Joined data
   creator_name?: string;
   eligible_reps?: EligibleRep[];
   eligible_count?: number;
 }
+
+// Get the timezone offset in minutes for a given timezone
+// More negative = further west = later in the day
+const getTimezoneOffset = (timezone: string): number => {
+  try {
+    const now = new Date();
+    const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const tzDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    return (tzDate.getTime() - utcDate.getTime()) / 60000;
+  } catch {
+    return 0;
+  }
+};
+
+// Find the westernmost (latest) timezone among a list
+const getLatestTimezone = (timezones: (string | null | undefined)[]): string => {
+  const validTimezones = timezones.filter(Boolean) as string[];
+  if (validTimezones.length === 0) return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
+  return validTimezones.reduce((latest, tz) => {
+    return getTimezoneOffset(tz) < getTimezoneOffset(latest) ? tz : latest;
+  });
+};
+
+// Check if a completed incentive should still be visible (until 10 AM next day in latest timezone)
+export const isIncentiveStillVisible = (
+  incentive: Incentive, 
+  participantTimezones: (string | null | undefined)[]
+): boolean => {
+  if (incentive.status === 'active') return true;
+  if (incentive.status === 'cancelled') return false;
+  
+  // For completed incentives, check if we're past 10 AM the next day in latest participant timezone
+  const latestTimezone = getLatestTimezone([...participantTimezones, incentive.creator_timezone]);
+  
+  const [year, month, day] = incentive.end_date.split('-').map(Number);
+  // Visibility cutoff: 10 AM on the day AFTER end_date in the latest timezone
+  const cutoffDate = new Date(year, month - 1, day + 1, 10, 0, 0, 0);
+  
+  // Get current time in the latest timezone for comparison
+  const nowUtc = new Date();
+  const nowInLatestTz = new Date(nowUtc.toLocaleString('en-US', { timeZone: latestTimezone }));
+  
+  return nowInLatestTz < cutoffDate;
+};
+
+// Check if incentive is a solo personal goal (only 1 participant who is also creator)
+export const isSoloPersonalGoal = (incentive: Incentive, userId?: string): boolean => {
+  const eligibleCount = incentive.eligible_count || incentive.eligible_reps?.length || 0;
+  if (eligibleCount !== 1) return false;
+  
+  const soloParticipant = incentive.eligible_reps?.[0];
+  // It's a solo goal if the only participant is the creator
+  return soloParticipant?.user_id === incentive.created_by;
+};
 
 export interface CreateIncentiveInput {
   title: string;
@@ -122,8 +179,10 @@ export const useMyActiveIncentives = () => {
       
       const eligibleIds = myEligibility?.map((e) => e.incentive_id) || [];
 
-      // Fetch incentives where user is eligible OR user is the creator
-      // This ensures leaders always see their own incentives
+      // Fetch active incentives + recently completed ones (within last 24h to catch 10AM cutoff)
+      // This allows us to show completed incentives until 10 AM the next day
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      
       const { data: incentives, error } = await supabase
         .from('incentives')
         .select(`
@@ -133,13 +192,13 @@ export const useMyActiveIncentives = () => {
             user_id
           )
         `)
-        .eq('status', 'active')
+        .or(`status.eq.active,and(status.eq.completed,completed_at.gte.${twentyFourHoursAgo})`)
         .or(`id.in.(${eligibleIds.join(',')}),created_by.eq.${user.id}`)
         .order('end_date', { ascending: true });
 
       if (error) throw error;
 
-      // Get rep names (creator + eligible reps)
+      // Get rep names and timezones (creator + eligible reps)
       const userIds = new Set<string>();
       incentives?.forEach((i) => {
         userIds.add(i.created_by);
@@ -148,21 +207,65 @@ export const useMyActiveIncentives = () => {
 
       const { data: reps } = await supabase
         .from('reps')
-        .select('user_id, name, profile_photo_url')
+        .select('user_id, name, profile_photo_url, timezone')
         .in('user_id', Array.from(userIds));
 
       const repMap = new Map(reps?.map((r) => [r.user_id, r]) || []);
 
-      return (incentives || []).map((i) => ({
-        ...i,
-        creator_name: repMap.get(i.created_by)?.name || 'Unknown',
-        eligible_count: i.incentive_eligible_reps?.length || 0,
-        eligible_reps: i.incentive_eligible_reps?.map((r: any) => ({
+      const mappedIncentives = (incentives || []).map((i) => {
+        const eligibleReps = i.incentive_eligible_reps?.map((r: any) => ({
           ...r,
           rep_name: repMap.get(r.user_id)?.name || 'Unknown',
           profile_photo_url: repMap.get(r.user_id)?.profile_photo_url,
-        })),
-      })) as Incentive[];
+          timezone: repMap.get(r.user_id)?.timezone,
+        })) || [];
+        
+        return {
+          ...i,
+          creator_name: repMap.get(i.created_by)?.name || 'Unknown',
+          eligible_count: eligibleReps.length,
+          eligible_reps: eligibleReps,
+        };
+      }) as (Incentive & { eligible_reps: (EligibleRep & { timezone?: string })[] })[];
+      
+      // Filter completed incentives by visibility window (10 AM next day in latest participant timezone)
+      const visibleIncentives = mappedIncentives.filter((i) => {
+        if (i.status === 'active') return true;
+        if (i.status === 'cancelled') return false;
+        
+        // For completed incentives, check 10 AM next day cutoff
+        const participantTimezones = i.eligible_reps?.map(r => r.timezone) || [];
+        return isIncentiveStillVisible(i, participantTimezones);
+      });
+      
+      // Sort incentives with priority:
+      // 1. User is a participant (eligible rep) - highest priority
+      // 2. User is the creator
+      // 3. By participant count (more = higher priority)
+      // 4. By end date (soonest first)
+      const sortedIncentives = visibleIncentives.sort((a, b) => {
+        const aIsParticipant = a.eligible_reps?.some(r => r.user_id === user.id) ? 1 : 0;
+        const bIsParticipant = b.eligible_reps?.some(r => r.user_id === user.id) ? 1 : 0;
+        
+        // Participant incentives first
+        if (aIsParticipant !== bIsParticipant) return bIsParticipant - aIsParticipant;
+        
+        const aIsCreator = a.created_by === user.id ? 1 : 0;
+        const bIsCreator = b.created_by === user.id ? 1 : 0;
+        
+        // Creator incentives second
+        if (aIsCreator !== bIsCreator) return bIsCreator - aIsCreator;
+        
+        // More participants = higher priority
+        const aCount = a.eligible_count || 0;
+        const bCount = b.eligible_count || 0;
+        if (aCount !== bCount) return bCount - aCount;
+        
+        // Finally by end date (soonest first)
+        return a.end_date.localeCompare(b.end_date);
+      });
+
+      return sortedIncentives as Incentive[];
     },
     staleTime: 10 * 1000, // 10 seconds for faster refresh
     gcTime: 30 * 1000, // Garbage collect after 30s to prevent stale cached data
