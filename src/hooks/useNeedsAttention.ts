@@ -121,16 +121,27 @@ export const useNeedsAttention = (
     const now = new Date();
     const categories: AttentionCategory[] = [];
 
-    // Build last contact map
+    // Build last contact map (phone_call/in_person = real contact)
+    // Also track last text message separately (lower quality touchpoint)
     const lastContactMap = new Map<string, Date>();
+    const lastTextMap = new Map<string, Date>();
+    
     activities.forEach(activity => {
+      const recruitId = activity.recruit_id;
+      if (!recruitId) return;
+      const activityDate = parseISO(activity.created_at);
+      
       if (activity.activity_type === 'phone_call' || activity.activity_type === 'in_person') {
-        const recruitId = activity.recruit_id;
-        if (!recruitId) return;
         const existing = lastContactMap.get(recruitId);
-        const activityDate = parseISO(activity.created_at);
         if (!existing || activityDate > existing) {
           lastContactMap.set(recruitId, activityDate);
+        }
+      }
+      
+      if (activity.activity_type === 'text_message') {
+        const existing = lastTextMap.get(recruitId);
+        if (!existing || activityDate > existing) {
+          lastTextMap.set(recruitId, activityDate);
         }
       }
     });
@@ -432,6 +443,7 @@ export const useNeedsAttention = (
     }
 
     // 3. Stale Contacts - haven't been contacted in 7+ days (stage-dependent)
+    // Now also considers text messages: prioritize those who haven't even been texted
     const staleRecruits: AttentionRecruit[] = [];
     
     recruits.forEach(recruit => {
@@ -442,24 +454,56 @@ export const useNeedsAttention = (
 
       const lastContact = lastContactMap.get(recruit.id);
       const lastContactStr = lastContact ? lastContact.toISOString().split('T')[0] : null;
-      const daysSince = lastContactStr ? getDaysSinceDate(lastContactStr) : null;
+      const daysSinceContact = lastContactStr ? getDaysSinceDate(lastContactStr) : null;
+      
+      // Also check last text message
+      const lastText = lastTextMap.get(recruit.id);
+      const lastTextStr = lastText ? lastText.toISOString().split('T')[0] : null;
+      const daysSinceText = lastTextStr ? getDaysSinceDate(lastTextStr) : null;
 
       const threshold = STAGE_CADENCE[recruit.stage] || 7;
 
-      if (daysSince === null || daysSince >= threshold) {
+      // Show if: no real contact OR contact is stale based on cadence
+      if (daysSinceContact === null || daysSinceContact >= threshold) {
         const firstName = recruit.name?.split(' ')[0] || 'Recruit';
         let reason: string;
-        if (daysSince === null) {
+        let urgency: 'high' | 'medium' | 'low';
+        
+        // Determine urgency and reason based on contact AND text history
+        const hasNeverBeenTexted = daysSinceText === null;
+        const textIsStale = daysSinceText !== null && daysSinceText >= 7;
+        
+        if (daysSinceContact === null && hasNeverBeenTexted) {
+          // Never contacted AND never texted = highest priority
           reason = `Reach out to ${firstName}—they've never been contacted`;
+          urgency = 'high';
+        } else if (daysSinceContact === null && textIsStale) {
+          // Never called but text is stale
+          reason = `${firstName} needs a call—last text was ${daysSinceText}d ago`;
+          urgency = 'high';
+        } else if (daysSinceContact === null) {
+          // Never called but recently texted
+          reason = `Call ${firstName}—you've only texted recently`;
+          urgency = 'medium';
+        } else if (daysSinceContact >= 14 && hasNeverBeenTexted) {
+          // Very stale and never texted
+          reason = `${firstName} is cold—${daysSinceContact}d since contact, no texts`;
+          urgency = 'high';
+        } else if (daysSinceContact >= 14) {
+          reason = `It's been ${daysSinceContact} days since you contacted ${firstName}`;
+          urgency = 'high';
         } else {
-          reason = `It's been ${daysSince} days since you contacted ${firstName}`;
+          reason = `It's been ${daysSinceContact} days since you contacted ${firstName}`;
+          urgency = 'medium';
         }
         
         staleRecruits.push({
           recruit,
           reason,
-          urgency: daysSince === null ? 'high' : daysSince >= 14 ? 'high' : 'medium',
-          daysSinceContact: daysSince || undefined,
+          urgency,
+          daysSinceContact: daysSinceContact || undefined,
+          // Store text info for sorting (attach to existing field since we can't add new ones to type)
+          // We'll use urgency + daysSinceContact for sorting, prioritizing those never texted
         });
       }
     });
@@ -471,6 +515,12 @@ export const useNeedsAttention = (
         emoji: '🕐',
         count: staleRecruits.length,
         recruits: staleRecruits.sort((a, b) => {
+          // Sort by urgency first (high > medium > low)
+          const urgencyOrder = { high: 0, medium: 1, low: 2 };
+          if (urgencyOrder[a.urgency] !== urgencyOrder[b.urgency]) {
+            return urgencyOrder[a.urgency] - urgencyOrder[b.urgency];
+          }
+          // Then by days since contact (more days = higher priority)
           if (a.daysSinceContact === undefined) return -1;
           if (b.daysSinceContact === undefined) return 1;
           return b.daysSinceContact - a.daysSinceContact;

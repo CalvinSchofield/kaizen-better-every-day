@@ -54,8 +54,10 @@ export const useRecruitingRecommendations = (
     const now = new Date();
     const recommendations: RecruitRecommendation[] = [];
 
-    // Build a map of latest activity per recruit
+    // Build a map of latest activity per recruit (phone_call/in_person = real contact)
     const lastContactMap = new Map<string, Date>();
+    // Also track last text message separately (lower quality touchpoint)
+    const lastTextMap = new Map<string, Date>();
     // Build a map of scheduled follow-ups (track the latest next_action_due per recruit)
     const scheduledFollowUpMap = new Map<string, { dueDate: Date; createdAt: Date }>();
     const today = startOfDay(now);
@@ -63,12 +65,19 @@ export const useRecruitingRecommendations = (
     activities.forEach(activity => {
       const recruitId = activity.recruit_id;
       if (!recruitId) return;
+      const activityDate = parseISO(activity.created_at);
       
       if (activity.activity_type === 'phone_call' || activity.activity_type === 'in_person') {
         const existing = lastContactMap.get(recruitId);
-        const activityDate = parseISO(activity.created_at);
         if (!existing || activityDate > existing) {
           lastContactMap.set(recruitId, activityDate);
+        }
+      }
+      
+      if (activity.activity_type === 'text_message') {
+        const existing = lastTextMap.get(recruitId);
+        if (!existing || activityDate > existing) {
+          lastTextMap.set(recruitId, activityDate);
         }
       }
       
@@ -103,6 +112,15 @@ export const useRecruitingRecommendations = (
       const lastContact = lastContactMap.get(recruit.id);
       const lastContactStr = lastContact ? lastContact.toISOString().split('T')[0] : null;
       const daysSinceContact = lastContactStr ? getDaysSinceDate(lastContactStr) : null;
+      
+      // Also check last text for prioritization
+      const lastText = lastTextMap.get(recruit.id);
+      const lastTextStr = lastText ? lastText.toISOString().split('T')[0] : null;
+      const daysSinceText = lastTextStr ? getDaysSinceDate(lastTextStr) : null;
+      
+      // Determine if they're "cold" (no text contact either)
+      const hasNeverBeenTexted = daysSinceText === null;
+      const textIsStale = daysSinceText !== null && daysSinceText >= 7;
       
       // Check if recruit has a follow-up scheduled for AFTER today
       // If so, skip them - there's nothing to do until that date
@@ -245,18 +263,32 @@ export const useRecruitingRecommendations = (
         reasonBadge = 'pipeline';
       }
       // TIER 5: Stale contacts (any stage, 14+ days) - rookies get priority boost
+      // Also boost priority for those who haven't even been texted
       else if (daysSinceContact !== null && daysSinceContact >= 14) {
         const rookieBoost = isRookie ? 25 : 0;
-        priority = 20 + rookieBoost + Math.min(daysSinceContact, 30);
-        reason = `${firstName} needs attention—${daysSinceContact}d since contact`;
+        const coldBoost = hasNeverBeenTexted ? 15 : (textIsStale ? 8 : 0);
+        priority = 20 + rookieBoost + coldBoost + Math.min(daysSinceContact, 30);
+        reason = hasNeverBeenTexted 
+          ? `${firstName} is cold—${daysSinceContact}d since contact, no texts`
+          : `${firstName} needs attention—${daysSinceContact}d since contact`;
         reasonBadge = 'stale';
       }
       // TIER 6: Overdue based on cadence - rookies get priority boost
       else if (daysSinceContact !== null && daysSinceContact >= cadence) {
         const rookieBoost = isRookie ? 20 : 0;
-        priority = 30 + rookieBoost;
-        reason = `Follow up with ${firstName}—${daysSinceContact}d since last contact`;
+        const coldBoost = hasNeverBeenTexted ? 10 : (textIsStale ? 5 : 0);
+        priority = 30 + rookieBoost + coldBoost;
+        reason = hasNeverBeenTexted
+          ? `${firstName} needs outreach—${daysSinceContact}d, no texts`
+          : `Follow up with ${firstName}—${daysSinceContact}d since last contact`;
         reasonBadge = 'overdue';
+      }
+      // NEW TIER 6.5: Never called but also never texted (completely cold)
+      else if (daysSinceContact === null && hasNeverBeenTexted && recruit.stage !== '100 List') {
+        const rookieBoost = isRookie ? 15 : 0;
+        priority = 35 + rookieBoost;
+        reason = `Reach out to ${firstName}—never been contacted`;
+        reasonBadge = 'stale';
       }
 
       if (priority > 0) {
