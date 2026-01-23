@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, Users, Target, User, CheckCircle2 } from "lucide-react";
+import { Trophy, Users, Target, User, CheckCircle2, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
-import { Incentive, IncentiveMetric } from "@/hooks/useIncentives";
+import { Incentive, IncentiveMetric, isSoloPersonalGoal } from "@/hooks/useIncentives";
 import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { differenceInHours, differenceInDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
@@ -55,8 +55,10 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
   const isCompleted = incentive.status === 'completed';
   const isGroupTotal = incentive.target_type === 'group_total';
   const isAnyoneWho = incentive.target_type === 'anyone_who';
+  const isSoloGoal = isSoloPersonalGoal(incentive);
 
-  const { data: progressData } = useIncentiveProgress(isActive ? incentive : null);
+  // For completed incentives still in visibility window, we still want progress data
+  const { data: progressData } = useIncentiveProgress(incentive);
 
   // Fetch participant timezones to determine the latest end time
   const { data: participantTimezones } = useQuery({
@@ -128,41 +130,57 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <motion.div 
-              className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center"
+              className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center",
+                isSoloGoal ? "bg-primary/20" : "bg-amber-500/20"
+              )}
               animate={isActive ? { 
-                boxShadow: ["0 0 0 0 rgba(245, 158, 11, 0)", "0 0 0 8px rgba(245, 158, 11, 0.1)", "0 0 0 0 rgba(245, 158, 11, 0)"]
+                boxShadow: isSoloGoal 
+                  ? ["0 0 0 0 rgba(var(--primary), 0)", "0 0 0 8px rgba(var(--primary), 0.1)", "0 0 0 0 rgba(var(--primary), 0)"]
+                  : ["0 0 0 0 rgba(245, 158, 11, 0)", "0 0 0 8px rgba(245, 158, 11, 0.1)", "0 0 0 0 rgba(245, 158, 11, 0)"]
               } : {}}
               transition={{ repeat: Infinity, duration: 2 }}
             >
-              <Trophy className="h-5 w-5 text-amber-500" />
+              {isSoloGoal ? (
+                <Flag className="h-5 w-5 text-primary" />
+              ) : (
+                <Trophy className="h-5 w-5 text-amber-500" />
+              )}
             </motion.div>
             <div>
               <h3 className="font-semibold">{incentive.title}</h3>
               <p className="text-xs text-muted-foreground">
-                by {incentive.creator_name}
+                {isSoloGoal ? 'Personal Goal' : `by ${incentive.creator_name}`}
               </p>
             </div>
           </div>
           
           {isActive && (
-            <span className="text-xs font-medium bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
+            <span className={cn(
+              "text-xs font-medium px-2 py-0.5 rounded-full",
+              isSoloGoal 
+                ? "bg-primary/20 text-primary" 
+                : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+            )}>
               {getTimeRemaining}
             </span>
           )}
           {isCompleted && (
             <span className="text-xs font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-              Completed
+              {isSoloGoal ? 'Finished' : 'Completed'}
             </span>
           )}
         </div>
 
-        {/* Reward - with shimmer effect */}
-        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-xl p-3 mb-3">
-          <p className="text-xs text-muted-foreground mb-1">Prize</p>
-          <p className="font-semibold text-amber-600 dark:text-amber-400">
-            {incentive.reward}
-          </p>
-        </div>
+        {/* Reward - with shimmer effect (hide for solo goals) */}
+        {!isSoloGoal && (
+          <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-xl p-3 mb-3">
+            <p className="text-xs text-muted-foreground mb-1">Prize</p>
+            <p className="font-semibold text-amber-600 dark:text-amber-400">
+              {incentive.reward}
+            </p>
+          </div>
+        )}
 
         {/* Progress for active incentives */}
         <AnimatePresence>
@@ -315,20 +333,24 @@ export const IncentiveCard = ({ incentive }: IncentiveCardProps) => {
           <div className="flex items-center gap-1">
             <Target className="h-3.5 w-3.5" />
             <span>
-              {isGroupTotal 
-                ? `Group reaches ${incentive.target_value} ${metricLabels[incentive.metric]}`
-                : isAnyoneWho
-                  ? `Anyone who gets ${incentive.target_value} ${metricLabels[incentive.metric]}`
-                  : incentive.target_type === 'first_to' 
-                    ? `First to ${incentive.target_value} ${metricLabels[incentive.metric]}`
-                    : `Most ${metricLabels[incentive.metric]}`
+              {isSoloGoal 
+                ? `Goal: ${incentive.target_value} ${metricLabels[incentive.metric]}`
+                : isGroupTotal 
+                  ? `Group reaches ${incentive.target_value} ${metricLabels[incentive.metric]}`
+                  : isAnyoneWho
+                    ? `Anyone who gets ${incentive.target_value} ${metricLabels[incentive.metric]}`
+                    : incentive.target_type === 'first_to' 
+                      ? `First to ${incentive.target_value} ${metricLabels[incentive.metric]}`
+                      : `Most ${metricLabels[incentive.metric]}`
               }
             </span>
           </div>
-          <div className="flex items-center gap-1">
-            <Users className="h-3.5 w-3.5" />
-            <span>{incentive.eligible_count} eligible</span>
-          </div>
+          {!isSoloGoal && (
+            <div className="flex items-center gap-1">
+              <Users className="h-3.5 w-3.5" />
+              <span>{incentive.eligible_count} eligible</span>
+            </div>
+          )}
         </div>
 
         {/* Winner display for completed */}
