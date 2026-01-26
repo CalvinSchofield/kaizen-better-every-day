@@ -123,11 +123,14 @@ export const WeeklySyncPrompt = ({
     // Testing bypass: always show for test users
     const isTestUser = TEST_USER_IDS.includes(userId);
     
-    // Show if: needs verification AND (outside knocking hours OR test user) AND not recently confirmed
-    const shouldShow = 
-      effectiveData.needsVerification && 
-      (isOutsideKnockingHours(timezone) || isTestUser) && 
-      shouldShowPrompt(userId, seasonType);
+    // Show if:
+    // - NORMAL users: needs verification AND outside knocking hours AND not recently shown (cooldown)
+    // - TEST users (Calvin): always show (bypass time + cooldown + needsVerification) so we can validate UI quickly
+    const shouldShow = isTestUser
+      ? true
+      : effectiveData.needsVerification &&
+        isOutsideKnockingHours(timezone) &&
+        shouldShowPrompt(userId, seasonType);
     
     if (shouldShow) {
       // Small delay to not interrupt page load
