@@ -23,6 +23,7 @@ interface WeeklySyncPromptProps {
   seasonType: 'preseason' | 'summer';
   seasonStartDate: string;
   seasonEndDate: string;
+  timezone?: string | null;
 }
 
 const PROMPT_STORAGE_KEY = 'last-sync-prompt';
@@ -41,20 +42,50 @@ const shouldShowPrompt = (userId: string, seasonType: string): boolean => {
   return daysSincePrompt >= MIN_DAYS_BETWEEN_PROMPTS;
 };
 
-// Check if it's the right time to show (Sunday evening or Monday morning)
-const isPromptTime = (): boolean => {
-  const now = new Date();
-  const day = now.getDay();
-  const hour = now.getHours();
-  
-  // Sunday after 5pm, or Monday before noon
-  return (day === 0 && hour >= 17) || (day === 1 && hour < 12);
+/**
+ * Check if we should show the sync prompt based on rep's local time.
+ * BLOCKED during knocking hours:
+ * - Mon-Fri: 12 PM - 9 PM
+ * - Saturday: 9 AM - 9 PM
+ * ALLOWED all other times (mornings, evenings, Sunday)
+ */
+const isOutsideKnockingHours = (timezone: string | null | undefined): boolean => {
+  try {
+    const now = new Date();
+    
+    // Get day and hour in rep's timezone
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone || 'America/Los_Angeles',
+      weekday: 'short',
+      hour: 'numeric',
+      hour12: false,
+    });
+    
+    const parts = formatter.formatToParts(now);
+    const weekday = parts.find(p => p.type === 'weekday')?.value;
+    const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+    
+    // Sunday - no knocking hours, always show
+    if (weekday === 'Sun') return true;
+    
+    // Saturday - knocking hours 9 AM to 9 PM
+    if (weekday === 'Sat') {
+      return hour < 9 || hour >= 21; // Before 9 AM or 9 PM onward
+    }
+    
+    // Mon-Fri - knocking hours noon (12) to 9 PM (21)
+    return hour < 12 || hour >= 21; // Before noon or 9 PM onward
+  } catch {
+    // Fallback: allow prompt if timezone parsing fails
+    return true;
+  }
 };
 
 export const WeeklySyncPrompt = ({ 
   seasonType, 
   seasonStartDate, 
-  seasonEndDate 
+  seasonEndDate,
+  timezone 
 }: WeeklySyncPromptProps) => {
   const { userId } = useCurrentUserId();
   const [open, setOpen] = useState(false);
@@ -79,10 +110,10 @@ export const WeeklySyncPrompt = ({
   useEffect(() => {
     if (!userId || effectiveLoading || !effectiveData) return;
     
-    // Only show if: needs verification AND right time AND not recently shown
+    // Show if: needs verification AND outside knocking hours AND not recently confirmed
     const shouldShow = 
       effectiveData.needsVerification && 
-      isPromptTime() && 
+      isOutsideKnockingHours(timezone) && 
       shouldShowPrompt(userId, seasonType);
     
     if (shouldShow) {
@@ -90,7 +121,7 @@ export const WeeklySyncPrompt = ({
       const timer = setTimeout(() => setOpen(true), 2000);
       return () => clearTimeout(timer);
     }
-  }, [userId, effectiveData, effectiveLoading, seasonType]);
+  }, [userId, effectiveData, effectiveLoading, seasonType, timezone]);
 
   const handleVerify = () => {
     verifyTotals({ seasonType });
@@ -319,13 +350,15 @@ export const WeeklySyncPrompt = ({
 export const SyncPromptTrigger = ({ 
   seasonType,
   seasonStartDate,
-  seasonEndDate 
+  seasonEndDate,
+  timezone
 }: WeeklySyncPromptProps) => {
   return (
     <WeeklySyncPrompt 
       seasonType={seasonType}
       seasonStartDate={seasonStartDate}
       seasonEndDate={seasonEndDate}
+      timezone={timezone}
     />
   );
 };

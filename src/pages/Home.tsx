@@ -1850,11 +1850,12 @@ const Home = () => {
         }
       `}</style>
       
-      {/* Weekly sync prompt - shows on Sunday evening/Monday morning */}
+      {/* Weekly sync prompt - shows outside knocking hours until confirmed */}
       <SyncPromptTrigger 
         seasonType="preseason"
         seasonStartDate="2025-09-28"
         seasonEndDate="2026-04-11"
+        timezone={repData?.timezone}
       />
     </div>
   );
