@@ -28,10 +28,10 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
     return Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [];
   }, [repData?.committed_blitzes]);
 
-  // Check if user has been marked as Shadow ✅ (completed shadow day)
-  const hasCompletedShadow = useMemo(() => {
+  // Check if stage qualifies for unlock (shadow or sold)
+  const hasQualifyingStage = useMemo(() => {
     const stage = repData?.stage?.toLowerCase() || '';
-    return stage.includes('shadow');
+    return stage.includes('shadow') || stage.includes('sold');
   }, [repData?.stage]);
 
   // Check if currently on an active blitz
@@ -73,8 +73,8 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
   // Combined check: any of these conditions unlocks features
   const hasAttendedOrOnBlitz = hasAttendedBlitz || isOnActiveBlitz;
   
-  // Ultimate unlock: blitz OR shadow ✅
-  const isUnlocked = hasAttendedOrOnBlitz || hasCompletedShadow;
+  // Ultimate unlock: blitz OR qualifying stage (shadow/sold)
+  const isUnlocked = hasAttendedOrOnBlitz || hasQualifyingStage;
   
   // Pre-blitz status (locked)
   const isPreBlitzRookie = isRookie && !isUnlocked;
@@ -84,7 +84,7 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
     hasAttendedBlitz,
     isOnActiveBlitz,
     hasAttendedOrOnBlitz,
-    hasCompletedShadow,
+    hasCompletedShadow: hasQualifyingStage, // Keep name for backwards compatibility
     isUnlocked,
     isPreBlitzRookie,
   };
@@ -100,9 +100,9 @@ export const checkRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
     ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
     : [];
 
-  // Check if user has been marked as Shadow ✅
+  // Check if stage qualifies for unlock (shadow or sold)
   const stage = repData?.stage?.toLowerCase() || '';
-  const hasCompletedShadow = stage.includes('shadow');
+  const hasQualifyingStage = stage.includes('shadow') || stage.includes('sold');
 
   const now = new Date();
   const year = now.getFullYear();
@@ -128,7 +128,7 @@ export const checkRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
   });
 
   const hasAttendedOrOnBlitz = hasAttendedBlitz || isOnActiveBlitz;
-  const isUnlocked = hasAttendedOrOnBlitz || hasCompletedShadow;
+  const isUnlocked = hasAttendedOrOnBlitz || hasQualifyingStage;
   const isPreBlitzRookie = isRookie && !isUnlocked;
 
   return {
@@ -136,7 +136,7 @@ export const checkRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
     hasAttendedBlitz,
     isOnActiveBlitz,
     hasAttendedOrOnBlitz,
-    hasCompletedShadow,
+    hasCompletedShadow: hasQualifyingStage, // Keep name for backwards compatibility
     isUnlocked,
     isPreBlitzRookie,
   };
