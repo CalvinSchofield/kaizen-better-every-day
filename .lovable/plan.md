@@ -1,198 +1,142 @@
 
 
-# Weekly Sync Check - Timing Update
+# Fix Rookie Unlock Logic for Sold Reps
 
-## Overview
-Update the Weekly Sync Check prompt to show **every morning** until the rep confirms their numbers, but **never during knocking hours** when reps are actively in the field.
+## Problem
 
----
+Weston Smith is locked out of Track/Calendar despite having already tracked sales because the unlock logic doesn't account for reps in "Sold" stages.
 
-## Current State
+**Current unlock conditions** (in `src/hooks/useRookieUnlockStatus.ts`):
+1. Has attended a past blitz
+2. Is currently on an active blitz  
+3. Stage includes "shadow"
 
-The existing logic in `src/components/catchup/WeeklySyncPrompt.tsx` (lines 44-52):
-```typescript
-const isPromptTime = (): boolean => {
-  const now = new Date();
-  const day = now.getDay();
-  const hour = now.getHours();
-  
-  // Sunday after 5pm, or Monday before noon
-  return (day === 0 && hour >= 17) || (day === 1 && hour < 12);
-};
-```
-
-**Problems:**
-1. Uses device local time, not the rep's stored timezone
-2. Only shows Sunday evening/Monday morning
-3. Doesn't account for knocking hours
+**Missing conditions**:
+- Stage includes "sold" (covers "Sold 💲" and "Sold (5+) 💰")
 
 ---
 
-## New Timing Logic
+## Solution
 
-### Requirements
-Show the prompt **outside of knocking hours** in the rep's local timezone:
-
-| Day | Knocking Hours (BLOCKED) | Prompt Allowed |
-|-----|--------------------------|----------------|
-| Sunday | None | All day |
-| Monday | 12 PM - 9 PM | Before noon OR after 9 PM |
-| Tuesday | 12 PM - 9 PM | Before noon OR after 9 PM |
-| Wednesday | 12 PM - 9 PM | Before noon OR after 9 PM |
-| Thursday | 12 PM - 9 PM | Before noon OR after 9 PM |
-| Friday | 12 PM - 9 PM | Before noon OR after 9 PM |
-| Saturday | 9 AM - 9 PM | Before 9 AM OR after 9 PM |
+Update `useRookieUnlockStatus.ts` to also unlock rookies whose stage contains "sold".
 
 ---
 
 ## Technical Changes
 
-### File: `src/components/catchup/WeeklySyncPrompt.tsx`
+### File: `src/hooks/useRookieUnlockStatus.ts`
 
-#### 1. Update Props Interface
-Add timezone prop to the component:
+#### 1. Rename and expand the stage check
+
+**Current code (lines 30-33):**
 ```typescript
-interface WeeklySyncPromptProps {
-  seasonType: 'preseason' | 'summer';
-  seasonStartDate: string;
-  seasonEndDate: string;
-  timezone?: string | null; // Rep's local timezone
-}
+const hasCompletedShadow = useMemo(() => {
+  const stage = repData?.stage?.toLowerCase() || '';
+  return stage.includes('shadow');
+}, [repData?.stage]);
 ```
 
-#### 2. Create Timezone-Aware Prompt Time Check
-Replace the simple `isPromptTime()` function with a timezone-aware version:
-
+**New code:**
 ```typescript
-import { getHourInRepTimezone } from '@/hooks/useKnockingState';
+// Check if stage qualifies for unlock (shadow or sold)
+const hasQualifyingStage = useMemo(() => {
+  const stage = repData?.stage?.toLowerCase() || '';
+  return stage.includes('shadow') || stage.includes('sold');
+}, [repData?.stage]);
+```
 
-/**
- * Check if we should show the sync prompt based on rep's local time.
- * BLOCKED during knocking hours:
- * - Mon-Fri: 12 PM - 9 PM
- * - Saturday: 9 AM - 9 PM
- * ALLOWED all other times (mornings, evenings, Sunday)
- */
-const isOutsideKnockingHours = (timezone: string | null | undefined): boolean => {
-  const now = new Date();
-  
-  // Get day and hour in rep's timezone
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone || 'America/Los_Angeles',
-    weekday: 'short',
-    hour: 'numeric',
-    hour12: false,
-  });
-  
-  const parts = formatter.formatToParts(now);
-  const weekday = parts.find(p => p.type === 'weekday')?.value;
-  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
-  
-  // Sunday - no knocking hours, always show
-  if (weekday === 'Sun') return true;
-  
-  // Saturday - knocking hours 9 AM to 9 PM
-  if (weekday === 'Sat') {
-    return hour < 9 || hour >= 21; // Before 9 AM or 9 PM onward
-  }
-  
-  // Mon-Fri - knocking hours noon (12) to 9 PM (21)
-  return hour < 12 || hour >= 21; // Before noon or 9 PM onward
+#### 2. Update the unlock calculation
+
+**Current code (lines 62-66):**
+```typescript
+const hasAttendedOrOnBlitz = hasAttendedBlitz || isOnActiveBlitz;
+
+// Ultimate unlock: blitz OR shadow ✅
+const isUnlocked = hasAttendedOrOnBlitz || hasCompletedShadow;
+```
+
+**New code:**
+```typescript
+const hasAttendedOrOnBlitz = hasAttendedBlitz || isOnActiveBlitz;
+
+// Ultimate unlock: blitz OR qualifying stage (shadow/sold)
+const isUnlocked = hasAttendedOrOnBlitz || hasQualifyingStage;
+```
+
+#### 3. Update return values
+
+**Current:**
+```typescript
+return {
+  isRookie,
+  hasAttendedBlitz,
+  isOnActiveBlitz,
+  hasAttendedOrOnBlitz,
+  hasCompletedShadow,
+  isUnlocked,
+  isPreBlitzRookie,
 };
 ```
 
-#### 3. Update Component to Accept Timezone
-The component needs to receive timezone from the parent:
+**New:**
 ```typescript
-export const WeeklySyncPrompt = ({ 
-  seasonType, 
-  seasonStartDate, 
-  seasonEndDate,
-  timezone 
-}: WeeklySyncPromptProps) => {
-  // ... existing code ...
-  
-  useEffect(() => {
-    if (!userId || effectiveLoading || !effectiveData) return;
-    
-    // Show if: needs verification AND outside knocking hours AND not recently confirmed
-    const shouldShow = 
-      effectiveData.needsVerification && 
-      isOutsideKnockingHours(timezone) && 
-      shouldShowPrompt(userId, seasonType);
-    
-    if (shouldShow) {
-      const timer = setTimeout(() => setOpen(true), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [userId, effectiveData, effectiveLoading, seasonType, timezone]);
-  
-  // ... rest of component
+return {
+  isRookie,
+  hasAttendedBlitz,
+  isOnActiveBlitz,
+  hasAttendedOrOnBlitz,
+  hasCompletedShadow: hasQualifyingStage, // Keep name for backwards compatibility
+  isUnlocked,
+  isPreBlitzRookie,
 };
 ```
 
-#### 4. Update SyncPromptTrigger
+#### 4. Update the pure function version
+
+Apply the same changes to `checkRookieUnlockStatus()` function (lines 82-118):
+
 ```typescript
-export const SyncPromptTrigger = ({ 
-  seasonType,
-  seasonStartDate,
-  seasonEndDate,
-  timezone
-}: WeeklySyncPromptProps) => {
-  return (
-    <WeeklySyncPrompt 
-      seasonType={seasonType}
-      seasonStartDate={seasonStartDate}
-      seasonEndDate={seasonEndDate}
-      timezone={timezone}
-    />
-  );
+// Check if stage qualifies for unlock (shadow or sold)
+const stage = repData?.stage?.toLowerCase() || '';
+const hasQualifyingStage = stage.includes('shadow') || stage.includes('sold');
+
+// ... blitz checking logic stays the same ...
+
+const hasAttendedOrOnBlitz = hasAttendedBlitz || isOnActiveBlitz;
+const isUnlocked = hasAttendedOrOnBlitz || hasQualifyingStage;
+const isPreBlitzRookie = isRookie && !isUnlocked;
+
+return {
+  isRookie,
+  hasAttendedBlitz,
+  isOnActiveBlitz,
+  hasAttendedOrOnBlitz,
+  hasCompletedShadow: hasQualifyingStage,
+  isUnlocked,
+  isPreBlitzRookie,
 };
-```
-
-### File: `src/pages/Home.tsx`
-
-Update the SyncPromptTrigger usage to pass timezone:
-```typescript
-// Around line 1854-1858
-<SyncPromptTrigger 
-  seasonType="preseason"
-  seasonStartDate="2025-09-28"
-  seasonEndDate="2026-04-11"
-  timezone={repData?.timezone}
-/>
 ```
 
 ---
 
-## Logic Summary
+## Unlock Logic Summary
 
-```text
-Rep opens app at any time
-    |
-    v
-[Check 1] Needs verification? (7+ days since last check)
-    |-- No --> Don't show
-    |-- Yes --> Continue
-    v
-[Check 2] Outside knocking hours in rep's timezone?
-    |-- No (currently knocking hours) --> Don't show
-    |-- Yes --> Continue
-    v
-[Check 3] Not recently dismissed?
-    |-- Recently dismissed --> Don't show
-    |-- OK --> Show prompt
-```
+A rookie gets **full access** to Track, Calendar, Insights if ANY of these are true:
 
-**Knocking Hours Summary (when prompt is HIDDEN):**
-- Sunday: Never hidden
-- Monday-Friday: 12 PM - 9 PM local time
-- Saturday: 9 AM - 9 PM local time
+| Condition | Example |
+|-----------|---------|
+| Past blitz attended | Blitz ended before today |
+| Currently on active blitz | Today is within blitz dates |
+| Stage contains "shadow" | "Shadow ✅" |
+| Stage contains "sold" | "Sold 💲" or "Sold (5+) 💰" |
 
-**Best times for prompt (when it WILL show):**
-- Sunday: Any time
-- Monday-Friday: Morning (before noon) or evening (after 9 PM)
-- Saturday: Early morning (before 9 AM) or evening (after 9 PM)
+---
+
+## Impact
+
+- **Weston Smith**: Stage is "Sold 💲" → Now unlocked
+- **Any rookie marked Sold or Sold (5+)**: Now unlocked
+- **No changes** to existing shadow/blitz unlock logic
 
 ---
 
@@ -200,6 +144,5 @@ Rep opens app at any time
 
 | File | Change |
 |------|--------|
-| `src/components/catchup/WeeklySyncPrompt.tsx` | Replace `isPromptTime()` with timezone-aware `isOutsideKnockingHours()`, add timezone prop |
-| `src/pages/Home.tsx` | Pass `repData?.timezone` to SyncPromptTrigger |
+| `src/hooks/useRookieUnlockStatus.ts` | Add "sold" stage check to unlock conditions |
 
