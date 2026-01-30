@@ -105,6 +105,12 @@ export const CalendarPlanningCard = ({
   const [dismissedTakeOffDayWarning, setDismissedTakeOffDayWarning] = useState(false);
   const [blitzCommitPrompt, setBlitzCommitPrompt] = useState<{ blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null } } | null>(null);
   const [declinedBlitzPrompts, setDeclinedBlitzPrompts] = useState<Set<string>>(new Set());
+  // Confirmation drawer for removing worked days (referral/didn't knock)
+  const [workedDayRemovalConfirm, setWorkedDayRemovalConfirm] = useState<{
+    open: boolean;
+    date: string;
+    fpValue: number;
+  } | null>(null);
   
   const { plannedDays, togglePlannedDay, isDatePlanned, isToggling } = usePlannedDays();
   const { 
@@ -166,7 +172,7 @@ export const CalendarPlanningCard = ({
 
   // Query to get actual days worked (finalized entries with real activity) AND FP+ data
   // Also tracks "knocking days" (doors >= 5 AND work times) for pace calculation
-  const { data: workedDaysData, refetch: refetchWorkedDays } = useQuery({
+  const { data: workedDaysData, refetch: refetchWorkedDays, isLoading: isLoadingWorkedDays, isFetching: isFetchingWorkedDays } = useQuery({
     queryKey: ['worked-days-data', repData?.user_id, personalSummerStart, personalSummerEnd],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -845,11 +851,19 @@ export const CalendarPlanningCard = ({
     // Don't allow Sundays or days after personal summer end
     if (dayOfWeek === 0 || date > userSummerEndDate) return;
     
-    // For past dates: only allow REMOVING planned days that weren't worked
+    // For past dates: handle removal confirmation for worked days
     if (isPast) {
       if (isCurrentlyPlanned && !isWorked) {
         // Allow removal of past planned day that wasn't worked
         await togglePlannedDay(dateStr);
+      } else if (isCurrentlyPlanned && isWorked) {
+        // Show confirmation drawer for removing a worked day (referral/didn't actually knock)
+        const fpValue = getFpForDate(dateStr) || 0;
+        setWorkedDayRemovalConfirm({
+          open: true,
+          date: dateStr,
+          fpValue
+        });
       }
       // Block all other past date interactions
       return;
@@ -1042,11 +1056,17 @@ export const CalendarPlanningCard = ({
 
       {/* Calendar Grid - Rendered by week rows for blitz range highlighting */}
       <div 
-        className="space-y-1" 
+        className={cn("space-y-1 relative", isLoadingWorkedDays && "opacity-50")} 
         style={swipeStyle} 
         {...swipeHandlers}
         data-tour="goals-date-grid"
       >
+        {/* Loading overlay */}
+        {isLoadingWorkedDays && (
+          <div className="absolute inset-0 flex items-center justify-center z-20 bg-background/30">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
         {(() => {
           // Build week rows with empty cells for offset
           const allCells: (Date | null)[] = [
@@ -1126,7 +1146,9 @@ export const CalendarPlanningCard = ({
                   const isAfterPersonalSummerEnd = day > userSummerEnd;
                   // Allow past planned days that weren't worked to be clickable for removal
                   const canRemovePastPlanned = isPast && isPlanned && !isWorked;
-                  const isDisabled = (isPast && !canRemovePastPlanned) || isSunday || isAfterPersonalSummerEnd;
+                  // Allow past worked days to be clickable for confirmation (referral clarification)
+                  const canConfirmPastWorked = isPast && isPlanned && isWorked;
+                  const isDisabled = (isPast && !canRemovePastPlanned && !canConfirmPastWorked) || isSunday || isAfterPersonalSummerEnd;
                   
                   const isExcludedSummerDay = excludedSummerDays.includes(dateStr);
                   const isInSummerRange = day >= userSummerStart && day <= userSummerEnd && !isPast;
@@ -1137,12 +1159,13 @@ export const CalendarPlanningCard = ({
                     <button
                       key={dateStr}
                       onClick={() => handleDayClick(day)}
-                      disabled={isDisabled || isToggling}
+                      disabled={isDisabled || isToggling || isLoadingWorkedDays}
                       className={cn(
                         "aspect-square rounded-lg text-sm font-medium transition-all relative z-10",
                         "flex flex-col items-center justify-center",
                         (isSunday || isAfterPersonalSummerEnd) && "opacity-30 cursor-not-allowed",
-                        isWorked && !isSunday && "bg-emerald-500/30 text-emerald-700 dark:text-emerald-300 cursor-default",
+                        isWorked && !isSunday && "bg-emerald-500/30 text-emerald-700 dark:text-emerald-300",
+                        isWorked && !isSunday && canConfirmPastWorked && "cursor-pointer hover:bg-emerald-500/40",
                         isPlanned && !isWorked && !isExcludedSummerDay && "bg-primary text-primary-foreground hover:bg-primary/90",
                         isPast && !isWorked && !isSunday && !isAfterPersonalSummerEnd && "opacity-30 cursor-not-allowed",
                         !isDisabled && !isPlanned && !isWorked && !isExcludedSummerDay && "hover:bg-accent cursor-pointer",
@@ -1952,6 +1975,56 @@ export const CalendarPlanningCard = ({
               }}
             >
               No, Just Knocking Elsewhere
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Worked Day Removal Confirmation Drawer */}
+      <Drawer open={workedDayRemovalConfirm?.open ?? false} onOpenChange={(open) => !open && setWorkedDayRemovalConfirm(null)}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Remove this working day?</DrawerTitle>
+            <DrawerDescription>
+              This day has {isEfpMode ? 'EFP' : 'FP+'} logged. Are you sure you didn't knock doors?
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            {workedDayRemovalConfirm && (
+              <div className="p-4 bg-muted rounded-lg text-center">
+                <p className="text-sm text-muted-foreground mb-1">
+                  {format(parseLocalDate(workedDayRemovalConfirm.date), 'EEEE, MMM d')}
+                </p>
+                <p className="text-2xl font-semibold">
+                  {workedDayRemovalConfirm.fpValue.toFixed(1)} {isEfpMode ? 'EFP' : 'FP+'}
+                </p>
+              </div>
+            )}
+
+            <p className="text-sm text-muted-foreground text-center">
+              If this was a referral sale or you didn't actually knock, removing it will adjust your pace calculations.
+            </p>
+
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={async () => {
+                if (workedDayRemovalConfirm) {
+                  await togglePlannedDay(workedDayRemovalConfirm.date);
+                  setWorkedDayRemovalConfirm(null);
+                  toast.success("Day removed from your schedule");
+                }
+              }}
+            >
+              Yes, Remove This Day
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setWorkedDayRemovalConfirm(null)}
+            >
+              Cancel
             </Button>
           </div>
         </DrawerContent>
