@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Receipt } from 'lucide-react';
+import { Receipt, Pencil } from 'lucide-react';
 import { DollarSign, Clock, TrendingUp, Zap, Award, Target, ArrowRight, CalendarCheck, MapPin, Flame, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCustomerInsights, DealHighlight } from '@/hooks/useCustomerInsights';
@@ -12,6 +12,10 @@ import { motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { CompactROICard } from './CompactROICard';
 import { calculateUpfrontPay, calculateUpfrontRoi, calculateNetPay, isPositiveRoi, formatRoi } from '@/utils/roiCalculations';
+import { SpendingOverrideSheet } from '@/components/goals/earnings/SpendingOverrideSheet';
+import { useOfficialTotals } from '@/hooks/useOfficialTotals';
+import { usePreseasonFP } from '@/hooks/usePreseasonFP';
+import { hapticLight } from '@/utils/haptics';
 
 // Helper to format minutes as human readable
 const formatMinutes = (minutes: number): string => {
@@ -166,6 +170,11 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
   const navigate = useNavigate();
   const { goals } = useRepGoals();
   const { efpModeEnabled } = useEfpMode();
+  const { totalFP } = usePreseasonFP();
+  const { getTotals, upsertTotalsAsync, isUpserting } = useOfficialTotals('summer');
+  
+  // Spending override sheet state
+  const [isSpendingSheetOpen, setIsSpendingSheetOpen] = useState(false);
   
   // Track current ROI rate and mode for child calculations (passed from CompactROICard)
   const [currentRoiState, setCurrentRoiState] = useState<{ rate: number; mode: 'upfront' | 'total' }>({ 
@@ -177,6 +186,10 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
   const handleRoiRateChange = useCallback((rate: number, mode: 'upfront' | 'total') => {
     setCurrentRoiState({ rate, mode });
   }, []);
+  
+  // Get current spending override
+  const summerTotals = getTotals('summer');
+  const currentSpendingOverride = summerTotals?.total_spent ?? null;
 
   // Calculate ROI at user's pay level for child component calculations
   const customPayLevel = goals?.custom_payscale_fp ?? null;
@@ -225,8 +238,35 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
     );
   }
 
-  // Calculate spend total for child components
-  const totalSpent = insights.totalMoneySpent || 0;
+  // Calculate spend total for child components - use effective spending (max of tracked vs override)
+  const trackedSpent = insights.totalMoneySpent || 0;
+  const effectiveSpending = currentSpendingOverride && currentSpendingOverride > 0 
+    ? Math.max(trackedSpent, currentSpendingOverride) 
+    : trackedSpent;
+  const totalSpent = effectiveSpending;
+  
+  // Handle spending override save
+  const handleSaveSpendingOverride = useCallback(async (amount: number | null) => {
+    try {
+      await upsertTotalsAsync({
+        season_year: 2025,
+        season_type: 'summer',
+        fp_plus: summerTotals?.fp_plus ?? 0,
+        prmr: summerTotals?.prmr ?? 0,
+        knocking_days: summerTotals?.knocking_days ?? 0,
+        total_spent: amount ?? 0,
+        verified_by: 'self',
+      });
+      setIsSpendingSheetOpen(false);
+    } catch (error) {
+      console.error('Failed to save spending override:', error);
+    }
+  }, [upsertTotalsAsync, summerTotals]);
+  
+  const handleOpenSpendingSheet = useCallback(() => {
+    hapticLight();
+    setIsSpendingSheetOpen(true);
+  }, []);
 
   // Calculate ROI for FP types
   const getFpTypeRoi = (type: 'fresh' | 'takeover' | 'diy') => {
@@ -338,11 +378,12 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
       {/* Cost and ROI Stats - Uniform sizing */}
       {insights.hasMoneySpentData && (
         <div className="grid grid-cols-2 gap-3 items-stretch">
-          <motion.div
+        <motion.button
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="p-3 h-full rounded-2xl bg-muted/50 text-center flex flex-col justify-center"
+            onClick={handleOpenSpendingSheet}
+            className="p-3 h-full rounded-2xl bg-muted/50 text-center flex flex-col justify-center active:scale-[0.97] transition-transform relative group"
           >
             <div className="text-2xl font-bold">
               ${(efpModeEnabled ? insights.avgCostPerEfp : insights.avgCostPerFpPlus).toFixed(2)}
@@ -350,7 +391,17 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
             <div className="text-xs text-muted-foreground">
               Avg Cost / {efpModeEnabled ? 'EFP' : 'FP+'}
             </div>
-          </motion.div>
+            {/* Small edit indicator */}
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity">
+              <Pencil className="h-3 w-3 text-muted-foreground" />
+            </div>
+            {/* Override indicator */}
+            {currentSpendingOverride && currentSpendingOverride > 0 && (
+              <div className="absolute bottom-1 right-1">
+                <div className="w-2 h-2 rounded-full bg-primary" />
+              </div>
+            )}
+          </motion.button>
           <CompactROICard
             totalSpent={totalSpent}
             totalPrmr={insights.totalPrmr}
@@ -805,6 +856,20 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
           </CardContent>
         </Card>
       )}
+      
+      {/* Spending Override Sheet */}
+      <SpendingOverrideSheet
+        open={isSpendingSheetOpen}
+        onOpenChange={setIsSpendingSheetOpen}
+        trackedSpending={trackedSpent}
+        currentOverride={currentSpendingOverride}
+        dealsCount={insights.totalDeals}
+        onSave={handleSaveSpendingOverride}
+        efpModeEnabled={efpModeEnabled}
+        totalFp={totalFP}
+        totalPrmr={insights.totalPrmr}
+        isSaving={isUpserting}
+      />
     </div>
   );
 };

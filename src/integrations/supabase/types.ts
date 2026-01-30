@@ -974,6 +974,7 @@ export type Database = {
           prmr: number | null
           season_type: string
           season_year: number
+          total_spent: number | null
           updated_at: string | null
           user_id: string
           verified_by: string | null
@@ -988,6 +989,7 @@ export type Database = {
           prmr?: number | null
           season_type: string
           season_year: number
+          total_spent?: number | null
           updated_at?: string | null
           user_id: string
           verified_by?: string | null
@@ -1002,6 +1004,7 @@ export type Database = {
           prmr?: number | null
           season_type?: string
           season_year?: number
+          total_spent?: number | null
           updated_at?: string | null
           user_id?: string
           verified_by?: string | null

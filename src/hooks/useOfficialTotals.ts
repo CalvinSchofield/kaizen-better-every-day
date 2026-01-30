@@ -11,6 +11,7 @@ export interface OfficialTotals {
   fp_plus: number;
   prmr: number;
   knocking_days: number;
+  total_spent: number;
   last_verified_at: string | null;
   verified_by: 'self' | 'leader' | 'import' | null;
   notes: string | null;
@@ -24,6 +25,7 @@ export interface UpsertOfficialTotalsParams {
   fp_plus: number;
   prmr: number;
   knocking_days: number;
+  total_spent?: number;
   verified_by?: 'self' | 'leader' | 'import';
   notes?: string;
   user_id?: string; // For leader updates
@@ -71,6 +73,7 @@ export const useOfficialTotals = (seasonType?: 'preseason' | 'summer') => {
           fp_plus: params.fp_plus,
           prmr: params.prmr,
           knocking_days: params.knocking_days,
+          total_spent: params.total_spent ?? 0,
           last_verified_at: new Date().toISOString(),
           verified_by: params.verified_by || 'self',
           notes: params.notes,
@@ -204,6 +207,7 @@ export const useDownlineOfficialTotals = (userIds: string[]) => {
           fp_plus: params.fp_plus,
           prmr: params.prmr,
           knocking_days: params.knocking_days,
+          total_spent: params.total_spent ?? 0,
           last_verified_at: new Date().toISOString(),
           verified_by: 'leader',
           notes: params.notes,
