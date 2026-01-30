@@ -1,219 +1,156 @@
 
-# Enhance CatchUpWizard with EFP Mode + Proper Curator Guidance
+# Add Total Spending Baseline Override
 
 ## Overview
 
-Update the CatchUpWizard to:
-1. **Support EFP Mode**: Show "EFP" instead of "FP+" for veterans with EFP mode enabled
-2. **Fix the help link**: Point to Curator production report instead of vivint.com
-3. **Add explicit guidance**: Make it clear users need TOTAL sold (funded + unfunded)
+Allow users to manually enter their total season spending amount to reconcile discrepancies between tracked deal spending and actual spending (buyouts, promos, free months, etc.).
 
 ---
 
-## Technical Changes
+## Solution Approach
 
-### File: `src/components/catchup/CatchUpWizard.tsx`
+### Option A: Add to `official_totals` table (Recommended)
+Add a `total_spent` column to the existing `official_totals` table. This keeps all "official/verified" season baselines in one place (FP+, PRMR, knocking days, and now spending).
 
-#### 1. Use EFP mode properly in the component
+### How It Works
+1. **Baseline Override**: User enters their TOTAL amount spent this season (from Source/buyouts)
+2. **Calculation**: Earnings calculations use `max(tracked_spent, official_baseline)` or add difference
+3. **Access Point**: Tap on the "Avg Cost / EFP" card on Insights page to open adjustment sheet
 
-**Current (line 45):**
+---
+
+## UI/UX Design
+
+### Entry Point 1: Tap the "Avg Cost / EFP" Card
+The card shown in the screenshot (circled - "$34.95 Avg Cost / EFP") becomes tappable:
+- Opens a drawer/sheet for adjusting total spending
+- Similar pattern to tapping other cards in the app
+
+### Entry Point 2: Earnings Breakdown Card
+In the Goals page EarningsBreakdownCard, add a small "Adjust" link near the spending figures.
+
+### Spending Override Sheet
+```
+┌─────────────────────────────────────────┐
+│  Total Season Spending                  │
+│                                         │
+│  Your tracked spending: $1,875          │
+│  (from 45 deals logged)                 │
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │  Actual Total Spent             │    │
+│  │  $ [_______2,340_______]        │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  🔗 Check buyouts on Source             │
+│                                         │
+│  ─────────────────────────────────────  │
+│  Your adjusted totals:                  │
+│  • Avg Cost/EFP: $37.24 → $40.21        │
+│  • Net Upfront: $16,365 → $15,900       │
+│                                         │
+│         [ Save Adjustment ]             │
+└─────────────────────────────────────────┘
+```
+
+### Key Features
+1. **Shows tracked vs actual**: Clear comparison
+2. **Link to Source**: Opens Curator Source page to find buyout totals
+3. **Live preview**: Updates ROI/net calculations as they type
+4. **Optional**: Not required, only for users who care about accuracy
+
+---
+
+## Technical Implementation
+
+### Phase 1: Database Schema
+
+**Migration: Add column to `official_totals`**
+```sql
+ALTER TABLE official_totals 
+ADD COLUMN IF NOT EXISTS total_spent numeric DEFAULT 0;
+```
+
+### Phase 2: Hook Updates
+
+**Update `useOfficialTotals.ts`**
+- Add `total_spent` to the interface and upsert mutation
+
+### Phase 3: New Component
+
+**Create `SpendingOverrideSheet.tsx`**
 ```typescript
-const { calculateEfp } = useEfpMode();
+interface SpendingOverrideSheetProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  trackedSpending: number;
+  currentOverride: number | null;
+  onSave: (amount: number) => void;
+  efpModeEnabled: boolean;
+  totalFp: number;
+}
 ```
 
-**Updated:**
+### Phase 4: Integrate into UI
+
+1. **InsightsDealsTab.tsx**: Make the "Avg Cost/EFP" card tappable to open the sheet
+2. **EarningsBreakdownCard.tsx**: Add small "Adjust" link and use override in calculations
+3. **RecapDealBreakdownSlide.tsx**: Use override in ROI calculations
+
+### Phase 5: Calculation Logic
+
+**Spending calculation with override:**
 ```typescript
-const { efpModeEnabled, calculateEfp } = useEfpMode();
-const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
+const effectiveSpending = useMemo(() => {
+  const trackedSpent = salesData?.totalSpent || 0;
+  const officialSpent = officialTotals?.total_spent || 0;
+  
+  // Use the higher of: tracked OR official override
+  // This handles: "I actually spent more than I tracked"
+  return Math.max(trackedSpent, officialSpent);
+}, [salesData, officialTotals]);
 ```
-
-#### 2. Add Curator URL constants (after imports)
-
-```typescript
-// External URLs for guidance
-const CURATOR_PRODUCTION_URL = 'https://curator.vivint.com/dashboard/production-test-production-report';
-const SOURCE_EARNINGS_URL = 'https://curator.vivint.com/dashboard/source-accountdetailsearnings?';
-```
-
-#### 3. Update the 'fp' step with dynamic labels and proper guidance
-
-**Current (lines 120-149):**
-```tsx
-case 'fp':
-  return (
-    <div className="space-y-4">
-      <div className="text-center mb-6">
-        <h3 className="text-lg font-semibold">How many FP+ have you sold?</h3>
-        <p className="text-sm text-muted-foreground">
-          Check your Vivint app for your exact {seasonType} FP+ total
-        </p>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="fp-input">Total FP+</Label>
-        <Input ... />
-      </div>
-      <button 
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        onClick={() => window.open('https://www.vivint.com', '_blank')}
-      >
-        <HelpCircle className="h-4 w-4" />
-        Where do I find this?
-      </button>
-    </div>
-  );
-```
-
-**Updated:**
-```tsx
-case 'fp':
-  return (
-    <div className="space-y-4">
-      <div className="text-center mb-6">
-        <h3 className="text-lg font-semibold">
-          {efpModeEnabled 
-            ? "What's your total EFP sold?" 
-            : "How many FP+ have you sold?"}
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Enter your <strong>TOTAL</strong> {seasonType} {metricLabel} — both funded AND unfunded
-        </p>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="fp-input">Total {metricLabel} Sold</Label>
-        <Input
-          id="fp-input"
-          type="number"
-          inputMode="decimal"
-          placeholder={efpModeEnabled ? "e.g., 62.9" : "e.g., 12.5"}
-          value={fpPlus}
-          onChange={(e) => setFpPlus(e.target.value)}
-          className="text-2xl h-14 text-center"
-          autoFocus
-        />
-      </div>
-      
-      {/* Guidance card for finding the number */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="pt-4 space-y-3">
-          <button 
-            className="flex items-center gap-2 text-sm font-medium text-primary hover:underline w-full"
-            onClick={() => window.open(CURATOR_PRODUCTION_URL, '_blank')}
-          >
-            <HelpCircle className="h-4 w-4" />
-            Where do I find this?
-            <ExternalLink className="h-3 w-3 ml-auto" />
-          </button>
-          <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside pl-1">
-            <li>Open the <strong>Production Report</strong> on Curator</li>
-            <li>Change "Funded" dropdown to <strong>"(All)"</strong></li>
-            <li>Find your <strong>total {metricLabel}</strong> (includes unfunded)</li>
-          </ol>
-        </CardContent>
-      </Card>
-    </div>
-  );
-```
-
-#### 4. Update PRMR step for EFP mode users
-
-**Current title (line 156):**
-```tsx
-<h3 className="text-lg font-semibold">What's your total PRMR?</h3>
-```
-
-**Updated:**
-```tsx
-<h3 className="text-lg font-semibold">
-  {efpModeEnabled ? "Confirm your total PRMR" : "What's your total PRMR?"}
-</h3>
-<p className="text-sm text-muted-foreground">
-  {efpModeEnabled 
-    ? "We'll calculate your EFP from this (PRMR ÷ 85)"
-    : "This helps us calculate your EFP and income projections"}
-</p>
-```
-
-#### 5. Update confirmation step to be EFP-mode aware
-
-**Current (lines 230-253):**
-```tsx
-<div className="flex justify-between items-center">
-  <span className="text-muted-foreground">FP+</span>
-  <span className="text-xl font-semibold">{fpValue.toFixed(1)}</span>
-</div>
-// ... shows both FP+ and EFP
-```
-
-**Updated:**
-- For EFP mode: Show EFP as the primary metric
-- For FP+ mode: Show FP+ as the primary metric
-- Always show PRMR for context
-
-```tsx
-{efpModeEnabled ? (
-  <>
-    <div className="flex justify-between items-center">
-      <span className="text-muted-foreground">EFP (Total Sold)</span>
-      <span className="text-xl font-semibold">{fpValue.toFixed(2)}</span>
-    </div>
-    <div className="flex justify-between items-center">
-      <span className="text-muted-foreground">PRMR</span>
-      <span className="text-xl font-semibold">${prmrValue.toFixed(0)}</span>
-    </div>
-  </>
-) : (
-  <>
-    <div className="flex justify-between items-center">
-      <span className="text-muted-foreground">FP+ (Total Sold)</span>
-      <span className="text-xl font-semibold">{fpValue.toFixed(1)}</span>
-    </div>
-    <div className="flex justify-between items-center">
-      <span className="text-muted-foreground">PRMR</span>
-      <span className="text-xl font-semibold">${prmrValue.toFixed(0)}</span>
-    </div>
-    <div className="flex justify-between items-center">
-      <span className="text-muted-foreground">EFP</span>
-      <span className="text-xl font-semibold">{efpValue.toFixed(2)}</span>
-    </div>
-  </>
-)}
-```
-
-#### 6. Update imports
-
-Add `ExternalLink` to the lucide-react imports.
 
 ---
 
-## Summary of Changes
-
-| Aspect | Before | After |
-|--------|--------|-------|
-| **Metric Label** | Always "FP+" | "EFP" for vets with EFP mode, "FP+" otherwise |
-| **Help Link** | `vivint.com` (useless) | Curator Production Report with step-by-step guidance |
-| **Guidance** | "Check your Vivint app" | Explicit: "TOTAL sold - funded AND unfunded" + numbered steps |
-| **Confirm Screen** | Shows FP+/PRMR/EFP always | EFP mode: Shows EFP primary; FP+ mode: Shows FP+ primary |
-
----
-
-## User Experience Flow
-
-**For EFP Mode Veterans:**
-1. "What's your total EFP sold?"
-2. Clear instruction: "Enter your TOTAL (funded + unfunded)"
-3. Link opens Curator → instructions to set filter to "(All)"
-4. Confirmation shows EFP as primary metric
-
-**For FP+ Mode Reps:**
-1. "How many FP+ have you sold?"
-2. Same clear guidance about total sold
-3. Same Curator link with instructions
-4. Confirmation shows FP+ as primary, EFP as derived
-
----
-
-## Files Modified
+## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/catchup/CatchUpWizard.tsx` | Add EFP mode support, Curator URL, step-by-step guidance |
+| `official_totals` table | Add `total_spent` column via migration |
+| `src/hooks/useOfficialTotals.ts` | Add total_spent to interface and mutations |
+| `src/components/goals/earnings/SpendingOverrideSheet.tsx` | New component for override input |
+| `src/components/goals/EarningsBreakdownCard.tsx` | Add tap handler and use override |
+| `src/components/insights/InsightsDealsTab.tsx` | Make Avg Cost card tappable |
+| `src/components/recap/RecapDealBreakdownSlide.tsx` | Use effective spending in calculations |
+
+---
+
+## User Flow
+
+1. User notices their ROI seems off (they know they spent more)
+2. They tap the "Avg Cost / EFP" card on Insights or "Total Spent" in Earnings
+3. Drawer opens showing tracked spending ($1,875)
+4. User enters their actual total from Source ($2,340)
+5. Preview shows updated ROI/net calculations
+6. User saves → all ROI calculations now use the correct total
+7. This persists as their official season spending baseline
+
+---
+
+## Edge Cases
+
+- **Tracked > Override**: If user tracks more than their override, we use tracked (don't undercount)
+- **No override set**: Falls back to tracked spending (current behavior)
+- **Reset option**: Allow clearing the override to go back to tracked-only
+
+---
+
+## Why This Works
+
+1. **Non-intrusive**: Only affects users who care about accuracy
+2. **Familiar pattern**: Same as FP+/PRMR sync concept
+3. **One-time setup**: Set it once per season, maybe update occasionally
+4. **Accurate ROI**: Enables honest ROI calculations for data-driven reps
+5. **Links to Source**: Helps users find their actual buyout totals
+
