@@ -12,7 +12,7 @@ import { motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { CompactROICard } from './CompactROICard';
 import { calculateUpfrontPay, calculateUpfrontRoi, calculateNetPay, isPositiveRoi, formatRoi } from '@/utils/roiCalculations';
-import { SpendingOverrideSheet } from '@/components/goals/earnings/SpendingOverrideSheet';
+import { SpendingBaselineSheet } from '@/components/goals/earnings/SpendingBaselineSheet';
 import { useOfficialTotals } from '@/hooks/useOfficialTotals';
 import { usePreseasonFP } from '@/hooks/usePreseasonFP';
 import { hapticLight } from '@/utils/haptics';
@@ -187,9 +187,9 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
     setCurrentRoiState({ rate, mode });
   }, []);
   
-  // Get current spending override
+  // Get current spending baseline
   const summerTotals = getTotals('summer');
-  const currentSpendingOverride = summerTotals?.total_spent ?? null;
+  const currentSpendingBaseline = summerTotals?.baseline_spent ?? null;
 
   // Calculate ROI at user's pay level for child component calculations
   const customPayLevel = goals?.custom_payscale_fp ?? null;
@@ -238,15 +238,14 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
     );
   }
 
-  // Calculate spend total for child components - use effective spending (max of tracked vs override)
+  // Calculate spend total for child components - use effective spending (baseline + tracked)
   const trackedSpent = insights.totalMoneySpent || 0;
-  const effectiveSpending = currentSpendingOverride && currentSpendingOverride > 0 
-    ? Math.max(trackedSpent, currentSpendingOverride) 
-    : trackedSpent;
+  const baselineSpent = currentSpendingBaseline && currentSpendingBaseline > 0 ? currentSpendingBaseline : 0;
+  const effectiveSpending = baselineSpent + trackedSpent;
   const totalSpent = effectiveSpending;
   
-  // Handle spending override save
-  const handleSaveSpendingOverride = useCallback(async (amount: number | null) => {
+  // Handle spending baseline save
+  const handleSaveSpendingBaseline = useCallback(async (amount: number | null) => {
     try {
       await upsertTotalsAsync({
         season_year: 2025,
@@ -254,12 +253,12 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
         fp_plus: summerTotals?.fp_plus ?? 0,
         prmr: summerTotals?.prmr ?? 0,
         knocking_days: summerTotals?.knocking_days ?? 0,
-        total_spent: amount ?? 0,
+        baseline_spent: amount ?? 0,
         verified_by: 'self',
       });
       setIsSpendingSheetOpen(false);
     } catch (error) {
-      console.error('Failed to save spending override:', error);
+      console.error('Failed to save spending baseline:', error);
     }
   }, [upsertTotalsAsync, summerTotals]);
   
@@ -395,8 +394,8 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity">
               <Pencil className="h-3 w-3 text-muted-foreground" />
             </div>
-            {/* Override indicator */}
-            {currentSpendingOverride && currentSpendingOverride > 0 && (
+            {/* Baseline indicator */}
+            {currentSpendingBaseline && currentSpendingBaseline > 0 && (
               <div className="absolute bottom-1 right-1">
                 <div className="w-2 h-2 rounded-full bg-primary" />
               </div>
@@ -857,14 +856,14 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
         </Card>
       )}
       
-      {/* Spending Override Sheet */}
-      <SpendingOverrideSheet
+      {/* Spending Baseline Sheet */}
+      <SpendingBaselineSheet
         open={isSpendingSheetOpen}
         onOpenChange={setIsSpendingSheetOpen}
         trackedSpending={trackedSpent}
-        currentOverride={currentSpendingOverride}
+        currentBaseline={currentSpendingBaseline}
         dealsCount={insights.totalDeals}
-        onSave={handleSaveSpendingOverride}
+        onSave={handleSaveSpendingBaseline}
         efpModeEnabled={efpModeEnabled}
         totalFp={totalFP}
         totalPrmr={insights.totalPrmr}
