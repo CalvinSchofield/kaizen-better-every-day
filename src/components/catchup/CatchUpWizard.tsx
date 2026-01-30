@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, ChevronLeft, ChevronRight, HelpCircle, Loader2, X, TrendingUp } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ExternalLink, HelpCircle, Loader2, X, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,9 @@ const STEPS: Step[] = ['welcome', 'fp', 'prmr', 'days', 'confirm'];
 
 const SEASON_YEAR = 2025;
 
+// External URLs for guidance
+const CURATOR_PRODUCTION_URL = 'https://curator.vivint.com/dashboard/production-test-production-report';
+
 export const CatchUpWizard = ({ 
   open, 
   onOpenChange, 
@@ -42,7 +45,8 @@ export const CatchUpWizard = ({
   const [autoCalcPrmr, setAutoCalcPrmr] = useState(false);
   
   const { upsertTotalsAsync, isUpserting } = useOfficialTotals();
-  const { calculateEfp } = useEfpMode();
+  const { efpModeEnabled, calculateEfp } = useEfpMode();
+  const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
 
   const stepIndex = STEPS.indexOf(currentStep);
   const isFirstStep = stepIndex === 0;
@@ -121,31 +125,47 @@ export const CatchUpWizard = ({
         return (
           <div className="space-y-4">
             <div className="text-center mb-6">
-              <h3 className="text-lg font-semibold">How many FP+ have you sold?</h3>
+              <h3 className="text-lg font-semibold">
+                {efpModeEnabled 
+                  ? "What's your total EFP sold?" 
+                  : "How many FP+ have you sold?"}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                Check your Vivint app for your exact {seasonType} FP+ total
+                Enter your <strong>TOTAL</strong> {seasonType} {metricLabel} — both funded AND unfunded
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="fp-input">Total FP+</Label>
+              <Label htmlFor="fp-input">Total {metricLabel} Sold</Label>
               <Input
                 id="fp-input"
                 type="number"
                 inputMode="decimal"
-                placeholder="e.g., 12.5"
+                placeholder={efpModeEnabled ? "e.g., 62.9" : "e.g., 12.5"}
                 value={fpPlus}
                 onChange={(e) => setFpPlus(e.target.value)}
                 className="text-2xl h-14 text-center"
                 autoFocus
               />
             </div>
-            <button 
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => window.open('https://www.vivint.com', '_blank')}
-            >
-              <HelpCircle className="h-4 w-4" />
-              Where do I find this?
-            </button>
+            
+            {/* Guidance card for finding the number */}
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="pt-4 space-y-3">
+                <button 
+                  className="flex items-center gap-2 text-sm font-medium text-primary hover:underline w-full"
+                  onClick={() => window.open(CURATOR_PRODUCTION_URL, '_blank')}
+                >
+                  <HelpCircle className="h-4 w-4" />
+                  Where do I find this?
+                  <ExternalLink className="h-3 w-3 ml-auto" />
+                </button>
+                <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside pl-1">
+                  <li>Open the <strong>Production Report</strong> on Curator</li>
+                  <li>Change "Funded" dropdown to <strong>"(All)"</strong></li>
+                  <li>Find your <strong>total {metricLabel}</strong> (includes unfunded)</li>
+                </ol>
+              </CardContent>
+            </Card>
           </div>
         );
 
@@ -153,9 +173,13 @@ export const CatchUpWizard = ({
         return (
           <div className="space-y-4">
             <div className="text-center mb-6">
-              <h3 className="text-lg font-semibold">What's your total PRMR?</h3>
+              <h3 className="text-lg font-semibold">
+                {efpModeEnabled ? "Confirm your total PRMR" : "What's your total PRMR?"}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                This helps us calculate your EFP and income projections
+                {efpModeEnabled 
+                  ? "We'll calculate your EFP from this (PRMR ÷ 85)"
+                  : "This helps us calculate your EFP and income projections"}
               </p>
             </div>
             <div className="space-y-2">
@@ -227,18 +251,33 @@ export const CatchUpWizard = ({
             
             <Card>
               <CardContent className="pt-6 space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">FP+</span>
-                  <span className="text-xl font-semibold">{fpValue.toFixed(1)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">PRMR</span>
-                  <span className="text-xl font-semibold">${prmrValue.toFixed(0)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">EFP</span>
-                  <span className="text-xl font-semibold">{efpValue.toFixed(2)}</span>
-                </div>
+                {efpModeEnabled ? (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">EFP (Total Sold)</span>
+                      <span className="text-xl font-semibold">{fpValue.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">PRMR</span>
+                      <span className="text-xl font-semibold">${prmrValue.toFixed(0)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">FP+ (Total Sold)</span>
+                      <span className="text-xl font-semibold">{fpValue.toFixed(1)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">PRMR</span>
+                      <span className="text-xl font-semibold">${prmrValue.toFixed(0)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">EFP</span>
+                      <span className="text-xl font-semibold">{efpValue.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Knocking Days</span>
                   <span className="text-xl font-semibold">{daysValue}</span>
@@ -247,7 +286,7 @@ export const CatchUpWizard = ({
                   <div className="flex justify-between items-center pt-2 border-t">
                     <span className="text-muted-foreground">Avg per Day</span>
                     <span className="text-lg font-medium">
-                      {(fpValue / daysValue).toFixed(2)} FP+
+                      {(fpValue / daysValue).toFixed(2)} {metricLabel}
                     </span>
                   </div>
                 )}
