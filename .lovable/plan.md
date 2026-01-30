@@ -1,115 +1,172 @@
 
-# Add Total Spending Baseline Override
 
-## Overview
+# Smarter Spending Baseline: Additive vs Override + Scope Awareness
 
-Allow users to manually enter their total season spending amount to reconcile discrepancies between tracked deal spending and actual spending (buyouts, promos, free months, etc.).
+## The Problems You Identified
 
----
+### Problem 1: Override discourages per-deal tracking
+Current behavior: `Math.max(tracked, override)` means once you set an override, the app effectively ignores your per-deal tracking.
 
-## Solution Approach
+**Your scenario**: You have $X from legacy (pre-Dec 16) + ongoing tracked spending. You want BOTH to count.
 
-### Option A: Add to `official_totals` table (Recommended)
-Add a `total_spent` column to the existing `official_totals` table. This keeps all "official/verified" season baselines in one place (FP+, PRMR, knocking days, and now spending).
-
-### How It Works
-1. **Baseline Override**: User enters their TOTAL amount spent this season (from Source/buyouts)
-2. **Calculation**: Earnings calculations use `max(tracked_spent, official_baseline)` or add difference
-3. **Access Point**: Tap on the "Avg Cost / EFP" card on Insights page to open adjustment sheet
+### Problem 2: Time scope edge case
+If you're looking at **this week's** performance, applying a full-season override would distort the data completely. The override should only apply to **season-level (YTD)** calculations.
 
 ---
 
-## UI/UX Design
+## Solution: "Baseline Spending" (Additive) + Scope-Aware Application
 
-### Entry Point 1: Tap the "Avg Cost / EFP" Card
-The card shown in the screenshot (circled - "$34.95 Avg Cost / EFP") becomes tappable:
-- Opens a drawer/sheet for adjusting total spending
-- Similar pattern to tapping other cards in the app
+### Rename & Reframe the Concept
 
-### Entry Point 2: Earnings Breakdown Card
-In the Goals page EarningsBreakdownCard, add a small "Adjust" link near the spending figures.
+Instead of "Total Spent Override", use **"Pre-Tracking Baseline"**:
 
-### Spending Override Sheet
 ```
 ┌─────────────────────────────────────────┐
-│  Total Season Spending                  │
+│  Spending Baseline                      │
 │                                         │
-│  Your tracked spending: $1,875          │
-│  (from 45 deals logged)                 │
+│  Enter spending from BEFORE you         │
+│  started tracking per-deal costs:       │
 │                                         │
 │  ┌─────────────────────────────────┐    │
-│  │  Actual Total Spent             │    │
-│  │  $ [_______2,340_______]        │    │
+│  │  Pre-Tracking Spending          │    │
+│  │  $ [_______465_______]          │    │
 │  └─────────────────────────────────┘    │
 │                                         │
-│  🔗 Check buyouts on Source             │
+│  Your tracked spending: $1,410          │
+│  (from 45 deals since Dec 16)           │
 │                                         │
 │  ─────────────────────────────────────  │
-│  Your adjusted totals:                  │
-│  • Avg Cost/EFP: $37.24 → $40.21        │
-│  • Net Upfront: $16,365 → $15,900       │
+│  Total Season Spending:                 │
+│  $465 baseline + $1,410 tracked         │
+│  = $1,875 total                         │
 │                                         │
-│         [ Save Adjustment ]             │
+│         [ Save Baseline ]               │
 └─────────────────────────────────────────┘
 ```
 
-### Key Features
-1. **Shows tracked vs actual**: Clear comparison
-2. **Link to Source**: Opens Curator Source page to find buyout totals
-3. **Live preview**: Updates ROI/net calculations as they type
-4. **Optional**: Not required, only for users who care about accuracy
+### How It Works
+
+**Formula change:**
+```typescript
+// OLD (override replaces)
+effectiveSpending = Math.max(trackedSpending, override);
+
+// NEW (baseline adds)
+effectiveSpending = baselineSpending + trackedSpending;
+```
+
+### Scope-Aware Application
+
+| View Scope | Spending Used |
+|------------|---------------|
+| **Season/YTD** | `baseline + tracked` |
+| **This Week** | `trackedThisWeek` only |
+| **This Month** | `trackedThisMonth` only |
+| **Custom Range** | `trackedInRange` only |
+
+The baseline **only** applies to season-level metrics (Goals page earnings, YTD insights, recaps).
 
 ---
 
 ## Technical Implementation
 
-### Phase 1: Database Schema
+### Phase 1: Rename Column (Semantic Clarity)
 
-**Migration: Add column to `official_totals`**
+Rename `total_spent` → `baseline_spent` in the database (or add new column and migrate):
+
 ```sql
+-- Option A: Rename existing column
 ALTER TABLE official_totals 
-ADD COLUMN IF NOT EXISTS total_spent numeric DEFAULT 0;
+RENAME COLUMN total_spent TO baseline_spent;
+
+-- Add comment for clarity
+COMMENT ON COLUMN official_totals.baseline_spent IS 
+'Pre-tracking spending baseline. Added to tracked spending for season totals.';
 ```
 
-### Phase 2: Hook Updates
+### Phase 2: Update Hook Logic
 
-**Update `useOfficialTotals.ts`**
-- Add `total_spent` to the interface and upsert mutation
+**File: `src/hooks/useEffectiveSpending.ts`**
 
-### Phase 3: New Component
-
-**Create `SpendingOverrideSheet.tsx`**
 ```typescript
-interface SpendingOverrideSheetProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+interface UseEffectiveSpendingParams {
   trackedSpending: number;
-  currentOverride: number | null;
-  onSave: (amount: number) => void;
-  efpModeEnabled: boolean;
-  totalFp: number;
+  seasonType?: 'preseason' | 'summer';
+  isSeasonScope: boolean; // NEW: Only add baseline for season-level views
 }
-```
 
-### Phase 4: Integrate into UI
-
-1. **InsightsDealsTab.tsx**: Make the "Avg Cost/EFP" card tappable to open the sheet
-2. **EarningsBreakdownCard.tsx**: Add small "Adjust" link and use override in calculations
-3. **RecapDealBreakdownSlide.tsx**: Use override in ROI calculations
-
-### Phase 5: Calculation Logic
-
-**Spending calculation with override:**
-```typescript
-const effectiveSpending = useMemo(() => {
-  const trackedSpent = salesData?.totalSpent || 0;
-  const officialSpent = officialTotals?.total_spent || 0;
+export const useEffectiveSpending = ({
+  trackedSpending,
+  seasonType = 'summer',
+  isSeasonScope = true, // Default to season scope
+}: UseEffectiveSpendingParams) => {
+  const { getTotals, isLoading } = useOfficialTotals(seasonType);
   
-  // Use the higher of: tracked OR official override
-  // This handles: "I actually spent more than I tracked"
-  return Math.max(trackedSpent, officialSpent);
-}, [salesData, officialTotals]);
+  const result = useMemo(() => {
+    const totals = getTotals(seasonType);
+    const baseline = totals?.baseline_spent ?? 0;
+    const hasBaseline = baseline > 0;
+    
+    // Only add baseline for season-level calculations
+    const effectiveSpending = isSeasonScope
+      ? baseline + trackedSpending
+      : trackedSpending;
+    
+    return {
+      effectiveSpending,
+      hasBaseline,
+      baseline,
+      trackedSpending,
+      isSeasonScope,
+      isLoading,
+    };
+  }, [getTotals, seasonType, trackedSpending, isSeasonScope, isLoading]);
+  
+  return result;
+};
 ```
+
+### Phase 3: Update SpendingOverrideSheet UI
+
+Rename to `SpendingBaselineSheet` with clearer UX:
+
+**Title**: "Spending Baseline" (not "Override")
+
+**Input Label**: "Pre-Tracking Spending" or "Spending Before Dec 16"
+
+**Calculation Display**:
+```
+Your pre-tracking baseline: $465
+Your tracked spending: $1,410
+───────────────────────────────
+Total Season Spending: $1,875
+```
+
+**Help Text**: "Enter the amount you spent on buyouts, promos, etc. BEFORE you started logging costs per deal. This will be added to your tracked spending."
+
+### Phase 4: Update Consumers
+
+**Season-level views (add baseline):**
+- `EarningsBreakdownCard.tsx` - Goals page earnings → `isSeasonScope: true`
+- `InsightsDealsTab.tsx` when showing YTD → `isSeasonScope: true`
+- `RecapSummarySlide.tsx` for season recaps → `isSeasonScope: true`
+
+**Time-scoped views (tracked only):**
+- `InsightsDealsTab.tsx` when showing "This Week" → `isSeasonScope: false`
+- Weekly recap slides → `isSeasonScope: false`
+- Any custom date range → `isSeasonScope: false`
+
+---
+
+## Edge Cases Handled
+
+| Scenario | Behavior |
+|----------|----------|
+| User tracks everything from day 1 | Baseline = 0, works normally |
+| User has legacy spending only | Baseline = X, tracked = 0, total = X |
+| User has both | Baseline + tracked = total |
+| Weekly view | Shows only that week's tracked spending |
+| User clears baseline | Baseline = 0, back to tracked-only |
 
 ---
 
@@ -117,40 +174,33 @@ const effectiveSpending = useMemo(() => {
 
 | File | Change |
 |------|--------|
-| `official_totals` table | Add `total_spent` column via migration |
-| `src/hooks/useOfficialTotals.ts` | Add total_spent to interface and mutations |
-| `src/components/goals/earnings/SpendingOverrideSheet.tsx` | New component for override input |
-| `src/components/goals/EarningsBreakdownCard.tsx` | Add tap handler and use override |
-| `src/components/insights/InsightsDealsTab.tsx` | Make Avg Cost card tappable |
-| `src/components/recap/RecapDealBreakdownSlide.tsx` | Use effective spending in calculations |
+| `official_totals` table | Rename `total_spent` → `baseline_spent` |
+| `src/hooks/useOfficialTotals.ts` | Update interface field name |
+| `src/hooks/useEffectiveSpending.ts` | Add `isSeasonScope` param, change to additive logic |
+| `src/components/goals/earnings/SpendingOverrideSheet.tsx` | Rename to baseline, update UI copy |
+| `src/components/insights/InsightsDealsTab.tsx` | Pass `isSeasonScope` based on date range |
+| `src/components/goals/EarningsBreakdownCard.tsx` | Pass `isSeasonScope: true` |
 
 ---
 
-## User Flow
+## User Experience
 
-1. User notices their ROI seems off (they know they spent more)
-2. They tap the "Avg Cost / EFP" card on Insights or "Total Spent" in Earnings
-3. Drawer opens showing tracked spending ($1,875)
-4. User enters their actual total from Source ($2,340)
-5. Preview shows updated ROI/net calculations
-6. User saves → all ROI calculations now use the correct total
-7. This persists as their official season spending baseline
-
----
-
-## Edge Cases
-
-- **Tracked > Override**: If user tracks more than their override, we use tracked (don't undercount)
-- **No override set**: Falls back to tracked spending (current behavior)
-- **Reset option**: Allow clearing the override to go back to tracked-only
+1. User goes to Insights → taps "Avg Cost / EFP" card
+2. Sheet opens with title: **"Spending Baseline"**
+3. User sees: "Enter spending from before you started tracking per-deal costs"
+4. User enters $465 (their pre-Dec 16 buyouts from Source)
+5. Sheet shows: "$465 baseline + $1,410 tracked = $1,875 total"
+6. User saves → season calculations updated
+7. Weekly insights still show only that week's tracked spending ✓
+8. User continues logging per-deal costs and they ADD to the baseline ✓
 
 ---
 
-## Why This Works
+## Why This Works Better
 
-1. **Non-intrusive**: Only affects users who care about accuracy
-2. **Familiar pattern**: Same as FP+/PRMR sync concept
-3. **One-time setup**: Set it once per season, maybe update occasionally
-4. **Accurate ROI**: Enables honest ROI calculations for data-driven reps
-5. **Links to Source**: Helps users find their actual buyout totals
+1. **Encourages ongoing tracking**: Baseline + tracked means both matter
+2. **Accurate weekly views**: Baseline doesn't pollute time-scoped data
+3. **Clear mental model**: "What I spent before" + "What I've tracked since"
+4. **One-time setup**: Enter baseline once, then track normally
+5. **Links to Source**: User can still verify their total against Vivint data
 
