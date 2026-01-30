@@ -965,6 +965,7 @@ export type Database = {
       }
       official_totals: {
         Row: {
+          baseline_spent: number | null
           created_at: string | null
           fp_plus: number | null
           id: string
@@ -974,12 +975,12 @@ export type Database = {
           prmr: number | null
           season_type: string
           season_year: number
-          total_spent: number | null
           updated_at: string | null
           user_id: string
           verified_by: string | null
         }
         Insert: {
+          baseline_spent?: number | null
           created_at?: string | null
           fp_plus?: number | null
           id?: string
@@ -989,12 +990,12 @@ export type Database = {
           prmr?: number | null
           season_type: string
           season_year: number
-          total_spent?: number | null
           updated_at?: string | null
           user_id: string
           verified_by?: string | null
         }
         Update: {
+          baseline_spent?: number | null
           created_at?: string | null
           fp_plus?: number | null
           id?: string
@@ -1004,7 +1005,6 @@ export type Database = {
           prmr?: number | null
           season_type?: string
           season_year?: number
-          total_spent?: number | null
           updated_at?: string | null
           user_id?: string
           verified_by?: string | null
