@@ -1,148 +1,175 @@
 
+# Fix Planned Days Issues + Better Utilization
 
-# Fix Rookie Unlock Logic for Sold Reps
+## Overview
 
-## Problem
-
-Weston Smith is locked out of Track/Calendar despite having already tracked sales because the unlock logic doesn't account for reps in "Sold" stages.
-
-**Current unlock conditions** (in `src/hooks/useRookieUnlockStatus.ts`):
-1. Has attended a past blitz
-2. Is currently on an active blitz  
-3. Stage includes "shadow"
-
-**Missing conditions**:
-- Stage includes "sold" (covers "Sold 💲" and "Sold (5+) 💰")
+Two related issues to address:
+1. **Bug Fix**: Users can't remove past planned days that weren't worked
+2. **Enhancement**: Planned days aren't being leveraged throughout the app experience
 
 ---
 
-## Solution
+## Part 1: Fix Past Planned Day Removal
 
-Update `useRookieUnlockStatus.ts` to also unlock rookies whose stage contains "sold".
+### Problem
+Currently in `CalendarPlanningCard.tsx`, clicking on past dates is completely blocked, even for removing planned days that weren't worked.
+
+### Solution
+Allow users to **remove** (but not add) planned days from past dates that weren't worked.
+
+### Technical Changes
+
+**File: `src/components/goals/CalendarPlanningCard.tsx`**
+
+Update `handleDayClick` function (around line 837):
+
+```text
+Current logic:
+- Block ALL past date interactions
+
+New logic:
+- Allow past dates ONLY if:
+  1. The date is currently planned
+  2. The date was NOT worked
+- This lets users clean up mistaken planned days
+```
+
+Update the button disabled state (around line 1121):
+```text
+Current: isPast is always disabled
+New: isPast is disabled UNLESS (isPlanned AND NOT isWorked)
+```
 
 ---
 
-## Technical Changes
+## Part 2: Leverage Planned Days Throughout App
 
-### File: `src/hooks/useRookieUnlockStatus.ts`
+### Current State
+Planned days are only used for goal calculations. The app doesn't adapt its experience based on whether today is a work day.
 
-#### 1. Rename and expand the stage check
+### Opportunities for Improvement
 
-**Current code (lines 30-33):**
+#### 2A. Add "isTodayPlanned" to a shared context/hook
+
+Create awareness of "is today a planned work day" throughout the app.
+
+**New: `src/hooks/useTodayWorkStatus.ts`**
 ```typescript
-const hasCompletedShadow = useMemo(() => {
-  const stage = repData?.stage?.toLowerCase() || '';
-  return stage.includes('shadow');
-}, [repData?.stage]);
-```
-
-**New code:**
-```typescript
-// Check if stage qualifies for unlock (shadow or sold)
-const hasQualifyingStage = useMemo(() => {
-  const stage = repData?.stage?.toLowerCase() || '';
-  return stage.includes('shadow') || stage.includes('sold');
-}, [repData?.stage]);
-```
-
-#### 2. Update the unlock calculation
-
-**Current code (lines 62-66):**
-```typescript
-const hasAttendedOrOnBlitz = hasAttendedBlitz || isOnActiveBlitz;
-
-// Ultimate unlock: blitz OR shadow ✅
-const isUnlocked = hasAttendedOrOnBlitz || hasCompletedShadow;
-```
-
-**New code:**
-```typescript
-const hasAttendedOrOnBlitz = hasAttendedBlitz || isOnActiveBlitz;
-
-// Ultimate unlock: blitz OR qualifying stage (shadow/sold)
-const isUnlocked = hasAttendedOrOnBlitz || hasQualifyingStage;
-```
-
-#### 3. Update return values
-
-**Current:**
-```typescript
-return {
-  isRookie,
-  hasAttendedBlitz,
-  isOnActiveBlitz,
-  hasAttendedOrOnBlitz,
-  hasCompletedShadow,
-  isUnlocked,
-  isPreBlitzRookie,
+// Combines planned days + current entry status
+export const useTodayWorkStatus = () => {
+  const { isDatePlanned } = usePlannedDays();
+  const { entry } = useDailyEntry();
+  
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const isTodayPlanned = isDatePlanned(todayStr);
+  const hasStartedWork = entry?.work_start_time !== null;
+  const isWorkComplete = entry?.is_finalized === true;
+  
+  return {
+    isTodayPlanned,
+    hasStartedWork,
+    isWorkComplete,
+    isRestDay: !isTodayPlanned && !hasStartedWork,
+  };
 };
 ```
 
-**New:**
+#### 2B. Enhance Knocking Mode Home
+
+**File: `src/components/KnockingModeHome.tsx`**
+
+Add contextual messaging based on work day status:
+- If it's a planned day and user hasn't started: "Time to get started!"
+- If it's NOT a planned day: "Enjoy your rest day" or show prep activities instead of tracking prompts
+
+#### 2C. Smarter Knocking Mode Toggle Logic
+
+**File: `src/hooks/useAppMode.ts`**
+
+Consider planned days when determining knocking mode:
+- If today is planned AND within summer dates → Auto-enable knocking mode
+- If today is NOT planned → Could default to non-knocking mode (research/prep mode)
+
+#### 2D. Rest Day UI Variant
+
+Show different home experience on rest days:
+- Instead of tracking prompts, show training content
+- Show "prep for tomorrow" if tomorrow is planned
+- Hide the "save your day" alerts
+
+---
+
+## Implementation Plan
+
+### Phase 1: Fix the Bug (Critical)
+1. Update `handleDayClick` in `CalendarPlanningCard.tsx` to allow removing past planned days that weren't worked
+2. Update button disabled logic to match
+
+### Phase 2: Add Work Status Hook
+1. Create `useTodayWorkStatus` hook
+2. Export from hooks index
+
+### Phase 3: Enhance Home Experience  
+1. Use work status in `KnockingModeHome` to show contextual UI
+2. Add "rest day" variant with training/prep focus
+
+### Phase 4: Consider Auto-Mode Logic
+1. Evaluate adding planned-day awareness to `useAppMode`
+2. Could auto-suggest knocking mode on planned days
+
+---
+
+## Technical Details
+
+### CalendarPlanningCard.tsx Changes
+
+**handleDayClick function (line ~837):**
 ```typescript
-return {
-  isRookie,
-  hasAttendedBlitz,
-  isOnActiveBlitz,
-  hasAttendedOrOnBlitz,
-  hasCompletedShadow: hasQualifyingStage, // Keep name for backwards compatibility
-  isUnlocked,
-  isPreBlitzRookie,
+const handleDayClick = async (date: Date) => {
+  const dayOfWeek = getDay(date);
+  const userSummerEndDate = parseLocalDate(personalSummerEnd);
+  const isPast = isBefore(date, today);
+  const dateStr = format(date, 'yyyy-MM-dd');
+  const isCurrentlyPlanned = isDatePlanned(dateStr);
+  const isWorked = isDateWorked(dateStr);
+  
+  // Block Sundays and dates after summer end
+  if (dayOfWeek === 0 || date > userSummerEndDate) return;
+  
+  // For past dates: only allow REMOVING planned days that weren't worked
+  if (isPast) {
+    if (isCurrentlyPlanned && !isWorked) {
+      // Allow removal of past planned day
+      await togglePlannedDay(dateStr);
+    }
+    // Block all other past date interactions
+    return;
+  }
+  
+  // ... rest of existing logic for future dates
 };
 ```
 
-#### 4. Update the pure function version
-
-Apply the same changes to `checkRookieUnlockStatus()` function (lines 82-118):
-
+**Button disabled state (line ~1121):**
 ```typescript
-// Check if stage qualifies for unlock (shadow or sold)
-const stage = repData?.stage?.toLowerCase() || '';
-const hasQualifyingStage = stage.includes('shadow') || stage.includes('sold');
-
-// ... blitz checking logic stays the same ...
-
-const hasAttendedOrOnBlitz = hasAttendedBlitz || isOnActiveBlitz;
-const isUnlocked = hasAttendedOrOnBlitz || hasQualifyingStage;
-const isPreBlitzRookie = isRookie && !isUnlocked;
-
-return {
-  isRookie,
-  hasAttendedBlitz,
-  isOnActiveBlitz,
-  hasAttendedOrOnBlitz,
-  hasCompletedShadow: hasQualifyingStage,
-  isUnlocked,
-  isPreBlitzRookie,
-};
+// New: Allow past planned days that weren't worked to be clickable
+const canRemovePastPlanned = isPast && isPlanned && !isWorked;
+const isDisabled = (isPast && !canRemovePastPlanned) || isSunday || isAfterPersonalSummerEnd;
 ```
 
----
-
-## Unlock Logic Summary
-
-A rookie gets **full access** to Track, Calendar, Insights if ANY of these are true:
-
-| Condition | Example |
-|-----------|---------|
-| Past blitz attended | Blitz ended before today |
-| Currently on active blitz | Today is within blitz dates |
-| Stage contains "shadow" | "Shadow ✅" |
-| Stage contains "sold" | "Sold 💲" or "Sold (5+) 💰" |
-
----
-
-## Impact
-
-- **Weston Smith**: Stage is "Sold 💲" → Now unlocked
-- **Any rookie marked Sold or Sold (5+)**: Now unlocked
-- **No changes** to existing shadow/blitz unlock logic
-
----
-
-## Files Modified
+### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/hooks/useRookieUnlockStatus.ts` | Add "sold" stage check to unlock conditions |
+| `src/components/goals/CalendarPlanningCard.tsx` | Allow removing past unworked planned days |
+| `src/hooks/useTodayWorkStatus.ts` | New hook for work day awareness |
+| `src/components/KnockingModeHome.tsx` | Contextual UI based on work day |
 
+---
+
+## Expected Outcome
+
+1. **Bug Fixed**: Users can remove past planned days they didn't work
+2. **Smarter UX**: App adapts based on whether it's a work day
+3. **Rest Day Experience**: Different content shown on off-days (training focus)
+4. **Better Planning**: Users understand the value of marking planned days
