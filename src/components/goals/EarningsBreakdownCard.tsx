@@ -354,16 +354,9 @@ export const EarningsBreakdownCard = () => {
     setIsOpen(!isOpen);
   }, [isOpen]);
   
-  if (isLoading || !metrics) {
-    return null;
-  }
-  
-  // Handle mode-based logic
-  const effectiveMode = mode === 'projected' && !metrics.projectionsAvailable ? 'current' : mode;
-  
-  // Calculate model metrics if in model mode
+  // Calculate model metrics - MUST be before early return to maintain hook order
   const modelMetrics = useMemo(() => {
-    if (!modelFpGoal || modelFpGoal <= 0) return null;
+    if (!modelFpGoal || modelFpGoal <= 0 || !metrics) return null;
     
     const totalPrmr = modelFpGoal * 85;
     const tier = getTier(modelFpGoal);
@@ -393,7 +386,14 @@ export const EarningsBreakdownCard = () => {
       payRate,
       totalPrmr,
     };
-  }, [modelFpGoal, metrics.rentType, metrics.weeksWorking, metrics.spendingRate]);
+  }, [modelFpGoal, metrics]);
+  
+  if (isLoading || !metrics) {
+    return null;
+  }
+  
+  // Handle mode-based logic
+  const effectiveMode = mode === 'projected' && !metrics.projectionsAvailable ? 'current' : mode;
   
   const displayMetrics = effectiveMode === 'model' && modelMetrics ? modelMetrics : effectiveMode === 'projected' ? {
     upfrontPay: metrics.projectedUpfrontPay,
