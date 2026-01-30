@@ -837,11 +837,25 @@ export const CalendarPlanningCard = ({
   const handleDayClick = async (date: Date) => {
     const dayOfWeek = getDay(date);
     const userSummerEndDate = parseLocalDate(personalSummerEnd);
-    // Don't allow Sundays, past days, or days after personal summer end
-    if (dayOfWeek === 0 || isBefore(date, today) || date > userSummerEndDate) return;
-    
+    const isPast = isBefore(date, today);
     const dateStr = format(date, 'yyyy-MM-dd');
     const isCurrentlyPlanned = isDatePlanned(dateStr);
+    const isWorked = isDateWorked(dateStr);
+    
+    // Don't allow Sundays or days after personal summer end
+    if (dayOfWeek === 0 || date > userSummerEndDate) return;
+    
+    // For past dates: only allow REMOVING planned days that weren't worked
+    if (isPast) {
+      if (isCurrentlyPlanned && !isWorked) {
+        // Allow removal of past planned day that wasn't worked
+        await togglePlannedDay(dateStr);
+      }
+      // Block all other past date interactions
+      return;
+    }
+    
+    // Note: dateStr and isCurrentlyPlanned are now defined above
     
     // Check if this is a summer day (within personal summer range)
     const userSummerStart = parseLocalDate(personalSummerStart);
@@ -1110,7 +1124,9 @@ export const CalendarPlanningCard = ({
                   const userSummerStart = parseLocalDate(personalSummerStart);
                   const userSummerEnd = parseLocalDate(personalSummerEnd);
                   const isAfterPersonalSummerEnd = day > userSummerEnd;
-                  const isDisabled = isPast || isSunday || isAfterPersonalSummerEnd;
+                  // Allow past planned days that weren't worked to be clickable for removal
+                  const canRemovePastPlanned = isPast && isPlanned && !isWorked;
+                  const isDisabled = (isPast && !canRemovePastPlanned) || isSunday || isAfterPersonalSummerEnd;
                   
                   const isExcludedSummerDay = excludedSummerDays.includes(dateStr);
                   const isInSummerRange = day >= userSummerStart && day <= userSummerEnd && !isPast;
