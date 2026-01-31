@@ -50,11 +50,18 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
   const isPending = challenge.status === 'pending';
   const needsMyResponse = isPending && myParticipation && myParticipation.accepted === null && !isCreator;
   const is1v1 = challenge.type === '1v1';
+  const isParticipant = !!myParticipation;
 
-  // Get opponent for 1v1
-  const opponent = is1v1 
+  // For 1v1: Get the two participants
+  // If current user is a participant, show "You" vs opponent
+  // If current user is NOT a participant (viewer), show both actual names
+  const participant1 = is1v1 ? challenge.participants?.[0] : null;
+  const participant2 = is1v1 ? challenge.participants?.[1] : null;
+  
+  // Legacy compatibility: opponent is the one that isn't the current user
+  const opponent = is1v1 && isParticipant
     ? challenge.participants?.find(p => p.user_id !== currentUser?.id)
-    : null;
+    : participant2;
 
 
   const handleAccept = async () => {
@@ -158,19 +165,28 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
         {is1v1 && (
           <div className="space-y-3 mb-3">
             <div className="flex items-center justify-between">
-              {/* You */}
+              {/* Left side - "You" if participant, otherwise first participant */}
               <div className="flex items-center gap-2">
                 <Avatar className="h-10 w-10 border-2 border-primary">
-                  <AvatarImage src={myParticipation?.profile_photo_url || undefined} />
+                  <AvatarImage src={isParticipant ? myParticipation?.profile_photo_url : participant1?.profile_photo_url || undefined} />
                   <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                    {myParticipation?.rep_name?.charAt(0) || 'Y'}
+                    {isParticipant 
+                      ? (myParticipation?.rep_name?.charAt(0) || 'Y')
+                      : getInitials(participant1?.rep_name)
+                    }
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-semibold text-sm">You</p>
+                  <p className="font-semibold text-sm">
+                    {isParticipant ? 'You' : getCleanName(participant1?.rep_name) || 'Player 1'}
+                  </p>
                   {progress && (
                     <p className="text-lg font-bold text-primary">
-                      {metricConfig.format(progress.userProgress?.current_value || 0)}
+                      {metricConfig.format(
+                        isParticipant 
+                          ? (progress.userProgress?.current_value || 0)
+                          : (progress.participants.find(p => p.user_id === participant1?.user_id)?.current_value || 0)
+                      )}
                     </p>
                   )}
                 </div>
@@ -178,22 +194,22 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
 
               <span className="text-lg font-bold text-muted-foreground">VS</span>
 
-              {/* Opponent */}
+              {/* Right side - Opponent */}
               <div className="flex items-center gap-2">
                 <div className="text-right">
-                  <p className="font-semibold text-sm">{getCleanName(opponent?.rep_name) || 'Opponent'}</p>
+                  <p className="font-semibold text-sm">{getCleanName(opponent?.rep_name) || getCleanName(participant2?.rep_name) || 'Player 2'}</p>
                   {progress && (
                     <p className="text-lg font-bold">
                       {metricConfig.format(
-                        progress.participants.find(p => p.user_id === opponent?.user_id)?.current_value || 0
+                        progress.participants.find(p => p.user_id === (opponent?.user_id || participant2?.user_id))?.current_value || 0
                       )}
                     </p>
                   )}
                 </div>
                 <Avatar className="h-10 w-10 border-2 border-border">
-                  <AvatarImage src={opponent?.profile_photo_url || undefined} />
+                  <AvatarImage src={opponent?.profile_photo_url || participant2?.profile_photo_url || undefined} />
                   <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
-                    {getInitials(opponent?.rep_name)}
+                    {getInitials(opponent?.rep_name || participant2?.rep_name)}
                   </AvatarFallback>
                 </Avatar>
               </div>
@@ -202,32 +218,34 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
             {/* 1v1 Score Slider */}
             {progress && challenge.status === 'active' && (
               (() => {
-                const myValue = progress.userProgress?.current_value || 0;
-                const theirValue = progress.participants.find(p => p.user_id === opponent?.user_id)?.current_value || 0;
-                const total = myValue + theirValue;
+                const leftValue = isParticipant 
+                  ? (progress.userProgress?.current_value || 0)
+                  : (progress.participants.find(p => p.user_id === participant1?.user_id)?.current_value || 0);
+                const rightValue = progress.participants.find(p => p.user_id === (opponent?.user_id || participant2?.user_id))?.current_value || 0;
+                const total = leftValue + rightValue;
                 
                 if (total === 0) return null;
                 
-                const myPercent = (myValue / total) * 100;
+                const leftPercent = (leftValue / total) * 100;
                 
                 return (
                   <div className="relative h-3 rounded-full overflow-hidden bg-gradient-to-r from-primary/20 via-muted to-foreground/20">
                     <motion.div
                       className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/80"
                       initial={{ width: "50%" }}
-                      animate={{ width: `${myPercent}%` }}
+                      animate={{ width: `${leftPercent}%` }}
                       transition={{ duration: 0.6, ease: "easeOut" }}
                     />
                     <motion.div
                       className="absolute inset-y-0 right-0 bg-gradient-to-l from-foreground/60 to-foreground/40"
                       initial={{ width: "50%" }}
-                      animate={{ width: `${100 - myPercent}%` }}
+                      animate={{ width: `${100 - leftPercent}%` }}
                       transition={{ duration: 0.6, ease: "easeOut" }}
                     />
                     <motion.div
                       className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white shadow-lg border-2 border-foreground/20"
                       initial={{ left: "calc(50% - 8px)" }}
-                      animate={{ left: `calc(${myPercent}% - 8px)` }}
+                      animate={{ left: `calc(${leftPercent}% - 8px)` }}
                       transition={{ duration: 0.6, ease: "easeOut" }}
                     />
                   </div>
