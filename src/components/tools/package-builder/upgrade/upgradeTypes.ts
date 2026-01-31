@@ -77,7 +77,7 @@ export const UPGRADE_EQUIPMENT_LIST: UpgradeEquipmentItem[] = [
     id: 'garage', 
     label: 'Garage', 
     price: 50, 
-    icon: 'Warehouse',
+    image: '/images/products/garage-controller.png',
     category: 'Smart Home',
   },
   // Security
@@ -85,21 +85,21 @@ export const UPGRADE_EQUIPMENT_LIST: UpgradeEquipmentItem[] = [
     id: 'door-window-sensor', 
     label: 'Door/Window', 
     price: 50, 
-    icon: 'DoorOpen',
+    image: '/images/products/door-window-sensor.webp',
     category: 'Security',
   },
   { 
     id: 'motion-sensor', 
     label: 'Motion Sensor', 
     price: 100, 
-    icon: 'Move',
+    image: '/images/products/motion-sensor.webp',
     category: 'Security',
   },
   { 
     id: 'glass-break', 
     label: 'Glass Break', 
     price: 100, 
-    icon: 'Volume2',
+    image: '/images/products/glass-break-sensor.png',
     category: 'Security',
   },
 ];
