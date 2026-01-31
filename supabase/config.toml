@@ -128,3 +128,9 @@ verify_jwt = false
 
 [functions.auto-finalize-entries]
 verify_jwt = false
+
+[functions.seed-demo-data]
+verify_jwt = false
+
+[functions.cleanup-demo-data]
+verify_jwt = false
