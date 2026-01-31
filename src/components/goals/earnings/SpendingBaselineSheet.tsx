@@ -41,21 +41,6 @@ export const SpendingBaselineSheet = ({
   totalPrmr,
   isSaving = false,
 }: SpendingBaselineSheetProps) => {
-  // Debug logging for React error #310
-  console.log('[SpendingBaselineSheet] Props:', {
-    open,
-    trackedSpending,
-    currentBaseline,
-    dealsCount,
-    efpModeEnabled,
-    totalFp,
-    totalPrmr,
-    isSaving,
-    typeOfCurrentBaseline: typeof currentBaseline,
-    typeOfTotalFp: typeof totalFp,
-    typeOfTotalPrmr: typeof totalPrmr,
-  });
-  
   const [inputValue, setInputValue] = useState('');
   
   // Initialize input with current baseline when sheet opens
