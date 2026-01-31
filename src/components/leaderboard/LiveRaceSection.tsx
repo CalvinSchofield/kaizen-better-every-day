@@ -171,7 +171,7 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
         </div>
         
         {/* Metric Toggle Pills */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        <div className="flex gap-1.5 flex-wrap pb-1">
           {metricOrder.map(metric => {
             const cfg = metricConfig[metric];
             const isActive = metric === activeMetric;
