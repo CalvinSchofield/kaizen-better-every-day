@@ -37,7 +37,7 @@ export const UPGRADE_EQUIPMENT_LIST: UpgradeEquipmentItem[] = [
     id: 'spotlight-pro', 
     label: 'Spotlight Pro', 
     price: 249.99, 
-    icon: 'Lightbulb',
+    image: '/images/products/spotlight-pro.webp',
     category: 'Cameras',
     incursVideoFee: false, // No video fee for spotlights
   },

@@ -74,7 +74,7 @@ export const EQUIPMENT_LIST: EquipmentItem[] = [
     id: 'spotlight-pro', 
     label: 'Spotlight Pro', 
     price: 249.99, 
-    icon: 'Lightbulb',
+    image: '/images/products/spotlight-pro.webp',
     category: 'Cameras',
     defaultQuantity: 2,
   },
