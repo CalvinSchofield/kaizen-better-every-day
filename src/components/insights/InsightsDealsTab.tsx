@@ -198,6 +198,30 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
   
   // Use the rate directly from CompactROICard (it already handles upfront vs total mode)
   const effectiveRate = currentRoiState.rate;
+  
+  // IMPORTANT: All hooks must be called before any early returns!
+  // Handle spending baseline save
+  const handleSaveSpendingBaseline = useCallback(async (amount: number | null) => {
+    try {
+      await upsertTotalsAsync({
+        season_year: 2025,
+        season_type: 'summer',
+        fp_plus: summerTotals?.fp_plus ?? 0,
+        prmr: summerTotals?.prmr ?? 0,
+        knocking_days: summerTotals?.knocking_days ?? 0,
+        baseline_spent: amount ?? 0,
+        verified_by: 'self',
+      });
+      setIsSpendingSheetOpen(false);
+    } catch (error) {
+      console.error('Failed to save spending baseline:', error);
+    }
+  }, [upsertTotalsAsync, summerTotals]);
+  
+  const handleOpenSpendingSheet = useCallback(() => {
+    hapticLight();
+    setIsSpendingSheetOpen(true);
+  }, []);
 
   if (isLoading) {
     return (
@@ -243,29 +267,6 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
   const baselineSpent = currentSpendingBaseline && currentSpendingBaseline > 0 ? currentSpendingBaseline : 0;
   const effectiveSpending = baselineSpent + trackedSpent;
   const totalSpent = effectiveSpending;
-  
-  // Handle spending baseline save
-  const handleSaveSpendingBaseline = useCallback(async (amount: number | null) => {
-    try {
-      await upsertTotalsAsync({
-        season_year: 2025,
-        season_type: 'summer',
-        fp_plus: summerTotals?.fp_plus ?? 0,
-        prmr: summerTotals?.prmr ?? 0,
-        knocking_days: summerTotals?.knocking_days ?? 0,
-        baseline_spent: amount ?? 0,
-        verified_by: 'self',
-      });
-      setIsSpendingSheetOpen(false);
-    } catch (error) {
-      console.error('Failed to save spending baseline:', error);
-    }
-  }, [upsertTotalsAsync, summerTotals]);
-  
-  const handleOpenSpendingSheet = useCallback(() => {
-    hapticLight();
-    setIsSpendingSheetOpen(true);
-  }, []);
 
   // Calculate ROI for FP types
   const getFpTypeRoi = (type: 'fresh' | 'takeover' | 'diy') => {
