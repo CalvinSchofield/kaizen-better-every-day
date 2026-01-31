@@ -12,6 +12,7 @@ import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useBlitzes } from "@/hooks/useBlitzes";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { Skeleton } from "@/components/ui/skeleton";
 import { calculateTakeHome, formatCurrency } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
@@ -112,7 +113,7 @@ export const CalendarPlanningCard = ({
     fpValue: number;
   } | null>(null);
   
-  const { plannedDays, togglePlannedDay, isDatePlanned, isToggling } = usePlannedDays();
+  const { plannedDays, togglePlannedDay, isDatePlanned, isToggling, isFetching: isFetchingPlannedDays } = usePlannedDays();
   const { 
     totalFP: preseasonCurrentFP, 
     totalEFP: preseasonCurrentEFP,
@@ -123,6 +124,8 @@ export const CalendarPlanningCard = ({
   const { efpModeEnabled: isEfpMode, calculateEfp } = useEfpMode();
   const { updateGoals, isUpdating } = useRepGoals();
   const { repData } = useRepData();
+  // Use useCurrentUserId for faster, more reliable auth access
+  const { userId } = useCurrentUserId();
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
   const queryClient = useQueryClient();
   
@@ -132,20 +135,22 @@ export const CalendarPlanningCard = ({
   // Hook for auto-syncing with blitzes and summer dates
   const { getBlitzDays, getSummerDays, excludedSummerDays, addSummerOffDay, removeSummerOffDay } = usePlannedDaysSync();
 
-  // Fetch user's personal summer dates
+  // Fetch user's personal summer dates - use userId for faster access
   const { data: seasonConfig } = useQuery({
-    queryKey: ['season-config-for-goals', repData?.user_id],
+    queryKey: ['season-config-for-goals', userId],
     queryFn: async () => {
-      if (!repData?.user_id) return null;
+      if (!userId) return null;
       const { data, error } = await supabase
         .from('season_config')
         .select('personal_summer_start, personal_summer_end')
-        .eq('user_id', repData.user_id)
+        .eq('user_id', userId)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!repData?.user_id,
+    enabled: !!userId,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
 
   // Use personal summer dates or fallback to defaults
@@ -172,11 +177,11 @@ export const CalendarPlanningCard = ({
 
   // Query to get actual days worked (finalized entries with real activity) AND FP+ data
   // Also tracks "knocking days" (doors >= 5 AND work times) for pace calculation
+  // Uses userId directly for faster, more reliable access
   const { data: workedDaysData, refetch: refetchWorkedDays, isLoading: isLoadingWorkedDays, isFetching: isFetchingWorkedDays } = useQuery({
-    queryKey: ['worked-days-data', repData?.user_id, personalSummerStart, personalSummerEnd],
+    queryKey: ['worked-days-data', userId, personalSummerStart, personalSummerEnd],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { 
+      if (!userId) return { 
         preseasonDaysWorked: 0, 
         summerDaysWorked: 0, 
         preseasonKnockingDays: 0,
@@ -190,23 +195,13 @@ export const CalendarPlanningCard = ({
       const { data: entries, error } = await supabase
         .from('daily_entries')
         .select('entry_date, doors_knocked, work_start_time, work_end_time, fp_plus, prmr, upgrade_prmr')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('is_finalized', true);
 
       if (error) {
         console.error('Error fetching worked days:', error);
-        return { 
-          preseasonDaysWorked: 0, 
-          summerDaysWorked: 0, 
-          preseasonKnockingDays: 0,
-          summerKnockingDays: 0,
-          workedDates: new Set<string>(), 
-          knockingDates: new Set<string>(),
-          fpByDate: new Map<string, number>() 
-        };
+        throw error; // Throw to trigger retry
       }
-
-      console.log('Fetched worked days entries:', entries?.length, 'for user:', user.id);
 
       const preseasonStart = parseLocalDate(PRESEASON_START);
       const preseasonEnd = parseLocalDate(PRESEASON_END);
@@ -252,8 +247,6 @@ export const CalendarPlanningCard = ({
         }
       });
 
-      console.log('Worked dates:', Array.from(workedDates).length, 'Knocking days:', preseasonKnockingCount);
-
       return { 
         preseasonDaysWorked: preseasonWorkedCount, 
         summerDaysWorked: summerWorkedCount,
@@ -264,8 +257,11 @@ export const CalendarPlanningCard = ({
         fpByDate 
       };
     },
-    staleTime: 0, // Always refetch - important for accurate calendar display
-    enabled: !!repData?.user_id,
+    staleTime: 2 * 60 * 1000, // 2 minutes for better cache utilization
+    gcTime: 30 * 60 * 1000, // Keep in memory for 30 min
+    enabled: !!userId,
+    retry: 3, // Retry failed fetches up to 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff
   });
 
   // Derived values from workedDaysData
