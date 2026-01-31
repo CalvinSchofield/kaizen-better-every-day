@@ -181,7 +181,9 @@ function generateSalesLog(fpPlus: number, prmr: number): object[] {
   return sales;
 }
 
-function generateCounterTimestamps(stats: typeof PREDEFINED_STATS["Ammon Allan"]): object {
+// Generate realistic "interaction clusters" where events happen in sequence
+// Each cluster: Door → (maybe DM) → (maybe Pitch) → (maybe Transition) → (maybe Presentation) → (maybe Close)
+function generateRealisticTimestamps(stats: typeof PREDEFINED_STATS["Ammon Allan"]): object {
   const timestamps: Record<string, string[]> = {
     doors_knocked: [],
     decision_makers: [],
@@ -191,27 +193,125 @@ function generateCounterTimestamps(stats: typeof PREDEFINED_STATS["Ammon Allan"]
     closes: [],
   };
   
-  // Generate timestamps spread throughout the day (9am-8pm)
-  const generateTimestamps = (count: number, metricName: string) => {
-    for (let i = 0; i < count; i++) {
-      // Weight towards middle of day
-      const hour = randomInt(9, 20);
-      const minute = randomInt(0, 59);
-      const second = randomInt(0, 59);
-      timestamps[metricName].push(
-        `${DEMO_DATE}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}-07:00`
-      );
-    }
-    // Sort timestamps chronologically
-    timestamps[metricName].sort();
-  };
+  // Work day: 9:30 AM to 7:30 PM = 600 minutes of knocking time
+  const workStartMinutes = 9 * 60 + 30; // 9:30 AM in minutes
+  const workEndMinutes = 19 * 60 + 30; // 7:30 PM in minutes
+  const totalWorkMinutes = workEndMinutes - workStartMinutes;
   
-  generateTimestamps(Math.min(stats.doors, 20), "doors_knocked"); // Cap at 20 for performance
-  generateTimestamps(stats.decisionMakers, "decision_makers");
-  generateTimestamps(stats.pitches, "pitches");
-  generateTimestamps(stats.transitions, "transitions");
-  generateTimestamps(stats.presentations, "presentations");
-  generateTimestamps(stats.closes, "closes");
+  // Calculate how many "interaction clusters" we need
+  // Each door is the start of a potential cluster
+  const totalDoors = stats.doors;
+  
+  // Spread doors evenly across the work day with some randomness
+  const avgMinutesBetweenDoors = totalWorkMinutes / totalDoors;
+  
+  // Track which doors lead to deeper funnel events
+  // Use stats to determine conversion rates
+  const dmRate = stats.decisionMakers / stats.doors;
+  const pitchRate = stats.pitches / stats.doors;
+  const transitionRate = stats.transitions / stats.doors;
+  const presentationRate = stats.presentations / stats.doors;
+  const closeRate = stats.closes / stats.doors;
+  
+  let currentMinute = workStartMinutes + randomInt(0, 15); // Start between 9:30-9:45
+  
+  for (let doorIdx = 0; doorIdx < totalDoors; doorIdx++) {
+    // Generate door knock timestamp
+    const doorHour = Math.floor(currentMinute / 60);
+    const doorMin = currentMinute % 60;
+    const doorSecond = randomInt(0, 59);
+    const doorTimestamp = `${DEMO_DATE}T${String(doorHour).padStart(2, "0")}:${String(doorMin).padStart(2, "0")}:${String(doorSecond).padStart(2, "0")}-07:00`;
+    timestamps.doors_knocked.push(doorTimestamp);
+    
+    // Determine if this door leads to deeper interactions
+    // Use cumulative probability so funnel makes sense
+    const rand = Math.random();
+    
+    let interactionDuration = 0; // How long this interaction takes
+    
+    if (rand < dmRate) {
+      // Got a decision maker! Add DM within 10-60 seconds of door
+      const dmOffset = randomInt(10, 60);
+      const dmMinute = currentMinute + Math.floor(dmOffset / 60);
+      const dmSecond = doorSecond + (dmOffset % 60);
+      const actualDmMinute = dmMinute + Math.floor(dmSecond / 60);
+      const actualDmSecond = dmSecond % 60;
+      const dmHour = Math.floor(actualDmMinute / 60);
+      const dmMin = actualDmMinute % 60;
+      timestamps.decision_makers.push(
+        `${DEMO_DATE}T${String(dmHour).padStart(2, "0")}:${String(dmMin).padStart(2, "0")}:${String(actualDmSecond).padStart(2, "0")}-07:00`
+      );
+      interactionDuration = 1;
+      
+      if (rand < pitchRate) {
+        // Started a pitch! Add pitch 30-90 seconds after DM
+        const pitchOffset = randomInt(30, 90);
+        const pitchTotalSeconds = dmOffset + pitchOffset;
+        const pitchMinute = currentMinute + Math.floor(pitchTotalSeconds / 60);
+        const pitchSecond = (doorSecond + pitchTotalSeconds) % 60;
+        const pitchHour = Math.floor(pitchMinute / 60);
+        const pitchMin = pitchMinute % 60;
+        timestamps.pitches.push(
+          `${DEMO_DATE}T${String(pitchHour).padStart(2, "0")}:${String(pitchMin).padStart(2, "0")}:${String(pitchSecond).padStart(2, "0")}-07:00`
+        );
+        interactionDuration = 2;
+        
+        if (rand < transitionRate) {
+          // Got inside! Add transition 2-5 minutes after pitch
+          const transitionOffset = randomInt(2 * 60, 5 * 60);
+          const transitionTotalSeconds = pitchTotalSeconds + transitionOffset;
+          const transitionMinute = currentMinute + Math.floor(transitionTotalSeconds / 60);
+          const transitionSecond = (doorSecond + transitionTotalSeconds) % 60;
+          const transitionHour = Math.floor(transitionMinute / 60);
+          const transitionMin = transitionMinute % 60;
+          timestamps.transitions.push(
+            `${DEMO_DATE}T${String(transitionHour).padStart(2, "0")}:${String(transitionMin).padStart(2, "0")}:${String(transitionSecond).padStart(2, "0")}-07:00`
+          );
+          interactionDuration = Math.floor(transitionTotalSeconds / 60);
+          
+          if (rand < presentationRate) {
+            // Did a presentation! Add 20-60 minutes after transition
+            const presentationOffset = randomInt(20 * 60, 60 * 60);
+            const presentationTotalSeconds = transitionTotalSeconds + presentationOffset;
+            const presentationMinute = currentMinute + Math.floor(presentationTotalSeconds / 60);
+            const presentationSecond = (doorSecond + presentationTotalSeconds) % 60;
+            const presentationHour = Math.floor(presentationMinute / 60);
+            const presentationMin = presentationMinute % 60;
+            timestamps.presentations.push(
+              `${DEMO_DATE}T${String(presentationHour).padStart(2, "0")}:${String(presentationMin).padStart(2, "0")}:${String(presentationSecond).padStart(2, "0")}-07:00`
+            );
+            interactionDuration = Math.floor(presentationTotalSeconds / 60);
+            
+            if (rand < closeRate) {
+              // Attempted a close! Add 5-15 minutes after presentation
+              const closeOffset = randomInt(5 * 60, 15 * 60);
+              const closeTotalSeconds = presentationTotalSeconds + closeOffset;
+              const closeMinute = currentMinute + Math.floor(closeTotalSeconds / 60);
+              const closeSecond = (doorSecond + closeTotalSeconds) % 60;
+              const closeHour = Math.floor(closeMinute / 60);
+              const closeMin = closeMinute % 60;
+              timestamps.closes.push(
+                `${DEMO_DATE}T${String(closeHour).padStart(2, "0")}:${String(closeMin).padStart(2, "0")}:${String(closeSecond).padStart(2, "0")}-07:00`
+              );
+              interactionDuration = Math.floor(closeTotalSeconds / 60);
+            }
+          }
+        }
+      }
+    }
+    
+    // Move to next door: base interval + interaction duration + small random variation
+    const nextDoorDelay = avgMinutesBetweenDoors * (0.5 + Math.random()) + interactionDuration;
+    currentMinute += Math.max(1, Math.floor(nextDoorDelay));
+    
+    // Don't go past end of work day
+    if (currentMinute >= workEndMinutes) break;
+  }
+  
+  // Sort all timestamps chronologically
+  Object.keys(timestamps).forEach(key => {
+    timestamps[key].sort();
+  });
   
   return timestamps;
 }
@@ -250,12 +350,12 @@ Deno.serve(async (req) => {
     for (const rep of allReps) {
       const stats = PREDEFINED_STATS[rep.name];
       if (!stats) {
-        console.log(`No predefined stats for ${rep.name}, generating random...`);
+        console.log(`No predefined stats for ${rep.name}, skipping...`);
         continue;
       }
 
       const salesLog = generateSalesLog(stats.fpPlus, stats.prmr);
-      const counterTimestamps = generateCounterTimestamps(stats);
+      const counterTimestamps = generateRealisticTimestamps(stats);
 
       const dailyEntry = {
         user_id: rep.userId,
@@ -273,7 +373,7 @@ Deno.serve(async (req) => {
         sales_log: salesLog,
         counter_timestamps: counterTimestamps,
         timezone: TIMEZONE,
-        is_finalized: true,
+        is_finalized: false, // Keep as live/unfinalized for demo
         notes: "DEMO_DATA",
       };
 

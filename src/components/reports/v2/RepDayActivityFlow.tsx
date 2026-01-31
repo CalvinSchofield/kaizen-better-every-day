@@ -225,7 +225,7 @@ export const RepDayActivityFlow = ({
           allEvents.push({
             timestamp: new Date(sale.timestamp),
             type: 'sale',
-            label: sale.type === 'upgrade' ? 'Upgrade' : 'FP Sale',
+            label: sale.type === 'upgrade' ? 'Upgrade' : 'FP',
             prmr: sale.prmr,
           });
         }
@@ -403,47 +403,6 @@ export const RepDayActivityFlow = ({
     return zones;
   }, [events, startTime, totalMinutes]);
 
-  // Simplified gap detection: Only 30+ min gaps
-  const gaps = useMemo(() => {
-    if (events.length < 2 || !startTime) return [];
-    
-    const gapPeriods: GapPeriod[] = [];
-    
-    for (let i = 1; i < events.length; i++) {
-      const prevEvent = events[i - 1];
-      const currEvent = events[i];
-      const gapStart = prevEvent.timestamp.getTime();
-      const gapEnd = currEvent.timestamp.getTime();
-      const gapMinutes = (gapEnd - gapStart) / (1000 * 60);
-      
-      // Only show gaps of 20+ minutes
-      if (gapMinutes < 20) continue;
-      
-      const startPos = ((gapStart - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
-      const endPos = ((gapEnd - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
-      
-      // Check if it's a logged break
-      const isBreak = parsedBreaks.some(bp => {
-        const overlapStart = Math.max(gapStart, bp.startTime.getTime());
-        const overlapEnd = Math.min(gapEnd, bp.endTime.getTime());
-        return overlapEnd > overlapStart;
-      });
-      
-      gapPeriods.push({
-        start: startPos,
-        end: endPos,
-        duration: gapMinutes,
-        startTime: prevEvent.timestamp,
-        endTime: currEvent.timestamp,
-        type: isBreak ? 'break' : 'inactivity',
-        eventsBefore: [prevEvent],
-        eventsAfter: [currEvent],
-      });
-    }
-    
-    return gapPeriods;
-  }, [events, startTime, totalMinutes, parsedBreaks]);
-
   // Detect extended doorstep conversations: door → DM/pitch but no transition/presentation/sale
   // These could indicate the rep was talking at the door for a while
   const extendedConversations = useMemo(() => {
@@ -507,6 +466,70 @@ export const RepDayActivityFlow = ({
     
     return conversations;
   }, [events, startTime, totalMinutes]);
+
+  // Gap detection: Only 20+ min gaps that don't overlap with in-home zones or extended conversations
+  const gaps = useMemo(() => {
+    if (events.length < 2 || !startTime) return [];
+    
+    const gapPeriods: GapPeriod[] = [];
+    
+    for (let i = 1; i < events.length; i++) {
+      const prevEvent = events[i - 1];
+      const currEvent = events[i];
+      const gapStart = prevEvent.timestamp.getTime();
+      const gapEnd = currEvent.timestamp.getTime();
+      const gapMinutes = (gapEnd - gapStart) / (1000 * 60);
+      
+      // Only show gaps of 20+ minutes
+      if (gapMinutes < 20) continue;
+      
+      // Check if this gap overlaps with an in-home zone (rep was inside presenting)
+      const overlapsWithHomeZone = inHomeZones.some(zone => {
+        const zoneStartMs = zone.doorTime.getTime();
+        const zoneEndMs = zone.endTime.getTime();
+        // Gap overlaps if it's within a home zone
+        return (gapStart >= zoneStartMs && gapStart < zoneEndMs) ||
+               (gapEnd > zoneStartMs && gapEnd <= zoneEndMs) ||
+               (gapStart <= zoneStartMs && gapEnd >= zoneEndMs);
+      });
+      
+      if (overlapsWithHomeZone) continue; // Skip - rep was in a home
+      
+      // Check if this gap overlaps with an extended conversation
+      const overlapsWithConvo = extendedConversations.some(convo => {
+        const convoStartMs = convo.doorTime.getTime();
+        const convoEndMs = convo.lastActivityTime.getTime();
+        return (gapStart >= convoStartMs && gapStart < convoEndMs) ||
+               (gapEnd > convoStartMs && gapEnd <= convoEndMs) ||
+               (gapStart <= convoStartMs && gapEnd >= convoEndMs);
+      });
+      
+      if (overlapsWithConvo) continue; // Skip - rep was in a conversation
+      
+      const startPos = ((gapStart - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
+      const endPos = ((gapEnd - startTime.getTime()) / (1000 * 60)) / totalMinutes * 100;
+      
+      // Check if it's a logged break
+      const isBreak = parsedBreaks.some(bp => {
+        const overlapStart = Math.max(gapStart, bp.startTime.getTime());
+        const overlapEnd = Math.min(gapEnd, bp.endTime.getTime());
+        return overlapEnd > overlapStart;
+      });
+      
+      gapPeriods.push({
+        start: startPos,
+        end: endPos,
+        duration: gapMinutes,
+        startTime: prevEvent.timestamp,
+        endTime: currEvent.timestamp,
+        type: isBreak ? 'break' : 'inactivity',
+        eventsBefore: [prevEvent],
+        eventsAfter: [currEvent],
+      });
+    }
+    
+    return gapPeriods;
+  }, [events, startTime, totalMinutes, parsedBreaks, inHomeZones, extendedConversations]);
 
   // Summary stats - transitions = homes entered, presentations = presented
   const stats = useMemo(() => {
@@ -588,7 +611,7 @@ export const RepDayActivityFlow = ({
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Type</span>
-                    <span className="text-sm font-medium">{sale.label === 'Upgrade' ? 'Upgrade' : 'Full Package'}</span>
+                    <span className="text-sm font-medium">{sale.label === 'Upgrade' ? 'Upgrade' : 'FP'}</span>
                   </div>
                   <div className="pt-2 border-t text-[10px] text-green-400/80 italic">
                     💰 Great close! Review the timeline to see the funnel path.
@@ -972,7 +995,7 @@ export const RepDayActivityFlow = ({
                     <div className="px-3 py-2 bg-green-500/10 border-b border-green-500/20">
                       <div className="text-lg font-bold text-green-400">${event.prmr} PRMR</div>
                       <div className="text-[10px] text-muted-foreground">
-                        {event.label === 'Upgrade' ? 'Upgrade Sale' : 'Full Package Sale'}
+                        {event.label === 'Upgrade' ? 'Upgrade' : 'FP'}
                       </div>
                     </div>
                   )}
