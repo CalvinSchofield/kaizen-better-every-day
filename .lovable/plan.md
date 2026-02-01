@@ -1,112 +1,251 @@
 
 
-# Fix Activity Flow: Gap Logic & FP Terminology
+# Demo Data Plan for Sunday Feb 1, 2026
 
-## Issues Identified
+## Overview
+Complete demo data package with **23 reps** (all Sophomores, Vets, and Sold/Sold 5+ Rookies), realistic bell-curve production, multiple competitions, and safe cleanup.
 
-Based on your screenshot and the code analysis:
+---
 
-1. **Too Many Gaps Showing**: The demo data generates timestamps randomly throughout the day without correlation. A rep knocking 38 doors gets 20 random timestamps between 9 AM–8 PM, causing many 20+ minute gaps even during active work periods.
+## Participants (23 total - all with photos or relevant context)
 
-2. **Gaps Overlapping with Presentations**: The pink/salmon presentation zones and red gap zones are drawing at the same positions because the gap detection doesn't account for "in-home" zones where the rep is actually presenting.
+### Rookies (8) - Sold/Sold 5+
+| Name | User ID | Notes |
+|------|---------|-------|
+| Bryson Bradshaw | c8055f1f-... | Hit Nike incentive! |
+| Izaiah Martinez | a79bcce8-... | |
+| Jackson Jennings | 3ab2ef67-... | 1v1 vs Misael |
+| Jay Tingey | 8ea77d54-... | |
+| JP (Jason) Perales | 5076efe0-... | |
+| Noah Delgado | 8efaac75-... | |
+| Trevor Allan | 67c22aa0-... | |
+| Weston | d37d3df9-... | |
 
-3. **"Full Package" terminology**: Line 975 shows "Full Package Sale" - you want it to just say "FP" or "FP Sale".
+### Sophomores (10) - Including Johnny Gadasay
+| Name | User ID | Notes |
+|------|---------|-------|
+| Abi Cunningham | dde01bfc-... | Lowest upgrade $24 |
+| Ammon Allan | 4180229c-... | 1v1 vs Adam |
+| Ansel Severson | a848bd1a-... | |
+| Austin Clayton | b38b47e4-... | 0 sales, grinding |
+| Christian Fabian | 393c450a-... | 0 sales |
+| Ephraim Wilde | 68f129d0-... | 0 sales |
+| Jack Mair | bcf3761d-... | |
+| Javier Estrada | 1123659a-... | 0 sales |
+| Johnny Gadasay | 37a5b01f-... | NEW - adding |
+| Jose Pineda | a9f5a317-... | |
+| RJ Ashton | ae5e1425-... | |
+
+### Vets (4) - Excluding Calvin
+| Name | User ID | Notes |
+|------|---------|-------|
+| Adam Schofield | 1712a7f8-... | Has photo, 1v1 vs Ammon |
+| Calder Severson | fc0a08d5-... | Has photo, top producer (4 FP+) |
+| Misael Sanchez | 373d13e3-... | 1v1 vs Jackson, $81 upgrade |
+| Quinn Gleed | 69c2fc5c-... | Team captain |
+
+---
+
+## Production Bell Curve Distribution
+
+### Stars (Top 3)
+| Rep | FP+ | PRMR | Doors | Key Stat |
+|-----|-----|------|-------|----------|
+| Calder Severson | **4.0** | $192 | 78 | **Highest FP PRMR** |
+| Ammon Allan | 3.4 | $175 | 72 | Strong day |
+| Bryson Bradshaw | **3.2** | $165 | 65 | **Rookie hit Nike incentive!** |
+
+### Mid-High Performers
+| Rep | FP+ | PRMR | Doors |
+|-----|-----|------|-------|
+| Adam Schofield | 2.8 | $145 | 70 |
+| Quinn Gleed | 2.2 | $115 | 68 |
+| Noah Delgado | 2.0 | $105 | 58 |
+
+### Mid Performers
+| Rep | FP+ | PRMR | Doors |
+|-----|-----|------|-------|
+| Misael Sanchez | 1.8 | **$81 upgrade** | 60 |
+| Weston | 1.5 | $78 | 55 |
+| Trevor Allan | 1.2 | $65 | 52 |
+| Jay Tingey | 1.0 | $56 | 48 |
+| Ansel Severson | 0.8 | **$56** (lowest FP) | 50 |
+
+### Lower Production
+| Rep | FP+ | PRMR | Doors |
+|-----|-----|------|-------|
+| Izaiah Martinez | 0.6 | $45 | 52 |
+| JP Perales | 0.5 | $38 | 45 |
+| Jack Mair | 0.4 | $32 | 48 |
+| Abi Cunningham | 0.3 | **$24** (lowest upgrade) | 50 |
+| Johnny Gadasay | 0.3 | $28 | 42 |
+| RJ Ashton | 0.2 | $18 | 46 |
+| Jose Pineda | 0.1 | $12 | 40 |
+| Jackson Jennings | 0 | $0 | **85** | High transitions (12) for 1v1 |
+
+### Zero Sales (Grinding Hard)
+| Rep | FP+ | PRMR | Doors |
+|-----|-----|------|-------|
+| Austin Clayton | 0 | $0 | 65 |
+| Christian Fabian | 0 | $0 | 58 |
+| Ephraim Wilde | 0 | $0 | 52 |
+| Javier Estrada | 0 | $0 | 48 |
+
+**Demo Total: ~26.5 FP+ across 23 reps**
+
+---
+
+## Challenges
+
+### 1. Team Battle: Red vs Blue 🍗
+- **Type**: Group challenge (FP+)
+- **Stakes**: 🍗 BBQ at the Apt Sunday
+- **Visibility**: Public
+
+**Red Team (12 members - WINNING):**
+- Calder Severson (4.0) - Captain
+- Ammon Allan (3.4)
+- Bryson Bradshaw (3.2)
+- Adam Schofield (2.8)
+- Noah Delgado (2.0)
+- Weston (1.5)
+- Jay Tingey (1.0)
+- Ansel Severson (0.8)
+- Izaiah Martinez (0.6)
+- JP Perales (0.5)
+- Johnny Gadasay (0.3)
+- Austin Clayton (0)
+- **Total: ~20.1 FP+**
+
+**Blue Team (11 members):**
+- Quinn Gleed (2.2) - Captain
+- Misael Sanchez (1.8)
+- Trevor Allan (1.2)
+- Jack Mair (0.4)
+- Abi Cunningham (0.3)
+- RJ Ashton (0.2)
+- Jose Pineda (0.1)
+- Jackson Jennings (0)
+- Christian Fabian (0)
+- Ephraim Wilde (0)
+- Javier Estrada (0)
+- **Total: ~6.2 FP+**
+
+### 2. 1v1: Ammon Allan vs Adam Schofield (FP+)
+- **Metric**: FP+ 
+- **Stakes**: Pride
+- **Score**: Ammon 3.4 vs Adam 2.8 - Ammon leading!
+- Both have profile photos ✅
+
+### 3. 1v1: Jackson Jennings vs Misael Sanchez (Transitions)
+- **Metric**: Transitions
+- **Stakes**: Pride (Rookie vs Vet!)
+- **Score**: Jackson 12 vs Misael 8 - Rookie winning!
+- Story: Rookie grinding hard but 0 sales, vet closing more
+
+---
+
+## Incentives
+
+### 1. 👟 Nike Gift Card (Rookies Only)
+- **Type**: Anyone Who
+- **Target**: 3 FP+
+- **Reward**: 👟 Nike Gift Card
+- **Eligible**: All 8 rookies
+- **Winners so far**: Bryson Bradshaw (3.2 FP+) ✅
+- Shows "1 qualified" badge
+
+### 2. ⛵️ Family Day (Weekly Office Goal)
+- **Type**: Group Total
+- **Target**: 100 FP+
+- **Progress**: 96.5/100 FP+ (96.5%)
+- **Reward**: ⛵️ Family Day
+- **Eligible**: All 23 demo reps
+- **Date Range**: Feb 1 only (for safe cleanup)
+
+**Safety Note**: This will be created with start_date and end_date both as 2026-02-01, so the cleanup function will delete it properly. The progress bar will show 96.5% full from demo data only.
+
+---
+
+## Time Configuration
+- **Work Start**: ~9:30 AM (9:15-9:45 AM range)
+- **Latest Activity**: 8:15 PM
+- **All entries**: `is_finalized: false` (showing as "working")
+- **Timezone**: America/Denver
 
 ---
 
 ## Technical Changes
 
-### 1. Fix Gap Detection Logic
-**File:** `src/components/reports/v2/RepDayActivityFlow.tsx`
+### File 1: `supabase/functions/seed-demo-data/index.ts`
 
-The current logic (lines 407-445) simply checks time between consecutive events:
-```typescript
-// Only show gaps of 20+ minutes
-if (gapMinutes < 20) continue;
-```
+1. Update `DEMO_DATE` to `"2026-02-01"`
 
-**Problem:** It doesn't exclude time periods where the rep was *inside a home* (presentation zones). So a 40-minute presentation incorrectly also shows as a "40m gap".
+2. Add Johnny Gadasay to sophomores list
 
-**Fix:** Modify gap detection to exclude periods that overlap with `inHomeZones` or `extendedConversations`:
+3. Update `PREDEFINED_STATS` with new bell curve:
+   - Calder: 4.0 FP+, $192 PRMR (highest FP PRMR)
+   - Jackson: 0 FP+ but 85 doors, 12 transitions
+   - Abi: $24 upgrade PRMR (lowest)
+   - Ansel: $56 FP PRMR (lowest FP PRMR)
+   - Misael: $81 upgrade PRMR (highest upgrade)
+   - 4 reps with 0 FP+ / $0 PRMR
 
-```typescript
-// Check if this gap overlaps with an in-home zone
-const overlapsWithHomeZone = inHomeZones.some(zone => {
-  const zoneStartMs = zone.doorTime.getTime();
-  const zoneEndMs = zone.endTime.getTime();
-  // Gap overlaps if it's within a home zone
-  return (gapStart >= zoneStartMs && gapStart < zoneEndMs) ||
-         (gapEnd > zoneStartMs && gapEnd <= zoneEndMs) ||
-         (gapStart <= zoneStartMs && gapEnd >= zoneEndMs);
-});
+4. Rebalance team compositions (12 Red vs 11 Blue)
 
-if (overlapsWithHomeZone) continue; // Skip - rep was in a home
-```
+5. Create new 1v1 challenges:
+   - Ammon vs Adam (FP+, Pride)
+   - Jackson vs Misael (Transitions, Pride)
 
-### 2. Fix Demo Data Timestamp Generation
-**File:** `supabase/functions/seed-demo-data/index.ts`
+6. Update Nike incentive:
+   - Target: 3 FP+
+   - Reward: 👟 Nike Gift Card
 
-The current `generateCounterTimestamps()` function (lines 184-217) creates random timestamps throughout the day with no correlation between events. This doesn't represent real activity patterns where a rep:
-- Knocks → DM → Pitch → Transition → Presentation happens in sequence
-- Has clusters of activity, not random scattering
+7. Add Weekly Office Goal incentive:
+   - Type: group_total
+   - Target: 100 FP+
+   - Reward: ⛵️ Family Day
+   - All 23 reps eligible
 
-**Fix:** Generate realistic "interaction clusters" where:
-- Each cluster starts with a door knock
-- DM, pitch, transition follow within seconds/minutes
-- Presentations have 20-120 minute durations
-- Time progresses forward through the day
+8. Update work time generation:
+   - Start range: 9:15-9:45 AM
+   - Latest knock: ~8:15 PM
 
-### 3. Fix "Full Package" Terminology
-**File:** `src/components/reports/v2/RepDayActivityFlow.tsx`
+### File 2: `supabase/functions/cleanup-demo-data/index.ts`
 
-**Line 228-229:**
-```typescript
-// Before
-label: sale.type === 'upgrade' ? 'Upgrade' : 'FP Sale',
+1. Update `DEMO_DATE` to `"2026-02-01"`
 
-// After
-label: sale.type === 'upgrade' ? 'Upgrade' : 'FP',
-```
+2. Update challenge cleanup date filter to look for challenges created on Feb 1
 
-**Line 591:**
-```typescript
-// Before
-<span className="text-sm font-medium">{sale.label === 'Upgrade' ? 'Upgrade' : 'Full Package'}</span>
-
-// After
-<span className="text-sm font-medium">{sale.label === 'Upgrade' ? 'Upgrade' : 'FP'}</span>
-```
-
-**Line 974-976:**
-```typescript
-// Before
-<div className="text-[10px] text-muted-foreground">
-  {event.label === 'Upgrade' ? 'Upgrade Sale' : 'Full Package Sale'}
-</div>
-
-// After
-<div className="text-[10px] text-muted-foreground">
-  {event.label === 'Upgrade' ? 'Upgrade' : 'FP'}
-</div>
-```
+3. Update incentive cleanup date filter to look for incentives created on Feb 1
 
 ---
 
-## Summary of Changes
+## Cleanup Safety Guarantees
 
-| File | Change |
-|------|--------|
-| `RepDayActivityFlow.tsx` | Skip gaps that overlap with in-home zones; change "Full Package" → "FP" |
-| `seed-demo-data/index.ts` | Generate sequential timestamp clusters instead of random scattering |
+| Data Type | Tag/Filter | Safe? |
+|-----------|------------|-------|
+| Daily Entries | `notes = "DEMO_DATA"` AND `entry_date = "2026-02-01"` | ✅ |
+| Challenges | `created_at` on 2026-02-01 | ✅ |
+| Incentives | `created_at` on 2026-02-01 | ✅ |
+| Real User Data | Never touched | ✅ |
+
+**Key protections:**
+- Demo daily entries tagged with `notes: "DEMO_DATA"`
+- Challenges/incentives filtered by creation date only
+- No modification to existing user entries from other days
+- Weekly goal is created today so it gets cleaned up today
 
 ---
 
-## Expected Result
+## Demo Highlights
 
-After these fixes:
-- **Gaps will only show for real inactivity** (20+ minutes with no in-home activity)
-- **Presentations won't show gaps on top of them**
-- **FP terminology** will be consistent throughout
-
-The demo data will need to be regenerated after updating the seed function to see the improved activity flow visualization.
+| Feature | What to Show |
+|---------|--------------|
+| Live Leaderboard | Bell curve visible - top rep at 4 FP+, multiple at 0 |
+| Team Battle | 12 vs 11, uneven but Red winning by ~14 FP+ |
+| 1v1 Battles | Ammon vs Adam (both with photos), Rookie vs Vet transitions |
+| Incentive Progress | Nike gift card with 1 winner, Office Goal at 96.5% |
+| Activity Flow | Everyone "working" with times from 9:30 AM - 8:15 PM |
+| Grit Stories | Austin Clayton: 65 doors, 0 sales - the grind! |
 
