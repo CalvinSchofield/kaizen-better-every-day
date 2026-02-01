@@ -1,251 +1,239 @@
 
 
-# Demo Data Plan for Sunday Feb 1, 2026
+# UX Overhaul: Challenge Cards & Detail Views
 
-## Overview
-Complete demo data package with **23 reps** (all Sophomores, Vets, and Sold/Sold 5+ Rookies), realistic bell-curve production, multiple competitions, and safe cleanup.
+## Problem Summary
 
----
+Based on the screenshots and code analysis, there are **4 key UX issues**:
 
-## Participants (23 total - all with photos or relevant context)
-
-### Rookies (8) - Sold/Sold 5+
-| Name | User ID | Notes |
-|------|---------|-------|
-| Bryson Bradshaw | c8055f1f-... | Hit Nike incentive! |
-| Izaiah Martinez | a79bcce8-... | |
-| Jackson Jennings | 3ab2ef67-... | 1v1 vs Misael |
-| Jay Tingey | 8ea77d54-... | |
-| JP (Jason) Perales | 5076efe0-... | |
-| Noah Delgado | 8efaac75-... | |
-| Trevor Allan | 67c22aa0-... | |
-| Weston | d37d3df9-... | |
-
-### Sophomores (10) - Including Johnny Gadasay
-| Name | User ID | Notes |
-|------|---------|-------|
-| Abi Cunningham | dde01bfc-... | Lowest upgrade $24 |
-| Ammon Allan | 4180229c-... | 1v1 vs Adam |
-| Ansel Severson | a848bd1a-... | |
-| Austin Clayton | b38b47e4-... | 0 sales, grinding |
-| Christian Fabian | 393c450a-... | 0 sales |
-| Ephraim Wilde | 68f129d0-... | 0 sales |
-| Jack Mair | bcf3761d-... | |
-| Javier Estrada | 1123659a-... | 0 sales |
-| Johnny Gadasay | 37a5b01f-... | NEW - adding |
-| Jose Pineda | a9f5a317-... | |
-| RJ Ashton | ae5e1425-... | |
-
-### Vets (4) - Excluding Calvin
-| Name | User ID | Notes |
-|------|---------|-------|
-| Adam Schofield | 1712a7f8-... | Has photo, 1v1 vs Ammon |
-| Calder Severson | fc0a08d5-... | Has photo, top producer (4 FP+) |
-| Misael Sanchez | 373d13e3-... | 1v1 vs Jackson, $81 upgrade |
-| Quinn Gleed | 69c2fc5c-... | Team captain |
+1. **Missing Metric Clarity**: Users can't tell what they're competing on (FP+, PRMR, Doors, or Transitions)
+2. **Confusing Progress Bar**: The "8h left" progress bar (lines 622-644) shows a weird bar based on user progress ratio - not time remaining
+3. **Unintuitive Score Slider**: The tug-of-war slider with a center dot is hard to read at a glance
+4. **Sparse Detail View**: Lacks informative context about the challenge
 
 ---
 
-## Production Bell Curve Distribution
+## Design Solution
 
-### Stars (Top 3)
-| Rep | FP+ | PRMR | Doors | Key Stat |
-|-----|-----|------|-------|----------|
-| Calder Severson | **4.0** | $192 | 78 | **Highest FP PRMR** |
-| Ammon Allan | 3.4 | $175 | 72 | Strong day |
-| Bryson Bradshaw | **3.2** | $165 | 65 | **Rookie hit Nike incentive!** |
+### 1. Add Prominent Metric Badge
 
-### Mid-High Performers
-| Rep | FP+ | PRMR | Doors |
-|-----|-----|------|-------|
-| Adam Schofield | 2.8 | $145 | 70 |
-| Quinn Gleed | 2.2 | $115 | 68 |
-| Noah Delgado | 2.0 | $105 | 58 |
+**On Challenge Cards** - Add a pill/chip showing the metric:
+```
+┌─────────────────────────────────────────────┐
+│ 🔥 1V1 CHALLENGE          ● LIVE           │
+│                         ┌─────────┐         │
+│                         │ FP+     │ ← NEW!  │
+│                         └─────────┘         │
+│ [Avatar] Jackson    VS    Misael [Avatar]  │
+│         12.0             8.0               │
+│ ━━━━━━━━━━━━━●━━━━━━━━━                    │
+│ Stakes: Pride                    8h left   │
+└─────────────────────────────────────────────┘
+```
 
-### Mid Performers
-| Rep | FP+ | PRMR | Doors |
-|-----|-----|------|-------|
-| Misael Sanchez | 1.8 | **$81 upgrade** | 60 |
-| Weston | 1.5 | $78 | 55 |
-| Trevor Allan | 1.2 | $65 | 52 |
-| Jay Tingey | 1.0 | $56 | 48 |
-| Ansel Severson | 0.8 | **$56** (lowest FP) | 50 |
+**In Detail Sheet** - Add metric prominently below status badge:
+```
+        ⚔️ 1v1 Challenge
+          [● ACTIVE]
+         
+         Competing on:
+         ┌───────────────┐
+         │ 📊 Transitions │  ← Clear metric badge with icon
+         └───────────────┘
+```
 
-### Lower Production
-| Rep | FP+ | PRMR | Doors |
-|-----|-----|------|-------|
-| Izaiah Martinez | 0.6 | $45 | 52 |
-| JP Perales | 0.5 | $38 | 45 |
-| Jack Mair | 0.4 | $32 | 48 |
-| Abi Cunningham | 0.3 | **$24** (lowest upgrade) | 50 |
-| Johnny Gadasay | 0.3 | $28 | 42 |
-| RJ Ashton | 0.2 | $18 | 46 |
-| Jose Pineda | 0.1 | $12 | 40 |
-| Jackson Jennings | 0 | $0 | **85** | High transitions (12) for 1v1 |
+### 2. Fix the Time Progress Bar Issue
 
-### Zero Sales (Grinding Hard)
-| Rep | FP+ | PRMR | Doors |
-|-----|-----|------|-------|
-| Austin Clayton | 0 | $0 | 65 |
-| Christian Fabian | 0 | $0 | 58 |
-| Ephraim Wilde | 0 | $0 | 52 |
-| Javier Estrada | 0 | $0 | 48 |
+**Problem**: Lines 622-644 show a progress bar that's actually displaying score ratio, not time. The label says "8h left" but the bar shows something else.
 
-**Demo Total: ~26.5 FP+ across 23 reps**
+**Solution**: Replace with a **dedicated time remaining element** - no confusing bar, just clear text with optional subtle context:
 
----
+```
+         ⏱️ 8h left
+```
 
-## Challenges
+Or if we want more visual appeal:
+```
+    ━━━━━━━━━━━━━━━━━━━━━○  (12h progress bar)
+              8h remaining
+```
 
-### 1. Team Battle: Red vs Blue 🍗
-- **Type**: Group challenge (FP+)
-- **Stakes**: 🍗 BBQ at the Apt Sunday
-- **Visibility**: Public
+**Technical Change**: Remove the confusing score-ratio bar from lines 622-644 and replace with a clean time display that doesn't look like another score visualization.
 
-**Red Team (12 members - WINNING):**
-- Calder Severson (4.0) - Captain
-- Ammon Allan (3.4)
-- Bryson Bradshaw (3.2)
-- Adam Schofield (2.8)
-- Noah Delgado (2.0)
-- Weston (1.5)
-- Jay Tingey (1.0)
-- Ansel Severson (0.8)
-- Izaiah Martinez (0.6)
-- JP Perales (0.5)
-- Johnny Gadasay (0.3)
-- Austin Clayton (0)
-- **Total: ~20.1 FP+**
+### 3. Redesign the Score Slider for Intuitive "Who's Winning"
 
-**Blue Team (11 members):**
-- Quinn Gleed (2.2) - Captain
-- Misael Sanchez (1.8)
-- Trevor Allan (1.2)
-- Jack Mair (0.4)
-- Abi Cunningham (0.3)
-- RJ Ashton (0.2)
-- Jose Pineda (0.1)
-- Jackson Jennings (0)
-- Christian Fabian (0)
-- Ephraim Wilde (0)
-- Javier Estrada (0)
-- **Total: ~6.2 FP+**
+**Current Problem**: A center-sliding dot on a gradient is unclear. Users need to decode what the position means.
 
-### 2. 1v1: Ammon Allan vs Adam Schofield (FP+)
-- **Metric**: FP+ 
-- **Stakes**: Pride
-- **Score**: Ammon 3.4 vs Adam 2.8 - Ammon leading!
-- Both have profile photos ✅
+**New Design Options**:
 
-### 3. 1v1: Jackson Jennings vs Misael Sanchez (Transitions)
-- **Metric**: Transitions
-- **Stakes**: Pride (Rookie vs Vet!)
-- **Score**: Jackson 12 vs Misael 8 - Rookie winning!
-- Story: Rookie grinding hard but 0 sales, vet closing more
+**Option A: Side-by-Side Bars (Recommended)**
+```
+  Jackson                        Misael
+    12.0                          8.0
+  ████████████                ████████
+    (winning)                 
+```
+Two separate bars growing from center outward, winner's bar is longer and colored differently.
 
----
+**Option B: Leading Indicator with Clear Labels**
+```
+  Jackson 12.0  ◀━━━━━━━━━━━━━━━━━━━━  Misael 8.0
+                    (Jackson leads)
+```
+The arrow/indicator slides toward the leader with explicit "leads" label.
 
-## Incentives
+**Option C: Tug-of-War with Explicit Winner Highlight (Enhancement of current)**
+```
+  12.0 [████████████████●━━━━━━━━] 8.0
+       └── Jackson leads by 4.0 ──┘
+```
+Keep the slider but add explicit text showing who leads and by how much.
 
-### 1. 👟 Nike Gift Card (Rookies Only)
-- **Type**: Anyone Who
-- **Target**: 3 FP+
-- **Reward**: 👟 Nike Gift Card
-- **Eligible**: All 8 rookies
-- **Winners so far**: Bryson Bradshaw (3.2 FP+) ✅
-- Shows "1 qualified" badge
+**Recommendation**: Go with **Option C** (enhanced current) as it:
+- Maintains familiar mental model
+- Adds explicit "X leads by Y" text
+- Uses color more effectively (winner side glows)
+- Shows margin of victory
 
-### 2. ⛵️ Family Day (Weekly Office Goal)
-- **Type**: Group Total
-- **Target**: 100 FP+
-- **Progress**: 96.5/100 FP+ (96.5%)
-- **Reward**: ⛵️ Family Day
-- **Eligible**: All 23 demo reps
-- **Date Range**: Feb 1 only (for safe cleanup)
+### 4. Enhance Detail View Information Hierarchy
 
-**Safety Note**: This will be created with start_date and end_date both as 2026-02-01, so the cleanup function will delete it properly. The progress bar will show 96.5% full from demo data only.
+**Current Layout Issues**:
+- Metric not shown
+- Status badge is prominent but metric context is missing
+- Time remaining bar is confusing
+- Score visualization needs clearer winner indication
 
----
-
-## Time Configuration
-- **Work Start**: ~9:30 AM (9:15-9:45 AM range)
-- **Latest Activity**: 8:15 PM
-- **All entries**: `is_finalized: false` (showing as "working")
-- **Timezone**: America/Denver
+**New Layout**:
+```
+┌─────────────────────────────────────────────────────┐
+│                  ⚔️ 1v1 Challenge                   │
+│                                                     │
+│                   [● ACTIVE]                        │
+│                                                     │
+│  ┌───────────────────────────────────────────────┐  │
+│  │            Competing on: FP+                  │  │ ← NEW: Clear metric
+│  └───────────────────────────────────────────────┘  │
+│                                                     │
+│    [Avatar]                      [Avatar]           │
+│    Jackson                       Misael             │
+│     12.0                          8.0               │
+│       ↑ leading                                     │ ← NEW: Winner indicator
+│                                                     │
+│   ████████████████●━━━━━━━━━━━━  Score Slider      │
+│        Jackson leads by 4.0                         │ ← NEW: Margin text
+│                                                     │
+│                 ⏱️ 8h remaining                     │ ← FIXED: Just time, no bar
+│                                                     │
+│   ┌───────────────────────────────────────────────┐ │
+│   │  Stakes                                       │ │
+│   │  Pride                                        │ │
+│   └───────────────────────────────────────────────┘ │
+│                                                     │
+│              👁️ Public challenge                    │
+└─────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Technical Changes
+## Technical Implementation Plan
 
-### File 1: `supabase/functions/seed-demo-data/index.ts`
+### File 1: `src/components/leaderboard/ChallengeCard.tsx`
 
-1. Update `DEMO_DATE` to `"2026-02-01"`
+**Changes:**
 
-2. Add Johnny Gadasay to sophomores list
+1. **Add Metric Badge to Header** (around line 108-118)
+   - Add a styled pill showing the metric type
+   - Use appropriate icon per metric (📊 for transitions, 💰 for PRMR, etc.)
 
-3. Update `PREDEFINED_STATS` with new bell curve:
-   - Calder: 4.0 FP+, $192 PRMR (highest FP PRMR)
-   - Jackson: 0 FP+ but 85 doors, 12 transitions
-   - Abi: $24 upgrade PRMR (lowest)
-   - Ansel: $56 FP PRMR (lowest FP PRMR)
-   - Misael: $81 upgrade PRMR (highest upgrade)
-   - 4 reps with 0 FP+ / $0 PRMR
+2. **Enhance Score Display** (lines 165-255)
+   - Add "leading" indicator under winning participant's score
+   - Consider adding margin text
 
-4. Rebalance team compositions (12 Red vs 11 Blue)
+3. **Update Slider with Winner Context** (lines 219-255)
+   - Add text below slider: "X leads by Y" 
+   - Use more distinct colors for winner vs opponent
 
-5. Create new 1v1 challenges:
-   - Ammon vs Adam (FP+, Pride)
-   - Jackson vs Misael (Transitions, Pride)
+### File 2: `src/components/leaderboard/ChallengeDetailSheet.tsx`
 
-6. Update Nike incentive:
-   - Target: 3 FP+
-   - Reward: 👟 Nike Gift Card
+**Changes:**
 
-7. Add Weekly Office Goal incentive:
-   - Type: group_total
-   - Target: 100 FP+
-   - Reward: ⛵️ Family Day
-   - All 23 reps eligible
+1. **Add Metric Badge Section** (after status, around line 182)
+   - New section showing the metric prominently with icon
+   - "Competing on: [Metric]" format
 
-8. Update work time generation:
-   - Start range: 9:15-9:45 AM
-   - Latest knock: ~8:15 PM
+2. **Enhance Score Display with Winner Indicator** (lines 387-421)
+   - Add "leading" badge or arrow under winning participant
+   - Show margin of victory
 
-### File 2: `supabase/functions/cleanup-demo-data/index.ts`
+3. **Fix Time Remaining Section** (lines 622-644)
+   - Remove the confusing progress bar that shows score ratio
+   - Replace with clean time-only display: "⏱️ Xh remaining"
+   - For team battles, same clean approach
 
-1. Update `DEMO_DATE` to `"2026-02-01"`
+4. **Add Margin Text Below Slider** (after lines 463)
+   - "X leads by Y [metric]" or "Tied!" if equal
 
-2. Update challenge cleanup date filter to look for challenges created on Feb 1
+### File 3: `src/components/competitions/ChallengeScoreSlider.tsx` (if used)
 
-3. Update incentive cleanup date filter to look for incentives created on Feb 1
-
----
-
-## Cleanup Safety Guarantees
-
-| Data Type | Tag/Filter | Safe? |
-|-----------|------------|-------|
-| Daily Entries | `notes = "DEMO_DATA"` AND `entry_date = "2026-02-01"` | ✅ |
-| Challenges | `created_at` on 2026-02-01 | ✅ |
-| Incentives | `created_at` on 2026-02-01 | ✅ |
-| Real User Data | Never touched | ✅ |
-
-**Key protections:**
-- Demo daily entries tagged with `notes: "DEMO_DATA"`
-- Challenges/incentives filtered by creation date only
-- No modification to existing user entries from other days
-- Weekly goal is created today so it gets cleaned up today
+- Update to support new "show margin" prop
+- Add optional winner label display
 
 ---
 
-## Demo Highlights
+## Metric Icons & Labels Reference
 
-| Feature | What to Show |
-|---------|--------------|
-| Live Leaderboard | Bell curve visible - top rep at 4 FP+, multiple at 0 |
-| Team Battle | 12 vs 11, uneven but Red winning by ~14 FP+ |
-| 1v1 Battles | Ammon vs Adam (both with photos), Rookie vs Vet transitions |
-| Incentive Progress | Nike gift card with 1 winner, Office Goal at 96.5% |
-| Activity Flow | Everyone "working" with times from 9:30 AM - 8:15 PM |
-| Grit Stories | Austin Clayton: 65 doors, 0 sales - the grind! |
+| Metric | Icon | Label | Format |
+|--------|------|-------|--------|
+| `fp_plus` | 📊 or 🎯 | FP+ | `X.X` |
+| `prmr` | 💰 | PRMR | `$X` |
+| `transitions` | 🚪 | Transitions | `X` |
+| `doors_knocked` | 🚪 | Doors | `X` |
+
+---
+
+## Visual Examples
+
+### Challenge Card - Before vs After
+
+**Before:**
+```
+1V1 CHALLENGE                    ● LIVE
+Jackson Jennings  VS  Misael Sanchez
+     12                   8
+━━━━━━━━━━━━●━━━━━━━━━━━━
+Stakes: Pride                  8h left
+```
+
+**After:**
+```
+1V1 CHALLENGE   ┌─────────────┐  ● LIVE
+                │ Transitions │
+                └─────────────┘
+Jackson Jennings  VS  Misael Sanchez
+     12 ← leading          8
+━━━━━━━━━━━━━━●━━━━━━━━━━━━
+Jackson leads by 4 transitions
+Stakes: Pride                  8h left
+```
+
+### Detail Sheet - Key Improvements
+
+1. **Add prominent metric badge** below ACTIVE status
+2. **Remove confusing progress bar** under score slider
+3. **Add "leads by X" text** under score visualization
+4. **Show only clean time remaining** without misleading bar
+
+---
+
+## Summary of Changes
+
+| Area | Current Issue | Fix |
+|------|---------------|-----|
+| Metric visibility | Not shown | Add badge on cards + detail header |
+| Time remaining bar | Shows score ratio, labeled as time | Remove bar, show only "Xh left" text |
+| Score slider | Center dot is ambiguous | Add "X leads by Y" text below |
+| Winner clarity | Colors subtle | Add "leading" label + bolder winner color |
+| Detail view density | Sparse, missing context | Add metric section, margin info |
+
+This plan maintains the existing mobile-first, premium iOS aesthetic while dramatically improving information clarity and intuitiveness.
 
