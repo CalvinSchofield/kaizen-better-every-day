@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const DEMO_DATE = "2026-01-31";
+const DEMO_DATE = "2026-02-01";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
