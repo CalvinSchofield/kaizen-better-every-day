@@ -74,7 +74,7 @@ const PREDEFINED_STATS: Record<string, {
   "Noah Delgado": { doors: 58, fpPlus: 2.0, prmr: 105, upgradePrmr: 0, decisionMakers: 18, pitches: 14, transitions: 7, presentations: 4, closes: 2 },
 
   // MID PERFORMERS
-  "Misael Sanchez": { doors: 60, fpPlus: 1.8, prmr: 0, upgradePrmr: 81, decisionMakers: 17, pitches: 13, transitions: 8, presentations: 3, closes: 2 }, // Highest upgrade PRMR
+  "Misael Sanchez": { doors: 60, fpPlus: 1.8, prmr: 0, upgradePrmr: 81, decisionMakers: 17, pitches: 13, transitions: 6, presentations: 3, closes: 2 }, // Highest upgrade PRMR, 6 transitions for 1v1
   "Weston": { doors: 55, fpPlus: 1.5, prmr: 78, upgradePrmr: 0, decisionMakers: 16, pitches: 12, transitions: 6, presentations: 3, closes: 2 },
   "Trevor Allan": { doors: 52, fpPlus: 1.2, prmr: 65, upgradePrmr: 0, decisionMakers: 15, pitches: 11, transitions: 5, presentations: 3, closes: 2 },
   "Jay Tingey": { doors: 48, fpPlus: 1.0, prmr: 56, upgradePrmr: 0, decisionMakers: 14, pitches: 10, transitions: 5, presentations: 2, closes: 1 },
@@ -88,7 +88,7 @@ const PREDEFINED_STATS: Record<string, {
   "Johnny Gadasay": { doors: 42, fpPlus: 0.3, prmr: 28, upgradePrmr: 0, decisionMakers: 11, pitches: 8, transitions: 3, presentations: 1, closes: 1 },
   "RJ Ashton": { doors: 46, fpPlus: 0.2, prmr: 18, upgradePrmr: 0, decisionMakers: 12, pitches: 8, transitions: 3, presentations: 1, closes: 1 },
   "Jose Pineda": { doors: 40, fpPlus: 0.1, prmr: 12, upgradePrmr: 0, decisionMakers: 10, pitches: 7, transitions: 3, presentations: 1, closes: 0 },
-  "Jackson Jennings": { doors: 85, fpPlus: 0, prmr: 0, upgradePrmr: 0, decisionMakers: 25, pitches: 20, transitions: 12, presentations: 0, closes: 0 }, // High doors/transitions, 0 sales
+  "Jackson Jennings": { doors: 55, fpPlus: 0, prmr: 0, upgradePrmr: 0, decisionMakers: 16, pitches: 12, transitions: 3, presentations: 0, closes: 0 }, // 3 transitions for 1v1 vs Misael's 6
 
   // ZERO SALES (Grinding Hard)
   "Austin Clayton": { doors: 65, fpPlus: 0, prmr: 0, upgradePrmr: 0, decisionMakers: 18, pitches: 14, transitions: 6, presentations: 0, closes: 0 },

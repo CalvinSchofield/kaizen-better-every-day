@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
       .from("challenges")
       .select("id")
       .gte("created_at", `${DEMO_DATE}T00:00:00`)
-      .lt("created_at", "2026-02-01T00:00:00");
+      .lt("created_at", `${DEMO_DATE}T23:59:59`);
 
     if (findChallengesError) {
       results.errors.push(`Find challenges: ${findChallengesError.message}`);
@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
       .from("incentives")
       .select("id")
       .gte("created_at", `${DEMO_DATE}T00:00:00`)
-      .lt("created_at", "2026-02-01T00:00:00");
+      .lt("created_at", `${DEMO_DATE}T23:59:59`);
 
     if (findIncentivesError) {
       results.errors.push(`Find incentives: ${findIncentivesError.message}`);
