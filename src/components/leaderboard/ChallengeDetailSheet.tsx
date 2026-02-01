@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { EditChallengeDrawer } from "./EditChallengeDrawer";
 import { ChallengeEditApprovalCard } from "./ChallengeEditApprovalCard";
 import { getInitials, getCleanName, getCleanFirstName } from "@/utils/nameUtils";
+import { metricConfig } from "@/utils/challengeMetricConfig";
 import { toast } from "sonner";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { useConfetti } from "@/hooks/useConfetti";
@@ -160,7 +161,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1 }}
-              className="text-center"
+              className="text-center space-y-2"
             >
               <span className={cn(
                 "inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold",
@@ -179,6 +180,14 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                 {challenge.status === 'completed' && <Trophy className="h-3.5 w-3.5" />}
                 {challenge.status.toUpperCase()}
               </span>
+              
+              {/* Metric Badge */}
+              <div className="flex items-center justify-center">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-muted rounded-full text-sm font-medium">
+                  <span>{metricConfig[challenge.metric].icon}</span>
+                  Competing on: {metricConfig[challenge.metric].label}
+                </span>
+              </div>
             </motion.div>
 
             {/* Accept/Decline CTA for invitees */}
@@ -423,19 +432,24 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
 
                       {/* 1v1 Score Slider */}
                       {progress.participants.length >= 2 && (progress.participants[0].current_value > 0 || progress.participants[1].current_value > 0) && (
-                        <motion.div
-                          initial={{ opacity: 0, scaleX: 0.8 }}
-                          animate={{ opacity: 1, scaleX: 1 }}
-                          className="relative h-4 rounded-full overflow-hidden bg-gradient-to-r from-primary/20 via-muted to-foreground/20"
-                        >
-                          {(() => {
-                            const leftTotal = progress.participants[0].current_value;
-                            const rightTotal = progress.participants[1].current_value;
-                            const total = leftTotal + rightTotal;
-                            const leftPercent = total > 0 ? (leftTotal / total) * 100 : 50;
-                            
-                            return (
-                              <>
+                        (() => {
+                          const leftTotal = progress.participants[0].current_value;
+                          const rightTotal = progress.participants[1].current_value;
+                          const total = leftTotal + rightTotal;
+                          const leftPercent = total > 0 ? (leftTotal / total) * 100 : 50;
+                          const leftName = getCleanFirstName(progress.participants[0].rep_name);
+                          const rightName = getCleanFirstName(progress.participants[1].rep_name);
+                          const leaderName = leftTotal >= rightTotal ? leftName : rightName;
+                          const margin = Math.abs(leftTotal - rightTotal);
+                          const isTied = leftTotal === rightTotal;
+                          
+                          return (
+                            <div className="space-y-2">
+                              <motion.div
+                                initial={{ opacity: 0, scaleX: 0.8 }}
+                                animate={{ opacity: 1, scaleX: 1 }}
+                                className="relative h-4 rounded-full overflow-hidden bg-gradient-to-r from-primary/20 via-muted to-foreground/20"
+                              >
                                 {/* Left side fill */}
                                 <motion.div
                                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/80"
@@ -457,10 +471,14 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                                   animate={{ left: `calc(${leftPercent}% - 10px)` }}
                                   transition={{ duration: 0.6, ease: "easeOut" }}
                                 />
-                              </>
-                            );
-                          })()}
-                        </motion.div>
+                              </motion.div>
+                              {/* Margin text */}
+                              <p className="text-sm text-center text-muted-foreground">
+                                {isTied ? "Tied!" : `${leaderName} leads by ${metricConfig[challenge.metric].format(margin)}`}
+                              </p>
+                            </div>
+                          );
+                        })()
                       )}
                     </motion.div>
                   )}
@@ -491,19 +509,22 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
 
                       {/* Red vs Blue Score Slider */}
                       {(progress.teams.a.total_value > 0 || progress.teams.b.total_value > 0) && (
-                        <motion.div
-                          initial={{ opacity: 0, scaleX: 0.8 }}
-                          animate={{ opacity: 1, scaleX: 1 }}
-                          className="relative h-4 rounded-full overflow-hidden bg-gradient-to-r from-red-500/20 via-muted to-blue-500/20"
-                        >
-                          {(() => {
-                            const redTotal = progress.teams.a.total_value;
-                            const blueTotal = progress.teams.b.total_value;
-                            const total = redTotal + blueTotal;
-                            const redPercent = total > 0 ? (redTotal / total) * 100 : 50;
-                            
-                            return (
-                              <>
+                        (() => {
+                          const redTotal = progress.teams.a.total_value;
+                          const blueTotal = progress.teams.b.total_value;
+                          const total = redTotal + blueTotal;
+                          const redPercent = total > 0 ? (redTotal / total) * 100 : 50;
+                          const margin = Math.abs(redTotal - blueTotal);
+                          const isTied = redTotal === blueTotal;
+                          const leader = redTotal > blueTotal ? 'Red' : 'Blue';
+                          
+                          return (
+                            <div className="space-y-2">
+                              <motion.div
+                                initial={{ opacity: 0, scaleX: 0.8 }}
+                                animate={{ opacity: 1, scaleX: 1 }}
+                                className="relative h-4 rounded-full overflow-hidden bg-gradient-to-r from-red-500/20 via-muted to-blue-500/20"
+                              >
                                 {/* Red side fill */}
                                 <motion.div
                                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 to-red-400"
@@ -525,10 +546,14 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                                   animate={{ left: `calc(${redPercent}% - 10px)` }}
                                   transition={{ duration: 0.6, ease: "easeOut" }}
                                 />
-                              </>
-                            );
-                          })()}
-                        </motion.div>
+                              </motion.div>
+                              {/* Margin text */}
+                              <p className="text-sm text-center text-muted-foreground">
+                                {isTied ? "Tied!" : `${leader} leads by ${metricConfig[challenge.metric].format(margin)}`}
+                              </p>
+                            </div>
+                          );
+                        })()
                       )}
 
                       {/* Team Leaderboards Side by Side */}
@@ -619,39 +644,16 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
               )}
             </AnimatePresence>
 
-            {/* Time Remaining - for 1v1 or as supplementary info */}
-            {progress && challenge.status === 'active' && !isTeamBattle && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="space-y-2"
-              >
-                <div className="h-3 bg-muted rounded-full overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-primary rounded-full"
-                    initial={{ width: "50%" }}
-                    animate={{ 
-                      width: `${Math.min(95, Math.max(5, 
-                        (progress.userProgress?.current_value || 0) / 
-                        ((progress.leader?.current_value || 1) + (progress.userProgress?.current_value || 0)) * 100
-                      ))}%` 
-                    }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                  />
-                </div>
-                <p className="text-center text-sm text-muted-foreground">{progress.timeRemaining}</p>
-              </motion.div>
-            )}
-
-            {/* Time Remaining for Team Battles - just the text */}
-            {progress && challenge.status === 'active' && isTeamBattle && (
+            {/* Time Remaining - clean display for both 1v1 and team battles */}
+            {progress && challenge.status === 'active' && (
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
+                className="flex items-center justify-center gap-2 text-muted-foreground"
               >
-                <p className="text-center text-sm text-muted-foreground">{progress.timeRemaining}</p>
+                <Clock className="h-4 w-4" />
+                <span className="text-sm font-medium">{progress.timeRemaining}</span>
               </motion.div>
             )}
 
