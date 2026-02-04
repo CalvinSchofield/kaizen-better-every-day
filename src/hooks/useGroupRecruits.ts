@@ -329,7 +329,11 @@ export const useGroupRecruits = () => {
       }
 
       // Filter ghost recruits to only those without a matching rep and in recruiting stages
+      // Also exclude the current user (important for leaders seeing their own team)
       const filteredGhostRecruits = ghostRecruits.filter((r: any) => {
+        // Exclude current user - recruit.id matches rep.id in unified architecture
+        if (r.id === currentRep.id) return false;
+        
         const stage = canonicalizeStage(r.stage);
         if (!RECRUITING_STAGES.includes(stage)) return false;
 
