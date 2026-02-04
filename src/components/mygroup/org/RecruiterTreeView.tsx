@@ -218,9 +218,12 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         }
       });
     } else if (currentUserId) {
-      // For other users, start from their own tree
+      // For other users (team leads, mgmt leads), show their downline only - NOT themselves
       const node = buildNode(currentUserId);
-      if (node) rootNodes.push(node);
+      if (node && node.children.length > 0) {
+        // Push children as root nodes so the leader doesn't see themselves
+        rootNodes.push(...node.children);
+      }
     }
 
     return rootNodes.sort((a, b) => b.children.length - a.children.length);
