@@ -343,15 +343,27 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
                   </div>
                 </div>
 
-                {/* Row 2: Team name + Levi lineage */}
+                {/* Row 2: Team name (for AD/MGMT) or Recruiter name (for team leads) + lineage */}
                 <div className="flex items-center justify-between gap-2 mt-1">
-                  {recruit.teamName ? (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
-                      <Users className="h-3 w-3" />
-                      <span className="truncate">{recruit.teamName}</span>
-                    </div>
+                  {/* Team leads see recruiter, higher-ups see team */}
+                  {accessLevel === 'team_lead' || accessLevel === 'recruiter' ? (
+                    recruit.recruiterName ? (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+                        <Users className="h-3 w-3" />
+                        <span className="truncate">{recruit.recruiterName}</span>
+                      </div>
+                    ) : (
+                      <span />
+                    )
                   ) : (
-                    <span />
+                    recruit.teamName ? (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+                        <Users className="h-3 w-3" />
+                        <span className="truncate">{recruit.teamName}</span>
+                      </div>
+                    ) : (
+                      <span />
+                    )
                   )}
 
                   {recruit.recruiterLineage && (
