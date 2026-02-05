@@ -314,6 +314,42 @@ export const RecruitDetailDrawer = ({
     enabled: !!recruitRepData?.user_id && !!recruitSummerConfig?.personalSummerStart && open,
   });
 
+  // Planned days for recruit (for pace calculation in FocusCard)
+  const { data: recruitPlannedDays = [] } = useQuery({
+    queryKey: ['recruit-planned-days', recruitRepData?.user_id],
+    queryFn: async () => {
+      if (!recruitRepData?.user_id) return [];
+      
+      // For the current user's own recruits, we can use the edge function
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return [];
+      
+      const { data, error } = await supabase.functions.invoke('fetch-downline-planned-days', {
+        body: {
+          userIds: [recruitRepData.user_id],
+          startDate: '2025-09-28', // PRESEASON_START
+          endDate: '2026-09-27', // DEFAULT_SUMMER_END
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      
+      if (error) {
+        console.error('Error fetching planned days:', error);
+        return [];
+      }
+      
+      // Extract just the dates for this user
+      const plannedDays = (data?.plannedDays || []) as Array<{ user_id: string; planned_date: string }>;
+      return plannedDays
+        .filter(p => p.user_id === recruitRepData.user_id)
+        .map(p => p.planned_date);
+    },
+    enabled: !!recruitRepData?.user_id && open,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
+
   // Help message - stage-specific
   const helpMessage = useMemo(() => {
     if (!recruit || !contactForHelp) return '';
@@ -1010,6 +1046,9 @@ export const RecruitDetailDrawer = ({
                 recruitRepData={recruitRepData || null}
                 recruitGoals={recruitGoals || null}
                 recruitYtdFP={recruitYtdFP}
+                plannedDays={recruitPlannedDays}
+                summerStart={recruitSummerConfig?.personalSummerStart}
+                summerEnd={recruitSummerConfig?.personalSummerEnd}
                 onNavigateToTab={setActiveTab}
                 onAssignIpad={handleAssignIpad}
               />

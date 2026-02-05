@@ -328,57 +328,6 @@ export const ProgressTab = ({
           </div>
         </>
       )}
-      
-      {/* Preseason FP+ Goal Progress - show prominently if post-blitz or no upcoming blitz */}
-      {recruitGoals?.preseason_fp_goal && recruitGoals.preseason_fp_goal > 0 && (
-        <div className={`rounded-xl p-4 ${
-          rampComplete && !upcomingBlitz 
-            ? 'bg-primary/10 border-2 border-primary/30' 
-            : 'bg-primary/5 border border-primary/20'
-        }`}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">
-              {rampComplete && !upcomingBlitz ? '📈 Preseason Goal Progress' : 'Preseason FP+ Goal'}
-            </span>
-            <span className="text-sm">
-              <span className="font-semibold text-primary">{(recruitYtdFP || 0).toFixed(1)}</span>
-              <span className="text-muted-foreground"> / {recruitGoals.preseason_fp_goal}</span>
-            </span>
-          </div>
-          <Progress 
-            value={Math.min(((recruitYtdFP || 0) / recruitGoals.preseason_fp_goal) * 100, 100)} 
-            className="h-2"
-          />
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-xs text-muted-foreground">
-              {Math.round(((recruitYtdFP || 0) / recruitGoals.preseason_fp_goal) * 100)}% complete
-            </span>
-            {(recruitYtdFP || 0) >= recruitGoals.preseason_fp_goal && (
-              <p className="text-xs text-emerald-600 flex items-center gap-1">
-                <Check className="h-3 w-3" />
-                Goal reached!
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-      
-      {/* YTD FP+ for reps with sales but no preseason goal */}
-      {recruitYtdFP > 0 && !(recruitGoals?.preseason_fp_goal && recruitGoals.preseason_fp_goal > 0) && (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">YTD FP+</span>
-            <span className="text-xl font-bold text-emerald-600">
-              {recruitYtdFP.toFixed(1)}
-            </span>
-          </div>
-          {recruitYtdFP >= 5 && recruit.stage === 'Sold 💲' && (
-            <p className="text-xs text-amber-600 mt-2">
-              ⚠️ Has 5+ FP+ - should be "Sold (5+) 💰"
-            </p>
-          )}
-        </div>
-      )}
     </div>
   );
 };
