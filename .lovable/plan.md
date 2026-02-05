@@ -1,239 +1,214 @@
 
-
-# UX Overhaul: Challenge Cards & Detail Views
+# Hybrid Access Control: Formal Titles + Recruiter Tree
 
 ## Problem Summary
 
-Based on the screenshots and code analysis, there are **4 key UX issues**:
+You've identified a fundamental architectural tension that needs resolution:
 
-1. **Missing Metric Clarity**: Users can't tell what they're competing on (FP+, PRMR, Doors, or Transitions)
-2. **Confusing Progress Bar**: The "8h left" progress bar (lines 622-644) shows a weird bar based on user progress ratio - not time remaining
-3. **Unintuitive Score Slider**: The tug-of-war slider with a center dot is hard to read at a glance
-4. **Sparse Detail View**: Lacks informative context about the challenge
+### Current System Issues
 
----
+1. **Adam can't see Ammon's recruits**: Adam is a `team_lead` which only grants access to people on his formal team. But Ammon (Adam's recruit) has his OWN team, so Ammon's 9 recruits (Jackson, Jayden, Jordan, etc.) are invisible to Adam.
 
-## Design Solution
+2. **Calder recruited Ansel** but Calder isn't a team lead - he only gets `recruiter` access. However, there's also a bug in the recursive downline function that breaks at depth > 1.
 
-### 1. Add Prominent Metric Badge
+3. **Title rigidity**: The system requires exact formal titles (Team Lead, MGMT Lead, Area Director) but org structure is often uncertain until later in the season.
 
-**On Challenge Cards** - Add a pill/chip showing the metric:
+### Root Causes
+
+**Cause 1: Team Leads Don't Get Recruiter Downline**
 ```
-┌─────────────────────────────────────────────┐
-│ 🔥 1V1 CHALLENGE          ● LIVE           │
-│                         ┌─────────┐         │
-│                         │ FP+     │ ← NEW!  │
-│                         └─────────┘         │
-│ [Avatar] Jackson    VS    Misael [Avatar]  │
-│         12.0             8.0               │
-│ ━━━━━━━━━━━━━●━━━━━━━━━                    │
-│ Stakes: Pride                    8h left   │
-└─────────────────────────────────────────────┘
+Lines 474-491 in fetch-team-access/index.ts:
+
+team_lead access ONLY includes:
+  - Reps whose teamId matches the leader's formal team(s)
+  
+BUT MISSING:
+  - The leader's entire recruiter downline (like "recruiter" access has)
 ```
 
-**In Detail Sheet** - Add metric prominently below status badge:
+**Cause 2: Bug in Recursive Downline Function**
 ```
-        ⚔️ 1v1 Challenge
-          [● ACTIVE]
-         
-         Competing on:
-         ┌───────────────┐
-         │ 📊 Transitions │  ← Clear metric badge with icon
-         └───────────────┘
-```
+Line 510: getDownlineRecruits(recruit.id, depth + 1)
 
-### 2. Fix the Time Progress Bar Issue
-
-**Problem**: Lines 622-644 show a progress bar that's actually displaying score ratio, not time. The label says "8h left" but the bar shows something else.
-
-**Solution**: Replace with a **dedicated time remaining element** - no confusing bar, just clear text with optional subtle context:
-
-```
-         ⏱️ 8h left
-```
-
-Or if we want more visual appeal:
-```
-    ━━━━━━━━━━━━━━━━━━━━━○  (12h progress bar)
-              8h remaining
-```
-
-**Technical Change**: Remove the confusing score-ratio bar from lines 622-644 and replace with a clean time display that doesn't look like another score visualization.
-
-### 3. Redesign the Score Slider for Intuitive "Who's Winning"
-
-**Current Problem**: A center-sliding dot on a gradient is unclear. Users need to decode what the position means.
-
-**New Design Options**:
-
-**Option A: Side-by-Side Bars (Recommended)**
-```
-  Jackson                        Misael
-    12.0                          8.0
-  ████████████                ████████
-    (winning)                 
-```
-Two separate bars growing from center outward, winner's bar is longer and colored differently.
-
-**Option B: Leading Indicator with Clear Labels**
-```
-  Jackson 12.0  ◀━━━━━━━━━━━━━━━━━━━━  Misael 8.0
-                    (Jackson leads)
-```
-The arrow/indicator slides toward the leader with explicit "leads" label.
-
-**Option C: Tug-of-War with Explicit Winner Highlight (Enhancement of current)**
-```
-  12.0 [████████████████●━━━━━━━━] 8.0
-       └── Jackson leads by 4.0 ──┘
-```
-Keep the slider but add explicit text showing who leads and by how much.
-
-**Recommendation**: Go with **Option C** (enhanced current) as it:
-- Maintains familiar mental model
-- Adds explicit "X leads by Y" text
-- Uses color more effectively (winner side glows)
-- Shows margin of victory
-
-### 4. Enhance Detail View Information Hierarchy
-
-**Current Layout Issues**:
-- Metric not shown
-- Status badge is prominent but metric context is missing
-- Time remaining bar is confusing
-- Score visualization needs clearer winner indication
-
-**New Layout**:
-```
-┌─────────────────────────────────────────────────────┐
-│                  ⚔️ 1v1 Challenge                   │
-│                                                     │
-│                   [● ACTIVE]                        │
-│                                                     │
-│  ┌───────────────────────────────────────────────┐  │
-│  │            Competing on: FP+                  │  │ ← NEW: Clear metric
-│  └───────────────────────────────────────────────┘  │
-│                                                     │
-│    [Avatar]                      [Avatar]           │
-│    Jackson                       Misael             │
-│     12.0                          8.0               │
-│       ↑ leading                                     │ ← NEW: Winner indicator
-│                                                     │
-│   ████████████████●━━━━━━━━━━━━  Score Slider      │
-│        Jackson leads by 4.0                         │ ← NEW: Margin text
-│                                                     │
-│                 ⏱️ 8h remaining                     │ ← FIXED: Just time, no bar
-│                                                     │
-│   ┌───────────────────────────────────────────────┐ │
-│   │  Stakes                                       │ │
-│   │  Pride                                        │ │
-│   └───────────────────────────────────────────────┘ │
-│                                                     │
-│              👁️ Public challenge                    │
-└─────────────────────────────────────────────────────┘
+Problem: Uses recruit.id (UUID from recruits table)
+         But searches for recruiter_user_id (auth user UUID)
+         These are DIFFERENT for people with accounts!
 ```
 
 ---
 
-## Technical Implementation Plan
+## Solution: Hybrid "Formal + Organic" Access Model
 
-### File 1: `src/components/leaderboard/ChallengeCard.tsx`
+### Core Principle
 
-**Changes:**
+> **Anyone with formal leadership OR anyone who has recruited someone gets access to their FULL recruiter downline, PLUS formal structure visibility.**
 
-1. **Add Metric Badge to Header** (around line 108-118)
-   - Add a styled pill showing the metric type
-   - Use appropriate icon per metric (📊 for transitions, 💰 for PRMR, etc.)
+### Access Level Hierarchy
 
-2. **Enhance Score Display** (lines 165-255)
-   - Add "leading" indicator under winning participant's score
-   - Consider adding margin text
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ AREA DIRECTOR                                               │
+│   → See ALL reps (current behavior - no change)             │
+├─────────────────────────────────────────────────────────────┤
+│ MGMT GROUP LEAD                                             │
+│   → See all teams in their mgmt group(s)                    │
+│   → PLUS their full recruiter downline                      │
+├─────────────────────────────────────────────────────────────┤
+│ TEAM LEAD                                                   │
+│   → See their formal team(s)                                │
+│   → PLUS their full recruiter downline  ← KEY ADDITION      │
+├─────────────────────────────────────────────────────────────┤
+│ RECRUITER (no formal title)                                 │
+│   → See their full recruiter downline (current behavior)    │
+└─────────────────────────────────────────────────────────────┘
+```
 
-3. **Update Slider with Winner Context** (lines 219-255)
-   - Add text below slider: "X leads by Y" 
-   - Use more distinct colors for winner vs opponent
+### Example After Fix
 
-### File 2: `src/components/leaderboard/ChallengeDetailSheet.tsx`
+**Adam Schofield (Team Lead):**
+- Formal team: 8 reps (Abi, Brady, Clément, Daniel, Jack, Noah, Tyson, Brady H)
+- Recruiter downline: 9 direct + 9 via Ammon = 18 total
+- **Combined unique access**: All 18 people (deduplicated)
 
-**Changes:**
-
-1. **Add Metric Badge Section** (after status, around line 182)
-   - New section showing the metric prominently with icon
-   - "Competing on: [Metric]" format
-
-2. **Enhance Score Display with Winner Indicator** (lines 387-421)
-   - Add "leading" badge or arrow under winning participant
-   - Show margin of victory
-
-3. **Fix Time Remaining Section** (lines 622-644)
-   - Remove the confusing progress bar that shows score ratio
-   - Replace with clean time-only display: "⏱️ Xh remaining"
-   - For team battles, same clean approach
-
-4. **Add Margin Text Below Slider** (after lines 463)
-   - "X leads by Y [metric]" or "Tied!" if equal
-
-### File 3: `src/components/competitions/ChallengeScoreSlider.tsx` (if used)
-
-- Update to support new "show margin" prop
-- Add optional winner label display
+**Calder Severson (Recruiter):**  
+- No formal team
+- Recruiter downline: 2 direct (Ansel, Weston) + 11 via Ansel = 13 total
 
 ---
 
-## Metric Icons & Labels Reference
+## Technical Changes
 
-| Metric | Icon | Label | Format |
-|--------|------|-------|--------|
-| `fp_plus` | 📊 or 🎯 | FP+ | `X.X` |
-| `prmr` | 💰 | PRMR | `$X` |
-| `transitions` | 🚪 | Transitions | `X` |
-| `doors_knocked` | 🚪 | Doors | `X` |
+### File 1: `supabase/functions/fetch-team-access/index.ts`
+
+#### Change 1: Fix the recursive downline bug (line 510)
+
+The current code:
+```typescript
+const indirectRecruits = getDownlineRecruits(recruit.id, depth + 1);
+```
+
+Needs to use the recruit's `user_id` (from the reps table), not their recruit record ID:
+```typescript
+// Find the recruit's user_id from reps table to trace their downline
+const recruitRep = repsData.find(r => r.id === recruit.id);
+if (recruitRep?.user_id) {
+  const indirectRecruits = getDownlineRecruits(recruitRep.user_id, depth + 1);
+  result.push(...indirectRecruits);
+}
+```
+
+#### Change 2: Refactor `getDownlineRecruits` to be reusable
+
+Move the helper function OUTSIDE the access level if/else blocks so it can be used by BOTH `team_lead` and `recruiter` access levels.
+
+#### Change 3: Update `team_lead` access to include recruiter downline
+
+Current (lines 474-491):
+```typescript
+} else if (accessLevel === 'team_lead') {
+  // Only formal team access
+  const userTeams = teams.filter(t => t.groupLeadId === user.id);
+  const userTeamIds = userTeams.map(t => t.id);
+  
+  for (const rep of repsData) {
+    const teamInfo = getRepTeamInfo(rep);
+    if (teamInfo.teamId && userTeamIds.includes(teamInfo.teamId)) {
+      accessibleReps.push(buildRepData(rep));
+    }
+  }
+}
+```
+
+After:
+```typescript
+} else if (accessLevel === 'team_lead') {
+  const addedIds = new Set<string>();
+  
+  // 1) Formal team access (existing behavior)
+  const userTeams = teams.filter(t => t.groupLeadId === user.id);
+  const userTeamIds = userTeams.map(t => t.id);
+  
+  for (const rep of repsData) {
+    if (rep.user_id === user.id || rep.id === currentUserRepId) continue;
+    
+    const teamInfo = getRepTeamInfo(rep);
+    if (teamInfo.teamId && userTeamIds.includes(teamInfo.teamId)) {
+      if (!addedIds.has(rep.id)) {
+        addedIds.add(rep.id);
+        if (rep.user_id) accessibleUserIds.push(rep.user_id);
+        accessibleReps.push(buildRepData(rep));
+      }
+    }
+  }
+  
+  // 2) PLUS: Recruiter downline (NEW!)
+  const downlineRecruits = getDownlineRecruits(user.id, addedIds);
+  for (const recruit of downlineRecruits) {
+    // Skip self
+    if (recruit.id === currentUserRepId) continue;
+    
+    const matchingRep = repsData.find(r => r.id === recruit.id);
+    if (matchingRep) {
+      if (matchingRep.user_id && !accessibleUserIds.includes(matchingRep.user_id)) {
+        accessibleUserIds.push(matchingRep.user_id);
+      }
+      accessibleReps.push(buildRepData(matchingRep));
+    } else {
+      accessibleReps.push(buildRecruitAsRepData(recruit));
+    }
+  }
+  
+  console.log(`Team lead has formal team access + ${downlineRecruits.length} from recruiter tree`);
+}
+```
+
+#### Change 4: Similarly update `mgmt_group_lead` to include recruiter downline
+
+Same pattern - after getting formal MGMT group access, ALSO add recruiter downline.
 
 ---
 
-## Visual Examples
+## Data Flow After Changes
 
-### Challenge Card - Before vs After
-
-**Before:**
+```text
+Adam logs in → fetch-team-access
+         │
+         ├─► Determine access level: "team_lead"
+         │
+         ├─► Get formal team(s): ["Adam Schofield" team]
+         │   └─► 8 reps on that team
+         │
+         ├─► Get recruiter downline:
+         │   ├─► Direct: Ammon, Abi, Brady A, Brady H, Clément,
+         │   │           Daniel, Jack, Noah, Tyson (9 people)
+         │   │
+         │   └─► Recursive (Ammon's recruits):
+         │       Jackson, Jayden, Jordan, Levi, Luis,
+         │       Luka, Trevor, Tyler, Wyatt (9 more)
+         │
+         └─► Deduplicate & return: 18 unique accessible reps
 ```
-1V1 CHALLENGE                    ● LIVE
-Jackson Jennings  VS  Misael Sanchez
-     12                   8
-━━━━━━━━━━━━●━━━━━━━━━━━━
-Stakes: Pride                  8h left
-```
-
-**After:**
-```
-1V1 CHALLENGE   ┌─────────────┐  ● LIVE
-                │ Transitions │
-                └─────────────┘
-Jackson Jennings  VS  Misael Sanchez
-     12 ← leading          8
-━━━━━━━━━━━━━━●━━━━━━━━━━━━
-Jackson leads by 4 transitions
-Stakes: Pride                  8h left
-```
-
-### Detail Sheet - Key Improvements
-
-1. **Add prominent metric badge** below ACTIVE status
-2. **Remove confusing progress bar** under score slider
-3. **Add "leads by X" text** under score visualization
-4. **Show only clean time remaining** without misleading bar
 
 ---
 
-## Summary of Changes
+## Future Consideration: Title Management UI
 
-| Area | Current Issue | Fix |
-|------|---------------|-----|
-| Metric visibility | Not shown | Add badge on cards + detail header |
-| Time remaining bar | Shows score ratio, labeled as time | Remove bar, show only "Xh left" text |
-| Score slider | Center dot is ambiguous | Add "X leads by Y" text below |
-| Winner clarity | Colors subtle | Add "leading" label + bolder winner color |
-| Detail view density | Sparse, missing context | Add metric section, margin info |
+Once this hybrid system is in place, you'll also want a simple way to:
+1. Promote someone from Team Lead → MGMT Lead (and auto-assign teams under them)
+2. See the org chart with both formal titles AND recruiter relationships
+3. Bulk update team assignments when structure crystallizes
 
-This plan maintains the existing mobile-first, premium iOS aesthetic while dramatically improving information clarity and intuitiveness.
+This could be a separate "Org Management" admin view, but that's Phase 2.
 
+---
+
+## Summary
+
+| Change | Impact |
+|--------|--------|
+| Fix recursive bug | Calder can now see Ansel's 11 recruits |
+| Add recruiter tree to team_lead | Adam can now see Ammon's 9 recruits |
+| Add recruiter tree to mgmt_group_lead | MGMT leads see their full organic downline too |
+| Deduplication | No double-counting when formal + organic overlap |
+
+This creates the hybrid system you described: **formal titles for organizational clarity, recruiter tree for complete visibility**.
