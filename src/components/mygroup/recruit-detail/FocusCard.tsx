@@ -168,6 +168,7 @@ export const FocusCard = ({
       isPreseason,
       remaining,
       daysWorked: pastPlannedDays.length,
+      currentAvgDaily: pastPlannedDays.length > 0 ? recruitYtdFP / pastPlannedDays.length : 0,
     };
   }, [recruitGoals, recruitYtdFP, plannedDays, summerStart, summerEnd]);
   
@@ -634,18 +635,27 @@ export const FocusCard = ({
           </div>
           
           {/* Pace Details */}
-          {paceInfo.paceStatus !== 'goal-met' && paceInfo.neededDaily !== undefined && paceInfo.neededDaily > 0 && (
-            <div className="flex items-center justify-between pt-2 border-t border-current/10 text-xs">
-              <span className="text-muted-foreground">Need {paceInfo.neededDaily.toFixed(2)}/day to hit goal</span>
+          {paceInfo.paceStatus !== 'goal-met' && paceInfo.daysWorked !== undefined && paceInfo.daysWorked > 0 && (
+            <div className="pt-2 border-t border-current/10 text-xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  Avg <span className="font-medium text-foreground">{paceInfo.currentAvgDaily?.toFixed(2)}</span>/day
+                </span>
+                <span className="text-muted-foreground">
+                  Need <span className="font-medium text-foreground">{paceInfo.neededDaily?.toFixed(2)}</span>/day
+                </span>
+              </div>
               {!paceInfo.isPreseason && onToggleFocusTier && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-6 text-xs px-2"
-                  onClick={onToggleFocusTier}
-                >
-                  Change Goal
-                </Button>
+                <div className="flex justify-end">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 text-xs px-2"
+                    onClick={onToggleFocusTier}
+                  >
+                    Change Goal
+                  </Button>
+                </div>
               )}
             </div>
           )}
