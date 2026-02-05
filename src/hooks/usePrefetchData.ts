@@ -55,7 +55,7 @@ export const usePrefetchData = (userId: string | undefined) => {
               .from('rep_goals')
               .select('*')
               .eq('user_id', userId)
-              .single();
+            .maybeSingle();
             return data;
           },
           staleTime: 15 * 60 * 1000,
