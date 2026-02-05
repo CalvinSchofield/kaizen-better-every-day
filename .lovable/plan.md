@@ -1,124 +1,220 @@
 
-# Plan: Bulk Entry Detection & Warning in Activity Flow
 
-## Overview
-Add intelligent detection of "bulk entry" patterns (when reps tap counters rapidly in batches rather than throughout the day) and surface this as a visible warning in the Activity Flow visualization. This will help leaders immediately identify reps who have this habit without needing to query the database.
+# Plan: Rep-Facing Bulk Entry Prevention UX
 
 ## The Problem
-Currently, when a rep like Izaiah Martinez logs 38 doors in 9 seconds at 5:35 PM, the Activity Flow timeline simply shows a compressed cluster of events. There's no indication that this is abnormal or batch-logged behavior. Leaders have no way to distinguish real-time logging from after-the-fact bulk entry without manually querying the database.
+When reps log activity in rapid bursts (e.g., 38 doors in 9 seconds), the Activity Flow becomes meaningless for leaders. **Currently, there's nothing preventing or discouraging this behavior at the source.** The counter card accepts rapid taps indefinitely without any friction or feedback.
 
-## Technical Design
+## Design Philosophy
+Rather than hard-blocking rapid entry (which could frustrate reps), we'll use **progressive friction** - subtle UX nudges that become increasingly clear as the behavior continues. This educates reps on why real-time logging matters while still allowing flexibility.
 
-### 1. Bulk Entry Detection Algorithm
-Add a new `useMemo` calculation in `RepDayActivityFlow.tsx` that detects bulk entry patterns:
+---
+
+## Proposed Interventions
+
+### 1. Rapid Tap Cooldown with Visual Feedback
+**Trigger:** 5+ taps on the same counter within 3 seconds
+
+**Behavior:**
+- After the 5th rapid tap, the counter card shows a brief "slowdown" animation
+- A subtle pulse effect and temporary opacity reduction (0.7)
+- Haptic feedback changes from `hapticMedium` to `hapticLight` (softer)
+- Small toast appears: "Tapping in real-time gives you better insights!"
+
+**Why it works:** Creates a subtle "friction bump" that makes the rep pause and think without blocking them.
 
 ```text
-Detection Criteria:
 ┌─────────────────────────────────────────────────────┐
-│  A "batch" is detected when:                        │
-│  • 5+ events of the same type                       │
-│  • All logged within 30 seconds                     │
-│  • This results in an average tap rate > 0.5/sec   │
+│  Normal Tap → hapticMedium, scale-105, full opacity │
 │                                                     │
-│  A day has "bulk entry habits" when:               │
-│  • Total batched events > 50% of all events        │
-│  • OR largest single batch > 20 events             │
+│  Rapid Tap (5+) → hapticLight, no scale, opacity-70 │
+│                + subtle amber border pulse           │
 └─────────────────────────────────────────────────────┘
 ```
 
-### 2. New Stats Added to Activity Flow Summary
-Add new fields to the existing `stats` object:
-- `bulkEntryDetected`: boolean
-- `largestBatch`: number (e.g., 38)
-- `batchedEventsCount`: number
-- `batchedEventsPercent`: number
-- `batches`: array of batch details (for popover)
+---
 
-### 3. UI Changes
+### 2. Bulk Entry Warning Banner
+**Trigger:** 10+ taps within 30 seconds on any counter
 
-#### A. Warning Badge in Summary Row
-Add a new warning indicator to the "Smart Summary" row at the bottom of the Activity Flow:
+**Behavior:**
+- A dismissible banner slides in above the counter grid
+- Shows: "⚡ Looks like you're catching up. Real-time logging helps you and your leaders see the full picture!"
+- Includes a "Got it" button to dismiss
+- Only shows once per session (persisted in sessionStorage)
+
+**Why it works:** Provides educational context without being annoying on repeat.
+
+---
+
+### 3. "Start Your Day" Prompt Before First Tap
+**Trigger:** First counter tap when `work_start_time` is null
+
+**Behavior:**
+- Instead of immediately logging the tap, show a quick bottom sheet:
+  - "Ready to start tracking?"
+  - Big "Start My Day" button → sets `work_start_time` to now, then logs the tap
+  - Small "Just catching up" link → lets them tap without starting (flags entry)
+
+**Why it works:** Creates a conscious moment of "I'm starting work now" vs. "I'm entering old data." If they choose "Just catching up," we can:
+- Add a `backfill_mode: true` flag to the entry
+- This feeds into the leader-facing bulk detection
+
+---
+
+### 4. Timestamp Context Chip on Counter Cards
+**Trigger:** Always shown during active work session
+
+**Behavior:**
+- Each counter card shows a small timestamp chip of the last tap on that counter
+- Example: "Last: 2:45 PM" in muted text below the counter value
+- If the tap was > 30 minutes ago, shows in amber: "Last: 1:12 PM ⚠️"
+
+**Why it works:** Makes the rep constantly aware of their logging cadence. Seeing "Last: 1:12 PM" when it's now 4:30 PM creates natural self-awareness.
 
 ```text
-Before:
-⏱️ 4m selling | 🏠 1 home | 💬 1 convo
+┌─────────────────────────┐
+│         77              │
+│    Doors Knocked        │
+│   Last: 2:45 PM         │  ← Muted gray
+└─────────────────────────┘
 
-After (when bulk entry detected):
-⚡ 38 bulk-logged | ⏱️ 4m selling | 🏠 1 home | 💬 1 convo
+vs.
+
+┌─────────────────────────┐
+│         77              │
+│    Doors Knocked        │
+│   Last: 1:12 PM ⚠️      │  ← Amber warning
+└─────────────────────────┘
 ```
 
-The ⚡ icon with orange/amber styling will be immediately visible and tappable.
+---
 
-#### B. Popover with Batch Details
-When tapped, show a popover with:
-- "Bulk Entry Detected" header
-- List of batches: "38 doors at 5:35 PM (in 9 sec)"
-- Percentage of activity that was bulk-logged
-- Coaching tip: "Real-time logging provides more accurate insights"
+### 5. Daily Recap Nudge (Optional Enhancement)
+**Trigger:** When rep opens Track page and has an unfinalized entry from yesterday
 
-#### C. Visual Timeline Indicators
-Add subtle visual markers on the timeline where bulk batches occurred:
-- A small ⚡ icon above the timeline at batch locations
-- Orange/amber highlight on the track segment where batches occurred
+**Behavior:**
+- Shows the `SaveDayAlertCard` component (already exists)
+- Add new variant: "Your yesterday entry was mostly logged after 6 PM. Try logging as you go today for better insights!"
 
-### 4. Files to Modify
+**Why it works:** Connects the behavior to its consequence in a non-punitive way.
+
+---
+
+## Implementation Priority
+
+| Priority | Feature | Impact | Effort |
+|----------|---------|--------|--------|
+| **P0** | Timestamp Context Chip | High - passive awareness | Low |
+| **P1** | Rapid Tap Cooldown | Medium - immediate friction | Medium |
+| **P2** | Bulk Entry Warning Banner | Medium - educational | Low |
+| **P3** | Start Your Day Prompt | High - behavior change | Medium |
+| **P4** | Daily Recap Nudge | Low - retrospective | Low |
+
+---
+
+## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/reports/v2/RepDayActivityFlow.tsx` | Add bulk detection logic, new stats, warning UI |
+| `src/components/QTallyGrid.tsx` | Add rapid tap detection, cooldown state, timestamp chips |
+| `src/pages/Track.tsx` | Add bulk entry warning banner, pass timestamps to grid |
+| `src/components/ui/BulkEntryWarning.tsx` | **New file** - Warning banner component |
 
-### 5. Implementation Steps
+---
 
-1. **Add batch detection logic** (new `useMemo`)
-   - Group events by type
-   - For each type, identify rapid sequences (< 30 sec apart)
-   - Calculate batch statistics
+## Technical Details
 
-2. **Extend stats object**
-   - Add `bulkEntryDetected`, `largestBatch`, `batchedEventsCount`, `batches` array
+### Rapid Tap Detection Logic (in CounterCard)
 
-3. **Add warning badge to summary row**
-   - New conditionally-rendered span with Popover
-   - Orange/amber styling to draw attention
-   - ⚡ Zap icon from lucide-react
+```typescript
+// Track recent taps
+const recentTapsRef = useRef<number[]>([]);
 
-4. **Add timeline visual indicators** (optional enhancement)
-   - Small markers above timeline at batch positions
-   - Subtle but noticeable
-
-### 6. Example Detection
-
-For Izaiah's Feb 4th data:
-```text
-Batches detected:
-• 11 doors at 1:05 PM (in 6 sec) → 1.8 doors/sec
-• 38 doors at 5:35 PM (in 9 sec) → 4.2 doors/sec  ← Largest
-• 18 doors at 8:15 PM (in 6 sec) → 3.0 doors/sec
-
-Result:
-- largestBatch: 38
-- batchedEventsCount: 67 (out of 77 total doors)
-- batchedEventsPercent: 87%
-- bulkEntryDetected: true
+const handleTap = () => {
+  const now = Date.now();
+  recentTapsRef.current = recentTapsRef.current
+    .filter(t => now - t < 3000); // Keep only taps from last 3 seconds
+  recentTapsRef.current.push(now);
+  
+  const isRapidTapping = recentTapsRef.current.length >= 5;
+  
+  if (isRapidTapping) {
+    hapticLight(); // Softer feedback
+    setIsRapidMode(true);
+  } else {
+    hapticMedium(); // Normal feedback
+  }
+  
+  onCounterChange(field, value + 1);
+};
 ```
 
-### 7. User Experience
+### Timestamp Chip (in CounterCard)
 
-**For Leaders viewing Activity Flow:**
-- Immediately see ⚡ warning in the summary row
-- Tap to see exactly when/how much was bulk-logged
-- Can use this for coaching conversations
+```typescript
+// Get last tap time for this counter
+const lastTapTime = counterTimestamps?.[field]?.slice(-1)[0];
+const minutesSinceLastTap = lastTapTime 
+  ? Math.floor((Date.now() - new Date(lastTapTime).getTime()) / 60000)
+  : null;
+const isStale = minutesSinceLastTap && minutesSinceLastTap > 30;
+```
 
-**Visual mockup of the new summary row:**
+---
+
+## User Experience Flow
+
 ```text
-┌────────────────────────────────────────────────────────┐
-│  ⚡ 38 bulk  | ⏱️ 4m selling | 🏠 1 home | ⚠️ 1 gap   │
-│     ↑                                                  │
-│  Orange badge, tappable for batch details              │
-└────────────────────────────────────────────────────────┘
+Rep opens Track page
+       │
+       ▼
+  ┌─────────────────┐
+  │ Has work_start? │
+  └────────┬────────┘
+           │
+     No    │    Yes
+     ▼     │     ▼
+┌──────────┴──────────────────────────────────────────┐
+│ First tap triggers "Start Your Day" prompt         │
+│ OR                                                  │
+│ Normal tapping with timestamp chips visible         │
+└────────────────────────────────────────────────────┘
+           │
+           ▼
+     Rep taps rapidly
+           │
+           ▼
+  ┌─────────────────┐
+  │ 5+ taps in 3s?  │
+  └────────┬────────┘
+           │
+     Yes   │    No
+     ▼     │     ▼
+┌──────────┴──────────────────────────────────────────┐
+│ Cooldown animation + softer haptics                 │
+│ OR                                                  │
+│ Normal tap experience                               │
+└────────────────────────────────────────────────────┘
+           │
+           ▼
+     10+ taps in 30s?
+           │
+     Yes   │
+     ▼     │
+┌──────────┴──────────────────────────────────────────┐
+│ Educational banner slides in (once per session)     │
+└────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Summary
-This feature adds automatic detection of bulk-logged data with clear visual indicators in the Activity Flow, allowing leaders to immediately identify when a rep's timeline may not accurately reflect their actual work pattern.
+This plan introduces **progressive friction** through:
+1. **Passive awareness** - Timestamp chips show logging cadence
+2. **Soft friction** - Reduced haptics + animations on rapid tapping
+3. **Education** - One-time banner explaining why real-time matters
+4. **Behavioral moment** - "Start Your Day" creates conscious transition
+
+All interventions prioritize education over punishment, maintaining a positive rep experience while creating natural incentives for better logging habits.
+
