@@ -81,6 +81,32 @@ Deno.serve(async (req) => {
     const repsData = allReps || [];
     const recruitsData = allRecruits || [];
 
+    // HELPER: Get recursive downline recruits for a given user
+    // This is used by team_lead, mgmt_group_lead, and recruiter access levels
+    const getDownlineRecruits = (recruiterId: string, alreadyAddedIds: Set<string>, depth: number = 0): any[] => {
+      if (depth > 6) return []; // Prevent infinite recursion
+      
+      const directRecruits = recruitsData.filter(r => r.recruiter_user_id === recruiterId);
+      const result: any[] = [];
+      
+      for (const recruit of directRecruits) {
+        if (alreadyAddedIds.has(recruit.id)) continue;
+        alreadyAddedIds.add(recruit.id);
+        
+        result.push(recruit);
+        
+        // Find the recruit's user_id from reps table to trace their downline
+        // This fixes the bug where we were using recruit.id instead of user_id
+        const recruitRep = repsData.find(r => r.id === recruit.id);
+        if (recruitRep?.user_id) {
+          const indirectRecruits = getDownlineRecruits(recruitRep.user_id, alreadyAddedIds, depth + 1);
+          result.push(...indirectRecruits);
+        }
+      }
+      
+      return result;
+    };
+
     // Build mgmt groups with their team IDs
     const mgmtGroups = mgmtGroupsData.map(g => {
       const teamIds = teamMgmtGroups
@@ -411,7 +437,7 @@ Deno.serve(async (req) => {
       };
     };
 
-    // Helper to build recruit data (for recruiter access level)
+    // Helper to build recruit data (for recruiter/hybrid access levels)
     const buildRecruitAsRepData = (recruit: any) => {
       // Find matching rep if exists
       const matchingRep = repsData.find(r => r.id === recruit.id || r.user_id === recruit.id);
@@ -458,24 +484,49 @@ Deno.serve(async (req) => {
       // Get all mgmt groups this user leads
       const userMgmtGroups = mgmtGroups.filter(g => g.groupLeadId === user.id);
       const accessibleTeamIds = userMgmtGroups.flatMap(g => g.teamIds);
+      const addedIds = new Set<string>();
       
+      // 1) Formal MGMT group access (existing behavior)
       for (const rep of repsData) {
         // Skip the current user
         if (rep.user_id === user.id || rep.id === currentUserRepId) continue;
         
         const teamInfo = getRepTeamInfo(rep);
         if (teamInfo.teamId && accessibleTeamIds.includes(teamInfo.teamId)) {
-          if (rep.user_id) accessibleUserIds.push(rep.user_id);
-          accessibleReps.push(buildRepData(rep));
+          if (!addedIds.has(rep.id)) {
+            addedIds.add(rep.id);
+            if (rep.user_id) accessibleUserIds.push(rep.user_id);
+            accessibleReps.push(buildRepData(rep));
+          }
         }
       }
-      console.log(`MGMT group lead has access to ${accessibleTeamIds.length} teams, ${accessibleReps.length} reps (excluding self)`);
+      
+      // 2) PLUS: Recruiter downline (NEW!)
+      const downlineRecruits = getDownlineRecruits(user.id, addedIds);
+      for (const recruit of downlineRecruits) {
+        // Skip self
+        if (recruit.id === currentUserRepId) continue;
+        
+        const matchingRep = repsData.find(r => r.id === recruit.id);
+        if (matchingRep) {
+          if (matchingRep.user_id && !accessibleUserIds.includes(matchingRep.user_id)) {
+            accessibleUserIds.push(matchingRep.user_id);
+          }
+          accessibleReps.push(buildRepData(matchingRep));
+        } else {
+          accessibleReps.push(buildRecruitAsRepData(recruit));
+        }
+      }
+      
+      console.log(`MGMT group lead has access to ${accessibleTeamIds.length} teams, ${accessibleReps.length} reps (${downlineRecruits.length} from recruiter tree)`);
 
     } else if (accessLevel === 'team_lead') {
       // Get the team(s) this user leads
       const userTeams = teams.filter(t => t.groupLeadId === user.id);
       const userTeamIds = userTeams.map(t => t.id);
+      const addedIds = new Set<string>();
 
+      // 1) Formal team access (existing behavior)
       if (userTeamIds.length > 0) {
         for (const rep of repsData) {
           // Skip the current user
@@ -483,38 +534,39 @@ Deno.serve(async (req) => {
           
           const teamInfo = getRepTeamInfo(rep);
           if (teamInfo.teamId && userTeamIds.includes(teamInfo.teamId)) {
-            if (rep.user_id) accessibleUserIds.push(rep.user_id);
-            accessibleReps.push(buildRepData(rep));
+            if (!addedIds.has(rep.id)) {
+              addedIds.add(rep.id);
+              if (rep.user_id) accessibleUserIds.push(rep.user_id);
+              accessibleReps.push(buildRepData(rep));
+            }
           }
         }
-        console.log(`Team lead (${userTeams.map(t => t.name).join(', ')}) has access to ${accessibleReps.length} reps (excluding self)`);
       }
+      
+      // 2) PLUS: Recruiter downline (NEW!)
+      const downlineRecruits = getDownlineRecruits(user.id, addedIds);
+      for (const recruit of downlineRecruits) {
+        // Skip self
+        if (recruit.id === currentUserRepId) continue;
+        
+        const matchingRep = repsData.find(r => r.id === recruit.id);
+        if (matchingRep) {
+          if (matchingRep.user_id && !accessibleUserIds.includes(matchingRep.user_id)) {
+            accessibleUserIds.push(matchingRep.user_id);
+          }
+          accessibleReps.push(buildRepData(matchingRep));
+        } else {
+          accessibleReps.push(buildRecruitAsRepData(recruit));
+        }
+      }
+      
+      console.log(`Team lead (${userTeams.map(t => t.name).join(', ')}) has formal team + ${downlineRecruits.length} from recruiter tree = ${accessibleReps.length} total`);
+      
     } else if (accessLevel === 'recruiter') {
-      // NEW: Recruiters see their direct and indirect recruits
+      // Recruiters see their direct and indirect recruits
       const addedIds = new Set<string>();
       
-      // Helper to recursively get recruits downline
-      const getDownlineRecruits = (recruiterId: string, depth: number = 0): any[] => {
-        if (depth > 6) return []; // Prevent infinite recursion
-        
-        const directRecruits = recruitsData.filter(r => r.recruiter_user_id === recruiterId);
-        const result: any[] = [];
-        
-        for (const recruit of directRecruits) {
-          if (addedIds.has(recruit.id)) continue;
-          addedIds.add(recruit.id);
-          
-          result.push(recruit);
-          
-          // Recursively get recruits of this recruit
-          const indirectRecruits = getDownlineRecruits(recruit.id, depth + 1);
-          result.push(...indirectRecruits);
-        }
-        
-        return result;
-      };
-      
-      const allDownlineRecruits = getDownlineRecruits(user.id);
+      const allDownlineRecruits = getDownlineRecruits(user.id, addedIds);
       
       for (const recruit of allDownlineRecruits) {
         // Find matching rep record if exists
