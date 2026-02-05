@@ -11,7 +11,8 @@ import {
   Play,
   Square,
   Coffee,
-  AlertTriangle
+  AlertTriangle,
+  Zap
 } from "lucide-react";
 import {
   Popover,
@@ -24,6 +25,15 @@ interface TimelineEvent {
   type: 'doors_knocked' | 'decision_makers' | 'pitches' | 'transitions' | 'presentations' | 'closes' | 'sale';
   label: string;
   prmr?: number;
+}
+
+interface BulkBatch {
+  type: string;
+  count: number;
+  startTime: Date;
+  endTime: Date;
+  durationSeconds: number;
+  ratePerSecond: number;
 }
 
 interface BreakPeriod {
@@ -234,6 +244,83 @@ export const RepDayActivityFlow = ({
 
     return allEvents.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [counterTimestamps, salesLog]);
+
+  // Bulk entry detection - find rapid sequences of same-type events
+  const bulkEntryStats = useMemo(() => {
+    const batches: BulkBatch[] = [];
+    const BATCH_WINDOW_MS = 30 * 1000; // 30 seconds
+    const MIN_BATCH_SIZE = 5;
+    
+    // Group events by type
+    const eventsByType: Record<string, TimelineEvent[]> = {};
+    events.forEach(event => {
+      if (!eventsByType[event.type]) {
+        eventsByType[event.type] = [];
+      }
+      eventsByType[event.type].push(event);
+    });
+    
+    // For each type, find rapid sequences
+    Object.entries(eventsByType).forEach(([type, typeEvents]) => {
+      if (typeEvents.length < MIN_BATCH_SIZE) return;
+      
+      let batchStart = 0;
+      
+      while (batchStart < typeEvents.length) {
+        // Find the end of this potential batch
+        let batchEnd = batchStart;
+        
+        while (batchEnd < typeEvents.length - 1) {
+          const gap = typeEvents[batchEnd + 1].timestamp.getTime() - typeEvents[batchEnd].timestamp.getTime();
+          if (gap <= BATCH_WINDOW_MS) {
+            batchEnd++;
+          } else {
+            break;
+          }
+        }
+        
+        const batchSize = batchEnd - batchStart + 1;
+        
+        if (batchSize >= MIN_BATCH_SIZE) {
+          const startTime = typeEvents[batchStart].timestamp;
+          const endTime = typeEvents[batchEnd].timestamp;
+          const durationSeconds = Math.max(1, (endTime.getTime() - startTime.getTime()) / 1000);
+          const ratePerSecond = batchSize / durationSeconds;
+          
+          // Only count as bulk if rate is above 0.5/sec (more than 1 tap every 2 seconds)
+          if (ratePerSecond >= 0.5) {
+            batches.push({
+              type,
+              count: batchSize,
+              startTime,
+              endTime,
+              durationSeconds,
+              ratePerSecond,
+            });
+          }
+        }
+        
+        batchStart = batchEnd + 1;
+      }
+    });
+    
+    // Calculate summary stats
+    const totalBatchedEvents = batches.reduce((sum, b) => sum + b.count, 0);
+    const totalEvents = events.length;
+    const batchedPercent = totalEvents > 0 ? Math.round((totalBatchedEvents / totalEvents) * 100) : 0;
+    const largestBatch = batches.length > 0 ? Math.max(...batches.map(b => b.count)) : 0;
+    
+    // Bulk entry is detected if >50% of events are batched OR largest batch > 20
+    const bulkEntryDetected = batchedPercent > 50 || largestBatch > 20;
+    
+    return {
+      bulkEntryDetected,
+      largestBatch,
+      batchedEventsCount: totalBatchedEvents,
+      batchedEventsPercent: batchedPercent,
+      batches: batches.sort((a, b) => b.count - a.count), // Sort by largest first
+    };
+  }, [events]);
 
   // Time bounds
   const { startTime, endTime, totalMinutes } = useMemo(() => {
@@ -560,6 +647,11 @@ export const RepDayActivityFlow = ({
     };
   }, [gaps, events, transitionEvents, presentationEvents, inHomeZones, extendedConversations]);
 
+  // Extract sales for the Sales Moments row - moved before early return to maintain hook order
+  const salesMoments = useMemo(() => {
+    return events.filter(e => e.type === 'sale');
+  }, [events]);
+
   if (!startTime || events.length === 0) {
     return (
       <div className="text-center py-4 text-muted-foreground text-sm">
@@ -567,11 +659,6 @@ export const RepDayActivityFlow = ({
       </div>
     );
   }
-
-  // Extract sales for the Sales Moments row
-  const salesMoments = useMemo(() => {
-    return events.filter(e => e.type === 'sale');
-  }, [events]);
 
   return (
     <div className="space-y-2">
@@ -1098,6 +1185,59 @@ export const RepDayActivityFlow = ({
 
       {/* Smart Summary - Coach Insights */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center text-[10px]">
+        {/* Bulk Entry Warning - most urgent indicator */}
+        {bulkEntryStats.bulkEntryDetected && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="flex items-center gap-1 text-orange-400 font-semibold bg-orange-500/15 px-2 py-0.5 rounded-full border border-orange-500/30 hover:bg-orange-500/25 active:scale-95 transition-all">
+                <Zap className="w-3 h-3" />
+                {bulkEntryStats.largestBatch} bulk
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-0" side="top" align="center">
+              <div className="px-3 py-2 bg-orange-500/15 border-b border-orange-500/25 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-orange-400" />
+                <span className="font-bold text-sm text-orange-400">Bulk Entry Detected</span>
+              </div>
+              <div className="p-3 space-y-3">
+                {/* Summary stats */}
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Largest batch</span>
+                  <span className="font-bold text-orange-400">{bulkEntryStats.largestBatch} events</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Total bulk-logged</span>
+                  <span className="font-semibold">{bulkEntryStats.batchedEventsCount} ({bulkEntryStats.batchedEventsPercent}%)</span>
+                </div>
+                
+                {/* Batch list */}
+                <div className="space-y-1.5 pt-2 border-t">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Batches</div>
+                  {bulkEntryStats.batches.slice(0, 5).map((batch, idx) => {
+                    const config = EVENT_CONFIG[batch.type];
+                    const Icon = config?.icon || DoorOpen;
+                    return (
+                      <div key={idx} className="flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1.5">
+                          <Icon className={cn("w-3 h-3", config?.color || "text-muted-foreground")} />
+                          <span className="font-medium">{batch.count} {config?.shortLabel || batch.type}</span>
+                        </div>
+                        <span className="text-muted-foreground">
+                          {formatTimeOnly(batch.startTime)} <span className="text-[9px]">({Math.round(batch.durationSeconds)}s)</span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {/* Coaching tip */}
+                <div className="text-[10px] text-orange-400 bg-orange-500/10 rounded px-2 py-1.5 italic">
+                  ⚡ Data was logged in rapid bursts, not throughout the day. Timeline may not reflect actual work pattern.
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
         {/* Total time selling - most important stat */}
         {stats.totalSellingTime > 0 && (
           <span className="flex items-center gap-1 text-primary font-semibold">
