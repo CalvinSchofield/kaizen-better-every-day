@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { differenceInDays, parseISO, isAfter, isSameDay, startOfToday, format } from "date-fns";
+import { differenceInDays, parseISO, isAfter, isSameDay, startOfToday, format, startOfDay } from "date-fns";
 import { formatDaysUntilBlitz } from "@/utils/blitzDateUtils";
 import { 
   AlertTriangle, 
@@ -21,10 +21,12 @@ import { Recruit } from "@/hooks/useGroupRecruits";
 import { RecruitRepData, RecruitGoals, FocusIssue, TabType } from "./types";
 import { getFirstName } from "./utils";
 import { useBlitzes } from "@/hooks/useBlitzes";
+import { calculateSalesPace } from "@/utils/salesPaceCalculator";
 
 // Season constants
 const PRESEASON_START = '2025-09-28';
 const PRESEASON_END = '2026-04-11';
+const DEFAULT_SUMMER_END = '2026-09-27';
 
 interface FocusCardProps {
   recruit: Recruit;
@@ -32,6 +34,7 @@ interface FocusCardProps {
   recruitGoals: RecruitGoals | null;
   recruitYtdFP?: number;
   plannedDays?: string[]; // Array of planned day dates (YYYY-MM-DD)
+  knockingDays?: number; // Actual worked days (finalized entries with 4+ doors)
   summerStart?: string | null;
   summerEnd?: string | null;
   onNavigateToTab: (tab: TabType) => void;
@@ -45,6 +48,7 @@ export const FocusCard = ({
   recruitGoals,
   recruitYtdFP = 0,
   plannedDays = [],
+  knockingDays = 0,
   summerStart,
   summerEnd,
   onNavigateToTab,
@@ -84,13 +88,19 @@ export const FocusCard = ({
 
   // Calculate pace status based on planned days
   const paceInfo = useMemo(() => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const isPreseason = today < (summerStart || PRESEASON_END);
-    
+    const today = startOfDay(new Date());
+    const todayStr = format(today, 'yyyy-MM-dd');
+    const preseasonEndDate = parseISO(PRESEASON_END);
+    const isGlobalPreseason = !isAfter(today, preseasonEndDate);
+    const hasPersonalSummerStarted = summerStart 
+      ? !isAfter(parseISO(summerStart), today)
+      : false;
+    const isPreseason = isGlobalPreseason && !hasPersonalSummerStarted;
+
     // Determine which goal to use
     let goal = 0;
     let goalLabel = 'Preseason';
-    
+
     if (isPreseason) {
       goal = recruitGoals?.preseason_fp_goal || 0;
       goalLabel = 'Preseason';
@@ -112,50 +122,83 @@ export const FocusCard = ({
     if (!goal || goal <= 0) {
       return { hasGoal: false, goal: 0, goalLabel, progressPercent: 0 };
     }
-    
+
     const progressPercent = Math.min((recruitYtdFP / goal) * 100, 100);
-    
-    // Calculate future planned days
-    const futurePlannedDays = plannedDays.filter(d => {
-      if (d <= today) return false;
-      // For preseason, only count days before summer start
-      if (isPreseason && summerStart && d >= summerStart) return false;
-      // For summer, only count days before summer end
-      if (!isPreseason && summerEnd && d > summerEnd) return false;
-      return true;
+
+    // Use the same pace calculator as GoalsTabView for consistency
+    const paceResult = calculateSalesPace({
+      goals: {
+        preseason_fp_goal: recruitGoals?.preseason_fp_goal,
+        must_do_fp_goal: recruitGoals?.must_do_fp_goal,
+        will_do_fp_goal: recruitGoals?.will_do_fp_goal,
+        could_do_fp_goal: recruitGoals?.could_do_fp_goal,
+        cancel_rate: recruitGoals?.cancel_rate,
+        setup_complete: recruitGoals?.setup_complete ?? true,
+      },
+      plannedDays: plannedDays.map(d => ({ planned_date: d })),
+      knockingDays: knockingDays,
+      currentFpPlus: recruitYtdFP,
+      currentPrmr: 0, // Not used in FP+ mode
+      efpModeEnabled: false,
+      calculateEfp: (prmr) => prmr / 85,
+      activeTier: isPreseason ? 'preseason' : (
+        recruitGoals?.focus_tier === 'mustDo' ? 'mustDo' :
+        recruitGoals?.focus_tier === 'couldDo' ? 'couldDo' : 'willDo'
+      ),
+      personalSummerStart: summerStart,
     });
-    
-    const daysRemaining = futurePlannedDays.length;
-    const remaining = Math.max(0, goal - recruitYtdFP);
-    const neededDaily = daysRemaining > 0 ? remaining / daysRemaining : 0;
-    
-    // Calculate expected progress based on elapsed time/planned days
-    const pastPlannedDays = plannedDays.filter(d => d <= today);
-    const totalPlannedDays = pastPlannedDays.length + futurePlannedDays.length;
-    
+
+    // Default values if pace calculation fails
+    let daysRemaining = 0;
+    let neededDaily = 0;
     let expectedProgress = 0;
+    let variance = 0;
+    const daysWorked = knockingDays;
+    const currentAvgDaily = daysWorked > 0 ? recruitYtdFP / daysWorked : 0;
+
     let paceStatus: 'ahead' | 'on-track' | 'behind' | 'at-risk' | 'goal-met' = 'on-track';
-    
+
     if (recruitYtdFP >= goal) {
       paceStatus = 'goal-met';
-    } else if (totalPlannedDays > 0 && pastPlannedDays.length > 0) {
-      expectedProgress = (pastPlannedDays.length / totalPlannedDays) * goal;
-      const variance = recruitYtdFP - expectedProgress;
-      const variancePercent = expectedProgress > 0 ? (variance / expectedProgress) * 100 : 0;
-      
+    } else if (paceResult) {
+      daysRemaining = paceResult.futurePlannedDays;
+      neededDaily = paceResult.remainingDailyNeeded;
+      expectedProgress = paceResult.expectedAtThisPoint;
+      variance = paceResult.paceVariance;
+
+      // Determine status based on variance (matching GoalsTabView logic)
+      if (variance >= 0) {
+        paceStatus = variance > 1 ? 'ahead' : 'on-track';
+      } else {
+        const behindPercentage = expectedProgress > 0 
+          ? (Math.abs(variance) / expectedProgress) * 100 
+          : 100;
+        paceStatus = behindPercentage > 35 ? 'at-risk' : 'behind';
+      }
+    } else if (goal > 0) {
+      // Fallback: no pace result but has goal
+      const futurePlannedDays = plannedDays.filter(d => d > todayStr);
+      daysRemaining = futurePlannedDays.length;
+      const remaining = Math.max(0, goal - recruitYtdFP);
+      neededDaily = daysRemaining > 0 ? remaining / daysRemaining : 0;
+
+      // Simple pace calculation as fallback
+      const totalPlannedDays = plannedDays.length;
+      if (totalPlannedDays > 0 && daysWorked > 0) {
+        expectedProgress = (daysWorked / totalPlannedDays) * goal;
+        variance = recruitYtdFP - expectedProgress;
+      }
+
       if (variance >= 0.5) {
         paceStatus = 'ahead';
       } else if (variance >= -0.5) {
         paceStatus = 'on-track';
-      } else if (variancePercent >= -20) {
-        paceStatus = 'behind';
       } else {
-        paceStatus = 'at-risk';
+        const variancePercent = expectedProgress > 0 ? (variance / expectedProgress) * 100 : 0;
+        paceStatus = variancePercent <= -35 ? 'at-risk' : 'behind';
       }
-    } else if (daysRemaining === 0 && recruitYtdFP < goal) {
-      paceStatus = 'at-risk';
     }
-    
+
     return {
       hasGoal: true,
       goal,
@@ -166,11 +209,12 @@ export const FocusCard = ({
       expectedProgress,
       paceStatus,
       isPreseason,
-      remaining,
-      daysWorked: pastPlannedDays.length,
-      currentAvgDaily: pastPlannedDays.length > 0 ? recruitYtdFP / pastPlannedDays.length : 0,
+      remaining: Math.max(0, goal - recruitYtdFP),
+      daysWorked,
+      currentAvgDaily,
+      variance,
     };
-  }, [recruitGoals, recruitYtdFP, plannedDays, summerStart, summerEnd]);
+  }, [recruitGoals, recruitYtdFP, plannedDays, knockingDays, summerStart, summerEnd]);
   
   const focusIssue = useMemo((): FocusIssue | null => {
     if (!recruitRepData) return null;

@@ -12,6 +12,10 @@ import { differenceInDays, parseISO, format } from "date-fns";
 import { AlertCircle, TrendingUp, Clock, Settings, UserCircle, CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Season constants for queries
+const PRESEASON_START = '2025-09-28';
+const DEFAULT_SUMMER_END = '2026-09-27';
+
 import { TabType, RecruitRepData, RecruitGoals, ContactForHelp, RecruitSummerConfig } from "./types";
 import { stripEmojis, getFirstName, getStageDescription, getOnboardingStepDescription } from "./utils";
 import { generateStageHelpMessage } from "@/utils/stageSpecificHelpMessage";
@@ -300,19 +304,30 @@ export const RecruitDetailDrawer = ({
 
   // Summer entries for recruit (used when in summer mode)
   const { data: recruitSummerEntries = [] } = useQuery({
-    queryKey: ['recruit-summer-entries', recruitRepData?.user_id, recruitSummerConfig?.personalSummerStart],
+    queryKey: ['recruit-all-entries', recruitRepData?.user_id],
     queryFn: async () => {
-      if (!recruitRepData?.user_id || !recruitSummerConfig?.personalSummerStart) return [];
+      if (!recruitRepData?.user_id) return [];
       const { data } = await supabase
         .from('daily_entries')
         .select('entry_date, fp_plus, work_start_time, work_end_time, doors_knocked, is_finalized')
         .eq('user_id', recruitRepData.user_id)
-        .gte('entry_date', recruitSummerConfig.personalSummerStart)
+        .gte('entry_date', PRESEASON_START)
         .order('entry_date', { ascending: false });
       return data || [];
     },
-    enabled: !!recruitRepData?.user_id && !!recruitSummerConfig?.personalSummerStart && open,
+    enabled: !!recruitRepData?.user_id && open,
   });
+
+  // Calculate knocking days from entries (finalized entries with 4+ doors and work times)
+  const recruitKnockingDays = useMemo(() => {
+    if (!recruitSummerEntries.length) return 0;
+    return recruitSummerEntries.filter(e => 
+      e.is_finalized && 
+      (e.doors_knocked || 0) >= 4 && 
+      e.work_start_time && 
+      e.work_end_time
+    ).length;
+  }, [recruitSummerEntries]);
 
   // Planned days for recruit (for pace calculation in FocusCard)
   const { data: recruitPlannedDays = [] } = useQuery({
@@ -1047,6 +1062,7 @@ export const RecruitDetailDrawer = ({
                 recruitGoals={recruitGoals || null}
                 recruitYtdFP={recruitYtdFP}
                 plannedDays={recruitPlannedDays}
+                knockingDays={recruitKnockingDays}
                 summerStart={recruitSummerConfig?.personalSummerStart}
                 summerEnd={recruitSummerConfig?.personalSummerEnd}
                 onNavigateToTab={setActiveTab}
