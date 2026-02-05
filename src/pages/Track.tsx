@@ -1,3 +1,4 @@
+import { useState, useRef, useCallback } from "react";
 import { Lock, BarChart3 } from "lucide-react";
 import { useRepData } from "@/hooks/useRepData";
 import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
@@ -6,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TimeTrackingBar } from "@/components/TimeTrackingBar";
 import { QTallyGrid } from "@/components/QTallyGrid";
 import { SalesLoggerCard } from "@/components/SalesLoggerCard";
+import { BulkEntryWarning } from "@/components/ui/BulkEntryWarning";
 import { DailyEntry, Sale } from "@/hooks/useDailyEntry";
 
 interface TrackProps {
@@ -58,6 +60,31 @@ const Track = ({
   isLoadingEntry = false,
 }: TrackProps) => {
   const { repData, loading: loadingRepData, isInitializing } = useRepData();
+  
+  // Bulk entry warning state
+  const [showBulkWarning, setShowBulkWarning] = useState(false);
+  const rapidTapCountRef = useRef(0);
+  const rapidTapTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Callback for when rapid tapping is detected on any counter
+  const handleRapidTapDetected = useCallback(() => {
+    rapidTapCountRef.current += 1;
+    
+    // Start or reset the 30 second window
+    if (rapidTapTimerRef.current) {
+      clearTimeout(rapidTapTimerRef.current);
+    }
+    
+    rapidTapTimerRef.current = setTimeout(() => {
+      rapidTapCountRef.current = 0;
+    }, 30000);
+    
+    // If 10+ rapid tap events in 30 seconds, show warning
+    if (rapidTapCountRef.current >= 10) {
+      setShowBulkWarning(true);
+      rapidTapCountRef.current = 0; // Reset to avoid repeated triggers
+    }
+  }, []);
 
   // Get custom counter config for Vets/Sophomores
   const customCounterConfig = Array.isArray(repData?.custom_counter_config)
@@ -145,6 +172,12 @@ const Track = ({
         />
       </div>
 
+      {/* Bulk Entry Warning Banner */}
+      <BulkEntryWarning 
+        show={showBulkWarning} 
+        onDismiss={() => setShowBulkWarning(false)} 
+      />
+
       {/* Counter Grid - Fills remaining space */}
       <div className="flex-1 px-4 pt-4 pb-4 overflow-hidden flex flex-col gap-4">
         <div className="flex-1 min-h-0">
@@ -154,6 +187,8 @@ const Track = ({
             customCounterConfig={customCounterConfig}
             counterLayoutConfig={counterLayoutConfig}
             isLoading={isLoadingEntry}
+            counterTimestamps={counterTimestamps}
+            onRapidTapDetected={handleRapidTapDetected}
           />
         </div>
         
