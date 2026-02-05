@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { differenceInDays, parseISO, isAfter, isSameDay, startOfToday } from "date-fns";
+import { differenceInDays, parseISO, isAfter, isSameDay, startOfToday, format } from "date-fns";
 import { formatDaysUntilBlitz } from "@/utils/blitzDateUtils";
 import { 
   AlertTriangle, 
@@ -10,22 +10,33 @@ import {
   CheckCircle2,
   AlertCircle,
   GraduationCap,
-  Phone
+  Phone,
+  TrendingUp,
+  TrendingDown
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { RecruitRepData, RecruitGoals, FocusIssue, TabType } from "./types";
 import { getFirstName } from "./utils";
 import { useBlitzes } from "@/hooks/useBlitzes";
+
+// Season constants
+const PRESEASON_START = '2025-09-28';
+const PRESEASON_END = '2026-04-11';
 
 interface FocusCardProps {
   recruit: Recruit;
   recruitRepData: RecruitRepData | null;
   recruitGoals: RecruitGoals | null;
   recruitYtdFP?: number;
+  plannedDays?: string[]; // Array of planned day dates (YYYY-MM-DD)
+  summerStart?: string | null;
+  summerEnd?: string | null;
   onNavigateToTab: (tab: TabType) => void;
   onAssignIpad?: () => void;
+  onToggleFocusTier?: () => void;
 }
 
 export const FocusCard = ({ 
@@ -33,8 +44,12 @@ export const FocusCard = ({
   recruitRepData, 
   recruitGoals,
   recruitYtdFP = 0,
+  plannedDays = [],
+  summerStart,
+  summerEnd,
   onNavigateToTab,
-  onAssignIpad
+  onAssignIpad,
+  onToggleFocusTier
 }: FocusCardProps) => {
   const { allBlitzes } = useBlitzes();
   const recruitFirstName = getFirstName(recruit.name);
@@ -66,6 +81,95 @@ export const FocusCard = ({
     
     return { name: closest.name, daysUntil };
   }, [recruitRepData?.committed_blitzes, allBlitzes]);
+
+  // Calculate pace status based on planned days
+  const paceInfo = useMemo(() => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const isPreseason = today < (summerStart || PRESEASON_END);
+    
+    // Determine which goal to use
+    let goal = 0;
+    let goalLabel = 'Preseason';
+    
+    if (isPreseason) {
+      goal = recruitGoals?.preseason_fp_goal || 0;
+      goalLabel = 'Preseason';
+    } else {
+      // Summer mode - use focus tier or default to will_do
+      const focusTier = recruitGoals?.focus_tier || 'will_do';
+      if (focusTier === 'must_do') {
+        goal = recruitGoals?.must_do_fp_goal || 0;
+        goalLabel = 'Must Do';
+      } else if (focusTier === 'could_do') {
+        goal = recruitGoals?.could_do_fp_goal || 0;
+        goalLabel = 'Could Do';
+      } else {
+        goal = recruitGoals?.will_do_fp_goal || 0;
+        goalLabel = 'Will Do';
+      }
+    }
+    
+    if (!goal || goal <= 0) {
+      return { hasGoal: false, goal: 0, goalLabel, progressPercent: 0 };
+    }
+    
+    const progressPercent = Math.min((recruitYtdFP / goal) * 100, 100);
+    
+    // Calculate future planned days
+    const futurePlannedDays = plannedDays.filter(d => {
+      if (d <= today) return false;
+      // For preseason, only count days before summer start
+      if (isPreseason && summerStart && d >= summerStart) return false;
+      // For summer, only count days before summer end
+      if (!isPreseason && summerEnd && d > summerEnd) return false;
+      return true;
+    });
+    
+    const daysRemaining = futurePlannedDays.length;
+    const remaining = Math.max(0, goal - recruitYtdFP);
+    const neededDaily = daysRemaining > 0 ? remaining / daysRemaining : 0;
+    
+    // Calculate expected progress based on elapsed time/planned days
+    const pastPlannedDays = plannedDays.filter(d => d <= today);
+    const totalPlannedDays = pastPlannedDays.length + futurePlannedDays.length;
+    
+    let expectedProgress = 0;
+    let paceStatus: 'ahead' | 'on-track' | 'behind' | 'at-risk' | 'goal-met' = 'on-track';
+    
+    if (recruitYtdFP >= goal) {
+      paceStatus = 'goal-met';
+    } else if (totalPlannedDays > 0 && pastPlannedDays.length > 0) {
+      expectedProgress = (pastPlannedDays.length / totalPlannedDays) * goal;
+      const variance = recruitYtdFP - expectedProgress;
+      const variancePercent = expectedProgress > 0 ? (variance / expectedProgress) * 100 : 0;
+      
+      if (variance >= 0.5) {
+        paceStatus = 'ahead';
+      } else if (variance >= -0.5) {
+        paceStatus = 'on-track';
+      } else if (variancePercent >= -20) {
+        paceStatus = 'behind';
+      } else {
+        paceStatus = 'at-risk';
+      }
+    } else if (daysRemaining === 0 && recruitYtdFP < goal) {
+      paceStatus = 'at-risk';
+    }
+    
+    return {
+      hasGoal: true,
+      goal,
+      goalLabel,
+      progressPercent,
+      daysRemaining,
+      neededDaily,
+      expectedProgress,
+      paceStatus,
+      isPreseason,
+      remaining,
+      daysWorked: pastPlannedDays.length,
+    };
+  }, [recruitGoals, recruitYtdFP, plannedDays, summerStart, summerEnd]);
   
   const focusIssue = useMemo((): FocusIssue | null => {
     if (!recruitRepData) return null;
@@ -480,39 +584,108 @@ export const FocusCard = ({
 
   return (
     <div className={`rounded-xl border p-4 ${getColorClasses()}`}>
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5">
-          {getIcon()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-semibold text-sm">{focusIssue.title}</h4>
-            {focusIssue.type === 'critical' && (
-              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-                URGENT
+      {/* Goal Progress Card with Progress Bar */}
+      {focusIssue.icon === 'target' && paceInfo.hasGoal ? (
+        <div className="space-y-3">
+          {/* Header with icon, title and pace badge */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              <span className="font-semibold text-sm">{paceInfo.goalLabel} Goal</span>
+            </div>
+            {/* Pace Status Badge */}
+            {paceInfo.paceStatus === 'goal-met' ? (
+              <Badge className="bg-emerald-500 text-white">🎉 Goal Met!</Badge>
+            ) : paceInfo.paceStatus === 'ahead' ? (
+              <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-0">
+                <TrendingUp className="h-3 w-3 mr-1" /> Ahead
+              </Badge>
+            ) : paceInfo.paceStatus === 'on-track' ? (
+              <Badge className="bg-blue-500/20 text-blue-700 dark:text-blue-400 border-0">
+                <CheckCircle2 className="h-3 w-3 mr-1" /> On Track
+              </Badge>
+            ) : paceInfo.paceStatus === 'behind' ? (
+              <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-400 border-0">
+                <TrendingDown className="h-3 w-3 mr-1" /> Behind
+              </Badge>
+            ) : (
+              <Badge className="bg-destructive/20 text-destructive border-0">
+                <AlertTriangle className="h-3 w-3 mr-1" /> At Risk
               </Badge>
             )}
           </div>
-          <p className="text-xs opacity-80">{focusIssue.description}</p>
+          
+          {/* Progress Display */}
+          <div className="space-y-1.5">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xl font-bold">{recruitYtdFP.toFixed(1)}</span>
+              <span className="text-sm text-muted-foreground">/ {paceInfo.goal} FP+</span>
+            </div>
+            <Progress 
+              value={paceInfo.progressPercent} 
+              className={`h-2 ${paceInfo.paceStatus === 'goal-met' ? '[&>div]:bg-emerald-500' : ''}`}
+            />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{paceInfo.progressPercent.toFixed(0)}% complete</span>
+              {paceInfo.daysRemaining !== undefined && paceInfo.daysRemaining > 0 && paceInfo.paceStatus !== 'goal-met' && (
+                <span>{paceInfo.daysRemaining} planned days left</span>
+              )}
+            </div>
+          </div>
+          
+          {/* Pace Details */}
+          {paceInfo.paceStatus !== 'goal-met' && paceInfo.neededDaily !== undefined && paceInfo.neededDaily > 0 && (
+            <div className="flex items-center justify-between pt-2 border-t border-current/10 text-xs">
+              <span className="text-muted-foreground">Need {paceInfo.neededDaily.toFixed(2)}/day to hit goal</span>
+              {!paceInfo.isPreseason && onToggleFocusTier && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 text-xs px-2"
+                  onClick={onToggleFocusTier}
+                >
+                  Change Goal
+                </Button>
+              )}
+            </div>
+          )}
         </div>
-        {focusIssue.actionLabel && focusIssue.actionTab && (
-          <Button 
-            size="sm" 
-            variant={focusIssue.type === 'critical' ? 'destructive' : 'secondary'}
-            className="shrink-0 text-xs h-8"
-            onClick={() => {
-              // If this is an iPad assignment action, call onAssignIpad directly
-              if (focusIssue.actionLabel === 'Assign iPad' && onAssignIpad) {
-                onAssignIpad();
-              } else {
-                onNavigateToTab(focusIssue.actionTab!);
-              }
-            }}
-          >
-            {focusIssue.actionLabel}
-          </Button>
-        )}
-      </div>
+      ) : (
+        /* Standard Focus Issue Card */
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5">
+            {getIcon()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h4 className="font-semibold text-sm">{focusIssue.title}</h4>
+              {focusIssue.type === 'critical' && (
+                <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                  URGENT
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs opacity-80">{focusIssue.description}</p>
+          </div>
+          {focusIssue.actionLabel && focusIssue.actionTab && (
+            <Button 
+              size="sm" 
+              variant={focusIssue.type === 'critical' ? 'destructive' : 'secondary'}
+              className="shrink-0 text-xs h-8"
+              onClick={() => {
+                // If this is an iPad assignment action, call onAssignIpad directly
+                if (focusIssue.actionLabel === 'Assign iPad' && onAssignIpad) {
+                  onAssignIpad();
+                } else {
+                  onNavigateToTab(focusIssue.actionTab!);
+                }
+              }}
+            >
+              {focusIssue.actionLabel}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
