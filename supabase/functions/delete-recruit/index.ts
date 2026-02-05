@@ -6,6 +6,112 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper to check if a user can access a recruit (via their scope)
+async function canDeleteRecruit(supabase: any, userId: string, recruitId: string): Promise<boolean> {
+  // Check access levels in order of privilege
+  const { data: isAD } = await supabase.rpc('is_area_director', { _user_id: userId });
+  if (isAD) return true;
+
+  const { data: isMgmtLead } = await supabase.rpc('is_mgmt_group_lead', { _user_id: userId });
+  const { data: isTeamLead } = await supabase.rpc('is_team_lead', { _user_id: userId });
+  
+  if (!isMgmtLead && !isTeamLead) {
+    // Check if user is a recruiter (has recruited anyone)
+    const { data: directRecruits } = await supabase
+      .from('recruits')
+      .select('id')
+      .eq('recruiter_user_id', userId)
+      .limit(1);
+    
+    if (!directRecruits || directRecruits.length === 0) {
+      return false; // No leadership role and not a recruiter
+    }
+  }
+
+  // Check if the recruit is within the user's accessible scope
+  const { data: recruit } = await supabase
+    .from('recruits')
+    .select('recruiter_user_id, team_id, mgmt_group_id')
+    .eq('id', recruitId)
+    .maybeSingle();
+
+  if (!recruit) return false;
+
+  // Direct recruit check - if user recruited this person, they can delete
+  if (recruit.recruiter_user_id === userId) return true;
+
+  // For team leads - check if recruit is on their team
+  if (isTeamLead) {
+    const { data: userTeams } = await supabase
+      .from('teams')
+      .select('id')
+      .eq('lead_user_id', userId);
+    
+    if (userTeams && recruit.team_id) {
+      const teamIds = userTeams.map((t: any) => t.id);
+      if (teamIds.includes(recruit.team_id)) return true;
+    }
+  }
+
+  // For mgmt group leads - check if recruit is in their mgmt group
+  if (isMgmtLead) {
+    const { data: userMgmtGroups } = await supabase
+      .from('mgmt_groups')
+      .select('id')
+      .eq('lead_user_id', userId);
+    
+    if (userMgmtGroups && recruit.mgmt_group_id) {
+      const mgmtGroupIds = userMgmtGroups.map((g: any) => g.id);
+      if (mgmtGroupIds.includes(recruit.mgmt_group_id)) return true;
+    }
+    
+    // Also check if recruit's team is in one of their mgmt groups
+    if (recruit.team_id) {
+      const { data: teamMgmtGroups } = await supabase
+        .from('team_mgmt_groups')
+        .select('mgmt_group_id')
+        .eq('team_id', recruit.team_id);
+      
+      if (teamMgmtGroups && userMgmtGroups) {
+        const userMgmtIds = userMgmtGroups.map((g: any) => g.id);
+        const recruitMgmtIds = teamMgmtGroups.map((tmg: any) => tmg.mgmt_group_id);
+        if (recruitMgmtIds.some((id: string) => userMgmtIds.includes(id))) return true;
+      }
+    }
+  }
+
+  // Check recursive downline (recruiter tree)
+  const checkDownline = async (recruiterId: string, targetRecruitId: string, depth: number = 0): Promise<boolean> => {
+    if (depth > 6) return false;
+    
+    const { data: directRecruits } = await supabase
+      .from('recruits')
+      .select('id, recruiter_user_id')
+      .eq('recruiter_user_id', recruiterId);
+    
+    if (!directRecruits) return false;
+    
+    for (const r of directRecruits) {
+      if (r.id === targetRecruitId) return true;
+      
+      const { data: recruitRep } = await supabase
+        .from('reps')
+        .select('user_id')
+        .eq('id', r.id)
+        .maybeSingle();
+      
+      if (recruitRep?.user_id) {
+        const found = await checkDownline(recruitRep.user_id, targetRecruitId, depth + 1);
+        if (found) return true;
+      }
+    }
+    
+    return false;
+  };
+
+  return await checkDownline(userId, recruitId);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -24,23 +130,13 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify user is authenticated and is a leader
+    // Verify user is authenticated
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Invalid token' }), {
         status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Check if user is an area director (only area directors can delete)
-    const { data: isAreaDirector } = await supabase.rpc('is_area_director', { _user_id: user.id });
-
-    if (!isAreaDirector) {
-      return new Response(JSON.stringify({ error: 'Unauthorized - only area directors can delete recruits' }), {
-        status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -52,6 +148,17 @@ serve(async (req) => {
     if (!recruitId) {
       return new Response(JSON.stringify({ error: 'Missing recruitId' }), {
         status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check if user has permission to delete this recruit
+    const canDelete = await canDeleteRecruit(supabase, user.id, recruitId);
+    
+    if (!canDelete) {
+      console.log(`[delete-recruit] User ${user.id} denied permission to delete recruit ${recruitId}`);
+      return new Response(JSON.stringify({ error: 'Unauthorized - you can only delete recruits in your scope' }), {
+        status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
