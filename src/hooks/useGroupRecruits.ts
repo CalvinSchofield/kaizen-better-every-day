@@ -964,6 +964,17 @@ export const useLogRecruitActivity = () => {
         .single();
 
       if (error) throw error;
+
+      // Update last_contact on the recruit for phone_call or in_person activities
+      // This should always happen for these activity types regardless of the flag
+      if (actualRecruitId && (activityType === 'phone_call' || activityType === 'in_person')) {
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        await supabase
+          .from('recruits')
+          .update({ last_contact: today })
+          .eq('id', actualRecruitId);
+      }
+
       return { ...data, recruitId, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId };
     },
     onMutate: async ({ recruitId, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId }) => {
