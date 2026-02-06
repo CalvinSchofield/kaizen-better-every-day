@@ -254,24 +254,26 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
             todayEntry.work_start_time !== null;
 
           if (hasActivity) {
-            // Calculate FP+ and PRMR - use sales_log for unfinalized, columns for finalized
+          // Calculate FP+ and PRMR - ALWAYS prioritize sales_log when it has entries
+            // This fixes the bug where finalized entries had sales in sales_log but 0 in column values
+            const salesLog = todayEntry.sales_log as any[];
+            const hasSalesLog = salesLog && Array.isArray(salesLog) && salesLog.length > 0;
+            
             let fpValue: number;
             let prmrValue: number;
             let upgradePrmrValue: number;
             
-            if (todayEntry.is_finalized) {
-              // For finalized entries, use the saved column values
+            if (hasSalesLog) {
+              // Use sales_log calculation (works for both finalized and unfinalized)
+              const fromLog = calculateFromSalesLog(salesLog);
+              fpValue = fromLog.fp;
+              prmrValue = fromLog.prmr;
+              upgradePrmrValue = fromLog.upgradePrmr;
+            } else {
+              // Fall back to column values for entries without sales_log (pre-feature entries)
               fpValue = todayEntry.fp_plus || 0;
               prmrValue = todayEntry.prmr || 0;
               upgradePrmrValue = todayEntry.upgrade_prmr || 0;
-            } else {
-              // For unfinalized entries, prioritize sales_log if it has entries (supports edits/deletes)
-              const salesLog = todayEntry.sales_log as any[];
-              const fromLog = calculateFromSalesLog(salesLog);
-              // Use sales_log calculation if there are sales, otherwise use column
-              fpValue = (salesLog && salesLog.length > 0) ? fromLog.fp : (todayEntry.fp_plus || 0);
-              prmrValue = (salesLog && salesLog.length > 0) ? fromLog.prmr : (todayEntry.prmr || 0);
-              upgradePrmrValue = (salesLog && salesLog.length > 0) ? fromLog.upgradePrmr : (todayEntry.upgrade_prmr || 0);
             }
             
             processedUsers.add(userId);
