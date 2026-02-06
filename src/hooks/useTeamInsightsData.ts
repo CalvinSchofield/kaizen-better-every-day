@@ -369,14 +369,14 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
         acc.presentations += entry.presentations || 0;
         acc.closes += entry.closes || 0;
         
-        // For unfinalized entries with sales_log, calculate from sales_log
-        // For finalized entries or entries without sales_log, use column values
-        const isFinalized = (entry as any).is_finalized === true;
+        // ALWAYS prioritize sales_log when it has entries (fixes bug where finalized entries 
+        // had sales in sales_log but 0 in column values)
+        // Fall back to column values only for entries without sales_log (pre-feature entries)
         const salesLog = entry.sales_log as any[] | null;
         const hasSalesLog = salesLog && Array.isArray(salesLog) && salesLog.length > 0;
         
-        if (!isFinalized && hasSalesLog) {
-          // Recalculate from sales_log for unfinalized entries
+        if (hasSalesLog) {
+          // Calculate from sales_log (works for both finalized and unfinalized)
           const calculated = calculateFromSalesLog(salesLog);
           acc.fp += calculated.fp;
           acc.prmr += calculated.prmr;
@@ -386,7 +386,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
             .reduce((sum: number, s: any) => sum + (Number(s.prmr) || 0), 0);
           acc.upgradePRMR += upgradePrmr;
         } else {
-          // Use column values for finalized entries or entries without sales_log
+          // Use column values for entries without sales_log (pre-feature entries)
           acc.fp += entry.fp_plus || 0;
           acc.prmr += entry.prmr || 0;
           acc.upgradePRMR += entry.upgrade_prmr || 0;
@@ -458,12 +458,11 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
 
       // Activity-based totals for ratios
       const activityTotals = entriesWithActivity.reduce((acc, entry) => {
-        // For unfinalized entries with sales_log, calculate from sales_log
-        const isFinalized = (entry as any).is_finalized === true;
+        // ALWAYS prioritize sales_log when it has entries
         const activitySalesLog = entry.sales_log as any[] | null;
         const hasActivitySalesLog = activitySalesLog && Array.isArray(activitySalesLog) && activitySalesLog.length > 0;
         
-        if (!isFinalized && hasActivitySalesLog) {
+        if (hasActivitySalesLog) {
           const calculated = calculateFromSalesLog(activitySalesLog);
           acc.fp += calculated.fp;
         } else {
@@ -914,8 +913,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
       const repBreakdown = reps.map(rep => {
         const repEntries = entries.filter(e => e.user_id === rep.user_id);
         const repTotals = repEntries.reduce((acc, e) => {
-          // For unfinalized entries with sales_log, calculate from sales_log
-          const isFinalized = (e as any).is_finalized === true;
+          // ALWAYS prioritize sales_log when it has entries
           const entrySalesLog = e.sales_log as any[] | null;
           const hasEntrySalesLog = entrySalesLog && Array.isArray(entrySalesLog) && entrySalesLog.length > 0;
           
@@ -923,8 +921,8 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           let entryPrmr = 0;
           let entryUpgradePrmr = 0;
           
-          if (!isFinalized && hasEntrySalesLog) {
-            // Recalculate from sales_log for unfinalized entries
+          if (hasEntrySalesLog) {
+            // Calculate from sales_log (works for both finalized and unfinalized)
             const calculated = calculateFromSalesLog(entrySalesLog);
             entryFp = calculated.fp;
             entryPrmr = calculated.prmr;
@@ -933,7 +931,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
               .filter((s: any) => s.type === 'upgrade' && s.install_status !== 'never_installed')
               .reduce((sum: number, s: any) => sum + (Number(s.prmr) || 0), 0);
           } else {
-            // Use column values for finalized entries or entries without sales_log
+            // Use column values for entries without sales_log (pre-feature entries)
             entryFp = e.fp_plus || 0;
             entryPrmr = e.prmr || 0;
             entryUpgradePrmr = e.upgrade_prmr || 0;

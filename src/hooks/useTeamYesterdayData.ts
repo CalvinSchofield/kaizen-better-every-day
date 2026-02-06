@@ -152,20 +152,20 @@ export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYe
         const teamName = teamInfo?.teamName || (repInfo?.team_leader ? `Team ${repInfo.team_leader}` : 'Unknown Team');
         const mgmtGroupName = teamInfo?.mgmtGroupName || 'Unknown Group';
 
-        // Calculate FP+ and PRMR - use sales_log for unfinalized entries
+        // Calculate FP+ and PRMR - ALWAYS prioritize sales_log when it has entries
+        const salesLog = entry.sales_log as any[];
+        const hasSalesLog = salesLog && Array.isArray(salesLog) && salesLog.length > 0;
+        
         let fpValue: number;
         let prmrValue: number;
         
-        if (entry.is_finalized) {
+        if (hasSalesLog) {
+          const fromLog = calculateFromSalesLog(salesLog);
+          fpValue = fromLog.fp;
+          prmrValue = fromLog.prmr;
+        } else {
           fpValue = entry.fp_plus || 0;
           prmrValue = entry.prmr || 0;
-        } else {
-          const salesLog = entry.sales_log as any[];
-          const fromLog = calculateFromSalesLog(salesLog);
-          const fpFromColumn = entry.fp_plus || 0;
-          const prmrFromColumn = entry.prmr || 0;
-          fpValue = (salesLog && salesLog.length > 0) ? fromLog.fp : fpFromColumn;
-          prmrValue = (salesLog && salesLog.length > 0) ? fromLog.prmr : prmrFromColumn;
         }
 
         const hasActivity = 
