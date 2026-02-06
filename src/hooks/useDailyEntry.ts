@@ -140,14 +140,29 @@ export const useDailyEntry = (date?: string) => {
       const serverTotal = getActivityTotal(serverEntry);
       const backupTotal = getActivityTotal(backup);
       
-      if (backup && backupTotal > serverTotal && !serverEntry?.is_finalized) {
+      // Only recover from backup if:
+      // 1. Backup exists and has more data than server
+      // 2. Entry is not finalized
+      // 3. This is a genuine recovery (offline scenario), not just a cache refresh
+      // 4. We haven't already shown a recovery toast this session for this date
+      const recoveryKey = `backup-recovery-shown-${entryDate}`;
+      const alreadyShownThisSession = sessionStorage.getItem(recoveryKey);
+      
+      if (backup && backupTotal > serverTotal && !serverEntry?.is_finalized && !alreadyShownThisSession) {
         console.log('[DailyEntry] Recovering from backup - backup has more data:', backupTotal, 'vs server:', serverTotal);
         
-        // Show recovery notification to reassure user
-        toast.success('Data recovered from local backup', {
-          description: `Your ${backupTotal} taps were protected and restored.`,
-          duration: 5000,
-        });
+        // Mark that we've shown recovery for this date this session
+        sessionStorage.setItem(recoveryKey, 'true');
+        
+        // Only show toast if the difference is significant (at least 1 tap difference)
+        // AND we're coming back online (navigator.onLine was false or this is first load)
+        const significantDifference = backupTotal - serverTotal >= 1;
+        if (significantDifference && !navigator.onLine) {
+          toast.success('Data recovered from local backup', {
+            description: `Your ${backupTotal} taps were protected and restored.`,
+            duration: 5000,
+          });
+        }
         
         // Merge backup data with server entry (backup wins for counters)
         return {
