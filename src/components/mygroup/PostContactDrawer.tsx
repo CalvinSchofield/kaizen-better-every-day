@@ -197,7 +197,10 @@ export const PostContactDrawer = ({
       if (showScheduling && scheduleDate) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const { data: insertedActivity, error: scheduleError } = await supabase
+            // Format as date-only string to match expected format
+            const dateOnlyString = format(scheduleDate, 'yyyy-MM-dd');
+            
+            const { data: insertedActivity, error: scheduleError } = await supabase
             .from('recruit_activities')
             .insert({
               recruit_id: recruit.id,
@@ -206,7 +209,7 @@ export const PostContactDrawer = ({
               assigned_to_user_id: scheduleAssignee || user.id,
               assignment_status: 'pending',
               next_action: scheduleNotes || 'Follow up',
-              next_action_due: scheduleDate.toISOString(),
+              next_action_due: dateOnlyString,
               notes: scheduleNotes || null,
             })
             .select('id')
@@ -217,14 +220,14 @@ export const PostContactDrawer = ({
           } else {
             newActivityId = insertedActivity?.id || null;
             
-            // Sync notes to recruit.next_action for display consistency
-            await supabase
-              .from('recruits')
-              .update({
-                next_action: scheduleNotes || 'Follow up',
-                next_action_due: scheduleDate.toISOString(),
-              })
-              .eq('id', recruit.id);
+              // Sync notes to recruit.next_action for display consistency
+              await supabase
+                .from('recruits')
+                .update({
+                  next_action: scheduleNotes || 'Follow up',
+                  next_action_due: dateOnlyString,
+                })
+                .eq('id', recruit.id);
             
             scheduledFollowUp = true;
             queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
@@ -278,7 +281,7 @@ export const PostContactDrawer = ({
       // If we scheduled a follow-up, show the calendar prompt instead of closing immediately
       if (scheduledFollowUp && newActivityId && scheduleDate) {
         setScheduledActivityId(newActivityId);
-        setScheduledDateString(scheduleDate.toISOString());
+        setScheduledDateString(format(scheduleDate, 'yyyy-MM-dd')); // Use date-only format
         setShowCalendarPrompt(true);
         // Don't close drawer yet - let calendar prompt handle it
       } else {
