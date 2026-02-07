@@ -577,6 +577,7 @@ export const RepDrillDownDrawer = ({
           open={showSalesLog}
           onOpenChange={setShowSalesLog}
           salesLog={(dayActivity?.salesLog as any) || []}
+          repTimezone={extendedData?.timezone || undefined}
         />
       </DrawerContent>
     </Drawer>

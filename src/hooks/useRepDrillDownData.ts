@@ -83,6 +83,8 @@ interface RepDrillDownExtendedData {
   // EFP mode (for Vets)
   efpModeEnabled: boolean;
   isVet: boolean;
+  // Rep's timezone for display purposes
+  timezone?: string | null;
 }
 
 // Season date constants
@@ -159,10 +161,10 @@ export const useRepDrillDownData = (userId: string | undefined) => {
           .eq('user_id', userId)
           .maybeSingle(),
         
-        // Rep info for EFP mode
+        // Rep info for EFP mode and timezone
         supabase
           .from('reps')
-          .select('year, efp_mode_enabled')
+          .select('year, efp_mode_enabled, timezone')
           .eq('user_id', userId)
           .maybeSingle(),
       ]);
@@ -376,6 +378,7 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         plannedDates,
         efpModeEnabled,
         isVet,
+        timezone: repResult.data?.timezone || null,
       };
     },
     enabled: !!userId,

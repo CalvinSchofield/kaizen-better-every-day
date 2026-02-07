@@ -5,7 +5,6 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Clock, 
@@ -16,7 +15,8 @@ import {
   Home,
 } from "lucide-react";
 import { Sale } from "@/hooks/useDailyEntry";
-import { format, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { formatPRMR } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +24,8 @@ interface SalesLogDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   salesLog: Sale[];
+  /** Rep's timezone to display times in their local time */
+  repTimezone?: string;
 }
 
 const formatDuration = (minutes: number): string => {
@@ -37,12 +39,24 @@ const formatDuration = (minutes: number): string => {
 interface SaleCardProps {
   sale: Sale;
   index: number;
+  repTimezone?: string;
 }
 
-const SaleCard = ({ sale, index }: SaleCardProps) => {
+const SaleCard = ({ sale, index, repTimezone }: SaleCardProps) => {
   const saleAny = sale as any;
   const timeToSell = saleAny.time_to_sell_minutes;
   const wasNeverInstalled = sale.install_status === 'never_installed';
+  
+  // Format time in rep's timezone
+  const formatSaleTime = (timestamp: string): string => {
+    try {
+      const date = parseISO(timestamp);
+      const tz = repTimezone || 'America/Los_Angeles';
+      return formatInTimeZone(date, tz, 'h:mm a');
+    } catch {
+      return '--';
+    }
+  };
   
   return (
     <div className={cn(
@@ -81,7 +95,7 @@ const SaleCard = ({ sale, index }: SaleCardProps) => {
       </div>
       
       <div className="space-y-2">
-        {/* Timestamp */}
+        {/* Timestamp - displayed in rep's local timezone */}
         {sale.timestamp && (
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -89,7 +103,7 @@ const SaleCard = ({ sale, index }: SaleCardProps) => {
               <span>Time</span>
             </div>
             <span className="tabular-nums">
-              {format(parseISO(sale.timestamp), 'h:mm a')}
+              {formatSaleTime(sale.timestamp)}
             </span>
           </div>
         )}
@@ -175,6 +189,7 @@ export const SalesLogDrawer = ({
   open,
   onOpenChange,
   salesLog,
+  repTimezone,
 }: SalesLogDrawerProps) => {
   // Sort sales by timestamp (most recent first)
   const sortedSales = [...salesLog].sort((a, b) => {
@@ -204,19 +219,24 @@ export const SalesLogDrawer = ({
           </div>
         </DrawerHeader>
 
-        <ScrollArea className="flex-1 max-h-[60vh]">
-          <div className="p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(85vh - 100px)' }}>
+          <div className="p-4 space-y-3 pb-8">
             {sortedSales.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No sales logged today
               </div>
             ) : (
               sortedSales.map((sale, idx) => (
-                <SaleCard key={sale.id || idx} sale={sale} index={idx} />
+                <SaleCard 
+                  key={sale.id || idx} 
+                  sale={sale} 
+                  index={idx} 
+                  repTimezone={repTimezone}
+                />
               ))
             )}
           </div>
-        </ScrollArea>
+        </div>
       </DrawerContent>
     </Drawer>
   );
