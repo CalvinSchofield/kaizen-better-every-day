@@ -30,9 +30,13 @@ export interface RingSegment {
 }
 
 const BATCH_THRESHOLD_MS = 30 * 1000; // 30 seconds for batch-logged detection
+const DEFAULT_IN_HOME_DURATION_MINUTES = 20; // Default duration if we can't calculate
 
 /**
  * Calculate in-home zones from timeline events
+ * Improved algorithm to handle batch-logged events:
+ * 1. First try to match transitions/presentations to preceding door knocks
+ * 2. For unmatched transitions (batch logged), assign them a default duration
  */
 export function calculateInHomeZones(
   events: TimelineEvent[],
@@ -42,73 +46,79 @@ export function calculateInHomeZones(
   if (events.length === 0) return [];
   
   const zones: InHomeZone[] = [];
+  const usedDoorIndices = new Set<number>();
   
-  // Find all door knock indices
-  const doorIndices = events
-    .map((e, i) => e.type === 'doors_knocked' ? i : -1)
-    .filter(i => i >= 0);
+  // Get all events by type
+  const doorEvents = events.filter(e => e.type === 'doors_knocked');
+  const transitionEvents = events.filter(e => e.type === 'transitions');
+  const presentationEvents = events.filter(e => e.type === 'presentations');
+  const saleEvents = events.filter(e => e.type === 'sale' || e.type === 'closes');
   
-  doorIndices.forEach((doorIdx, i) => {
-    const doorEvent = events[doorIdx];
-    const nextDoorIdx = doorIndices[i + 1] ?? events.length;
+  // Strategy 1: Match each transition/presentation/sale to the nearest preceding door knock
+  const inHomeIndicators = [...transitionEvents, ...presentationEvents, ...saleEvents]
+    .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  
+  for (const indicator of inHomeIndicators) {
+    // Find the nearest door knock BEFORE this indicator that hasn't been used
+    let bestDoorIdx = -1;
+    let bestTimeDiff = Infinity;
     
-    // Get all events in this potential home visit (after door, before next door)
-    const visitEvents = events.slice(doorIdx + 1, nextDoorIdx);
+    for (let i = 0; i < doorEvents.length; i++) {
+      if (usedDoorIndices.has(i)) continue;
+      
+      const doorTime = doorEvents[i].timestamp.getTime();
+      const indicatorTime = indicator.timestamp.getTime();
+      const timeDiff = indicatorTime - doorTime;
+      
+      // Door must be BEFORE the indicator and within reasonable time (2 hours max)
+      if (timeDiff > 0 && timeDiff < 2 * 60 * 60 * 1000 && timeDiff < bestTimeDiff) {
+        bestDoorIdx = i;
+        bestTimeDiff = timeDiff;
+      }
+    }
     
-    if (visitEvents.length === 0) return; // No events after this door
+    const isSale = indicator.type === 'sale' || indicator.type === 'closes';
+    const isPresentation = indicator.type === 'presentations';
+    const isTransition = indicator.type === 'transitions';
     
-    // Find key events in this visit
-    const transitionEvent = visitEvents.find(e => e.type === 'transitions');
-    const presentationEvent = visitEvents.find(e => e.type === 'presentations');
-    const saleEvent = visitEvents.find(e => e.type === 'sale' || e.type === 'closes');
-    
-    // No significant event = just knocked and left, no zone
-    if (!transitionEvent && !presentationEvent && !saleEvent) return;
-    
-    // Determine end event and type (priority: sale > presentation > transition)
-    let endEvent: TimelineEvent;
+    // Determine end type
     let endType: InHomeZoneType;
-    
-    const hasTransition = !!transitionEvent;
-    const hasBatchedTransition = (event: TimelineEvent) => {
-      if (!transitionEvent) return false;
-      return Math.abs(event.timestamp.getTime() - transitionEvent.timestamp.getTime()) <= BATCH_THRESHOLD_MS;
-    };
-    
-    if (saleEvent) {
-      endEvent = saleEvent;
-      const isDoorstep = !hasTransition && !hasBatchedTransition(saleEvent);
-      endType = isDoorstep ? 'doorstep_sale' : 'sale';
-      
-      if (transitionEvent && hasBatchedTransition(saleEvent)) {
-        endEvent = saleEvent.timestamp > transitionEvent.timestamp ? saleEvent : transitionEvent;
-      }
-    } else if (presentationEvent) {
-      endEvent = presentationEvent;
-      const isDoorstep = !hasTransition && !hasBatchedTransition(presentationEvent);
-      endType = isDoorstep ? 'doorstep_presentation' : 'presentation';
-      
-      if (transitionEvent && hasBatchedTransition(presentationEvent)) {
-        endEvent = presentationEvent.timestamp > transitionEvent.timestamp ? presentationEvent : transitionEvent;
-        endType = 'presentation';
-      }
+    if (isSale) {
+      endType = bestDoorIdx >= 0 ? 'sale' : 'doorstep_sale';
+    } else if (isPresentation) {
+      endType = bestDoorIdx >= 0 ? 'presentation' : 'doorstep_presentation';
     } else {
-      endEvent = transitionEvent!;
       endType = 'transition';
     }
     
-    const doorTime = doorEvent.timestamp.getTime();
-    const endTimeMs = endEvent.timestamp.getTime();
-    const duration = (endTimeMs - doorTime) / (1000 * 60);
-    
-    zones.push({
-      doorTime: doorEvent.timestamp,
-      endTime: endEvent.timestamp,
-      duration,
-      endType,
-      hasSale: endType === 'sale' || endType === 'doorstep_sale',
-    });
-  });
+    if (bestDoorIdx >= 0) {
+      // Found a matching door - create zone from door to indicator
+      usedDoorIndices.add(bestDoorIdx);
+      const doorEvent = doorEvents[bestDoorIdx];
+      const duration = (indicator.timestamp.getTime() - doorEvent.timestamp.getTime()) / (1000 * 60);
+      
+      zones.push({
+        doorTime: doorEvent.timestamp,
+        endTime: indicator.timestamp,
+        duration,
+        endType,
+        hasSale: isSale,
+      });
+    } else {
+      // No matching door found (batch logged) - create synthetic zone with default duration
+      // Start time is the indicator time minus default duration
+      const syntheticStart = new Date(indicator.timestamp.getTime() - DEFAULT_IN_HOME_DURATION_MINUTES * 60 * 1000);
+      const clampedStart = syntheticStart < workStart ? workStart : syntheticStart;
+      
+      zones.push({
+        doorTime: clampedStart,
+        endTime: indicator.timestamp,
+        duration: DEFAULT_IN_HOME_DURATION_MINUTES,
+        endType,
+        hasSale: isSale,
+      });
+    }
+  }
   
   return zones;
 }
@@ -160,9 +170,20 @@ export function buildRingSegments(
   const intervals: TimeInterval[] = [];
   
   // Add in-home zones (priority 3 for sales, 2 for in-home)
+  // Ensure minimum visible arc size for in-home zones
+  const MIN_INHOME_DEGREES = 8; // About 2% of the day, ~15 min for an 8hr day
+  
   inHomeZones.forEach(zone => {
-    const startAngle = timeToAngle(zone.doorTime, workStart, workEnd);
-    const endAngle = timeToAngle(zone.endTime, workStart, workEnd);
+    let startAngle = timeToAngle(zone.doorTime, workStart, workEnd);
+    let endAngle = timeToAngle(zone.endTime, workStart, workEnd);
+    
+    // Ensure minimum visible size for in-home zones
+    if (endAngle - startAngle < MIN_INHOME_DEGREES) {
+      // Center the minimum size around the midpoint
+      const midpoint = (startAngle + endAngle) / 2;
+      startAngle = Math.max(0, midpoint - MIN_INHOME_DEGREES / 2);
+      endAngle = Math.min(360, midpoint + MIN_INHOME_DEGREES / 2);
+    }
     
     if (zone.hasSale) {
       intervals.push({ start: startAngle, end: endAngle, type: 'sale', priority: 3 });
