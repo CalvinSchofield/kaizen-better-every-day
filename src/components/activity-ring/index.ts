@@ -2,6 +2,7 @@
 // Apple Fitness-inspired visualizations for rep activity
 
 export { ActivityRingHero } from './ActivityRingHero';
+export { ActivityRingLegend } from './ActivityRingLegend';
 export { ActivityRingMini } from './ActivityRingMini';
 export { FinalizedDayHeader } from './FinalizedDayHeader';
 export { FinalizedStatsGrid } from './FinalizedStatsGrid';

@@ -4,13 +4,13 @@ import { DailyEntry, Sale } from "@/hooks/useDailyEntry";
 import { formatHoursMinutes, formatFP, formatPRMR } from "@/lib/formatters";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 import { differenceInMinutes, parseISO } from "date-fns";
-
-interface TimelineSegment {
-  startAngle: number;
-  endAngle: number;
-  type: 'knocking' | 'in-home' | 'break' | 'gap' | 'sale' | 'active';
-  intensity: number;
-}
+import { 
+  calculateInHomeZones, 
+  buildRingSegments,
+  TimelineEvent,
+  RingSegment,
+} from "@/utils/inHomeZoneCalculator";
+import { ActivityRingLegend } from "./ActivityRingLegend";
 
 interface ActivityRingHeroProps {
   entry: DailyEntry | {
@@ -31,33 +31,20 @@ interface ActivityRingHeroProps {
   };
   counterTimestamps?: Record<string, string[]>;
   salesLog?: Sale[];
-  goalProgress?: number; // 0-100 percentage
-  showGoalRing?: boolean;
+  goalProgress?: number; // Deprecated - kept for compatibility
+  showGoalRing?: boolean; // Deprecated - kept for compatibility
+  showLegend?: boolean;
   size?: 'sm' | 'md' | 'lg';
 }
 
+// New simplified color scheme - solid, clear colors
 const RING_COLORS = {
-  knocking: 'hsl(142, 76%, 45%)', // Green for door activity
-  'in-home': 'hsl(45, 93%, 55%)', // Amber for in-home time
-  break: 'hsl(35, 90%, 60%)', // Orange for breaks
-  gap: 'hsl(0, 0%, 30%)', // Dark gray for gaps
-  sale: 'hsl(45, 100%, 55%)', // Gold for sales
-  active: 'hsl(210, 90%, 60%)', // Blue for general activity
-  background: 'hsl(0, 0%, 15%)', // Dark background track
-  goalProgress: 'hsl(var(--primary))', // Primary color for goal ring
-  goalTrack: 'hsl(0, 0%, 20%)', // Goal ring background
-};
-
-// Convert time to angle (0 = 12 o'clock / start of work)
-const timeToAngle = (time: Date, workStart: Date, workEnd: Date): number => {
-  const totalDuration = workEnd.getTime() - workStart.getTime();
-  if (totalDuration <= 0) return 0;
-  
-  const elapsed = time.getTime() - workStart.getTime();
-  const progress = Math.max(0, Math.min(1, elapsed / totalDuration));
-  
-  // Map to 0-360 degrees, starting from top (-90 offset for SVG)
-  return progress * 360;
+  knocking: 'hsl(210, 80%, 55%)',   // Blue - active door work
+  'in-home': 'hsl(45, 90%, 55%)',   // Amber/Gold - in a home presenting
+  sale: 'hsl(142, 76%, 45%)',        // Green - matches goal color
+  break: 'hsl(35, 90%, 50%)',        // Orange - break time
+  gap: 'hsl(0, 0%, 25%)',            // Dark gray - not working
+  background: 'hsl(0, 0%, 12%)',     // Ring background track
 };
 
 // Create SVG arc path
@@ -86,17 +73,16 @@ export const ActivityRingHero = ({
   entry,
   counterTimestamps,
   salesLog = [],
-  goalProgress = 0,
-  showGoalRing = true,
+  showLegend = true,
   size = 'lg',
 }: ActivityRingHeroProps) => {
   const [animationComplete, setAnimationComplete] = useState(false);
   
-  // Size configurations
+  // Size configurations - single ring design
   const sizeConfig = {
-    sm: { width: 160, outerR: 65, innerR: 50, strokeWidth: 10, fontSize: 'text-base' },
-    md: { width: 220, outerR: 90, innerR: 70, strokeWidth: 14, fontSize: 'text-xl' },
-    lg: { width: 280, outerR: 115, innerR: 90, strokeWidth: 18, fontSize: 'text-2xl' },
+    sm: { width: 160, radius: 60, strokeWidth: 14, fontSize: 'text-base' },
+    md: { width: 220, radius: 85, strokeWidth: 18, fontSize: 'text-xl' },
+    lg: { width: 280, radius: 110, strokeWidth: 22, fontSize: 'text-2xl' },
   };
   
   const config = sizeConfig[size];
@@ -117,7 +103,11 @@ export const ActivityRingHero = ({
     if (entry.break_periods && Array.isArray(entry.break_periods)) {
       entry.break_periods.forEach(bp => {
         if (bp.start && bp.end) {
-          breakMinutes += differenceInMinutes(parseISO(bp.end), parseISO(bp.start));
+          const bStart = parseISO(bp.start);
+          const bEnd = parseISO(bp.end);
+          if (!isNaN(bStart.getTime()) && !isNaN(bEnd.getTime())) {
+            breakMinutes += differenceInMinutes(bEnd, bStart);
+          }
         }
       });
     }
@@ -137,20 +127,25 @@ export const ActivityRingHero = ({
     return { fp: entry.fp_plus || 0, prmr: entry.prmr || 0 };
   }, [salesLog, entry.fp_plus, entry.prmr]);
 
-  // Build timeline segments from counter timestamps
-  const segments = useMemo<TimelineSegment[]>(() => {
-    if (!workStart || !workEnd) return [];
-    
-    const allSegments: TimelineSegment[] = [];
+  // Parse all timeline events
+  const events = useMemo<TimelineEvent[]>(() => {
+    const allEvents: TimelineEvent[] = [];
     const timestamps = counterTimestamps || entry.counter_timestamps || {};
-    
-    // Gather all events with timestamps
-    const events: Array<{ time: Date; type: string }> = [];
     
     Object.entries(timestamps).forEach(([type, times]) => {
       if (Array.isArray(times)) {
         times.forEach(t => {
-          events.push({ time: parseISO(t), type });
+          try {
+            const eventType = type as TimelineEvent['type'];
+            if (['doors_knocked', 'decision_makers', 'pitches', 'transitions', 'presentations', 'closes'].includes(eventType)) {
+              allEvents.push({
+                timestamp: parseISO(t),
+                type: eventType,
+              });
+            }
+          } catch {
+            // Skip invalid dates
+          }
         });
       }
     });
@@ -158,94 +153,34 @@ export const ActivityRingHero = ({
     // Add sales events
     salesLog.forEach(sale => {
       if (sale.timestamp) {
-        events.push({ time: parseISO(sale.timestamp), type: 'sale' });
+        try {
+          allEvents.push({ 
+            timestamp: parseISO(sale.timestamp), 
+            type: 'sale',
+            prmr: sale.prmr,
+          });
+        } catch {
+          // Skip invalid dates
+        }
       }
     });
     
-    // Sort by time
-    events.sort((a, b) => a.time.getTime() - b.time.getTime());
-    
-    if (events.length === 0) {
-      // No events - show full ring as gap
-      allSegments.push({
-        startAngle: 0,
-        endAngle: 360,
-        type: 'gap',
-        intensity: 0.3,
-      });
-      return allSegments;
-    }
-    
-    // Add break periods as segments
-    const breakPeriods = entry.break_periods || [];
-    const breakRanges: Array<{ start: number; end: number }> = breakPeriods
-      .filter(bp => bp.start && bp.end)
-      .map(bp => ({
-        start: timeToAngle(parseISO(bp.start), workStart, workEnd),
-        end: timeToAngle(parseISO(bp.end), workStart, workEnd),
-      }));
-    
-    // Create segments from events with activity coloring
-    let lastAngle = 0;
-    
-    events.forEach((event, idx) => {
-      const eventAngle = timeToAngle(event.time, workStart, workEnd);
-      
-      // Check if there's a gap before this event
-      if (eventAngle - lastAngle > 5) { // More than ~1.4% of day gap
-        // Check if this gap overlaps with a break
-        const isInBreak = breakRanges.some(br => 
-          (lastAngle >= br.start && lastAngle < br.end) ||
-          (eventAngle > br.start && eventAngle <= br.end)
-        );
-        
-        allSegments.push({
-          startAngle: lastAngle,
-          endAngle: eventAngle,
-          type: isInBreak ? 'break' : 'gap',
-          intensity: isInBreak ? 0.7 : 0.3,
-        });
-      }
-      
-      // Determine segment type based on event
-      let segmentType: TimelineSegment['type'] = 'active';
-      
-      if (event.type === 'sale' || event.type === 'closes') {
-        segmentType = 'sale';
-      } else if (event.type === 'transitions' || event.type === 'presentations') {
-        segmentType = 'in-home';
-      } else if (event.type === 'doors_knocked') {
-        segmentType = 'knocking';
-      }
-      
-      // Add the event segment (small arc representing activity)
-      const segmentEnd = Math.min(eventAngle + 5, 360); // 5 degree width for event marker
-      allSegments.push({
-        startAngle: eventAngle,
-        endAngle: segmentEnd,
-        type: segmentType,
-        intensity: segmentType === 'sale' ? 1 : 0.8,
-      });
-      
-      lastAngle = segmentEnd;
-    });
-    
-    // Fill remaining to end of day
-    if (lastAngle < 360) {
-      allSegments.push({
-        startAngle: lastAngle,
-        endAngle: 360,
-        type: 'gap',
-        intensity: 0.2,
-      });
-    }
-    
-    return allSegments;
-  }, [workStart, workEnd, counterTimestamps, entry.counter_timestamps, entry.break_periods, salesLog]);
+    return allEvents.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  }, [counterTimestamps, entry.counter_timestamps, salesLog]);
 
-  // Clamp goal progress
-  const clampedGoalProgress = Math.min(100, Math.max(0, goalProgress));
-  const goalAngle = (clampedGoalProgress / 100) * 360;
+  // Build ring segments using the shared calculator
+  const segments = useMemo<RingSegment[]>(() => {
+    if (!workStart || !workEnd) {
+      // No work time data - show empty ring
+      return [{ startAngle: 0, endAngle: 360, type: 'gap' }];
+    }
+    
+    const inHomeZones = calculateInHomeZones(events, workStart, workEnd);
+    return buildRingSegments(events, inHomeZones, entry.break_periods || [], workStart, workEnd);
+  }, [events, workStart, workEnd, entry.break_periods]);
+
+  // Count sales
+  const saleCount = salesLog.filter(s => s.type === 'fp').length;
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimationComplete(true), 1200);
@@ -253,49 +188,51 @@ export const ActivityRingHero = ({
   }, []);
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center gap-3">
       <div className="relative" style={{ width: config.width, height: config.width }}>
         <svg 
           viewBox={`0 0 ${config.width} ${config.width}`}
-          className="transform -rotate-0"
+          className="transform"
         >
-          {/* Definitions for gradients and filters */}
+          {/* Definitions for glow effect on sales */}
           <defs>
             <filter id="glow-sale" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feGaussianBlur stdDeviation="4" result="blur" />
               <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
-            <linearGradient id="goalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="hsl(var(--primary))" />
-              <stop offset="100%" stopColor="hsl(var(--primary) / 0.7)" />
-            </linearGradient>
           </defs>
 
-          {/* Background track - outer ring */}
+          {/* Background track */}
           <circle
             cx={center}
             cy={center}
-            r={config.outerR}
+            r={config.radius}
             fill="none"
             stroke={RING_COLORS.background}
             strokeWidth={config.strokeWidth}
-            opacity={0.4}
+            opacity={0.5}
           />
 
-          {/* Timeline segments - outer ring */}
+          {/* Timeline segments */}
           <AnimatePresence>
             {segments.map((segment, idx) => {
               if (segment.endAngle <= segment.startAngle) return null;
               
+              // Ensure minimum visible arc size
+              const arcSize = segment.endAngle - segment.startAngle;
+              if (arcSize < 1) return null;
+              
               const pathD = describeArc(
                 center,
                 center,
-                config.outerR,
+                config.radius,
                 segment.startAngle,
                 segment.endAngle
               );
               
-              const pathLength = ((segment.endAngle - segment.startAngle) / 360) * (2 * Math.PI * config.outerR);
+              const isSale = segment.type === 'sale';
+              const isBreak = segment.type === 'break';
+              const isGap = segment.type === 'gap';
               
               return (
                 <motion.path
@@ -303,57 +240,27 @@ export const ActivityRingHero = ({
                   d={pathD}
                   fill="none"
                   stroke={RING_COLORS[segment.type]}
-                  strokeWidth={config.strokeWidth - (segment.type === 'gap' ? 4 : 0)}
+                  strokeWidth={isGap ? config.strokeWidth - 4 : config.strokeWidth}
                   strokeLinecap="round"
-                  opacity={segment.intensity}
-                  filter={segment.type === 'sale' ? 'url(#glow-sale)' : undefined}
+                  opacity={isGap ? 0.6 : 1}
+                  filter={isSale ? 'url(#glow-sale)' : undefined}
                   initial={{ pathLength: 0, opacity: 0 }}
                   animate={{ 
                     pathLength: 1, 
-                    opacity: segment.intensity,
+                    opacity: isGap ? 0.6 : 1,
                   }}
                   transition={{ 
-                    duration: 0.8, 
-                    delay: idx * 0.02,
+                    duration: 0.6, 
+                    delay: idx * 0.03,
                     ease: "easeOut" 
                   }}
                   style={{
-                    strokeDasharray: segment.type === 'break' ? '4 4' : undefined,
+                    strokeDasharray: isBreak ? '6 6' : undefined,
                   }}
                 />
               );
             })}
           </AnimatePresence>
-
-          {/* Goal progress ring - inner ring */}
-          {showGoalRing && (
-            <>
-              {/* Goal track background */}
-              <circle
-                cx={center}
-                cy={center}
-                r={config.innerR}
-                fill="none"
-                stroke={RING_COLORS.goalTrack}
-                strokeWidth={config.strokeWidth - 6}
-                opacity={0.3}
-              />
-              
-              {/* Goal progress arc */}
-              {goalAngle > 0 && (
-                <motion.path
-                  d={describeArc(center, center, config.innerR, 0, goalAngle)}
-                  fill="none"
-                  stroke="url(#goalGradient)"
-                  strokeWidth={config.strokeWidth - 6}
-                  strokeLinecap="round"
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
-                />
-              )}
-            </>
-          )}
         </svg>
 
         {/* Center stats */}
@@ -361,7 +268,7 @@ export const ActivityRingHero = ({
           className="absolute inset-0 flex flex-col items-center justify-center text-center"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4, delay: 0.6 }}
+          transition={{ duration: 0.4, delay: 0.5 }}
         >
           <div className={`font-bold tabular-nums text-foreground ${config.fontSize}`}>
             {formatFP(fp)} FP+
@@ -375,17 +282,20 @@ export const ActivityRingHero = ({
         </motion.div>
 
         {/* Sale celebration markers */}
-        {animationComplete && salesLog.filter(s => s.type === 'fp').length > 0 && (
+        {animationComplete && saleCount > 0 && (
           <motion.div
             className="absolute top-0 right-0 -mt-1 -mr-1"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 400, delay: 1 }}
           >
-            <span className="text-2xl">⭐</span>
+            <span className="text-2xl">{saleCount > 1 ? `${saleCount}⭐` : '⭐'}</span>
           </motion.div>
         )}
       </div>
+      
+      {/* Legend */}
+      {showLegend && <ActivityRingLegend />}
     </div>
   );
 };

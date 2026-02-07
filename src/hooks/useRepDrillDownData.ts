@@ -61,8 +61,10 @@ interface RepDrillDownExtendedData {
     willDo?: GoalPaceInfo;
     couldDo?: GoalPaceInfo;
   };
-  // Is currently in preseason?
+  // Is currently in preseason? (based on this rep's personal_summer_start)
   isPreseason: boolean;
+  // Rep's personal summer start date
+  personalSummerStart?: string | null;
   // Purpose statement
   purposeStatement?: string | null;
   purposeUpdatedAt?: string | null;
@@ -88,11 +90,8 @@ export const useRepDrillDownData = (userId: string | undefined) => {
       const startDate = format(fourteenDaysAgo, 'yyyy-MM-dd');
       const endDate = todayStr;
       
-      // Determine if we're in preseason
-      const isPreseason = !isAfter(today, parseISO(PRESEASON_END));
-
       // Fetch all data in parallel
-      const [entriesResult, goalsResult, seasonFPResult, preseasonFPResult, plannedDaysResult, todayEntryResult] = await Promise.all([
+      const [entriesResult, goalsResult, seasonFPResult, preseasonFPResult, plannedDaysResult, todayEntryResult, seasonConfigResult] = await Promise.all([
         // Last 14 days of entries
         supabase
           .from('daily_entries')
@@ -139,7 +138,18 @@ export const useRepDrillDownData = (userId: string | undefined) => {
           .eq('user_id', userId)
           .eq('entry_date', todayStr)
           .maybeSingle(),
+        
+        // Season config for personal summer start
+        supabase
+          .from('season_config')
+          .select('personal_summer_start')
+          .eq('user_id', userId)
+          .maybeSingle(),
       ]);
+      
+      // Determine if this rep is in preseason based on their personal_summer_start
+      const personalSummerStart = seasonConfigResult.data?.personal_summer_start || SUMMER_START;
+      const isPreseason = todayStr < personalSummerStart;
 
       // Helper to calculate FP from entry (prioritize sales_log)
       const getFpFromEntry = (entry: any): number => {
@@ -312,6 +322,7 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         daysAboveAvg,
         goalPace,
         isPreseason,
+        personalSummerStart: seasonConfigResult.data?.personal_summer_start || null,
         purposeStatement: goalsResult.data?.purpose_statement || null,
         purposeUpdatedAt: goalsResult.data?.purpose_updated_at || null,
         todayActivity,

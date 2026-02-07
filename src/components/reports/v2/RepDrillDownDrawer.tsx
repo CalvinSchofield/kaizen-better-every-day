@@ -269,18 +269,37 @@ export const RepDrillDownDrawer = ({
 
             <Separator />
 
-            {/* Goal Progress Section */}
-            <RingGoalProgress
-              todayFP={displayData.fp}
-              dailyNeed={dailyGoalFP}
-              seasonFP={extendedData?.totalSeasonFP || 0}
-              seasonGoal={extendedData?.goals?.mustGoal || 0}
-              focusTier={extendedData?.goals?.focusTier as any}
-              dayOfSeason={extendedData?.goalPace?.mustDo?.daysElapsed || 1}
-              totalSeasonDays={extendedData?.goalPace?.mustDo?.totalPlannedDays || 53}
-            />
+            {/* Goal Progress Section - Season-Aware */}
+            {extendedData?.isPreseason ? (
+              // Preseason: Show only preseason goal
+              <RingGoalProgress
+                preseasonMode
+                preseasonFP={extendedData.preseasonFP}
+                preseasonGoal={extendedData.goals?.preseasonGoal || 0}
+                todayFP={displayData.fp}
+                dailyNeed={dailyGoalFP}
+                dayOfSeason={extendedData.goalPace?.preseason?.daysElapsed || 1}
+                totalSeasonDays={extendedData.goalPace?.preseason?.totalPlannedDays || 53}
+              />
+            ) : (
+              // Summer: Show focus tier goal
+              <RingGoalProgress
+                summerMode
+                seasonFP={extendedData?.totalSeasonFP || 0}
+                focusTierGoal={
+                  extendedData?.goals?.focusTier === 'couldDo' ? extendedData?.goals?.couldGoal :
+                  extendedData?.goals?.focusTier === 'willDo' ? extendedData?.goals?.willGoal :
+                  extendedData?.goals?.mustGoal || 0
+                }
+                focusTier={extendedData?.goals?.focusTier as any}
+                todayFP={displayData.fp}
+                dailyNeed={dailyGoalFP}
+                dayOfSeason={extendedData?.goalPace?.mustDo?.daysElapsed || 1}
+                totalSeasonDays={extendedData?.goalPace?.mustDo?.totalPlannedDays || 53}
+              />
+            )}
 
-            {/* Goal Pace Card */}
+            {/* Goal Pace Card - Also season-aware */}
             {extendedData?.goals ? (
               <RepGoalPaceCard
                 preseasonGoal={extendedData.goals.preseasonGoal}
