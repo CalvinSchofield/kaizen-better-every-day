@@ -420,11 +420,10 @@ export const RepDrillDownDrawer = ({
                     </button>
                   </div>
                   
-                  {viewMode === 'ring' && (
-                    <LegendTriggerButton 
-                      onClick={() => setShowLegend(true)} 
-                    />
-                  )}
+                  {/* Legend info button - show for both views */}
+                  <LegendTriggerButton 
+                    onClick={() => setShowLegend(true)} 
+                  />
                 </div>
                 
                 {/* Ring View */}

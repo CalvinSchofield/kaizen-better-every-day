@@ -297,10 +297,10 @@ export const ActivityRingHero = ({
     <div className="flex flex-col items-center gap-3">
       <div className="relative" style={{ width: config.width, height: config.width }}>
         <svg viewBox={`0 0 ${config.width} ${config.width}`} className="transform">
-          {/* SVG Filters for Apple-style shadow on overflow */}
+          {/* SVG Filters for Apple-style shadow on overflow - shadow at end/tip of arc */}
           <defs>
             <filter id="goalOverflowShadow" x="-50%" y="-50%" width="200%" height="200%">
-              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="rgba(0,0,0,0.5)" floodOpacity="0.6" />
+              <feDropShadow dx="3" dy="0" stdDeviation="4" floodColor="rgba(0,0,0,0.6)" floodOpacity="0.7" />
             </filter>
           </defs>
           
