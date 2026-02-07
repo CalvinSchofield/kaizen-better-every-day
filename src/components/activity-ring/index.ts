@@ -5,3 +5,5 @@ export { ActivityRingHero } from './ActivityRingHero';
 export { FinalizedDayHeader } from './FinalizedDayHeader';
 export { FinalizedStatsGrid } from './FinalizedStatsGrid';
 export { RingGoalProgress } from './RingGoalProgress';
+export { WeekActivityStrip } from './WeekActivityStrip';
+export { CoachingCallouts } from './CoachingCallouts';
