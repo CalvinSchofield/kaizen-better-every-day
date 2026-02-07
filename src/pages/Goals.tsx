@@ -65,7 +65,8 @@ const Goals = () => {
     updateGoals, 
     isUpdating,
     checkAndResetWeeklyProgress,
-    needsWeeklyCheck
+    needsWeeklyCheck,
+    refetch: refetchGoals
   } = useRepGoals();
   const { repData, isInitializing: repDataInitializing, loading: repDataLoading } = useRepData();
   // Use useCurrentUserId for instant cache access before repData loads
@@ -698,6 +699,18 @@ const Goals = () => {
   
   // Check sticky flag - if user has EVER completed setup, never show wizard during hydration
   const stickySetupComplete = hasCompletedGoalsSetup(userId);
+  
+  // Track how long we've been waiting for goals to load (prevents infinite loading)
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+  useEffect(() => {
+    if (hasGoalsData || !stickySetupComplete) {
+      setLoadingTimeout(false);
+      return;
+    }
+    // If we've been loading for more than 8 seconds, show a retry option
+    const timer = setTimeout(() => setLoadingTimeout(true), 8000);
+    return () => clearTimeout(timer);
+  }, [hasGoalsData, stickySetupComplete]);
 
   // Show loading skeleton only when we truly have no cached goals yet AND sticky flag is not set.
   // This prevents the setup wizard from flashing while goals are still loading.
@@ -716,15 +729,37 @@ const Goals = () => {
   }
   
   // If we have sticky flag but no goals data yet, show a minimal loading state (not wizard)
+  // With timeout fallback to prevent infinite loading
   if (stickySetupComplete && !hasGoalsData) {
     return (
       <Layout>
         <div className="p-4 space-y-6">
           <div className="flex justify-center py-8">
-            <Skeleton className="h-56 w-56 rounded-full" />
+            {loadingTimeout ? (
+              <div className="flex flex-col items-center gap-4">
+                <p className="text-muted-foreground text-sm">Taking longer than expected...</p>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setLoadingTimeout(false);
+                    refetchGoals();
+                  }}
+                >
+                  <Loader2 className={cn("h-4 w-4 mr-2", isFetching && "animate-spin")} />
+                  Retry
+                </Button>
+              </div>
+            ) : (
+              <Skeleton className="h-56 w-56 rounded-full" />
+            )}
           </div>
-          <Skeleton className="h-20 w-full rounded-2xl" />
-          <Skeleton className="h-32 w-full rounded-2xl" />
+          {!loadingTimeout && (
+            <>
+              <Skeleton className="h-20 w-full rounded-2xl" />
+              <Skeleton className="h-32 w-full rounded-2xl" />
+            </>
+          )}
         </div>
       </Layout>
     );
