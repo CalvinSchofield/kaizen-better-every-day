@@ -63,8 +63,7 @@ const RING_COLORS: Record<string, string> = {
   pitch: 'hsl(280, 60%, 55%)',         // Purple - pitch without transition
   background: 'hsl(0, 0%, 12%)',
   goalTrack: 'hsl(0, 0%, 18%)',
-  goalProgress: 'hsl(142, 76%, 45%)',  // Base green for 0-100%
-  goalOverflow: 'hsl(142, 76%, 60%)',  // Lighter green for overflow (like Apple's distinct overflow color)
+  goalProgress: 'hsl(142, 76%, 45%)',  // Green for goal ring
 };
 
 const SEGMENT_LABELS: Record<string, string> = {
@@ -298,6 +297,13 @@ export const ActivityRingHero = ({
     <div className="flex flex-col items-center gap-3">
       <div className="relative" style={{ width: config.width, height: config.width }}>
         <svg viewBox={`0 0 ${config.width} ${config.width}`} className="transform">
+          {/* SVG Filters for Apple-style shadow on overflow */}
+          <defs>
+            <filter id="goalOverflowShadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="rgba(0,0,0,0.5)" floodOpacity="0.6" />
+            </filter>
+          </defs>
+          
           {/* Background track - outer ring */}
           <circle
             cx={center}
@@ -347,10 +353,10 @@ export const ActivityRingHero = ({
             />
           )}
 
-          {/* Goal ring - overflow loops (>100%) with distinct lighter color */}
+          {/* Goal ring - overflow loops (>100%) with shadow for "layered" effect */}
           {showGoalRing && goalProgress > 100 && (
             <>
-              {/* Full overflow loops */}
+              {/* Full overflow loops - same color, with shadow to appear on top */}
               {Array.from({ length: Math.min(fullLoops - 1, 2) }).map((_, loopIdx) => (
                 <motion.circle
                   key={`goal-overflow-${loopIdx}`}
@@ -358,11 +364,12 @@ export const ActivityRingHero = ({
                   cy={center}
                   r={config.innerRadius}
                   fill="none"
-                  stroke={RING_COLORS.goalOverflow}
+                  stroke={RING_COLORS.goalProgress}
                   strokeWidth={config.innerStroke}
                   strokeLinecap="round"
                   strokeDasharray={`${2 * Math.PI * config.innerRadius}`}
                   strokeDashoffset={0}
+                  filter="url(#goalOverflowShadow)"
                   initial={{ strokeDashoffset: 2 * Math.PI * config.innerRadius }}
                   animate={{ strokeDashoffset: 0 }}
                   transition={{ 
@@ -374,14 +381,15 @@ export const ActivityRingHero = ({
                 />
               ))}
               
-              {/* Partial overflow (the final arc after full loops) */}
+              {/* Partial overflow (the final arc after full loops) - same color, with shadow */}
               {partialAngle > 0 && (
                 <motion.path
                   d={describeArc(center, center, config.innerRadius, 0, partialAngle)}
                   fill="none"
-                  stroke={RING_COLORS.goalOverflow}
+                  stroke={RING_COLORS.goalProgress}
                   strokeWidth={config.innerStroke}
                   strokeLinecap="round"
+                  filter="url(#goalOverflowShadow)"
                   initial={{ pathLength: 0, opacity: 0 }}
                   animate={{ pathLength: 1, opacity: 1 }}
                   transition={{ 
