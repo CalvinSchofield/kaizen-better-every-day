@@ -484,7 +484,7 @@ export const ActivityRingHero = ({
                 );
               })}
             
-            {/* Layer 3: Pitch markers (small purple arcs) */}
+            {/* Layer 3: Pitch markers (thin lines like transitions) */}
             {segments
               .filter(s => s.type === 'pitch')
               .map((segment) => {
@@ -500,10 +500,10 @@ export const ActivityRingHero = ({
                     d={pathD}
                     fill="none"
                     stroke={RING_COLORS.pitch}
-                    strokeWidth={config.strokeWidth * 0.5}
-                    strokeLinecap="round"
+                    strokeWidth={config.strokeWidth * 0.4}
+                    strokeLinecap="butt"
                     initial={{ pathLength: 0, opacity: 0 }}
-                    animate={{ pathLength: 1, opacity: 0.9 }}
+                    animate={{ pathLength: 1, opacity: 1 }}
                     transition={{ duration: 0.25, delay: 0.25 + originalIdx * 0.01, ease: "easeOut" }}
                     style={{ cursor: 'pointer' }}
                     onClick={(e) => handleSegmentClick(segment, e)}
