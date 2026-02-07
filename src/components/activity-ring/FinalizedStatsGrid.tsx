@@ -3,6 +3,7 @@ import { DailyEntry, Sale } from "@/hooks/useDailyEntry";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 import { formatFP, formatPRMR } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
+import { hapticLight } from "@/utils/haptics";
 
 interface FinalizedStatsGridProps {
   entry: DailyEntry | {
@@ -17,6 +18,9 @@ interface FinalizedStatsGridProps {
   };
   salesLog?: Sale[];
   className?: string;
+  onClosesClick?: () => void;
+  onFPClick?: () => void;
+  onPRMRClick?: () => void;
 }
 
 interface StatBoxProps {
@@ -24,34 +28,50 @@ interface StatBoxProps {
   value: string | number;
   highlight?: boolean;
   delay?: number;
+  onClick?: () => void;
+  clickable?: boolean;
 }
 
-const StatBox = ({ label, value, highlight = false, delay = 0 }: StatBoxProps) => (
-  <motion.div
-    className={cn(
-      "p-3 rounded-xl text-center",
-      highlight 
-        ? "bg-primary/10 border border-primary/20" 
-        : "bg-muted/30 border border-border/30"
-    )}
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3, delay }}
-  >
-    <div className={cn(
-      "text-lg font-bold tabular-nums",
-      highlight && "text-primary"
-    )}>
-      {value}
-    </div>
-    <div className="text-xs text-muted-foreground">{label}</div>
-  </motion.div>
-);
+const StatBox = ({ label, value, highlight = false, delay = 0, onClick, clickable = false }: StatBoxProps) => {
+  const handleClick = () => {
+    if (clickable && onClick) {
+      hapticLight();
+      onClick();
+    }
+  };
+
+  return (
+    <motion.div
+      className={cn(
+        "p-3 rounded-xl text-center transition-all",
+        highlight 
+          ? "bg-primary/10 border border-primary/20" 
+          : "bg-muted/30 border border-border/30",
+        clickable && "cursor-pointer active:scale-95 hover:bg-muted/50"
+      )}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay }}
+      onClick={handleClick}
+    >
+      <div className={cn(
+        "text-lg font-bold tabular-nums",
+        highlight && "text-primary"
+      )}>
+        {value}
+      </div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+    </motion.div>
+  );
+};
 
 export const FinalizedStatsGrid = ({
   entry,
   salesLog = [],
   className,
+  onClosesClick,
+  onFPClick,
+  onPRMRClick,
 }: FinalizedStatsGridProps) => {
   // Calculate FP and PRMR from sales log if available
   const { fp, prmr } = salesLog.length > 0
@@ -59,6 +79,7 @@ export const FinalizedStatsGrid = ({
     : { fp: entry.fp_plus || 0, prmr: entry.prmr || 0 };
 
   const hasSales = fp > 0;
+  const hasSalesLog = salesLog.length > 0;
 
   return (
     <div className={cn("px-4", className)}>
@@ -70,25 +91,31 @@ export const FinalizedStatsGrid = ({
         <StatBox label="Pres" value={entry.presentations || 0} delay={0.15} />
       </div>
       
-      {/* Sales row - highlighted */}
+      {/* Sales row - highlighted and clickable when there are sales */}
       <div className="grid grid-cols-3 gap-2">
         <StatBox 
           label="Closes" 
           value={entry.closes || 0} 
           highlight={entry.closes > 0}
-          delay={0.2} 
+          delay={0.2}
+          clickable={hasSalesLog}
+          onClick={onClosesClick}
         />
         <StatBox 
           label="FP+" 
           value={formatFP(fp)} 
           highlight={hasSales}
-          delay={0.25} 
+          delay={0.25}
+          clickable={hasSalesLog}
+          onClick={onFPClick}
         />
         <StatBox 
           label="PRMR" 
           value={`$${formatPRMR(prmr)}`} 
           highlight={hasSales}
-          delay={0.3} 
+          delay={0.3}
+          clickable={hasSalesLog}
+          onClick={onPRMRClick}
         />
       </div>
     </div>
