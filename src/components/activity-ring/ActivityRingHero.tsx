@@ -122,10 +122,13 @@ export const ActivityRingHero = ({
 }: ActivityRingHeroProps) => {
   const [animationComplete, setAnimationComplete] = useState(false);
   
+  // Apple-style: goal ring (inner) is thick and positioned right next to outer ring
+  // Outer ring: radius 110, stroke 22 → inner edge at 99, outer edge at 121
+  // Goal ring: positioned with ~3px gap from outer ring's inner edge
   const sizeConfig = {
-    sm: { width: 160, radius: 60, strokeWidth: 14, innerRadius: 42, innerStroke: 8, fontSize: 'text-base' },
-    md: { width: 220, radius: 85, strokeWidth: 18, innerRadius: 60, innerStroke: 10, fontSize: 'text-xl' },
-    lg: { width: 280, radius: 110, strokeWidth: 22, innerRadius: 78, innerStroke: 12, fontSize: 'text-2xl' },
+    sm: { width: 160, radius: 60, strokeWidth: 14, innerRadius: 42, innerStroke: 12, fontSize: 'text-base' },
+    md: { width: 220, radius: 85, strokeWidth: 18, innerRadius: 62, innerStroke: 14, fontSize: 'text-xl' },
+    lg: { width: 280, radius: 110, strokeWidth: 22, innerRadius: 82, innerStroke: 18, fontSize: 'text-2xl' },
   };
   
   const config = sizeConfig[size];
@@ -301,10 +304,11 @@ export const ActivityRingHero = ({
     <div className="flex flex-col items-center gap-3">
       <div className="relative" style={{ width: config.width, height: config.width }}>
         <svg viewBox={`0 0 ${config.width} ${config.width}`} className="transform">
-          {/* SVG Filters for Apple-style shadow on overflow - shadow at tip of arc */}
+          {/* SVG Filters for Apple-style overflow shadow - falls BEHIND the arc tip (counter-clockwise) */}
           <defs>
-            <filter id="goalOverflowShadow" x="-50%" y="-50%" width="200%" height="200%">
-              <feDropShadow dx="0" dy="-4" stdDeviation="3" floodColor="rgba(0,0,0,0.5)" floodOpacity="0.6" />
+            {/* Shadow rotates with the arc - positioned to fall backward from the rounded cap */}
+            <filter id="goalOverflowShadow" x="-100%" y="-100%" width="300%" height="300%">
+              <feDropShadow dx="-6" dy="-6" stdDeviation="4" floodColor="rgba(0,0,0,0.45)" floodOpacity="0.5" />
             </filter>
           </defs>
           
@@ -357,9 +361,9 @@ export const ActivityRingHero = ({
               style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }}
             />
           )}
-          {/* When >= 100%, render full circle without rounded ends to avoid visual artifacts */}
+          {/* When >= 100%, render full circle as base layer (no shadow, no rounded caps) */}
           {showGoalRing && goalProgress >= 100 && (
-            <motion.circle
+            <circle
               cx={center}
               cy={center}
               r={config.innerRadius}
@@ -367,63 +371,27 @@ export const ActivityRingHero = ({
               stroke={RING_COLORS.goalProgress}
               strokeWidth={config.innerStroke}
               strokeLinecap="butt"
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ pathLength: 1, opacity: 1 }}
-              transition={{ 
-                duration: 0.6, 
-                delay: 0.1,
-                ease: [0.25, 0.1, 0.25, 1],
-              }}
             />
           )}
 
-          {/* Goal ring - overflow loops (>100%) with shadow for "layered" effect */}
+          {/* Goal ring - overflow arc with Apple-style shadow effect */}
+          {/* The overflow is just the partial arc beyond 100%, drawn with a shadow to create depth */}
           {showGoalRing && goalProgress > 100 && (
-            <>
-              {/* Full overflow loops - same color, with shadow to appear on top */}
-              {Array.from({ length: Math.min(fullLoops - 1, 2) }).map((_, loopIdx) => (
-                <motion.circle
-                  key={`goal-overflow-${loopIdx}`}
-                  cx={center}
-                  cy={center}
-                  r={config.innerRadius}
-                  fill="none"
-                  stroke={RING_COLORS.goalProgress}
-                  strokeWidth={config.innerStroke}
-                  strokeLinecap="round"
-                  strokeDasharray={`${2 * Math.PI * config.innerRadius}`}
-                  strokeDashoffset={0}
-                  filter="url(#goalOverflowShadow)"
-                  initial={{ strokeDashoffset: 2 * Math.PI * config.innerRadius }}
-                  animate={{ strokeDashoffset: 0 }}
-                  transition={{ 
-                    duration: 0.5, 
-                    delay: 0.7 + loopIdx * 0.3,
-                    ease: [0.25, 0.1, 0.25, 1],
-                  }}
-                  style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }}
-                />
-              ))}
-              
-              {/* Partial overflow (the final arc after full loops) - same color, with shadow */}
-              {partialAngle > 0 && (
-                <motion.path
-                  d={describeArc(center, center, config.innerRadius, 0, partialAngle)}
-                  fill="none"
-                  stroke={RING_COLORS.goalProgress}
-                  strokeWidth={config.innerStroke}
-                  strokeLinecap="round"
-                  filter="url(#goalOverflowShadow)"
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 1 }}
-                  transition={{ 
-                    duration: 0.4, 
-                    delay: 0.7 + Math.min(fullLoops - 1, 2) * 0.3,
-                    ease: [0.25, 0.1, 0.25, 1],
-                  }}
-                />
-              )}
-            </>
+            <motion.path
+              d={describeArc(center, center, config.innerRadius, 0, Math.min((goalProgress - 100) / 100 * 360, 360))}
+              fill="none"
+              stroke={RING_COLORS.goalProgress}
+              strokeWidth={config.innerStroke}
+              strokeLinecap="round"
+              filter="url(#goalOverflowShadow)"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 1 }}
+              transition={{ 
+                duration: 0.5, 
+                delay: 0.3,
+                ease: [0.25, 0.1, 0.25, 1],
+              }}
+            />
           )}
 
           {/* Timeline segments - outer ring (render in layers for proper visibility) */}
