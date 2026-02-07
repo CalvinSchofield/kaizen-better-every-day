@@ -355,7 +355,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
               customRightContent
             ) : headerRightContent ? (
               headerRightContent
-            ) : location.pathname === "/track" && onSave ? (
+            ) : location.pathname === "/track" && onSave && hasWorkStarted ? (
               <div className="flex items-center gap-2">
                 {syncIndicator}
                 <Button
@@ -376,7 +376,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                   >
                     <TrendingUp className="h-5 w-5" />
                   </Button>
-                ) : onReset && hasWorkStarted !== false ? (
+                ) : onReset ? (
                   <Button
                     variant="ghost"
                     size="icon"
