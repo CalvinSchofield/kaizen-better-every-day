@@ -81,12 +81,77 @@ export const HierarchicalRepList = ({
     return cleanName.split(/\s+/)[0] || 'Ungrouped';
   };
   
+  // Build a map of rep names to their team status for organic grouping
+  // This helps us trace up the recruiter chain to find a team lead
+  const teamLeadNames = useMemo(() => {
+    const names = new Set<string>();
+    reps.forEach(rep => {
+      if (rep.teamId && rep.teamName) {
+        // This rep has a formal team - they're a team lead or on a team
+        const firstName = getFirstNameForGroup(rep.name);
+        names.add(firstName.toLowerCase());
+      }
+    });
+    return names;
+  }, [reps]);
+  
+  // Find the closest team lead in the recruiter chain
+  const findTeamLeadRecruiter = (recruiterName: string | null | undefined): string | null => {
+    if (!recruiterName) return null;
+    
+    const firstName = getFirstNameForGroup(recruiterName);
+    
+    // If the direct recruiter is a team lead, use them
+    if (teamLeadNames.has(firstName.toLowerCase())) {
+      return firstName;
+    }
+    
+    // Try to find the recruiter's recruiter (trace up the chain)
+    // Look for a rep matching the recruiter name
+    const recruiterRep = reps.find(r => {
+      const rFirstName = getFirstNameForGroup(r.name);
+      return rFirstName.toLowerCase() === firstName.toLowerCase();
+    });
+    
+    if (recruiterRep?.recruiterName) {
+      // Recurse up to find a team lead (max 4 levels)
+      return findTeamLeadRecruiterRecursive(recruiterRep.recruiterName, 4);
+    }
+    
+    // No team lead found, use the direct recruiter
+    return firstName;
+  };
+  
+  const findTeamLeadRecruiterRecursive = (recruiterName: string, depth: number): string | null => {
+    if (depth <= 0) return getFirstNameForGroup(recruiterName);
+    
+    const firstName = getFirstNameForGroup(recruiterName);
+    
+    // If this is a team lead, return them
+    if (teamLeadNames.has(firstName.toLowerCase())) {
+      return firstName;
+    }
+    
+    // Find this recruiter's recruiter
+    const recruiterRep = reps.find(r => {
+      const rFirstName = getFirstNameForGroup(r.name);
+      return rFirstName.toLowerCase() === firstName.toLowerCase();
+    });
+    
+    if (recruiterRep?.recruiterName) {
+      return findTeamLeadRecruiterRecursive(recruiterRep.recruiterName, depth - 1);
+    }
+    
+    // Couldn't trace further, use what we have
+    return firstName;
+  };
+  
   // Group reps by team OR by recruiter (organic hierarchy)
   const groupedReps = useMemo(() => {
     const groups = new Map<string, { teamName: string; teamId: string | null; reps: RepData[]; isOrganic: boolean }>();
     
     filteredReps.forEach(rep => {
-      // Priority 1: Use team if exists
+      // Priority 1: Use team if exists (formal team structure)
       if (rep.teamId && rep.teamName) {
         const teamKey = rep.teamId;
         if (!groups.has(teamKey)) {
@@ -94,11 +159,12 @@ export const HierarchicalRepList = ({
         }
         groups.get(teamKey)!.reps.push(rep);
       } 
-      // Priority 2: Group by recruiter name (organic hierarchy)
+      // Priority 2: Group by recruiter name - trace up to find a team lead
       else if (rep.recruiterName) {
-        const recruiterFirstName = getFirstNameForGroup(rep.recruiterName);
-        const organicKey = `organic_${recruiterFirstName.toLowerCase()}`;
-        const groupName = `${recruiterFirstName}'s Group`;
+        // Find the closest team lead in the recruiter chain
+        const teamLeadName = findTeamLeadRecruiter(rep.recruiterName);
+        const organicKey = `organic_${(teamLeadName || 'unknown').toLowerCase()}`;
+        const groupName = `${teamLeadName || 'Unknown'}'s Group`;
         
         if (!groups.has(organicKey)) {
           groups.set(organicKey, { teamName: groupName, teamId: null, reps: [], isOrganic: true });
@@ -128,7 +194,7 @@ export const HierarchicalRepList = ({
     });
     
     return sortedGroups;
-  }, [filteredReps]);
+  }, [filteredReps, findTeamLeadRecruiter]);
   
   // Expand all by default if searching or only one team
   const effectiveExpanded = useMemo(() => {
