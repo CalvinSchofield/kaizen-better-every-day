@@ -147,29 +147,50 @@ Deno.serve(async (req) => {
       throw entriesResult.error;
     }
 
-    // Get recruiter assignments to determine team membership
+    // Get team membership - FIRST check if rep is a team lead, THEN check recruiter assignments
+    // Fetch teams with their lead_user_id
+    const { data: allTeamsData } = await supabase
+      .from('teams')
+      .select('id, name, lead_user_id');
+    
+    // Build maps for team leads and team names
+    const teamLeadToTeamMap: Record<string, { id: string; name: string }> = {};
+    const teamNameMap: Record<string, string> = {};
+    
+    (allTeamsData || []).forEach(t => {
+      teamNameMap[t.id] = t.name;
+      if (t.lead_user_id) {
+        teamLeadToTeamMap[t.lead_user_id] = { id: t.id, name: t.name };
+      }
+    });
+    
+    // Get recruiter assignments for reps who are NOT team leads
     const { data: recruiterData } = await supabase
       .from('recruits')
       .select('recruiter_user_id, team_id')
       .in('recruiter_user_id', filteredUserIds);
 
-    // Build a map of user_id to team_id
+    // Build a map of user_id to team info
+    // Priority: 1) Rep is a team lead → their team  2) Rep recruited someone → that recruit's team
     const userTeamMap: Record<string, string> = {};
+    
+    // First assign team leads to their own teams
+    filteredUserIds.forEach((userId: string) => {
+      const leadTeam = teamLeadToTeamMap[userId];
+      if (leadTeam) {
+        userTeamMap[userId] = leadTeam.id;
+      }
+    });
+    
+    // Then assign based on recruiter relationships (for non-team-leads)
     (recruiterData || []).forEach(r => {
-      if (r.recruiter_user_id && r.team_id) {
+      if (r.recruiter_user_id && r.team_id && !userTeamMap[r.recruiter_user_id]) {
         userTeamMap[r.recruiter_user_id] = r.team_id;
       }
     });
 
-    // Fetch team names
+    // Fetch team IDs we need info for
     const teamIds = [...new Set(Object.values(userTeamMap))];
-    const { data: teamsData } = await supabase
-      .from('teams')
-      .select('id, name')
-      .in('id', teamIds);
-
-    const teamNameMap: Record<string, string> = {};
-    (teamsData || []).forEach(t => { teamNameMap[t.id] = t.name; });
 
     // Fetch mgmt group assignments
     const { data: teamMgmtData } = await supabase
