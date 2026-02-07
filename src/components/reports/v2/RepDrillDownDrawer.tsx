@@ -134,7 +134,8 @@ export const RepDrillDownDrawer = ({
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent className="max-h-[92vh]">
+      {/* z-[60] to stack above WorkingRepsDrawer/GoalPaceDrawer (z-50) */}
+      <DrawerContent className="max-h-[92vh] z-[60]">
         <DrawerHeader className="border-b pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
