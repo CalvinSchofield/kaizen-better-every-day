@@ -1,10 +1,11 @@
 import { Card } from "@/components/ui/card";
-import { Target, TrendingUp } from "lucide-react";
+import { Target, TrendingUp, AlertTriangle } from "lucide-react";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useFocusTier } from "@/hooks/useFocusTier";
+import { useRepData } from "@/hooks/useRepData";
 import { calculateSalesPace } from "@/utils/salesPaceCalculator";
 import { format, startOfWeek, endOfWeek, parseISO } from "date-fns";
 import { useMemo } from "react";
@@ -17,11 +18,15 @@ interface DailyMissionCardProps {
 
 export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   const navigate = useNavigate();
+  const { repData } = useRepData();
   const { goals, isLoading: goalsLoading, hasGoalsAccess } = useRepGoals();
   const { plannedDays } = usePlannedDays();
   const { totalFP, totalPRMR, knockingDays } = usePreseasonFP();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { isUserSummerStarted, focusTier, focusTierGoal } = useFocusTier();
+
+  // Determine if user is a rookie or vet for pace thresholds
+  const isRookie = repData?.year === 'Rookie';
 
   // Calculate pace data
   const paceData = useMemo(() => {
@@ -111,6 +116,10 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
     ? focusTier === 'mustDo' ? 'Must Do' : focusTier === 'willDo' ? 'Will Do' : 'Could Do'
     : 'Preseason';
 
+  // Check if pace is unrealistic (≥2 for rookies, ≥3 for vets)
+  const paceThreshold = isRookie ? 2 : 3;
+  const isPaceUnrealistic = dailyGoal >= paceThreshold;
+
   return (
     <Card className={`p-4 border-border/50 overflow-hidden ${className}`}>
       <div className="flex items-center gap-2 mb-4">
@@ -127,6 +136,32 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
           {seasonLabel} pace
         </p>
       </div>
+
+      {/* Unrealistic pace warning */}
+      {isPaceUnrealistic && (
+        <div 
+          className="bg-warning/10 border border-warning/20 rounded-lg p-3 mb-4 cursor-pointer active:scale-[0.98] transition-transform"
+          onClick={() => navigate('/goals')}
+        >
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-warning-foreground mb-1">
+                Pace looks aggressive
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {dailyGoal >= paceThreshold 
+                  ? `Selling ${dailyGoal}+ per day is tough. Consider planning more work days or adjusting your goal.`
+                  : `Consider planning more work days to make this pace more achievable.`
+                }
+              </p>
+              <p className="text-xs text-primary font-medium mt-2">
+                Tap to adjust your plan →
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Weekly context */}
       {weeklyData && weeklyData.remainingDaysThisWeek > 0 && (

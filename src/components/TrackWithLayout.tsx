@@ -1028,6 +1028,7 @@ const TrackWithLayout = () => {
         syncIndicator={<SyncIndicator status={syncStatus} />}
         isEntryFinalized={entry.is_finalized || savedThisSession}
         onViewRecap={handleViewRecap}
+        hasWorkStarted={!!entry.work_start_time}
       >
         {/* Pending Sales Alert */}
         <PendingSalesAlert userId={userId} />
