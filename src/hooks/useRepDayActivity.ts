@@ -158,5 +158,6 @@ export const useRepDayActivity = (userId: string | undefined, selectedDate: Date
     },
     enabled: !!userId,
     staleTime: 30 * 1000,
+    placeholderData: (previousData) => previousData, // Keep previous data while loading new day
   });
 };
