@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
-import { Swords, Gift, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Swords, Gift, ChevronRight, User, Users } from "lucide-react";
 import { useMyActiveChallenges, Challenge } from "@/hooks/useChallenges";
 import { useMyActiveIncentives, Incentive } from "@/hooks/useIncentives";
 import { useChallengeProgress } from "@/hooks/useChallengeProgress";
@@ -8,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { getCleanFirstName } from "@/utils/nameUtils";
 import { cn } from "@/lib/utils";
 import { hapticLight } from "@/utils/haptics";
+import { getChallengeTypeBadge, getIncentiveTypeBadge, IncentiveTargetType } from "@/utils/competitionTypeConfig";
 
 interface CompetitionsPreviewProps {
   className?: string;
@@ -15,19 +17,30 @@ interface CompetitionsPreviewProps {
 
 const ChallengeRow = ({ challenge }: { challenge: Challenge }) => {
   const { data: progress } = useChallengeProgress(challenge);
+  const isGroupChallenge = challenge.type === 'group';
+  const typeBadge = getChallengeTypeBadge(isGroupChallenge ? 'group' : '1v1');
+  const TypeIcon = typeBadge.Icon;
   
-  // Get opponent name for 1v1
-  const myParticipant = challenge.participants?.find(p => p.accepted !== false);
-  const opponent = challenge.participants?.find(p => p.user_id !== myParticipant?.user_id);
-  const opponentName = opponent?.rep_name ? getCleanFirstName(opponent.rep_name) : 'Opponent';
-  const myName = myParticipant?.rep_name ? getCleanFirstName(myParticipant.rep_name) : 'You';
+  // Get participant names
+  const captainA = challenge.participants?.find(p => p.role === 'captain_a');
+  const captainB = challenge.participants?.find(p => p.role === 'captain_b');
   
-  // Get scores from progress data
-  const myScore = progress?.userProgress?.current_value ?? 0;
-  const leaderScore = progress?.leader?.current_value ?? 0;
-  const theirScore = progress?.leader?.user_id === progress?.userProgress?.user_id 
-    ? (progress?.participants?.[1]?.current_value ?? 0) // If I'm leader, get second place
-    : leaderScore; // Otherwise, leader is opponent
+  // Get scores
+  let myScore = 0;
+  let theirScore = 0;
+  
+  if (isGroupChallenge && progress) {
+    const teamA = progress.participants.filter(p => p.team === 'a');
+    const teamB = progress.participants.filter(p => p.team === 'b');
+    myScore = teamA.reduce((sum, p) => sum + (p.current_value || 0), 0);
+    theirScore = teamB.reduce((sum, p) => sum + (p.current_value || 0), 0);
+  } else if (progress) {
+    const myProgress = progress?.userProgress;
+    const opponentProgress = progress?.participants?.find(p => p.user_id !== myProgress?.user_id);
+    myScore = myProgress?.current_value ?? 0;
+    theirScore = opponentProgress?.current_value ?? 0;
+  }
+  
   const isWinning = myScore > theirScore;
   const isTied = myScore === theirScore;
   
@@ -35,9 +48,23 @@ const ChallengeRow = ({ challenge }: { challenge: Challenge }) => {
     <div className="flex items-center justify-between py-2">
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <Swords className="h-4 w-4 text-primary flex-shrink-0" />
+        <Badge variant="outline" className={cn("text-[9px] px-1 py-0 flex-shrink-0", typeBadge.color)}>
+          <TypeIcon className="h-2 w-2 mr-0.5" />
+          {typeBadge.label}
+        </Badge>
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground truncate">
-            {myName} vs {opponentName}
+            {isGroupChallenge ? (
+              <>
+                <span className="text-red-500">{getCleanFirstName(captainA?.rep_name)}</span>
+                <span className="text-muted-foreground"> vs </span>
+                <span className="text-blue-500">{getCleanFirstName(captainB?.rep_name)}</span>
+              </>
+            ) : (
+              <>
+                {getCleanFirstName(captainA?.rep_name)} vs {getCleanFirstName(captainB?.rep_name)}
+              </>
+            )}
           </p>
           {challenge.stakes && (
             <p className="text-xs text-muted-foreground truncate">🎯 {challenge.stakes}</p>
@@ -58,6 +85,8 @@ const ChallengeRow = ({ challenge }: { challenge: Challenge }) => {
 
 const IncentiveRow = ({ incentive }: { incentive: Incentive }) => {
   const { data: progress } = useIncentiveProgress(incentive);
+  const typeBadge = getIncentiveTypeBadge(incentive.target_type as IncentiveTargetType);
+  const TypeIcon = typeBadge.Icon;
   
   const myProgress = progress?.participants?.find(p => p.user_id === incentive.created_by)?.current_value ?? 0;
   const targetValue = incentive.target_value || 0;
@@ -67,6 +96,10 @@ const IncentiveRow = ({ incentive }: { incentive: Incentive }) => {
     <div className="flex items-center justify-between py-2">
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <Gift className="h-4 w-4 text-secondary-foreground flex-shrink-0" />
+        <Badge variant="outline" className={cn("text-[9px] px-1 py-0 flex-shrink-0 border-amber-500/30", typeBadge.color)}>
+          <TypeIcon className="h-2 w-2 mr-0.5" />
+          {typeBadge.label}
+        </Badge>
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground truncate">
             {incentive.title}

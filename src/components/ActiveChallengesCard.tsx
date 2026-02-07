@@ -14,11 +14,12 @@ import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { CompeteDrawer } from "@/components/CompeteDrawer";
 import { IncentiveDetailSheet } from "@/components/leaderboard/IncentiveDetailSheet";
 import { ChallengeDetailSheet } from "@/components/leaderboard/ChallengeDetailSheet";
-import { Swords, Trophy, ChevronRight, Flame, Gift, Loader2, Plus, Users } from "lucide-react";
+import { Swords, Trophy, ChevronRight, Flame, Gift, Loader2, Plus, Users, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getInitials, getCleanName, getCleanFirstName } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
 import { supabase } from "@/integrations/supabase/client";
+import { getChallengeTypeBadge, getIncentiveTypeBadge, IncentiveTargetType } from "@/utils/competitionTypeConfig";
 import { useQueryClient } from "@tanstack/react-query";
 
 const metricLabels: Record<string, string> = {
@@ -377,6 +378,9 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
                 );
               };
               
+              const typeBadge = getChallengeTypeBadge(isGroupChallenge ? 'group' : '1v1');
+              const TypeIcon = typeBadge.Icon;
+              
               return (
                 <motion.div 
                   key={challenge.id}
@@ -389,9 +393,15 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
                   onClick={(e) => handleChallengeClick(e, challenge)}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">
-                      {getDisplayVsName()}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", typeBadge.color)}>
+                        <TypeIcon className="h-2.5 w-2.5 mr-0.5" />
+                        {typeBadge.label}
+                      </Badge>
+                      <span className="text-sm font-medium">
+                        {getDisplayVsName()}
+                      </span>
+                    </div>
                     <span className="text-xs text-muted-foreground">
                       {metricLabels[challenge.metric] || challenge.metric}
                     </span>
@@ -442,27 +452,36 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
             })}
 
             {/* Active Incentives */}
-            {activeIncentives.slice(0, 2).map(incentive => (
-              <motion.div 
-                key={incentive.id}
-                layout
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, x: -50, scale: 0.9, transition: { duration: 0.3, ease: "easeOut" } }}
-                transition={{ duration: 0.2 }}
-                className="p-3 rounded-lg bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 cursor-pointer hover:border-amber-500/50 transition-colors active:scale-[0.98]"
-                onClick={(e) => handleIncentiveClick(e, incentive)}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Trophy className="h-4 w-4 text-amber-500" />
-                    <span className="text-sm font-semibold">{incentive.title}</span>
+            {activeIncentives.slice(0, 2).map(incentive => {
+              const incentiveTypeBadge = getIncentiveTypeBadge(incentive.target_type as IncentiveTargetType);
+              const IncentiveTypeIcon = incentiveTypeBadge.Icon;
+              
+              return (
+                <motion.div 
+                  key={incentive.id}
+                  layout
+                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: -50, scale: 0.9, transition: { duration: 0.3, ease: "easeOut" } }}
+                  transition={{ duration: 0.2 }}
+                  className="p-3 rounded-lg bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 cursor-pointer hover:border-amber-500/50 transition-colors active:scale-[0.98]"
+                  onClick={(e) => handleIncentiveClick(e, incentive)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="h-4 w-4 text-amber-500" />
+                      <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 border-amber-500/30", incentiveTypeBadge.color)}>
+                        <IncentiveTypeIcon className="h-2.5 w-2.5 mr-0.5" />
+                        {incentiveTypeBadge.label}
+                      </Badge>
+                      <span className="text-sm font-semibold">{incentive.title}</span>
+                    </div>
+                    <Gift className="h-4 w-4 text-amber-600" />
                   </div>
-                  <Gift className="h-4 w-4 text-amber-600" />
-                </div>
-                <IncentiveProgressItem incentive={incentive} />
-              </motion.div>
-            ))}
+                  <IncentiveProgressItem incentive={incentive} />
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
 
           {/* Show more indicator */}
