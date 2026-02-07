@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getLocalDateString } from "@/lib/utils";
+import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 
 interface LeaderboardEntry {
   userId: string;
@@ -87,20 +88,22 @@ export const useSeasonLeaderboard = (filterByYear?: string, isSummer: boolean = 
 
       const repsMap = new Map(repsData?.map(r => [r.user_id, { name: r.name, year: r.year }]) || []);
 
-      // Fetch all finalized entries for the season
+      // Fetch all entries for the season (include sales_log for accurate calculations)
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, entry_date, doors_knocked, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
+        .select("user_id, entry_date, doors_knocked, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone, sales_log, is_finalized")
         .gte("entry_date", startStr)
-        .lte("entry_date", endStr)
-        .eq("is_finalized", true);
+        .lte("entry_date", endStr);
 
       if (error) throw error;
+      
+      // Filter to finalized entries only for season totals
+      const finalizedEntries = entries?.filter(e => e.is_finalized) || [];
 
       // Filter by year if specified
       const filteredEntries = filterByYear 
-        ? entries?.filter(e => repsMap.get(e.user_id)?.year === filterByYear) || []
-        : entries || [];
+        ? finalizedEntries.filter(e => repsMap.get(e.user_id)?.year === filterByYear)
+        : finalizedEntries;
 
       // Aggregate by user
       const userTotals = new Map<string, {
@@ -186,6 +189,20 @@ export const useSeasonLeaderboard = (filterByYear?: string, isSummer: boolean = 
           }
         }
 
+        // Always prioritize sales_log if it has entries (regardless of finalization)
+        const salesLog = (entry as any).sales_log as any[];
+        const hasSalesLog = salesLog && salesLog.length > 0;
+        let fp: number;
+        let prmr: number;
+        if (hasSalesLog) {
+          const calculated = calculateFromSalesLog(salesLog);
+          fp = calculated.fp;
+          prmr = calculated.prmr;
+        } else {
+          fp = entry.fp_plus || 0;
+          prmr = entry.prmr || 0;
+        }
+        
         const upgradePrmr = entry.upgrade_prmr || 0;
         const upgradeFp = upgradePrmr > 0 ? upgradePrmr / 85 : 0;
         
@@ -194,8 +211,8 @@ export const useSeasonLeaderboard = (filterByYear?: string, isSummer: boolean = 
           pitches: current.pitches + (entry.pitches || 0),
           transitions: current.transitions + (entry.transitions || 0),
           presentations: current.presentations + (entry.presentations || 0),
-          fp: current.fp + (entry.fp_plus || 0),
-          prmr: current.prmr + (entry.prmr || 0),
+          fp: current.fp + fp,
+          prmr: current.prmr + prmr,
           upgradePrmr: current.upgradePrmr + upgradePrmr,
           upgradeFp: current.upgradeFp + upgradeFp,
           hoursWorked: current.hoursWorked + entryHours,

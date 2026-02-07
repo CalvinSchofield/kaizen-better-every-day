@@ -88,14 +88,18 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
       const lastVerifiedDate = lastVerifiedAt ? new Date(lastVerifiedAt).toISOString().split('T')[0] : null;
 
       for (const entry of entries || []) {
-        // Use sales_log for accurate calculation if available and not finalized
-        let fp = entry.fp_plus || 0;
-        let prmr = entry.prmr || 0;
-
-        if (entry.sales_log && !entry.is_finalized) {
-          const calculated = calculateFromSalesLog(entry.sales_log as any[]);
+        // Always prioritize sales_log if it has entries (regardless of finalization)
+        const salesLog = entry.sales_log as any[];
+        const hasSalesLog = salesLog && salesLog.length > 0;
+        let fp: number;
+        let prmr: number;
+        if (hasSalesLog) {
+          const calculated = calculateFromSalesLog(salesLog);
           fp = calculated.fp;
           prmr = calculated.prmr;
+        } else {
+          fp = entry.fp_plus || 0;
+          prmr = entry.prmr || 0;
         }
 
         const isKnocking = isKnockingDay(entry);
