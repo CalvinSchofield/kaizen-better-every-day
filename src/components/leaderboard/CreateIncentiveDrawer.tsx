@@ -8,10 +8,10 @@ import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useParticipantPool } from "@/hooks/useParticipantPool";
 import { useCreateIncentive, IncentiveMetric, IncentiveTargetType } from "@/hooks/useIncentives";
 import { supabase } from "@/integrations/supabase/client";
-import { SmartParticipantPicker } from "./SmartParticipantPicker";
+import { ParticipantPickerV2 } from "./ParticipantPickerV2";
 import { Trophy, DollarSign, ArrowRightLeft, Footprints, Loader2, Eye, EyeOff, Users, User, ChevronLeft, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek } from "date-fns";
@@ -42,10 +42,9 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [allSelected, setAllSelected] = useState(true);
 
-  const { data: teamAccess } = useTeamAccess();
   const createMutation = useCreateIncentive();
 
-  // Get current user's rep data for participant picker
+  // Get current user's rep data for timezone
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-rep-for-incentive'],
     queryFn: async () => {
@@ -61,22 +60,37 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
     staleTime: Infinity,
   });
 
-  // Include current user in the list (leaders should see themselves)
-  const allEligibleReps = useMemo(() => {
-    return teamAccess?.accessibleReps.filter(r => r.userId) || [];
-  }, [teamAccess]);
+  // Use the new participant pool for "all office" rep list
+  const { allReps: allEligibleReps } = useParticipantPool({ 
+    dateRange: getDateRangeForPicker(), 
+    includeCurrentUser: true 
+  });
+
+  // Helper to get date range for the pool
+  function getDateRangeForPicker() {
+    const today = new Date();
+    if (duration === 'today') {
+      return { start: today, end: today };
+    } else if (duration === 'week') {
+      const weekStart = startOfWeek(today, { weekStartsOn: 0 });
+      const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
+      return { start: weekStart, end: weekEnd };
+    } else {
+      return { start: customStartDate || today, end: customEndDate || today };
+    }
+  }
 
   // Compute effective user IDs based on explicit all-selected state
   const effectiveUserIds = useMemo(() => {
     if (allSelected) {
-      return allEligibleReps.map(r => r.userId!).filter(Boolean);
+      return allEligibleReps.map(r => r.userId).filter(Boolean);
     }
     return selectedUserIds;
   }, [allSelected, selectedUserIds, allEligibleReps]);
 
   const toggleUser = (userId: string) => {
     if (allSelected) {
-      const newSelection = allEligibleReps.map(r => r.userId!).filter(id => id !== userId);
+      const newSelection = allEligibleReps.map(r => r.userId).filter(id => id !== userId);
       setSelectedUserIds(newSelection);
       setAllSelected(false);
     } else {
@@ -364,15 +378,12 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
                 <span className="text-muted-foreground">Duration:</span> <span className="font-medium">{dateRangeSummary}</span>
               </div>
 
-              <SmartParticipantPicker
-                allReps={allEligibleReps}
+              <ParticipantPickerV2
                 selectedUserIds={selectedUserIds}
                 allSelected={allSelected}
                 onToggleUser={toggleUser}
                 onSelectAll={selectAll}
                 onClear={clearSelection}
-                currentUserId={currentUserRep?.user_id}
-                currentUserRep={currentUserRep}
                 dateRange={getDateRange()}
                 showSelfInList={true}
               />
