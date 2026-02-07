@@ -14,7 +14,6 @@ interface EffortCoachingCalloutsProps {
   workStartTime?: string | null;
   workEndTime?: string | null;
   breakMinutes?: number;
-  gapMinutes?: number;
   totalBreakMinutes?: number; // Total break time from break_periods
   dayOfWeek?: number; // 0 = Sunday, 6 = Saturday
   repAverageStartMinutes?: number; // Rep's average start time in minutes from midnight
@@ -26,7 +25,6 @@ export const EffortCoachingCallouts = ({
   workStartTime,
   workEndTime,
   breakMinutes = 0,
-  gapMinutes = 0,
   totalBreakMinutes,
   dayOfWeek,
   repAverageStartMinutes,
@@ -135,16 +133,9 @@ export const EffortCoachingCallouts = ({
     });
   }
 
-  // Excessive Gap/Idle Time Logic (separate from breaks, > 30 minutes)
-  // Only add if we have gap data and it's substantial
-  if (gapMinutes !== undefined && gapMinutes >= 30) {
-    issues.push({
-      type: 'excessive_break',
-      icon: AlertTriangle,
-      message: `${Math.round(gapMinutes)} min of idle gaps during work`,
-      severity: gapMinutes > 60 ? 'critical' : 'warning',
-    });
-  }
+  // Note: Gap/idle time is shown in the Activity Ring legend instead
+  // The old gapMinutes calculation was inaccurate - it counted ALL gaps > 20 min
+  // which double-counted doorstep conversations, presentations, and sales time
 
   // Don't render if no issues
   if (issues.length === 0) {

@@ -452,12 +452,14 @@ export const RepDrillDownDrawer = ({
             />
             
             {/* Effort Coaching Callouts - Show for days with work */}
+            {/* Note: gapMinutes is NOT passed here - the ring calculates accurate gaps */}
+            {/* The excessive gap calculation from useRepDayActivity counts ALL gaps > 20min */}
+            {/* which double-counts doorstep/presentation time. Use ring segments instead. */}
             {displayData.hoursWorked > 0 && (
               <EffortCoachingCallouts
                 workStartTime={dayActivity?.workStartTime || displayData.workStartTime}
                 workEndTime={dayActivity?.workEndTime || displayData.workEndTime}
                 totalBreakMinutes={dayActivity?.breakMinutes}
-                gapMinutes={dayActivity?.gapMinutes}
                 dayOfWeek={getDay(selectedDate)}
               />
             )}
