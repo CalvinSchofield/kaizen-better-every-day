@@ -736,7 +736,8 @@ export default function LogSale() {
               />
             </div>
 
-            {/* Deal Type */}
+            {/* Deal Type - Only show for FP sales, not upgrades */}
+            {saleType === 'fp' && (
             <div className="space-y-2">
               <Label className="text-xs">Deal Type</Label>
               <div className="flex gap-2">
@@ -757,6 +758,7 @@ export default function LogSale() {
                 ))}
               </div>
             </div>
+            )}
 
             {/* Money Spent */}
             <div className="space-y-1">
