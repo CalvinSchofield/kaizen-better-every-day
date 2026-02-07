@@ -14,7 +14,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { CreateChallengeDrawer } from "@/components/leaderboard/CreateChallengeDrawer";
 import { CreateIncentiveDrawer } from "@/components/leaderboard/CreateIncentiveDrawer";
 import { ChallengeScoreSlider } from "@/components/competitions/ChallengeScoreSlider";
-import { Swords, Trophy, Gift, ChevronRight, Loader2, Check, X, Flame, Plus, Users } from "lucide-react";
+import { Swords, Trophy, Gift, ChevronRight, Loader2, Check, X, Flame, Plus, Users, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getInitials, getCleanName, getCleanFirstName } from "@/utils/nameUtils";
 import { hapticLight, hapticSuccess, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
+import { getChallengeTypeBadge, getIncentiveTypeBadge, IncentiveTargetType } from "@/utils/competitionTypeConfig";
 
 interface CompeteDrawerProps {
   open: boolean;
@@ -287,6 +288,17 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
                       <p className="text-sm font-medium text-primary">Active Challenges</p>
                       {activeChallenges.map(challenge => {
                         const me = challenge.participants?.find(p => p.user_id === currentUser);
+                        const isGroupChallenge = challenge.type === 'group';
+                        const typeBadge = getChallengeTypeBadge(isGroupChallenge ? 'group' : '1v1');
+                        const TypeIcon = typeBadge.Icon;
+                        
+                        // Get display names for challenge
+                        const captainA = challenge.participants?.find(p => p.role === 'captain_a');
+                        const captainB = challenge.participants?.find(p => p.role === 'captain_b');
+                        const opponent = !isGroupChallenge 
+                          ? challenge.participants?.find(p => p.user_id !== currentUser)
+                          : null;
+                        
                         return (
                           <div 
                             key={challenge.id}
@@ -295,7 +307,21 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
                           >
                             <div className="flex items-center gap-2 mb-2">
                               <Swords className="h-4 w-4 text-primary" />
-                              <span className="text-xs font-medium">{challenge.type === '1v1' ? '1v1' : 'Team'}</span>
+                              <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", typeBadge.color)}>
+                                <TypeIcon className="h-2.5 w-2.5 mr-0.5" />
+                                {typeBadge.label}
+                              </Badge>
+                              <span className="text-xs font-medium">
+                                {isGroupChallenge ? (
+                                  <>
+                                    <span className="text-red-500">{getCleanFirstName(captainA?.rep_name)}</span>
+                                    <span className="text-muted-foreground"> vs </span>
+                                    <span className="text-blue-500">{getCleanFirstName(captainB?.rep_name)}</span>
+                                  </>
+                                ) : (
+                                  `vs ${getCleanFirstName(opponent?.rep_name)}`
+                                )}
+                              </span>
                               {challenge.stakes && (
                                 <span className="text-[10px] text-muted-foreground ml-auto">🎯 {challenge.stakes}</span>
                               )}
@@ -344,22 +370,31 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
                   {activeIncentives.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-amber-600">Active Incentives</p>
-                      {activeIncentives.map(incentive => (
-                        <div 
-                          key={incentive.id}
-                          onClick={handleViewAll}
-                          className="p-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 cursor-pointer hover:border-amber-500/50 transition-colors"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Trophy className="h-4 w-4 text-amber-500" />
-                              <span className="text-sm font-semibold">{incentive.title}</span>
+                      {activeIncentives.map(incentive => {
+                        const incentiveTypeBadge = getIncentiveTypeBadge(incentive.target_type as IncentiveTargetType);
+                        const IncentiveTypeIcon = incentiveTypeBadge.Icon;
+                        
+                        return (
+                          <div 
+                            key={incentive.id}
+                            onClick={handleViewAll}
+                            className="p-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 cursor-pointer hover:border-amber-500/50 transition-colors"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Trophy className="h-4 w-4 text-amber-500" />
+                                <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 border-amber-500/30", incentiveTypeBadge.color)}>
+                                  <IncentiveTypeIcon className="h-2.5 w-2.5 mr-0.5" />
+                                  {incentiveTypeBadge.label}
+                                </Badge>
+                                <span className="text-sm font-semibold">{incentive.title}</span>
+                              </div>
+                              <Gift className="h-4 w-4 text-amber-600" />
                             </div>
-                            <Gift className="h-4 w-4 text-amber-600" />
+                            <IncentiveProgressInDrawer incentive={incentive} />
                           </div>
-                          <IncentiveProgressInDrawer incentive={incentive} />
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </>
