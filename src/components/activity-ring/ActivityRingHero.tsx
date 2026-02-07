@@ -10,7 +10,14 @@ import {
   TimelineEvent,
   RingSegment,
 } from "@/utils/inHomeZoneCalculator";
+import { detectBulkEntry } from "@/utils/bulkEntryDetector";
 import { ActivityRingLegend } from "./ActivityRingLegend";
+import { Zap } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface ActivityRingHeroProps {
   entry: DailyEntry | {
@@ -206,6 +213,12 @@ export const ActivityRingHero = ({
   // Count sales
   const saleCount = salesLog.filter(s => s.type === 'fp').length;
 
+  // Detect bulk entry for leader warning
+  const bulkEntryStats = useMemo(() => {
+    const timestamps = counterTimestamps || entry.counter_timestamps || {};
+    return detectBulkEntry(timestamps);
+  }, [counterTimestamps, entry.counter_timestamps]);
+
   // Goal ring progress (capped at 100%)
   const goalAngle = Math.min(100, goalProgress) * 3.6; // 360 * (progress/100)
 
@@ -347,6 +360,7 @@ export const ActivityRingHero = ({
         </motion.div>
 
         {/* Sale celebration markers */}
+        {/* Sale celebration markers */}
         {animationComplete && saleCount > 0 && (
           <motion.div
             className="absolute top-0 right-0 -mt-1 -mr-1"
@@ -356,6 +370,39 @@ export const ActivityRingHero = ({
           >
             <span className="text-2xl">{saleCount > 1 ? `${saleCount}⭐` : '⭐'}</span>
           </motion.div>
+        )}
+        
+        {/* Bulk entry warning badge for leaders */}
+        {showGapPercent && bulkEntryStats.bulkEntryDetected && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <motion.button
+                className="absolute top-0 left-0 -mt-1 -ml-1 flex items-center gap-0.5 text-[10px] font-semibold bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-full border border-orange-500/30 hover:bg-orange-500/30 active:scale-95 transition-all"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 400, delay: 1.2 }}
+              >
+                <Zap className="w-3 h-3" />
+                {bulkEntryStats.largestBatch}
+              </motion.button>
+            </PopoverTrigger>
+            <PopoverContent side="top" className="w-64 p-0 bg-card border-border">
+              <div className="px-3 py-2 bg-orange-500/15 border-b border-orange-500/25 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-orange-400" />
+                <span className="font-bold text-sm text-orange-400">Bulk Entry Detected</span>
+              </div>
+              <div className="p-3 text-xs text-muted-foreground space-y-2">
+                <p>
+                  This rep logged <span className="font-semibold text-foreground">{bulkEntryStats.batchedEventsPercent}%</span> of 
+                  their activity in rapid bursts rather than real-time.
+                </p>
+                <p>
+                  The timeline may not accurately reflect their actual work patterns. 
+                  Consider coaching on real-time logging.
+                </p>
+              </div>
+            </PopoverContent>
+          </Popover>
         )}
         
         {/* Goal progress indicator (small badge) */}
