@@ -80,12 +80,12 @@ const MiniRing = ({
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}
             animate={{ strokeDashoffset }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
           />
         )}
       </svg>
       
-      {/* Center icon: ⭐ for sale, ✓ for worked but no sale */}
+      {/* Center icon: 💰 for sale, ✓ for worked but no sale */}
       {hasSale ? (
         <motion.span
           className="absolute text-[10px]"
@@ -93,14 +93,14 @@ const MiniRing = ({
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 400 }}
         >
-          ⭐
+          💰
         </motion.span>
       ) : hasWork && (
         <motion.span
           className="absolute text-[9px] text-muted-foreground"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.15 }}
         >
           ✓
         </motion.span>
