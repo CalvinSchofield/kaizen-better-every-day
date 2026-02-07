@@ -9,6 +9,12 @@ import { QTallyGrid } from "@/components/QTallyGrid";
 import { SalesLoggerCard } from "@/components/SalesLoggerCard";
 import { BulkEntryWarning } from "@/components/ui/BulkEntryWarning";
 import { DailyEntry, Sale } from "@/hooks/useDailyEntry";
+import {
+  ActivityRingHero,
+  FinalizedDayHeader,
+  FinalizedStatsGrid,
+  RingGoalProgress,
+} from "@/components/activity-ring";
 
 interface TrackProps {
   entry: DailyEntry | {
@@ -154,6 +160,55 @@ const Track = ({
     );
   }
 
+  // Check if entry is finalized - show Activity Ring view instead
+  if (entry.is_finalized) {
+    return (
+      <div className="flex flex-col h-full overflow-y-auto pb-24">
+        {/* Finalized Day Header */}
+        <FinalizedDayHeader
+          workStart={entry.work_start_time}
+          workEnd={entry.work_end_time}
+          entryDate={'entry_date' in entry ? entry.entry_date : undefined}
+        />
+
+        {/* Activity Ring Hero - replaces QTallyGrid */}
+        <div className="px-4 py-6 flex justify-center">
+          <ActivityRingHero
+            entry={entry}
+            counterTimestamps={counterTimestamps}
+            salesLog={salesLog}
+            showGoalRing={true}
+            size="lg"
+          />
+        </div>
+
+        {/* Stats summary grid */}
+        <FinalizedStatsGrid
+          entry={entry}
+          salesLog={salesLog}
+          className="mb-4"
+        />
+
+        {/* Goal progress context */}
+        <RingGoalProgress
+          className="mb-4"
+        />
+
+        {/* Sales Logger Card - Show when enabled and has sales */}
+        {salesLoggerEnabled && salesLog.length > 0 && onEditSale && onDeleteSale && (
+          <div className="px-4 pb-4">
+            <SalesLoggerCard
+              salesLog={salesLog}
+              onEditSale={onEditSale}
+              onDeleteSale={onDeleteSale}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Active tracking state - show normal counters
   return (
     <div className="flex flex-col h-full">
       {/* Time Tracking Bar */}
