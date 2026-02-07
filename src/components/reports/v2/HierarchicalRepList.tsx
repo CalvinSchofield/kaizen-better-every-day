@@ -14,6 +14,7 @@ interface RepData {
   year?: string;
   teamName?: string | null;
   teamId?: string | null;
+  recruiterName?: string | null; // For organic hierarchy grouping
   workStartTime?: string;
   workEndTime?: string;
   avgStartTime?: string;
@@ -53,34 +54,76 @@ export const HierarchicalRepList = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   
-  // Filter reps by search
+  // Filter reps by search AND only show reps with activity
   const filteredReps = useMemo(() => {
-    if (!searchQuery.trim()) return reps;
+    // First filter to only reps who worked
+    const activeReps = reps.filter(rep => {
+      const hasActivity = rep.doors > 0 || rep.transitions > 0 || 
+                          rep.presentations > 0 || rep.fp > 0;
+      const isCurrentlyWorking = !!rep.workStartTime && !rep.workEndTime;
+      return hasActivity || isCurrentlyWorking;
+    });
+    
+    // Then filter by search query
+    if (!searchQuery.trim()) return activeReps;
     const query = searchQuery.toLowerCase();
-    return reps.filter(rep => 
+    return activeReps.filter(rep => 
       rep.name.toLowerCase().includes(query) ||
-      rep.teamName?.toLowerCase().includes(query)
+      rep.teamName?.toLowerCase().includes(query) ||
+      rep.recruiterName?.toLowerCase().includes(query)
     );
   }, [reps, searchQuery]);
   
-  // Group reps by team
+  // Get first name for organic grouping (e.g., "Calder" from "Calder Severson")
+  const getFirstNameForGroup = (name: string | null | undefined): string => {
+    if (!name) return 'Ungrouped';
+    const cleanName = name.replace(/^[^\p{L}]*/u, '').trim();
+    return cleanName.split(/\s+/)[0] || 'Ungrouped';
+  };
+  
+  // Group reps by team OR by recruiter (organic hierarchy)
   const groupedReps = useMemo(() => {
-    const groups = new Map<string, { teamName: string; teamId: string | null; reps: RepData[] }>();
+    const groups = new Map<string, { teamName: string; teamId: string | null; reps: RepData[]; isOrganic: boolean }>();
     
     filteredReps.forEach(rep => {
-      const teamKey = rep.teamId || 'other';
-      const teamName = rep.teamName || 'Other';
-      
-      if (!groups.has(teamKey)) {
-        groups.set(teamKey, { teamName, teamId: rep.teamId || null, reps: [] });
+      // Priority 1: Use team if exists
+      if (rep.teamId && rep.teamName) {
+        const teamKey = rep.teamId;
+        if (!groups.has(teamKey)) {
+          groups.set(teamKey, { teamName: rep.teamName, teamId: rep.teamId, reps: [], isOrganic: false });
+        }
+        groups.get(teamKey)!.reps.push(rep);
+      } 
+      // Priority 2: Group by recruiter name (organic hierarchy)
+      else if (rep.recruiterName) {
+        const recruiterFirstName = getFirstNameForGroup(rep.recruiterName);
+        const organicKey = `organic_${recruiterFirstName.toLowerCase()}`;
+        const groupName = `${recruiterFirstName}'s Group`;
+        
+        if (!groups.has(organicKey)) {
+          groups.set(organicKey, { teamName: groupName, teamId: null, reps: [], isOrganic: true });
+        }
+        groups.get(organicKey)!.reps.push(rep);
       }
-      groups.get(teamKey)!.reps.push(rep);
+      // Priority 3: Ungrouped (should be rare)
+      else {
+        const ungroupedKey = 'ungrouped';
+        if (!groups.has(ungroupedKey)) {
+          groups.set(ungroupedKey, { teamName: 'Ungrouped', teamId: null, reps: [], isOrganic: false });
+        }
+        groups.get(ungroupedKey)!.reps.push(rep);
+      }
     });
     
-    // Sort groups: named teams first (alphabetically), then "Other" last
+    // Sort groups: formal teams first (alphabetically), then organic groups, then "Ungrouped" last
     const sortedGroups = Array.from(groups.entries()).sort(([keyA, a], [keyB, b]) => {
-      if (keyA === 'other') return 1;
-      if (keyB === 'other') return -1;
+      // Ungrouped always last
+      if (keyA === 'ungrouped') return 1;
+      if (keyB === 'ungrouped') return -1;
+      // Formal teams before organic groups
+      if (!a.isOrganic && b.isOrganic) return -1;
+      if (a.isOrganic && !b.isOrganic) return 1;
+      // Alphabetical within same type
       return a.teamName.localeCompare(b.teamName);
     });
     
