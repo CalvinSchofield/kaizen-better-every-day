@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState, useCallback, Fragment } from "react";
+import { useMemo, useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DailyEntry, Sale } from "@/hooks/useDailyEntry";
 import { formatHoursMinutes, formatFP, formatPRMR } from "@/lib/formatters";
@@ -11,8 +11,7 @@ import {
   RingSegment,
 } from "@/utils/inHomeZoneCalculator";
 import { detectBulkEntry } from "@/utils/bulkEntryDetector";
-import { ActivityRingLegend } from "./ActivityRingLegend";
-import { Zap, Home, Clock, Coffee, ArrowRight } from "lucide-react";
+import { Zap } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -43,6 +42,7 @@ interface ActivityRingHeroProps {
   showLegend?: boolean;
   showGapPercent?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  onSegmentClick?: (segment: RingSegment, matchedSale?: Sale) => void;
 }
 
 // Clean color scheme with proper semantic distinction
@@ -106,9 +106,9 @@ export const ActivityRingHero = ({
   showLegend = true,
   showGapPercent = false,
   size = 'lg',
+  onSegmentClick,
 }: ActivityRingHeroProps) => {
   const [animationComplete, setAnimationComplete] = useState(false);
-  const [selectedSegmentIdx, setSelectedSegmentIdx] = useState<number | null>(null);
   
   const sizeConfig = {
     sm: { width: 160, radius: 60, strokeWidth: 14, innerRadius: 42, innerStroke: 8, fontSize: 'text-base' },
@@ -245,13 +245,31 @@ export const ActivityRingHero = ({
     return () => clearTimeout(timer);
   }, []);
 
-  const handleSegmentClick = useCallback((idx: number, segment: RingSegment, e: React.MouseEvent) => {
+  // Find matching sale for a segment based on timestamp overlap
+  const findMatchingSale = useCallback((segment: RingSegment): Sale | undefined => {
+    if (segment.type !== 'sale' || !workStart || !workEnd || !salesLog.length) return undefined;
+    
+    // Convert segment angles to time
+    const totalDuration = workEnd.getTime() - workStart.getTime();
+    const segmentEndTime = new Date(workStart.getTime() + (segment.endAngle / 360) * totalDuration);
+    
+    // Find sale closest to segment end time
+    return salesLog.find(sale => {
+      if (!sale.timestamp) return false;
+      const saleTime = parseISO(sale.timestamp);
+      const timeDiff = Math.abs(saleTime.getTime() - segmentEndTime.getTime());
+      return timeDiff < 5 * 60 * 1000; // Within 5 minutes
+    });
+  }, [salesLog, workStart, workEnd]);
+
+  const handleSegmentClick = useCallback((segment: RingSegment, e: React.MouseEvent) => {
     e.stopPropagation();
-    // Only interactive segments: transition, presentation, sale, break
-    if (['transition', 'presentation', 'sale', 'break'].includes(segment.type)) {
-      setSelectedSegmentIdx(selectedSegmentIdx === idx ? null : idx);
+    // Only interactive segments: transition, presentation, sale, break, gap
+    if (['transition', 'presentation', 'sale', 'break', 'gap'].includes(segment.type) && onSegmentClick) {
+      const matchedSale = findMatchingSale(segment);
+      onSegmentClick(segment, matchedSale);
     }
-  }, [selectedSegmentIdx]);
+  }, [onSegmentClick, findMatchingSale]);
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -382,9 +400,9 @@ export const ActivityRingHero = ({
                     transition={{ duration: 0.6, delay: originalIdx * 0.02, ease: "easeOut" }}
                     style={{
                       strokeDasharray: isBreak ? '6 6' : undefined,
-                      cursor: isBreak ? 'pointer' : 'default',
+                      cursor: (isBreak || isGap) ? 'pointer' : 'default',
                     }}
-                    onClick={(e) => handleSegmentClick(originalIdx, segment, e)}
+                    onClick={(e) => handleSegmentClick(segment, e)}
                   />
                 );
               })}
@@ -411,7 +429,7 @@ export const ActivityRingHero = ({
                     animate={{ pathLength: 1, opacity: 1 }}
                     transition={{ duration: 0.6, delay: originalIdx * 0.02, ease: "easeOut" }}
                     style={{ cursor: 'pointer' }}
-                    onClick={(e) => handleSegmentClick(originalIdx, segment, e)}
+                    onClick={(e) => handleSegmentClick(segment, e)}
                   />
                 );
               })}
@@ -438,7 +456,7 @@ export const ActivityRingHero = ({
                     animate={{ pathLength: 1, opacity: 1 }}
                     transition={{ duration: 0.4, delay: 0.8 + originalIdx * 0.03, ease: "easeOut" }}
                     style={{ cursor: 'pointer' }}
-                    onClick={(e) => handleSegmentClick(originalIdx, segment, e)}
+                    onClick={(e) => handleSegmentClick(segment, e)}
                   />
                 );
               })}
@@ -463,46 +481,6 @@ export const ActivityRingHero = ({
           </div>
         </motion.div>
 
-        {/* Segment detail popovers */}
-        {animationComplete && segments.map((segment, idx) => {
-          if (!['transition', 'presentation', 'sale', 'break'].includes(segment.type)) return null;
-          
-          const midAngle = (segment.startAngle + segment.endAngle) / 2;
-          const midRad = ((midAngle - 90) * Math.PI) / 180;
-          const popoverDistance = config.radius + 35;
-          const popoverX = center + popoverDistance * Math.cos(midRad);
-          const popoverY = center + popoverDistance * Math.sin(midRad);
-          
-          const segmentMinutes = segment.duration || ((segment.endAngle - segment.startAngle) / 360) * totalWorkMinutes;
-          
-          return (
-            <div
-              key={`popover-${idx}`}
-              className="absolute"
-              style={{ left: popoverX, top: popoverY, transform: 'translate(-50%, -50%)', pointerEvents: 'none' }}
-            >
-              <Popover open={selectedSegmentIdx === idx} onOpenChange={(open) => setSelectedSegmentIdx(open ? idx : null)}>
-                <PopoverTrigger asChild>
-                  <button className="w-1 h-1 opacity-0 pointer-events-none" />
-                </PopoverTrigger>
-                <PopoverContent side="top" className="w-auto px-3 py-2 bg-card border-border" sideOffset={8}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: RING_COLORS[segment.type] }} />
-                    <span className="font-medium text-sm">{SEGMENT_LABELS[segment.type]}</span>
-                    <span className="text-muted-foreground">•</span>
-                    <span className="text-sm font-medium">{formatDuration(segmentMinutes)}</span>
-                  </div>
-                  {segment.source === 'estimated' && (
-                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                      Duration estimated
-                    </p>
-                  )}
-                </PopoverContent>
-              </Popover>
-            </div>
-          );
-        })}
-        
         {/* Bulk entry warning */}
         {showGapPercent && bulkEntryStats.bulkEntryDetected && (
           <Popover>
@@ -580,8 +558,6 @@ export const ActivityRingHero = ({
           )}
         </motion.div>
       )}
-      
-      {showLegend && <ActivityRingLegend />}
     </div>
   );
 };

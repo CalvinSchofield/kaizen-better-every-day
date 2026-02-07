@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Drawer, 
   DrawerContent, 
@@ -18,15 +18,21 @@ import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
 import { useRepDayActivity } from "@/hooks/useRepDayActivity";
 import { useRepActivityCalendar } from "@/hooks/useRepActivityCalendar";
 import { PurposeDisplayCard } from "@/components/goals/PurposeDisplayCard";
+import { RingSegment } from "@/utils/inHomeZoneCalculator";
+import { Sale } from "@/hooks/useDailyEntry";
 import { 
   ActivityRingHero, 
   FinalizedStatsGrid, 
-  RingGoalProgress,
   WeekActivityStrip,
   CoachingCallouts,
   ActivityCalendarDrawer,
+  ActivityRingLegend,
+  LegendTriggerButton,
+  GoalTimeframeToggle,
+  GoalTimeframe,
+  SegmentDetailDrawer,
 } from "@/components/activity-ring";
-import { format, isSameDay, parseISO } from "date-fns";
+import { format, isSameDay, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 
 interface RepDrillDownData {
   userId: string;
@@ -79,6 +85,10 @@ export const RepDrillDownDrawer = ({
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
   const [hasAutoSelected, setHasAutoSelected] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
+  const [goalTimeframe, setGoalTimeframe] = useState<GoalTimeframe>('D');
+  const [selectedSegment, setSelectedSegment] = useState<RingSegment | null>(null);
+  const [selectedSegmentSale, setSelectedSegmentSale] = useState<Sale | null>(null);
   
   // Get userId for hooks - must be at top level
   const userId = isOpen && rep ? rep.userId : undefined;
@@ -129,6 +139,56 @@ export const RepDrillDownDrawer = ({
     setHasAutoSelected(true);
   }, [isOpen, calendarData, dateRangeStart?.getTime(), dateRangeEnd?.getTime(), hasAutoSelected]);
 
+  // Calculate timeframe-based goal progress
+  const timeframeGoalProgress = useMemo(() => {
+    if (!calendarData?.summaries) return { D: 0, W: 0, M: 0, Y: 0 };
+    
+    const dailyGoal = extendedData?.goals?.mustGoal 
+      ? extendedData.goals.mustGoal / 53 
+      : 2;
+    const seasonGoal = extendedData?.goals?.focusTier === 'couldDo' 
+      ? extendedData?.goals?.couldGoal 
+      : extendedData?.goals?.focusTier === 'willDo' 
+        ? extendedData?.goals?.willGoal 
+        : extendedData?.goals?.mustGoal || 0;
+    
+    // Day progress
+    const dayFP = dayActivity?.fp || displayData?.fp || 0;
+    const dayProgress = dailyGoal > 0 ? (dayFP / dailyGoal) * 100 : 0;
+    
+    // Week progress
+    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
+    const weekFP = calendarData.summaries
+      .filter(s => {
+        const d = parseISO(s.date);
+        return isWithinInterval(d, { start: weekStart, end: weekEnd });
+      })
+      .reduce((acc, s) => acc + (s.fp || 0), 0);
+    const weekGoal = dailyGoal * 7;
+    const weekProgress = weekGoal > 0 ? (weekFP / weekGoal) * 100 : 0;
+    
+    // Month progress
+    const monthStart = startOfMonth(selectedDate);
+    const monthEnd = endOfMonth(selectedDate);
+    const daysInMonth = monthEnd.getDate();
+    const monthFP = calendarData.summaries
+      .filter(s => {
+        const d = parseISO(s.date);
+        return isWithinInterval(d, { start: monthStart, end: monthEnd });
+      })
+      .reduce((acc, s) => acc + (s.fp || 0), 0);
+    const monthGoal = dailyGoal * daysInMonth;
+    const monthProgress = monthGoal > 0 ? (monthFP / monthGoal) * 100 : 0;
+    
+    // Year/Season progress
+    const yearProgress = seasonGoal > 0 
+      ? ((extendedData?.totalSeasonFP || 0) / seasonGoal) * 100 
+      : 0;
+    
+    return { D: dayProgress, W: weekProgress, M: monthProgress, Y: yearProgress };
+  }, [calendarData?.summaries, extendedData, dayActivity, selectedDate]);
+
   if (!rep) return null;
 
   const getFirstName = (name: string) => {
@@ -168,13 +228,21 @@ export const RepDrillDownDrawer = ({
         workEndTime: dayActivity?.workEndTime,
       };
 
-  // Calculate goal progress percentage (NO cap - allow Apple-style overflow)
-  const dailyGoalFP = extendedData?.goals?.mustGoal 
-    ? extendedData.goals.mustGoal / 53 // Roughly divide by season days
-    : 2; // Default daily target
-  const goalProgress = dailyGoalFP > 0 
-    ? (displayData.fp / dailyGoalFP) * 100
+  // Get goal progress based on selected timeframe
+  const goalProgress = timeframeGoalProgress[goalTimeframe];
+  
+  // Calculate work start/end for segment drawer
+  const workStart = dayActivity?.workStartTime ? parseISO(dayActivity.workStartTime) : null;
+  const workEnd = dayActivity?.workEndTime ? parseISO(dayActivity.workEndTime) : null;
+  const totalWorkMinutes = workStart && workEnd 
+    ? (workEnd.getTime() - workStart.getTime()) / (1000 * 60) 
     : 0;
+  
+  // Handle segment click
+  const handleSegmentClick = (segment: RingSegment, matchedSale?: Sale) => {
+    setSelectedSegment(segment);
+    setSelectedSegmentSale(matchedSale || null);
+  };
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -188,11 +256,14 @@ export const RepDrillDownDrawer = ({
                 <Badge variant="outline">{rep.year}</Badge>
               )}
             </div>
-            <DrawerClose asChild>
-              <Button variant="ghost" size="icon">
-                <X className="w-4 h-4" />
-              </Button>
-            </DrawerClose>
+            <div className="flex items-center gap-1">
+              <LegendTriggerButton onClick={() => setShowLegend(true)} />
+              <DrawerClose asChild>
+                <Button variant="ghost" size="icon">
+                  <X className="w-4 h-4" />
+                </Button>
+              </DrawerClose>
+            </div>
           </div>
           {rep.teamName && (
             <p className="text-sm text-muted-foreground">{rep.teamName}</p>
@@ -256,10 +327,18 @@ export const RepDrillDownDrawer = ({
                   goalProgress={goalProgress}
                   showGoalRing={goalProgress > 0}
                   showGapPercent={true}
+                  showLegend={false}
                   size="md"
+                  onSegmentClick={handleSegmentClick}
                 />
               </div>
             )}
+            
+            {/* Timeframe Toggle */}
+            <GoalTimeframeToggle
+              selected={goalTimeframe}
+              onSelect={setGoalTimeframe}
+            />
             
             {/* Stats Grid */}
             <FinalizedStatsGrid
@@ -317,35 +396,7 @@ export const RepDrillDownDrawer = ({
 
             <Separator />
 
-            {/* Goal Progress Section - Season-Aware */}
-            {extendedData?.isPreseason ? (
-              // Preseason: Show only preseason goal
-              <RingGoalProgress
-                preseasonMode
-                preseasonFP={extendedData.preseasonFP}
-                preseasonGoal={extendedData.goals?.preseasonGoal || 0}
-                todayFP={displayData.fp}
-                dailyNeed={dailyGoalFP}
-                dayOfSeason={extendedData.goalPace?.preseason?.daysElapsed || 1}
-                totalSeasonDays={extendedData.goalPace?.preseason?.totalPlannedDays || 53}
-              />
-            ) : (
-              // Summer: Show focus tier goal
-              <RingGoalProgress
-                summerMode
-                seasonFP={extendedData?.totalSeasonFP || 0}
-                focusTierGoal={
-                  extendedData?.goals?.focusTier === 'couldDo' ? extendedData?.goals?.couldGoal :
-                  extendedData?.goals?.focusTier === 'willDo' ? extendedData?.goals?.willGoal :
-                  extendedData?.goals?.mustGoal || 0
-                }
-                focusTier={extendedData?.goals?.focusTier as any}
-                todayFP={displayData.fp}
-                dailyNeed={dailyGoalFP}
-                dayOfSeason={extendedData?.goalPace?.mustDo?.daysElapsed || 1}
-                totalSeasonDays={extendedData?.goalPace?.mustDo?.totalPlannedDays || 53}
-              />
-            )}
+            {/* Goal Pace Card - Season-aware */}
 
             {/* Goal Pace Card - Also season-aware */}
             {extendedData?.goals ? (
@@ -407,6 +458,23 @@ export const RepDrillDownDrawer = ({
             onSelectDate={setSelectedDate}
           />
         )}
+        
+        {/* Legend Drawer */}
+        <ActivityRingLegend
+          open={showLegend}
+          onOpenChange={setShowLegend}
+        />
+        
+        {/* Segment Detail Drawer */}
+        <SegmentDetailDrawer
+          open={!!selectedSegment}
+          onOpenChange={(open) => !open && setSelectedSegment(null)}
+          segment={selectedSegment}
+          sale={selectedSegmentSale}
+          workStart={workStart}
+          workEnd={workEnd}
+          totalWorkMinutes={totalWorkMinutes}
+        />
       </DrawerContent>
     </Drawer>
   );
