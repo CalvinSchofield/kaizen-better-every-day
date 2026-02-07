@@ -220,6 +220,8 @@ export const RepDrillDownDrawer = ({
                   }}
                   salesLog={dayActivity?.salesLog as any}
                   goalProgress={goalProgress}
+                  showGoalRing={goalProgress > 0}
+                  showGapPercent={true}
                   size="md"
                 />
               </div>
