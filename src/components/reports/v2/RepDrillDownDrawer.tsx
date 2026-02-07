@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, Footprints, Target, MessageSquare } from "lucide-react";
+import { Calendar, Clock, Footprints, Target, MessageSquare, Circle, AlignJustify } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { EffortResult } from "@/utils/effortScore";
@@ -30,6 +30,7 @@ import {
   LegendTriggerButton,
   SegmentDetailDrawer,
   SalesLogDrawer,
+  HorizontalActivityTimeline,
 } from "@/components/activity-ring";
 import { format, isSameDay, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, getDay } from "date-fns";
 
@@ -88,6 +89,7 @@ export const RepDrillDownDrawer = ({
   const [selectedSegment, setSelectedSegment] = useState<RingSegment | null>(null);
   const [selectedSegmentSale, setSelectedSegmentSale] = useState<Sale | null>(null);
   const [showSalesLog, setShowSalesLog] = useState(false);
+  const [viewMode, setViewMode] = useState<'ring' | 'timeline'>('ring');
   
   // Get userId for hooks - must be at top level
   const userId = isOpen && rep ? rep.userId : undefined;
@@ -385,16 +387,82 @@ export const RepDrillDownDrawer = ({
           )}
 
           <div className="p-4 space-y-4">
-            {/* Activity Ring Hero with Legend Icon */}
+            {/* Activity Visualization with View Toggle */}
             {(displayData.doors > 0 || displayData.hoursWorked > 0) ? (
               <div className="relative" key={format(selectedDate, 'yyyy-MM-dd')}>
-                {/* Legend trigger top-right of ring section */}
-                <LegendTriggerButton 
-                  onClick={() => setShowLegend(true)} 
-                  className="absolute top-0 right-0 z-10"
-                />
-                <div className="flex justify-center">
-                  <ActivityRingHero
+                {/* View toggle + Legend trigger */}
+                <div className="absolute top-0 right-0 z-10 flex items-center gap-1">
+                  {/* View mode toggle */}
+                  <div className="flex items-center bg-muted/50 rounded-full p-0.5">
+                    <button
+                      onClick={() => setViewMode('ring')}
+                      className={cn(
+                        "p-1.5 rounded-full transition-all",
+                        viewMode === 'ring' 
+                          ? "bg-primary text-primary-foreground" 
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                      aria-label="Ring view"
+                    >
+                      <Circle className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setViewMode('timeline')}
+                      className={cn(
+                        "p-1.5 rounded-full transition-all",
+                        viewMode === 'timeline' 
+                          ? "bg-primary text-primary-foreground" 
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                      aria-label="Timeline view"
+                    >
+                      <AlignJustify className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  
+                  {viewMode === 'ring' && (
+                    <LegendTriggerButton 
+                      onClick={() => setShowLegend(true)} 
+                    />
+                  )}
+                </div>
+                
+                {/* Ring View */}
+                {viewMode === 'ring' && (
+                  <div className="flex justify-center">
+                    <ActivityRingHero
+                      entry={{
+                        doors_knocked: displayData.doors,
+                        decision_makers: displayData.dms,
+                        pitches: displayData.pitches,
+                        transitions: displayData.transitions,
+                        presentations: displayData.presentations,
+                        closes: displayData.closes,
+                        fp_plus: displayData.fp,
+                        prmr: displayData.prmr,
+                        is_finalized: !isToday || (dayActivity?.isFinalized ?? false),
+                        work_start_time: dayActivity?.workStartTime || displayData.workStartTime || null,
+                        work_end_time: dayActivity?.workEndTime || displayData.workEndTime || null,
+                        break_periods: dayActivity?.breakPeriods || [],
+                        counter_timestamps: dayActivity?.counterTimestamps || {},
+                        timezone: extendedData?.timezone || null,
+                      }}
+                      salesLog={dayActivity?.salesLog as any}
+                      metricLabel={goalData.metricLabel}
+                      metricValue={goalData.todayFP}
+                      goalProgress={goalData.ringGoalProgress}
+                      showGoalRing={goalData.ringGoalProgress > 0}
+                      showGapPercent={true}
+                      showLegend={false}
+                      size="md"
+                      onSegmentClick={handleSegmentClick}
+                    />
+                  </div>
+                )}
+                
+                {/* Horizontal Timeline View */}
+                {viewMode === 'timeline' && (
+                  <HorizontalActivityTimeline
                     entry={{
                       doors_knocked: displayData.doors,
                       decision_makers: displayData.dms,
@@ -409,19 +477,15 @@ export const RepDrillDownDrawer = ({
                       work_end_time: dayActivity?.workEndTime || displayData.workEndTime || null,
                       break_periods: dayActivity?.breakPeriods || [],
                       counter_timestamps: dayActivity?.counterTimestamps || {},
-                      timezone: null,
+                      timezone: extendedData?.timezone || null,
                     }}
                     salesLog={dayActivity?.salesLog as any}
                     metricLabel={goalData.metricLabel}
                     metricValue={goalData.todayFP}
                     goalProgress={goalData.ringGoalProgress}
-                    showGoalRing={goalData.ringGoalProgress > 0}
-                    showGapPercent={true}
-                    showLegend={false}
-                    size="md"
                     onSegmentClick={handleSegmentClick}
                   />
-                </div>
+                )}
               </div>
             ) : isDayActivityFetching ? (
               <div className="flex justify-center py-8">
