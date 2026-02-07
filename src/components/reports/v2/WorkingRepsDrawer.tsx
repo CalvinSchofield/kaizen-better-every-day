@@ -13,6 +13,8 @@ interface WorkingRepData {
   name: string;
   year?: string;
   timezone?: string;
+  teamId?: string | null;
+  teamName?: string | null;
   workStartTime?: string;
   workEndTime?: string;
   avgStartTime?: string;
