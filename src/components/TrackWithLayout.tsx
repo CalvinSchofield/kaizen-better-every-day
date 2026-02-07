@@ -62,7 +62,7 @@ const TrackWithLayout = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { repData } = useRepData();
   const { totalFP: preseasonFP } = usePreseasonFP();
-  const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry } = useDailyEntry();
+  const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry, isFreshDataVerified, isOfflineWithBackup } = useDailyEntry();
   const { addSale: addSaleToEntry, isAddingSale } = useAddSaleToEntry();
   const { updateSale, deleteSale: deleteSaleFromEntry, isDeleting: isDeletingSale } = useSaleUpdate();
   
@@ -566,11 +566,15 @@ const TrackWithLayout = () => {
   const showPrmrHelper = isRookie || preseasonFP < 20;
 
   const handleCounterChange = useCallback(async (field: string, value: number) => {
-    // CRITICAL PROTECTION: Block counter changes while data is still loading
-    // This prevents overwriting existing data with zeros + new tap
-    if (isLoadingEntry) {
-      console.log('BLOCKED: Counter change while data is loading - this would overwrite existing data');
-      toast.error('Please wait for your data to load before tracking', { duration: 3000 });
+    // PHASE 2: FRESHNESS GATE - Block counter changes until we've verified data
+    // This prevents the bug where tapping while loading overwrites existing data
+    if (!isFreshDataVerified && !isOfflineWithBackup) {
+      console.log('[BULLETPROOF] Counter change blocked - waiting for fresh data verification');
+      toast.info('Syncing your data...', { 
+        description: 'Please wait a moment before tracking',
+        duration: 2000,
+        icon: '🔄'
+      });
       return;
     }
     
@@ -742,7 +746,7 @@ const TrackWithLayout = () => {
         });
       }
     }
-  }, [entry, updateCounter, isSaveInProgress, savedThisSession, salesLoggerEnabled, isLoadingEntry]);
+  }, [entry, updateCounter, isSaveInProgress, savedThisSession, salesLoggerEnabled, isFreshDataVerified, isOfflineWithBackup]);
 
   // Sales logger handlers
   const handleLogSale = useCallback(async (saleData: Omit<Sale, 'id' | 'timestamp'>) => {
