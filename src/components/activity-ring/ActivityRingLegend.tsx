@@ -41,7 +41,7 @@ interface ActivityRingLegendProps {
 export const ActivityRingLegend = ({ open, onOpenChange }: ActivityRingLegendProps) => {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[50vh]">
+      <DrawerContent className="max-h-[50vh] z-[70]">
         <DrawerHeader className="border-b pb-3">
           <DrawerTitle>Activity Ring Legend</DrawerTitle>
         </DrawerHeader>

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, differenceInDays, parseISO, isAfter, isBefore } from "date-fns";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+import { calculateEfp } from "@/utils/efp";
 
 interface DayActivity {
   date: string;
@@ -48,8 +49,15 @@ interface TodayActivityData {
 interface RepDrillDownExtendedData {
   last14DaysEntries: DayActivity[];
   goals: RepGoalData | null;
+
+  // Season totals
   totalSeasonFP: number;
   preseasonFP: number;
+  totalSeasonPRMR: number;
+  preseasonPRMR: number;
+  totalSeasonEFP: number;
+  preseasonEFP: number;
+
   // Personal averages for comparison
   avgDoorsPerDay: number;
   avgFPPerDay: number;
@@ -176,6 +184,16 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         }
         return entry.fp_plus || 0;
       };
+
+      // Helper to calculate PRMR from entry (prioritize sales_log)
+      const getPrmrFromEntry = (entry: any): number => {
+        const salesLog = entry.sales_log as any[];
+        const hasSalesLog = salesLog && salesLog.length > 0;
+        if (hasSalesLog) {
+          return calculateFromSalesLog(salesLog).prmr;
+        }
+        return entry.prmr || 0;
+      };
       
       // Calculate personal averages from 14-day entries
       const workDays = (entriesResult.data || []).filter(e => (e.doors_knocked || 0) > 0);
@@ -262,9 +280,14 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         focusTier: goalsResult.data.focus_tier || null,
       } : null;
 
-      // Calculate total FP (prioritize sales_log)
+      // Calculate total FP/PRMR (prioritize sales_log)
       const totalSeasonFP = (seasonFPResult.data || []).reduce((sum, e) => sum + getFpFromEntry(e), 0);
       const preseasonFP = (preseasonFPResult.data || []).reduce((sum, e) => sum + getFpFromEntry(e), 0);
+      const totalSeasonPRMR = (seasonFPResult.data || []).reduce((sum, e) => sum + getPrmrFromEntry(e), 0);
+      const preseasonPRMR = (preseasonFPResult.data || []).reduce((sum, e) => sum + getPrmrFromEntry(e), 0);
+
+      const totalSeasonEFP = calculateEfp(totalSeasonPRMR);
+      const preseasonEFP = calculateEfp(preseasonPRMR);
 
       // Extract planned dates array for use in components
       const plannedDates = (plannedDaysResult.data || []).map(d => d.planned_date);
@@ -313,11 +336,14 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         };
       };
 
+      const currentPreseasonProgress = efpModeEnabled ? preseasonEFP : preseasonFP;
+      const currentSeasonProgress = efpModeEnabled ? totalSeasonEFP : totalSeasonFP;
+
       const goalPace = {
-        preseason: calculateGoalPace(goals?.preseasonGoal, preseasonFP, PRESEASON_START, PRESEASON_END),
-        mustDo: calculateGoalPace(goals?.mustGoal, totalSeasonFP, PRESEASON_START, SUMMER_END),
-        willDo: calculateGoalPace(goals?.willGoal, totalSeasonFP, PRESEASON_START, SUMMER_END),
-        couldDo: calculateGoalPace(goals?.couldGoal, totalSeasonFP, PRESEASON_START, SUMMER_END),
+        preseason: calculateGoalPace(goals?.preseasonGoal, currentPreseasonProgress, PRESEASON_START, PRESEASON_END),
+        mustDo: calculateGoalPace(goals?.mustGoal, currentSeasonProgress, PRESEASON_START, SUMMER_END),
+        willDo: calculateGoalPace(goals?.willGoal, currentSeasonProgress, PRESEASON_START, SUMMER_END),
+        couldDo: calculateGoalPace(goals?.couldGoal, currentSeasonProgress, PRESEASON_START, SUMMER_END),
       };
 
       // Process today's activity data for timeline
@@ -334,6 +360,10 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         goals,
         totalSeasonFP,
         preseasonFP,
+        totalSeasonPRMR,
+        preseasonPRMR,
+        totalSeasonEFP,
+        preseasonEFP,
         avgDoorsPerDay,
         avgFPPerDay,
         daysAboveAvg,

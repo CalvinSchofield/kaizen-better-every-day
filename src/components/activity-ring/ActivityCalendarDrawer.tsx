@@ -67,7 +67,7 @@ export const ActivityCalendarDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
+      <DrawerContent className="max-h-[85vh] z-[70]">
         <DrawerHeader className="pb-2">
           <DrawerTitle className="flex items-center justify-center gap-2">
             <CalendarIcon className="h-5 w-5 text-muted-foreground" />
@@ -168,12 +168,12 @@ export const ActivityCalendarDrawer = ({
           {/* Legend */}
           <div className="flex items-center justify-center gap-4 mt-6 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-full bg-emerald-500" />
+              <div className="h-3 w-3 rounded-full bg-primary" />
               <span>High Activity</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-full bg-amber-400 flex items-center justify-center">
-                <span className="text-[8px]">⭐</span>
+              <div className="h-3 w-3 rounded-full bg-warning flex items-center justify-center">
+                <span className="text-[8px] text-warning-foreground">⭐</span>
               </div>
               <span>Sale Day</span>
             </div>
