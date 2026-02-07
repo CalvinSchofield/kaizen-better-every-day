@@ -37,6 +37,11 @@ interface ActivityRingHeroProps {
   };
   counterTimestamps?: Record<string, string[]>;
   salesLog?: Sale[];
+
+  /** Optional override for the center metric display (e.g. EFP). */
+  metricLabel?: string;
+  metricValue?: number;
+
   goalProgress?: number; // 0-100+, percentage towards daily goal (can exceed 100 for overflow)
   showGoalRing?: boolean;
   showLegend?: boolean;
@@ -107,6 +112,8 @@ export const ActivityRingHero = ({
   entry,
   counterTimestamps,
   salesLog = [],
+  metricLabel,
+  metricValue,
   goalProgress = 0,
   showGoalRing = true,
   showLegend = true,
@@ -161,6 +168,9 @@ export const ActivityRingHero = ({
     }
     return { fp: entry.fp_plus || 0, prmr: entry.prmr || 0 };
   }, [salesLog, entry.fp_plus, entry.prmr]);
+
+  const centerMetricValue = metricValue ?? fp;
+  const centerMetricLabel = metricLabel ?? 'FP+';
 
   const events = useMemo<TimelineEvent[]>(() => {
     const allEvents: TimelineEvent[] = [];
@@ -538,7 +548,7 @@ export const ActivityRingHero = ({
           transition={{ duration: 0.25, delay: 0.2 }}
         >
           <div className={`font-bold tabular-nums text-foreground ${config.fontSize}`}>
-            {formatFP(fp)} FP+
+            {formatFP(centerMetricValue)} {centerMetricLabel}
           </div>
           <div className="text-sm text-muted-foreground tabular-nums">
             ${formatPRMR(prmr)}

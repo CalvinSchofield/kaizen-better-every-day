@@ -187,7 +187,7 @@ export const SalesLogDrawer = ({
   
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
+      <DrawerContent className="max-h-[85vh] z-[70]">
         <DrawerHeader className="border-b pb-3">
           <div className="flex items-center justify-between">
             <DrawerTitle className="text-lg">

@@ -7,6 +7,7 @@ interface DaySummary {
   date: string;
   doors: number;
   fp: number;
+  prmr: number;
   hasSale: boolean;
   hasWork: boolean;
 }
@@ -41,10 +42,12 @@ export const useRepActivityCalendar = (
       const summaries: DaySummary[] = (entries || []).map(entry => {
         const salesLog = entry.sales_log as any[] | null;
         let fp = entry.fp_plus || 0;
+        let prmr = entry.prmr || 0;
         
         if (salesLog && salesLog.length > 0) {
           const calculated = calculateFromSalesLog(salesLog);
           fp = calculated.fp;
+          prmr = calculated.prmr;
         }
         
         // Check if has a sale (closes > 0 or fp sales in log)
@@ -55,6 +58,7 @@ export const useRepActivityCalendar = (
           date: entry.entry_date,
           doors: entry.doors_knocked || 0,
           fp,
+          prmr,
           hasSale,
           hasWork: !!entry.work_start_time || (entry.doors_knocked || 0) > 0,
         };

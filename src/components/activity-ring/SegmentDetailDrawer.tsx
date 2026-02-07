@@ -109,7 +109,7 @@ export const SegmentDetailDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
+      <DrawerContent className="max-h-[85vh] z-[70]">
         {!hasValidData ? (
           <div className="p-8 text-center text-muted-foreground">
             No segment details available

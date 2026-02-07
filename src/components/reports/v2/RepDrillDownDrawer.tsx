@@ -16,6 +16,7 @@ import { EffortCoachingCallouts } from "./EffortCoachingCallouts";
 import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
 import { useRepDayActivity } from "@/hooks/useRepDayActivity";
 import { useRepActivityCalendar } from "@/hooks/useRepActivityCalendar";
+import { calculateEfp } from "@/utils/efp";
 import { PurposeDisplayCard } from "@/components/goals/PurposeDisplayCard";
 import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { Sale } from "@/hooks/useDailyEntry";
@@ -169,25 +170,20 @@ export const RepDrillDownDrawer = ({
 
   // Calculate comprehensive goal data for the GoalProgressSection
   const goalData = useMemo(() => {
-    const dailyGoal = extendedData?.goals?.mustGoal 
-      ? extendedData.goals.mustGoal / 53 
-      : 2;
-    
+    const efpModeEnabled = extendedData?.efpModeEnabled ?? false;
+    const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
+
     const isPreseason = extendedData?.isPreseason ?? true;
     const focusTier = extendedData?.goals?.focusTier;
-    
+
     const seasonGoal = isPreseason 
-      ? extendedData?.goals?.preseasonGoal || 30
+      ? extendedData?.goals?.preseasonGoal || 0
       : focusTier === 'couldDo' 
         ? extendedData?.goals?.couldGoal || 0
         : focusTier === 'willDo' 
           ? extendedData?.goals?.willGoal || 0
           : extendedData?.goals?.mustGoal || 0;
-    
-    const seasonFP = isPreseason 
-      ? extendedData?.preseasonFP || 0
-      : extendedData?.totalSeasonFP || 0;
-    
+
     // Get pace info for current tier
     const paceInfo = isPreseason
       ? extendedData?.goalPace?.preseason
@@ -196,75 +192,105 @@ export const RepDrillDownDrawer = ({
         : focusTier === 'willDo'
           ? extendedData?.goalPace?.willDo
           : extendedData?.goalPace?.mustDo;
-    
+
+    // Daily goal should always be based on the active tier / preseason goal
+    const seasonTotalDays = paceInfo?.totalPlannedDays || 53;
+    const dailyGoalRaw = seasonGoal > 0 && seasonTotalDays > 0 ? (seasonGoal / seasonTotalDays) : 0;
+    const dailyGoal = dailyGoalRaw > 0 ? dailyGoalRaw : 2;
+
+    // Convert day/week/month/season progress into EFP when enabled
+    const todayMetric = efpModeEnabled ? calculateEfp(displayData.prmr) : displayData.fp;
+
+    const seasonMetric = isPreseason 
+      ? (efpModeEnabled ? (extendedData?.preseasonEFP || 0) : (extendedData?.preseasonFP || 0))
+      : (efpModeEnabled ? (extendedData?.totalSeasonEFP || 0) : (extendedData?.totalSeasonFP || 0));
+
     // Get planned days from extendedData for week/month calculations
     const plannedDates = extendedData?.plannedDates || [];
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd');
-    
+
     // Week calculations based on planned days
     const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
     const weekStartStr = format(weekStart, 'yyyy-MM-dd');
     const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
-    
+
     // Planned days in the week (excluding Sundays automatically via planned_work_days)
     const weekPlannedDays = plannedDates.filter(d => d >= weekStartStr && d <= weekEndStr).length;
     // Elapsed planned days (up to today)
     const weekElapsedPlannedDays = plannedDates.filter(d => d >= weekStartStr && d <= todayStr && d <= weekEndStr).length;
-    
-    const weekFP = calendarData?.summaries
-      ?.filter(s => {
+
+    const weekTotals = (calendarData?.summaries || [])
+      .filter(s => {
         const d = parseISO(s.date);
         return isWithinInterval(d, { start: weekStart, end: weekEnd });
       })
-      .reduce((acc, s) => acc + (s.fp || 0), 0) || 0;
-    
+      .reduce(
+        (acc, s) => {
+          acc.fp += s.fp || 0;
+          acc.prmr += s.prmr || 0;
+          return acc;
+        },
+        { fp: 0, prmr: 0 }
+      );
+
+    const weekFP = efpModeEnabled ? calculateEfp(weekTotals.prmr) : weekTotals.fp;
+
     // Week goal/expected based on planned days
     const weekGoal = dailyGoal * (weekPlannedDays || 6); // Fallback to 6 if no planned days
     const weekExpected = dailyGoal * (weekElapsedPlannedDays || Math.min(getDay(today) || 7, 6));
-    
+
     // Month calculations based on planned days
     const monthStart = startOfMonth(selectedDate);
     const monthEnd = endOfMonth(selectedDate);
     const monthStartStr = format(monthStart, 'yyyy-MM-dd');
     const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
-    
+
     const monthPlannedDays = plannedDates.filter(d => d >= monthStartStr && d <= monthEndStr).length;
     const monthElapsedPlannedDays = plannedDates.filter(d => d >= monthStartStr && d <= todayStr && d <= monthEndStr).length;
-    
-    const monthFP = calendarData?.summaries
-      ?.filter(s => {
+
+    const monthTotals = (calendarData?.summaries || [])
+      .filter(s => {
         const d = parseISO(s.date);
         return isWithinInterval(d, { start: monthStart, end: monthEnd });
       })
-      .reduce((acc, s) => acc + (s.fp || 0), 0) || 0;
-    
+      .reduce(
+        (acc, s) => {
+          acc.fp += s.fp || 0;
+          acc.prmr += s.prmr || 0;
+          return acc;
+        },
+        { fp: 0, prmr: 0 }
+      );
+
+    const monthFP = efpModeEnabled ? calculateEfp(monthTotals.prmr) : monthTotals.fp;
+
     // Month goal/expected based on planned days
     const daysInMonth = monthEnd.getDate();
     const fallbackPlannedDays = Math.round(daysInMonth * 0.6); // ~60% of days as fallback
     const monthGoal = dailyGoal * (monthPlannedDays || fallbackPlannedDays);
     const monthExpected = dailyGoal * (monthElapsedPlannedDays || Math.round(today.getDate() * 0.6));
-    
+
     // Season calculations
     const seasonDaysElapsed = paceInfo?.daysElapsed || 1;
-    const seasonTotalDays = paceInfo?.totalPlannedDays || 53;
     const seasonExpected = paceInfo?.expectedAtThisPoint || 0;
-    
+
     // Available tiers for summer
     const availableTiers = !isPreseason ? [
       extendedData?.goals?.mustGoal && { label: 'Must Do', goal: extendedData.goals.mustGoal, key: 'mustDo' },
       extendedData?.goals?.willGoal && { label: 'Will Do', goal: extendedData.goals.willGoal, key: 'willDo' },
       extendedData?.goals?.couldGoal && { label: 'Could Do', goal: extendedData.goals.couldGoal, key: 'couldDo' },
     ].filter(Boolean) as { label: string; goal: number; key: string }[] : undefined;
-    
-    // Calculate live FP if rep is actively working (unfinalized entry with sales)
+
+    // Calculate live metric if rep is actively working (unfinalized entry)
     const isRepWorking = isToday && dayActivity && !dayActivity.isFinalized && dayActivity.workStartTime;
-    const liveFP = isRepWorking ? displayData.fp : 0;
-    
+    const liveFP = isRepWorking ? todayMetric : 0;
+
     return {
+      metricLabel,
       dailyGoal,
-      todayFP: displayData.fp,
+      todayFP: todayMetric,
       liveFP,
       weekFP,
       weekExpected,
@@ -276,7 +302,7 @@ export const RepDrillDownDrawer = ({
       monthGoal,
       monthPlannedDays,
       monthElapsedPlannedDays,
-      seasonFP,
+      seasonFP: seasonMetric,
       seasonExpected,
       seasonGoal,
       seasonDaysElapsed,
@@ -285,9 +311,9 @@ export const RepDrillDownDrawer = ({
       focusTier,
       availableTiers,
       // For ring goal display - always use daily progress %
-      ringGoalProgress: dailyGoal > 0 ? (displayData.fp / dailyGoal) * 100 : 0,
+      ringGoalProgress: dailyGoal > 0 ? (todayMetric / dailyGoal) * 100 : 0,
     };
-  }, [calendarData?.summaries, extendedData, displayData.fp, selectedDate, isToday, dayActivity]);
+  }, [calendarData?.summaries, extendedData, displayData.fp, displayData.prmr, selectedDate, isToday, dayActivity]);
 
   if (!rep) return null;
 
@@ -345,10 +371,7 @@ export const RepDrillDownDrawer = ({
               daySummaries={calendarData?.summaries || []}
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
-              dailyGoal={extendedData?.goals?.mustGoal 
-                ? extendedData.goals.mustGoal / 53 
-                : 2
-              }
+              dailyGoal={goalData.dailyGoal}
             />
           </div>
           
@@ -389,6 +412,8 @@ export const RepDrillDownDrawer = ({
                       timezone: null,
                     }}
                     salesLog={dayActivity?.salesLog as any}
+                    metricLabel={goalData.metricLabel}
+                    metricValue={goalData.todayFP}
                     goalProgress={goalData.ringGoalProgress}
                     showGoalRing={goalData.ringGoalProgress > 0}
                     showGapPercent={true}
