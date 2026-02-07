@@ -11,7 +11,8 @@ import { Calendar, Clock, Footprints, Target, MessageSquare } from "lucide-react
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { EffortResult } from "@/utils/effortScore";
-import { RepDailyGoalProgress } from "./RepDailyGoalProgress";
+import { GoalProgressSection } from "./GoalProgressSection";
+import { EffortCoachingCallouts } from "./EffortCoachingCallouts";
 import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
 import { useRepDayActivity } from "@/hooks/useRepDayActivity";
 import { useRepActivityCalendar } from "@/hooks/useRepActivityCalendar";
@@ -26,11 +27,9 @@ import {
   ActivityCalendarDrawer,
   ActivityRingLegend,
   LegendTriggerButton,
-  GoalTimeframeToggle,
-  GoalTimeframe,
   SegmentDetailDrawer,
 } from "@/components/activity-ring";
-import { format, isSameDay, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
+import { format, isSameDay, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, getDay } from "date-fns";
 
 interface RepDrillDownData {
   userId: string;
@@ -84,7 +83,6 @@ export const RepDrillDownDrawer = ({
   const [showCalendar, setShowCalendar] = useState(false);
   const [hasAutoSelected, setHasAutoSelected] = useState(false);
   const [showLegend, setShowLegend] = useState(false);
-  const [goalTimeframe, setGoalTimeframe] = useState<GoalTimeframe>('D');
   const [selectedSegment, setSelectedSegment] = useState<RingSegment | null>(null);
   const [selectedSegmentSale, setSelectedSegmentSale] = useState<Sale | null>(null);
   
@@ -167,54 +165,100 @@ export const RepDrillDownDrawer = ({
         workEndTime: dayActivity?.workEndTime,
       };
 
-  // Calculate timeframe-based goal progress
-  const timeframeGoalProgress = useMemo(() => {
-    if (!calendarData?.summaries) return { D: 0, W: 0, M: 0, Y: 0 };
-    
+  // Calculate comprehensive goal data for the GoalProgressSection
+  const goalData = useMemo(() => {
     const dailyGoal = extendedData?.goals?.mustGoal 
       ? extendedData.goals.mustGoal / 53 
       : 2;
-    const seasonGoal = extendedData?.goals?.focusTier === 'couldDo' 
-      ? extendedData?.goals?.couldGoal 
-      : extendedData?.goals?.focusTier === 'willDo' 
-        ? extendedData?.goals?.willGoal 
-        : extendedData?.goals?.mustGoal || 0;
     
-    // Day progress
-    const dayFP = displayData.fp;
-    const dayProgress = dailyGoal > 0 ? (dayFP / dailyGoal) * 100 : 0;
+    const isPreseason = extendedData?.isPreseason ?? true;
+    const focusTier = extendedData?.goals?.focusTier;
     
-    // Week progress
+    const seasonGoal = isPreseason 
+      ? extendedData?.goals?.preseasonGoal || 30
+      : focusTier === 'couldDo' 
+        ? extendedData?.goals?.couldGoal || 0
+        : focusTier === 'willDo' 
+          ? extendedData?.goals?.willGoal || 0
+          : extendedData?.goals?.mustGoal || 0;
+    
+    const seasonFP = isPreseason 
+      ? extendedData?.preseasonFP || 0
+      : extendedData?.totalSeasonFP || 0;
+    
+    // Get pace info for current tier
+    const paceInfo = isPreseason
+      ? extendedData?.goalPace?.preseason
+      : focusTier === 'couldDo'
+        ? extendedData?.goalPace?.couldDo
+        : focusTier === 'willDo'
+          ? extendedData?.goalPace?.willDo
+          : extendedData?.goalPace?.mustDo;
+    
+    // Week calculations
     const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
-    const weekFP = calendarData.summaries
-      .filter(s => {
+    const today = new Date();
+    const dayOfWeek = getDay(today) || 7; // 1=Mon, 7=Sun
+    
+    const weekFP = calendarData?.summaries
+      ?.filter(s => {
         const d = parseISO(s.date);
         return isWithinInterval(d, { start: weekStart, end: weekEnd });
       })
-      .reduce((acc, s) => acc + (s.fp || 0), 0);
-    const weekGoal = dailyGoal * 7;
-    const weekProgress = weekGoal > 0 ? (weekFP / weekGoal) * 100 : 0;
+      .reduce((acc, s) => acc + (s.fp || 0), 0) || 0;
     
-    // Month progress
+    const weekGoal = dailyGoal * 7;
+    const weekExpected = dailyGoal * dayOfWeek; // Expected by today
+    
+    // Month calculations
     const monthStart = startOfMonth(selectedDate);
     const monthEnd = endOfMonth(selectedDate);
     const daysInMonth = monthEnd.getDate();
-    const monthFP = calendarData.summaries
-      .filter(s => {
+    const dayOfMonth = today.getDate();
+    
+    const monthFP = calendarData?.summaries
+      ?.filter(s => {
         const d = parseISO(s.date);
         return isWithinInterval(d, { start: monthStart, end: monthEnd });
       })
-      .reduce((acc, s) => acc + (s.fp || 0), 0);
+      .reduce((acc, s) => acc + (s.fp || 0), 0) || 0;
+    
     const monthGoal = dailyGoal * daysInMonth;
-    const monthProgress = monthGoal > 0 ? (monthFP / monthGoal) * 100 : 0;
+    const monthExpected = dailyGoal * dayOfMonth;
     
-    // Year/Season progress
-    const yearProgress = seasonGoal > 0 
-      ? ((extendedData?.totalSeasonFP || 0) / seasonGoal) * 100 
-      : 0;
+    // Season calculations
+    const seasonDaysElapsed = paceInfo?.daysElapsed || 1;
+    const seasonTotalDays = paceInfo?.totalPlannedDays || 53;
+    const seasonExpected = paceInfo?.expectedAtThisPoint || 0;
     
-    return { D: dayProgress, W: weekProgress, M: monthProgress, Y: yearProgress };
+    // Available tiers for summer
+    const availableTiers = !isPreseason ? [
+      extendedData?.goals?.mustGoal && { label: 'Must Do', goal: extendedData.goals.mustGoal, key: 'mustDo' },
+      extendedData?.goals?.willGoal && { label: 'Will Do', goal: extendedData.goals.willGoal, key: 'willDo' },
+      extendedData?.goals?.couldGoal && { label: 'Could Do', goal: extendedData.goals.couldGoal, key: 'couldDo' },
+    ].filter(Boolean) as { label: string; goal: number; key: string }[] : undefined;
+    
+    return {
+      dailyGoal,
+      todayFP: displayData.fp,
+      weekFP,
+      weekExpected,
+      weekGoal,
+      monthFP,
+      monthExpected,
+      monthGoal,
+      seasonFP,
+      seasonExpected,
+      seasonGoal,
+      seasonDaysElapsed,
+      seasonTotalDays,
+      isPreseason,
+      focusTier,
+      availableTiers,
+      // For ring goal display - always use daily progress %
+      ringGoalProgress: dailyGoal > 0 ? (displayData.fp / dailyGoal) * 100 : 0,
+    };
   }, [calendarData?.summaries, extendedData, displayData.fp, selectedDate]);
 
   if (!rep) return null;
@@ -225,9 +269,7 @@ export const RepDrillDownDrawer = ({
     return stripped.split(' ')[0] || stripped;
   };
 
-
-  // Get goal progress based on selected timeframe
-  const goalProgress = timeframeGoalProgress[goalTimeframe];
+  // Ring always shows daily goal progress
   
   // Calculate work start/end for segment drawer
   const workStart = dayActivity?.workStartTime ? parseISO(dayActivity.workStartTime) : null;
@@ -312,7 +354,6 @@ export const RepDrillDownDrawer = ({
                       fp_plus: displayData.fp,
                       prmr: displayData.prmr,
                       is_finalized: !isToday || (dayActivity?.isFinalized ?? false),
-                      // Always use dayActivity for work times when available (it has actual timestamps)
                       work_start_time: dayActivity?.workStartTime || displayData.workStartTime || null,
                       work_end_time: dayActivity?.workEndTime || displayData.workEndTime || null,
                       break_periods: dayActivity?.breakPeriods || [],
@@ -320,8 +361,8 @@ export const RepDrillDownDrawer = ({
                       timezone: null,
                     }}
                     salesLog={dayActivity?.salesLog as any}
-                    goalProgress={goalProgress}
-                    showGoalRing={goalProgress > 0}
+                    goalProgress={goalData.ringGoalProgress}
+                    showGoalRing={goalData.ringGoalProgress > 0}
                     showGapPercent={true}
                     showLegend={false}
                     size="md"
@@ -330,12 +371,6 @@ export const RepDrillDownDrawer = ({
                 </div>
               </div>
             )}
-            
-            {/* Timeframe Toggle */}
-            <GoalTimeframeToggle
-              selected={goalTimeframe}
-              onSelect={setGoalTimeframe}
-            />
             
             {/* Stats Grid */}
             <FinalizedStatsGrid
@@ -352,7 +387,18 @@ export const RepDrillDownDrawer = ({
               salesLog={dayActivity?.salesLog as any}
             />
             
-            {/* Coaching Callouts - Only for today or recent days */}
+            {/* Effort Coaching Callouts - Show for days with work */}
+            {displayData.hoursWorked > 0 && (
+              <EffortCoachingCallouts
+                workStartTime={dayActivity?.workStartTime || displayData.workStartTime}
+                workEndTime={dayActivity?.workEndTime || displayData.workEndTime}
+                totalBreakMinutes={dayActivity?.breakMinutes}
+                gapMinutes={dayActivity?.gapMinutes}
+                dayOfWeek={getDay(selectedDate)}
+              />
+            )}
+            
+            {/* Funnel Coaching Callouts - Only for today or recent days */}
             {isToday && displayData.doors > 0 && (
               <CoachingCallouts
                 doors={displayData.doors}
@@ -368,89 +414,29 @@ export const RepDrillDownDrawer = ({
               />
             )}
 
-            {/* Effort Flags */}
-            {isToday && rep.effort.flags.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium px-1">Effort Flags</h4>
-                <div className="flex flex-wrap gap-2">
-                  {rep.effort.flags.map((flag, idx) => (
-                    <Badge 
-                      key={idx}
-                      variant={flag.severity === 'critical' ? 'destructive' : 'secondary'}
-                      className="gap-1"
-                    >
-                      {flag.type === 'late_start' || flag.type === 'early_end' ? (
-                        <Clock className="w-3 h-3" />
-                      ) : (
-                        <Footprints className="w-3 h-3" />
-                      )}
-                      {flag.label}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <Separator />
 
-            {/* Goal Progress - Season-aware with Today + Season display */}
-            {extendedData?.goals ? (() => {
-              const dailyGoal = extendedData.goals.mustGoal 
-                ? extendedData.goals.mustGoal / 53 
-                : 2;
-              
-              // Determine which goal to show based on season
-              const isPreseason = extendedData.isPreseason;
-              const seasonGoal = isPreseason 
-                ? extendedData.goals.preseasonGoal || 30
-                : extendedData.goals.focusTier === 'couldDo' 
-                  ? extendedData.goals.couldGoal
-                  : extendedData.goals.focusTier === 'willDo'
-                    ? extendedData.goals.willGoal
-                    : extendedData.goals.mustGoal || 100;
-              
-              const seasonFP = isPreseason 
-                ? extendedData.preseasonFP 
-                : extendedData.totalSeasonFP;
-              
-              const seasonLabel = isPreseason 
-                ? 'Preseason'
-                : extendedData.goals.focusTier === 'couldDo' 
-                  ? 'Could Do'
-                  : extendedData.goals.focusTier === 'willDo'
-                    ? 'Will Do'
-                    : 'Must Do';
-              
-              // Get the right pace info
-              const paceInfo = isPreseason
-                ? extendedData.goalPace?.preseason
-                : extendedData.goals.focusTier === 'couldDo'
-                  ? extendedData.goalPace?.couldDo
-                  : extendedData.goals.focusTier === 'willDo'
-                    ? extendedData.goalPace?.willDo
-                    : extendedData.goalPace?.mustDo;
-              
-              // Build available tiers for summer
-              const availableTiers = !isPreseason ? [
-                extendedData.goals.mustGoal && { label: 'Must Do', goal: extendedData.goals.mustGoal },
-                extendedData.goals.willGoal && { label: 'Will Do', goal: extendedData.goals.willGoal },
-                extendedData.goals.couldGoal && { label: 'Could Do', goal: extendedData.goals.couldGoal },
-              ].filter(Boolean) as { label: string; goal: number }[] : undefined;
-              
-              return (
-                <RepDailyGoalProgress
-                  todayFP={displayData.fp}
-                  dailyGoal={dailyGoal}
-                  seasonFP={seasonFP}
-                  seasonGoal={seasonGoal}
-                  seasonLabel={seasonLabel}
-                  paceInfo={paceInfo}
-                  isPreseason={isPreseason}
-                  focusTier={extendedData.goals.focusTier}
-                  availableTiers={availableTiers}
-                />
-              );
-            })() : !isLoadingExtended && (
+            {/* Goal Progress Section with D/W/M/Y toggle */}
+            {extendedData?.goals ? (
+              <GoalProgressSection
+                todayFP={goalData.todayFP}
+                dailyGoal={goalData.dailyGoal}
+                weekFP={goalData.weekFP}
+                weekExpected={goalData.weekExpected}
+                weekGoal={goalData.weekGoal}
+                monthFP={goalData.monthFP}
+                monthExpected={goalData.monthExpected}
+                monthGoal={goalData.monthGoal}
+                seasonFP={goalData.seasonFP}
+                seasonExpected={goalData.seasonExpected}
+                seasonGoal={goalData.seasonGoal}
+                seasonDaysElapsed={goalData.seasonDaysElapsed}
+                seasonTotalDays={goalData.seasonTotalDays}
+                isPreseason={goalData.isPreseason}
+                focusTier={goalData.focusTier}
+                availableTiers={goalData.availableTiers}
+              />
+            ) : !isLoadingExtended && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
                 <Target className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">No goals configured</span>
