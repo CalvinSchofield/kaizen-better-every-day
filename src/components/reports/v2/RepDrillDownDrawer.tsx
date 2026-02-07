@@ -98,7 +98,7 @@ export const RepDrillDownDrawer = ({
   const { data: calendarData } = useRepActivityCalendar(userId);
   
   // Fetch selected day activity
-  const { data: dayActivity } = useRepDayActivity(userId, selectedDate);
+  const { data: dayActivity, isFetching: isDayActivityFetching } = useRepDayActivity(userId, selectedDate);
   
   // Auto-select best date when drawer opens or date range changes
   useEffect(() => {
@@ -337,12 +337,12 @@ export const RepDrillDownDrawer = ({
 
           <div className="p-4 space-y-4">
             {/* Activity Ring Hero with Legend Icon */}
-            {(displayData.doors > 0 || displayData.hoursWorked > 0) && (
-              <div className="relative">
+            {(displayData.doors > 0 || displayData.hoursWorked > 0) ? (
+              <div className="relative" key={format(selectedDate, 'yyyy-MM-dd')}>
                 {/* Legend trigger top-right of ring section */}
                 <LegendTriggerButton 
                   onClick={() => setShowLegend(true)} 
-                  className="absolute top-0 right-0"
+                  className="absolute top-0 right-0 z-10"
                 />
                 <div className="flex justify-center">
                   <ActivityRingHero
@@ -372,7 +372,15 @@ export const RepDrillDownDrawer = ({
                   />
                 </div>
               </div>
-            )}
+            ) : isDayActivityFetching ? (
+              <div className="flex justify-center py-8">
+                <div className="w-[220px] h-[220px] rounded-full bg-muted/30 animate-pulse" />
+              </div>
+            ) : dayActivity?.hasData === false ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                No activity recorded
+              </div>
+            ) : null}
             
             {/* Stats Grid */}
             <FinalizedStatsGrid

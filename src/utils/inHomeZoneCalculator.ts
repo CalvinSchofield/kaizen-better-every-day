@@ -231,6 +231,7 @@ export function calculateDoorstepZones(
   const MIN_GAP_MINUTES = 3;
   const MAX_GAP_MINUTES = 15;
   const BATCH_GRACE_MS = 60 * 1000; // 60s grace for batch-logged DM/pitch after next door
+  const MIN_DOORSTEP_DURATION = 2; // Minimum visual duration for short doorstep talks
   
   // Check if a time range overlaps with in-home zones
   const overlapsInHomeZone = (start: Date, end: Date): boolean => {
@@ -272,16 +273,15 @@ export function calculateDoorstepZones(
     return { hasDM, hasPitch };
   };
   
+  // Track which DM/pitch events have been assigned to zones
+  const usedDMIndices = new Set<number>();
+  const usedPitchIndices = new Set<number>();
+  
   // Iterate through consecutive door pairs
   for (let i = 0; i < doorEvents.length - 1; i++) {
     const doorA = doorEvents[i].timestamp;
     const doorB = doorEvents[i + 1].timestamp;
     const gapMinutes = (doorB.getTime() - doorA.getTime()) / (1000 * 60);
-    
-    // Only consider gaps in the 3-15 minute range
-    if (gapMinutes < MIN_GAP_MINUTES || gapMinutes > MAX_GAP_MINUTES) {
-      continue;
-    }
     
     // Skip if this gap is covered by an in-home zone
     if (overlapsInHomeZone(doorA, doorB)) {
@@ -301,17 +301,63 @@ export function calculateDoorstepZones(
     // Check if DM or Pitch was logged in this gap
     const { hasDM, hasPitch } = checkDMPitchBetween(doorA, doorB);
     
-    // Only mark as doorstep talk if DM or Pitch exists
+    // Mark used events
+    dmEvents.forEach((dm, idx) => {
+      const graceEnd = new Date(doorB.getTime() + BATCH_GRACE_MS);
+      if (dm.timestamp >= doorA && dm.timestamp <= graceEnd) {
+        usedDMIndices.add(idx);
+      }
+    });
+    pitchEvents.forEach((p, idx) => {
+      const graceEnd = new Date(doorB.getTime() + BATCH_GRACE_MS);
+      if (p.timestamp >= doorA && p.timestamp <= graceEnd) {
+        usedPitchIndices.add(idx);
+      }
+    });
+    
+    // For gaps within 3-15 min, use actual gap
     if (hasDM || hasPitch) {
-      zones.push({
-        startTime: doorA,
-        endTime: doorB,
-        duration: gapMinutes,
-        hasDM,
-        hasPitch,
-      });
+      if (gapMinutes >= MIN_GAP_MINUTES && gapMinutes <= MAX_GAP_MINUTES) {
+        zones.push({
+          startTime: doorA,
+          endTime: doorB,
+          duration: gapMinutes,
+          hasDM,
+          hasPitch,
+        });
+      } else if (gapMinutes < MIN_GAP_MINUTES) {
+        // For very short gaps (batch-logged), create a small visible segment
+        // Start from door timestamp, end = door + minimum duration
+        const syntheticEnd = new Date(doorA.getTime() + MIN_DOORSTEP_DURATION * 60 * 1000);
+        zones.push({
+          startTime: doorA,
+          endTime: syntheticEnd,
+          duration: MIN_DOORSTEP_DURATION,
+          hasDM,
+          hasPitch,
+        });
+      }
     }
   }
+  
+  // Also create zones for DM/pitch events that weren't matched to door pairs
+  // (e.g., last door of the day, or standalone pitches)
+  pitchEvents.forEach((p, idx) => {
+    if (usedPitchIndices.has(idx)) return;
+    
+    // Check if overlaps with in-home zone
+    const syntheticEnd = new Date(p.timestamp.getTime() + MIN_DOORSTEP_DURATION * 60 * 1000);
+    if (overlapsInHomeZone(p.timestamp, syntheticEnd)) return;
+    if (overlapsBreak(p.timestamp, syntheticEnd)) return;
+    
+    zones.push({
+      startTime: p.timestamp,
+      endTime: syntheticEnd,
+      duration: MIN_DOORSTEP_DURATION,
+      hasDM: false,
+      hasPitch: true,
+    });
+  });
   
   return zones;
 }

@@ -252,7 +252,7 @@ export const ActivityRingHero = ({
   const partialAngle = (goalLoops - fullLoops) * 360;
 
   useEffect(() => {
-    const timer = setTimeout(() => setAnimationComplete(true), 1200);
+    const timer = setTimeout(() => setAnimationComplete(true), 600);
     return () => clearTimeout(timer);
   }, []);
 
@@ -327,9 +327,9 @@ export const ActivityRingHero = ({
                 strokeDashoffset: 2 * Math.PI * config.innerRadius * (1 - Math.min(goalLoops, 1))
               }}
               transition={{ 
-                duration: 1.2, 
-                delay: 0.2,
-                ease: [0.25, 0.1, 0.25, 1], // Custom easing: slow start, fast middle, slow end
+                duration: 0.6, 
+                delay: 0.1,
+                ease: [0.25, 0.1, 0.25, 1],
               }}
               style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }}
             />
@@ -354,9 +354,9 @@ export const ActivityRingHero = ({
                   initial={{ strokeDashoffset: 2 * Math.PI * config.innerRadius }}
                   animate={{ strokeDashoffset: 0 }}
                   transition={{ 
-                    duration: 0.9, 
-                    delay: 1.4 + loopIdx * 0.7,
-                    ease: [0.25, 0.1, 0.25, 1], // Same Apple-style easing
+                    duration: 0.5, 
+                    delay: 0.7 + loopIdx * 0.3,
+                    ease: [0.25, 0.1, 0.25, 1],
                   }}
                   style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }}
                 />
@@ -373,8 +373,8 @@ export const ActivityRingHero = ({
                   initial={{ pathLength: 0, opacity: 0 }}
                   animate={{ pathLength: 1, opacity: 1 }}
                   transition={{ 
-                    duration: 0.8, 
-                    delay: 1.4 + Math.min(fullLoops - 1, 2) * 0.7,
+                    duration: 0.4, 
+                    delay: 0.7 + Math.min(fullLoops - 1, 2) * 0.3,
                     ease: [0.25, 0.1, 0.25, 1],
                   }}
                 />
@@ -408,7 +408,7 @@ export const ActivityRingHero = ({
                     opacity={isGap ? 0.5 : 1}
                     initial={{ pathLength: 0, opacity: 0 }}
                     animate={{ pathLength: 1, opacity: isGap ? 0.5 : 1 }}
-                    transition={{ duration: 0.6, delay: originalIdx * 0.02, ease: "easeOut" }}
+                    transition={{ duration: 0.3, delay: originalIdx * 0.01, ease: "easeOut" }}
                     style={{
                       strokeDasharray: isBreak ? '6 6' : undefined,
                       cursor: (isBreak || isGap) ? 'pointer' : 'default',
@@ -438,7 +438,7 @@ export const ActivityRingHero = ({
                     strokeLinecap="butt"
                     initial={{ pathLength: 0, opacity: 0 }}
                     animate={{ pathLength: 1, opacity: 1 }}
-                    transition={{ duration: 0.6, delay: originalIdx * 0.02, ease: "easeOut" }}
+                    transition={{ duration: 0.3, delay: originalIdx * 0.01, ease: "easeOut" }}
                     style={{ cursor: 'pointer' }}
                     onClick={(e) => handleSegmentClick(segment, e)}
                   />
@@ -465,7 +465,7 @@ export const ActivityRingHero = ({
                     strokeLinecap="butt"
                     initial={{ pathLength: 0, opacity: 0 }}
                     animate={{ pathLength: 1, opacity: 1 }}
-                    transition={{ duration: 0.6, delay: originalIdx * 0.02, ease: "easeOut" }}
+                    transition={{ duration: 0.3, delay: originalIdx * 0.01, ease: "easeOut" }}
                     style={{ cursor: 'pointer' }}
                     onClick={(e) => handleSegmentClick(segment, e)}
                   />
@@ -492,7 +492,7 @@ export const ActivityRingHero = ({
                     strokeLinecap="butt"
                     initial={{ pathLength: 0, opacity: 0 }}
                     animate={{ pathLength: 1, opacity: 1 }}
-                    transition={{ duration: 0.4, delay: 0.8 + originalIdx * 0.03, ease: "easeOut" }}
+                    transition={{ duration: 0.25, delay: 0.3 + originalIdx * 0.01, ease: "easeOut" }}
                     style={{ cursor: 'pointer' }}
                     onClick={(e) => handleSegmentClick(segment, e)}
                   />
@@ -506,7 +506,7 @@ export const ActivityRingHero = ({
           className="absolute inset-0 flex flex-col items-center justify-center text-center"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4, delay: 0.5 }}
+          transition={{ duration: 0.25, delay: 0.2 }}
         >
           <div className={`font-bold tabular-nums text-foreground ${config.fontSize}`}>
             {formatFP(fp)} FP+
