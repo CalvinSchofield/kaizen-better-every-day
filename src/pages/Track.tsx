@@ -1,20 +1,25 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Lock, BarChart3 } from "lucide-react";
+import { Lock, BarChart3, Calendar } from "lucide-react";
 import { useRepData } from "@/hooks/useRepData";
 import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { TimeTrackingBar } from "@/components/TimeTrackingBar";
 import { QTallyGrid } from "@/components/QTallyGrid";
 import { SalesLoggerCard } from "@/components/SalesLoggerCard";
 import { BulkEntryWarning } from "@/components/ui/BulkEntryWarning";
 import { DailyEntry, Sale } from "@/hooks/useDailyEntry";
+import { detectBulkEntry } from "@/utils/bulkEntryDetector";
 import {
   ActivityRingHero,
   FinalizedDayHeader,
   FinalizedStatsGrid,
   RingGoalProgress,
+  ActivityCalendarDrawer,
+  BulkEntryCoaching,
 } from "@/components/activity-ring";
 import { PreWorkingState } from "@/components/track";
 
@@ -68,6 +73,14 @@ const Track = ({
   isLoadingEntry = false,
 }: TrackProps) => {
   const { repData, loading: loadingRepData, isInitializing } = useRepData();
+  const userIdData = useCurrentUserId();
+  const userId = userIdData.userId;
+  
+  // Check if user is a pre-blitz rookie - use centralized hook (must be before early returns)
+  const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
+  
+  // Calendar drawer state for finalized view
+  const [showCalendar, setShowCalendar] = useState(false);
   
   // Bulk entry warning state
   const [showBulkWarning, setShowBulkWarning] = useState(false);
@@ -106,29 +119,15 @@ const Track = ({
   // Get counter layout config
   const counterLayoutConfig = (repData as any)?.counter_layout_config || undefined;
 
+  // Detect bulk entry for rep coaching (must be before early returns)
+  const bulkEntryStats = useMemo(() => {
+    const timestamps = counterTimestamps || entry.counter_timestamps || {};
+    return detectBulkEntry(timestamps);
+  }, [counterTimestamps, entry.counter_timestamps]);
+
   // Only show skeleton if truly initializing AND we have no entry data
   // If we have cached entry data, show it instantly - Monarch-style
   const hasEntryData = entry && (entry.doors_knocked > 0 || entry.work_start_time);
-  
-  if (isInitializing && !hasEntryData) {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="flex-shrink-0 p-4">
-          <Skeleton className="h-16 w-full rounded-xl" />
-        </div>
-        <div className="flex-1 px-4 pt-4 pb-4">
-          <div className="grid grid-cols-2 gap-3 h-full">
-            {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-full min-h-[100px] rounded-xl" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  // Check if user is a pre-blitz rookie - use centralized hook
-  const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
 
   // Show locked state for pre-blitz rookies
   if (isPreBlitzRookie) {
@@ -166,12 +165,24 @@ const Track = ({
   if (entry.is_finalized) {
     return (
       <div className="flex flex-col h-full overflow-y-auto pb-24">
-        {/* Finalized Day Header */}
-        <FinalizedDayHeader
-          workStart={entry.work_start_time}
-          workEnd={entry.work_end_time}
-          entryDate={'entry_date' in entry ? entry.entry_date : undefined}
-        />
+        {/* Finalized Day Header with Calendar Access */}
+        <div className="flex items-center justify-between mx-4 mt-4 mb-2">
+          <div className="flex-1">
+            <FinalizedDayHeader
+              workStart={entry.work_start_time}
+              workEnd={entry.work_end_time}
+              entryDate={'entry_date' in entry ? entry.entry_date : undefined}
+            />
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowCalendar(true)}
+            className="h-10 w-10 rounded-full bg-muted/50 hover:bg-muted ml-2 flex-shrink-0"
+          >
+            <Calendar className="h-5 w-5 text-muted-foreground" />
+          </Button>
+        </div>
 
         {/* Activity Ring Hero - replaces QTallyGrid */}
         <div className="px-4 py-6 flex justify-center">
@@ -183,6 +194,15 @@ const Track = ({
             size="lg"
           />
         </div>
+
+        {/* Bulk Entry Coaching for Reps - simple, money-focused */}
+        {bulkEntryStats.bulkEntryDetected && (
+          <BulkEntryCoaching
+            batchedEventsPercent={bulkEntryStats.batchedEventsPercent}
+            largestBatch={bulkEntryStats.largestBatch}
+            className="mb-4"
+          />
+        )}
 
         {/* Stats summary grid */}
         <FinalizedStatsGrid
@@ -205,6 +225,20 @@ const Track = ({
               onDeleteSale={onDeleteSale}
             />
           </div>
+        )}
+
+        {/* Activity Calendar Drawer */}
+        {userId && (
+          <ActivityCalendarDrawer
+            open={showCalendar}
+            onOpenChange={setShowCalendar}
+            userId={userId}
+            selectedDate={new Date()}
+            onSelectDate={(date) => {
+              // For now, just close - in future could navigate to that day's details
+              setShowCalendar(false);
+            }}
+          />
         )}
       </div>
     );
