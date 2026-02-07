@@ -22,9 +22,10 @@ interface LayoutProps {
   headerRightContent?: ReactNode;
   isEntryFinalized?: boolean;
   onViewRecap?: () => void;
+  hasWorkStarted?: boolean; // Whether work_start_time is set - hides reset when false
 }
 
-const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicator, headerRightContent, isEntryFinalized, onViewRecap }: LayoutProps) => {
+const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicator, headerRightContent, isEntryFinalized, onViewRecap, hasWorkStarted }: LayoutProps) => {
   const location = useLocation();
   const { repData } = useRepData();
   const { isKnockingMode } = useAppMode(repData);
@@ -375,7 +376,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                   >
                     <TrendingUp className="h-5 w-5" />
                   </Button>
-                ) : onReset ? (
+                ) : onReset && hasWorkStarted !== false ? (
                   <Button
                     variant="ghost"
                     size="icon"
