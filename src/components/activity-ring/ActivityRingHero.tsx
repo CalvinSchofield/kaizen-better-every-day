@@ -174,8 +174,12 @@ export const ActivityRingHero = ({
       }
     });
     
+    // Only add sales from sales_log if they have valid FP (not install_status: never_installed)
     salesLog.forEach(sale => {
       if (sale.timestamp) {
+        // Skip sales that don't count (never installed = no actual sale)
+        if (sale.install_status === 'never_installed') return;
+        
         try {
           const saleAny = sale as any;
           allEvents.push({ 
@@ -288,7 +292,7 @@ export const ActivityRingHero = ({
                   fill="none"
                   stroke={RING_COLORS.goalProgress}
                   strokeWidth={config.innerStroke}
-                  strokeLinecap="round"
+                  strokeLinecap="butt"
                   opacity={1 - loopIdx * 0.25}
                   strokeDasharray={`${2 * Math.PI * config.innerRadius}`}
                   strokeDashoffset={0}
@@ -312,7 +316,7 @@ export const ActivityRingHero = ({
               fill="none"
               stroke={RING_COLORS.goalProgress}
               strokeWidth={config.innerStroke}
-              strokeLinecap="round"
+              strokeLinecap="butt"
               initial={{ pathLength: 0, opacity: 0 }}
               animate={{ pathLength: 1, opacity: 1 }}
               transition={{ 
@@ -353,7 +357,7 @@ export const ActivityRingHero = ({
                   fill="none"
                   stroke={RING_COLORS[segment.type]}
                   strokeWidth={strokeWidth}
-                  strokeLinecap="round"
+                  strokeLinecap="butt"
                   opacity={isGap ? 0.5 : 1}
                   initial={{ pathLength: 0, opacity: 0 }}
                   animate={{ pathLength: 1, opacity: isGap ? 0.5 : 1 }}
