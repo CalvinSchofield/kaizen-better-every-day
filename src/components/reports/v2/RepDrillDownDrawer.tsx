@@ -279,6 +279,10 @@ export const RepDrillDownDrawer = ({
                   daySummaries={calendarData?.summaries || []}
                   selectedDate={selectedDate}
                   onSelectDate={setSelectedDate}
+                  dailyGoal={extendedData?.goals?.mustGoal 
+                    ? extendedData.goals.mustGoal / 53 
+                    : 2
+                  }
                 />
               </div>
               <Button
