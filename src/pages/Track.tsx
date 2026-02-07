@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Lock, BarChart3 } from "lucide-react";
 import { useRepData } from "@/hooks/useRepData";
 import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
@@ -219,11 +220,16 @@ const Track = ({
     );
   }
 
-  // Active tracking state - show normal counters
+  // Active tracking state - show normal counters with entrance animation
   return (
     <div className="flex flex-col h-full">
       {/* Time Tracking Bar */}
-      <div className="flex-shrink-0">
+      <motion.div 
+        className="flex-shrink-0"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+      >
         <TimeTrackingBar
           workStartTime={entry.work_start_time}
           workEndTime={entry.work_end_time}
@@ -236,7 +242,7 @@ const Track = ({
           onUpdateTime={onUpdateTime}
           onClearEndTime={onClearEndTime}
         />
-      </div>
+      </motion.div>
 
       {/* Bulk Entry Warning Banner */}
       <BulkEntryWarning 
@@ -244,8 +250,17 @@ const Track = ({
         onDismiss={() => setShowBulkWarning(false)} 
       />
 
-      {/* Counter Grid - Fills remaining space */}
-      <div className="flex-1 px-4 pt-4 pb-4 overflow-hidden flex flex-col gap-4">
+      {/* Counter Grid - Fills remaining space with staggered entrance */}
+      <motion.div 
+        className="flex-1 px-4 pt-4 pb-4 overflow-hidden flex flex-col gap-4"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ 
+          duration: 0.5, 
+          delay: 0.15,
+          ease: [0.25, 0.1, 0.25, 1] 
+        }}
+      >
         <div className="flex-1 min-h-0">
           <QTallyGrid
             entry={entry}
@@ -260,15 +275,20 @@ const Track = ({
         
         {/* Sales Logger Card - Only show when enabled and has sales */}
         {salesLoggerEnabled && salesLog.length > 0 && onEditSale && onDeleteSale && (
-          <div className="flex-shrink-0">
+          <motion.div 
+            className="flex-shrink-0"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+          >
             <SalesLoggerCard
               salesLog={salesLog}
               onEditSale={onEditSale}
               onDeleteSale={onDeleteSale}
             />
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 };
