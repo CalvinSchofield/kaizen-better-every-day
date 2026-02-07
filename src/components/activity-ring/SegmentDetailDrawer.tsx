@@ -62,6 +62,7 @@ const SEGMENT_COLORS: Record<string, string> = {
   seen_out: 'hsl(45, 90%, 55%)',
   break: 'hsl(35, 90%, 50%)',
   gap: 'hsl(0, 0%, 30%)',
+  pitch: 'hsl(280, 60%, 55%)', // Purple for pitches
 };
 
 const SEGMENT_LABELS: Record<string, string> = {
@@ -73,6 +74,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   seen_out: 'Seen Out',
   break: 'Break',
   gap: 'Gap',
+  pitch: 'Pitch',
 };
 
 export const SegmentDetailDrawer = ({
@@ -84,20 +86,23 @@ export const SegmentDetailDrawer = ({
   workEnd,
   totalWorkMinutes,
 }: SegmentDetailDrawerProps) => {
-  if (!segment || !workStart || !workEnd) return null;
+  // Calculate derived values only when we have valid data
+  const hasValidData = segment && workStart && workEnd;
   
-  const startTime = angleToTime(segment.startAngle, workStart, workEnd);
-  const endTime = angleToTime(segment.endAngle, workStart, workEnd);
-  const duration = segment.duration || 
-    ((segment.endAngle - segment.startAngle) / 360) * totalWorkMinutes;
+  const startTime = hasValidData ? angleToTime(segment.startAngle, workStart, workEnd) : null;
+  const endTime = hasValidData ? angleToTime(segment.endAngle, workStart, workEnd) : null;
+  const duration = hasValidData 
+    ? (segment.duration || ((segment.endAngle - segment.startAngle) / 360) * totalWorkMinutes)
+    : 0;
   
-  const isSale = segment.type === 'sale';
-  const isPresentation = segment.type === 'presentation';
-  const isGap = segment.type === 'gap';
-  const isBreak = segment.type === 'break';
-  const isTransition = segment.type === 'transition';
-  const isDoorstep = segment.type === 'doorstep';
-  const isSeenOut = segment.type === 'seen_out';
+  const isSale = segment?.type === 'sale';
+  const isPresentation = segment?.type === 'presentation';
+  const isGap = segment?.type === 'gap';
+  const isBreak = segment?.type === 'break';
+  const isTransition = segment?.type === 'transition';
+  const isDoorstep = segment?.type === 'doorstep';
+  const isSeenOut = segment?.type === 'seen_out';
+  const isPitch = segment?.type === 'pitch';
   
   // For gap segments over 20 min, show coaching callout
   const isCoachingOpportunity = isGap && duration >= 20;
@@ -105,229 +110,250 @@ export const SegmentDetailDrawer = ({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh]">
-        <DrawerHeader className="border-b pb-3">
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-4 h-4 rounded-sm"
-              style={{ backgroundColor: SEGMENT_COLORS[segment.type] }}
-            />
-            <DrawerTitle className="text-lg">
-              {SEGMENT_LABELS[segment.type]}
-            </DrawerTitle>
-            {segment.source === 'estimated' && (
-              <Badge variant="secondary" className="text-[10px]">
-                Estimated
-              </Badge>
-            )}
+        {!hasValidData ? (
+          <div className="p-8 text-center text-muted-foreground">
+            No segment details available
           </div>
-        </DrawerHeader>
+        ) : (
+          <>
+            <DrawerHeader className="border-b pb-3">
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-4 h-4 rounded-sm"
+                  style={{ backgroundColor: SEGMENT_COLORS[segment.type] }}
+                />
+                <DrawerTitle className="text-lg">
+                  {SEGMENT_LABELS[segment.type]}
+                </DrawerTitle>
+                {segment.source === 'estimated' && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    Estimated
+                  </Badge>
+                )}
+              </div>
+            </DrawerHeader>
 
-        <div className="p-4 space-y-4 overflow-y-auto">
-          {/* Time Info - Always shown */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Time</span>
-            </div>
-            <div className="text-sm font-medium tabular-nums">
-              {format(startTime, 'h:mm a')} – {format(endTime, 'h:mm a')}
-            </div>
-          </div>
+            <div className="p-4 space-y-4 overflow-y-auto">
+              {/* Time Info - Always shown */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Time</span>
+                </div>
+                <div className="text-sm font-medium tabular-nums">
+                  {format(startTime!, 'h:mm a')} – {format(endTime!, 'h:mm a')}
+                </div>
+              </div>
           
-          {/* Duration - Always shown */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-            <div className="flex items-center gap-2">
-              <Timer className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Duration</span>
-            </div>
-            <div className="text-sm font-medium tabular-nums">
-              {formatDuration(duration)}
-            </div>
-          </div>
-
-          {/* Sale-specific details */}
-          {isSale && sale && (
-            <>
-              <Separator />
-              
-              {/* PRMR */}
+              {/* Duration - Always shown */}
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                 <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-primary" />
-                  <span className="text-sm text-muted-foreground">PRMR</span>
+                  <Timer className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Duration</span>
                 </div>
-                <div className="text-sm font-bold text-primary tabular-nums">
-                  ${formatPRMR(sale.prmr)}
+                <div className="text-sm font-medium tabular-nums">
+                  {formatDuration(duration)}
                 </div>
               </div>
-              
-              {/* Sale Type */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                <div className="flex items-center gap-2">
-                  <Target className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Type</span>
-                </div>
-                <Badge variant={sale.type === 'fp' ? 'default' : 'secondary'}>
-                  {sale.type === 'fp' ? 'FP+' : 'Upgrade'}
-                </Badge>
-              </div>
-              
-              {/* Deal Type if logged */}
-              {sale.deal_type && (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                  <div className="flex items-center gap-2">
-                    <Home className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Deal</span>
+
+              {/* Sale-specific details */}
+              {isSale && sale && (
+                <>
+                  <Separator />
+                  
+                  {/* PRMR */}
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-primary" />
+                      <span className="text-sm text-muted-foreground">PRMR</span>
+                    </div>
+                    <div className="text-sm font-bold text-primary tabular-nums">
+                      ${formatPRMR(sale.prmr)}
+                    </div>
                   </div>
-                  <Badge variant="outline" className="capitalize">
-                    {sale.deal_type}
-                  </Badge>
-                </div>
-              )}
-              
-              {/* Difficulty if logged */}
-              {sale.difficulty && (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Difficulty</span>
+                  
+                  {/* Sale Type */}
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Type</span>
+                    </div>
+                    <Badge variant={sale.type === 'fp' ? 'default' : 'secondary'}>
+                      {sale.type === 'fp' ? 'FP+' : 'Upgrade'}
+                    </Badge>
                   </div>
-                  <Badge 
-                    variant="outline"
-                    className={cn(
-                      "capitalize",
-                      sale.difficulty === 'easy' && "border-green-500 text-green-600",
-                      sale.difficulty === 'medium' && "border-amber-500 text-amber-600",
-                      sale.difficulty === 'hard' && "border-red-500 text-red-600"
-                    )}
-                  >
-                    {sale.difficulty}
-                  </Badge>
-                </div>
+                  
+                  {/* Deal Type if logged */}
+                  {sale.deal_type && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <Home className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Deal</span>
+                      </div>
+                      <Badge variant="outline" className="capitalize">
+                        {sale.deal_type}
+                      </Badge>
+                    </div>
+                  )}
+                  
+                  {/* Difficulty if logged */}
+                  {sale.difficulty && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Difficulty</span>
+                      </div>
+                      <Badge 
+                        variant="outline"
+                        className={cn(
+                          "capitalize",
+                          sale.difficulty === 'easy' && "border-primary text-primary",
+                          sale.difficulty === 'medium' && "border-warning text-warning",
+                          sale.difficulty === 'hard' && "border-destructive text-destructive"
+                        )}
+                      >
+                        {sale.difficulty}
+                      </Badge>
+                    </div>
+                  )}
+                  
+                  {/* Money Spent if logged */}
+                  {sale.money_spent !== undefined && sale.money_spent > 0 && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Money Spent</span>
+                      </div>
+                      <span className="text-sm font-medium tabular-nums">
+                        ${sale.money_spent}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Customer Name if CRM data */}
+                  {sale.customer_name && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                      <span className="text-sm text-muted-foreground">Customer</span>
+                      <span className="text-sm font-medium">{sale.customer_name}</span>
+                    </div>
+                  )}
+                </>
               )}
-              
-              {/* Money Spent if logged */}
-              {sale.money_spent !== undefined && sale.money_spent > 0 && (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Money Spent</span>
+
+              {/* Presentation without sale */}
+              {isPresentation && (
+                <>
+                  <Separator />
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
+                    <Home className="w-4 h-4 text-warning" />
+                    <span className="text-sm text-warning">
+                      Presentation without sale logged
+                    </span>
                   </div>
-                  <span className="text-sm font-medium tabular-nums">
-                    ${sale.money_spent}
-                  </span>
-                </div>
+                </>
               )}
-              
-              {/* Customer Name if CRM data */}
-              {sale.customer_name && (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                  <span className="text-sm text-muted-foreground">Customer</span>
-                  <span className="text-sm font-medium">{sale.customer_name}</span>
-                </div>
+
+              {/* Break details */}
+              {isBreak && (
+                <>
+                  <Separator />
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
+                    <Coffee className="w-4 h-4 text-warning" />
+                    <span className="text-sm text-warning">
+                      Scheduled break period
+                    </span>
+                  </div>
+                </>
               )}
-            </>
-          )}
 
-          {/* Presentation without sale */}
-          {isPresentation && (
-            <>
-              <Separator />
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                <Home className="w-4 h-4 text-amber-500" />
-                <span className="text-sm text-amber-600 dark:text-amber-400">
-                  Presentation without sale logged
-                </span>
-              </div>
-            </>
-          )}
+              {/* Gap coaching callout */}
+              {isCoachingOpportunity && (
+                <>
+                  <Separator />
+                  <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-destructive" />
+                      <span className="text-sm font-medium text-destructive">
+                        Coaching Opportunity
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      This {formatDuration(duration)} gap may indicate idle time. 
+                      Consider checking in about time management or potential blockers.
+                    </p>
+                  </div>
+                </>
+              )}
 
-          {/* Break details */}
-          {isBreak && (
-            <>
-              <Separator />
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                <Coffee className="w-4 h-4 text-orange-500" />
-                <span className="text-sm text-orange-600 dark:text-orange-400">
-                  Scheduled break period
-                </span>
-              </div>
-            </>
-          )}
+              {/* Transition info */}
+              {isTransition && (
+                <>
+                  <Separator />
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
+                    <Home className="w-4 h-4 text-warning" />
+                    <span className="text-sm text-warning">
+                      Entered home for presentation
+                    </span>
+                  </div>
+                </>
+              )}
 
-          {/* Gap coaching callout */}
-          {isCoachingOpportunity && (
-            <>
-              <Separator />
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-destructive" />
-                  <span className="text-sm font-medium text-destructive">
-                    Coaching Opportunity
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  This {formatDuration(duration)} gap may indicate idle time. 
-                  Consider checking in about time management or potential blockers.
-                </p>
-              </div>
-            </>
-          )}
+              {/* Doorstep conversation */}
+              {isDoorstep && (
+                <>
+                  <Separator />
+                  <div className="p-3 rounded-lg bg-accent/30 border border-accent/50 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-accent-foreground" />
+                      <span className="text-sm font-medium text-accent-foreground">
+                        Doorstep Conversation
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Rep talked to someone at the door but didn't transition inside.
+                      {segment.hasPitch && " A pitch was attempted."}
+                      {segment.hasDM && !segment.hasPitch && " Decision maker was contacted."}
+                    </p>
+                  </div>
+                </>
+              )}
 
-          {/* Transition info */}
-          {isTransition && (
-            <>
-              <Separator />
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                <Home className="w-4 h-4 text-amber-500" />
-                <span className="text-sm text-amber-600 dark:text-amber-400">
-                  Entered home for presentation
-                </span>
-              </div>
-            </>
-          )}
+              {/* Seen out */}
+              {isSeenOut && (
+                <>
+                  <Separator />
+                  <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <DoorOpen className="w-4 h-4 text-warning" />
+                      <span className="text-sm font-medium text-warning">
+                        Seen Out
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Got into the home but was asked to leave before presenting.
+                    </p>
+                    <p className="text-xs text-muted-foreground/80 italic">
+                      Coach: Work on building rapport quickly after entering.
+                    </p>
+                  </div>
+                </>
+              )}
 
-          {/* Doorstep conversation */}
-          {isDoorstep && (
-            <>
-              <Separator />
-              <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-cyan-500" />
-                  <span className="text-sm font-medium text-cyan-600 dark:text-cyan-400">
-                    Doorstep Conversation
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Rep talked to someone at the door but didn't transition inside.
-                  {segment.hasPitch && " A pitch was attempted."}
-                  {segment.hasDM && !segment.hasPitch && " Decision maker was contacted."}
-                </p>
-              </div>
-            </>
-          )}
-
-          {/* Seen out */}
-          {isSeenOut && (
-            <>
-              <Separator />
-              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 space-y-2">
-                <div className="flex items-center gap-2">
-                  <DoorOpen className="w-4 h-4 text-amber-500" />
-                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                    Seen Out
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Got into the home but was asked to leave before presenting.
-                </p>
-                <p className="text-xs text-muted-foreground/80 italic">
-                  Coach: Work on building rapport quickly after entering.
-                </p>
-              </div>
-            </>
-          )}
-        </div>
+              {/* Pitch info */}
+              {isPitch && (
+                <>
+                  <Separator />
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary/30 border border-secondary/50">
+                    <Target className="w-4 h-4 text-secondary-foreground" />
+                    <span className="text-sm text-secondary-foreground">
+                      Pitch attempt (no transition)
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
       </DrawerContent>
     </Drawer>
   );

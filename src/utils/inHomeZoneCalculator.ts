@@ -39,7 +39,7 @@ export interface InHomeZone {
 export interface RingSegment {
   startAngle: number;
   endAngle: number;
-  type: 'knocking' | 'transition' | 'presentation' | 'sale' | 'break' | 'gap' | 'doorstep' | 'seen_out';
+  type: 'knocking' | 'transition' | 'presentation' | 'sale' | 'break' | 'gap' | 'doorstep' | 'seen_out' | 'pitch';
   source?: InHomeZoneSource;
   duration?: number; // Duration in minutes for interactive segments
   hasDM?: boolean; // For doorstep segments
@@ -406,7 +406,7 @@ export function buildRingSegments(
   interface TimeInterval {
     start: number;
     end: number;
-    type: 'knocking' | 'transition' | 'presentation' | 'sale' | 'break' | 'gap' | 'doorstep' | 'seen_out';
+    type: 'knocking' | 'transition' | 'presentation' | 'sale' | 'break' | 'gap' | 'doorstep' | 'seen_out' | 'pitch';
     priority: number;
     source?: InHomeZoneSource;
     duration?: number;
@@ -518,6 +518,55 @@ export function buildRingSegments(
     }
     intervals.push({ start: clusterStart, end: Math.min(360, clusterEnd), type: 'knocking', priority: 1 });
   }
+  
+  // Add pitch markers (priority 1.3 - above knocking, below doorstep)
+  // Only show pitches that didn't result in a presentation, sale, or transition
+  const pitchEvents = events.filter(e => e.type === 'pitches');
+  const presentationEvents = events.filter(e => e.type === 'presentations');
+  const transitionEvents = events.filter(e => e.type === 'transitions');
+  const saleEvents = events.filter(e => e.type === 'sale' || e.type === 'closes');
+  
+  const PITCH_MARKER_DEGREES = 4;
+  const PITCH_ASSOCIATION_MS = 5 * 60 * 1000; // 5 min window to associate pitch with outcome
+  
+  pitchEvents.forEach(pitch => {
+    const pitchTime = pitch.timestamp.getTime();
+    
+    // Check if this pitch led to a presentation, sale, or transition within 5 minutes
+    const ledToPresentation = presentationEvents.some(p => {
+      const diff = p.timestamp.getTime() - pitchTime;
+      return diff > 0 && diff < PITCH_ASSOCIATION_MS;
+    });
+    
+    const ledToSale = saleEvents.some(s => {
+      const diff = s.timestamp.getTime() - pitchTime;
+      return diff > 0 && diff < PITCH_ASSOCIATION_MS;
+    });
+    
+    const ledToTransition = transitionEvents.some(t => {
+      const diff = t.timestamp.getTime() - pitchTime;
+      return diff > 0 && diff < PITCH_ASSOCIATION_MS;
+    });
+    
+    // Skip if this pitch led to a higher-value outcome
+    if (ledToPresentation || ledToSale || ledToTransition) return;
+    
+    // Also check if already covered by a doorstep zone
+    const coveredByDoorstep = computedDoorstepZones.some(zone => 
+      pitch.timestamp >= zone.startTime && pitch.timestamp <= zone.endTime
+    );
+    if (coveredByDoorstep) return;
+    
+    // Add as a pitch marker
+    const pitchAngle = timeToAngle(pitch.timestamp, workStart, workEnd);
+    intervals.push({
+      start: Math.max(0, pitchAngle - PITCH_MARKER_DEGREES / 2),
+      end: Math.min(360, pitchAngle + PITCH_MARKER_DEGREES / 2),
+      type: 'pitch',
+      priority: 1.3, // Above knocking, below doorstep
+      duration: 1, // Minimal duration indicator
+    });
+  });
   
   // Sort by start angle, then by priority (descending)
   intervals.sort((a, b) => a.start - b.start || b.priority - a.priority);
