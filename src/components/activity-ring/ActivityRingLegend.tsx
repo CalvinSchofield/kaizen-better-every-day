@@ -50,6 +50,7 @@ export const ActivityRingLegend = ({ open, onOpenChange }: ActivityRingLegendPro
           <LegendItem color="hsl(45, 90%, 55%)" label="Presentation (no sale)" />
           <LegendItem color="hsl(45, 90%, 55%)" label="Seen Out (entered, left quick)" thin />
           <LegendItem color="hsl(180, 60%, 50%)" label="Doorstep Talk" />
+          <LegendItem color="hsl(280, 60%, 55%)" label="Pitch (no transition)" thin />
           <LegendItem color="hsl(210, 80%, 55%)" label="Knocking" />
           <LegendItem color="hsl(0, 0%, 30%)" label="Gap (idle)" />
           <LegendItem color="hsl(35, 90%, 50%)" label="Break" dashed />

@@ -46,7 +46,7 @@ interface ActivityRingHeroProps {
 }
 
 // Clean color scheme with proper semantic distinction
-const RING_COLORS = {
+const RING_COLORS: Record<string, string> = {
   knocking: 'hsl(210, 80%, 55%)',      // Blue - door knocking
   doorstep: 'hsl(180, 60%, 50%)',      // Cyan/teal - doorstep conversations
   transition: 'hsl(45, 90%, 55%)',     // Amber - transition marker (thin)
@@ -55,6 +55,7 @@ const RING_COLORS = {
   seen_out: 'hsl(45, 90%, 55%)',       // Amber - seen out (short arc)
   break: 'hsl(35, 90%, 50%)',          // Orange - break
   gap: 'hsl(0, 0%, 25%)',              // Dark gray - gap (true idle)
+  pitch: 'hsl(280, 60%, 55%)',         // Purple - pitch without transition
   background: 'hsl(0, 0%, 12%)',
   goalTrack: 'hsl(0, 0%, 18%)',
   goalProgress: 'hsl(142, 76%, 45%)',  // Base green for 0-100%
@@ -70,6 +71,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   seen_out: 'Seen Out',
   break: 'Break',
   gap: 'Gap',
+  pitch: 'Pitch',
 };
 
 // Create SVG arc path
@@ -275,8 +277,8 @@ export const ActivityRingHero = ({
 
   const handleSegmentClick = useCallback((segment: RingSegment, e: React.MouseEvent) => {
     e.stopPropagation();
-    // Only interactive segments: transition, presentation, sale, break, gap, doorstep, seen_out
-    if (['transition', 'presentation', 'sale', 'break', 'gap', 'doorstep', 'seen_out'].includes(segment.type) && onSegmentClick) {
+    // Only interactive segments: transition, presentation, sale, break, gap, doorstep, seen_out, pitch
+    if (['transition', 'presentation', 'sale', 'break', 'gap', 'doorstep', 'seen_out', 'pitch'].includes(segment.type) && onSegmentClick) {
       const matchedSale = findMatchingSale(segment);
       onSegmentClick(segment, matchedSale);
     }
@@ -472,7 +474,34 @@ export const ActivityRingHero = ({
                 );
               })}
             
-            {/* Layer 3: Transition markers (top layer - always visible) */}
+            {/* Layer 3: Pitch markers (small purple arcs) */}
+            {segments
+              .filter(s => s.type === 'pitch')
+              .map((segment) => {
+                const arcSize = segment.endAngle - segment.startAngle;
+                if (arcSize < 0.3) return null;
+                
+                const pathD = describeArc(center, center, config.radius, segment.startAngle, segment.endAngle);
+                const originalIdx = segments.indexOf(segment);
+                
+                return (
+                  <motion.path
+                    key={`pitch-${originalIdx}`}
+                    d={pathD}
+                    fill="none"
+                    stroke={RING_COLORS.pitch}
+                    strokeWidth={config.strokeWidth * 0.5}
+                    strokeLinecap="round"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 0.9 }}
+                    transition={{ duration: 0.25, delay: 0.25 + originalIdx * 0.01, ease: "easeOut" }}
+                    style={{ cursor: 'pointer' }}
+                    onClick={(e) => handleSegmentClick(segment, e)}
+                  />
+                );
+              })}
+            
+            {/* Layer 4: Transition markers (top layer - always visible) */}
             {segments
               .filter(s => s.type === 'transition')
               .map((segment) => {
