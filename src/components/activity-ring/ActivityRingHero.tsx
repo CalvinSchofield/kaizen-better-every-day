@@ -185,15 +185,22 @@ export const ActivityRingHero = ({
     return buildRingSegments(events, inHomeZones, entry.break_periods || [], workStart, workEnd);
   }, [events, workStart, workEnd, entry.break_periods]);
 
-  // Calculate gap percentage from segments
-  const gapPercent = useMemo(() => {
-    if (!segments.length) return 0;
+  // Calculate gap and in-home percentages from segments
+  const { gapPercent, inHomePercent } = useMemo(() => {
+    if (!segments.length) return { gapPercent: 0, inHomePercent: 0 };
     
     const totalGapDegrees = segments
       .filter(s => s.type === 'gap')
       .reduce((sum, s) => sum + (s.endAngle - s.startAngle), 0);
     
-    return Math.round((totalGapDegrees / 360) * 100);
+    const totalInHomeDegrees = segments
+      .filter(s => s.type === 'in-home' || s.type === 'sale')
+      .reduce((sum, s) => sum + (s.endAngle - s.startAngle), 0);
+    
+    return {
+      gapPercent: Math.round((totalGapDegrees / 360) * 100),
+      inHomePercent: Math.round((totalInHomeDegrees / 360) * 100),
+    };
   }, [segments]);
 
   // Count sales
@@ -323,15 +330,20 @@ export const ActivityRingHero = ({
           <div className="text-sm text-muted-foreground tabular-nums">
             ${formatPRMR(prmr)}
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {formatHoursMinutes(hoursWorked)}
+        <div className="text-xs text-muted-foreground mt-1">
+          {formatHoursMinutes(hoursWorked)}
+        </div>
+        {/* Activity breakdown for leaders */}
+        {showGapPercent && (gapPercent > 0 || inHomePercent > 0) && (
+          <div className="text-xs text-muted-foreground/70 mt-1 flex items-center gap-2">
+            {inHomePercent > 0 && (
+              <span style={{ color: 'hsl(45, 90%, 55%)' }}>{inHomePercent}% in-home</span>
+            )}
+            {gapPercent > 0 && (
+              <span>{gapPercent}% gaps</span>
+            )}
           </div>
-          {/* Gap percentage for leaders */}
-          {showGapPercent && gapPercent > 0 && (
-            <div className="text-xs text-muted-foreground/70 mt-1">
-              {gapPercent}% gaps
-            </div>
-          )}
+        )}
         </motion.div>
 
         {/* Sale celebration markers */}
