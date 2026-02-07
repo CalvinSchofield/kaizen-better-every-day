@@ -402,7 +402,8 @@ export const ReportsV2Page = () => {
         isOpen={!!selectedRepId}
         onClose={() => setSelectedRepId(null)}
         onSendSms={handleSendSms}
-        initialDate={parseISO(dateRange.end)}
+        dateRangeStart={parseISO(dateRange.start)}
+        dateRangeEnd={parseISO(dateRange.end)}
       />
 
       {/* Custom Date Range Sheet */}
