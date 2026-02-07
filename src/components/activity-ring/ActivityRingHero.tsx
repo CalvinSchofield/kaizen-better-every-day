@@ -140,7 +140,7 @@ export const ActivityRingHero = ({
     return { fp: entry.fp_plus || 0, prmr: entry.prmr || 0 };
   }, [salesLog, entry.fp_plus, entry.prmr]);
 
-  // Parse all timeline events
+  // Parse all timeline events - including time_to_sell from sales log
   const events = useMemo<TimelineEvent[]>(() => {
     const allEvents: TimelineEvent[] = [];
     const timestamps = counterTimestamps || entry.counter_timestamps || {};
@@ -163,14 +163,17 @@ export const ActivityRingHero = ({
       }
     });
     
-    // Add sales events
+    // Add sales events with time_to_sell data for accurate in-home detection
     salesLog.forEach(sale => {
       if (sale.timestamp) {
         try {
+          const saleAny = sale as any;
           allEvents.push({ 
             timestamp: parseISO(sale.timestamp), 
             type: 'sale',
             prmr: sale.prmr,
+            timeToSellMinutes: saleAny.time_to_sell_minutes,
+            timeToSellSource: saleAny.time_to_sell_source,
           });
         } catch {
           // Skip invalid dates

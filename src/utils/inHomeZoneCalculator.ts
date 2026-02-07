@@ -3,7 +3,10 @@
  * Shared utility to detect when a rep was inside a home presenting/selling.
  * 
  * Logic: Tracks door knock → transition/presentation/close as an "in-home" zone
- * Handles batch-logged events intelligently
+ * Handles batch-logged events intelligently with a priority hierarchy:
+ * 1. Explicit sale duration (from CRM time_to_sell_minutes)
+ * 2. Non-batched timestamps (>30s gap = real-time logged)
+ * 3. Type-specific defaults for batch-logged events
  */
 
 export interface TimelineEvent {
@@ -11,9 +14,12 @@ export interface TimelineEvent {
   type: 'doors_knocked' | 'decision_makers' | 'pitches' | 'transitions' | 'presentations' | 'closes' | 'sale';
   label?: string;
   prmr?: number;
+  timeToSellMinutes?: number;  // From sales_log
+  timeToSellSource?: 'transition' | 'door' | 'manual';
 }
 
 export type InHomeZoneType = 'transition' | 'presentation' | 'sale' | 'doorstep_presentation' | 'doorstep_sale';
+export type InHomeZoneSource = 'explicit' | 'timestamps' | 'estimated';
 
 export interface InHomeZone {
   doorTime: Date;
@@ -21,22 +27,59 @@ export interface InHomeZone {
   duration: number; // minutes
   endType: InHomeZoneType;
   hasSale: boolean;
+  source: InHomeZoneSource;
 }
 
 export interface RingSegment {
   startAngle: number;
   endAngle: number;
   type: 'knocking' | 'in-home' | 'sale' | 'break' | 'gap';
+  source?: InHomeZoneSource; // For in-home/sale segments, track data quality
 }
 
 const BATCH_THRESHOLD_MS = 30 * 1000; // 30 seconds for batch-logged detection
-const DEFAULT_IN_HOME_DURATION_MINUTES = 20; // Default duration if we can't calculate
+
+/**
+ * Get default duration based on event type
+ * Different interactions have different typical durations
+ */
+function getDefaultDuration(type: string): number {
+  switch (type) {
+    case 'sale':
+    case 'closes':
+      return 30;  // Sales typically take longer
+    case 'presentations':
+      return 20;  // Presentation without sale
+    case 'transitions':
+      return 15;  // Just got in, no presentation
+    default:
+      return 20;
+  }
+}
+
+/**
+ * Determine the end type based on indicator event
+ */
+function getEndType(indicator: TimelineEvent, hasDoorMatch: boolean): InHomeZoneType {
+  const isSale = indicator.type === 'sale' || indicator.type === 'closes';
+  const isPresentation = indicator.type === 'presentations';
+  
+  if (isSale) {
+    return hasDoorMatch ? 'sale' : 'doorstep_sale';
+  } else if (isPresentation) {
+    return hasDoorMatch ? 'presentation' : 'doorstep_presentation';
+  } else {
+    return 'transition';
+  }
+}
 
 /**
  * Calculate in-home zones from timeline events
- * Improved algorithm to handle batch-logged events:
- * 1. First try to match transitions/presentations to preceding door knocks
- * 2. For unmatched transitions (batch logged), assign them a default duration
+ * 
+ * Priority hierarchy:
+ * 1. Explicit sale duration (time_to_sell_minutes from CRM)
+ * 2. Non-batched timestamps (door→indicator gap >30s)
+ * 3. Type-specific defaults for batch-logged events
  */
 export function calculateInHomeZones(
   events: TimelineEvent[],
@@ -54,12 +97,31 @@ export function calculateInHomeZones(
   const presentationEvents = events.filter(e => e.type === 'presentations');
   const saleEvents = events.filter(e => e.type === 'sale' || e.type === 'closes');
   
-  // Strategy 1: Match each transition/presentation/sale to the nearest preceding door knock
+  // Combine all in-home indicators and sort by time
   const inHomeIndicators = [...transitionEvents, ...presentationEvents, ...saleEvents]
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   
   for (const indicator of inHomeIndicators) {
-    // Find the nearest door knock BEFORE this indicator that hasn't been used
+    const isSale = indicator.type === 'sale' || indicator.type === 'closes';
+    
+    // PRIORITY 1: Use explicit time_to_sell_minutes for sales
+    if (isSale && indicator.timeToSellMinutes && indicator.timeToSellMinutes > 0) {
+      const duration = indicator.timeToSellMinutes;
+      const calculatedStart = new Date(indicator.timestamp.getTime() - duration * 60 * 1000);
+      const clampedStart = calculatedStart < workStart ? workStart : calculatedStart;
+      
+      zones.push({
+        doorTime: clampedStart,
+        endTime: indicator.timestamp,
+        duration,
+        endType: 'sale',
+        hasSale: true,
+        source: 'explicit',
+      });
+      continue;
+    }
+    
+    // PRIORITY 2 & 3: Find matching door knock
     let bestDoorIdx = -1;
     let bestTimeDiff = Infinity;
     
@@ -77,47 +139,58 @@ export function calculateInHomeZones(
       }
     }
     
-    const isSale = indicator.type === 'sale' || indicator.type === 'closes';
-    const isPresentation = indicator.type === 'presentations';
-    const isTransition = indicator.type === 'transitions';
-    
-    // Determine end type
-    let endType: InHomeZoneType;
-    if (isSale) {
-      endType = bestDoorIdx >= 0 ? 'sale' : 'doorstep_sale';
-    } else if (isPresentation) {
-      endType = bestDoorIdx >= 0 ? 'presentation' : 'doorstep_presentation';
-    } else {
-      endType = 'transition';
-    }
-    
     if (bestDoorIdx >= 0) {
-      // Found a matching door - create zone from door to indicator
-      usedDoorIndices.add(bestDoorIdx);
       const doorEvent = doorEvents[bestDoorIdx];
-      const duration = (indicator.timestamp.getTime() - doorEvent.timestamp.getTime()) / (1000 * 60);
+      const timeDiff = indicator.timestamp.getTime() - doorEvent.timestamp.getTime();
+      
+      // Detect batch logging: <30 seconds is suspicious
+      const isBatchLogged = timeDiff < BATCH_THRESHOLD_MS;
+      
+      if (!isBatchLogged) {
+        // PRIORITY 2: Real-time logging - use actual timestamps
+        usedDoorIndices.add(bestDoorIdx);
+        const duration = timeDiff / (1000 * 60);
+        
+        zones.push({
+          doorTime: doorEvent.timestamp,
+          endTime: indicator.timestamp,
+          duration,
+          endType: getEndType(indicator, true),
+          hasSale: isSale,
+          source: 'timestamps',
+        });
+        continue;
+      }
+      
+      // Door exists but was batch-logged with indicator - still use the door timestamp
+      // but mark as estimated since the duration is unreliable
+      usedDoorIndices.add(bestDoorIdx);
+      const defaultDuration = getDefaultDuration(indicator.type);
       
       zones.push({
         doorTime: doorEvent.timestamp,
-        endTime: indicator.timestamp,
-        duration,
-        endType,
+        endTime: new Date(doorEvent.timestamp.getTime() + defaultDuration * 60 * 1000),
+        duration: defaultDuration,
+        endType: getEndType(indicator, true),
         hasSale: isSale,
+        source: 'estimated',
       });
-    } else {
-      // No matching door found (batch logged) - create synthetic zone with default duration
-      // Start time is the indicator time minus default duration
-      const syntheticStart = new Date(indicator.timestamp.getTime() - DEFAULT_IN_HOME_DURATION_MINUTES * 60 * 1000);
-      const clampedStart = syntheticStart < workStart ? workStart : syntheticStart;
-      
-      zones.push({
-        doorTime: clampedStart,
-        endTime: indicator.timestamp,
-        duration: DEFAULT_IN_HOME_DURATION_MINUTES,
-        endType,
-        hasSale: isSale,
-      });
+      continue;
     }
+    
+    // PRIORITY 3: No matching door found - create synthetic zone with type-specific default
+    const defaultDuration = getDefaultDuration(indicator.type);
+    const syntheticStart = new Date(indicator.timestamp.getTime() - defaultDuration * 60 * 1000);
+    const clampedStart = syntheticStart < workStart ? workStart : syntheticStart;
+    
+    zones.push({
+      doorTime: clampedStart,
+      endTime: indicator.timestamp,
+      duration: defaultDuration,
+      endType: getEndType(indicator, false),
+      hasSale: isSale,
+      source: 'estimated',
+    });
   }
   
   return zones;
@@ -141,8 +214,8 @@ export function timeToAngle(time: Date, workStart: Date, workEnd: Date): number 
  * New simplified model:
  * - Gray: Not working / gaps
  * - Blue: Active knocking
- * - Amber: In a home
- * - Green: Sale
+ * - Amber: In a home (with source quality tracking)
+ * - Green: Sale (with source quality tracking)
  */
 export function buildRingSegments(
   events: TimelineEvent[],
@@ -165,6 +238,7 @@ export function buildRingSegments(
     end: number;
     type: 'knocking' | 'in-home' | 'sale' | 'break' | 'gap';
     priority: number;
+    source?: InHomeZoneSource;
   }
   
   const intervals: TimeInterval[] = [];
@@ -186,9 +260,9 @@ export function buildRingSegments(
     }
     
     if (zone.hasSale) {
-      intervals.push({ start: startAngle, end: endAngle, type: 'sale', priority: 3 });
+      intervals.push({ start: startAngle, end: endAngle, type: 'sale', priority: 3, source: zone.source });
     } else {
-      intervals.push({ start: startAngle, end: endAngle, type: 'in-home', priority: 2 });
+      intervals.push({ start: startAngle, end: endAngle, type: 'in-home', priority: 2, source: zone.source });
     }
   });
   
@@ -253,12 +327,13 @@ export function buildRingSegments(
       if (interval.priority > last.priority) {
         // Split the last interval and insert the new one
         if (interval.start > last.start) {
-          merged.push({ start: last.start, end: interval.start, type: last.type, priority: last.priority });
+          merged.push({ start: last.start, end: interval.start, type: last.type, priority: last.priority, source: last.source });
         }
         last.start = interval.start;
         last.end = interval.end;
         last.type = interval.type;
         last.priority = interval.priority;
+        last.source = interval.source;
       }
       // Extend if same priority
       if (interval.priority === last.priority && interval.end > last.end) {
@@ -276,7 +351,12 @@ export function buildRingSegments(
     if (interval.start > currentAngle) {
       segments.push({ startAngle: currentAngle, endAngle: interval.start, type: 'gap' });
     }
-    segments.push({ startAngle: interval.start, endAngle: interval.end, type: interval.type });
+    segments.push({ 
+      startAngle: interval.start, 
+      endAngle: interval.end, 
+      type: interval.type,
+      source: interval.source,
+    });
     currentAngle = interval.end;
   }
   
@@ -286,4 +366,52 @@ export function buildRingSegments(
   }
   
   return segments;
+}
+
+/**
+ * Get summary stats about zone data quality
+ */
+export interface ZoneQualitySummary {
+  totalZones: number;
+  explicitCount: number;
+  timestampCount: number;
+  estimatedCount: number;
+  totalMinutes: number;
+  explicitMinutes: number;
+  timestampMinutes: number;
+  estimatedMinutes: number;
+}
+
+export function getZoneQualitySummary(zones: InHomeZone[]): ZoneQualitySummary {
+  const summary: ZoneQualitySummary = {
+    totalZones: zones.length,
+    explicitCount: 0,
+    timestampCount: 0,
+    estimatedCount: 0,
+    totalMinutes: 0,
+    explicitMinutes: 0,
+    timestampMinutes: 0,
+    estimatedMinutes: 0,
+  };
+  
+  zones.forEach(zone => {
+    summary.totalMinutes += zone.duration;
+    
+    switch (zone.source) {
+      case 'explicit':
+        summary.explicitCount++;
+        summary.explicitMinutes += zone.duration;
+        break;
+      case 'timestamps':
+        summary.timestampCount++;
+        summary.timestampMinutes += zone.duration;
+        break;
+      case 'estimated':
+        summary.estimatedCount++;
+        summary.estimatedMinutes += zone.duration;
+        break;
+    }
+  });
+  
+  return summary;
 }
