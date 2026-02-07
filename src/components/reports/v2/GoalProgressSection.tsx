@@ -1,39 +1,36 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Target, ChevronDown, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Target, ChevronDown, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { hapticLight } from "@/utils/haptics";
 import { formatFP } from "@/lib/formatters";
+import { format, isToday as isDateToday } from "date-fns";
 
 type GoalTimeframe = 'D' | 'W' | 'M' | 'Y';
-
-interface GoalPaceInfo {
-  daysElapsed: number;
-  totalPlannedDays: number;
-  expectedAtThisPoint: number;
-  current: number;
-  goal: number;
-  pacePercent: number;
-  status: 'on_pace' | 'at_risk' | 'behind';
-}
 
 interface GoalProgressSectionProps {
   // Day progress
   todayFP: number;
   dailyGoal: number;
   
+  // Live/unfinalized FP (rep actively working)
+  liveFP?: number;
+  
   // Week-to-date
   weekFP: number;
-  weekExpected: number; // Expected by today based on pace
+  weekExpected: number; // Expected by today based on planned days
   weekGoal: number; // Full week goal
+  weekPlannedDays?: number; // Planned work days for the week
+  weekElapsedPlannedDays?: number; // How many of those are elapsed
   
   // Month-to-date
   monthFP: number;
   monthExpected: number;
   monthGoal: number;
+  monthPlannedDays?: number;
+  monthElapsedPlannedDays?: number;
   
   // Year/Season-to-date
   seasonFP: number;
@@ -48,6 +45,9 @@ interface GoalProgressSectionProps {
   availableTiers?: { label: string; goal: number; key: string }[];
   onTierChange?: (tierKey: string) => void;
   
+  // The selected date being viewed (for day label)
+  selectedDate?: Date;
+  
   className?: string;
 }
 
@@ -58,15 +58,81 @@ const timeframeLabels: Record<GoalTimeframe, string> = {
   Y: 'Season',
 };
 
+// Segmented progress bar component
+const SegmentedProgressBar = ({
+  finalized,
+  live,
+  goal,
+  expected,
+  className,
+}: {
+  finalized: number;
+  live: number;
+  goal: number;
+  expected: number;
+  className?: string;
+}) => {
+  if (goal <= 0) return null;
+  
+  const finalizedPercent = Math.min(100, (finalized / goal) * 100);
+  const livePercent = Math.min(100 - finalizedPercent, (live / goal) * 100);
+  const expectedPercent = Math.min(100, (expected / goal) * 100);
+  const totalPercent = finalizedPercent + livePercent;
+  
+  // Determine color based on progress vs expected
+  const isAhead = totalPercent >= expectedPercent;
+  
+  return (
+    <div className={cn("relative", className)}>
+      <div className="h-3 bg-muted/50 rounded-full overflow-hidden border border-border/30">
+        {/* Finalized progress (solid) */}
+        <motion.div
+          className={cn(
+            "h-full absolute left-0 top-0 rounded-l-full",
+            isAhead ? "bg-amber-400" : "bg-amber-400"
+          )}
+          initial={{ width: 0 }}
+          animate={{ width: `${finalizedPercent}%` }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        />
+        
+        {/* Live/unfinalized progress (lighter shade) */}
+        {livePercent > 0 && (
+          <motion.div
+            className="h-full absolute top-0 bg-rose-400/80"
+            style={{ left: `${finalizedPercent}%` }}
+            initial={{ width: 0 }}
+            animate={{ width: `${livePercent}%` }}
+            transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+          />
+        )}
+      </div>
+      
+      {/* Expected marker (dashed line) */}
+      {expected > 0 && expectedPercent < 100 && (
+        <div 
+          className="absolute top-0 h-3 w-0.5 border-l-2 border-dashed border-muted-foreground/60"
+          style={{ left: `${expectedPercent}%` }}
+        />
+      )}
+    </div>
+  );
+};
+
 export const GoalProgressSection = ({
   todayFP,
   dailyGoal,
+  liveFP = 0,
   weekFP,
   weekExpected,
   weekGoal,
+  weekPlannedDays,
+  weekElapsedPlannedDays,
   monthFP,
   monthExpected,
   monthGoal,
+  monthPlannedDays,
+  monthElapsedPlannedDays,
   seasonFP,
   seasonExpected,
   seasonGoal,
@@ -76,6 +142,7 @@ export const GoalProgressSection = ({
   focusTier,
   availableTiers,
   onTierChange,
+  selectedDate,
   className,
 }: GoalProgressSectionProps) => {
   const [selectedTimeframe, setSelectedTimeframe] = useState<GoalTimeframe>('D');
@@ -90,61 +157,76 @@ export const GoalProgressSection = ({
         ? 'Will Do' 
         : 'Must Do';
   
+  // Get the day label for the Day tab
+  const dayLabel = useMemo(() => {
+    if (!selectedDate) return 'Today';
+    if (isDateToday(selectedDate)) return 'Today';
+    
+    // Show day name (e.g., "Wednesday")
+    return format(selectedDate, 'EEEE');
+  }, [selectedDate]);
+  
   // Calculate progress for each timeframe
   const getTimeframeData = (tf: GoalTimeframe) => {
     switch (tf) {
       case 'D':
         return {
-          current: todayFP,
+          finalized: todayFP,
+          live: liveFP,
           expected: dailyGoal,
           goal: dailyGoal,
-          label: 'Today',
+          label: dayLabel,
           showPace: false,
+          showLiveSegment: liveFP > 0,
+          daysContext: null as string | null,
         };
       case 'W':
         return {
-          current: weekFP,
+          finalized: weekFP,
+          live: liveFP,
           expected: weekExpected,
           goal: weekGoal,
           label: 'Week to Date',
           showPace: true,
+          showLiveSegment: liveFP > 0,
+          daysContext: weekPlannedDays && weekElapsedPlannedDays !== undefined
+            ? `${weekElapsedPlannedDays} of ${weekPlannedDays} work days`
+            : null,
         };
       case 'M':
         return {
-          current: monthFP,
+          finalized: monthFP,
+          live: liveFP,
           expected: monthExpected,
           goal: monthGoal,
           label: 'Month to Date',
           showPace: true,
+          showLiveSegment: liveFP > 0,
+          daysContext: monthPlannedDays && monthElapsedPlannedDays !== undefined
+            ? `${monthElapsedPlannedDays} of ${monthPlannedDays} work days`
+            : null,
         };
       case 'Y':
         return {
-          current: seasonFP,
+          finalized: seasonFP,
+          live: liveFP,
           expected: seasonExpected,
           goal: seasonGoal,
           label: isPreseason ? 'Preseason' : 'Season to Date',
           showPace: true,
+          showLiveSegment: liveFP > 0,
+          daysContext: `Day ${seasonDaysElapsed} of ${seasonTotalDays}`,
         };
     }
   };
   
   const currentData = getTimeframeData(selectedTimeframe);
+  const totalProgress = currentData.finalized + currentData.live;
   const progressPercent = currentData.goal > 0 
-    ? Math.min(100, (currentData.current / currentData.goal) * 100) 
+    ? Math.min(100, (totalProgress / currentData.goal) * 100) 
     : 0;
-  const paceDiff = currentData.current - currentData.expected;
+  const paceDiff = totalProgress - currentData.expected;
   const isAhead = paceDiff >= 0;
-  
-  // Status color - use semantic tokens
-  const getStatusColor = () => {
-    if (!currentData.showPace) return 'bg-primary';
-    const pacePercent = currentData.expected > 0 
-      ? (currentData.current / currentData.expected) * 100
-      : 100;
-    if (pacePercent >= 90) return 'bg-green-500';
-    if (pacePercent >= 70) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
 
   return (
     <motion.div
@@ -180,29 +262,31 @@ export const GoalProgressSection = ({
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{currentData.label}</span>
             <span className="font-medium tabular-nums">
-              {formatFP(currentData.current)} / {formatFP(currentData.goal)}
+              {formatFP(totalProgress)}
+              {currentData.showLiveSegment && (
+                <span className="text-rose-500/80"> (+{formatFP(currentData.live)} live)</span>
+              )}
+              {' / '}{formatFP(currentData.goal)}
             </span>
           </div>
           
-          <div className="h-3 bg-muted/50 rounded-full overflow-hidden border border-border/30">
-            <motion.div
-              className={cn("h-full rounded-full", getStatusColor())}
-              initial={{ width: 0 }}
-              animate={{ width: `${progressPercent}%` }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            />
-          </div>
+          {/* Segmented progress bar */}
+          <SegmentedProgressBar
+            finalized={currentData.finalized}
+            live={currentData.live}
+            goal={currentData.goal}
+            expected={currentData.expected}
+          />
           
           {/* Pace indicator (not for Day) */}
           {currentData.showPace && currentData.expected > 0 && (
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">
-                {selectedTimeframe === 'Y' && `Day ${seasonDaysElapsed} of ${seasonTotalDays}`}
-                {selectedTimeframe !== 'Y' && `Expected: ${formatFP(currentData.expected)}`}
+                {currentData.daysContext || `Expected: ${formatFP(currentData.expected)}`}
               </span>
               <div className={cn(
                 "flex items-center gap-1 font-medium",
-                isAhead ? "text-green-600" : "text-red-600"
+                isAhead ? "text-green-600" : "text-destructive"
               )}>
                 {isAhead ? (
                   <TrendingUp className="w-3 h-3" />
@@ -212,6 +296,24 @@ export const GoalProgressSection = ({
                 <span className="tabular-nums">
                   {isAhead ? '+' : ''}{formatFP(paceDiff)} vs pace
                 </span>
+              </div>
+            </div>
+          )}
+          
+          {/* Legend for bar segments */}
+          {currentData.showLiveSegment && (
+            <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-amber-400" />
+                <span>Logged</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-rose-400/80" />
+                <span>Live</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-0 border-t-2 border-dashed border-muted-foreground/60" />
+                <span>Expected</span>
               </div>
             </div>
           )}
@@ -279,7 +381,13 @@ export const GoalProgressSection = ({
                   </div>
                   
                   <div className="mt-3">
-                    <Progress value={progressPercent} className="h-2" />
+                    <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+                      <motion.div 
+                        className="h-full bg-primary rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
                       <span>{formatFP(seasonFP)} earned</span>
                       <span>{Math.round(progressPercent)}%</span>
@@ -330,7 +438,13 @@ export const GoalProgressSection = ({
                       </div>
                       
                       <div className="mt-3">
-                        <Progress value={tierProgress} className="h-2" />
+                        <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+                          <motion.div 
+                            className="h-full bg-primary rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${tierProgress}%` }}
+                          />
+                        </div>
                         <div className="flex justify-between text-xs text-muted-foreground mt-1">
                           <span>{formatFP(seasonFP)} earned</span>
                           <span>{Math.round(tierProgress)}%</span>

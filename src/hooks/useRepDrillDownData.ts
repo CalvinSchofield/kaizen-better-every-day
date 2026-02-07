@@ -70,6 +70,8 @@ interface RepDrillDownExtendedData {
   purposeUpdatedAt?: string | null;
   // Today's activity timeline data
   todayActivity?: TodayActivityData;
+  // Planned work dates for pace calculations
+  plannedDates: string[];
 }
 
 // Season date constants
@@ -250,8 +252,9 @@ export const useRepDrillDownData = (userId: string | undefined) => {
       const totalSeasonFP = (seasonFPResult.data || []).reduce((sum, e) => sum + getFpFromEntry(e), 0);
       const preseasonFP = (preseasonFPResult.data || []).reduce((sum, e) => sum + getFpFromEntry(e), 0);
 
-      // Calculate time-aware goal pace
+      // Extract planned dates array for use in components
       const plannedDates = (plannedDaysResult.data || []).map(d => d.planned_date);
+      
       
       const calculateGoalPace = (goal: number | undefined, current: number, periodStart: string, periodEnd: string): GoalPaceInfo | undefined => {
         if (!goal || goal === 0) return undefined;
@@ -326,6 +329,7 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         purposeStatement: goalsResult.data?.purpose_statement || null,
         purposeUpdatedAt: goalsResult.data?.purpose_updated_at || null,
         todayActivity,
+        plannedDates,
       };
     },
     enabled: !!userId,
