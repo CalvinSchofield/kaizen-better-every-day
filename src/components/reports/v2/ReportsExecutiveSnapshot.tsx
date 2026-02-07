@@ -326,7 +326,7 @@ export const ReportsExecutiveSnapshot = ({
         </div>
       </Card>
 
-      {/* Working Reps Drawer */}
+      {/* Working Reps Drawer - stays open when drilling into a rep */}
       <WorkingRepsDrawer
         open={showWorkingDrawer}
         onOpenChange={setShowWorkingDrawer}
@@ -334,12 +334,12 @@ export const ReportsExecutiveSnapshot = ({
         periodLabel={periodLabel}
         isLiveView={isLiveView}
         onRepClick={(userId) => {
-          setShowWorkingDrawer(false);
+          // Don't close - keep drawer visible behind RepDrillDownDrawer
           onRepClick?.(userId);
         }}
       />
 
-      {/* Goal Pace Drawer */}
+      {/* Goal Pace Drawer - stays open when drilling into a rep */}
       <GoalPaceDrawer
         open={showGoalPaceDrawer}
         onOpenChange={setShowGoalPaceDrawer}
@@ -347,7 +347,7 @@ export const ReportsExecutiveSnapshot = ({
         periodLabel={goalPeriodLabel || periodLabel}
         isLiveView={isLiveView}
         onRepClick={(userId) => {
-          setShowGoalPaceDrawer(false);
+          // Don't close - keep drawer visible behind RepDrillDownDrawer
           onRepClick?.(userId);
         }}
       />
