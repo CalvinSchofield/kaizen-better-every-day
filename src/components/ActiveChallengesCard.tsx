@@ -359,13 +359,22 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
               
               // Determine the display name based on challenge type
               const getDisplayVsName = () => {
-                if (!isGroupChallenge) {
-                  return `vs ${getCleanFirstName(opponent?.rep_name)}`;
+                if (!isGroupChallenge && opponent) {
+                  // Simple 1v1 format without team colors
+                  const myName = getCleanFirstName(me?.rep_name);
+                  const opponentName = getCleanFirstName(opponent?.rep_name);
+                  return `${myName} vs ${opponentName}`;
                 }
-                // For team battles, show "Team [CaptainA] vs Team [CaptainB]"
+                // For team battles, show "🔴 Red vs 🔵 Blue" with captain names
                 const captainAName = getCleanFirstName(captainA?.rep_name);
                 const captainBName = getCleanFirstName(captainB?.rep_name);
-                return `🔴 ${captainAName} vs 🔵 ${captainBName}`;
+                return (
+                  <>
+                    <span className="text-red-500">🔴 {captainAName}</span>
+                    <span className="text-muted-foreground"> vs </span>
+                    <span className="text-blue-500">🔵 {captainBName}</span>
+                  </>
+                );
               };
               
               return (
