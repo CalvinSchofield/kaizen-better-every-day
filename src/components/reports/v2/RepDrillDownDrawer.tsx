@@ -26,7 +26,7 @@ import {
   CoachingCallouts,
   ActivityCalendarDrawer,
 } from "@/components/activity-ring";
-import { format, isSameDay } from "date-fns";
+import { format, isSameDay, parseISO } from "date-fns";
 
 interface RepDrillDownData {
   userId: string;
@@ -62,8 +62,10 @@ interface RepDrillDownDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onSendSms?: (phone: string, message: string) => void;
-  /** Initial date to display (defaults to today if not provided) */
-  initialDate?: Date;
+  /** Date range start - used to find most recent activity day */
+  dateRangeStart?: Date;
+  /** Date range end - used to find most recent activity day */
+  dateRangeEnd?: Date;
 }
 
 export const RepDrillDownDrawer = ({
@@ -71,17 +73,12 @@ export const RepDrillDownDrawer = ({
   isOpen,
   onClose,
   onSendSms,
-  initialDate,
+  dateRangeStart,
+  dateRangeEnd,
 }: RepDrillDownDrawerProps) => {
-  const [selectedDate, setSelectedDate] = useState<Date>(initialDate || new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
-  
-  // Reset selectedDate when initialDate changes (e.g., switching from Today to Yesterday)
-  useEffect(() => {
-    if (initialDate) {
-      setSelectedDate(initialDate);
-    }
-  }, [initialDate?.getTime()]);
+  const [hasAutoSelected, setHasAutoSelected] = useState(false);
   
   // Get userId for hooks - must be at top level
   const userId = isOpen && rep ? rep.userId : undefined;
@@ -94,6 +91,43 @@ export const RepDrillDownDrawer = ({
   
   // Fetch selected day activity
   const { data: dayActivity } = useRepDayActivity(userId, selectedDate);
+  
+  // Auto-select best date when drawer opens or date range changes
+  useEffect(() => {
+    if (!isOpen) {
+      setHasAutoSelected(false);
+      return;
+    }
+    
+    // Only auto-select once per drawer open
+    if (hasAutoSelected) return;
+    
+    const rangeEnd = dateRangeEnd || new Date();
+    const rangeStart = dateRangeStart || rangeEnd;
+    
+    // If we have calendar data, find the most recent day with activity in range
+    if (calendarData?.summaries && calendarData.summaries.length > 0) {
+      const rangeStartStr = format(rangeStart, 'yyyy-MM-dd');
+      const rangeEndStr = format(rangeEnd, 'yyyy-MM-dd');
+      
+      // Filter to days within range that have work, then pick most recent
+      const daysInRange = calendarData.summaries
+        .filter(s => s.hasWork && s.date >= rangeStartStr && s.date <= rangeEndStr)
+        .sort((a, b) => b.date.localeCompare(a.date)); // Most recent first
+      
+      if (daysInRange.length > 0) {
+        // Use parseISO to avoid timezone issues
+        const bestDate = parseISO(daysInRange[0].date);
+        setSelectedDate(bestDate);
+        setHasAutoSelected(true);
+        return;
+      }
+    }
+    
+    // Fallback: use end of range
+    setSelectedDate(rangeEnd);
+    setHasAutoSelected(true);
+  }, [isOpen, calendarData, dateRangeStart?.getTime(), dateRangeEnd?.getTime(), hasAutoSelected]);
 
   if (!rep) return null;
 
