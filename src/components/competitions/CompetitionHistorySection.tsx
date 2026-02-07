@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCompetitionHistory, Rival, MonthlyGroup } from "@/hooks/useCompetitionHistory";
 import { Challenge } from "@/hooks/useChallenges";
 import { Incentive } from "@/hooks/useIncentives";
+import { ChallengeDetailSheet } from "@/components/leaderboard/ChallengeDetailSheet";
+import { IncentiveDetailSheet } from "@/components/leaderboard/IncentiveDetailSheet";
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -18,11 +19,13 @@ import {
   TrendingUp,
   Users,
   Target,
-  Crown
+  Crown,
+  User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getInitials, getCleanName, getCleanFirstName } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
+import { metricConfig } from "@/utils/challengeMetricConfig";
 
 const metricLabels: Record<string, string> = {
   fp_plus: 'FP+',
@@ -30,6 +33,70 @@ const metricLabels: Record<string, string> = {
   transitions: 'Trans',
   doors_knocked: 'Doors',
 };
+
+// Loading skeleton for the entire section
+const HistoryLoadingSkeleton = () => (
+  <div className="space-y-4">
+    {/* Stats card skeleton */}
+    <Card className="border-primary/20">
+      <CardHeader className="pb-2">
+        <Skeleton className="h-5 w-40" />
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="text-center space-y-2">
+              <Skeleton className="h-8 w-12 mx-auto" />
+              <Skeleton className="h-3 w-10 mx-auto" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+
+    {/* Rivalries skeleton */}
+    <Card>
+      <CardHeader className="pb-3">
+        <Skeleton className="h-5 w-32" />
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {[1, 2].map(i => (
+          <div key={i} className="p-4 rounded-xl border">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-12 w-12 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+              <div className="text-right space-y-2">
+                <Skeleton className="h-5 w-12 ml-auto" />
+                <Skeleton className="h-3 w-16 ml-auto" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+
+    {/* History skeleton */}
+    <Card>
+      <CardHeader className="pb-3">
+        <Skeleton className="h-5 w-36" />
+      </CardHeader>
+      <CardContent className="p-0 space-y-1">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-4" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <Skeleton className="h-5 w-16 rounded-full" />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  </div>
+);
 
 interface RivalryCardProps {
   rival: Rival;
@@ -41,7 +108,6 @@ const RivalryCard = ({ rival, currentUserId }: RivalryCardProps) => {
   const isWinning = rival.wins > rival.losses;
   const isTied = rival.wins === rival.losses;
   
-  // Streak badge
   const hasStreak = Math.abs(rival.currentStreak) >= 2;
   const streakLabel = rival.currentStreak > 0 
     ? `🔥 ${rival.currentStreak} Win Streak` 
@@ -76,7 +142,6 @@ const RivalryCard = ({ rival, currentUserId }: RivalryCardProps) => {
         </div>
       </div>
 
-      {/* Win rate bar */}
       <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
         <div 
           className={cn(
@@ -87,7 +152,6 @@ const RivalryCard = ({ rival, currentUserId }: RivalryCardProps) => {
         />
       </div>
 
-      {/* Streak and per-metric breakdown */}
       <div className="flex items-center justify-between text-xs">
         {hasStreak && streakLabel && (
           <Badge 
@@ -109,6 +173,124 @@ const RivalryCard = ({ rival, currentUserId }: RivalryCardProps) => {
   );
 };
 
+interface CompetitionItemProps {
+  challenge?: Challenge;
+  incentive?: Incentive;
+  currentUserId: string;
+  onTap: () => void;
+}
+
+const CompetitionItem = ({ challenge, incentive, currentUserId, onTap }: CompetitionItemProps) => {
+  if (challenge) {
+    const myParticipant = challenge.participants?.find(p => p.user_id === currentUserId);
+    const wasParticipant = !!myParticipant;
+    const won = currentUserId && challenge.winner_user_id === currentUserId;
+    const isTie = challenge.is_tie && !challenge.tiebreaker_winner_id;
+    const lost = challenge.winner_user_id && challenge.winner_user_id !== currentUserId && wasParticipant;
+    
+    const opponent = challenge.type === '1v1' 
+      ? challenge.participants?.find(p => p.user_id !== currentUserId)
+      : null;
+    
+    const getResultBadge = () => {
+      if (won) return { label: '🏆 Won', variant: 'default' as const, className: 'bg-primary text-primary-foreground' };
+      if (isTie) return { label: 'Tie', variant: 'secondary' as const, className: '' };
+      if (lost) return { label: 'Lost', variant: 'secondary' as const, className: '' };
+      return { label: 'Ended', variant: 'outline' as const, className: '' };
+    };
+    
+    const result = getResultBadge();
+    const config = metricConfig[challenge.metric];
+    const metricIcon = config?.icon;
+
+    return (
+      <button
+        onClick={() => {
+          hapticLight();
+          onTap();
+        }}
+        className={cn(
+          "w-full p-3 rounded-lg border text-left transition-all active:scale-[0.98]",
+          won ? "bg-primary/5 border-primary/30" : "bg-muted/30 hover:bg-muted/50"
+        )}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Swords className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            {metricIcon && <span className="text-sm flex-shrink-0">{metricIcon}</span>}
+            <span className="text-sm font-medium truncate">
+              {challenge.type === '1v1' 
+                ? `${metricLabels[challenge.metric]} vs ${getCleanFirstName(opponent?.rep_name)}`
+                : `${metricLabels[challenge.metric]} Team Battle`
+              }
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Type badge */}
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              {challenge.type === '1v1' ? (
+                <><User className="h-2.5 w-2.5 mr-0.5" />1v1</>
+              ) : (
+                <><Users className="h-2.5 w-2.5 mr-0.5" />Team</>
+              )}
+            </Badge>
+            <Badge variant={result.variant} className={cn("text-xs", result.className)}>
+              {result.label}
+            </Badge>
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  if (incentive) {
+    const winnerIds = Array.isArray(incentive.winner_user_ids) ? incentive.winner_user_ids : [];
+    const won = incentive.winner_user_id === currentUserId || winnerIds.includes(currentUserId);
+    const hasWinner = incentive.winner_user_id || winnerIds.length > 0;
+    
+    const getResultBadge = () => {
+      if (won) return { label: '🏆 Won', variant: 'default' as const, className: 'bg-primary text-primary-foreground' };
+      if (hasWinner) return { label: 'Lost', variant: 'secondary' as const, className: '' };
+      return { label: 'No Winner', variant: 'outline' as const, className: '' };
+    };
+    
+    const result = getResultBadge();
+    const eligibleCount = incentive.eligible_count || incentive.eligible_reps?.length || 0;
+
+    return (
+      <button
+        onClick={() => {
+          hapticLight();
+          onTap();
+        }}
+        className={cn(
+          "w-full p-3 rounded-lg border text-left transition-all active:scale-[0.98]",
+          won ? "bg-amber-500/5 border-amber-500/30" : "bg-muted/30 hover:bg-muted/50"
+        )}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Trophy className="h-4 w-4 text-amber-500 flex-shrink-0" />
+            <span className="text-sm font-medium truncate">{incentive.title}</span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {eligibleCount > 1 && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                <Users className="h-2.5 w-2.5 mr-0.5" />{eligibleCount}
+              </Badge>
+            )}
+            <Badge variant={result.variant} className={cn("text-xs", result.className)}>
+              {result.label}
+            </Badge>
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  return null;
+};
+
 interface MonthGroupProps {
   group: MonthlyGroup;
   currentUserId: string;
@@ -117,116 +299,87 @@ interface MonthGroupProps {
 
 const MonthGroup = ({ group, currentUserId, defaultOpen = false }: MonthGroupProps) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
+  const [selectedIncentive, setSelectedIncentive] = useState<Incentive | null>(null);
 
-  const getChallengeResult = (challenge: Challenge) => {
-    const myParticipant = challenge.participants?.find(p => p.user_id === currentUserId);
-    const wasParticipant = !!myParticipant;
-    const iDeclined = myParticipant?.accepted === false;
-    const wasDeclined = challenge.status === 'declined' || iDeclined;
-    const wasVoided = challenge.status === 'voided';
-    const noWinner = challenge.status === 'completed' && !challenge.winner_user_id;
-    const won = currentUserId && challenge.winner_user_id === currentUserId;
+  // Filter out expired/voided - only show completed items with actual results
+  const validChallenges = group.challenges.filter(c => 
+    c.status === 'completed' && (c.winner_user_id || c.is_tie)
+  );
+  const validIncentives = group.incentives.filter(i => 
+    i.status === 'completed'
+  );
 
-    if (won) return { label: '🏆 Won', variant: 'default' as const, success: true };
-    if (wasDeclined) return { label: 'Declined', variant: 'outline' as const, success: false };
-    if (wasVoided) return { label: '❌ Expired', variant: 'secondary' as const, success: false };
-    if (noWinner) return { label: 'Tie', variant: 'secondary' as const, success: false };
-    if (!wasParticipant) return { label: 'Ended', variant: 'outline' as const, success: false };
-    return { label: 'Lost', variant: 'secondary' as const, success: false };
-  };
-
-  const getIncentiveResult = (incentive: Incentive) => {
-    const winnerIds = Array.isArray(incentive.winner_user_ids) ? incentive.winner_user_ids : [];
-    const won = incentive.winner_user_id === currentUserId || winnerIds.includes(currentUserId);
-    const isCancelled = incentive.status === 'cancelled';
-    const hasWinner = incentive.winner_user_id || winnerIds.length > 0;
-
-    if (isCancelled) return { label: '❌ Cancelled', variant: 'secondary' as const, success: false };
-    if (won) return { label: '🏆 Won', variant: 'default' as const, success: true };
-    if (hasWinner) return { label: 'Lost', variant: 'secondary' as const, success: false };
-    return { label: '❌ Expired', variant: 'secondary' as const, success: false };
-  };
+  // Don't show month if no valid items
+  if (validChallenges.length === 0 && validIncentives.length === 0) {
+    return null;
+  }
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger asChild>
-        <Button 
-          variant="ghost" 
-          className="w-full justify-between p-4 h-auto"
-          onClick={() => hapticLight()}
-        >
-          <div className="flex items-center gap-3">
-            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            <span className="font-semibold">{group.label}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {group.stats.totalChallenges > 0 && (
-              <Badge variant="outline" className="text-xs">
-                <Swords className="h-3 w-3 mr-1" />
-                {group.stats.wins}W-{group.stats.losses}L
-              </Badge>
-            )}
-            {group.stats.totalIncentives > 0 && (
-              <Badge variant="outline" className="text-xs">
-                <Trophy className="h-3 w-3 mr-1" />
-                {group.stats.incentivesWon}/{group.stats.totalIncentives}
-              </Badge>
-            )}
-          </div>
-        </Button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="px-4 pb-4 space-y-2">
-        {group.challenges.map(challenge => {
-          const result = getChallengeResult(challenge);
-          const opponent = challenge.participants?.find(p => p.user_id !== currentUserId);
-          
-          return (
-            <div 
+    <>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <Button 
+            variant="ghost" 
+            className="w-full justify-between p-4 h-auto"
+            onClick={() => hapticLight()}
+          >
+            <div className="flex items-center gap-3">
+              {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              <span className="font-semibold">{group.label}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {group.stats.totalChallenges > 0 && (
+                <Badge variant="outline" className="text-xs">
+                  <Swords className="h-3 w-3 mr-1" />
+                  {group.stats.wins}W-{group.stats.losses}L
+                </Badge>
+              )}
+              {group.stats.totalIncentives > 0 && (
+                <Badge variant="outline" className="text-xs">
+                  <Trophy className="h-3 w-3 mr-1" />
+                  {group.stats.incentivesWon}/{group.stats.totalIncentives}
+                </Badge>
+              )}
+            </div>
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="px-4 pb-4 space-y-2">
+          {validChallenges.map(challenge => (
+            <CompetitionItem
               key={challenge.id}
-              className={cn(
-                "p-3 rounded-lg border",
-                result.success ? "bg-green-500/5 border-green-500/30" : "bg-muted/30"
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Swords className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">
-                    {metricLabels[challenge.metric]} vs {getCleanFirstName(opponent?.rep_name)}
-                  </span>
-                </div>
-                <Badge variant={result.variant} className="text-xs">
-                  {result.label}
-                </Badge>
-              </div>
-            </div>
-          );
-        })}
-        {group.incentives.map(incentive => {
-          const result = getIncentiveResult(incentive);
-          
-          return (
-            <div 
+              challenge={challenge}
+              currentUserId={currentUserId}
+              onTap={() => setSelectedChallenge(challenge)}
+            />
+          ))}
+          {validIncentives.map(incentive => (
+            <CompetitionItem
               key={incentive.id}
-              className={cn(
-                "p-3 rounded-lg border",
-                result.success ? "bg-amber-500/5 border-amber-500/30" : "bg-muted/30"
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{incentive.title}</span>
-                </div>
-                <Badge variant={result.variant} className="text-xs">
-                  {result.label}
-                </Badge>
-              </div>
-            </div>
-          );
-        })}
-      </CollapsibleContent>
-    </Collapsible>
+              incentive={incentive}
+              currentUserId={currentUserId}
+              onTap={() => setSelectedIncentive(incentive)}
+            />
+          ))}
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Detail Sheets */}
+      {selectedChallenge && (
+        <ChallengeDetailSheet
+          challenge={selectedChallenge}
+          open={!!selectedChallenge}
+          onOpenChange={(open) => !open && setSelectedChallenge(null)}
+        />
+      )}
+      {selectedIncentive && (
+        <IncentiveDetailSheet
+          incentive={selectedIncentive}
+          open={!!selectedIncentive}
+          onOpenChange={(open) => !open && setSelectedIncentive(null)}
+        />
+      )}
+    </>
   );
 };
 
@@ -303,23 +456,23 @@ export const CompetitionHistorySection = () => {
   const { data: historyData, isLoading } = useCompetitionHistory();
   const [showAllRivalries, setShowAllRivalries] = useState(false);
 
-  // Get current user for result calculations
-  const currentUserId = historyData?.overallStats ? 
-    // We need to infer the user ID - the hook internally uses it
-    // For now, we'll pass it through the component
-    '' : '';
+  // Get current user ID from the history data
+  const currentUserId = historyData?.currentUserId || '';
 
   if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-32 rounded-xl" />
-        <Skeleton className="h-24 rounded-xl" />
-        <Skeleton className="h-24 rounded-xl" />
-      </div>
-    );
+    return <HistoryLoadingSkeleton />;
   }
 
-  if (!historyData || (historyData.monthlyGroups.length === 0 && historyData.rivalries.length === 0)) {
+  // Filter monthly groups to only show months with valid completed items
+  const validMonthlyGroups = historyData?.monthlyGroups.filter(group => {
+    const hasValidChallenges = group.challenges.some(c => 
+      c.status === 'completed' && (c.winner_user_id || c.is_tie)
+    );
+    const hasValidIncentives = group.incentives.some(i => i.status === 'completed');
+    return hasValidChallenges || hasValidIncentives;
+  }) || [];
+
+  if (!historyData || (validMonthlyGroups.length === 0 && historyData.rivalries.length === 0)) {
     return (
       <Card className="border-dashed">
         <CardContent className="py-8 text-center">
@@ -377,7 +530,7 @@ export const CompetitionHistorySection = () => {
       )}
 
       {/* Monthly History */}
-      {historyData.monthlyGroups.length > 0 && (
+      {validMonthlyGroups.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -386,7 +539,7 @@ export const CompetitionHistorySection = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {historyData.monthlyGroups.map((group, index) => (
+            {validMonthlyGroups.map((group, index) => (
               <MonthGroup 
                 key={group.month} 
                 group={group}

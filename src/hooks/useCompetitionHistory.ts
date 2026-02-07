@@ -36,6 +36,7 @@ export interface MonthlyGroup {
 export interface CompetitionHistoryData {
   monthlyGroups: MonthlyGroup[];
   rivalries: Rival[];
+  currentUserId: string;
   overallStats: {
     totalChallenges: number;
     challengeWins: number;
@@ -376,6 +377,7 @@ export const useCompetitionHistory = () => {
       return {
         monthlyGroups,
         rivalries,
+        currentUserId: user.id,
         overallStats: {
           totalChallenges,
           challengeWins,
