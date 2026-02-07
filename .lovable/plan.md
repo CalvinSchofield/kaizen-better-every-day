@@ -320,8 +320,8 @@ Insights.tsx (Rep Self-View)
 11. ✅ useRepActivityCalendar hook
 12. ✅ ActivityCalendarDrawer component
 
-**Phase 4: Rep Self-History**
-13. Add activity section to Insights.tsx
+**Phase 4: Rep Self-History** ✅ COMPLETE
+13. ✅ Add activity section to Insights.tsx
 
 ---
 
