@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { 
   Drawer, 
   DrawerContent, 
@@ -8,15 +9,22 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { X, Clock, Footprints, Target, MessageSquare, Activity } from "lucide-react";
+import { X, Clock, Footprints, Target, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EffortResult } from "@/utils/effortScore";
-import { RepWorkTimeline } from "./RepWorkTimeline";
 import { RepGoalPaceCard } from "./RepGoalPaceCard";
-import { RepDayActivityFlow } from "./RepDayActivityFlow";
 import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
+import { useRepDayActivity } from "@/hooks/useRepDayActivity";
+import { useRepActivityCalendar } from "@/hooks/useRepActivityCalendar";
 import { PurposeDisplayCard } from "@/components/goals/PurposeDisplayCard";
-import { formatHoursMinutes } from "@/lib/formatters";
+import { 
+  ActivityRingHero, 
+  FinalizedStatsGrid, 
+  RingGoalProgress,
+  WeekActivityStrip,
+  CoachingCallouts,
+} from "@/components/activity-ring";
+import { format, isSameDay } from "date-fns";
 
 interface RepDrillDownData {
   userId: string;
@@ -60,10 +68,19 @@ export const RepDrillDownDrawer = ({
   onClose,
   onSendSms,
 }: RepDrillDownDrawerProps) => {
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  
+  // Get userId for hooks - must be at top level
+  const userId = isOpen && rep ? rep.userId : undefined;
+  
   // Fetch extended data (timeline + goals)
-  const { data: extendedData, isLoading: isLoadingExtended } = useRepDrillDownData(
-    isOpen && rep ? rep.userId : undefined
-  );
+  const { data: extendedData, isLoading: isLoadingExtended } = useRepDrillDownData(userId);
+  
+  // Fetch calendar data for week strip
+  const { data: calendarData } = useRepActivityCalendar(userId);
+  
+  // Fetch selected day activity
+  const { data: dayActivity } = useRepDayActivity(userId, selectedDate);
 
   if (!rep) return null;
 
@@ -73,74 +90,49 @@ export const RepDrillDownDrawer = ({
     return stripped.split(' ')[0] || stripped;
   };
 
-  // Generate coaching recommendation based on data
-  const getCoachingRecommendation = (): string => {
-    if (rep.effort.category === 'needs_improvement') {
-      if (rep.effort.flags.some(f => f.type === 'low_doors')) {
-        return 'Focus on increasing door volume. Set a doors-per-hour target.';
+  const isToday = isSameDay(selectedDate, new Date());
+  
+  // Use day activity if available, otherwise fall back to rep data for today
+  const displayData = isToday 
+    ? {
+        doors: rep.doors,
+        dms: rep.dms,
+        pitches: rep.pitches,
+        transitions: rep.transitions,
+        presentations: rep.presentations,
+        closes: rep.closes,
+        fp: rep.fp,
+        prmr: rep.prmr,
+        hoursWorked: rep.hoursWorked,
+        workStartTime: rep.workStartTime,
+        workEndTime: rep.workEndTime,
       }
-      if (rep.effort.flags.some(f => f.type === 'late_start')) {
-        return 'Address late starts. Establish a consistent morning routine.';
-      }
-      if (rep.effort.flags.some(f => f.type === 'early_end')) {
-        return 'Encourage working later. Best sales often happen in evening hours.';
-      }
-    }
-    
-    // Check conversion ratios
-    if (rep.pitches > 0 && rep.transitions === 0) {
-      return 'Focus on Pitch → Transition. Practice creating curiosity and getting commitment.';
-    }
-    if (rep.transitions > 0 && rep.presentations === 0) {
-      return 'Focus on getting inside for presentations after transition.';
-    }
-    if (rep.presentations > 0 && rep.closes === 0) {
-      return 'Focus on closing techniques. Review objection handling.';
-    }
-    
-    if (rep.effort.category === 'outstanding' && rep.fp > 0) {
-      return 'Strong performance! Consider for mentoring opportunities.';
-    }
-    
-    return 'Continue building momentum with consistent effort.';
-  };
+    : {
+        doors: dayActivity?.doors || 0,
+        dms: dayActivity?.dms || 0,
+        pitches: dayActivity?.pitches || 0,
+        transitions: dayActivity?.transitions || 0,
+        presentations: dayActivity?.presentations || 0,
+        closes: dayActivity?.closes || 0,
+        fp: dayActivity?.fp || 0,
+        prmr: dayActivity?.prmr || 0,
+        hoursWorked: dayActivity?.hoursWorked || 0,
+        workStartTime: dayActivity?.workStartTime,
+        workEndTime: dayActivity?.workEndTime,
+      };
 
-  // Status indicators
-  const StatusIndicator = ({ 
-    label, 
-    status, 
-    detail 
-  }: { 
-    label: string; 
-    status: 'good' | 'warning' | 'bad'; 
-    detail: string;
-  }) => (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">{detail}</span>
-        <div className={cn(
-          "w-2 h-2 rounded-full",
-          status === 'good' && "bg-green-500",
-          status === 'warning' && "bg-yellow-500",
-          status === 'bad' && "bg-red-500",
-        )} />
-      </div>
-    </div>
-  );
-
-  const effortStatus = rep.effort.category === 'outstanding' ? 'good' : 
-                       rep.effort.category === 'standard' ? 'warning' : 'bad';
-
-  // Simple skill status based on funnel progression
-  const hasActivity = rep.doors > 0;
-  const conversionOk = hasActivity ? (rep.fp / rep.doors > 0.01 || rep.presentations > 0) : true;
-  const skillStatus = conversionOk ? 'good' : 'warning';
+  // Calculate goal progress percentage
+  const dailyGoalFP = extendedData?.goals?.mustGoal 
+    ? extendedData.goals.mustGoal / 53 // Roughly divide by season days
+    : 2; // Default daily target
+  const goalProgress = dailyGoalFP > 0 
+    ? Math.min(100, (displayData.fp / dailyGoalFP) * 100)
+    : 0;
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="max-h-[92vh]">
-        <DrawerHeader className="border-b">
+        <DrawerHeader className="border-b pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <DrawerTitle className="text-xl">{rep.name}</DrawerTitle>
@@ -159,197 +151,173 @@ export const RepDrillDownDrawer = ({
           )}
         </DrawerHeader>
 
-        <div className="p-4 space-y-4 overflow-y-auto">
-          {/* Status Indicators */}
-          <div className="space-y-2">
-            <StatusIndicator 
-              label="Effort" 
-              status={effortStatus}
-              detail={`${rep.effort.score}/100`}
-            />
-            <StatusIndicator 
-              label="Skill" 
-              status={skillStatus}
-              detail={conversionOk ? 'On track' : 'Review funnel'}
+        <div className="overflow-y-auto">
+          {/* Week Activity Strip */}
+          <div className="px-4 py-3 border-b bg-muted/20">
+            <WeekActivityStrip
+              daySummaries={calendarData?.summaries || []}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
             />
           </div>
+          
+          {/* Date Header */}
+          {!isToday && (
+            <div className="px-4 py-2 text-center">
+              <span className="text-sm font-medium text-muted-foreground">
+                {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+              </span>
+            </div>
+          )}
 
-          {/* Today's Stats */}
-          <div className="grid grid-cols-4 gap-2">
-            <StatBox label="Doors" value={rep.doors} />
-            <StatBox label="Pitches" value={rep.pitches} />
-            <StatBox label="Trans" value={rep.transitions} />
-            <StatBox label="Pres" value={rep.presentations} />
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <StatBox 
-              label="FP+" 
-              value={rep.fp.toFixed(1)} 
-              highlight={rep.fp > 0}
-            />
-            <StatBox 
-              label="PRMR" 
-              value={`$${rep.prmr.toLocaleString()}`}
-              highlight={rep.prmr > 0}
-            />
-            <StatBox 
-              label="Hours" 
-              value={formatHoursMinutes(rep.hoursWorked)}
-            />
-          </div>
-
-          {/* Today's Activity Flow */}
-          {extendedData?.todayActivity && (
-            <>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-primary" />
-                  <h4 className="text-sm font-medium">Today's Activity Flow</h4>
-                </div>
-                <div className="p-3 rounded-lg bg-muted/30">
-                  <RepDayActivityFlow
-                    counterTimestamps={extendedData.todayActivity.counterTimestamps}
-                    salesLog={extendedData.todayActivity.salesLog}
-                    workStartTime={extendedData.todayActivity.workStartTime}
-                    workEndTime={extendedData.todayActivity.workEndTime}
-                    isFinalized={extendedData.todayActivity.isFinalized}
-                  />
-                </div>
+          <div className="p-4 space-y-4">
+            {/* Activity Ring Hero */}
+            {(displayData.doors > 0 || displayData.hoursWorked > 0) && (
+              <div className="flex justify-center">
+                <ActivityRingHero
+                  entry={{
+                    doors_knocked: displayData.doors,
+                    decision_makers: displayData.dms,
+                    pitches: displayData.pitches,
+                    transitions: displayData.transitions,
+                    presentations: displayData.presentations,
+                    closes: displayData.closes,
+                    fp_plus: displayData.fp,
+                    prmr: displayData.prmr,
+                    is_finalized: !isToday || (dayActivity?.isFinalized ?? false),
+                    work_start_time: displayData.workStartTime || null,
+                    work_end_time: displayData.workEndTime || null,
+                    break_periods: [],
+                    counter_timestamps: dayActivity?.counterTimestamps || {},
+                    timezone: null,
+                  }}
+                  salesLog={dayActivity?.salesLog as any}
+                  goalProgress={goalProgress}
+                  size="md"
+                />
               </div>
-              <Separator />
-            </>
-          )}
-
-          {/* Effort Flags */}
-          {rep.effort.flags.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Effort Flags</h4>
-              <div className="flex flex-wrap gap-2">
-                {rep.effort.flags.map((flag, idx) => (
-                  <Badge 
-                    key={idx}
-                    variant={flag.severity === 'critical' ? 'destructive' : 'secondary'}
-                    className="gap-1"
-                  >
-                    {flag.type === 'late_start' || flag.type === 'early_end' ? (
-                      <Clock className="w-3 h-3" />
-                    ) : (
-                      <Footprints className="w-3 h-3" />
-                    )}
-                    {flag.label}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <Separator />
-
-          {/* Goal Pace Section */}
-          {extendedData?.goals ? (
-            <RepGoalPaceCard
-              preseasonGoal={extendedData.goals.preseasonGoal}
-              preseasonProgress={extendedData.preseasonFP}
-              mustGoal={extendedData.goals.mustGoal}
-              willGoal={extendedData.goals.willGoal}
-              couldGoal={extendedData.goals.couldGoal}
-              currentFP={extendedData.totalSeasonFP}
-              focusTier={extendedData.goals.focusTier}
-              goalPace={extendedData.goalPace}
-              isPreseason={extendedData.isPreseason}
-            />
-          ) : !isLoadingExtended && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-              <Target className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">No goals configured</span>
-            </div>
-          )}
-
-          <Separator />
-
-          {/* Work Timeline Section */}
-          {extendedData?.last14DaysEntries && extendedData.last14DaysEntries.length > 0 ? (
-            <RepWorkTimeline 
-              entries={extendedData.last14DaysEntries}
-              avgDoorsPerDay={extendedData.avgDoorsPerDay}
-              avgFPPerDay={extendedData.avgFPPerDay}
-              daysAboveAvg={extendedData.daysAboveAvg}
-            />
-          ) : !isLoadingExtended && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">No recent activity</span>
-            </div>
-          )}
-
-          <Separator />
-
-          {/* Their Purpose / Why */}
-          {extendedData?.purposeStatement && (
-            <>
-              <PurposeDisplayCard
-                purposeStatement={extendedData.purposeStatement}
-                purposeUpdatedAt={extendedData.purposeUpdatedAt}
-              />
-              <Separator />
-            </>
-          )}
-
-          {/* Coaching Recommendation */}
-          <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-            <div className="flex items-center gap-2 mb-2">
-              <Target className="w-4 h-4 text-primary" />
-              <h4 className="font-medium">Coaching Focus</h4>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {rep.coachingFocus || getCoachingRecommendation()}
-            </p>
-          </div>
-
-          {/* SMS Action */}
-          {rep.phone && onSendSms && (
-            <Button 
-              variant="outline" 
-              className="w-full gap-2"
-              onClick={() => {
-                const message = generateSmsMessage(rep);
-                onSendSms(rep.phone!, message);
+            )}
+            
+            {/* Stats Grid */}
+            <FinalizedStatsGrid
+              entry={{
+                doors_knocked: displayData.doors,
+                decision_makers: displayData.dms,
+                pitches: displayData.pitches,
+                transitions: displayData.transitions,
+                presentations: displayData.presentations,
+                closes: displayData.closes,
+                fp_plus: displayData.fp,
+                prmr: displayData.prmr,
               }}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Send Text to {getFirstName(rep.name)}
-            </Button>
-          )}
+              salesLog={dayActivity?.salesLog as any}
+            />
+            
+            {/* Coaching Callouts - Only for today or recent days */}
+            {isToday && displayData.doors > 0 && (
+              <CoachingCallouts
+                doors={displayData.doors}
+                pitches={displayData.pitches}
+                transitions={displayData.transitions}
+                presentations={displayData.presentations}
+                closes={displayData.closes}
+                hoursWorked={displayData.hoursWorked}
+                workStartTime={displayData.workStartTime}
+                workEndTime={displayData.workEndTime}
+                gapMinutes={dayActivity?.gapMinutes}
+                isRookie={rep.year === 'rookie'}
+              />
+            )}
+
+            {/* Effort Flags */}
+            {isToday && rep.effort.flags.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium px-1">Effort Flags</h4>
+                <div className="flex flex-wrap gap-2">
+                  {rep.effort.flags.map((flag, idx) => (
+                    <Badge 
+                      key={idx}
+                      variant={flag.severity === 'critical' ? 'destructive' : 'secondary'}
+                      className="gap-1"
+                    >
+                      {flag.type === 'late_start' || flag.type === 'early_end' ? (
+                        <Clock className="w-3 h-3" />
+                      ) : (
+                        <Footprints className="w-3 h-3" />
+                      )}
+                      {flag.label}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Goal Progress Section */}
+            <RingGoalProgress
+              todayFP={displayData.fp}
+              dailyNeed={dailyGoalFP}
+              seasonFP={extendedData?.totalSeasonFP || 0}
+              seasonGoal={extendedData?.goals?.mustGoal || 0}
+              focusTier={extendedData?.goals?.focusTier as any}
+              dayOfSeason={extendedData?.goalPace?.mustDo?.daysElapsed || 1}
+              totalSeasonDays={extendedData?.goalPace?.mustDo?.totalPlannedDays || 53}
+            />
+
+            {/* Goal Pace Card */}
+            {extendedData?.goals ? (
+              <RepGoalPaceCard
+                preseasonGoal={extendedData.goals.preseasonGoal}
+                preseasonProgress={extendedData.preseasonFP}
+                mustGoal={extendedData.goals.mustGoal}
+                willGoal={extendedData.goals.willGoal}
+                couldGoal={extendedData.goals.couldGoal}
+                currentFP={extendedData.totalSeasonFP}
+                focusTier={extendedData.goals.focusTier}
+                goalPace={extendedData.goalPace}
+                isPreseason={extendedData.isPreseason}
+              />
+            ) : !isLoadingExtended && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                <Target className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">No goals configured</span>
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Their Purpose / Why */}
+            {extendedData?.purposeStatement && (
+              <>
+                <PurposeDisplayCard
+                  purposeStatement={extendedData.purposeStatement}
+                  purposeUpdatedAt={extendedData.purposeUpdatedAt}
+                />
+                <Separator />
+              </>
+            )}
+
+            {/* SMS Action */}
+            {rep.phone && onSendSms && (
+              <Button 
+                variant="outline" 
+                className="w-full gap-2"
+                onClick={() => {
+                  const message = generateSmsMessage(rep);
+                  onSendSms(rep.phone!, message);
+                }}
+              >
+                <MessageSquare className="w-4 h-4" />
+                Send Text to {getFirstName(rep.name)}
+              </Button>
+            )}
+          </div>
         </div>
       </DrawerContent>
     </Drawer>
   );
 };
-
-// Stat box component
-const StatBox = ({ 
-  label, 
-  value, 
-  highlight = false 
-}: { 
-  label: string; 
-  value: string | number; 
-  highlight?: boolean;
-}) => (
-  <div className={cn(
-    "p-3 rounded-lg text-center",
-    highlight ? "bg-primary/10" : "bg-muted/50"
-  )}>
-    <div className={cn(
-      "text-lg font-semibold tabular-nums",
-      highlight && "text-primary"
-    )}>
-      {value}
-    </div>
-    <div className="text-xs text-muted-foreground">{label}</div>
-  </div>
-);
 
 // Generate contextual SMS message
 const generateSmsMessage = (rep: RepDrillDownData): string => {
