@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import Layout from "./Layout";
 import Track from "@/pages/Track";
@@ -60,6 +60,8 @@ const getTodayDate = () => {
 
 const TrackWithLayout = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { repData } = useRepData();
   const { totalFP: preseasonFP } = usePreseasonFP();
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry, isRefreshing, isFreshDataVerified, isOfflineWithBackup } = useDailyEntry();
@@ -147,6 +149,51 @@ const TrackWithLayout = () => {
       return () => clearTimeout(timer);
     }
   }, [searchParams, setSearchParams, entry.work_start_time, entry.is_finalized]);
+  
+  // Handle returning from LogSale page with sale data
+  useEffect(() => {
+    const navState = location.state as {
+      saleLogged?: boolean;
+      saleData?: Omit<Sale, 'id' | 'timestamp'>;
+      saleCancelled?: boolean;
+      saleDeleted?: boolean;
+      deletedSaleId?: string;
+      editingSaleId?: string;
+    } | null;
+    
+    if (navState?.saleLogged && navState.saleData) {
+      // Clear the navigation state to prevent re-processing
+      navigate(location.pathname, { replace: true, state: null });
+      
+      // Trigger the sale logging flow
+      if (navState.editingSaleId) {
+        // Editing an existing sale - find and update it
+        const existingSale = (entry.sales_log || []).find(s => s.id === navState.editingSaleId);
+        if (existingSale) {
+          handleUpdateSale({
+            ...existingSale,
+            ...navState.saleData,
+          });
+        }
+      } else {
+        // New sale - set pending flags and trigger handleLogSale
+        setPendingCloseIncrement(true);
+        // Use a microtask to let state update
+        Promise.resolve().then(() => {
+          handleLogSale(navState.saleData!);
+        });
+      }
+    } else if (navState?.saleCancelled) {
+      // User cancelled - clear any pending state
+      navigate(location.pathname, { replace: true, state: null });
+      setPendingCloseIncrement(false);
+      setPendingPostFinalizationSale(false);
+    } else if (navState?.saleDeleted && navState.deletedSaleId) {
+      // User deleted a sale
+      navigate(location.pathname, { replace: true, state: null });
+      handleDeleteSale(navState.deletedSaleId);
+    }
+  }, [location.state]);
   
   // Track if user has started tracking (for notification prompt)
   const hasStartedTracking = entry.work_start_time !== null && !entry.is_finalized;
@@ -590,10 +637,17 @@ const TrackWithLayout = () => {
         if (isLogSaleSheetOpen || pendingPostFinalizationSale) {
           return; // Already logging
         }
-        // Open LogSaleSheet for post-finalization sale
+        // Navigate to LogSale page for post-finalization sale
         setPendingPostFinalizationSale(true);
         setEditingSale(null);
-        setIsLogSaleSheetOpen(true);
+        navigate('/log-sale', { 
+          state: { 
+            crmEnabled: true, 
+            crmDetailedEnabled: true,
+            counterTimestamps: entry.counter_timestamps,
+            returnPath: '/track'
+          } 
+        });
         return;
       }
       // Block other counter changes
@@ -649,7 +703,14 @@ const TrackWithLayout = () => {
       }
       setPendingCloseIncrement(true);
       setEditingSale(null);
-      setIsLogSaleSheetOpen(true);
+      navigate('/log-sale', { 
+        state: { 
+          crmEnabled: true, 
+          crmDetailedEnabled: true,
+          counterTimestamps: entry.counter_timestamps,
+          returnPath: '/track'
+        } 
+      });
       return; // Don't increment closes yet - wait for sale to be logged
     }
     

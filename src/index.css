@@ -229,12 +229,20 @@ All colors MUST be HSL.
   
   /* When iOS keyboard is open, ensure proper viewport behavior */
   html.keyboard-open {
-    /* Force the viewport to account for keyboard */
-    height: calc(100% + var(--keyboard-height));
+    /* Use the actual visual viewport height to prevent blank space */
+    height: var(--visual-viewport-height, 100%);
+    overflow: hidden;
+  }
+  
+  html.keyboard-open body {
+    height: var(--visual-viewport-height, 100%);
+    overflow: hidden;
   }
   
   html.keyboard-open #root {
-    /* Ensure scrollability when keyboard is open */
+    /* Constrain to visual viewport and enable scrolling */
+    height: var(--visual-viewport-height, 100%);
+    overflow: auto;
     -webkit-overflow-scrolling: touch;
   }
   

@@ -46,6 +46,7 @@ import RecruitingContent from "./pages/RecruitingContent";
 import AboutTeam from "./pages/AboutTeam";
 import AddApplicant from "./pages/AddApplicant";
 import ReportsV2 from "./pages/ReportsV2";
+import LogSale from "./pages/LogSale";
 import { queryPersister } from "./lib/queryPersister";
 
 const queryClient = new QueryClient({
@@ -330,6 +331,14 @@ const App = () => {
               <Layout>
                 <ReportsV2 />
               </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/log-sale"
+          element={
+            <ProtectedRoute>
+              <LogSale />
             </ProtectedRoute>
           }
         />
