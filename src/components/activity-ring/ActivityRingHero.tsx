@@ -55,7 +55,8 @@ const RING_COLORS = {
   gap: 'hsl(0, 0%, 25%)',              // Dark gray - gap
   background: 'hsl(0, 0%, 12%)',
   goalTrack: 'hsl(0, 0%, 18%)',
-  goalProgress: 'hsl(142, 76%, 45%)',
+  goalProgress: 'hsl(142, 76%, 45%)',  // Base green for 0-100%
+  goalOverflow: 'hsl(142, 76%, 60%)',  // Lighter green for overflow (like Apple's distinct overflow color)
 };
 
 const SEGMENT_LABELS: Record<string, string> = {
@@ -280,51 +281,76 @@ export const ActivityRingHero = ({
             />
           )}
 
-          {/* Goal ring - full loops (Apple style overflow) */}
-          {showGoalRing && goalProgress > 0 && fullLoops > 0 && (
+          {/* Goal ring - Apple style: base loop (0-100%) always shows first */}
+          {showGoalRing && goalProgress > 0 && (
+            <motion.circle
+              cx={center}
+              cy={center}
+              r={config.innerRadius}
+              fill="none"
+              stroke={RING_COLORS.goalProgress}
+              strokeWidth={config.innerStroke}
+              strokeLinecap="round"
+              strokeDasharray={`${2 * Math.PI * config.innerRadius}`}
+              strokeDashoffset={2 * Math.PI * config.innerRadius * (1 - Math.min(goalLoops, 1))}
+              initial={{ strokeDashoffset: 2 * Math.PI * config.innerRadius }}
+              animate={{ 
+                strokeDashoffset: 2 * Math.PI * config.innerRadius * (1 - Math.min(goalLoops, 1))
+              }}
+              transition={{ 
+                duration: 1.2, 
+                delay: 0.2,
+                ease: [0.25, 0.1, 0.25, 1], // Custom easing: slow start, fast middle, slow end
+              }}
+              style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }}
+            />
+          )}
+
+          {/* Goal ring - overflow loops (>100%) with distinct lighter color */}
+          {showGoalRing && goalProgress > 100 && (
             <>
-              {Array.from({ length: Math.min(fullLoops, 3) }).map((_, loopIdx) => (
+              {/* Full overflow loops */}
+              {Array.from({ length: Math.min(fullLoops - 1, 2) }).map((_, loopIdx) => (
                 <motion.circle
-                  key={`goal-loop-${loopIdx}`}
+                  key={`goal-overflow-${loopIdx}`}
                   cx={center}
                   cy={center}
                   r={config.innerRadius}
                   fill="none"
-                  stroke={RING_COLORS.goalProgress}
+                  stroke={RING_COLORS.goalOverflow}
                   strokeWidth={config.innerStroke}
-                  strokeLinecap="butt"
-                  opacity={1 - loopIdx * 0.25}
+                  strokeLinecap="round"
                   strokeDasharray={`${2 * Math.PI * config.innerRadius}`}
                   strokeDashoffset={0}
                   initial={{ strokeDashoffset: 2 * Math.PI * config.innerRadius }}
                   animate={{ strokeDashoffset: 0 }}
                   transition={{ 
-                    duration: 0.8, 
-                    delay: 0.2 + loopIdx * 0.3,
-                    ease: "easeOut" 
+                    duration: 0.9, 
+                    delay: 1.4 + loopIdx * 0.7,
+                    ease: [0.25, 0.1, 0.25, 1], // Same Apple-style easing
                   }}
                   style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }}
                 />
               ))}
+              
+              {/* Partial overflow (the final arc after full loops) */}
+              {partialAngle > 0 && (
+                <motion.path
+                  d={describeArc(center, center, config.innerRadius, 0, partialAngle)}
+                  fill="none"
+                  stroke={RING_COLORS.goalOverflow}
+                  strokeWidth={config.innerStroke}
+                  strokeLinecap="round"
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 1 }}
+                  transition={{ 
+                    duration: 0.8, 
+                    delay: 1.4 + Math.min(fullLoops - 1, 2) * 0.7,
+                    ease: [0.25, 0.1, 0.25, 1],
+                  }}
+                />
+              )}
             </>
-          )}
-
-          {/* Goal ring - partial progress */}
-          {showGoalRing && goalProgress > 0 && partialAngle > 0 && (
-            <motion.path
-              d={describeArc(center, center, config.innerRadius, 0, partialAngle)}
-              fill="none"
-              stroke={RING_COLORS.goalProgress}
-              strokeWidth={config.innerStroke}
-              strokeLinecap="butt"
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ pathLength: 1, opacity: 1 }}
-              transition={{ 
-                duration: 0.8, 
-                delay: 0.2 + fullLoops * 0.3,
-                ease: "easeOut" 
-              }}
-            />
           )}
 
           {/* Timeline segments - outer ring */}
