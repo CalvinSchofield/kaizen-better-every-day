@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
       })(),
       supabase
         .from('reps')
-        .select('user_id, name, year, id, timezone')
+        .select('user_id, name, year, id, timezone, recruiter')
         .in('user_id', filteredUserIds),
     ]);
 
@@ -197,8 +197,10 @@ Deno.serve(async (req) => {
       
       return {
         ...rep,
+        teamId: teamId || null,
         teamName: teamId ? teamNameMap[teamId] : null,
         mgmtGroupName: mgmtId ? mgmtNameMap[mgmtId] : null,
+        recruiterName: rep.recruiter || null,
       };
     });
 

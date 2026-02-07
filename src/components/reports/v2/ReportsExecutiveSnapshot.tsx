@@ -17,6 +17,9 @@ interface WorkingRepForDrawer {
   name: string;
   year?: string;
   timezone?: string;
+  teamId?: string | null;
+  teamName?: string | null;
+  recruiterName?: string | null;
   workStartTime?: string;
   workEndTime?: string;
   avgStartTime?: string;
