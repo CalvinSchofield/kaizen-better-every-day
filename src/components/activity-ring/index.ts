@@ -15,3 +15,4 @@ export type { GoalTimeframe } from './GoalTimeframeToggle';
 export { SegmentDetailDrawer } from './SegmentDetailDrawer';
 export { SalesLogDrawer } from './SalesLogDrawer';
 export { BulkEntryCoaching } from './BulkEntryCoaching';
+export { SelfTimingInsights } from './SelfTimingInsights';

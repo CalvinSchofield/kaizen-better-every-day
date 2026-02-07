@@ -20,6 +20,7 @@ import {
   RingGoalProgress,
   ActivityCalendarDrawer,
   BulkEntryCoaching,
+  SelfTimingInsights,
 } from "@/components/activity-ring";
 import { PreWorkingState } from "@/components/track";
 
@@ -204,12 +205,28 @@ const Track = ({
           />
         </div>
 
+        {/* Self Timing Insights - encouraging tips for tomorrow */}
+        <SelfTimingInsights
+          workStartTime={entry.work_start_time}
+          workEndTime={entry.work_end_time}
+          breakMinutes={entry.break_periods?.reduce((acc, bp) => {
+            if (bp.start && bp.end) {
+              const start = new Date(bp.start).getTime();
+              const end = new Date(bp.end).getTime();
+              return acc + Math.max(0, (end - start) / 60000);
+            }
+            return acc;
+          }, 0) || 0}
+          dayOfWeek={new Date().getDay()}
+          className="mx-4 mb-4"
+        />
+
         {/* Bulk Entry Coaching for Reps - simple, money-focused */}
         {bulkEntryStats.bulkEntryDetected && (
           <BulkEntryCoaching
             batchedEventsPercent={bulkEntryStats.batchedEventsPercent}
             largestBatch={bulkEntryStats.largestBatch}
-            className="mb-4"
+            className="mx-4 mb-4"
           />
         )}
 
