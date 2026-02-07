@@ -199,7 +199,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         return [
           { path: "/", icon: Home, label: "Home" },
           { path: "/tools", icon: Wrench, label: "Tools" },
-          { path: "/team-reports", icon: BarChart3, label: "Reports" },
+          { path: "/reports-v2", icon: BarChart3, label: "Reports" },
           { path: "/leaderboard", icon: Trophy, label: "Leaderboard" },
         ];
       }
@@ -302,6 +302,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
       case "/settings":
         return "Personalize";
       case "/team-reports":
+      case "/reports-v2":
         return "Reports";
       case "/goals":
         return "Goals";
