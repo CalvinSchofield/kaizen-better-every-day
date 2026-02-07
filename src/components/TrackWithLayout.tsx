@@ -32,6 +32,7 @@ import { useConfetti } from "@/hooks/useConfetti";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { toast } from "sonner";
 import { hapticSuccess } from "@/utils/haptics";
+import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 
 // Helper to check if it's before typical end of work day (9 PM local - summer hours)
 const isBeforeSunset = () => {
@@ -176,12 +177,10 @@ const TrackWithLayout = () => {
           });
         }
       } else {
-        // New sale - set pending flags and trigger handleLogSale
-        setPendingCloseIncrement(true);
-        // Use a microtask to let state update
-        Promise.resolve().then(() => {
-          handleLogSale(navState.saleData!);
-        });
+        // New sale - call handleLogSaleFromPage directly
+        // This bypasses the pendingCloseIncrement check since we KNOW this is a valid sale
+        // from the LogSale page. This fixes the race condition where state wasn't updated.
+        handleLogSaleFromPage(navState.saleData!);
       }
     } else if (navState?.saleCancelled) {
       // User cancelled - clear any pending state
@@ -859,10 +858,19 @@ const TrackWithLayout = () => {
     const currentSalesLog = entry.sales_log || [];
     const updatedSalesLog = [...currentSalesLog, newSale];
     
-    // Increment closes and add sale to log
+    // Calculate fp_plus and prmr from the updated sales_log
+    const { fp, prmr: totalPrmr } = calculateFromSalesLog(updatedSalesLog);
+    const upgradePrmr = updatedSalesLog
+      .filter(s => s.type === 'upgrade' && s.install_status !== 'never_installed')
+      .reduce((sum, s) => sum + (s.prmr || 0), 0);
+    
+    // Increment closes and add sale to log with recalculated totals
     const updates: any = {
       closes: (entry.closes || 0) + 1,
       sales_log: updatedSalesLog,
+      fp_plus: Math.round(fp * 100) / 100,
+      prmr: Math.round(totalPrmr * 100) / 100,
+      upgrade_prmr: Math.round(upgradePrmr * 100) / 100,
     };
     
     // Handle timestamps
@@ -919,6 +927,93 @@ const TrackWithLayout = () => {
     
     setPendingCloseIncrement(false);
   }, [entry, updateCounter, pendingCloseIncrement, pendingPostFinalizationSale, addSaleToEntry, fireConfetti, isTourDemoMode, queueSale, processQueue]);
+
+  // Direct handler for sales from LogSale page - bypasses pendingCloseIncrement check
+  // This fixes the race condition where the navigation state handler couldn't reliably
+  // set pendingCloseIncrement before calling handleLogSale
+  const handleLogSaleFromPage = useCallback(async (saleData: Omit<Sale, 'id' | 'timestamp'>) => {
+    if (isTourDemoMode) return;
+    
+    const today = getTodayDate();
+    
+    // Generate sale ID and timestamp
+    const saleId = crypto.randomUUID();
+    const saleTimestamp = new Date().toISOString();
+    
+    const newSale: Sale = {
+      id: saleId,
+      ...saleData,
+      timestamp: saleTimestamp,
+    };
+    
+    const currentSalesLog = entry.sales_log || [];
+    const updatedSalesLog = [...currentSalesLog, newSale];
+    
+    // Calculate fp_plus and prmr from the updated sales_log
+    const { fp, prmr: totalPrmr } = calculateFromSalesLog(updatedSalesLog);
+    const upgradePrmr = updatedSalesLog
+      .filter(s => s.type === 'upgrade' && s.install_status !== 'never_installed')
+      .reduce((sum, s) => sum + (s.prmr || 0), 0);
+    
+    // Build updates with recalculated totals
+    const updates: any = {
+      closes: (entry.closes || 0) + 1,
+      sales_log: updatedSalesLog,
+      fp_plus: Math.round(fp * 100) / 100,
+      prmr: Math.round(totalPrmr * 100) / 100,
+      upgrade_prmr: Math.round(upgradePrmr * 100) / 100,
+    };
+    
+    // Handle timestamps
+    const timestamps = entry.counter_timestamps || {};
+    const closesTimestamps = timestamps['closes'] || [];
+    updates.counter_timestamps = {
+      ...timestamps,
+      closes: [...closesTimestamps, saleTimestamp]
+    };
+    
+    // Auto-start work if not started
+    if (!entry.work_start_time) {
+      const now = new Date();
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      updates.work_start_time = now.toISOString();
+      updates.timezone = timezone;
+    }
+    
+    // Auto-end break if active
+    const breakPeriods = entry.break_periods || [];
+    const currentBreak = breakPeriods.find(bp => !bp.end);
+    if (currentBreak) {
+      const updatedBreaks = breakPeriods.map(bp => 
+        bp === currentBreak ? { ...bp, end: new Date().toISOString() } : bp
+      );
+      updates.break_periods = updatedBreaks;
+    }
+    
+    // Fire confetti and haptic immediately
+    hapticSuccess();
+    fireConfetti({ variant: 'money', duration: 2500 });
+    
+    setSyncStatus('pending');
+    try {
+      await updateCounter(updates);
+      setSyncStatus('synced');
+    } catch (error: any) {
+      if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
+        toast.info("Today's work is already saved. Start fresh tomorrow!");
+        setSavedThisSession(true);
+        setSyncStatus('synced');
+      } else {
+        setSyncStatus('error');
+        queueSale(today, saleData);
+        toast.info('Sale saved locally - will sync when connection restores', { 
+          icon: '📶',
+          duration: 3000 
+        });
+        processQueue();
+      }
+    }
+  }, [entry, updateCounter, fireConfetti, isTourDemoMode, queueSale, processQueue]);
 
   const handleEditSale = useCallback((sale: Sale) => {
     setEditingSale(sale);
