@@ -21,6 +21,34 @@ interface EffortCoachingCalloutsProps {
   className?: string;
 }
 
+// Format minutes into natural language (e.g., "2 hours" instead of "120 min")
+const formatDurationNatural = (minutes: number): string => {
+  const rounded = Math.round(minutes);
+  if (rounded < 60) {
+    return `${rounded} min`;
+  }
+  const hours = Math.floor(rounded / 60);
+  const remainingMins = rounded % 60;
+  
+  if (remainingMins === 0) {
+    return hours === 1 ? '1 hour' : `${hours} hours`;
+  }
+  if (remainingMins <= 10) {
+    // Round to nearest hour if close
+    return hours === 1 ? '1 hour' : `${hours} hours`;
+  }
+  if (remainingMins >= 50) {
+    // Round up
+    const roundedHours = hours + 1;
+    return roundedHours === 1 ? '1 hour' : `${roundedHours} hours`;
+  }
+  // Show hours and minutes for in-between values
+  if (hours === 0) {
+    return `${remainingMins} min`;
+  }
+  return `${hours}h ${remainingMins}m`;
+};
+
 export const EffortCoachingCallouts = ({
   workStartTime,
   workEndTime,
@@ -59,15 +87,15 @@ export const EffortCoachingCallouts = ({
     if (isWeekday && startInMinutes > lateThresholdWeekday) {
       isLate = true;
       const lateBy = startInMinutes - lateThresholdWeekday;
-      lateReason = `Started at ${format(startDate, 'h:mm a')} (${Math.round(lateBy)} min after 1pm)`;
+      lateReason = `Started at ${format(startDate, 'h:mm a')} (${formatDurationNatural(lateBy)} after 1pm)`;
     } else if (isSaturday && startInMinutes > lateThresholdSaturday) {
       isLate = true;
       const lateBy = startInMinutes - lateThresholdSaturday;
-      lateReason = `Started at ${format(startDate, 'h:mm a')} (${Math.round(lateBy)} min after 10am)`;
+      lateReason = `Started at ${format(startDate, 'h:mm a')} (${formatDurationNatural(lateBy)} after 10am)`;
     } else if (repAverageStartMinutes !== undefined && startInMinutes > repAverageStartMinutes + 30) {
       isLate = true;
       const lateBy = startInMinutes - repAverageStartMinutes;
-      lateReason = `Started at ${format(startDate, 'h:mm a')} (${Math.round(lateBy)} min later than average)`;
+      lateReason = `Started at ${format(startDate, 'h:mm a')} (${formatDurationNatural(lateBy)} later than usual)`;
     }
     
     if (isLate) {
@@ -100,7 +128,7 @@ export const EffortCoachingCallouts = ({
       const earlyBy = earlyThreshold - endInMinutes;
       if (earlyBy > 30) { // Only flag if more than 30 min early
         isEarly = true;
-        earlyReason = `Ended at ${format(endDate, 'h:mm a')} (${Math.round(earlyBy)} min before 7pm)`;
+        earlyReason = `Ended at ${format(endDate, 'h:mm a')} (${formatDurationNatural(earlyBy)} before 7pm)`;
       }
     }
     
@@ -108,7 +136,7 @@ export const EffortCoachingCallouts = ({
     if (!isEarly && repAverageEndMinutes !== undefined && endInMinutes < repAverageEndMinutes - 30) {
       const earlyBy = repAverageEndMinutes - endInMinutes;
       isEarly = true;
-      earlyReason = `Ended at ${format(endDate, 'h:mm a')} (${Math.round(earlyBy)} min earlier than average)`;
+      earlyReason = `Ended at ${format(endDate, 'h:mm a')} (${formatDurationNatural(earlyBy)} earlier than usual)`;
     }
     
     if (isEarly) {
@@ -128,7 +156,7 @@ export const EffortCoachingCallouts = ({
     issues.push({
       type: 'excessive_break',
       icon: Coffee,
-      message: `${Math.round(actualBreakMinutes)} min of break time`,
+      message: `${formatDurationNatural(actualBreakMinutes)} of break time`,
       severity: actualBreakMinutes > 60 ? 'critical' : 'warning',
     });
   }
