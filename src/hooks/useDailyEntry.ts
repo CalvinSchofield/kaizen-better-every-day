@@ -133,8 +133,7 @@ export const useDailyEntry = (date?: string) => {
   const queryClient = useQueryClient();
   const entryDate = date || getTodayDate();
 
-  // Track if we've verified fresh data from server
-  const [isFreshDataVerified, setIsFreshDataVerified] = useState(false);
+  // Track offline status with valid backup
   const [isOfflineWithBackup, setIsOfflineWithBackup] = useState(false);
 
   // Check offline status with valid backup
@@ -145,10 +144,6 @@ export const useDailyEntry = (date?: string) => {
         const backup = userId ? getInstantBackup(userId, entryDate) : null;
         const hasActivity = getActivityTotal(backup) > 0;
         setIsOfflineWithBackup(hasActivity);
-        // If offline with valid backup, we can allow mutations
-        if (hasActivity) {
-          setIsFreshDataVerified(true);
-        }
       } else {
         setIsOfflineWithBackup(false);
       }
@@ -183,9 +178,6 @@ export const useDailyEntry = (date?: string) => {
         .maybeSingle();
 
       if (error) throw error;
-      
-      // PHASE 2: Mark fresh data as verified when server responds
-      setIsFreshDataVerified(true);
       
       // Transform the data to match our interface
       let serverEntry: DailyEntry | null = null;
@@ -652,8 +644,12 @@ export const useDailyEntry = (date?: string) => {
       sales_log: [],
     },
     isLoading,
-    // PHASE 2: Freshness gate - only true when server fetch succeeded OR offline with valid backup
-    isFreshDataVerified: isFreshDataVerified || isOfflineWithBackup,
+    // PHASE 2: Freshness gate - true when:
+    // 1. Query has completed fetching (fetchStatus is 'idle' meaning not actively fetching)
+    // 2. OR we're offline with a valid backup
+    // This prevents the "Syncing your data" toast from showing forever if the query
+    // takes a long time or the user has no backup data
+    isFreshDataVerified: fetchStatus === 'idle' || isOfflineWithBackup,
     isOfflineWithBackup,
     fetchStatus,
     updateCounter: updateCounterMutation.mutateAsync,
