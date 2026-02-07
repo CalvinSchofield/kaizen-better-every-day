@@ -48,11 +48,13 @@ interface ActivityRingHeroProps {
 // Clean color scheme with proper semantic distinction
 const RING_COLORS = {
   knocking: 'hsl(210, 80%, 55%)',      // Blue - door knocking
+  doorstep: 'hsl(180, 60%, 50%)',      // Cyan/teal - doorstep conversations
   transition: 'hsl(45, 90%, 55%)',     // Amber - transition marker (thin)
   presentation: 'hsl(45, 90%, 55%)',   // Amber - presentation duration
   sale: 'hsl(142, 76%, 45%)',          // Green - sale duration
+  seen_out: 'hsl(45, 90%, 55%)',       // Amber - seen out (short arc)
   break: 'hsl(35, 90%, 50%)',          // Orange - break
-  gap: 'hsl(0, 0%, 25%)',              // Dark gray - gap
+  gap: 'hsl(0, 0%, 25%)',              // Dark gray - gap (true idle)
   background: 'hsl(0, 0%, 12%)',
   goalTrack: 'hsl(0, 0%, 18%)',
   goalProgress: 'hsl(142, 76%, 45%)',  // Base green for 0-100%
@@ -61,9 +63,11 @@ const RING_COLORS = {
 
 const SEGMENT_LABELS: Record<string, string> = {
   knocking: 'Knocking',
+  doorstep: 'Doorstep Talk',
   transition: 'Transition',
   presentation: 'Presentation',
   sale: 'Sale',
+  seen_out: 'Seen Out',
   break: 'Break',
   gap: 'Gap',
 };
@@ -208,25 +212,32 @@ export const ActivityRingHero = ({
     return buildRingSegments(events, inHomeZones, entry.break_periods || [], workStart, workEnd);
   }, [events, workStart, workEnd, entry.break_periods]);
 
-  const { gapPercent, presentationPercent, totalPresentationMinutes, totalGapMinutes } = useMemo(() => {
+  const { gapPercent, presentationPercent, doorstepPercent, totalPresentationMinutes, totalGapMinutes, totalDoorstepMinutes } = useMemo(() => {
     if (!segments.length || totalWorkMinutes === 0) {
-      return { gapPercent: 0, presentationPercent: 0, totalPresentationMinutes: 0, totalGapMinutes: 0 };
+      return { gapPercent: 0, presentationPercent: 0, doorstepPercent: 0, totalPresentationMinutes: 0, totalGapMinutes: 0, totalDoorstepMinutes: 0 };
     }
     
     const totalGapDegrees = segments
       .filter(s => s.type === 'gap')
       .reduce((sum, s) => sum + (s.endAngle - s.startAngle), 0);
     
-    // Presentation time = presentations + sales (not transitions, they're just entry points)
+    // Presentation time = presentations + sales + seen_out (all in-home time)
     const totalPresentationDegrees = segments
-      .filter(s => s.type === 'presentation' || s.type === 'sale')
+      .filter(s => s.type === 'presentation' || s.type === 'sale' || s.type === 'seen_out')
+      .reduce((sum, s) => sum + (s.endAngle - s.startAngle), 0);
+    
+    // Doorstep time = doorstep conversations (talking but not entering)
+    const totalDoorstepDegrees = segments
+      .filter(s => s.type === 'doorstep')
       .reduce((sum, s) => sum + (s.endAngle - s.startAngle), 0);
     
     return {
       gapPercent: Math.round((totalGapDegrees / 360) * 100),
       presentationPercent: Math.round((totalPresentationDegrees / 360) * 100),
+      doorstepPercent: Math.round((totalDoorstepDegrees / 360) * 100),
       totalPresentationMinutes: Math.round((totalPresentationDegrees / 360) * totalWorkMinutes),
       totalGapMinutes: Math.round((totalGapDegrees / 360) * totalWorkMinutes),
+      totalDoorstepMinutes: Math.round((totalDoorstepDegrees / 360) * totalWorkMinutes),
     };
   }, [segments, totalWorkMinutes]);
 
@@ -264,8 +275,8 @@ export const ActivityRingHero = ({
 
   const handleSegmentClick = useCallback((segment: RingSegment, e: React.MouseEvent) => {
     e.stopPropagation();
-    // Only interactive segments: transition, presentation, sale, break, gap
-    if (['transition', 'presentation', 'sale', 'break', 'gap'].includes(segment.type) && onSegmentClick) {
+    // Only interactive segments: transition, presentation, sale, break, gap, doorstep, seen_out
+    if (['transition', 'presentation', 'sale', 'break', 'gap', 'doorstep', 'seen_out'].includes(segment.type) && onSegmentClick) {
       const matchedSale = findMatchingSale(segment);
       onSegmentClick(segment, matchedSale);
     }
@@ -407,9 +418,36 @@ export const ActivityRingHero = ({
                 );
               })}
             
-            {/* Layer 2: Presentation & Sale arcs (middle layer) */}
+            {/* Layer 1.5: Doorstep conversations (above knocking, below in-home) */}
             {segments
-              .filter(s => ['presentation', 'sale'].includes(s.type))
+              .filter(s => s.type === 'doorstep')
+              .map((segment) => {
+                const arcSize = segment.endAngle - segment.startAngle;
+                if (arcSize < 0.5) return null;
+                
+                const pathD = describeArc(center, center, config.radius, segment.startAngle, segment.endAngle);
+                const originalIdx = segments.indexOf(segment);
+                
+                return (
+                  <motion.path
+                    key={`doorstep-${originalIdx}`}
+                    d={pathD}
+                    fill="none"
+                    stroke={RING_COLORS.doorstep}
+                    strokeWidth={config.strokeWidth}
+                    strokeLinecap="butt"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 1 }}
+                    transition={{ duration: 0.6, delay: originalIdx * 0.02, ease: "easeOut" }}
+                    style={{ cursor: 'pointer' }}
+                    onClick={(e) => handleSegmentClick(segment, e)}
+                  />
+                );
+              })}
+            
+            {/* Layer 2: Presentation, Sale & Seen Out arcs (middle layer) */}
+            {segments
+              .filter(s => ['presentation', 'sale', 'seen_out'].includes(s.type))
               .map((segment) => {
                 const arcSize = segment.endAngle - segment.startAngle;
                 if (arcSize < 0.5) return null;
@@ -531,9 +569,9 @@ export const ActivityRingHero = ({
       </div>
       
       {/* Activity breakdown */}
-      {showGapPercent && (presentationPercent > 0 || gapPercent > 0) && (
+      {showGapPercent && (presentationPercent > 0 || doorstepPercent > 0 || gapPercent > 0) && (
         <motion.div
-          className="flex items-center justify-center gap-4 text-xs"
+          className="flex items-center justify-center gap-4 text-xs flex-wrap"
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8 }}
@@ -544,6 +582,15 @@ export const ActivityRingHero = ({
               <span className="text-muted-foreground">
                 <span className="font-medium text-foreground">{presentationPercent}%</span> presenting
                 <span className="text-muted-foreground/70 ml-1">({formatDuration(totalPresentationMinutes)})</span>
+              </span>
+            </div>
+          )}
+          {doorstepPercent > 0 && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: RING_COLORS.doorstep }} />
+              <span className="text-muted-foreground">
+                <span className="font-medium text-foreground">{doorstepPercent}%</span> doorstep
+                <span className="text-muted-foreground/70 ml-1">({formatDuration(totalDoorstepMinutes)})</span>
               </span>
             </div>
           )}

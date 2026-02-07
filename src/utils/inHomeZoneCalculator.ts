@@ -39,9 +39,20 @@ export interface InHomeZone {
 export interface RingSegment {
   startAngle: number;
   endAngle: number;
-  type: 'knocking' | 'transition' | 'presentation' | 'sale' | 'break' | 'gap';
+  type: 'knocking' | 'transition' | 'presentation' | 'sale' | 'break' | 'gap' | 'doorstep' | 'seen_out';
   source?: InHomeZoneSource;
   duration?: number; // Duration in minutes for interactive segments
+  hasDM?: boolean; // For doorstep segments
+  hasPitch?: boolean; // For doorstep segments
+}
+
+// Doorstep zone (talking at door without entering)
+export interface DoorstepZone {
+  startTime: Date;
+  endTime: Date;
+  duration: number;
+  hasDM: boolean;
+  hasPitch: boolean;
 }
 
 const BATCH_THRESHOLD_MS = 30 * 1000; // 30 seconds for batch-logged detection
@@ -197,6 +208,115 @@ export function calculateInHomeZones(
 }
 
 /**
+ * Calculate doorstep zones - gaps between doors where DM/Pitch was logged
+ * but no transition occurred (rep talked at door but didn't go inside)
+ * 
+ * Detection: Gap 3-15min between doors WITH DM/Pitch logged (no transition)
+ */
+export function calculateDoorstepZones(
+  events: TimelineEvent[],
+  inHomeZones: InHomeZone[],
+  breakPeriods: Array<{ start: string; end: string }>,
+  workStart: Date,
+  workEnd: Date
+): DoorstepZone[] {
+  const zones: DoorstepZone[] = [];
+  
+  const doorEvents = events.filter(e => e.type === 'doors_knocked')
+    .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  const dmEvents = events.filter(e => e.type === 'decision_makers');
+  const pitchEvents = events.filter(e => e.type === 'pitches');
+  const transitionEvents = events.filter(e => e.type === 'transitions');
+  
+  const MIN_GAP_MINUTES = 3;
+  const MAX_GAP_MINUTES = 15;
+  const BATCH_GRACE_MS = 60 * 1000; // 60s grace for batch-logged DM/pitch after next door
+  
+  // Check if a time range overlaps with in-home zones
+  const overlapsInHomeZone = (start: Date, end: Date): boolean => {
+    return inHomeZones.some(zone => {
+      return zone.doorTime < end && zone.endTime > start;
+    });
+  };
+  
+  // Check if a time range overlaps with breaks
+  const overlapsBreak = (start: Date, end: Date): boolean => {
+    return breakPeriods.some(bp => {
+      if (!bp.start || !bp.end) return false;
+      try {
+        const breakStart = new Date(bp.start);
+        const breakEnd = new Date(bp.end);
+        return breakStart < end && breakEnd > start;
+      } catch {
+        return false;
+      }
+    });
+  };
+  
+  // Check if there's a transition between two times
+  const hasTransitionBetween = (start: Date, end: Date): boolean => {
+    return transitionEvents.some(t => t.timestamp >= start && t.timestamp <= end);
+  };
+  
+  // Check if DM or Pitch was logged between two doors (or within grace period after door B)
+  const checkDMPitchBetween = (doorA: Date, doorB: Date): { hasDM: boolean; hasPitch: boolean } => {
+    const graceEnd = new Date(doorB.getTime() + BATCH_GRACE_MS);
+    
+    const hasDM = dmEvents.some(dm => 
+      dm.timestamp >= doorA && dm.timestamp <= graceEnd
+    );
+    const hasPitch = pitchEvents.some(p => 
+      p.timestamp >= doorA && p.timestamp <= graceEnd
+    );
+    
+    return { hasDM, hasPitch };
+  };
+  
+  // Iterate through consecutive door pairs
+  for (let i = 0; i < doorEvents.length - 1; i++) {
+    const doorA = doorEvents[i].timestamp;
+    const doorB = doorEvents[i + 1].timestamp;
+    const gapMinutes = (doorB.getTime() - doorA.getTime()) / (1000 * 60);
+    
+    // Only consider gaps in the 3-15 minute range
+    if (gapMinutes < MIN_GAP_MINUTES || gapMinutes > MAX_GAP_MINUTES) {
+      continue;
+    }
+    
+    // Skip if this gap is covered by an in-home zone
+    if (overlapsInHomeZone(doorA, doorB)) {
+      continue;
+    }
+    
+    // Skip if this gap is covered by a break
+    if (overlapsBreak(doorA, doorB)) {
+      continue;
+    }
+    
+    // Skip if there's a transition in this gap (means they went inside)
+    if (hasTransitionBetween(doorA, doorB)) {
+      continue;
+    }
+    
+    // Check if DM or Pitch was logged in this gap
+    const { hasDM, hasPitch } = checkDMPitchBetween(doorA, doorB);
+    
+    // Only mark as doorstep talk if DM or Pitch exists
+    if (hasDM || hasPitch) {
+      zones.push({
+        startTime: doorA,
+        endTime: doorB,
+        duration: gapMinutes,
+        hasDM,
+        hasPitch,
+      });
+    }
+  }
+  
+  return zones;
+}
+
+/**
  * Convert time to angle (0 = 12 o'clock / start of work, 360 = end of work)
  */
 export function timeToAngle(time: Date, workStart: Date, workEnd: Date): number {
@@ -225,22 +345,43 @@ export function buildRingSegments(
   inHomeZones: InHomeZone[],
   breakPeriods: Array<{ start: string; end: string }>,
   workStart: Date,
-  workEnd: Date
+  workEnd: Date,
+  doorstepZones?: DoorstepZone[]
 ): RingSegment[] {
   if (!workStart || !workEnd || events.length === 0) {
     return [{ startAngle: 0, endAngle: 360, type: 'gap' }];
   }
   
+  // Calculate doorstep zones if not provided
+  const computedDoorstepZones = doorstepZones ?? calculateDoorstepZones(
+    events, inHomeZones, breakPeriods, workStart, workEnd
+  );
+  
   interface TimeInterval {
     start: number;
     end: number;
-    type: 'knocking' | 'transition' | 'presentation' | 'sale' | 'break' | 'gap';
+    type: 'knocking' | 'transition' | 'presentation' | 'sale' | 'break' | 'gap' | 'doorstep' | 'seen_out';
     priority: number;
     source?: InHomeZoneSource;
     duration?: number;
+    hasDM?: boolean;
+    hasPitch?: boolean;
   }
   
   const intervals: TimeInterval[] = [];
+  
+  // Add doorstep zones (priority 1.5 - above knocking, below in-home)
+  computedDoorstepZones.forEach(zone => {
+    intervals.push({
+      start: timeToAngle(zone.startTime, workStart, workEnd),
+      end: timeToAngle(zone.endTime, workStart, workEnd),
+      type: 'doorstep',
+      priority: 1.5,
+      duration: zone.duration,
+      hasDM: zone.hasDM,
+      hasPitch: zone.hasPitch,
+    });
+  });
   
   // Minimum arc sizes for visibility
   const MIN_PRESENTATION_DEGREES = 10; // Presentations/sales need to be clearly visible
@@ -422,6 +563,8 @@ export function buildRingSegments(
       type: interval.type,
       source: interval.source,
       duration: interval.duration,
+      hasDM: interval.hasDM,
+      hasPitch: interval.hasPitch,
     });
     currentAngle = interval.end;
   }
