@@ -134,12 +134,12 @@ export const RepDrillDownDrawer = ({
         workEndTime: dayActivity?.workEndTime,
       };
 
-  // Calculate goal progress percentage
+  // Calculate goal progress percentage (NO cap - allow Apple-style overflow)
   const dailyGoalFP = extendedData?.goals?.mustGoal 
     ? extendedData.goals.mustGoal / 53 // Roughly divide by season days
     : 2; // Default daily target
   const goalProgress = dailyGoalFP > 0 
-    ? Math.min(100, (displayData.fp / dailyGoalFP) * 100)
+    ? (displayData.fp / dailyGoalFP) * 100
     : 0;
 
   return (

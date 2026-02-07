@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState, useCallback } from "react";
+import { useMemo, useEffect, useState, useCallback, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DailyEntry, Sale } from "@/hooks/useDailyEntry";
 import { formatHoursMinutes, formatFP, formatPRMR } from "@/lib/formatters";
@@ -9,12 +9,10 @@ import {
   buildRingSegments,
   TimelineEvent,
   RingSegment,
-  InHomeZone,
-  timeToAngle,
 } from "@/utils/inHomeZoneCalculator";
 import { detectBulkEntry } from "@/utils/bulkEntryDetector";
 import { ActivityRingLegend } from "./ActivityRingLegend";
-import { Zap, Home, Clock, Coffee } from "lucide-react";
+import { Zap, Home, Clock, Coffee, ArrowRight } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -40,29 +38,30 @@ interface ActivityRingHeroProps {
   };
   counterTimestamps?: Record<string, string[]>;
   salesLog?: Sale[];
-  goalProgress?: number; // 0-100, percentage towards daily goal
-  showGoalRing?: boolean; // Whether to show inner goal ring (default true when goalProgress > 0)
+  goalProgress?: number; // 0-100+, percentage towards daily goal (can exceed 100 for overflow)
+  showGoalRing?: boolean;
   showLegend?: boolean;
-  showGapPercent?: boolean; // Whether to show gap percentage (for leaders)
+  showGapPercent?: boolean;
   size?: 'sm' | 'md' | 'lg';
 }
 
-// Clean, solid color scheme - no glow effects
+// Clean color scheme with proper semantic distinction
 const RING_COLORS = {
-  knocking: 'hsl(210, 80%, 55%)',   // Blue - active door work
-  'in-home': 'hsl(45, 90%, 55%)',   // Amber/Gold - in a home presenting
-  sale: 'hsl(142, 76%, 45%)',        // Green - matches goal color
-  break: 'hsl(35, 90%, 50%)',        // Orange - break time
-  gap: 'hsl(0, 0%, 25%)',            // Dark gray - not working
-  background: 'hsl(0, 0%, 12%)',     // Ring background track
-  goalTrack: 'hsl(0, 0%, 18%)',      // Inner ring track
-  goalProgress: 'hsl(142, 76%, 45%)', // Green - goal progress
+  knocking: 'hsl(210, 80%, 55%)',      // Blue - door knocking
+  transition: 'hsl(45, 90%, 55%)',     // Amber - transition marker (thin)
+  presentation: 'hsl(45, 90%, 55%)',   // Amber - presentation duration
+  sale: 'hsl(142, 76%, 45%)',          // Green - sale duration
+  break: 'hsl(35, 90%, 50%)',          // Orange - break
+  gap: 'hsl(0, 0%, 25%)',              // Dark gray - gap
+  background: 'hsl(0, 0%, 12%)',
+  goalTrack: 'hsl(0, 0%, 18%)',
+  goalProgress: 'hsl(142, 76%, 45%)',
 };
 
-// Segment labels for popovers
 const SEGMENT_LABELS: Record<string, string> = {
   knocking: 'Knocking',
-  'in-home': 'In Home',
+  transition: 'Transition',
+  presentation: 'Presentation',
   sale: 'Sale',
   break: 'Break',
   gap: 'Gap',
@@ -89,69 +88,12 @@ const describeArc = (
   return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
 };
 
-// Format duration from degrees to readable time
-const formatDegreesDuration = (degrees: number, totalWorkMinutes: number): string => {
-  const minutes = Math.round((degrees / 360) * totalWorkMinutes);
-  if (minutes < 60) {
-    return `${minutes}m`;
-  }
+const formatDuration = (minutes: number): string => {
+  if (minutes < 1) return '<1m';
+  if (minutes < 60) return `${Math.round(minutes)}m`;
   const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
+  const mins = Math.round(minutes % 60);
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-};
-
-interface SegmentPopoverProps {
-  segment: RingSegment;
-  totalWorkMinutes: number;
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  children: React.ReactNode;
-}
-
-const SegmentPopover = ({ segment, totalWorkMinutes, isOpen, onOpenChange, children }: SegmentPopoverProps) => {
-  const duration = formatDegreesDuration(segment.endAngle - segment.startAngle, totalWorkMinutes);
-  const label = SEGMENT_LABELS[segment.type] || segment.type;
-  
-  const getIcon = () => {
-    switch (segment.type) {
-      case 'in-home':
-      case 'sale':
-        return <Home className="w-4 h-4" />;
-      case 'break':
-        return <Coffee className="w-4 h-4" />;
-      default:
-        return <Clock className="w-4 h-4" />;
-    }
-  };
-
-  return (
-    <Popover open={isOpen} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        {children}
-      </PopoverTrigger>
-      <PopoverContent 
-        side="top" 
-        className="w-auto px-3 py-2 bg-card border-border"
-        sideOffset={8}
-      >
-        <div className="flex items-center gap-2">
-          <div 
-            className="w-3 h-3 rounded-sm" 
-            style={{ backgroundColor: RING_COLORS[segment.type] }}
-          />
-          <span className="font-medium text-sm">{label}</span>
-          <span className="text-sm text-muted-foreground">•</span>
-          <div className="flex items-center gap-1 text-sm font-medium">
-            {getIcon()}
-            {duration}
-          </div>
-        </div>
-        {segment.source === 'estimated' && (
-          <p className="text-xs text-muted-foreground mt-1">Duration estimated</p>
-        )}
-      </PopoverContent>
-    </Popover>
-  );
 };
 
 export const ActivityRingHero = ({
@@ -167,7 +109,6 @@ export const ActivityRingHero = ({
   const [animationComplete, setAnimationComplete] = useState(false);
   const [selectedSegmentIdx, setSelectedSegmentIdx] = useState<number | null>(null);
   
-  // Size configurations
   const sizeConfig = {
     sm: { width: 160, radius: 60, strokeWidth: 14, innerRadius: 42, innerStroke: 8, fontSize: 'text-base' },
     md: { width: 220, radius: 85, strokeWidth: 18, innerRadius: 60, innerStroke: 10, fontSize: 'text-xl' },
@@ -177,7 +118,6 @@ export const ActivityRingHero = ({
   const config = sizeConfig[size];
   const center = config.width / 2;
 
-  // Calculate work hours
   const { hoursWorked, workStart, workEnd, totalWorkMinutes } = useMemo(() => {
     if (!entry.work_start_time || !entry.work_end_time) {
       return { hoursWorked: 0, workStart: null, workEnd: null, totalWorkMinutes: 0 };
@@ -208,7 +148,6 @@ export const ActivityRingHero = ({
     };
   }, [entry.work_start_time, entry.work_end_time, entry.break_periods]);
 
-  // Calculate FP and PRMR from sales log
   const { fp, prmr } = useMemo(() => {
     if (salesLog && salesLog.length > 0) {
       return calculateFromSalesLog(salesLog);
@@ -216,7 +155,6 @@ export const ActivityRingHero = ({
     return { fp: entry.fp_plus || 0, prmr: entry.prmr || 0 };
   }, [salesLog, entry.fp_plus, entry.prmr]);
 
-  // Parse all timeline events
   const events = useMemo<TimelineEvent[]>(() => {
     const allEvents: TimelineEvent[] = [];
     const timestamps = counterTimestamps || entry.counter_timestamps || {};
@@ -227,10 +165,7 @@ export const ActivityRingHero = ({
           try {
             const eventType = type as TimelineEvent['type'];
             if (['doors_knocked', 'decision_makers', 'pitches', 'transitions', 'presentations', 'closes'].includes(eventType)) {
-              allEvents.push({
-                timestamp: parseISO(t),
-                type: eventType,
-              });
+              allEvents.push({ timestamp: parseISO(t), type: eventType });
             }
           } catch {
             // Skip invalid dates
@@ -259,7 +194,6 @@ export const ActivityRingHero = ({
     return allEvents.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [counterTimestamps, entry.counter_timestamps, salesLog]);
 
-  // Build ring segments
   const segments = useMemo<RingSegment[]>(() => {
     if (!workStart || !workEnd) {
       return [{ startAngle: 0, endAngle: 360, type: 'gap' }];
@@ -269,54 +203,55 @@ export const ActivityRingHero = ({
     return buildRingSegments(events, inHomeZones, entry.break_periods || [], workStart, workEnd);
   }, [events, workStart, workEnd, entry.break_periods]);
 
-  // Calculate gap and in-home percentages
-  const { gapPercent, inHomePercent, totalInHomeMinutes, totalGapMinutes } = useMemo(() => {
+  const { gapPercent, presentationPercent, totalPresentationMinutes, totalGapMinutes } = useMemo(() => {
     if (!segments.length || totalWorkMinutes === 0) {
-      return { gapPercent: 0, inHomePercent: 0, totalInHomeMinutes: 0, totalGapMinutes: 0 };
+      return { gapPercent: 0, presentationPercent: 0, totalPresentationMinutes: 0, totalGapMinutes: 0 };
     }
     
     const totalGapDegrees = segments
       .filter(s => s.type === 'gap')
       .reduce((sum, s) => sum + (s.endAngle - s.startAngle), 0);
     
-    const totalInHomeDegrees = segments
-      .filter(s => s.type === 'in-home' || s.type === 'sale')
+    // Presentation time = presentations + sales (not transitions, they're just entry points)
+    const totalPresentationDegrees = segments
+      .filter(s => s.type === 'presentation' || s.type === 'sale')
       .reduce((sum, s) => sum + (s.endAngle - s.startAngle), 0);
     
     return {
       gapPercent: Math.round((totalGapDegrees / 360) * 100),
-      inHomePercent: Math.round((totalInHomeDegrees / 360) * 100),
-      totalInHomeMinutes: Math.round((totalInHomeDegrees / 360) * totalWorkMinutes),
+      presentationPercent: Math.round((totalPresentationDegrees / 360) * 100),
+      totalPresentationMinutes: Math.round((totalPresentationDegrees / 360) * totalWorkMinutes),
       totalGapMinutes: Math.round((totalGapDegrees / 360) * totalWorkMinutes),
     };
   }, [segments, totalWorkMinutes]);
 
-  // Detect bulk entry for leader warning
   const bulkEntryStats = useMemo(() => {
     const timestamps = counterTimestamps || entry.counter_timestamps || {};
     return detectBulkEntry(timestamps);
   }, [counterTimestamps, entry.counter_timestamps]);
 
-  // Goal ring progress (capped at 100%)
-  const goalAngle = Math.min(100, goalProgress) * 3.6;
+  // Apple-style overflow: allows multiple loops (150% = 1.5 loops)
+  const goalLoops = goalProgress / 100;
+  const fullLoops = Math.floor(goalLoops);
+  const partialAngle = (goalLoops - fullLoops) * 360;
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimationComplete(true), 1200);
     return () => clearTimeout(timer);
   }, []);
 
-  const handleSegmentClick = useCallback((idx: number, e: React.MouseEvent) => {
+  const handleSegmentClick = useCallback((idx: number, segment: RingSegment, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedSegmentIdx(selectedSegmentIdx === idx ? null : idx);
+    // Only interactive segments: transition, presentation, sale, break
+    if (['transition', 'presentation', 'sale', 'break'].includes(segment.type)) {
+      setSelectedSegmentIdx(selectedSegmentIdx === idx ? null : idx);
+    }
   }, [selectedSegmentIdx]);
 
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="relative" style={{ width: config.width, height: config.width }}>
-        <svg 
-          viewBox={`0 0 ${config.width} ${config.width}`}
-          className="transform"
-        >
+        <svg viewBox={`0 0 ${config.width} ${config.width}`} className="transform">
           {/* Background track - outer ring */}
           <circle
             cx={center}
@@ -341,17 +276,50 @@ export const ActivityRingHero = ({
             />
           )}
 
-          {/* Inner goal ring - progress */}
-          {showGoalRing && goalProgress > 0 && goalAngle > 0 && (
+          {/* Goal ring - full loops (Apple style overflow) */}
+          {showGoalRing && goalProgress > 0 && fullLoops > 0 && (
+            <>
+              {Array.from({ length: Math.min(fullLoops, 3) }).map((_, loopIdx) => (
+                <motion.circle
+                  key={`goal-loop-${loopIdx}`}
+                  cx={center}
+                  cy={center}
+                  r={config.innerRadius}
+                  fill="none"
+                  stroke={RING_COLORS.goalProgress}
+                  strokeWidth={config.innerStroke}
+                  strokeLinecap="round"
+                  opacity={1 - loopIdx * 0.25}
+                  strokeDasharray={`${2 * Math.PI * config.innerRadius}`}
+                  strokeDashoffset={0}
+                  initial={{ strokeDashoffset: 2 * Math.PI * config.innerRadius }}
+                  animate={{ strokeDashoffset: 0 }}
+                  transition={{ 
+                    duration: 0.8, 
+                    delay: 0.2 + loopIdx * 0.3,
+                    ease: "easeOut" 
+                  }}
+                  style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }}
+                />
+              ))}
+            </>
+          )}
+
+          {/* Goal ring - partial progress */}
+          {showGoalRing && goalProgress > 0 && partialAngle > 0 && (
             <motion.path
-              d={describeArc(center, center, config.innerRadius, 0, goalAngle)}
+              d={describeArc(center, center, config.innerRadius, 0, partialAngle)}
               fill="none"
               stroke={RING_COLORS.goalProgress}
               strokeWidth={config.innerStroke}
               strokeLinecap="round"
               initial={{ pathLength: 0, opacity: 0 }}
               animate={{ pathLength: 1, opacity: 1 }}
-              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+              transition={{ 
+                duration: 0.8, 
+                delay: 0.2 + fullLoops * 0.3,
+                ease: "easeOut" 
+              }}
             />
           )}
 
@@ -361,26 +329,22 @@ export const ActivityRingHero = ({
               if (segment.endAngle <= segment.startAngle) return null;
               
               const arcSize = segment.endAngle - segment.startAngle;
-              if (arcSize < 1) return null;
+              if (arcSize < 0.5) return null;
               
-              // Add small gap between segments for visual separation
-              const gapOffset = 0.5;
-              const adjustedStart = segment.startAngle + gapOffset;
-              const adjustedEnd = segment.endAngle - gapOffset;
-              
-              if (adjustedEnd <= adjustedStart) return null;
-              
-              const pathD = describeArc(
-                center,
-                center,
-                config.radius,
-                adjustedStart,
-                adjustedEnd
-              );
-              
+              const isTransition = segment.type === 'transition';
               const isBreak = segment.type === 'break';
               const isGap = segment.type === 'gap';
-              const isInteractive = !isGap && segment.type !== 'knocking';
+              const isSale = segment.type === 'sale';
+              const isPresentation = segment.type === 'presentation';
+              
+              // Transitions are thin markers, presentations/sales are full arcs
+              const strokeWidth = isTransition 
+                ? config.strokeWidth * 0.4 
+                : isGap 
+                  ? config.strokeWidth - 4 
+                  : config.strokeWidth;
+              
+              const pathD = describeArc(center, center, config.radius, segment.startAngle, segment.endAngle);
               
               return (
                 <motion.path
@@ -388,31 +352,24 @@ export const ActivityRingHero = ({
                   d={pathD}
                   fill="none"
                   stroke={RING_COLORS[segment.type]}
-                  strokeWidth={isGap ? config.strokeWidth - 4 : config.strokeWidth}
+                  strokeWidth={strokeWidth}
                   strokeLinecap="round"
-                  opacity={isGap ? 0.6 : 1}
+                  opacity={isGap ? 0.5 : 1}
                   initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ 
-                    pathLength: 1, 
-                    opacity: isGap ? 0.6 : 1,
-                  }}
-                  transition={{ 
-                    duration: 0.6, 
-                    delay: idx * 0.03,
-                    ease: "easeOut" 
-                  }}
+                  animate={{ pathLength: 1, opacity: isGap ? 0.5 : 1 }}
+                  transition={{ duration: 0.6, delay: idx * 0.02, ease: "easeOut" }}
                   style={{
                     strokeDasharray: isBreak ? '6 6' : undefined,
-                    cursor: isInteractive ? 'pointer' : 'default',
+                    cursor: ['transition', 'presentation', 'sale', 'break'].includes(segment.type) ? 'pointer' : 'default',
                   }}
-                  onClick={isInteractive ? (e) => handleSegmentClick(idx, e) : undefined}
+                  onClick={(e) => handleSegmentClick(idx, segment, e)}
                 />
               );
             })}
           </AnimatePresence>
         </svg>
 
-        {/* Center stats - clean and focused */}
+        {/* Center stats */}
         <motion.div
           className="absolute inset-0 flex flex-col items-center justify-center text-center"
           initial={{ opacity: 0, scale: 0.8 }}
@@ -430,45 +387,52 @@ export const ActivityRingHero = ({
           </div>
         </motion.div>
 
-        {/* Segment detail popovers - positioned at segment midpoint */}
+        {/* Segment detail popovers */}
         {animationComplete && segments.map((segment, idx) => {
-          const isInteractive = segment.type !== 'gap' && segment.type !== 'knocking';
-          if (!isInteractive) return null;
+          if (!['transition', 'presentation', 'sale', 'break'].includes(segment.type)) return null;
           
           const midAngle = (segment.startAngle + segment.endAngle) / 2;
           const midRad = ((midAngle - 90) * Math.PI) / 180;
-          const popoverX = center + (config.radius + 30) * Math.cos(midRad);
-          const popoverY = center + (config.radius + 30) * Math.sin(midRad);
+          const popoverDistance = config.radius + 35;
+          const popoverX = center + popoverDistance * Math.cos(midRad);
+          const popoverY = center + popoverDistance * Math.sin(midRad);
+          
+          const segmentMinutes = segment.duration || ((segment.endAngle - segment.startAngle) / 360) * totalWorkMinutes;
           
           return (
             <div
-              key={`popover-anchor-${idx}`}
+              key={`popover-${idx}`}
               className="absolute"
-              style={{ 
-                left: popoverX, 
-                top: popoverY, 
-                transform: 'translate(-50%, -50%)',
-                pointerEvents: 'none',
-              }}
+              style={{ left: popoverX, top: popoverY, transform: 'translate(-50%, -50%)', pointerEvents: 'none' }}
             >
-              <SegmentPopover
-                segment={segment}
-                totalWorkMinutes={totalWorkMinutes}
-                isOpen={selectedSegmentIdx === idx}
-                onOpenChange={(open) => setSelectedSegmentIdx(open ? idx : null)}
-              >
-                <button className="w-1 h-1 opacity-0" aria-label="Segment details" />
-              </SegmentPopover>
+              <Popover open={selectedSegmentIdx === idx} onOpenChange={(open) => setSelectedSegmentIdx(open ? idx : null)}>
+                <PopoverTrigger asChild>
+                  <button className="w-1 h-1 opacity-0 pointer-events-none" />
+                </PopoverTrigger>
+                <PopoverContent side="top" className="w-auto px-3 py-2 bg-card border-border" sideOffset={8}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: RING_COLORS[segment.type] }} />
+                    <span className="font-medium text-sm">{SEGMENT_LABELS[segment.type]}</span>
+                    <span className="text-muted-foreground">•</span>
+                    <span className="text-sm font-medium">{formatDuration(segmentMinutes)}</span>
+                  </div>
+                  {segment.source === 'estimated' && (
+                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                      Duration estimated
+                    </p>
+                  )}
+                </PopoverContent>
+              </Popover>
             </div>
           );
         })}
         
-        {/* Bulk entry warning badge for leaders */}
+        {/* Bulk entry warning */}
         {showGapPercent && bulkEntryStats.bulkEntryDetected && (
           <Popover>
             <PopoverTrigger asChild>
               <motion.button
-                className="absolute top-0 left-0 -mt-1 -ml-1 flex items-center gap-0.5 text-[10px] font-semibold bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-full border border-orange-500/30 hover:bg-orange-500/30 active:scale-95 transition-all"
+                className="absolute top-0 left-0 -mt-1 -ml-1 flex items-center gap-0.5 text-[10px] font-semibold bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-full border border-orange-500/30 active:scale-95 transition-all"
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 400, delay: 1.2 }}
@@ -485,18 +449,15 @@ export const ActivityRingHero = ({
               <div className="p-3 text-xs text-muted-foreground space-y-2">
                 <p>
                   This rep logged <span className="font-semibold text-foreground">{bulkEntryStats.batchedEventsPercent}%</span> of 
-                  their activity in rapid bursts rather than real-time.
+                  activity in rapid bursts.
                 </p>
-                <p>
-                  The timeline may not accurately reflect their actual work patterns. 
-                  Consider coaching on real-time logging.
-                </p>
+                <p>Timeline may not reflect actual patterns. Consider coaching on real-time logging.</p>
               </div>
             </PopoverContent>
           </Popover>
         )}
         
-        {/* Goal progress indicator (small badge) */}
+        {/* Goal progress badge */}
         {showGoalRing && goalProgress > 0 && (
           <motion.div
             className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1"
@@ -515,22 +476,20 @@ export const ActivityRingHero = ({
         )}
       </div>
       
-      {/* Activity breakdown bar - clean horizontal design for leaders */}
-      {showGapPercent && (inHomePercent > 0 || gapPercent > 0) && (
+      {/* Activity breakdown */}
+      {showGapPercent && (presentationPercent > 0 || gapPercent > 0) && (
         <motion.div
           className="flex items-center justify-center gap-4 text-xs"
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8 }}
         >
-          {inHomePercent > 0 && (
+          {presentationPercent > 0 && (
             <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: RING_COLORS['in-home'] }} />
+              <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: RING_COLORS.presentation }} />
               <span className="text-muted-foreground">
-                <span className="font-medium text-foreground">{inHomePercent}%</span> in-home
-                <span className="text-muted-foreground/70 ml-1">
-                  ({totalInHomeMinutes < 60 ? `${totalInHomeMinutes}m` : `${Math.floor(totalInHomeMinutes / 60)}h ${totalInHomeMinutes % 60}m`})
-                </span>
+                <span className="font-medium text-foreground">{presentationPercent}%</span> presenting
+                <span className="text-muted-foreground/70 ml-1">({formatDuration(totalPresentationMinutes)})</span>
               </span>
             </div>
           )}
@@ -539,16 +498,13 @@ export const ActivityRingHero = ({
               <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: RING_COLORS.gap }} />
               <span className="text-muted-foreground">
                 <span className="font-medium text-foreground">{gapPercent}%</span> gaps
-                <span className="text-muted-foreground/70 ml-1">
-                  ({totalGapMinutes < 60 ? `${totalGapMinutes}m` : `${Math.floor(totalGapMinutes / 60)}h ${totalGapMinutes % 60}m`})
-                </span>
+                <span className="text-muted-foreground/70 ml-1">({formatDuration(totalGapMinutes)})</span>
               </span>
             </div>
           )}
         </motion.div>
       )}
       
-      {/* Legend */}
       {showLegend && <ActivityRingLegend />}
     </div>
   );

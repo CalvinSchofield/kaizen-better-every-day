@@ -2,7 +2,11 @@
  * In-Home Zone Calculator
  * Shared utility to detect when a rep was inside a home presenting/selling.
  * 
- * Logic: Tracks door knock → transition/presentation/close as an "in-home" zone
+ * Key distinction:
+ * - Transitions: Just got in the door (point event, shown as thin marker)
+ * - Presentations: Actually presenting/selling (duration arc, amber)
+ * - Sales: Presentation that resulted in a sale (duration arc, green)
+ * 
  * Handles batch-logged events intelligently with a priority hierarchy:
  * 1. Explicit sale duration (from CRM time_to_sell_minutes)
  * 2. Non-batched timestamps (>30s gap = real-time logged)
@@ -27,21 +31,23 @@ export interface InHomeZone {
   duration: number; // minutes
   endType: InHomeZoneType;
   hasSale: boolean;
+  hasPresentation: boolean; // True for presentations and sales, false for just transitions
   source: InHomeZoneSource;
 }
 
+// New segment types with 'transition' as a thin marker
 export interface RingSegment {
   startAngle: number;
   endAngle: number;
-  type: 'knocking' | 'in-home' | 'sale' | 'break' | 'gap';
-  source?: InHomeZoneSource; // For in-home/sale segments, track data quality
+  type: 'knocking' | 'transition' | 'presentation' | 'sale' | 'break' | 'gap';
+  source?: InHomeZoneSource;
+  duration?: number; // Duration in minutes for interactive segments
 }
 
 const BATCH_THRESHOLD_MS = 30 * 1000; // 30 seconds for batch-logged detection
 
 /**
  * Get default duration based on event type
- * Different interactions have different typical durations
  */
 function getDefaultDuration(type: string): number {
   switch (type) {
@@ -51,7 +57,7 @@ function getDefaultDuration(type: string): number {
     case 'presentations':
       return 20;  // Presentation without sale
     case 'transitions':
-      return 15;  // Just got in, no presentation
+      return 5;   // Transitions are brief - just entering the home
     default:
       return 20;
   }
@@ -75,11 +81,6 @@ function getEndType(indicator: TimelineEvent, hasDoorMatch: boolean): InHomeZone
 
 /**
  * Calculate in-home zones from timeline events
- * 
- * Priority hierarchy:
- * 1. Explicit sale duration (time_to_sell_minutes from CRM)
- * 2. Non-batched timestamps (door→indicator gap >30s)
- * 3. Type-specific defaults for batch-logged events
  */
 export function calculateInHomeZones(
   events: TimelineEvent[],
@@ -91,7 +92,6 @@ export function calculateInHomeZones(
   const zones: InHomeZone[] = [];
   const usedDoorIndices = new Set<number>();
   
-  // Get all events by type
   const doorEvents = events.filter(e => e.type === 'doors_knocked');
   const transitionEvents = events.filter(e => e.type === 'transitions');
   const presentationEvents = events.filter(e => e.type === 'presentations');
@@ -103,6 +103,8 @@ export function calculateInHomeZones(
   
   for (const indicator of inHomeIndicators) {
     const isSale = indicator.type === 'sale' || indicator.type === 'closes';
+    const isPresentation = indicator.type === 'presentations';
+    const hasPresentation = isSale || isPresentation;
     
     // PRIORITY 1: Use explicit time_to_sell_minutes for sales
     if (isSale && indicator.timeToSellMinutes && indicator.timeToSellMinutes > 0) {
@@ -116,6 +118,7 @@ export function calculateInHomeZones(
         duration,
         endType: 'sale',
         hasSale: true,
+        hasPresentation: true,
         source: 'explicit',
       });
       continue;
@@ -132,7 +135,6 @@ export function calculateInHomeZones(
       const indicatorTime = indicator.timestamp.getTime();
       const timeDiff = indicatorTime - doorTime;
       
-      // Door must be BEFORE the indicator and within reasonable time (2 hours max)
       if (timeDiff > 0 && timeDiff < 2 * 60 * 60 * 1000 && timeDiff < bestTimeDiff) {
         bestDoorIdx = i;
         bestTimeDiff = timeDiff;
@@ -142,12 +144,9 @@ export function calculateInHomeZones(
     if (bestDoorIdx >= 0) {
       const doorEvent = doorEvents[bestDoorIdx];
       const timeDiff = indicator.timestamp.getTime() - doorEvent.timestamp.getTime();
-      
-      // Detect batch logging: <30 seconds is suspicious
       const isBatchLogged = timeDiff < BATCH_THRESHOLD_MS;
       
       if (!isBatchLogged) {
-        // PRIORITY 2: Real-time logging - use actual timestamps
         usedDoorIndices.add(bestDoorIdx);
         const duration = timeDiff / (1000 * 60);
         
@@ -157,13 +156,12 @@ export function calculateInHomeZones(
           duration,
           endType: getEndType(indicator, true),
           hasSale: isSale,
+          hasPresentation,
           source: 'timestamps',
         });
         continue;
       }
       
-      // Door exists but was batch-logged with indicator - still use the door timestamp
-      // but mark as estimated since the duration is unreliable
       usedDoorIndices.add(bestDoorIdx);
       const defaultDuration = getDefaultDuration(indicator.type);
       
@@ -173,12 +171,13 @@ export function calculateInHomeZones(
         duration: defaultDuration,
         endType: getEndType(indicator, true),
         hasSale: isSale,
+        hasPresentation,
         source: 'estimated',
       });
       continue;
     }
     
-    // PRIORITY 3: No matching door found - create synthetic zone with type-specific default
+    // PRIORITY 3: No matching door found
     const defaultDuration = getDefaultDuration(indicator.type);
     const syntheticStart = new Date(indicator.timestamp.getTime() - defaultDuration * 60 * 1000);
     const clampedStart = syntheticStart < workStart ? workStart : syntheticStart;
@@ -189,6 +188,7 @@ export function calculateInHomeZones(
       duration: defaultDuration,
       endType: getEndType(indicator, false),
       hasSale: isSale,
+      hasPresentation,
       source: 'estimated',
     });
   }
@@ -211,11 +211,14 @@ export function timeToAngle(time: Date, workStart: Date, workEnd: Date): number 
 
 /**
  * Build ring segments from events and in-home zones
- * New simplified model:
- * - Gray: Not working / gaps
+ * 
+ * New semantic model:
+ * - Gray: Gaps (not working)
  * - Blue: Active knocking
- * - Amber: In a home (with source quality tracking)
- * - Green: Sale (with source quality tracking)
+ * - Thin amber line: Transition (just got in)
+ * - Amber arc: Presentation (presenting but no sale)
+ * - Green arc: Sale (presentation that converted)
+ * - Orange dashed: Break
  */
 export function buildRingSegments(
   events: TimelineEvent[],
@@ -224,45 +227,68 @@ export function buildRingSegments(
   workStart: Date,
   workEnd: Date
 ): RingSegment[] {
-  const segments: RingSegment[] = [];
-  
   if (!workStart || !workEnd || events.length === 0) {
-    // No activity - full gap
-    segments.push({ startAngle: 0, endAngle: 360, type: 'gap' });
-    return segments;
+    return [{ startAngle: 0, endAngle: 360, type: 'gap' }];
   }
   
-  // Build a timeline of intervals
   interface TimeInterval {
     start: number;
     end: number;
-    type: 'knocking' | 'in-home' | 'sale' | 'break' | 'gap';
+    type: 'knocking' | 'transition' | 'presentation' | 'sale' | 'break' | 'gap';
     priority: number;
     source?: InHomeZoneSource;
+    duration?: number;
   }
   
   const intervals: TimeInterval[] = [];
   
-  // Add in-home zones (priority 3 for sales, 2 for in-home)
-  // Ensure minimum visible arc size for in-home zones
-  const MIN_INHOME_DEGREES = 8; // About 2% of the day, ~15 min for an 8hr day
+  // Minimum arc sizes for visibility
+  const MIN_PRESENTATION_DEGREES = 10; // Presentations/sales need to be clearly visible
+  const TRANSITION_MARKER_DEGREES = 3; // Transitions are thin markers
   
+  // Add in-home zones with proper type differentiation
   inHomeZones.forEach(zone => {
     let startAngle = timeToAngle(zone.doorTime, workStart, workEnd);
     let endAngle = timeToAngle(zone.endTime, workStart, workEnd);
     
-    // Ensure minimum visible size for in-home zones
-    if (endAngle - startAngle < MIN_INHOME_DEGREES) {
-      // Center the minimum size around the midpoint
-      const midpoint = (startAngle + endAngle) / 2;
-      startAngle = Math.max(0, midpoint - MIN_INHOME_DEGREES / 2);
-      endAngle = Math.min(360, midpoint + MIN_INHOME_DEGREES / 2);
-    }
-    
-    if (zone.hasSale) {
-      intervals.push({ start: startAngle, end: endAngle, type: 'sale', priority: 3, source: zone.source });
+    // For sales and presentations, ensure minimum visible arc
+    if (zone.hasPresentation) {
+      if (endAngle - startAngle < MIN_PRESENTATION_DEGREES) {
+        const midpoint = (startAngle + endAngle) / 2;
+        startAngle = Math.max(0, midpoint - MIN_PRESENTATION_DEGREES / 2);
+        endAngle = Math.min(360, midpoint + MIN_PRESENTATION_DEGREES / 2);
+      }
+      
+      if (zone.hasSale) {
+        intervals.push({ 
+          start: startAngle, 
+          end: endAngle, 
+          type: 'sale', 
+          priority: 4,  // Sales highest priority
+          source: zone.source,
+          duration: zone.duration,
+        });
+      } else {
+        intervals.push({ 
+          start: startAngle, 
+          end: endAngle, 
+          type: 'presentation', 
+          priority: 3,  // Presentations second
+          source: zone.source,
+          duration: zone.duration,
+        });
+      }
     } else {
-      intervals.push({ start: startAngle, end: endAngle, type: 'in-home', priority: 2, source: zone.source });
+      // Transitions are just thin markers at the timestamp
+      const markerAngle = timeToAngle(zone.endTime, workStart, workEnd);
+      intervals.push({ 
+        start: Math.max(0, markerAngle - TRANSITION_MARKER_DEGREES / 2), 
+        end: Math.min(360, markerAngle + TRANSITION_MARKER_DEGREES / 2), 
+        type: 'transition', 
+        priority: 2,  // Transitions lower priority
+        source: zone.source,
+        duration: zone.duration,
+      });
     }
   });
   
@@ -274,94 +300,133 @@ export function buildRingSegments(
       const breakEnd = new Date(bp.end);
       if (isNaN(breakStart.getTime()) || isNaN(breakEnd.getTime())) return;
       
-      const startAngle = timeToAngle(breakStart, workStart, workEnd);
-      const endAngle = timeToAngle(breakEnd, workStart, workEnd);
-      
-      intervals.push({ start: startAngle, end: endAngle, type: 'break', priority: 1 });
+      intervals.push({ 
+        start: timeToAngle(breakStart, workStart, workEnd), 
+        end: timeToAngle(breakEnd, workStart, workEnd), 
+        type: 'break', 
+        priority: 1 
+      });
     } catch {
       // Invalid date, skip
     }
   });
   
   // Add knocking activity clusters (priority 1)
-  // Group door knocks that are close together
   const doorEvents = events.filter(e => e.type === 'doors_knocked');
   if (doorEvents.length > 0) {
-    const CLUSTER_GAP_DEGREES = 15; // About 4% of the day
+    const CLUSTER_GAP_DEGREES = 15;
     let clusterStart = timeToAngle(doorEvents[0].timestamp, workStart, workEnd);
-    let clusterEnd = clusterStart + 3; // Minimum segment size
+    let clusterEnd = clusterStart + 3;
     
     for (let i = 1; i < doorEvents.length; i++) {
       const angle = timeToAngle(doorEvents[i].timestamp, workStart, workEnd);
       
       if (angle - clusterEnd <= CLUSTER_GAP_DEGREES) {
-        // Continue the cluster
         clusterEnd = angle + 3;
       } else {
-        // End current cluster, start new one
         intervals.push({ start: clusterStart, end: clusterEnd, type: 'knocking', priority: 1 });
         clusterStart = angle;
         clusterEnd = angle + 3;
       }
     }
-    // Add the last cluster
     intervals.push({ start: clusterStart, end: Math.min(360, clusterEnd), type: 'knocking', priority: 1 });
   }
   
-  // Sort intervals by start angle, then by priority (higher priority wins)
+  // Sort by start angle, then by priority (descending)
   intervals.sort((a, b) => a.start - b.start || b.priority - a.priority);
   
-  // Merge overlapping intervals, higher priority wins
-  const merged: TimeInterval[] = [];
+  // NON-OVERLAPPING merge - properly split intervals when higher priority overlaps
+  const finalIntervals: TimeInterval[] = [];
   
   for (const interval of intervals) {
-    if (merged.length === 0) {
-      merged.push({ ...interval });
+    if (finalIntervals.length === 0) {
+      finalIntervals.push({ ...interval });
       continue;
     }
     
-    const last = merged[merged.length - 1];
+    // Check for overlaps with existing intervals
+    let added = false;
+    const newFinal: TimeInterval[] = [];
     
-    if (interval.start <= last.end) {
-      // Overlapping - higher priority wins
-      if (interval.priority > last.priority) {
-        // Split the last interval and insert the new one
-        if (interval.start > last.start) {
-          merged.push({ start: last.start, end: interval.start, type: last.type, priority: last.priority, source: last.source });
+    for (const existing of finalIntervals) {
+      // No overlap
+      if (interval.end <= existing.start || interval.start >= existing.end) {
+        newFinal.push(existing);
+        continue;
+      }
+      
+      // Overlap exists - split based on priority
+      if (interval.priority > existing.priority) {
+        // Higher priority interval takes over the overlap
+        if (existing.start < interval.start) {
+          newFinal.push({ ...existing, end: interval.start });
         }
-        last.start = interval.start;
-        last.end = interval.end;
-        last.type = interval.type;
-        last.priority = interval.priority;
-        last.source = interval.source;
+        if (existing.end > interval.end) {
+          newFinal.push({ ...existing, start: interval.end });
+        }
+      } else {
+        // Lower priority - clip the new interval
+        if (interval.start < existing.start) {
+          if (!added) {
+            newFinal.push({ ...interval, end: existing.start });
+            added = true;
+          }
+        }
+        if (interval.end > existing.end) {
+          if (!added) {
+            newFinal.push({ ...interval, start: existing.end });
+            added = true;
+          }
+        }
+        newFinal.push(existing);
+        continue;
       }
-      // Extend if same priority
-      if (interval.priority === last.priority && interval.end > last.end) {
-        last.end = interval.end;
-      }
-    } else {
-      merged.push({ ...interval });
+      newFinal.push(existing);
     }
+    
+    if (!added && interval.priority >= Math.max(...finalIntervals.map(f => f.priority), 0)) {
+      newFinal.push({ ...interval });
+    } else if (!added) {
+      // Find gaps to insert
+      const sortedFinal = [...newFinal].sort((a, b) => a.start - b.start);
+      let canAdd = true;
+      for (const f of sortedFinal) {
+        if (!(interval.end <= f.start || interval.start >= f.end)) {
+          canAdd = false;
+          break;
+        }
+      }
+      if (canAdd) {
+        newFinal.push({ ...interval });
+      }
+    }
+    
+    finalIntervals.length = 0;
+    finalIntervals.push(...newFinal);
   }
   
-  // Fill gaps between intervals
+  // Sort final intervals
+  finalIntervals.sort((a, b) => a.start - b.start);
+  
+  // Build final segments with gap filling
+  const segments: RingSegment[] = [];
   let currentAngle = 0;
   
-  for (const interval of merged) {
-    if (interval.start > currentAngle) {
+  for (const interval of finalIntervals) {
+    if (interval.start > currentAngle + 0.5) {
       segments.push({ startAngle: currentAngle, endAngle: interval.start, type: 'gap' });
     }
     segments.push({ 
-      startAngle: interval.start, 
+      startAngle: Math.max(currentAngle, interval.start), 
       endAngle: interval.end, 
       type: interval.type,
       source: interval.source,
+      duration: interval.duration,
     });
     currentAngle = interval.end;
   }
   
-  // Fill remaining to 360
-  if (currentAngle < 360) {
+  if (currentAngle < 359.5) {
     segments.push({ startAngle: currentAngle, endAngle: 360, type: 'gap' });
   }
   
