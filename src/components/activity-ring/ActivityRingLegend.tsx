@@ -48,9 +48,10 @@ export const ActivityRingLegend = ({ open, onOpenChange }: ActivityRingLegendPro
         <div className="p-4 space-y-4">
           <LegendItem color="hsl(142, 76%, 45%)" label="Sale (time in-home)" />
           <LegendItem color="hsl(45, 90%, 55%)" label="Presentation (no sale)" />
-          <LegendItem color="hsl(45, 90%, 55%)" label="Transition (entered home)" thin />
+          <LegendItem color="hsl(45, 90%, 55%)" label="Seen Out (entered, left quick)" thin />
+          <LegendItem color="hsl(180, 60%, 50%)" label="Doorstep Talk" />
           <LegendItem color="hsl(210, 80%, 55%)" label="Knocking" />
-          <LegendItem color="hsl(0, 0%, 30%)" label="Gap (inactive)" />
+          <LegendItem color="hsl(0, 0%, 30%)" label="Gap (idle)" />
           <LegendItem color="hsl(35, 90%, 50%)" label="Break" dashed />
         </div>
       </DrawerContent>

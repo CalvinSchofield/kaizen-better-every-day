@@ -15,6 +15,8 @@ import {
   Timer,
   AlertTriangle,
   Coffee,
+  Users,
+  DoorOpen,
 } from "lucide-react";
 import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { Sale } from "@/hooks/useDailyEntry";
@@ -53,18 +55,22 @@ const formatDuration = (minutes: number): string => {
 
 const SEGMENT_COLORS: Record<string, string> = {
   knocking: 'hsl(210, 80%, 55%)',
+  doorstep: 'hsl(180, 60%, 50%)',
   transition: 'hsl(45, 90%, 55%)',
   presentation: 'hsl(45, 90%, 55%)',
   sale: 'hsl(142, 76%, 45%)',
+  seen_out: 'hsl(45, 90%, 55%)',
   break: 'hsl(35, 90%, 50%)',
   gap: 'hsl(0, 0%, 30%)',
 };
 
 const SEGMENT_LABELS: Record<string, string> = {
   knocking: 'Knocking',
+  doorstep: 'Doorstep Talk',
   transition: 'Transition',
   presentation: 'Presentation',
   sale: 'Sale',
+  seen_out: 'Seen Out',
   break: 'Break',
   gap: 'Gap',
 };
@@ -90,6 +96,8 @@ export const SegmentDetailDrawer = ({
   const isGap = segment.type === 'gap';
   const isBreak = segment.type === 'break';
   const isTransition = segment.type === 'transition';
+  const isDoorstep = segment.type === 'doorstep';
+  const isSeenOut = segment.type === 'seen_out';
   
   // For gap segments over 20 min, show coaching callout
   const isCoachingOpportunity = isGap && duration >= 20;
@@ -275,6 +283,47 @@ export const SegmentDetailDrawer = ({
                 <span className="text-sm text-amber-600 dark:text-amber-400">
                   Entered home for presentation
                 </span>
+              </div>
+            </>
+          )}
+
+          {/* Doorstep conversation */}
+          {isDoorstep && (
+            <>
+              <Separator />
+              <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-cyan-500" />
+                  <span className="text-sm font-medium text-cyan-600 dark:text-cyan-400">
+                    Doorstep Conversation
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Rep talked to someone at the door but didn't transition inside.
+                  {segment.hasPitch && " A pitch was attempted."}
+                  {segment.hasDM && !segment.hasPitch && " Decision maker was contacted."}
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Seen out */}
+          {isSeenOut && (
+            <>
+              <Separator />
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 space-y-2">
+                <div className="flex items-center gap-2">
+                  <DoorOpen className="w-4 h-4 text-amber-500" />
+                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                    Seen Out
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Got into the home but was asked to leave before presenting.
+                </p>
+                <p className="text-xs text-muted-foreground/80 italic">
+                  Coach: Work on building rapport quickly after entering.
+                </p>
               </div>
             </>
           )}
