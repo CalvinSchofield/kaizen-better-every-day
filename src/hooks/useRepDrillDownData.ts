@@ -96,7 +96,7 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         // Last 14 days of entries
         supabase
           .from('daily_entries')
-          .select('entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, prmr, fp_plus, work_start_time, work_end_time, sales_log, is_finalized')
+          .select('entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, prmr, fp_plus, work_start_time, work_end_time, break_periods, sales_log, is_finalized')
           .eq('user_id', userId)
           .gte('entry_date', startDate)
           .lte('entry_date', endDate)
@@ -166,7 +166,30 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         if (entry.work_start_time && entry.work_end_time) {
           const start = new Date(entry.work_start_time);
           const end = new Date(entry.work_end_time);
-          hoursWorked = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
+          let totalMinutes = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60));
+          
+          // Subtract break periods (with defensive validation)
+          if (entry.break_periods && Array.isArray(entry.break_periods)) {
+            (entry.break_periods as any[]).forEach((breakPeriod: any) => {
+              // Skip incomplete break periods (no start or end)
+              if (!breakPeriod.start || !breakPeriod.end) return;
+              
+              const breakStart = new Date(breakPeriod.start);
+              const breakEnd = new Date(breakPeriod.end);
+              
+              // Validate the dates are valid
+              if (isNaN(breakStart.getTime()) || isNaN(breakEnd.getTime())) return;
+              
+              const breakMinutes = (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60);
+              
+              // Only subtract positive break durations
+              if (breakMinutes > 0) {
+                totalMinutes -= breakMinutes;
+              }
+            });
+          }
+          
+          hoursWorked = Math.max(0, totalMinutes / 60);
         }
         
         const doors = entry.doors_knocked || 0;
