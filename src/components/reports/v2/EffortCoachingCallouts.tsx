@@ -123,15 +123,26 @@ export const EffortCoachingCallouts = ({
     }
   }
 
-  // Excessive Break Time Logic (> 30 minutes)
-  const effectiveBreakTime = totalBreakMinutes ?? breakMinutes ?? gapMinutes;
+  // Excessive Break Time Logic (breaks from break_periods > 30 minutes)
+  const actualBreakMinutes = totalBreakMinutes ?? breakMinutes ?? 0;
   
-  if (effectiveBreakTime > 30) {
+  if (actualBreakMinutes >= 30) {
     issues.push({
       type: 'excessive_break',
       icon: Coffee,
-      message: `${Math.round(effectiveBreakTime)} min of break time`,
-      severity: effectiveBreakTime > 60 ? 'critical' : 'warning',
+      message: `${Math.round(actualBreakMinutes)} min of break time`,
+      severity: actualBreakMinutes > 60 ? 'critical' : 'warning',
+    });
+  }
+
+  // Excessive Gap/Idle Time Logic (separate from breaks, > 30 minutes)
+  // Only add if we have gap data and it's substantial
+  if (gapMinutes !== undefined && gapMinutes >= 30) {
+    issues.push({
+      type: 'excessive_break',
+      icon: AlertTriangle,
+      message: `${Math.round(gapMinutes)} min of idle gaps during work`,
+      severity: gapMinutes > 60 ? 'critical' : 'warning',
     });
   }
 
