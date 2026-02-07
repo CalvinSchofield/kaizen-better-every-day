@@ -139,6 +139,36 @@ export const RepDrillDownDrawer = ({
     setHasAutoSelected(true);
   }, [isOpen, calendarData, dateRangeStart?.getTime(), dateRangeEnd?.getTime(), hasAutoSelected]);
 
+  // Use day activity if available, otherwise fall back to rep data for today
+  const isToday = isSameDay(selectedDate, new Date());
+  const displayData = isToday 
+    ? {
+        doors: rep?.doors ?? 0,
+        dms: rep?.dms ?? 0,
+        pitches: rep?.pitches ?? 0,
+        transitions: rep?.transitions ?? 0,
+        presentations: rep?.presentations ?? 0,
+        closes: rep?.closes ?? 0,
+        fp: rep?.fp ?? 0,
+        prmr: rep?.prmr ?? 0,
+        hoursWorked: rep?.hoursWorked ?? 0,
+        workStartTime: rep?.workStartTime,
+        workEndTime: rep?.workEndTime,
+      }
+    : {
+        doors: dayActivity?.doors || 0,
+        dms: dayActivity?.dms || 0,
+        pitches: dayActivity?.pitches || 0,
+        transitions: dayActivity?.transitions || 0,
+        presentations: dayActivity?.presentations || 0,
+        closes: dayActivity?.closes || 0,
+        fp: dayActivity?.fp || 0,
+        prmr: dayActivity?.prmr || 0,
+        hoursWorked: dayActivity?.hoursWorked || 0,
+        workStartTime: dayActivity?.workStartTime,
+        workEndTime: dayActivity?.workEndTime,
+      };
+
   // Calculate timeframe-based goal progress
   const timeframeGoalProgress = useMemo(() => {
     if (!calendarData?.summaries) return { D: 0, W: 0, M: 0, Y: 0 };
@@ -153,7 +183,7 @@ export const RepDrillDownDrawer = ({
         : extendedData?.goals?.mustGoal || 0;
     
     // Day progress
-    const dayFP = dayActivity?.fp || displayData?.fp || 0;
+    const dayFP = displayData.fp;
     const dayProgress = dailyGoal > 0 ? (dayFP / dailyGoal) * 100 : 0;
     
     // Week progress
@@ -197,36 +227,6 @@ export const RepDrillDownDrawer = ({
     return stripped.split(' ')[0] || stripped;
   };
 
-  const isToday = isSameDay(selectedDate, new Date());
-  
-  // Use day activity if available, otherwise fall back to rep data for today
-  const displayData = isToday 
-    ? {
-        doors: rep.doors,
-        dms: rep.dms,
-        pitches: rep.pitches,
-        transitions: rep.transitions,
-        presentations: rep.presentations,
-        closes: rep.closes,
-        fp: rep.fp,
-        prmr: rep.prmr,
-        hoursWorked: rep.hoursWorked,
-        workStartTime: rep.workStartTime,
-        workEndTime: rep.workEndTime,
-      }
-    : {
-        doors: dayActivity?.doors || 0,
-        dms: dayActivity?.dms || 0,
-        pitches: dayActivity?.pitches || 0,
-        transitions: dayActivity?.transitions || 0,
-        presentations: dayActivity?.presentations || 0,
-        closes: dayActivity?.closes || 0,
-        fp: dayActivity?.fp || 0,
-        prmr: dayActivity?.prmr || 0,
-        hoursWorked: dayActivity?.hoursWorked || 0,
-        workStartTime: dayActivity?.workStartTime,
-        workEndTime: dayActivity?.workEndTime,
-      };
 
   // Get goal progress based on selected timeframe
   const goalProgress = timeframeGoalProgress[goalTimeframe];
