@@ -79,7 +79,7 @@ const FloatingAddButton = ({ visible, onClick }: { visible: boolean; onClick: ()
 const MyGroup = () => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data: teamAccess, isLoading: accessLoading, error: teamAccessError, refetch: refetchTeamAccess } = useTeamAccess();
+  const { data: teamAccess, isLoading: accessLoading, error: teamAccessError, refetch: refetchTeamAccess, wasLeader } = useTeamAccess();
   const { data: groupData, isLoading: recruitsLoading, isLeader, error: recruitsError, refetch: refetchRecruits, lastUpdated, isPlaceholderData, isFetching } = useGroupRecruits();
   const { data: mySuggestions, isLoading: suggestionsLoading } = useMySuggestions();
   const deleteMutation = useDeleteMySuggestion();
@@ -894,8 +894,10 @@ const MyGroup = () => {
   );
 
   // Error state with no cached data - includes team access errors
+  // CRITICAL: If team access failed but user WAS a leader, show recovery UI, not non-leader view
   const hasTeamAccessError = teamAccessError && !teamAccess;
   const hasUnrecoverableError = (recruitsError && !groupData && isLeader) || hasTeamAccessError;
+  const showLeaderRecoveryUI = hasTeamAccessError && wasLeader;
 
   const handleRetry = async () => {
     setIsRetrying(true);
@@ -911,8 +913,16 @@ const MyGroup = () => {
   return (
     <Layout headerRightContent={headerControls}>
       <div className="p-4 space-y-5">
-        {/* Leader View */}
-        {isLeader ? (
+        {/* Recovery UI for leaders who failed to load */}
+        {showLeaderRecoveryUI ? (
+          <DataLoadError
+            title="Couldn't load your group"
+            message="There was a problem connecting to the server. Please try again."
+            onRetry={handleRetry}
+            isRetrying={isRetrying}
+            lastUpdated={lastUpdated}
+          />
+        ) : isLeader ? (
           hasUnrecoverableError ? (
             <DataLoadError
               title="Couldn't load your group"

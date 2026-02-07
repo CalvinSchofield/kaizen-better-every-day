@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, Target, Trophy, UserPlus, Contact, Sparkles, Swords } from "lucide-react";
+import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, Target, Trophy, UserPlus, Contact, Sparkles, Swords, RefreshCw } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -42,6 +42,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const { data: challenges } = useMyActiveChallenges();
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
@@ -66,6 +67,50 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   const handleToggle = (checked: boolean) => {
     hapticSelection();
     toggleMode(checked);
+  };
+
+  const handleRefreshData = async () => {
+    setIsRefreshing(true);
+    hapticLight();
+    try {
+      // Clear ALL caches
+      clearPersistedCache();
+      clearCachedLayoutState();
+      
+      // Clear all localStorage caches
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('rep-data-cache') || 
+            key?.startsWith('competitors-cache') ||
+            key?.startsWith('blitzes-cache') ||
+            key?.startsWith('team-access-cache') ||
+            key?.startsWith('season-config-cache') ||
+            key?.startsWith('group-recruits-cache')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      
+      // Clear React Query cache and refetch all queries
+      queryClient.clear();
+      await queryClient.invalidateQueries();
+      
+      toast({
+        title: "Data refreshed",
+        description: "All cached data has been cleared and reloaded.",
+      });
+      setOpen(false);
+    } catch (error) {
+      console.error("Refresh error:", error);
+      toast({
+        title: "Refresh failed",
+        description: "Please try again or log out and back in.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleLogout = () => {
@@ -505,6 +550,23 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                 </span>
               </div>
             </Link>
+
+            {/* Refresh Data - User accessible cache refresh */}
+            <button
+              onClick={handleRefreshData}
+              disabled={isRefreshing}
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors w-full text-left disabled:opacity-50"
+            >
+              <RefreshCw className={`w-5 h-5 text-primary ${isRefreshing ? 'animate-spin' : ''}`} />
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className="font-semibold text-sm">
+                  {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+                </span>
+                <span className="text-xs text-muted-foreground truncate">
+                  Fix loading issues
+                </span>
+              </div>
+            </button>
 
           </div>
         </div>

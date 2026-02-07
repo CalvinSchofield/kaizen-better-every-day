@@ -32,7 +32,7 @@ interface TeamAccessResponse {
 }
 
 export const useTeamAccess = () => {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['team-access'],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -111,4 +111,32 @@ export const useTeamAccess = () => {
     retry: 3, // Retry 3 times for mobile network flakiness
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000), // Exponential backoff
   });
+
+  // Check if we SHOULD be a leader based on cached data (for recovery UI)
+  const wasLeaderInCache = (): boolean => {
+    try {
+      // Check any cached key for this format
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('team-access-cache:v4:')) {
+          const cached = localStorage.getItem(key);
+          if (cached) {
+            const { data } = JSON.parse(cached);
+            if (data?.accessLevel && data.accessLevel !== 'none') {
+              return true;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+    return false;
+  };
+
+  return {
+    ...query,
+    // Expose whether this might be a failed leader session
+    wasLeader: wasLeaderInCache(),
+  };
 };
