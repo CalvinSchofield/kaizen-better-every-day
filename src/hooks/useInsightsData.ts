@@ -270,12 +270,24 @@ export const useInsightsData = (
           const end = new Date(entry.work_end_time);
           let minutes = differenceInMinutes(end, start);
           
-          // Subtract break periods
+          // Subtract break periods (with defensive validation)
           if (entry.break_periods && Array.isArray(entry.break_periods)) {
             entry.break_periods.forEach((breakPeriod: any) => {
+              // Skip incomplete break periods (no start or end)
+              if (!breakPeriod.start || !breakPeriod.end) return;
+              
               const breakStart = new Date(breakPeriod.start);
               const breakEnd = new Date(breakPeriod.end);
-              minutes -= differenceInMinutes(breakEnd, breakStart);
+              
+              // Validate the dates are valid
+              if (isNaN(breakStart.getTime()) || isNaN(breakEnd.getTime())) return;
+              
+              const breakMinutes = differenceInMinutes(breakEnd, breakStart);
+              
+              // Only subtract positive break durations
+              if (breakMinutes > 0) {
+                minutes -= breakMinutes;
+              }
             });
           }
           
@@ -326,12 +338,24 @@ export const useInsightsData = (
           const end = new Date(entry.work_end_time);
           let minutes = differenceInMinutes(end, start);
           
-          // Subtract break periods
+          // Subtract break periods (with defensive validation)
           if (entry.break_periods && Array.isArray(entry.break_periods)) {
             entry.break_periods.forEach((breakPeriod: any) => {
+              // Skip incomplete break periods (no start or end)
+              if (!breakPeriod.start || !breakPeriod.end) return;
+              
               const breakStart = new Date(breakPeriod.start);
               const breakEnd = new Date(breakPeriod.end);
-              minutes -= differenceInMinutes(breakEnd, breakStart);
+              
+              // Validate the dates are valid
+              if (isNaN(breakStart.getTime()) || isNaN(breakEnd.getTime())) return;
+              
+              const breakMinutes = differenceInMinutes(breakEnd, breakStart);
+              
+              // Only subtract positive break durations
+              if (breakMinutes > 0) {
+                minutes -= breakMinutes;
+              }
             });
           }
           
