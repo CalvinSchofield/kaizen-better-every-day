@@ -17,6 +17,7 @@ interface DayActivityData {
   workStartTime?: string;
   workEndTime?: string;
   breakMinutes: number;
+  breakPeriods?: Array<{ start: string; end: string }>;
   gapMinutes: number;
   counterTimestamps?: Record<string, string[]>;
   salesLog?: Array<{ type: string; prmr: number; timestamp?: string }>;
@@ -125,6 +126,14 @@ export const useRepDayActivity = (userId: string | undefined, selectedDate: Date
         prmr = calculated.prmr;
       }
       
+      // Parse break periods for ring visualization
+      const breakPeriods = entry.break_periods && Array.isArray(entry.break_periods)
+        ? (entry.break_periods as any[]).filter(bp => bp.start && bp.end).map(bp => ({
+            start: bp.start as string,
+            end: bp.end as string,
+          }))
+        : [];
+      
       return {
         date: dateStr,
         doors: entry.doors_knocked || 0,
@@ -139,6 +148,7 @@ export const useRepDayActivity = (userId: string | undefined, selectedDate: Date
         workStartTime: entry.work_start_time || undefined,
         workEndTime: entry.work_end_time || undefined,
         breakMinutes,
+        breakPeriods,
         gapMinutes,
         counterTimestamps: timestamps || undefined,
         salesLog: salesLog || undefined,
