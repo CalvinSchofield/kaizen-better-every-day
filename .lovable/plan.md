@@ -1,282 +1,245 @@
 
+# Pre-Working State for Track Page
 
-# Activity Ring Redesign: Clarity & Season-Aware Goals
+## Overview
 
-## The Problem
-
-### Current Ring Issues (Your Feedback)
-1. **Not Clean or Informative**: The outer ring with multiple segment types is visually noisy
-2. **Green is Misleading**: Green implies "super good" but it's being used for basic door activity
-3. **See-through Colors**: Opacity/transparency adds complexity without value
-4. **Missing Legend**: No way to understand what colors mean
-5. **Missing Key Insight**: Can't clearly see when they're IN A HOME and for how long
-
-### Goal Progress Issues
-1. Currently showing summer goals even during preseason
-2. Leaders need to see **preseason goal only** until that rep's personal summer date starts
-3. After summer starts, show the focus tier goal (Must Do / Will Do / Could Do)
+When a rep opens the Track page before starting their day, they'll see a motivating "mission briefing" view that sets them up for success. This view transforms once they tap "Start My Day" into the familiar counter grid.
 
 ---
 
-## The Solution: Simplified Ring with Focus on Sales Journey
-
-### New Color Scheme (Clean & Meaningful)
-
-| State | Color | Meaning |
-|-------|-------|---------|
-| **Gray** | `hsl(0, 0%, 25%)` | Not working / gaps |
-| **Blue** | `hsl(210, 80%, 55%)` | Active knocking (doors) |
-| **Amber/Gold** | `hsl(45, 90%, 55%)` | In a home (transition → close) |
-| **Primary Green** | `var(--primary)` | SOLD! (matches goal color) |
-| **Orange Dashed** | `hsl(35, 90%, 50%)` | Break time |
-
-### Ring Structure
+## Visual Design (Mobile-First)
 
 ```text
-Single Ring Design (Outer Only):
-
-┌──────────────────────────────────────────┐
-│                                          │
-│           ┌────────────────┐             │
-│          /   ██ ██ ░░ ██ ★  \            │
-│         │                    │           │
-│         │     3.7 FP+        │           │
-│         │    $311 PRMR       │           │
-│         │   7.3 hrs worked   │           │
-│         │                    │           │
-│          \  ██ ░░ ☕ ██ ★   /            │
-│           └────────────────┘             │
-│                                          │
-│  Legend:                                 │
-│  ██ Blue = Knocking                      │
-│  ██ Amber = In Home                      │
-│  ★ Green = Sale                          │
-│  ░░ Gray = Gap                           │
-│  ☕ Dashed = Break                        │
-│                                          │
-└──────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│                                         │
+│   ☀️ Good morning, Quinn                │
+│   February 7, 2026                      │
+│                                         │
+├─────────────────────────────────────────┤
+│                                         │
+│   ┌─────────────────────────────────┐   │
+│   │  🎯 TODAY'S MISSION             │   │
+│   │                                 │   │
+│   │     Hit 0.8 FP+                 │   │
+│   │     (preseason pace)            │   │
+│   │                                 │   │
+│   │  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─   │   │
+│   │                                 │   │
+│   │  📊 THIS WEEK                   │   │
+│   │  Need 4.2 FP+ to stay on pace   │   │
+│   │  (You have 1.1 so far)          │   │
+│   │                                 │   │
+│   └─────────────────────────────────┘   │
+│                                         │
+│   ┌─────────────────────────────────┐   │
+│   │  🏆 SEASON GOALS                │   │
+│   │                                 │   │
+│   │  Preseason: 42 FP+              │   │  ← Shows only during preseason
+│   │  ━━━━━━━━░░░░░ 28.4 / 42        │   │
+│   │                                 │   │
+│   └─────────────────────────────────┘   │
+│                                         │
+│   OR (after summer starts):             │
+│                                         │
+│   ┌─────────────────────────────────┐   │
+│   │  🏆 SUMMER GOALS                │   │
+│   │                                 │   │
+│   │  Must Do    Will Do   Could Do  │   │  ← Tier pills
+│   │    [60]       [80]      [100]   │   │
+│   │                                 │   │
+│   │  Your focus: Will Do (80 FP+)   │   │
+│   │  ━━━━━━━━░░░░░ 12.4 / 80        │   │
+│   │                                 │   │
+│   └─────────────────────────────────┘   │
+│                                         │
+│   ┌─────────────────────────────────┐   │
+│   │  ⚔️ ACTIVE COMPETITIONS         │   │
+│   │                                 │   │
+│   │  Quinn vs Ammon — 3.2 to 2.8    │   │
+│   │  🎯 Loser buys lunch            │   │
+│   │                                 │   │
+│   │  🎁 First to 5 FP+ gets $50     │   │
+│   │                                 │   │
+│   └─────────────────────────────────┘   │
+│                                         │
+│   ┌─────────────────────────────────┐   │
+│   │                                 │   │
+│   │   [ 🚀 START MY DAY ]           │   │  ← Big CTA button
+│   │                                 │   │
+│   └─────────────────────────────────┘   │
+│                                         │
+└─────────────────────────────────────────┘
 ```
-
-### Key Visibility Improvements
-
-1. **In-Home Duration**: Amber segments show the FULL duration from door knock → transition/presentation/close
-   - Leaders can visually see "how long was this rep inside?"
-   - Longer amber segments = more time presenting
-
-2. **Sales Pop**: Green segments with glow effect mark sales
-   - These stand out immediately as the "win" moments
-   - Uses the same green as goal progress for consistency
-
-3. **Gap Awareness**: Gray segments clearly show non-productive time
-   - Already working - this stays the same
-
-4. **Legend Below Ring**: Simple horizontal legend explaining colors
 
 ---
 
-## Technical Changes
+## Component Architecture
 
-### 1. ActivityRingHero.tsx Updates
+### New Component: `PreWorkingState.tsx`
 
-**Current Issues:**
-- Uses 7 different segment types with opacity variations
-- Inner goal ring adds complexity
-- No legend
+Located at: `src/components/track/PreWorkingState.tsx`
 
-**Changes:**
-- Reduce to 4 core segment types: `knocking`, `in-home`, `sale`, `gap`
-- Remove inner goal ring (goal progress shown separately below)
-- Add optional legend component
-- Use solid colors (no opacity variations)
-- Leverage existing "in-home zone" logic from `RepDayActivityFlow`
+This component renders when:
+- `entry.work_start_time === null` (day not started)
+- `entry.is_finalized === false` (not already complete)
 
-### 2. Ring Segment Logic
-
+#### Props:
 ```typescript
-// Simplified segment types
-type SegmentType = 'knocking' | 'in-home' | 'sale' | 'break' | 'gap';
-
-// New color mapping
-const RING_COLORS = {
-  knocking: 'hsl(210, 80%, 55%)',  // Blue - active work
-  'in-home': 'hsl(45, 90%, 55%)', // Amber/Gold - presenting
-  sale: 'hsl(142, 76%, 45%)',      // Green - matches goal/success
-  break: 'hsl(35, 90%, 50%)',      // Orange dashed
-  gap: 'hsl(0, 0%, 25%)',          // Dark gray
-  background: 'hsl(0, 0%, 12%)',   // Ring background
-};
-```
-
-### 3. In-Home Zone Detection (Reuse Existing Logic)
-
-The `RepDayActivityFlow` already has sophisticated in-home detection:
-- Tracks door knock → transition/presentation/close as a "zone"
-- Handles batch-logged events intelligently
-- Calculates duration spent in each home
-
-We'll extract this logic into a shared utility:
-```typescript
-// New utility file
-export function calculateInHomeZones(
-  events: TimelineEvent[],
-  workStart: Date,
-  workEnd: Date
-): InHomeZone[]
-```
-
-### 4. Season-Aware Goal Display
-
-**New Hook: `useRepSeasonGoal`**
-
-```typescript
-interface SeasonGoalData {
-  isPreseason: boolean;
-  displayGoal: number;
-  displayLabel: string; // "Preseason" | "Must Do" | "Will Do" | "Could Do"
-  goalProgress: number; // Current FP toward that goal
-  paceStatus: 'ahead' | 'on_pace' | 'behind';
-}
-
-function useRepSeasonGoal(userId: string): SeasonGoalData {
-  // 1. Fetch rep's personal_summer_start from season_config
-  // 2. If today < personal_summer_start → return preseasonGoal
-  // 3. If today >= personal_summer_start → return focus tier goal
+interface PreWorkingStateProps {
+  repData: any;
+  onStartDay: () => void;
+  isStarting?: boolean;
 }
 ```
 
-### 5. RingGoalProgress Updates
+### Sub-Components (inside PreWorkingState):
+
+1. **DailyMissionCard**: Shows today's FP+ goal and weekly pace
+2. **SeasonGoalsCard**: Preseason or summer tier goals (season-aware)
+3. **ActiveCompetitionsPreview**: Compact view of challenges/incentives
+4. **StartDayButton**: Large, prominent CTA
+
+---
+
+## Technical Implementation
+
+### 1. Season-Aware Goal Logic (Reuse `useFocusTier`)
+
+The existing `useFocusTier` hook already provides:
+- `isUserSummerStarted`: Boolean for preseason vs summer
+- `focusTier`: Current focus tier (mustDo/willDo/couldDo)
+- `focusTierGoal`: The goal value for the focused tier
+- `allTiers`: All three tier values for display
+
+This hook will be used directly in PreWorkingState.
+
+### 2. Daily/Weekly Goal Calculation (Reuse `calculateSalesPace`)
+
+From `src/utils/salesPaceCalculator.ts`, we can get:
+- `dailyGoal`: FP+ needed per day to hit the focused goal
+- `weeklyGoal`: FP+ needed this week (dailyGoal × remaining days this week)
+
+### 3. Challenges/Incentives (Reuse existing hooks)
+
+From existing hooks:
+- `useMyActiveChallenges()`: Active challenges
+- `useMyActiveIncentives()`: Active incentives
+
+These will be displayed in a compact format.
+
+### 4. Track.tsx Changes
+
+Update the rendering logic:
 
 ```typescript
-// Props change
-interface RingGoalProgressProps {
-  // For reps during preseason
-  preseasonMode?: boolean;
-  preseasonFP?: number;
-  preseasonGoal?: number;
-  
-  // For reps in summer
-  summerMode?: boolean;
-  seasonFP?: number;
-  focusTierGoal?: number;
-  focusTier?: 'mustDo' | 'willDo' | 'couldDo';
-  
-  // Pace
-  dayOfSeason?: number;
-  totalSeasonDays?: number;
-}
-```
+// Current flow:
+// 1. isInitializing → Skeleton
+// 2. isPreBlitzRookie → Locked state
+// 3. entry.is_finalized → Activity Ring view
+// 4. Default → Counter grid
 
-### 6. RepDrillDownDrawer Goal Logic
-
-```typescript
-// In RepDrillDownDrawer.tsx
-const { data: seasonConfig } = useQuery({
-  queryKey: ['rep-season-config', userId],
-  queryFn: async () => {
-    const { data } = await supabase
-      .from('season_config')
-      .select('personal_summer_start')
-      .eq('user_id', userId)
-      .maybeSingle();
-    return data;
-  }
-});
-
-// Determine if this rep is in preseason
-const today = format(new Date(), 'yyyy-MM-dd');
-const isRepInPreseason = !seasonConfig?.personal_summer_start || 
-  today < seasonConfig.personal_summer_start;
-
-// Then pass to RingGoalProgress:
-{isRepInPreseason ? (
-  <RingGoalProgress
-    preseasonMode
-    preseasonFP={extendedData?.preseasonFP}
-    preseasonGoal={extendedData?.goals?.preseasonGoal}
-  />
-) : (
-  <RingGoalProgress
-    summerMode
-    seasonFP={extendedData?.totalSeasonFP}
-    focusTierGoal={/* focus tier goal based on rep's focus_tier */}
-    focusTier={extendedData?.goals?.focusTier}
-  />
-)}
+// New flow:
+// 1. isInitializing → Skeleton
+// 2. isPreBlitzRookie → Locked state  
+// 3. entry.is_finalized → Activity Ring view
+// 4. !entry.work_start_time → PreWorkingState (NEW)
+// 5. Default → Counter grid
 ```
 
 ---
 
-## Legend Component
+## Files to Create/Modify
 
-New component: `ActivityRingLegend.tsx`
+| File | Action | Description |
+|------|--------|-------------|
+| `src/components/track/PreWorkingState.tsx` | CREATE | Main pre-working view |
+| `src/components/track/DailyMissionCard.tsx` | CREATE | Today's mission with daily/weekly goals |
+| `src/components/track/SeasonGoalsPreview.tsx` | CREATE | Season-aware goal display |
+| `src/components/track/CompetitionsPreview.tsx` | CREATE | Compact challenges/incentives |
+| `src/components/track/index.ts` | CREATE | Export barrel file |
+| `src/pages/Track.tsx` | MODIFY | Add pre-working state check |
 
-```typescript
-export const ActivityRingLegend = () => (
-  <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-    <LegendItem color="blue" label="Knocking" />
-    <LegendItem color="amber" label="In Home" />
-    <LegendItem color="green" label="Sale" />
-    <LegendItem color="gray" label="Gap" />
-    <LegendItem color="orange" dashed label="Break" />
-  </div>
-);
+---
+
+## Data Flow
+
+```text
+PreWorkingState
+    │
+    ├── useFocusTier() ─────────────────┐
+    │   └── isUserSummerStarted         │
+    │   └── focusTier                   │
+    │   └── allTiers                    │
+    │                                   │
+    ├── useRepGoals() ──────────────────┤
+    │   └── preseason_fp_goal           │
+    │   └── setup_complete              ├──→ DailyMissionCard
+    │                                   │    SeasonGoalsPreview
+    ├── usePlannedDays() ───────────────┤
+    │   └── plannedDays                 │
+    │                                   │
+    ├── usePreseasonFP() ───────────────┤
+    │   └── totalFP                     │
+    │   └── knockingDays                │
+    │                                   │
+    ├── calculateSalesPace() ───────────┘
+    │   └── dailyGoal
+    │   └── remainingDailyNeeded
+    │
+    ├── useMyActiveChallenges() ────────┐
+    │   └── challenges[]                ├──→ CompetitionsPreview
+    ├── useMyActiveIncentives() ────────┤
+    │   └── incentives[]                │
+    │                                   │
+    └── onStartDay() ───────────────────────→ StartDayButton
 ```
 
 ---
 
-## Files to Modify
+## UX Considerations
 
-| File | Changes |
-|------|---------|
-| `src/components/activity-ring/ActivityRingHero.tsx` | Complete redesign with simplified segments, new colors, removed inner ring |
-| `src/components/activity-ring/RingGoalProgress.tsx` | Add preseason vs summer mode support |
-| `src/components/activity-ring/ActivityRingLegend.tsx` | **NEW** - Legend component |
-| `src/components/activity-ring/index.ts` | Export new legend |
-| `src/components/reports/v2/RepDrillDownDrawer.tsx` | Add season config fetch, conditional goal display |
-| `src/hooks/useRepDrillDownData.ts` | Add personal_summer_start to returned data |
-| `src/utils/inHomeZoneCalculator.ts` | **NEW** - Shared in-home detection logic extracted from RepDayActivityFlow |
+### Preseason Mode (today < personal_summer_start)
+- Show ONLY preseason goal
+- Daily need = preseason_goal / planned_preseason_days
+- Weekly need = daily_need × days_remaining_this_week
 
----
+### Summer Mode (today >= personal_summer_start)
+- Show all three tier goals with pills
+- Highlight the focused tier
+- Allow tapping to switch focus tier
+- Daily/weekly calculations use the focused tier goal
 
-## Visual Before/After
+### No Goals Set Up
+- Show a CTA to set up goals (similar to DailyFocusCard behavior)
+- Still show challenges/incentives if any exist
+- Start Day button still works
 
-**Before (Current):**
-- Multiple ring layers (outer + inner goal)
-- 7 segment types with varying opacity
-- Green for door activity (misleading)
-- No legend
-- Complex, hard to interpret
+### Empty Competitions State
+- Don't show the competitions section if no active challenges/incentives
+- Keeps the view clean
 
-**After (Redesigned):**
-- Single clean ring
-- 4 core segment types with solid colors
-- Blue = knocking, Amber = in-home, Green = sale, Gray = gap
-- Legend below ring
-- Immediately clear: "Where did they spend time? Did they get in homes? Did they sell?"
+### Haptic Feedback
+- `hapticMedium` on "Start My Day" tap
+- Button shows loading state while processing
 
 ---
 
-## Goal Display: Season Logic Summary
+## Motion & Polish
 
-| Rep's State | What Leaders See |
-|-------------|------------------|
-| Before personal_summer_start | Preseason goal + preseason FP progress |
-| After personal_summer_start | Focus tier goal (Must/Will/Could) + season FP progress |
-
-This applies in:
-- `RingGoalProgress` component
-- `RepGoalPaceCard` component  
-- Any goal visualization in the leader drill-down
+- Subtle fade-in animation on mount (framer-motion)
+- Staggered card entrance for premium feel
+- Progress bars use existing Progress component
+- Tier pills use existing chip styling from DailyFocusCard
+- Start button uses `active:scale-[0.97]` for tactile press
 
 ---
 
 ## Implementation Order
 
-1. Create `src/utils/inHomeZoneCalculator.ts` - Extract zone logic
-2. Create `src/components/activity-ring/ActivityRingLegend.tsx`
-3. Update `ActivityRingHero.tsx` - New colors, single ring, use zone calculator
-4. Update `RingGoalProgress.tsx` - Preseason vs summer mode
-5. Update `useRepDrillDownData.ts` - Fetch personal_summer_start
-6. Update `RepDrillDownDrawer.tsx` - Season-aware goal display
-7. Test with various rep data (preseason reps, summer reps, reps with sales, reps with gaps)
-
+1. Create `src/components/track/` directory structure
+2. Build `DailyMissionCard` with pace calculation
+3. Build `SeasonGoalsPreview` with tier display
+4. Build `CompetitionsPreview` with challenge/incentive summary
+5. Compose `PreWorkingState` from sub-components
+6. Update `Track.tsx` to conditionally render PreWorkingState
+7. Test across preseason/summer reps, with/without goals, with/without competitions
