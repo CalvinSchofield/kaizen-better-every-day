@@ -4,16 +4,14 @@ import {
   DrawerContent, 
   DrawerHeader, 
   DrawerTitle,
-  DrawerClose,
 } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "lucide-react";
+import { Calendar, Clock, Footprints, Target, MessageSquare } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { X, Clock, Footprints, Target, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EffortResult } from "@/utils/effortScore";
-import { RepGoalPaceCard } from "./RepGoalPaceCard";
+import { RepDailyGoalProgress } from "./RepDailyGoalProgress";
 import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
 import { useRepDayActivity } from "@/hooks/useRepDayActivity";
 import { useRepActivityCalendar } from "@/hooks/useRepActivityCalendar";
@@ -217,7 +215,7 @@ export const RepDrillDownDrawer = ({
       : 0;
     
     return { D: dayProgress, W: weekProgress, M: monthProgress, Y: yearProgress };
-  }, [calendarData?.summaries, extendedData, dayActivity, selectedDate]);
+  }, [calendarData?.summaries, extendedData, displayData.fp, selectedDate]);
 
   if (!rep) return null;
 
@@ -256,14 +254,14 @@ export const RepDrillDownDrawer = ({
                 <Badge variant="outline">{rep.year}</Badge>
               )}
             </div>
-            <div className="flex items-center gap-1">
-              <LegendTriggerButton onClick={() => setShowLegend(true)} />
-              <DrawerClose asChild>
-                <Button variant="ghost" size="icon">
-                  <X className="w-4 h-4" />
-                </Button>
-              </DrawerClose>
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowCalendar(true)}
+            >
+              <Calendar className="h-4 w-4" />
+            </Button>
           </div>
           {rep.teamName && (
             <p className="text-sm text-muted-foreground">{rep.teamName}</p>
@@ -271,29 +269,17 @@ export const RepDrillDownDrawer = ({
         </DrawerHeader>
 
         <div className="overflow-y-auto">
-          {/* Week Activity Strip with Calendar Button */}
+          {/* Week Activity Strip - full width */}
           <div className="px-4 py-3 border-b bg-muted/20">
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <WeekActivityStrip
-                  daySummaries={calendarData?.summaries || []}
-                  selectedDate={selectedDate}
-                  onSelectDate={setSelectedDate}
-                  dailyGoal={extendedData?.goals?.mustGoal 
-                    ? extendedData.goals.mustGoal / 53 
-                    : 2
-                  }
-                />
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                onClick={() => setShowCalendar(true)}
-              >
-                <Calendar className="h-4 w-4" />
-              </Button>
-            </div>
+            <WeekActivityStrip
+              daySummaries={calendarData?.summaries || []}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              dailyGoal={extendedData?.goals?.mustGoal 
+                ? extendedData.goals.mustGoal / 53 
+                : 2
+              }
+            />
           </div>
           
           {/* Date Header */}
@@ -306,35 +292,42 @@ export const RepDrillDownDrawer = ({
           )}
 
           <div className="p-4 space-y-4">
-            {/* Activity Ring Hero */}
+            {/* Activity Ring Hero with Legend Icon */}
             {(displayData.doors > 0 || displayData.hoursWorked > 0) && (
-              <div className="flex justify-center">
-                <ActivityRingHero
-                  entry={{
-                    doors_knocked: displayData.doors,
-                    decision_makers: displayData.dms,
-                    pitches: displayData.pitches,
-                    transitions: displayData.transitions,
-                    presentations: displayData.presentations,
-                    closes: displayData.closes,
-                    fp_plus: displayData.fp,
-                    prmr: displayData.prmr,
-                    is_finalized: !isToday || (dayActivity?.isFinalized ?? false),
-                    // Always use dayActivity for work times when available (it has actual timestamps)
-                    work_start_time: dayActivity?.workStartTime || displayData.workStartTime || null,
-                    work_end_time: dayActivity?.workEndTime || displayData.workEndTime || null,
-                    break_periods: dayActivity?.breakPeriods || [],
-                    counter_timestamps: dayActivity?.counterTimestamps || {},
-                    timezone: null,
-                  }}
-                  salesLog={dayActivity?.salesLog as any}
-                  goalProgress={goalProgress}
-                  showGoalRing={goalProgress > 0}
-                  showGapPercent={true}
-                  showLegend={false}
-                  size="md"
-                  onSegmentClick={handleSegmentClick}
+              <div className="relative">
+                {/* Legend trigger top-right of ring section */}
+                <LegendTriggerButton 
+                  onClick={() => setShowLegend(true)} 
+                  className="absolute top-0 right-0"
                 />
+                <div className="flex justify-center">
+                  <ActivityRingHero
+                    entry={{
+                      doors_knocked: displayData.doors,
+                      decision_makers: displayData.dms,
+                      pitches: displayData.pitches,
+                      transitions: displayData.transitions,
+                      presentations: displayData.presentations,
+                      closes: displayData.closes,
+                      fp_plus: displayData.fp,
+                      prmr: displayData.prmr,
+                      is_finalized: !isToday || (dayActivity?.isFinalized ?? false),
+                      // Always use dayActivity for work times when available (it has actual timestamps)
+                      work_start_time: dayActivity?.workStartTime || displayData.workStartTime || null,
+                      work_end_time: dayActivity?.workEndTime || displayData.workEndTime || null,
+                      break_periods: dayActivity?.breakPeriods || [],
+                      counter_timestamps: dayActivity?.counterTimestamps || {},
+                      timezone: null,
+                    }}
+                    salesLog={dayActivity?.salesLog as any}
+                    goalProgress={goalProgress}
+                    showGoalRing={goalProgress > 0}
+                    showGapPercent={true}
+                    showLegend={false}
+                    size="md"
+                    onSegmentClick={handleSegmentClick}
+                  />
+                </div>
               </div>
             )}
             
@@ -400,22 +393,64 @@ export const RepDrillDownDrawer = ({
 
             <Separator />
 
-            {/* Goal Pace Card - Season-aware */}
-
-            {/* Goal Pace Card - Also season-aware */}
-            {extendedData?.goals ? (
-              <RepGoalPaceCard
-                preseasonGoal={extendedData.goals.preseasonGoal}
-                preseasonProgress={extendedData.preseasonFP}
-                mustGoal={extendedData.goals.mustGoal}
-                willGoal={extendedData.goals.willGoal}
-                couldGoal={extendedData.goals.couldGoal}
-                currentFP={extendedData.totalSeasonFP}
-                focusTier={extendedData.goals.focusTier}
-                goalPace={extendedData.goalPace}
-                isPreseason={extendedData.isPreseason}
-              />
-            ) : !isLoadingExtended && (
+            {/* Goal Progress - Season-aware with Today + Season display */}
+            {extendedData?.goals ? (() => {
+              const dailyGoal = extendedData.goals.mustGoal 
+                ? extendedData.goals.mustGoal / 53 
+                : 2;
+              
+              // Determine which goal to show based on season
+              const isPreseason = extendedData.isPreseason;
+              const seasonGoal = isPreseason 
+                ? extendedData.goals.preseasonGoal || 30
+                : extendedData.goals.focusTier === 'couldDo' 
+                  ? extendedData.goals.couldGoal
+                  : extendedData.goals.focusTier === 'willDo'
+                    ? extendedData.goals.willGoal
+                    : extendedData.goals.mustGoal || 100;
+              
+              const seasonFP = isPreseason 
+                ? extendedData.preseasonFP 
+                : extendedData.totalSeasonFP;
+              
+              const seasonLabel = isPreseason 
+                ? 'Preseason'
+                : extendedData.goals.focusTier === 'couldDo' 
+                  ? 'Could Do'
+                  : extendedData.goals.focusTier === 'willDo'
+                    ? 'Will Do'
+                    : 'Must Do';
+              
+              // Get the right pace info
+              const paceInfo = isPreseason
+                ? extendedData.goalPace?.preseason
+                : extendedData.goals.focusTier === 'couldDo'
+                  ? extendedData.goalPace?.couldDo
+                  : extendedData.goals.focusTier === 'willDo'
+                    ? extendedData.goalPace?.willDo
+                    : extendedData.goalPace?.mustDo;
+              
+              // Build available tiers for summer
+              const availableTiers = !isPreseason ? [
+                extendedData.goals.mustGoal && { label: 'Must Do', goal: extendedData.goals.mustGoal },
+                extendedData.goals.willGoal && { label: 'Will Do', goal: extendedData.goals.willGoal },
+                extendedData.goals.couldGoal && { label: 'Could Do', goal: extendedData.goals.couldGoal },
+              ].filter(Boolean) as { label: string; goal: number }[] : undefined;
+              
+              return (
+                <RepDailyGoalProgress
+                  todayFP={displayData.fp}
+                  dailyGoal={dailyGoal}
+                  seasonFP={seasonFP}
+                  seasonGoal={seasonGoal}
+                  seasonLabel={seasonLabel}
+                  paceInfo={paceInfo}
+                  isPreseason={isPreseason}
+                  focusTier={extendedData.goals.focusTier}
+                  availableTiers={availableTiers}
+                />
+              );
+            })() : !isLoadingExtended && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
                 <Target className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">No goals configured</span>

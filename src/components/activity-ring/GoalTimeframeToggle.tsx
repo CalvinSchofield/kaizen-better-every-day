@@ -14,7 +14,7 @@ const timeframes: { key: GoalTimeframe; label: string }[] = [
   { key: 'D', label: 'Day' },
   { key: 'W', label: 'Week' },
   { key: 'M', label: 'Month' },
-  { key: 'Y', label: 'Year' },
+  { key: 'Y', label: 'Season' },
 ];
 
 export const GoalTimeframeToggle = ({
