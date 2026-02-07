@@ -309,16 +309,16 @@ Insights.tsx (Rep Self-View)
 4. ✅ RingGoalProgress component
 5. ✅ Update Track.tsx to show finalized state
 
-**Phase 2: Leader View**
-6. useRepDayActivity hook (date parameter support)
-7. WeekActivityStrip component
-8. Update RepDrillDownDrawer.tsx
-9. CoachingCallouts component
+**Phase 2: Leader View** ✅ COMPLETE
+6. ✅ useRepDayActivity hook (date parameter support)
+7. ✅ WeekActivityStrip component
+8. ✅ Update RepDrillDownDrawer.tsx
+9. ✅ CoachingCallouts component
 
-**Phase 3: Calendar Navigation**
-10. ActivityRingMini component
-11. useRepActivityCalendar hook
-12. ActivityCalendarDrawer component
+**Phase 3: Calendar Navigation** ✅ COMPLETE
+10. ✅ ActivityRingMini component
+11. ✅ useRepActivityCalendar hook
+12. ✅ ActivityCalendarDrawer component
 
 **Phase 4: Rep Self-History**
 13. Add activity section to Insights.tsx

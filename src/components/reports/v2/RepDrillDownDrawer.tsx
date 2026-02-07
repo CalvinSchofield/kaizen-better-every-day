@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { X, Clock, Footprints, Target, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ import {
   RingGoalProgress,
   WeekActivityStrip,
   CoachingCallouts,
+  ActivityCalendarDrawer,
 } from "@/components/activity-ring";
 import { format, isSameDay } from "date-fns";
 
@@ -69,6 +71,7 @@ export const RepDrillDownDrawer = ({
   onSendSms,
 }: RepDrillDownDrawerProps) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showCalendar, setShowCalendar] = useState(false);
   
   // Get userId for hooks - must be at top level
   const userId = isOpen && rep ? rep.userId : undefined;
@@ -152,13 +155,25 @@ export const RepDrillDownDrawer = ({
         </DrawerHeader>
 
         <div className="overflow-y-auto">
-          {/* Week Activity Strip */}
+          {/* Week Activity Strip with Calendar Button */}
           <div className="px-4 py-3 border-b bg-muted/20">
-            <WeekActivityStrip
-              daySummaries={calendarData?.summaries || []}
-              selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
-            />
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <WeekActivityStrip
+                  daySummaries={calendarData?.summaries || []}
+                  selectedDate={selectedDate}
+                  onSelectDate={setSelectedDate}
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => setShowCalendar(true)}
+              >
+                <Calendar className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           
           {/* Date Header */}
@@ -314,6 +329,17 @@ export const RepDrillDownDrawer = ({
             )}
           </div>
         </div>
+        
+        {/* Activity Calendar Drawer */}
+        {userId && (
+          <ActivityCalendarDrawer
+            open={showCalendar}
+            onOpenChange={setShowCalendar}
+            userId={userId}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+          />
+        )}
       </DrawerContent>
     </Drawer>
   );
