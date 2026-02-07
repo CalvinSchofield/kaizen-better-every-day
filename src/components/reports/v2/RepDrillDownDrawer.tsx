@@ -28,6 +28,7 @@ import {
   ActivityRingLegend,
   LegendTriggerButton,
   SegmentDetailDrawer,
+  SalesLogDrawer,
 } from "@/components/activity-ring";
 import { format, isSameDay, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, getDay } from "date-fns";
 
@@ -85,6 +86,7 @@ export const RepDrillDownDrawer = ({
   const [showLegend, setShowLegend] = useState(false);
   const [selectedSegment, setSelectedSegment] = useState<RingSegment | null>(null);
   const [selectedSegmentSale, setSelectedSegmentSale] = useState<Sale | null>(null);
+  const [showSalesLog, setShowSalesLog] = useState(false);
   
   // Get userId for hooks - must be at top level
   const userId = isOpen && rep ? rep.userId : undefined;
@@ -385,6 +387,9 @@ export const RepDrillDownDrawer = ({
                 prmr: displayData.prmr,
               }}
               salesLog={dayActivity?.salesLog as any}
+              onClosesClick={() => setShowSalesLog(true)}
+              onFPClick={() => setShowSalesLog(true)}
+              onPRMRClick={() => setShowSalesLog(true)}
             />
             
             {/* Effort Coaching Callouts - Show for days with work */}
@@ -499,6 +504,13 @@ export const RepDrillDownDrawer = ({
           workStart={workStart}
           workEnd={workEnd}
           totalWorkMinutes={totalWorkMinutes}
+        />
+        
+        {/* Sales Log Drawer */}
+        <SalesLogDrawer
+          open={showSalesLog}
+          onOpenChange={setShowSalesLog}
+          salesLog={(dayActivity?.salesLog as any) || []}
         />
       </DrawerContent>
     </Drawer>
