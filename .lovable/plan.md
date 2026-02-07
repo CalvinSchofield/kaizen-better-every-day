@@ -1,142 +1,335 @@
 
 
-# Productivity Per Hour Bug Fix
+# Activity Ring: Post-Finalization Track View
 
-## Root Cause Identified
+## Updated Vision
 
-The "Productivity per Hour" section shows **0.0** for all metrics because of **corrupted break period data** in your entries.
+The Track page has two distinct states:
 
-### The Bug
+**Active State (is_finalized = false):**
+- Current behavior: TimeTrackingBar + QTallyGrid counters
+- Reps actively tap to log activity
 
-In `useInsightsData.ts`, when calculating work hours, the code subtracts break periods:
+**Finalized State (is_finalized = true):**
+- **NEW**: Replace QTallyGrid with Activity Ring Hero
+- Beautiful visualization of completed day
+- Stats summary below the ring
+- Goal progress context
+- Celebratory feel - "You did this today!"
 
-```javascript
-entry.break_periods.forEach((breakPeriod: any) => {
-  const breakStart = new Date(breakPeriod.start);
-  const breakEnd = new Date(breakPeriod.end);  // ← PROBLEM: breakPeriod.end is ""
-  minutes -= differenceInMinutes(breakEnd, breakStart); // ← Returns NaN
-});
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  Track Page - FINALIZED STATE                                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  ✓ Day Complete                              1:21 → 8:37 │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│               ┌────────────────────┐                            │
+│              /  ▅  ▃  ☕ ▅  ▇  ★  \    ← Timeline Ring         │
+│             │  ╭──────────────────╮ │                           │
+│             │ │     3.7 FP+       │ │                           │
+│             │ │    $311 PRMR      │ │   ← Center Stats         │
+│             │ │   7.3 hrs worked  │ │                           │
+│             │  ╰──────────────────╯ │                           │
+│              \  ░░░░░░░░░░░▓▓▓▓▓  /    ← Goal Progress Ring    │
+│               └────────────────────┘                            │
+│                                                                  │
+│  ┌──────┬──────┬──────┬──────┬──────┬──────┐                    │
+│  │  49  │   6  │   3  │   2  │   1  │ $311 │                    │
+│  │Doors │Pitch │Trans │ Pres │Close │ PRMR │                    │
+│  └──────┴──────┴──────┴──────┴──────┴──────┘                    │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  🎯 Goal Progress                                         │   │
+│  │  Today: 3.7 / 2.1 FP+  ✅ Hit daily goal!                 │   │
+│  │  This Week: 12.4 / 14.0 FP+                               │   │
+│  │  ░░░░░░░░░░▓▓▓▓░░░░░░░░░░░░░░░░░░░░  47.2 / 200 Season   │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
-
-When `breakPeriod.end` is an empty string:
-1. `new Date("")` creates an `Invalid Date`
-2. `differenceInMinutes(Invalid Date, validDate)` returns `NaN`
-3. `minutes -= NaN` makes `minutes = NaN`
-4. `acc.totalHours += NaN / 60` propagates `NaN` through ALL entries
-5. `activityTotals.totalHours = NaN`
-6. `doorsPerHour = doors / NaN = NaN` → displayed as "0.0"
-
-### Your Affected Entries
-
-| Date | Issue |
-|------|-------|
-| 2026-01-21 | Break started at 00:43 but never ended |
-| 2025-12-19 | Break started at 23:27 but never ended |
-| 2025-12-06 | Break started at 03:01 but never ended |
-
-These incomplete breaks happen when someone taps "Break" but the break never gets ended (app crash, connection loss, or saved without ending break).
 
 ---
 
-## Solution
+## Track Page Logic Update
 
-### Part 1: Fix the Calculation (Defensive Code)
-
-Add validation to skip invalid break periods:
-
-```javascript
-entry.break_periods.forEach((breakPeriod: any) => {
-  // Skip incomplete break periods (no start or end)
-  if (!breakPeriod.start || !breakPeriod.end) return;
-  
-  const breakStart = new Date(breakPeriod.start);
-  const breakEnd = new Date(breakPeriod.end);
-  
-  // Validate the dates are valid
-  if (isNaN(breakStart.getTime()) || isNaN(breakEnd.getTime())) return;
-  
-  const breakMinutes = differenceInMinutes(breakEnd, breakStart);
-  
-  // Only subtract positive break durations
-  if (breakMinutes > 0) {
-    minutes -= breakMinutes;
-  }
-});
-```
-
-### Part 2: Clean Up Corrupted Data
-
-Option A: **Data Migration** - Find and fix all incomplete breaks by setting `end` to equal `start` (zero-length break):
-
-```sql
-UPDATE daily_entries
-SET break_periods = (
-  SELECT jsonb_agg(
-    CASE 
-      WHEN bp->>'end' = '' OR bp->>'end' IS NULL 
-      THEN jsonb_set(bp, '{end}', bp->'start')
-      ELSE bp
-    END
-  )
-  FROM jsonb_array_elements(break_periods) AS bp
-)
-WHERE jsonb_array_length(break_periods) > 0
-  AND EXISTS (
-    SELECT 1 FROM jsonb_array_elements(break_periods) AS bp
-    WHERE bp->>'end' = '' OR bp->>'end' IS NULL
+```typescript
+// In Track.tsx
+if (entry.is_finalized) {
+  return (
+    <div className="flex flex-col h-full">
+      {/* Static header showing day is complete */}
+      <FinalizedDayHeader 
+        workStart={entry.work_start_time}
+        workEnd={entry.work_end_time}
+      />
+      
+      {/* Activity Ring Hero - replaces QTallyGrid */}
+      <ActivityRingHero
+        entry={entry}
+        counterTimestamps={counterTimestamps}
+        salesLog={salesLog}
+      />
+      
+      {/* Stats summary grid */}
+      <FinalizedStatsGrid entry={entry} />
+      
+      {/* Goal progress context */}
+      <RingGoalProgress repId={entry.user_id} />
+    </div>
   );
+}
+
+// Otherwise show normal active tracking UI
+return (
+  <div className="flex flex-col h-full">
+    <TimeTrackingBar ... />
+    <QTallyGrid ... />
+  </div>
+);
 ```
-
-Option B: **Leave data as-is** - The defensive code will handle it. Data stays historical.
-
-### Part 3: Prevent Future Corruptions
-
-In the break ending logic, ensure breaks always get a valid end time, even during error scenarios or auto-finalization.
 
 ---
 
-## Answer to Your Questions
+## Component Architecture
 
-### Will this work for manual entries?
+### New Components for Track Finalized State
 
-**Yes, with one requirement**: The rep must enter both a `work_start_time` AND `work_end_time`.
+| Component | Purpose |
+|-----------|---------|
+| `FinalizedDayHeader.tsx` | Shows "Day Complete ✓" with work hours |
+| `ActivityRingHero.tsx` | Main ring visualization (shared with leader view) |
+| `FinalizedStatsGrid.tsx` | Compact stat boxes (read-only, no tap actions) |
+| `RingGoalProgress.tsx` | Goal context card (shared with leader view) |
 
-The calculation uses:
-```javascript
-if (entry.work_start_time && entry.work_end_time) {
-  // Calculate hours
+### Shared Components (Track + Leader Drill-Down)
+
+The following components will be built once and used in both contexts:
+- `ActivityRingHero` - Main ring SVG
+- `ActivityRingMini` - Calendar mini rings (leader only)
+- `RingGoalProgress` - Goal section
+- `CoachingCallouts` - Smart insights (leader only - reps don't need to coach themselves)
+
+---
+
+## Full Implementation Scope
+
+### Part 1: Core Ring Components
+
+**Files to Create:**
+
+1. `src/components/activity-ring/ActivityRingHero.tsx`
+   - SVG-based ring visualization
+   - Outer ring: Timeline segments (doors, in-home, breaks, gaps, sales)
+   - Inner ring: Goal progress fill
+   - Center: Key stats (FP+, PRMR, hours)
+   - Animated draw-in on mount
+
+2. `src/components/activity-ring/ActivityRingMini.tsx`
+   - Small ring for calendar cells
+   - Fill based on activity level
+   - Star overlay for sales
+   - Used in calendar and week strip
+
+3. `src/components/activity-ring/RingGoalProgress.tsx`
+   - Goal progress card with context
+   - Today / This Week / Season views
+   - Progress bar with expected marker
+
+4. `src/components/activity-ring/FinalizedDayHeader.tsx`
+   - "Day Complete ✓" banner
+   - Work hours display
+   - Celebration animation on first view
+
+5. `src/components/activity-ring/FinalizedStatsGrid.tsx`
+   - Compact read-only stat boxes
+   - Doors, Pitches, Transitions, Presentations, Closes, PRMR
+   - No tap actions (purely display)
+
+6. `src/components/activity-ring/index.ts`
+   - Barrel exports
+
+### Part 2: Leader-Specific Components
+
+7. `src/components/activity-ring/WeekActivityStrip.tsx`
+   - Horizontal week navigation
+   - Mini-rings for each day
+   - Day selection
+
+8. `src/components/activity-ring/ActivityCalendarDrawer.tsx`
+   - Full calendar view
+   - Scrollable months
+   - Mini-ring per day with sale indicators
+
+9. `src/components/activity-ring/CoachingCallouts.tsx`
+   - Smart callouts for leaders
+   - Gap time, late starts, funnel issues
+
+### Part 3: Data Hooks
+
+10. `src/hooks/useRepActivityCalendar.ts`
+    - Batch fetch for calendar grid
+    - Returns: doors, fp, hasSale, hasWork per day
+
+11. `src/hooks/useRepDayActivity.ts`
+    - Detailed activity for specific date
+    - Extends existing useRepDrillDownData with date param
+
+12. `src/hooks/useCoachingInsights.ts`
+    - Generate coaching callouts from day data
+
+### Part 4: Page Modifications
+
+13. `src/pages/Track.tsx`
+    - Add finalized state check
+    - Render ActivityRingHero instead of QTallyGrid when is_finalized
+    - Include FinalizedDayHeader, FinalizedStatsGrid, RingGoalProgress
+
+14. `src/components/reports/v2/RepDrillDownDrawer.tsx`
+    - Complete redesign to ring-based layout
+    - Week strip navigation
+    - Calendar button for history
+    - Coaching callouts
+
+15. `src/hooks/useRepDrillDownData.ts`
+    - Add selectedDate parameter
+    - Support fetching any date, not just today
+
+16. `src/pages/Insights.tsx`
+    - Add "My Activity" section
+    - Include calendar view for self-history
+
+---
+
+## Ring Visualization Technical Details
+
+### Timeline Ring Algorithm
+
+```typescript
+interface TimelineSegment {
+  startAngle: number;  // 0 = 12 o'clock
+  endAngle: number;
+  type: 'knocking' | 'in-home' | 'break' | 'gap' | 'sale';
+  intensity: number;   // 0-1 for opacity/thickness
+}
+
+function buildTimelineRing(
+  workStart: Date,
+  workEnd: Date,
+  events: TimelineEvent[],
+  breaks: BreakPeriod[]
+): TimelineSegment[] {
+  const workDuration = differenceInMinutes(workEnd, workStart);
+  const degreesPerMinute = 360 / workDuration;
+  
+  // Map each event to its angular position
+  // Fill gaps between events
+  // Overlay breaks as dashed segments
+  // Highlight sales with gold glow
 }
 ```
 
-If a rep enters data manually:
-- **WITH start/end times**: Productivity will calculate correctly
-- **WITHOUT start/end times**: That entry contributes 0 hours to the total, making per-hour metrics lower/invalid
+### SVG Ring Structure
 
-### When would productivity NOT work?
+```svg
+<svg viewBox="0 0 200 200">
+  <!-- Background track -->
+  <circle cx="100" cy="100" r="80" stroke="#1a1a1a" fill="none" />
+  
+  <!-- Timeline segments (outer ring) -->
+  <g class="timeline-ring">
+    <path d="..." stroke="green" /> <!-- Knocking segment -->
+    <path d="..." stroke="amber" stroke-dasharray="4 2" /> <!-- Break -->
+    <path d="..." stroke="gold" filter="glow" /> <!-- Sale -->
+  </g>
+  
+  <!-- Goal progress (inner ring) -->
+  <circle cx="100" cy="100" r="60" 
+          stroke="url(#goalGradient)" 
+          stroke-dasharray="progressLength, remaining" />
+  
+  <!-- Center stats -->
+  <text x="100" y="95" class="hero-stat">3.7 FP+</text>
+  <text x="100" y="115" class="sub-stat">$311 PRMR</text>
+</svg>
+```
 
-1. **No time data** - Entry has no `work_start_time` or `work_end_time`
-2. **Corrupted break periods** - Empty start/end values (your current issue)
-3. **Invalid dates** - Malformed timestamp strings
-4. **End before start** - Negative work duration (should be validated)
-5. **No activity** - Zero doors, pitches, etc. (nothing to divide)
+### Animation Sequence
+
+1. **Mount**: Ring background fades in (0.2s)
+2. **Draw**: Timeline ring draws clockwise from start (0.8s ease-out)
+3. **Pop**: Individual segments pop in with slight scale (staggered 50ms)
+4. **Glow**: Sale segments get gold glow animation (0.3s pulse)
+5. **Fill**: Inner goal ring fills to current progress (0.5s)
+6. **Stats**: Center text fades in (0.3s)
+7. **Confetti**: If goal was hit, subtle confetti burst (optional)
 
 ---
 
-## Files to Modify
+## Data Flow Summary
 
-| File | Change |
-|------|--------|
-| `src/hooks/useInsightsData.ts` | Add defensive validation for break periods in both calculation loops |
-| `src/hooks/useTeamAggregatedRankings.ts` | Same fix for team insights |
-| `src/hooks/useRepDrillDownData.ts` | Same fix for rep drill-down |
-| Database migration (optional) | Clean up corrupted break_periods data |
+```
+Track.tsx (Finalized)
+  └── checks entry.is_finalized
+        └── TRUE: Renders finalized view
+              ├── FinalizedDayHeader
+              ├── ActivityRingHero
+              │     ├── Uses entry data
+              │     ├── Uses counterTimestamps for timeline
+              │     └── Uses salesLog for sale markers
+              ├── FinalizedStatsGrid
+              └── RingGoalProgress
+                    └── Fetches goal context via useFocusGoalProgress
+
+RepDrillDownDrawer.tsx (Leader)
+  └── calls useRepDrillDownData(repId, selectedDate)
+        └── Returns activity for selected date
+              ├── WeekActivityStrip (date navigation)
+              ├── ActivityRingHero (same component)
+              ├── CoachingCallouts
+              ├── FinalizedStatsGrid
+              └── RingGoalProgress
+
+Insights.tsx (Rep Self-View)
+  └── ActivityCalendarDrawer
+        └── calls useRepActivityCalendar(userId)
+              └── Tapping day opens detail view with ring
+```
 
 ---
 
-## Implementation Priority
+## Implementation Order
 
-1. **Critical**: Fix `useInsightsData.ts` to handle invalid break periods
-2. **Important**: Apply same fix to other hooks that calculate hours
-3. **Optional**: Database cleanup migration
-4. **Future**: Add validation when saving breaks to prevent corruption
+**Phase 1: Core Ring (Track Page)**
+1. ActivityRingHero component with timeline visualization
+2. FinalizedDayHeader component
+3. FinalizedStatsGrid component
+4. RingGoalProgress component
+5. Update Track.tsx to show finalized state
+
+**Phase 2: Leader View**
+6. useRepDayActivity hook (date parameter support)
+7. WeekActivityStrip component
+8. Update RepDrillDownDrawer.tsx
+9. CoachingCallouts component
+
+**Phase 3: Calendar Navigation**
+10. ActivityRingMini component
+11. useRepActivityCalendar hook
+12. ActivityCalendarDrawer component
+
+**Phase 4: Rep Self-History**
+13. Add activity section to Insights.tsx
+
+---
+
+## UX Highlights
+
+- **Celebration over data dump**: Finalized state feels like an achievement
+- **No dead UI**: Counter boxes replaced with meaningful visualization
+- **Contextual goals**: Always see where today fits in the bigger picture
+- **Seamless navigation**: Leaders can browse any day without leaving drawer
+- **Self-awareness**: Reps can review their own patterns over time
 
