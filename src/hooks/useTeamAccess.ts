@@ -28,6 +28,7 @@ interface TeamAccessResponse {
     mgmtGroupName?: string | null;
     isGhostRep?: boolean; // true if rep has no app account
     rampPhase1Complete?: boolean;
+    recruiterName?: string | null; // For organic hierarchy grouping
   }>;
 }
 

@@ -5,8 +5,10 @@ interface LiveRepData {
   userId: string;
   name: string;
   year?: string;
+  teamId?: string | null; // For grouping in reports
   teamName: string;
   mgmtGroupName: string;
+  recruiterName?: string | null; // For organic hierarchy grouping
   phone?: string;
   notionPageId?: string;
   timezone?: string;
@@ -186,9 +188,11 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         
         // Use teamName from cache, or fallback to "Team [leader name]", or finally "No Team"
         const teamLeaderName = repInfo?.team_leader;
+        const teamId = teamInfo?.teamId || null;
         const teamName = teamInfo?.teamName || 
                         (teamLeaderName ? `Team ${teamLeaderName}` : 'No Team');
         const mgmtGroupName = teamInfo?.mgmtGroupName || '';
+        const recruiterName = teamInfo?.recruiterName || null;
 
         // Calculate historical averages from past finalized entries
         const pastEntries = userEntries.filter(e => 
@@ -283,8 +287,10 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
               userId,
               name: repInfo?.name || 'Unknown',
               year: repInfo?.year || teamInfo?.year || undefined,
+              teamId,
               teamName,
               mgmtGroupName,
+              recruiterName,
               phone: cachedPhone || undefined,
               notionPageId: repInfo?.id || teamInfo?.notionPageId || undefined,
               timezone: timezone || 'America/Los_Angeles',
@@ -324,8 +330,10 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
           liveReps.push({
             userId,
             name: repInfo?.name || 'Unknown',
+            teamId,
             teamName,
             mgmtGroupName,
+            recruiterName,
             phone: cachedPhone || undefined,
             notionPageId: repInfo?.id || teamInfo?.notionPageId || undefined,
             timezone: timezone || 'America/Los_Angeles',

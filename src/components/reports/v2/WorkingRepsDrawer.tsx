@@ -9,6 +9,7 @@ interface WorkingRepData {
   timezone?: string;
   teamId?: string | null;
   teamName?: string | null;
+  recruiterName?: string | null; // For organic hierarchy grouping
   workStartTime?: string;
   workEndTime?: string;
   avgStartTime?: string;

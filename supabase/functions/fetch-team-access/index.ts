@@ -428,9 +428,29 @@ Deno.serve(async (req) => {
       };
     };
 
+    // Helper to get recruiter name for organic grouping
+    const getRecruiterName = (rep: any): string | null => {
+      // 1. Try the recruiter field on the rep record
+      if (rep.recruiter) {
+        return rep.recruiter;
+      }
+      
+      // 2. Try to find who recruited this person from recruits table
+      const recruit = recruitsData.find(r => r.id === rep.id);
+      if (recruit?.recruiter_user_id) {
+        const recruiterRep = repsData.find(r => r.user_id === recruit.recruiter_user_id);
+        if (recruiterRep) {
+          return recruiterRep.name;
+        }
+      }
+      
+      return null;
+    };
+
     // Build rep data for response
     const buildRepData = (rep: any) => {
       const teamInfo = getRepTeamInfo(rep);
+      const recruiterName = getRecruiterName(rep);
       
       return {
         id: rep.id,
@@ -446,6 +466,7 @@ Deno.serve(async (req) => {
         mgmtGroupName: teamInfo.mgmtGroupName,
         isGhostRep: !rep.user_id,
         rampPhase1Complete: rep.ramp_phase_1_complete || false,
+        recruiterName, // NEW: For organic hierarchy grouping
       };
     };
 
@@ -457,6 +478,15 @@ Deno.serve(async (req) => {
       // Get team/mgmt info from recruit record
       const team = teamsData.find(t => t.id === recruit.team_id);
       const mgmtGroup = mgmtGroupsData.find(g => g.id === recruit.mgmt_group_id);
+      
+      // Get recruiter name
+      let recruiterName: string | null = null;
+      if (recruit.recruiter_user_id) {
+        const recruiterRep = repsData.find(r => r.user_id === recruit.recruiter_user_id);
+        if (recruiterRep) {
+          recruiterName = recruiterRep.name;
+        }
+      }
       
       return {
         id: recruit.id,
@@ -472,6 +502,7 @@ Deno.serve(async (req) => {
         mgmtGroupName: mgmtGroup?.name || null,
         isGhostRep: !matchingRep?.user_id,
         rampPhase1Complete: matchingRep?.ramp_phase_1_complete || false,
+        recruiterName, // NEW: For organic hierarchy grouping
       };
     };
 

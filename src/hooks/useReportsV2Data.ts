@@ -69,7 +69,9 @@ export interface RepWithEffort {
   name: string;
   year?: string;
   timezone?: string;
+  teamId?: string | null;
   teamName?: string;
+  recruiterName?: string | null; // For organic hierarchy grouping
   phone?: string;
   doors: number;
   dms: number;
@@ -295,7 +297,10 @@ export const useReportsV2Data = ({
           userId: rep.userId,
           name: rep.name,
           year: rep.year,
+          timezone: rep.timezone,
+          teamId: rep.teamId,
           teamName: rep.teamName,
+          recruiterName: rep.recruiterName,
           phone: rep.phone,
           doors: rep.todayStats.doors,
           dms: rep.todayStats.dms,
