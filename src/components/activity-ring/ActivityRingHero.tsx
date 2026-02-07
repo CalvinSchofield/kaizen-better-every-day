@@ -301,10 +301,10 @@ export const ActivityRingHero = ({
     <div className="flex flex-col items-center gap-3">
       <div className="relative" style={{ width: config.width, height: config.width }}>
         <svg viewBox={`0 0 ${config.width} ${config.width}`} className="transform">
-          {/* SVG Filters for Apple-style shadow on overflow - shadow at end/tip of arc */}
+          {/* SVG Filters for Apple-style shadow on overflow - shadow at tip of arc */}
           <defs>
             <filter id="goalOverflowShadow" x="-50%" y="-50%" width="200%" height="200%">
-              <feDropShadow dx="3" dy="0" stdDeviation="4" floodColor="rgba(0,0,0,0.6)" floodOpacity="0.7" />
+              <feDropShadow dx="0" dy="-4" stdDeviation="3" floodColor="rgba(0,0,0,0.5)" floodOpacity="0.6" />
             </filter>
           </defs>
           
@@ -333,7 +333,8 @@ export const ActivityRingHero = ({
           )}
 
           {/* Goal ring - Apple style: base loop (0-100%) always shows first */}
-          {showGoalRing && goalProgress > 0 && (
+          {/* Only show start shadow when progress < 100% (no overlap) */}
+          {showGoalRing && goalProgress > 0 && goalProgress < 100 && (
             <motion.circle
               cx={center}
               cy={center}
@@ -354,6 +355,25 @@ export const ActivityRingHero = ({
                 ease: [0.25, 0.1, 0.25, 1],
               }}
               style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }}
+            />
+          )}
+          {/* When >= 100%, render full circle without rounded ends to avoid visual artifacts */}
+          {showGoalRing && goalProgress >= 100 && (
+            <motion.circle
+              cx={center}
+              cy={center}
+              r={config.innerRadius}
+              fill="none"
+              stroke={RING_COLORS.goalProgress}
+              strokeWidth={config.innerStroke}
+              strokeLinecap="butt"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 1 }}
+              transition={{ 
+                duration: 0.6, 
+                delay: 0.1,
+                ease: [0.25, 0.1, 0.25, 1],
+              }}
             />
           )}
 
@@ -496,26 +516,35 @@ export const ActivityRingHero = ({
                 );
               })}
             
-            {/* Layer 3: Pitch markers (thin lines like transitions) */}
+            {/* Layer 3: Pitch markers - thin radial LINES (not arcs) */}
             {segments
               .filter(s => s.type === 'pitch')
               .map((segment) => {
-                const arcSize = segment.endAngle - segment.startAngle;
-                if (arcSize < 0.3) return null;
-                
-                const pathD = describeArc(center, center, config.radius, segment.startAngle, segment.endAngle);
                 const originalIdx = segments.indexOf(segment);
+                // Calculate midpoint angle for the line
+                const midAngle = (segment.startAngle + segment.endAngle) / 2;
+                const angleRad = ((midAngle - 90) * Math.PI) / 180;
+                
+                // Line from inner edge to outer edge of the ring
+                const innerR = config.radius - config.strokeWidth / 2;
+                const outerR = config.radius + config.strokeWidth / 2;
+                const x1 = center + innerR * Math.cos(angleRad);
+                const y1 = center + innerR * Math.sin(angleRad);
+                const x2 = center + outerR * Math.cos(angleRad);
+                const y2 = center + outerR * Math.sin(angleRad);
                 
                 return (
-                  <motion.path
+                  <motion.line
                     key={`pitch-${originalIdx}`}
-                    d={pathD}
-                    fill="none"
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
                     stroke={RING_COLORS.pitch}
-                    strokeWidth={config.strokeWidth * 0.4}
-                    strokeLinecap="butt"
-                    initial={{ pathLength: 0, opacity: 0 }}
-                    animate={{ pathLength: 1, opacity: 1 }}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     transition={{ duration: 0.25, delay: 0.25 + originalIdx * 0.01, ease: "easeOut" }}
                     style={{ cursor: 'pointer' }}
                     onClick={(e) => handleSegmentClick(segment, e)}
@@ -523,26 +552,35 @@ export const ActivityRingHero = ({
                 );
               })}
             
-            {/* Layer 4: Transition markers (top layer - always visible) */}
+            {/* Layer 4: Transition markers - thin radial LINES (not arcs) */}
             {segments
               .filter(s => s.type === 'transition')
               .map((segment) => {
-                const arcSize = segment.endAngle - segment.startAngle;
-                if (arcSize < 0.3) return null;
-                
-                const pathD = describeArc(center, center, config.radius, segment.startAngle, segment.endAngle);
                 const originalIdx = segments.indexOf(segment);
+                // Calculate midpoint angle for the line
+                const midAngle = (segment.startAngle + segment.endAngle) / 2;
+                const angleRad = ((midAngle - 90) * Math.PI) / 180;
+                
+                // Line from inner edge to outer edge of the ring
+                const innerR = config.radius - config.strokeWidth / 2;
+                const outerR = config.radius + config.strokeWidth / 2;
+                const x1 = center + innerR * Math.cos(angleRad);
+                const y1 = center + innerR * Math.sin(angleRad);
+                const x2 = center + outerR * Math.cos(angleRad);
+                const y2 = center + outerR * Math.sin(angleRad);
                 
                 return (
-                  <motion.path
+                  <motion.line
                     key={`transition-${originalIdx}`}
-                    d={pathD}
-                    fill="none"
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
                     stroke={RING_COLORS.transition}
-                    strokeWidth={config.strokeWidth * 0.4}
-                    strokeLinecap="butt"
-                    initial={{ pathLength: 0, opacity: 0 }}
-                    animate={{ pathLength: 1, opacity: 1 }}
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     transition={{ duration: 0.25, delay: 0.3 + originalIdx * 0.01, ease: "easeOut" }}
                     style={{ cursor: 'pointer' }}
                     onClick={(e) => handleSegmentClick(segment, e)}
