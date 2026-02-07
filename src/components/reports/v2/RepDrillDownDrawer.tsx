@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Drawer, 
   DrawerContent, 
@@ -62,6 +62,8 @@ interface RepDrillDownDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onSendSms?: (phone: string, message: string) => void;
+  /** Initial date to display (defaults to today if not provided) */
+  initialDate?: Date;
 }
 
 export const RepDrillDownDrawer = ({
@@ -69,9 +71,17 @@ export const RepDrillDownDrawer = ({
   isOpen,
   onClose,
   onSendSms,
+  initialDate,
 }: RepDrillDownDrawerProps) => {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(initialDate || new Date());
   const [showCalendar, setShowCalendar] = useState(false);
+  
+  // Reset selectedDate when initialDate changes (e.g., switching from Today to Yesterday)
+  useEffect(() => {
+    if (initialDate) {
+      setSelectedDate(initialDate);
+    }
+  }, [initialDate?.getTime()]);
   
   // Get userId for hooks - must be at top level
   const userId = isOpen && rep ? rep.userId : undefined;
