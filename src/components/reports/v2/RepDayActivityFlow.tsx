@@ -154,6 +154,59 @@ const formatDuration = (minutes: number): string => {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };
 
+// Get the funnel path that led TO this event (for sales and transitions)
+// This shows the journey: door → DM → pitch → transition → presentation → close → sale
+const getSaleFunnelPath = (
+  events: TimelineEvent[], 
+  saleIdx: number
+): { funnelEvents: Array<{ event: TimelineEvent; time: string }>; duration: number } | null => {
+  const saleEvent = events[saleIdx];
+  const saleTime = saleEvent.timestamp.getTime();
+  
+  // Work backwards to find the door knock that started this sale journey
+  // Look for the most recent door knock before this sale
+  let doorIdx = -1;
+  for (let i = saleIdx - 1; i >= 0; i--) {
+    if (events[i].type === 'doors_knocked') {
+      doorIdx = i;
+      break;
+    }
+  }
+  
+  if (doorIdx === -1) return null;
+  
+  const doorEvent = events[doorIdx];
+  const doorTime = doorEvent.timestamp.getTime();
+  
+  // Collect all funnel events between the door and this sale
+  // Order them by funnel stage, not just chronologically
+  const funnelOrder = ['doors_knocked', 'decision_makers', 'pitches', 'transitions', 'presentations', 'closes', 'sale'];
+  
+  const funnelEvents: Array<{ event: TimelineEvent; time: string }> = [];
+  const seenTypes = new Set<string>();
+  
+  // Add the door knock first
+  funnelEvents.push({ event: doorEvent, time: formatTimeOnly(doorEvent.timestamp) });
+  seenTypes.add('doors_knocked');
+  
+  // Collect events between door and sale (inclusive of sale)
+  for (let i = doorIdx + 1; i <= saleIdx; i++) {
+    const event = events[i];
+    // Only include funnel-relevant events, dedupe by type
+    if (funnelOrder.includes(event.type) && !seenTypes.has(event.type)) {
+      funnelEvents.push({ event, time: formatTimeOnly(event.timestamp) });
+      seenTypes.add(event.type);
+    }
+  }
+  
+  // Sort by funnel order for display
+  funnelEvents.sort((a, b) => funnelOrder.indexOf(a.event.type) - funnelOrder.indexOf(b.event.type));
+  
+  const duration = Math.round((saleTime - doorTime) / (1000 * 60));
+  
+  return { funnelEvents, duration };
+};
+
 // Get the single closest event before/after with time
 // For "before" direction on transitions: detect batch-logged events and find the door knock that started this home visit
 const getAdjacentEvent = (
@@ -855,14 +908,45 @@ export const RepDayActivityFlow = ({
             </Popover>
           ))}
           
-          {/* Breaks - subtle dashed zones */}
+          {/* Breaks - visible dashed zones with tappable popovers */}
           {parsedBreaks.map((bp, idx) => (
-            <div
-              key={`break-${idx}`}
-              className="absolute top-1/2 -translate-y-1/2 h-3 rounded bg-amber-900/20 border border-dashed border-amber-600/30"
-              style={{ left: `${bp.start}%`, width: `${Math.max(bp.end - bp.start, 1)}%` }}
-              title={`Break: ${formatDuration(bp.duration)}`}
-            />
+            <Popover key={`break-${idx}`}>
+              <PopoverTrigger asChild>
+                <button
+                  className="absolute top-1/2 -translate-y-1/2 h-5 rounded bg-amber-500/25 border border-dashed border-amber-500/50 cursor-pointer hover:bg-amber-500/35 active:scale-y-90 transition-all z-5"
+                  style={{ left: `${bp.start}%`, width: `${Math.max(bp.end - bp.start, 1.5)}%` }}
+                >
+                  {(bp.end - bp.start) > 4 && (
+                    <span className="absolute inset-0 flex items-center justify-center text-[8px] font-medium text-amber-400 whitespace-nowrap">
+                      {formatDuration(bp.duration)}
+                    </span>
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-0" side="top" align="center">
+                <div className="px-3 py-2 bg-amber-500/15 border-b border-amber-500/25 flex items-center gap-2">
+                  <Coffee className="w-4 h-4 text-amber-500" />
+                  <span className="font-bold text-sm text-amber-500">Break</span>
+                </div>
+                <div className="p-3 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-muted-foreground">Duration</span>
+                    <span className="text-sm font-bold text-amber-500">{formatDuration(bp.duration)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-muted-foreground">Started</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(bp.startTime)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-muted-foreground">Ended</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(bp.endTime)}</span>
+                  </div>
+                  <div className="text-[10px] text-amber-400 bg-amber-500/10 rounded px-2 py-1.5 italic mt-1">
+                    ☕ Logged break time
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           ))}
           
           {/* Gap zones with popovers */}
@@ -1008,10 +1092,11 @@ export const RepDayActivityFlow = ({
             const height = isSale ? 36 : isTransition ? 28 : isPresentation ? 20 : event.type === 'closes' ? 18 : 10;
             const width = isSale ? 8 : isTransition ? 5 : 2;
             
-            // Get just 1-2 adjacent events for simple before/after context
-            // For transitions, this will find the door knock that started this home visit
-            const eventBefore = isHighlight ? getAdjacentEvent(events, idx, 'before', event.type) : null;
-            const eventAfter = isHighlight ? getAdjacentEvent(events, idx, 'after', event.type) : null;
+            // For sales, get the full funnel path that led to this sale
+            // For transitions, get simple before/after context
+            const saleFunnelPath = isSale ? getSaleFunnelPath(events, idx) : null;
+            const eventBefore = isTransition ? getAdjacentEvent(events, idx, 'before', event.type) : null;
+            const eventAfter = isTransition ? getAdjacentEvent(events, idx, 'after', event.type) : null;
             
             // Non-interactive markers for regular events
             if (!isHighlight) {
@@ -1087,67 +1172,99 @@ export const RepDayActivityFlow = ({
                     </div>
                   )}
                   
-                  {/* Simple before/after context with times */}
-                  <div className="p-3 space-y-2">
-                    {eventBefore && (
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] text-muted-foreground">Before:</span>
-                        <div className="flex items-center gap-2">
-                          {(() => {
-                            const c = EVENT_CONFIG[eventBefore.event.type];
-                            if (!c) return null;
-                            const Icon = c.icon;
-                            return (
+                  {/* For sales: show the funnel path that led to this sale */}
+                  {isSale && saleFunnelPath && (
+                    <div className="p-3 space-y-2">
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Path to Sale</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {saleFunnelPath.funnelEvents.map((fe, i) => {
+                          const c = EVENT_CONFIG[fe.event.type];
+                          if (!c) return null;
+                          const Icon = c.icon;
+                          return (
+                            <div key={i} className="flex items-center gap-1">
                               <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", c.bgColor + "/15")}>
                                 <Icon className={cn("w-3 h-3", c.color)} />
                                 <span className={c.textColor}>{c.shortLabel}</span>
                               </div>
-                            );
-                          })()}
-                          <span className="text-[10px] text-muted-foreground">{eventBefore.time}</span>
-                        </div>
+                              {i < saleFunnelPath.funnelEvents.length - 1 && (
+                                <ArrowRight className="w-3 h-3 text-muted-foreground/50" />
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                    )}
-                    
-                    {eventAfter && (
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] text-muted-foreground">After:</span>
-                        <div className="flex items-center gap-2">
-                          {(() => {
-                            const c = EVENT_CONFIG[eventAfter.event.type];
-                            if (!c) return null;
-                            const Icon = c.icon;
-                            return (
-                              <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", c.bgColor + "/15")}>
-                                <Icon className={cn("w-3 h-3", c.color)} />
-                                <span className={c.textColor}>{c.shortLabel}</span>
-                              </div>
-                            );
-                          })()}
-                          <span className="text-[10px] text-muted-foreground">{eventAfter.time}</span>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Coach insight for transitions - show time in home if door knock found */}
-                    {isTransition && eventBefore?.event.type === 'doors_knocked' && (
-                      <div className="text-[10px] text-amber-400 bg-amber-500/10 rounded px-2 py-1.5 italic mt-2">
-                        🏠 In home since {eventBefore.time} ({Math.round((event.timestamp.getTime() - eventBefore.event.timestamp.getTime()) / (1000 * 60))} min)
-                      </div>
-                    )}
-                    {isTransition && eventBefore?.event.type !== 'doors_knocked' && (
-                      <div className="text-[10px] text-amber-400 bg-amber-500/10 rounded px-2 py-1.5 italic mt-2">
-                        🏠 Rep entered the home
-                      </div>
-                    )}
-                    
-                    {/* Coach insight for sales */}
-                    {isSale && (
                       <div className="text-[10px] text-green-400 bg-green-500/10 rounded px-2 py-1.5 italic mt-2">
+                        💰 {saleFunnelPath.duration} min from door to close!
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* For sales without funnel path data */}
+                  {isSale && !saleFunnelPath && (
+                    <div className="p-3">
+                      <div className="text-[10px] text-green-400 bg-green-500/10 rounded px-2 py-1.5 italic">
                         💰 Great close!
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                  
+                  {/* For transitions: show simple before/after context */}
+                  {isTransition && (
+                    <div className="p-3 space-y-2">
+                      {eventBefore && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-muted-foreground">Started at:</span>
+                          <div className="flex items-center gap-2">
+                            {(() => {
+                              const c = EVENT_CONFIG[eventBefore.event.type];
+                              if (!c) return null;
+                              const Icon = c.icon;
+                              return (
+                                <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", c.bgColor + "/15")}>
+                                  <Icon className={cn("w-3 h-3", c.color)} />
+                                  <span className={c.textColor}>{c.shortLabel}</span>
+                                </div>
+                              );
+                            })()}
+                            <span className="text-[10px] text-muted-foreground">{eventBefore.time}</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {eventAfter && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-muted-foreground">Next:</span>
+                          <div className="flex items-center gap-2">
+                            {(() => {
+                              const c = EVENT_CONFIG[eventAfter.event.type];
+                              if (!c) return null;
+                              const Icon = c.icon;
+                              return (
+                                <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", c.bgColor + "/15")}>
+                                  <Icon className={cn("w-3 h-3", c.color)} />
+                                  <span className={c.textColor}>{c.shortLabel}</span>
+                                </div>
+                              );
+                            })()}
+                            <span className="text-[10px] text-muted-foreground">{eventAfter.time}</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Coach insight for transitions - show time in home if door knock found */}
+                      {eventBefore?.event.type === 'doors_knocked' && (
+                        <div className="text-[10px] text-amber-400 bg-amber-500/10 rounded px-2 py-1.5 italic mt-2">
+                          🏠 In home for {Math.round((event.timestamp.getTime() - eventBefore.event.timestamp.getTime()) / (1000 * 60))} min
+                        </div>
+                      )}
+                      {!eventBefore?.event.type && (
+                        <div className="text-[10px] text-amber-400 bg-amber-500/10 rounded px-2 py-1.5 italic mt-2">
+                          🏠 Rep entered the home
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </PopoverContent>
               </Popover>
             );
@@ -1181,6 +1298,11 @@ export const RepDayActivityFlow = ({
             </span>
           );
         })}
+        {/* Break indicator */}
+        <span className="flex items-center gap-0.5">
+          <div className="w-3 h-2 rounded-sm bg-amber-500/40 border border-dashed border-amber-500/60" />
+          Break
+        </span>
       </div>
 
       {/* Smart Summary - Coach Insights */}
