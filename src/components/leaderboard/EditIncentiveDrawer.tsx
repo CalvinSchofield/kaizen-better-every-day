@@ -7,9 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useParticipantPool } from "@/hooks/useParticipantPool";
 import { Incentive, IncentiveVisibility, useUpdateIncentive } from "@/hooks/useIncentives";
-import { SmartParticipantPicker } from "./SmartParticipantPicker";
+import { ParticipantPickerV2 } from "./ParticipantPickerV2";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, CalendarIcon, ChevronLeft, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
@@ -31,7 +31,6 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
   const [allSelected, setAllSelected] = useState(false);
   const [visibility, setVisibility] = useState<IncentiveVisibility>('private');
 
-  const { data: teamAccess } = useTeamAccess();
   const updateMutation = useUpdateIncentive();
 
   // Get current user's rep record to include them in picker
@@ -50,9 +49,11 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
     staleTime: Infinity,
   });
 
-  const allEligibleReps = useMemo(() => {
-    return teamAccess?.accessibleReps.filter(r => r.userId) || [];
-  }, [teamAccess]);
+  // Use the new participant pool
+  const { allReps: allEligibleReps } = useParticipantPool({ 
+    dateRange: endDate ? { start: parseISO(incentive.start_date), end: endDate } : undefined,
+    includeCurrentUser: true 
+  });
 
   // Initialize form when incentive changes or drawer opens
   useEffect(() => {
@@ -68,7 +69,7 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
       setSelectedUserIds(eligibleIds);
       
       // Check if all reps are selected
-      const allRepIds = allEligibleReps.map(r => r.userId!);
+      const allRepIds = allEligibleReps.map(r => r.userId);
       setAllSelected(
         eligibleIds.length === allRepIds.length && 
         allRepIds.every(id => eligibleIds.includes(id))
@@ -78,14 +79,14 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
 
   const effectiveUserIds = useMemo(() => {
     if (allSelected) {
-      return allEligibleReps.map(r => r.userId!);
+      return allEligibleReps.map(r => r.userId);
     }
     return selectedUserIds;
   }, [allSelected, selectedUserIds, allEligibleReps]);
 
   const toggleUser = (userId: string) => {
     if (allSelected) {
-      const newSelection = allEligibleReps.map(r => r.userId!).filter(id => id !== userId);
+      const newSelection = allEligibleReps.map(r => r.userId).filter(id => id !== userId);
       setSelectedUserIds(newSelection);
       setAllSelected(false);
     } else {
@@ -239,15 +240,12 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
                 </span>
               </div>
 
-              <SmartParticipantPicker
-                allReps={allEligibleReps}
+              <ParticipantPickerV2
                 selectedUserIds={selectedUserIds}
                 allSelected={allSelected}
                 onToggleUser={toggleUser}
                 onSelectAll={selectAll}
                 onClear={clearSelection}
-                currentUserId={currentUserRep?.user_id}
-                currentUserRep={currentUserRep}
                 dateRange={endDate ? { start: parseISO(incentive.start_date), end: endDate } : undefined}
                 showSelfInList={true}
               />
