@@ -353,49 +353,95 @@ export const ActivityRingHero = ({
             </>
           )}
 
-          {/* Timeline segments - outer ring */}
+          {/* Timeline segments - outer ring (render in layers for proper visibility) */}
           <AnimatePresence>
-            {segments.map((segment, idx) => {
-              if (segment.endAngle <= segment.startAngle) return null;
-              
-              const arcSize = segment.endAngle - segment.startAngle;
-              if (arcSize < 0.5) return null;
-              
-              const isTransition = segment.type === 'transition';
-              const isBreak = segment.type === 'break';
-              const isGap = segment.type === 'gap';
-              const isSale = segment.type === 'sale';
-              const isPresentation = segment.type === 'presentation';
-              
-              // Transitions are thin markers, presentations/sales are full arcs
-              const strokeWidth = isTransition 
-                ? config.strokeWidth * 0.4 
-                : isGap 
-                  ? config.strokeWidth - 4 
-                  : config.strokeWidth;
-              
-              const pathD = describeArc(center, center, config.radius, segment.startAngle, segment.endAngle);
-              
-              return (
-                <motion.path
-                  key={`segment-${idx}`}
-                  d={pathD}
-                  fill="none"
-                  stroke={RING_COLORS[segment.type]}
-                  strokeWidth={strokeWidth}
-                  strokeLinecap="butt"
-                  opacity={isGap ? 0.5 : 1}
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: isGap ? 0.5 : 1 }}
-                  transition={{ duration: 0.6, delay: idx * 0.02, ease: "easeOut" }}
-                  style={{
-                    strokeDasharray: isBreak ? '6 6' : undefined,
-                    cursor: ['transition', 'presentation', 'sale', 'break'].includes(segment.type) ? 'pointer' : 'default',
-                  }}
-                  onClick={(e) => handleSegmentClick(idx, segment, e)}
-                />
-              );
-            })}
+            {/* Layer 1: Base segments (gaps, knocking, breaks) - drawn first (background) */}
+            {segments
+              .filter(s => ['gap', 'knocking', 'break'].includes(s.type))
+              .map((segment, idx) => {
+                const arcSize = segment.endAngle - segment.startAngle;
+                if (arcSize < 0.5) return null;
+                
+                const isBreak = segment.type === 'break';
+                const isGap = segment.type === 'gap';
+                const strokeWidth = isGap ? config.strokeWidth - 4 : config.strokeWidth;
+                const pathD = describeArc(center, center, config.radius, segment.startAngle, segment.endAngle);
+                const originalIdx = segments.indexOf(segment);
+                
+                return (
+                  <motion.path
+                    key={`base-${originalIdx}`}
+                    d={pathD}
+                    fill="none"
+                    stroke={RING_COLORS[segment.type]}
+                    strokeWidth={strokeWidth}
+                    strokeLinecap="butt"
+                    opacity={isGap ? 0.5 : 1}
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: isGap ? 0.5 : 1 }}
+                    transition={{ duration: 0.6, delay: originalIdx * 0.02, ease: "easeOut" }}
+                    style={{
+                      strokeDasharray: isBreak ? '6 6' : undefined,
+                      cursor: isBreak ? 'pointer' : 'default',
+                    }}
+                    onClick={(e) => handleSegmentClick(originalIdx, segment, e)}
+                  />
+                );
+              })}
+            
+            {/* Layer 2: Presentation & Sale arcs (middle layer) */}
+            {segments
+              .filter(s => ['presentation', 'sale'].includes(s.type))
+              .map((segment) => {
+                const arcSize = segment.endAngle - segment.startAngle;
+                if (arcSize < 0.5) return null;
+                
+                const pathD = describeArc(center, center, config.radius, segment.startAngle, segment.endAngle);
+                const originalIdx = segments.indexOf(segment);
+                
+                return (
+                  <motion.path
+                    key={`inhome-${originalIdx}`}
+                    d={pathD}
+                    fill="none"
+                    stroke={RING_COLORS[segment.type]}
+                    strokeWidth={config.strokeWidth}
+                    strokeLinecap="butt"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 1 }}
+                    transition={{ duration: 0.6, delay: originalIdx * 0.02, ease: "easeOut" }}
+                    style={{ cursor: 'pointer' }}
+                    onClick={(e) => handleSegmentClick(originalIdx, segment, e)}
+                  />
+                );
+              })}
+            
+            {/* Layer 3: Transition markers (top layer - always visible) */}
+            {segments
+              .filter(s => s.type === 'transition')
+              .map((segment) => {
+                const arcSize = segment.endAngle - segment.startAngle;
+                if (arcSize < 0.3) return null;
+                
+                const pathD = describeArc(center, center, config.radius, segment.startAngle, segment.endAngle);
+                const originalIdx = segments.indexOf(segment);
+                
+                return (
+                  <motion.path
+                    key={`transition-${originalIdx}`}
+                    d={pathD}
+                    fill="none"
+                    stroke={RING_COLORS.transition}
+                    strokeWidth={config.strokeWidth * 0.5}
+                    strokeLinecap="round"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 1 }}
+                    transition={{ duration: 0.4, delay: 0.8 + originalIdx * 0.03, ease: "easeOut" }}
+                    style={{ cursor: 'pointer' }}
+                    onClick={(e) => handleSegmentClick(originalIdx, segment, e)}
+                  />
+                );
+              })}
           </AnimatePresence>
         </svg>
 
