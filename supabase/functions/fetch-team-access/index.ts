@@ -478,19 +478,27 @@ Deno.serve(async (req) => {
     let accessibleUserIds: string[] = [];
     let accessibleReps: any[] = [];
 
-    // Get current user's rep id to exclude self from accessible reps
+    // Get current user's rep id - we now INCLUDE self in accessibleReps
+    // (UI components can filter if needed, but competitions need to include the leader)
     const currentUserRepId = repData.id;
 
+    // Also track the current user's direct recruit IDs for "my_recruits" scope
+    const directRecruitIds = new Set<string>();
+    const directRecruits = recruitsData.filter(r => r.recruiter_user_id === user.id);
+    for (const recruit of directRecruits) {
+      directRecruitIds.add(recruit.id);
+    }
+
     if (accessLevel === 'area_director') {
-      // Area directors see ALL reps except themselves
+      // Area directors see ALL reps INCLUDING themselves
       for (const rep of repsData) {
-        // Skip the current user
-        if (rep.user_id === user.id || rep.id === currentUserRepId) continue;
-        
         if (rep.user_id) accessibleUserIds.push(rep.user_id);
-        accessibleReps.push(buildRepData(rep));
+        accessibleReps.push({
+          ...buildRepData(rep),
+          isDirectRecruit: directRecruitIds.has(rep.id),
+        });
       }
-      console.log(`Area director has access to ${accessibleReps.length} reps (excluding self)`);
+      console.log(`Area director has access to ${accessibleReps.length} reps (including self)`);
 
     } else if (accessLevel === 'mgmt_group_lead') {
       // Get all mgmt groups this user leads
@@ -498,17 +506,27 @@ Deno.serve(async (req) => {
       const accessibleTeamIds = userMgmtGroups.flatMap(g => g.teamIds);
       const addedIds = new Set<string>();
       
+      // Add self first
+      addedIds.add(currentUserRepId);
+      if (repData.user_id) accessibleUserIds.push(repData.user_id);
+      accessibleReps.push({
+        ...buildRepData(repData),
+        isDirectRecruit: false,
+      });
+      
       // 1) Formal MGMT group access (existing behavior)
       for (const rep of repsData) {
-        // Skip the current user
-        if (rep.user_id === user.id || rep.id === currentUserRepId) continue;
+        if (rep.id === currentUserRepId) continue; // Already added
         
         const teamInfo = getRepTeamInfo(rep);
         if (teamInfo.teamId && accessibleTeamIds.includes(teamInfo.teamId)) {
           if (!addedIds.has(rep.id)) {
             addedIds.add(rep.id);
             if (rep.user_id) accessibleUserIds.push(rep.user_id);
-            accessibleReps.push(buildRepData(rep));
+            accessibleReps.push({
+              ...buildRepData(rep),
+              isDirectRecruit: directRecruitIds.has(rep.id),
+            });
           }
         }
       }
@@ -516,17 +534,20 @@ Deno.serve(async (req) => {
       // 2) PLUS: Recruiter downline (NEW!)
       const downlineRecruits = getDownlineRecruits(user.id, addedIds);
       for (const recruit of downlineRecruits) {
-        // Skip self
-        if (recruit.id === currentUserRepId) continue;
-        
         const matchingRep = repsData.find(r => r.id === recruit.id);
         if (matchingRep) {
           if (matchingRep.user_id && !accessibleUserIds.includes(matchingRep.user_id)) {
             accessibleUserIds.push(matchingRep.user_id);
           }
-          accessibleReps.push(buildRepData(matchingRep));
+          accessibleReps.push({
+            ...buildRepData(matchingRep),
+            isDirectRecruit: directRecruitIds.has(matchingRep.id),
+          });
         } else {
-          accessibleReps.push(buildRecruitAsRepData(recruit));
+          accessibleReps.push({
+            ...buildRecruitAsRepData(recruit),
+            isDirectRecruit: directRecruitIds.has(recruit.id),
+          });
         }
       }
       
@@ -538,18 +559,28 @@ Deno.serve(async (req) => {
       const userTeamIds = userTeams.map(t => t.id);
       const addedIds = new Set<string>();
 
+      // Add self first
+      addedIds.add(currentUserRepId);
+      if (repData.user_id) accessibleUserIds.push(repData.user_id);
+      accessibleReps.push({
+        ...buildRepData(repData),
+        isDirectRecruit: false,
+      });
+
       // 1) Formal team access (existing behavior)
       if (userTeamIds.length > 0) {
         for (const rep of repsData) {
-          // Skip the current user
-          if (rep.user_id === user.id || rep.id === currentUserRepId) continue;
+          if (rep.id === currentUserRepId) continue; // Already added
           
           const teamInfo = getRepTeamInfo(rep);
           if (teamInfo.teamId && userTeamIds.includes(teamInfo.teamId)) {
             if (!addedIds.has(rep.id)) {
               addedIds.add(rep.id);
               if (rep.user_id) accessibleUserIds.push(rep.user_id);
-              accessibleReps.push(buildRepData(rep));
+              accessibleReps.push({
+                ...buildRepData(rep),
+                isDirectRecruit: directRecruitIds.has(rep.id),
+              });
             }
           }
         }
@@ -558,25 +589,36 @@ Deno.serve(async (req) => {
       // 2) PLUS: Recruiter downline (NEW!)
       const downlineRecruits = getDownlineRecruits(user.id, addedIds);
       for (const recruit of downlineRecruits) {
-        // Skip self
-        if (recruit.id === currentUserRepId) continue;
-        
         const matchingRep = repsData.find(r => r.id === recruit.id);
         if (matchingRep) {
           if (matchingRep.user_id && !accessibleUserIds.includes(matchingRep.user_id)) {
             accessibleUserIds.push(matchingRep.user_id);
           }
-          accessibleReps.push(buildRepData(matchingRep));
+          accessibleReps.push({
+            ...buildRepData(matchingRep),
+            isDirectRecruit: directRecruitIds.has(matchingRep.id),
+          });
         } else {
-          accessibleReps.push(buildRecruitAsRepData(recruit));
+          accessibleReps.push({
+            ...buildRecruitAsRepData(recruit),
+            isDirectRecruit: directRecruitIds.has(recruit.id),
+          });
         }
       }
       
       console.log(`Team lead (${userTeams.map(t => t.name).join(', ')}) has formal team + ${downlineRecruits.length} from recruiter tree = ${accessibleReps.length} total`);
       
     } else if (accessLevel === 'recruiter') {
-      // Recruiters see their direct and indirect recruits
+      // Recruiters see themselves plus their direct and indirect recruits
       const addedIds = new Set<string>();
+      
+      // Add self first
+      addedIds.add(currentUserRepId);
+      if (repData.user_id) accessibleUserIds.push(repData.user_id);
+      accessibleReps.push({
+        ...buildRepData(repData),
+        isDirectRecruit: false,
+      });
       
       const allDownlineRecruits = getDownlineRecruits(user.id, addedIds);
       
@@ -586,14 +628,20 @@ Deno.serve(async (req) => {
         
         if (matchingRep) {
           if (matchingRep.user_id) accessibleUserIds.push(matchingRep.user_id);
-          accessibleReps.push(buildRepData(matchingRep));
+          accessibleReps.push({
+            ...buildRepData(matchingRep),
+            isDirectRecruit: directRecruitIds.has(matchingRep.id),
+          });
         } else {
           // Use recruit data directly if no rep record
-          accessibleReps.push(buildRecruitAsRepData(recruit));
+          accessibleReps.push({
+            ...buildRecruitAsRepData(recruit),
+            isDirectRecruit: directRecruitIds.has(recruit.id),
+          });
         }
       }
       
-      console.log(`Recruiter has access to ${accessibleReps.length} recruits in their downline`);
+      console.log(`Recruiter has access to ${accessibleReps.length} reps (including self and their downline)`);
     }
 
     // Log team counts for debugging

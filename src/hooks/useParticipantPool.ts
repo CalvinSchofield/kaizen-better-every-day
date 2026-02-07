@@ -16,10 +16,12 @@ export interface ParticipantRep {
   teamName?: string | null;
   mgmtGroupId?: string | null;
   mgmtGroupName?: string | null;
-  isMyRecruit?: boolean; // Direct recruit of the current user
+  isMyRecruit?: boolean; // In the user's downline (direct + indirect recruits)
+  isDirectRecruit?: boolean; // Direct recruit of the current user
   isInMyTeam?: boolean; // Part of user's formal team or recruit tree
   isInMyMgmt?: boolean; // Part of user's management group
   isWorking?: boolean; // Has planned day or activity in date range
+  isSelf?: boolean; // Is the current user
 }
 
 export type ScopeFilter = 'my_recruits' | 'my_team' | 'my_mgmt' | 'all_office';
@@ -190,8 +192,9 @@ export const useParticipantPool = (options: UseParticipantPoolOptions = {}): Use
   }, [plannedWorkDays, activeEntries]);
   
   // Build user ID sets for filtering
-  const { myRecruitIds, myTeamIds, myMgmtIds, allOfficeIds } = useMemo(() => {
-    const myRecruitIds = new Set<string>();
+  const { myRecruitIds, directRecruitIds, myTeamIds, myMgmtIds, allOfficeIds } = useMemo(() => {
+    const myRecruitIds = new Set<string>(); // Full downline
+    const directRecruitIds = new Set<string>(); // Direct recruits only
     const myTeamIds = new Set<string>();
     const myMgmtIds = new Set<string>();
     const allOfficeIds = new Set<string>();
@@ -201,17 +204,24 @@ export const useParticipantPool = (options: UseParticipantPoolOptions = {}): Use
       if (rep.userId) allOfficeIds.add(rep.userId);
     });
     
-    // From team access data
+    // From team access data - this now includes the current user
     if (teamAccess) {
       const accessLevel = teamAccess.accessLevel;
       
-      // Accessible reps are the user's downline (formal + organic)
+      // My Recruits = FULL DOWNLINE (everyone in accessibleReps except self)
+      // This includes direct recruits and their recruits recursively
       teamAccess.accessibleReps.forEach(rep => {
         if (!rep.userId) return;
         
-        // My Recruits = direct recruits (first level only)
-        // We need to detect this - accessibleReps includes the full tree
-        // For now, we'll use mgmtGroup matching for team identification
+        // Mark as "my recruit" if they're in the downline (not self)
+        if (rep.userId !== currentUserId) {
+          myRecruitIds.add(rep.userId);
+        }
+        
+        // Track direct recruits separately using the new isDirectRecruit flag
+        if ((rep as any).isDirectRecruit) {
+          directRecruitIds.add(rep.userId);
+        }
         
         // My Team logic:
         // - For Team Leads: formal team members
@@ -245,16 +255,10 @@ export const useParticipantPool = (options: UseParticipantPoolOptions = {}): Use
           if (rep.userId) myTeamIds.add(rep.userId);
         });
       }
-      
-      // My Recruits = immediate accessible reps (all for recruiters)
-      // For simplicity, we consider all accessible reps as "my recruits" territory
-      teamAccess.accessibleReps.forEach(rep => {
-        if (rep.userId) myRecruitIds.add(rep.userId);
-      });
     }
     
-    return { myRecruitIds, myTeamIds, myMgmtIds, allOfficeIds };
-  }, [teamAccess, allOfficeReps]);
+    return { myRecruitIds, directRecruitIds, myTeamIds, myMgmtIds, allOfficeIds };
+  }, [teamAccess, allOfficeReps, currentUserId]);
   
   // Build enriched rep list from all office reps
   const allReps = useMemo((): ParticipantRep[] => {
@@ -263,7 +267,8 @@ export const useParticipantPool = (options: UseParticipantPoolOptions = {}): Use
     return allOfficeReps
       .filter(rep => {
         if (!rep.userId) return false;
-        // Optionally exclude current user
+        // includeCurrentUser controls whether to show self in the list
+        // For competitions, we always include self (includeCurrentUser: true)
         if (!includeCurrentUser && rep.userId === currentUserId) return false;
         return true;
       })
@@ -279,11 +284,13 @@ export const useParticipantPool = (options: UseParticipantPoolOptions = {}): Use
         mgmtGroupId: rep.mgmtGroupId,
         mgmtGroupName: rep.mgmtGroupName,
         isMyRecruit: myRecruitIds.has(rep.userId),
+        isDirectRecruit: directRecruitIds.has(rep.userId),
         isInMyTeam: myTeamIds.has(rep.userId),
         isInMyMgmt: myMgmtIds.has(rep.userId),
         isWorking: workingUserIds.has(rep.userId),
+        isSelf: rep.userId === currentUserId,
       }));
-  }, [allOfficeReps, myRecruitIds, myTeamIds, myMgmtIds, workingUserIds, includeCurrentUser, currentUserId]);
+  }, [allOfficeReps, myRecruitIds, directRecruitIds, myTeamIds, myMgmtIds, workingUserIds, includeCurrentUser, currentUserId]);
   
   // Filter by scope
   const myRecruits = useMemo(() => allReps.filter(r => r.isMyRecruit), [allReps]);
@@ -399,13 +406,16 @@ export const filterAndSortReps = (
   const grouped = new Map<string, ParticipantRep[]>();
   
   filtered.forEach(rep => {
-    let groupKey = rep.teamName || 'Other';
+    let groupKey: string;
     
-    // Special grouping for "My Recruits" at top
-    if (rep.isMyRecruit && scope !== 'my_recruits') {
+    // Current user gets their own group at top
+    if (rep.isSelf) {
+      groupKey = '📅 ' + (rep.teamName || rep.name);
+    } else if (rep.isMyRecruit && scope !== 'my_recruits') {
+      // Show "My Recruits" group when not already in that scope
       groupKey = '🌟 My Recruits';
-    } else if (rep.isWorking) {
-      groupKey = `📅 ${groupKey}`;
+    } else {
+      groupKey = rep.teamName || 'Other';
     }
     
     if (!grouped.has(groupKey)) {

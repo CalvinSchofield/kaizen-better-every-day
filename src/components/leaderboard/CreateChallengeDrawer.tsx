@@ -5,19 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useAllOfficeReps } from "@/hooks/useAllOfficeReps";
 import { useCreateChallenge, ChallengeMetric, ChallengeType } from "@/hooks/useChallenges";
-import { useSmartRepSorting } from "@/hooks/useSmartRepSorting";
+import { useParticipantPool, filterAndSortReps, ParticipantRep, ScopeFilter, YearFilter } from "@/hooks/useParticipantPool";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, ChevronLeft, Loader2, Eye, EyeOff, X, CalendarIcon, CalendarCheck, CalendarX } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, ChevronLeft, Loader2, Eye, EyeOff, X, CalendarIcon, CalendarCheck, Search, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays, startOfWeek, endOfWeek } from "date-fns";
 import { getInitials } from "@/utils/nameUtils";
+import { YearBadge } from "./YearBadge";
 
 interface CreateChallengeDrawerProps {
   open: boolean;
@@ -44,25 +44,41 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(new Date());
   const [stakes, setStakes] = useState('');
   const [isPublic, setIsPublic] = useState(true);
+  
+  // Picker state for enhanced UI
+  const [scope, setScope] = useState<ScopeFilter>('my_recruits');
+  const [yearFilters, setYearFilters] = useState<Set<YearFilter>>(new Set());
+  const [workingOnly, setWorkingOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: allOfficeReps } = useAllOfficeReps();
   const createMutation = useCreateChallenge();
 
-  // Use all office reps so any rep can challenge anyone
-  const reps = useMemo(() => {
-    return (allOfficeReps || []).map(rep => ({
-      id: rep.id,
-      userId: rep.userId,
-      name: rep.name,
-      phone: rep.phone,
-      year: rep.year,
-      stage: rep.stage,
-      teamId: rep.teamId,
-      teamName: rep.teamName,
-      mgmtGroupId: rep.mgmtGroupId,
-      mgmtGroupName: rep.mgmtGroupName,
-    }));
-  }, [allOfficeReps]);
+  // Get date range for participant pool
+  const dateRange = useMemo(() => {
+    const today = new Date();
+    if (duration === 'today') {
+      return { start: today, end: today };
+    } else if (duration === 'tomorrow') {
+      const tomorrow = addDays(today, 1);
+      return { start: tomorrow, end: tomorrow };
+    } else if (duration === 'week') {
+      const weekStart = startOfWeek(today, { weekStartsOn: 0 });
+      const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
+      return { start: weekStart, end: weekEnd };
+    } else {
+      return { start: customStartDate || today, end: customEndDate || today };
+    }
+  }, [duration, customStartDate, customEndDate]);
+
+  // Use the new participant pool (includes current user for challenges)
+  const {
+    allReps,
+    accessLevel,
+    availableScopes,
+    workingUserIds,
+    isLoading: isLoadingPool,
+    currentUserId,
+  } = useParticipantPool({ dateRange, includeCurrentUser: true });
 
   // Get current user's timezone from their rep record
   const { data: currentUserRep } = useQuery({
@@ -80,39 +96,55 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
     staleTime: Infinity,
   });
 
-  // Get date range for smart sorting
-  const dateRange = useMemo(() => {
-    const today = new Date();
-    if (duration === 'today') {
-      return { start: today, end: today };
-    } else if (duration === 'tomorrow') {
-      const tomorrow = addDays(today, 1);
-      return { start: tomorrow, end: tomorrow };
-    } else if (duration === 'week') {
-      const weekStart = startOfWeek(today, { weekStartsOn: 0 });
-      const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
-      return { start: weekStart, end: weekEnd };
-    } else {
-      return { start: customStartDate || today, end: customEndDate || today };
-    }
-  }, [duration, customStartDate, customEndDate]);
+  // Scope labels for chips
+  const scopeLabels: Record<ScopeFilter, { label: string; icon: typeof User }> = {
+    my_recruits: { label: 'My Recruits', icon: User },
+    my_team: { label: 'My Team', icon: Users },
+    my_mgmt: { label: 'My MGMT', icon: Building2 },
+    all_office: { label: 'All Office', icon: Users },
+  };
 
-  // Use smart sorting for available reps
-  const { workingReps, notWorkingReps, allSortedReps } = useSmartRepSorting(
-    reps,
-    dateRange,
-    currentUserRep?.user_id,
-    true // exclude current user
-  );
+  const yearLabels: Record<YearFilter, string> = {
+    rookie: 'Rookies',
+    sophomore: 'Sophs',
+    vet: 'Vets',
+  };
+
+  const toggleYearFilter = (year: YearFilter) => {
+    setYearFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(year)) {
+        next.delete(year);
+      } else {
+        next.add(year);
+      }
+      return next;
+    });
+  };
+
+  // Filter and group reps using the helper
+  const { grouped, total } = useMemo(() => {
+    // Exclude self from opponent selection
+    const repsWithoutSelf = allReps.filter(r => r.userId !== currentUserId);
+    return filterAndSortReps(repsWithoutSelf, {
+      scope,
+      yearFilters,
+      workingOnly,
+      searchQuery,
+      currentUserId,
+    });
+  }, [allReps, scope, yearFilters, workingOnly, searchQuery, currentUserId]);
 
   // For team mode, filter out already selected users
   const availableForTeamA = useMemo(() => {
-    return allSortedReps.filter(r => !teamB.includes(r.userId!));
-  }, [allSortedReps, teamB]);
+    const repsWithoutSelf = allReps.filter(r => r.userId !== currentUserId);
+    return repsWithoutSelf.filter(r => !teamB.includes(r.userId!));
+  }, [allReps, teamB, currentUserId]);
 
   const availableForTeamB = useMemo(() => {
-    return allSortedReps.filter(r => !teamA.includes(r.userId!));
-  }, [allSortedReps, teamA]);
+    const repsWithoutSelf = allReps.filter(r => r.userId !== currentUserId);
+    return repsWithoutSelf.filter(r => !teamA.includes(r.userId!));
+  }, [allReps, teamA, currentUserId]);
 
   const toggleTeamMember = (userId: string, team: 'a' | 'b') => {
     if (team === 'a') {
@@ -237,11 +269,15 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
     setCustomEndDate(new Date());
     setStakes('');
     setIsPublic(true);
+    setScope('my_recruits');
+    setYearFilters(new Set());
+    setWorkingOnly(false);
+    setSearchQuery('');
   };
 
   const getSelectedTeamNames = (userIds: string[]) => {
     return userIds.map(id => {
-      const rep = reps.find(r => r.userId === id);
+      const rep = allReps.find(r => r.userId === id);
       return rep?.name || 'Unknown';
     });
   };
@@ -289,88 +325,157 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
 
           {/* Step 2: Select Opponent (1v1) */}
           {step === 2 && type === '1v1' && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <p className="text-sm text-muted-foreground">Select your opponent</p>
-              <div className="max-h-60 overflow-y-auto space-y-2">
-                {/* Empty state */}
-                {allSortedReps.length === 0 && (
-                  <div className="text-center py-8 space-y-3">
-                    <Users className="h-12 w-12 mx-auto text-muted-foreground/50" />
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">No opponents available</p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">
-                        Only reps who are Signed, Shadow Complete, or have made sales can be challenged.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Working reps */}
-                {workingReps.length > 0 && (
-                  <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
-                    <CalendarCheck className="h-3 w-3 text-green-500" />
-                    <span>Planning to work ({workingReps.length})</span>
-                  </div>
-                )}
-                {workingReps.map(rep => (
+              
+              {/* Scope Filter Chips */}
+              {availableScopes.length > 1 && (
+                <div className="flex gap-1.5 flex-wrap">
+                  {availableScopes.map(s => {
+                    const { label, icon: Icon } = scopeLabels[s];
+                    const isActive = scope === s;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setScope(s)}
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                          "active:scale-[0.97]",
+                          isActive 
+                            ? "bg-primary text-primary-foreground" 
+                            : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                        )}
+                      >
+                        <Icon className="h-3 w-3" />
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search by name or team..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-9 h-10"
+                />
+                {searchQuery && (
                   <button
-                    key={rep.userId}
-                    onClick={() => { setSelectedOpponent(rep.userId!); setStep(3); }}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-xl border transition-colors",
-                      selectedOpponent === rep.userId ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
-                    )}
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback>{getInitials(rep.name)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 text-left">
-                      <span className="font-medium block">{rep.name}</span>
-                      {rep.teamName && <span className="text-xs text-muted-foreground">{rep.teamName}</span>}
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <X className="h-4 w-4" />
                   </button>
-                ))}
+                )}
+              </div>
+              
+              {/* Year + Working Filter Chips */}
+              <div className="flex gap-1.5 flex-wrap">
+                {(Object.entries(yearLabels) as [YearFilter, string][]).map(([year, label]) => {
+                  const isActive = yearFilters.has(year);
+                  return (
+                    <button
+                      key={year}
+                      onClick={() => toggleYearFilter(year)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                        "active:scale-[0.97]",
+                        isActive 
+                          ? "bg-secondary text-secondary-foreground" 
+                          : "bg-muted/60 hover:bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
                 
-                {/* Separator */}
-                {workingReps.length > 0 && notWorkingReps.length > 0 && (
-                  <div className="py-2">
-                    <Separator className="my-1" />
-                    <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
-                      <CalendarX className="h-3 w-3" />
-                      <span>Not planning to work ({notWorkingReps.length})</span>
-                    </div>
+                <button
+                  onClick={() => setWorkingOnly(!workingOnly)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                    "active:scale-[0.97]",
+                    workingOnly 
+                      ? "bg-green-500/20 text-green-700 dark:text-green-400" 
+                      : "bg-muted/60 hover:bg-muted text-muted-foreground"
+                  )}
+                >
+                  <CalendarCheck className="h-3 w-3" />
+                  Working ({workingUserIds.size})
+                </button>
+              </div>
+              
+              {/* Rep List */}
+              <div className="max-h-60 overflow-y-auto space-y-1 rounded-xl border border-border p-2">
+                {isLoadingPool && (
+                  <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Loading...
                   </div>
                 )}
                 
-                {/* Show header for not working if working is empty but reps exist */}
-                {workingReps.length === 0 && notWorkingReps.length > 0 && (
-                  <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
-                    <CalendarX className="h-3 w-3" />
-                    <span>Available to challenge ({notWorkingReps.length})</span>
+                {!isLoadingPool && total === 0 && (
+                  <div className="text-center py-6 text-sm text-muted-foreground">
+                    {searchQuery ? (
+                      <>
+                        No reps match "{searchQuery}"
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="block mx-auto mt-2 text-primary hover:underline text-xs"
+                        >
+                          Clear search
+                        </button>
+                      </>
+                    ) : (
+                      'No eligible opponents found'
+                    )}
                   </div>
                 )}
                 
-                {/* Not working reps */}
-                {notWorkingReps.map(rep => (
-                  <button
-                    key={rep.userId}
-                    onClick={() => { setSelectedOpponent(rep.userId!); setStep(3); }}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-xl border transition-colors",
-                      selectedOpponent === rep.userId ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
-                    )}
-                  >
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback>{getInitials(rep.name)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 text-left">
-                      <span className="font-medium block">{rep.name}</span>
-                      {rep.teamName && <span className="text-xs text-muted-foreground">{rep.teamName}</span>}
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                ))}
+                {!isLoadingPool && total > 0 && (
+                  <>
+                    {Array.from(grouped.entries()).map(([groupName, reps]) => (
+                      <div key={groupName} className="space-y-0.5">
+                        {/* Group header */}
+                        <div className="text-xs font-semibold text-muted-foreground px-2 pt-2 pb-1 sticky top-0 bg-background/95 backdrop-blur-sm">
+                          {groupName} ({reps.length})
+                        </div>
+                        {reps.map(rep => (
+                          <button
+                            key={rep.userId}
+                            onClick={() => { setSelectedOpponent(rep.userId); setStep(3); }}
+                            className={cn(
+                              "w-full flex items-center gap-3 p-2.5 rounded-xl transition-colors text-left",
+                              "active:scale-[0.98] active:bg-muted",
+                              selectedOpponent === rep.userId ? "bg-primary/10" : "hover:bg-muted/50"
+                            )}
+                          >
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="text-xs">{getInitials(rep.name)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium truncate">{rep.name}</span>
+                                <YearBadge year={rep.year} />
+                              </div>
+                              {rep.teamName && (
+                                <span className="text-xs text-muted-foreground truncate block">{rep.teamName}</span>
+                              )}
+                            </div>
+                            {rep.isWorking && (
+                              <CalendarCheck className="h-4 w-4 text-green-500 shrink-0" />
+                            )}
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -393,7 +498,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                     </div>
                     {/* Selected team A members */}
                     {teamA.map(userId => {
-                      const rep = reps.find(r => r.userId === userId);
+                      const rep = allReps.find(r => r.userId === userId);
                       return (
                         <div key={userId} className="flex items-center gap-2 p-2 rounded-lg bg-background mb-1">
                           <Avatar className="h-6 w-6">
@@ -417,7 +522,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
                       <p className="text-xs text-muted-foreground text-center py-4">Select opponents below</p>
                     )}
                     {teamB.map((userId, index) => {
-                      const rep = reps.find(r => r.userId === userId);
+                      const rep = allReps.find(r => r.userId === userId);
                       return (
                         <div key={userId} className="flex items-center gap-2 p-2 rounded-lg bg-background mb-1">
                           <Avatar className="h-6 w-6">
@@ -439,7 +544,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
               <div className="space-y-2">
                 <Label className="text-sm">Add teammates or opponents</Label>
                 <div className="max-h-40 overflow-y-auto space-y-1">
-                  {allSortedReps.map(rep => {
+                  {availableForTeamB.map(rep => {
                     const inTeamA = teamA.includes(rep.userId!);
                     const inTeamB = teamB.includes(rep.userId!);
                     
