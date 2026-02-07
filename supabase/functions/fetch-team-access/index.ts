@@ -245,12 +245,24 @@ Deno.serve(async (req) => {
       accessLevel = 'area_director';
     }
 
-    // NEW: Check if user has recruited anyone (grants 'recruiter' access if no formal role)
+    // NEW: Check if user has recruited anyone who is SELLING (grants 'recruiter' access if no formal role)
+    // Only grant access if at least one recruit is in a selling stage
+    const SELLING_STAGES = ['signed', 'shadow complete', 'shadow ✅', 'sold', 'sold 💲', 'sold 5+', 'sold (5+) 💰'];
+    const normalizeStageForCheck = (s: string | null) => s?.toLowerCase().trim() || '';
+    
     if (accessLevel === 'none') {
       const directRecruits = recruitsData.filter(r => r.recruiter_user_id === user.id);
-      if (directRecruits.length > 0) {
+      // Check if any recruit has a selling stage
+      const sellingRecruits = directRecruits.filter(r => {
+        const normalized = normalizeStageForCheck(r.stage);
+        return SELLING_STAGES.some(s => normalized.includes(s.toLowerCase()));
+      });
+      
+      if (sellingRecruits.length > 0) {
         accessLevel = 'recruiter';
-        console.log(`User ${user.email} granted recruiter access (${directRecruits.length} direct recruits)`);
+        console.log(`User ${user.email} granted recruiter access (${sellingRecruits.length} selling recruits out of ${directRecruits.length} total)`);
+      } else if (directRecruits.length > 0) {
+        console.log(`User ${user.email} has ${directRecruits.length} recruits but none are selling yet - no recruiter access`);
       }
     }
 
