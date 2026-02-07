@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Lock, BarChart3, Calendar } from "lucide-react";
+import { Lock, BarChart3, Calendar, Loader2 } from "lucide-react";
 import { useRepData } from "@/hooks/useRepData";
 import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
@@ -54,6 +54,7 @@ interface TrackProps {
   onEditSale?: (sale: Sale) => void;
   onDeleteSale?: (saleId: string) => void;
   isLoadingEntry?: boolean;
+  isRefreshing?: boolean;
 }
 
 const Track = ({
@@ -71,6 +72,7 @@ const Track = ({
   onEditSale,
   onDeleteSale,
   isLoadingEntry = false,
+  isRefreshing = false,
 }: TrackProps) => {
   const { repData, loading: loadingRepData, isInitializing } = useRepData();
   const userIdData = useCurrentUserId();
@@ -164,7 +166,14 @@ const Track = ({
   // Check if entry is finalized - show Activity Ring view instead
   if (entry.is_finalized) {
     return (
-      <div className="flex flex-col h-full overflow-y-auto pb-24">
+      <div className="flex flex-col h-full overflow-y-auto pb-24 relative">
+        {/* Subtle refreshing indicator for finalized view */}
+        {isRefreshing && (
+          <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-center py-2 bg-background/80 backdrop-blur-sm">
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground mr-1.5" />
+            <span className="text-xs text-muted-foreground">Syncing data...</span>
+          </div>
+        )}
         {/* Finalized Day Header with Calendar Access */}
         <div className="flex items-center justify-between mx-4 mt-4 mb-2">
           <div className="flex-1">
@@ -302,6 +311,7 @@ const Track = ({
             customCounterConfig={customCounterConfig}
             counterLayoutConfig={counterLayoutConfig}
             isLoading={isLoadingEntry}
+            isRefreshing={isRefreshing}
             counterTimestamps={counterTimestamps}
             onRapidTapDetected={handleRapidTapDetected}
           />

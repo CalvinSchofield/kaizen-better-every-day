@@ -624,6 +624,10 @@ export const useDailyEntry = (date?: string) => {
     queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
   };
 
+  // Detect if data is potentially stale (refetching in background)
+  // This helps prevent showing stale cache data that could confuse users
+  const isRefreshing = fetchStatus === 'fetching';
+  
   return {
     entry: entry || {
       doors_knocked: 0,
@@ -644,6 +648,8 @@ export const useDailyEntry = (date?: string) => {
       sales_log: [],
     },
     isLoading,
+    // True when actively fetching data (initial load or background refresh)
+    isRefreshing,
     // PHASE 2: Freshness gate - true when:
     // 1. Query has completed fetching (fetchStatus is 'idle' meaning not actively fetching)
     // 2. OR we're offline with a valid backup

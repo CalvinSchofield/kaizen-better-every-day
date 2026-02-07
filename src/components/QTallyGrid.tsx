@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { CounterCard } from "./track/CounterCard";
+import { Loader2 } from "lucide-react";
 
 interface CounterLayoutConfig {
   order: string[];
@@ -19,6 +20,7 @@ interface QTallyGridProps {
   customCounterConfig?: Array<{ id: string; name: string; emoji: string; hidden?: boolean }>;
   counterLayoutConfig?: CounterLayoutConfig;
   isLoading?: boolean;
+  isRefreshing?: boolean;
   counterTimestamps?: Record<string, string[]>;
   onRapidTapDetected?: () => void;
 }
@@ -29,6 +31,7 @@ export const QTallyGrid = ({
   customCounterConfig = [], 
   counterLayoutConfig, 
   isLoading = false,
+  isRefreshing = false,
   counterTimestamps,
   onRapidTapDetected
 }: QTallyGridProps) => {
@@ -81,7 +84,15 @@ export const QTallyGrid = ({
   };
 
   return (
-    <div data-tour="track-counter-grid" className={`w-full ${hasCustomCounters ? 'overflow-y-auto' : 'h-full'}`}>
+    <div data-tour="track-counter-grid" className={`w-full relative ${hasCustomCounters ? 'overflow-y-auto' : 'h-full'}`}>
+      {/* Subtle refreshing indicator - shows while syncing data */}
+      {isRefreshing && (
+        <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-center py-1 bg-background/80 backdrop-blur-sm rounded-t-xl">
+          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground mr-1.5" />
+          <span className="text-xs text-muted-foreground">Syncing...</span>
+        </div>
+      )}
+      
       {/* Core 6 counters - Fixed grid */}
       <div className="grid grid-cols-2 gap-3 w-full" style={{ gridTemplateRows: 'repeat(3, 1fr)', minHeight: hasCustomCounters ? 'auto' : '100%' }}>
         {coreCounters.map((counter) => (
