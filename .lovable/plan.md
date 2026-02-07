@@ -1,164 +1,139 @@
 
-# Activity Ring UX Improvements Plan
+# Fix Reports V2 Rep List - Team Grouping, Filtering & Organic Hierarchy
 
-## Overview
-This plan addresses several UX issues with the Rep Drill-Down drawer, focusing on:
-1. Consolidating redundant goal progress displays
-2. Adding timeframe toggles (Day/Week/Month/Year) for goal tracking
-3. Fixing the Legend to open a drawer instead of popover, and moving it to the header
-4. Making ring segments (gaps, sales, presentations) tappable with detail drawers
+## Problem Summary
+The "Working Reps" drill-down in Reports V2 has several issues:
+1. Shows "Other" group containing all 49 reps instead of proper team groupings
+2. Shows everyone, not just reps who actually worked that day
+3. Doesn't include the leader viewing the report
+4. Doesn't handle "organic leaders" (recruiters without official teams) properly
 
----
-
-## 1. Remove Redundant Goal Progress Section
-
-**Current Issue:**
-- Goal progress appears TWICE: once in the inner ring + badge, and again in the `RingGoalProgress` component below
-- Also `RepGoalPaceCard` shows similar information with all tier breakdowns
-
-**Solution:**
-- Remove the separate `RingGoalProgress` component from `RepDrillDownDrawer`
-- Keep the inner goal ring + "X% of goal" badge in `ActivityRingHero`
-- Retain `RepGoalPaceCard` for the detailed tier breakdown (Must/Will/Could Do), but move it below the stats grid
-- This eliminates ~150px of vertical redundancy
+## Solution Overview
+Fix the data flow to include team information, filter to only active reps, include the leader, and improve grouping logic for organic recruiter hierarchies.
 
 ---
 
-## 2. Timeframe Goal Progress Toggle
+## Implementation Steps
 
-**Design Approach** (inspired by Apple Fitness rings):
-- Add a compact segmented control: `Day | Week | Month | Year`
-- Place it just below the activity ring, replacing the current "X% of goal" badge
-- When toggled, the inner goal ring animates to reflect the selected timeframe's progress
+### Step 1: Add Team Data to Working Reps Data Flow
+**File: `src/pages/ReportsV2.tsx`**
 
-**Implementation:**
-- Create a new `GoalTimeframeToggle` component with pill-style tabs
-- Pass selected timeframe to `ActivityRingHero` to recalculate goal progress:
-  - **Day**: `todayFP / dailyNeed`
-  - **Week**: sum of FP for current week / (dailyNeed × 7)
-  - **Month**: sum of FP for current month / (dailyNeed × days in month)
-  - **Year/Season**: total season FP / focusTierGoal
+The `workingRepsData` mapping currently omits `teamId` and `teamName`. Add these fields from `repsWithEffort`:
 
-**Data Requirements:**
-- `useRepDayActivity` already provides daily data
-- Weekly/monthly data can be derived from `calendarData.summaries` already fetched
-- Season data is already available in `extendedData`
+```typescript
+workingRepsData={repsWithEffort.map(rep => ({
+  userId: rep.userId,
+  name: rep.name,
+  year: rep.year,
+  timezone: rep.timezone,
+  teamId: rep.teamId,      // ADD
+  teamName: rep.teamName,  // ADD
+  workStartTime: rep.workStartTime,
+  // ... rest
+}))}
+```
 
----
+### Step 2: Update RepWithEffort Interface & Data Processing
+**File: `src/hooks/useReportsV2Data.ts`**
 
-## 3. Legend Drawer (Not Popover)
+Add `teamId` and `teamName` to the `RepWithEffort` interface and populate them from the live data or insights data.
 
-**Current Issue:**
-- `ActivityRingLegend` uses `Popover` which isn't responding properly on mobile
-- Takes up vertical space below the ring
+### Step 3: Filter to Only Reps Who Worked
+**File: `src/components/reports/v2/HierarchicalRepList.tsx`**
 
-**Solution:**
-- Replace `Popover` with a `Drawer` that slides up from the bottom
-- Move the legend trigger button to the drawer header (top-right corner), next to the close X button
-- Style as a minimal `Info` icon that opens the legend drawer on tap
+Add filtering logic to exclude reps with zero activity:
+- For "Live" view: Show reps who have started work OR have any recorded activity
+- For historical views: Show reps who have doors > 0 OR any funnel activity OR FP+ > 0
 
-**New Location:**
-```text
-┌──────────────────────────────────────┐
-│ Christian Fabian   [Sophomore]  [ⓘ][✕] │  ← Legend button added here
-│ Christian Fabian                      │
-└──────────────────────────────────────┘
+### Step 4: Include Leader in the List
+**File: `src/hooks/useReportsV2Data.ts`**
+
+Ensure the current user (leader) is included in `repsWithEffort` when they have activity.
+
+### Step 5: Improve Grouping for Organic Hierarchy
+**File: `src/components/reports/v2/HierarchicalRepList.tsx`**
+
+When `teamId` is null but the rep has a known recruiter hierarchy:
+- Group under recruiter's name (e.g., "Calder's Group") instead of "Other"
+- Fall back to "Ungrouped" only when no hierarchy information exists
+
+**File: `supabase/functions/fetch-team-access/index.ts`**
+
+Ensure `recruiterName` or `recruiterUserId` is included in accessible reps for grouping purposes.
+
+### Step 6: Update Interface Definitions
+**File: `src/components/reports/v2/WorkingRepsDrawer.tsx`**
+
+Update the `WorkingRepData` interface to include optional recruiter info:
+```typescript
+interface WorkingRepData {
+  // existing fields...
+  teamId?: string | null;
+  teamName?: string | null;
+  recruiterName?: string | null;  // For organic grouping
+}
 ```
 
 ---
 
-## 4. Clickable Ring Segments with Detail Drawer
+## Technical Details
 
-**Current Issue:**
-- Segments have click handlers but only open desktop-style popovers
-- Need mobile-native drawer experience with sale details
-
-**Solution:**
-Create a `SegmentDetailDrawer` component that opens when tapping segments:
-
-**For Sale Segments:**
-- Duration (time in home)
-- PRMR/Money
-- Sale type (FP vs Upgrade)
-- Deal type (Fresh/Takeover/DIY) if logged
-- Difficulty (Easy/Medium/Hard) if logged
-- Customer info if CRM enabled
-
-**For Presentation Segments (no close):**
-- Duration
-- "No sale logged" indicator
-- Option to log sale from here (stretch goal)
-
-**For Gap Segments:**
-- Duration
-- Context: what happened before/after
-- "Coaching opportunity" callout if >20 min
-
-**For Break Segments:**
-- Duration
-- Start/end time
-
-**Implementation:**
-- Add new `SegmentDetailDrawer` component
-- Track `selectedSegment` state with full segment data
-- Map segment to nearest sale in `salesLog` for enriched data
-- Use same visual styling as `SaleDetailSheet` for familiarity
-
----
-
-## Technical Implementation Details
-
-### Files to Modify:
-
-1. **`src/components/activity-ring/ActivityRingHero.tsx`**
-   - Remove Popover-based segment details
-   - Add `onSegmentClick` prop to bubble segment taps up
-   - Accept new `goalTimeframe` prop
-
-2. **`src/components/activity-ring/ActivityRingLegend.tsx`**
-   - Convert from Popover to Drawer
-   - Export trigger button separately for header placement
-
-3. **`src/components/reports/v2/RepDrillDownDrawer.tsx`**
-   - Remove `RingGoalProgress` component usage
-   - Add legend button to header
-   - Add timeframe toggle below ring
-   - Add `SegmentDetailDrawer` with state management
-   - Calculate weekly/monthly goal progress from calendar data
-
-4. **New: `src/components/activity-ring/SegmentDetailDrawer.tsx`**
-   - Read-only drawer showing segment details
-   - Sale details UI borrowed from `SaleDetailSheet`
-   - Gap/break context display
-
-5. **New: `src/components/activity-ring/GoalTimeframeToggle.tsx`**
-   - Compact D|W|M|Y toggle with pill styling
-   - Returns selected timeframe for goal calculation
-
-### Data Flow:
-
+### Data Flow Changes:
 ```text
-RepDrillDownDrawer
-  ├── [Header: Name, Badge, Legend ⓘ, Close ✕]
-  ├── WeekActivityStrip
-  ├── ActivityRingHero
-  │     └── (inner goal ring uses goalTimeframe)
-  ├── GoalTimeframeToggle [D|W|M|Y]
-  ├── FinalizedStatsGrid
-  ├── CoachingCallouts
-  ├── RepGoalPaceCard (detailed tiers)
-  └── SegmentDetailDrawer (when segment tapped)
+┌─────────────────────────┐
+│ fetch-team-access       │
+│ (adds recruiterName)    │
+└───────────┬─────────────┘
+            │
+┌───────────▼─────────────┐
+│ useTeamLiveData         │
+│ (includes teamName,     │
+│  teamId from cache)     │
+└───────────┬─────────────┘
+            │
+┌───────────▼─────────────┐
+│ useReportsV2Data        │
+│ (populates teamId/Name  │
+│  in RepWithEffort)      │
+└───────────┬─────────────┘
+            │
+┌───────────▼─────────────┐
+│ ReportsV2.tsx           │
+│ (maps to workingRepsData│
+│  with team fields)      │
+└───────────┬─────────────┘
+            │
+┌───────────▼─────────────┐
+│ HierarchicalRepList     │
+│ (groups by team OR      │
+│  recruiter hierarchy)   │
+└─────────────────────────┘
+```
+
+### Grouping Priority Logic:
+1. If `teamId` exists → Group by team name
+2. If no team but `recruiterName` exists → Group under "[Recruiter]'s Group"  
+3. If neither → Show in "Ungrouped" (should be rare)
+
+### Filtering Logic:
+```typescript
+// Only show reps with activity
+const activeReps = reps.filter(rep => {
+  const hasActivity = rep.doors > 0 || rep.transitions > 0 || 
+                      rep.presentations > 0 || rep.fp > 0;
+  const isCurrentlyWorking = !!rep.workStartTime && !rep.workEndTime;
+  return hasActivity || isCurrentlyWorking;
+});
 ```
 
 ---
 
-## Summary of Changes
+## Files to Modify:
+1. `src/pages/ReportsV2.tsx` - Add team fields to workingRepsData mapping
+2. `src/hooks/useReportsV2Data.ts` - Add teamId/teamName to RepWithEffort interface and population
+3. `src/components/reports/v2/HierarchicalRepList.tsx` - Filter inactive reps, improve grouping logic
+4. `src/components/reports/v2/WorkingRepsDrawer.tsx` - Update interface
+5. `supabase/functions/fetch-team-access/index.ts` - Add recruiter info for organic hierarchy grouping
 
-| Change | Vertical Space Saved | UX Improvement |
-|--------|---------------------|----------------|
-| Remove `RingGoalProgress` | ~150px | Eliminates redundancy |
-| Move Legend to header | ~40px | Cleaner layout |
-| Add timeframe toggle | +30px | More insight options |
-| Segment drawers | N/A | Mobile-native details |
-
-**Net Effect:** Cleaner, more focused view with ~160px less scroll, plus new capabilities for exploring data at different timeframes and tapping into segment details.
+## Edge Function Deployment:
+The `fetch-team-access` edge function will need redeployment after adding recruiter info.
