@@ -200,9 +200,10 @@ export const RepDrillDownDrawer = ({
                     fp_plus: displayData.fp,
                     prmr: displayData.prmr,
                     is_finalized: !isToday || (dayActivity?.isFinalized ?? false),
-                    work_start_time: displayData.workStartTime || null,
-                    work_end_time: displayData.workEndTime || null,
-                    break_periods: [],
+                    // Always use dayActivity for work times when available (it has actual timestamps)
+                    work_start_time: dayActivity?.workStartTime || displayData.workStartTime || null,
+                    work_end_time: dayActivity?.workEndTime || displayData.workEndTime || null,
+                    break_periods: dayActivity?.breakPeriods || [],
                     counter_timestamps: dayActivity?.counterTimestamps || {},
                     timezone: null,
                   }}
