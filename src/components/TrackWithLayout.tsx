@@ -1073,8 +1073,8 @@ const TrackWithLayout = () => {
         onUpdateSale={handleUpdateSale}
         onDeleteSale={handleDeleteSale}
         showPrmrHelper={showPrmrHelper}
-        crmEnabled={(repData as any)?.crm_enabled || false}
-        crmDetailedEnabled={(repData as any)?.crm_detailed_enabled || false}
+        crmEnabled={true}
+        crmDetailedEnabled={true}
         counterTimestamps={entry.counter_timestamps}
         tourForceUpgrade={tourForceUpgrade}
         tourForceCalculatorOpen={tourForceCalculatorOpen}
@@ -1093,8 +1093,8 @@ const TrackWithLayout = () => {
         entryDate={getTodayDate()}
         onUpdateSale={handleUpdateSale}
         onDeleteSale={handleDeleteSale}
-        crmEnabled={(repData as any)?.crm_enabled || false}
-        crmDetailedEnabled={(repData as any)?.crm_detailed_enabled || false}
+        crmEnabled={true}
+        crmDetailedEnabled={true}
       />
 
       {/* Delete Sale Picker Sheet */}
