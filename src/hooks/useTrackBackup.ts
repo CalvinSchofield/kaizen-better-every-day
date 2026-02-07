@@ -7,7 +7,103 @@ interface BackupData {
   entry: Partial<DailyEntry>;
   timestamp: string;
   userId: string;
+  lastServerSync?: string; // When we last confirmed server data
 }
+
+/**
+ * SYNCHRONOUS backup reader for React Query initialData
+ * Must be callable before hooks render to prevent zeros flash
+ */
+export const getInstantBackup = (userId: string | null, entryDate: string): Partial<DailyEntry> | null => {
+  if (!userId) return null;
+  
+  try {
+    const key = `${BACKUP_KEY_PREFIX}${userId}-${entryDate}`;
+    const stored = localStorage.getItem(key);
+    if (!stored) return null;
+    
+    const backup: BackupData = JSON.parse(stored);
+    
+    // Verify user match
+    if (backup.userId !== userId) return null;
+    
+    // Check if backup is recent (within 24 hours)
+    const backupTime = new Date(backup.timestamp);
+    const hoursDiff = (Date.now() - backupTime.getTime()) / (1000 * 60 * 60);
+    if (hoursDiff > 24) return null;
+    
+    return backup.entry;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Smart merge helper - takes HIGHER value for each counter
+ * This prevents data loss when merging backup with server/cache
+ */
+export const smartMergeEntries = (
+  primary: Partial<DailyEntry> | null,
+  backup: Partial<DailyEntry> | null
+): Partial<DailyEntry> => {
+  const counterFields = [
+    'doors_knocked', 
+    'decision_makers', 
+    'pitches', 
+    'transitions', 
+    'presentations', 
+    'closes'
+  ] as const;
+  
+  const result: Partial<DailyEntry> = {
+    ...backup,
+    ...primary,
+  };
+  
+  // For counters, always take the HIGHER value
+  for (const field of counterFields) {
+    const primaryVal = (primary?.[field] as number) || 0;
+    const backupVal = (backup?.[field] as number) || 0;
+    (result as any)[field] = Math.max(primaryVal, backupVal);
+  }
+  
+  // For timestamps, merge arrays (deduplicate by value)
+  const primaryTimestamps = primary?.counter_timestamps || {};
+  const backupTimestamps = backup?.counter_timestamps || {};
+  const mergedTimestamps: Record<string, string[]> = {};
+  
+  const allFields = new Set([...Object.keys(primaryTimestamps), ...Object.keys(backupTimestamps)]);
+  for (const field of allFields) {
+    const primaryArr = primaryTimestamps[field] || [];
+    const backupArr = backupTimestamps[field] || [];
+    mergedTimestamps[field] = [...new Set([...backupArr, ...primaryArr])].sort();
+  }
+  result.counter_timestamps = mergedTimestamps;
+  
+  // For sales_log, merge by ID
+  const primarySales = primary?.sales_log || [];
+  const backupSales = backup?.sales_log || [];
+  const salesById = new Map<string, any>();
+  for (const sale of backupSales) salesById.set(sale.id, sale);
+  for (const sale of primarySales) salesById.set(sale.id, sale);
+  result.sales_log = Array.from(salesById.values());
+  
+  // Take earliest work_start_time
+  if (primary?.work_start_time && backup?.work_start_time) {
+    result.work_start_time = primary.work_start_time < backup.work_start_time 
+      ? primary.work_start_time 
+      : backup.work_start_time;
+  }
+  
+  // Take latest work_end_time
+  if (primary?.work_end_time && backup?.work_end_time) {
+    result.work_end_time = primary.work_end_time > backup.work_end_time 
+      ? primary.work_end_time 
+      : backup.work_end_time;
+  }
+  
+  return result;
+};
 
 /**
  * Local persistence layer for Track data
@@ -22,8 +118,8 @@ export const useTrackBackup = (userId: string | null, entryDate: string) => {
     return `${BACKUP_KEY_PREFIX}${userId}-${entryDate}`;
   }, [userId, entryDate]);
 
-  // Save entry to localStorage
-  const saveBackup = useCallback((entry: Partial<DailyEntry>) => {
+  // Save entry to localStorage with server sync timestamp
+  const saveBackup = useCallback((entry: Partial<DailyEntry>, isServerConfirmed?: boolean) => {
     const key = getBackupKey();
     if (!key || !userId) return;
     
@@ -33,13 +129,25 @@ export const useTrackBackup = (userId: string | null, entryDate: string) => {
     lastSaveRef.current = entryJson;
     
     try {
+      // Load existing backup to preserve lastServerSync if not updating it
+      let existingBackup: BackupData | null = null;
+      const existingStored = localStorage.getItem(key);
+      if (existingStored) {
+        try {
+          existingBackup = JSON.parse(existingStored);
+        } catch {}
+      }
+      
       const backup: BackupData = {
         entry,
         timestamp: new Date().toISOString(),
         userId,
+        lastServerSync: isServerConfirmed 
+          ? new Date().toISOString() 
+          : existingBackup?.lastServerSync,
       };
       localStorage.setItem(key, JSON.stringify(backup));
-      console.log('[TrackBackup] Saved backup for', entryDate);
+      console.log('[TrackBackup] Saved backup for', entryDate, isServerConfirmed ? '(server confirmed)' : '');
     } catch (error) {
       console.error('[TrackBackup] Failed to save backup:', error);
     }
@@ -47,39 +155,8 @@ export const useTrackBackup = (userId: string | null, entryDate: string) => {
 
   // Load backup from localStorage
   const loadBackup = useCallback((): Partial<DailyEntry> | null => {
-    const key = getBackupKey();
-    if (!key || !userId) return null;
-    
-    try {
-      const stored = localStorage.getItem(key);
-      if (!stored) return null;
-      
-      const backup: BackupData = JSON.parse(stored);
-      
-      // Verify this backup belongs to current user
-      if (backup.userId !== userId) {
-        console.warn('[TrackBackup] Backup user mismatch, ignoring');
-        return null;
-      }
-      
-      // Check if backup is from today (within 24 hours)
-      const backupTime = new Date(backup.timestamp);
-      const now = new Date();
-      const hoursDiff = (now.getTime() - backupTime.getTime()) / (1000 * 60 * 60);
-      
-      if (hoursDiff > 24) {
-        console.log('[TrackBackup] Backup is too old, ignoring');
-        clearBackup();
-        return null;
-      }
-      
-      console.log('[TrackBackup] Loaded backup from', backup.timestamp);
-      return backup.entry;
-    } catch (error) {
-      console.error('[TrackBackup] Failed to load backup:', error);
-      return null;
-    }
-  }, [getBackupKey, userId]);
+    return getInstantBackup(userId, entryDate);
+  }, [userId, entryDate]);
 
   // Clear backup (after successful save)
   const clearBackup = useCallback(() => {
@@ -118,11 +195,28 @@ export const useTrackBackup = (userId: string | null, entryDate: string) => {
     return backupTotal > serverTotal;
   }, [loadBackup]);
 
+  // Check if backup has server confirmation
+  const hasServerConfirmedBackup = useCallback((): boolean => {
+    const key = getBackupKey();
+    if (!key) return false;
+    
+    try {
+      const stored = localStorage.getItem(key);
+      if (!stored) return false;
+      
+      const backup: BackupData = JSON.parse(stored);
+      return !!backup.lastServerSync;
+    } catch {
+      return false;
+    }
+  }, [getBackupKey]);
+
   return {
     saveBackup,
     loadBackup,
     clearBackup,
     hasUnsavedBackup,
+    hasServerConfirmedBackup,
   };
 };
 

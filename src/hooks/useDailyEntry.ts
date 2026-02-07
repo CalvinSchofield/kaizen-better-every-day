@@ -3,26 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { clearPreseasonFPCache } from './usePreseasonFP';
+import { getInstantBackup, smartMergeEntries, getCurrentUserId } from './useTrackBackup';
 
-// Helper to get backup from localStorage
+// Helper to get backup from localStorage (kept for compatibility)
 const getBackupFromStorage = (userId: string, entryDate: string): Partial<DailyEntry> | null => {
-  try {
-    const key = `track-backup-${userId}-${entryDate}`;
-    const stored = localStorage.getItem(key);
-    if (!stored) return null;
-    
-    const backup = JSON.parse(stored);
-    if (backup.userId !== userId) return null;
-    
-    // Check if backup is recent (within 24 hours)
-    const backupTime = new Date(backup.timestamp);
-    const hoursDiff = (Date.now() - backupTime.getTime()) / (1000 * 60 * 60);
-    if (hoursDiff > 24) return null;
-    
-    return backup.entry;
-  } catch {
-    return null;
-  }
+  return getInstantBackup(userId, entryDate);
 };
 
 // Calculate total activity from entry
@@ -102,13 +87,90 @@ const getTodayDate = () => {
   return `${year}-${month}-${day}`;
 };
 
+/**
+ * BULLETPROOF: Get instant hydration data from localStorage
+ * This runs SYNCHRONOUSLY before React Query fetches from server
+ * Prevents the zeros flash that caused Javier's data loss
+ */
+const getInitialDataFromBackup = (entryDate: string): DailyEntry | undefined => {
+  const userId = getCurrentUserId();
+  if (!userId) return undefined;
+  
+  const backup = getInstantBackup(userId, entryDate);
+  if (!backup) return undefined;
+  
+  // Only use backup as initial data if it has activity
+  const hasActivity = getActivityTotal(backup) > 0;
+  if (!hasActivity) return undefined;
+  
+  console.log('[useDailyEntry] Using localStorage backup as initialData for instant hydration');
+  
+  return {
+    id: '',
+    user_id: userId,
+    entry_date: entryDate,
+    doors_knocked: backup.doors_knocked || 0,
+    decision_makers: backup.decision_makers || 0,
+    pitches: backup.pitches || 0,
+    transitions: backup.transitions || 0,
+    presentations: backup.presentations || 0,
+    closes: backup.closes || 0,
+    fp_plus: backup.fp_plus || 0,
+    prmr: backup.prmr || 0,
+    is_finalized: false,
+    notes: null,
+    work_start_time: backup.work_start_time,
+    work_end_time: backup.work_end_time,
+    break_periods: backup.break_periods || [],
+    counter_timestamps: backup.counter_timestamps || {},
+    timezone: backup.timezone,
+    custom_counters: backup.custom_counters || {},
+    sales_log: backup.sales_log || [],
+  } as DailyEntry;
+};
+
 export const useDailyEntry = (date?: string) => {
   const queryClient = useQueryClient();
   const entryDate = date || getTodayDate();
 
+  // Track if we've verified fresh data from server
+  const [isFreshDataVerified, setIsFreshDataVerified] = useState(false);
+  const [isOfflineWithBackup, setIsOfflineWithBackup] = useState(false);
+
+  // Check offline status with valid backup
+  useEffect(() => {
+    const checkOfflineStatus = () => {
+      if (!navigator.onLine) {
+        const userId = getCurrentUserId();
+        const backup = userId ? getInstantBackup(userId, entryDate) : null;
+        const hasActivity = getActivityTotal(backup) > 0;
+        setIsOfflineWithBackup(hasActivity);
+        // If offline with valid backup, we can allow mutations
+        if (hasActivity) {
+          setIsFreshDataVerified(true);
+        }
+      } else {
+        setIsOfflineWithBackup(false);
+      }
+    };
+    
+    checkOfflineStatus();
+    window.addEventListener('online', checkOfflineStatus);
+    window.addEventListener('offline', checkOfflineStatus);
+    return () => {
+      window.removeEventListener('online', checkOfflineStatus);
+      window.removeEventListener('offline', checkOfflineStatus);
+    };
+  }, [entryDate]);
+
+  // BULLETPROOF: Get initial data from localStorage backup for instant hydration
+  const initialData = getInitialDataFromBackup(entryDate);
+
   // Fetch entry for specific date with backup recovery
-  const { data: entry, isLoading } = useQuery({
+  const { data: entry, isLoading, fetchStatus } = useQuery({
     queryKey: ['daily-entry', entryDate],
+    // PHASE 1: Instant hydration - show backup data immediately, never zeros
+    initialData,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
@@ -122,6 +184,9 @@ export const useDailyEntry = (date?: string) => {
 
       if (error) throw error;
       
+      // PHASE 2: Mark fresh data as verified when server responds
+      setIsFreshDataVerified(true);
+      
       // Transform the data to match our interface
       let serverEntry: DailyEntry | null = null;
       if (data) {
@@ -134,8 +199,7 @@ export const useDailyEntry = (date?: string) => {
         } as DailyEntry;
       }
       
-      // BACKUP RECOVERY: Check if localStorage backup has more data than server
-      // This prevents display resets on multi-device scenarios
+      // PHASE 3: Smart merge - backup recovery with HIGHER value wins
       const backup = getBackupFromStorage(user.id, entryDate);
       const serverTotal = getActivityTotal(serverEntry);
       const backupTotal = getActivityTotal(backup);
@@ -164,28 +228,15 @@ export const useDailyEntry = (date?: string) => {
           });
         }
         
-        // Merge backup data with server entry (backup wins for counters)
+        // PHASE 3: Use smart merge to take higher values
+        const merged = smartMergeEntries(serverEntry, backup);
+        
         return {
           id: serverEntry?.id || '',
           user_id: user.id,
           entry_date: entryDate,
-          doors_knocked: backup.doors_knocked || 0,
-          decision_makers: backup.decision_makers || 0,
-          pitches: backup.pitches || 0,
-          transitions: backup.transitions || 0,
-          presentations: backup.presentations || 0,
-          closes: backup.closes || 0,
-          fp_plus: serverEntry?.fp_plus || backup.fp_plus || 0,
-          prmr: serverEntry?.prmr || backup.prmr || 0,
+          ...merged,
           is_finalized: false,
-          notes: serverEntry?.notes || null,
-          work_start_time: backup.work_start_time || serverEntry?.work_start_time,
-          work_end_time: backup.work_end_time || serverEntry?.work_end_time,
-          break_periods: backup.break_periods || serverEntry?.break_periods || [],
-          counter_timestamps: backup.counter_timestamps || serverEntry?.counter_timestamps || {},
-          timezone: backup.timezone || serverEntry?.timezone,
-          custom_counters: backup.custom_counters || serverEntry?.custom_counters || {},
-          sales_log: backup.sales_log || serverEntry?.sales_log || [],
         } as DailyEntry;
       }
       
@@ -252,9 +303,35 @@ export const useDailyEntry = (date?: string) => {
       // Snapshot previous value
       const previousEntry = queryClient.getQueryData(['daily-entry', entryDate]);
 
-      // Optimistically update
+      // PHASE 3: Smart merge on mutation - NEVER overwrite with zeros
       queryClient.setQueryData(['daily-entry', entryDate], (old: DailyEntry | null) => {
         if (!old) {
+          // BULLETPROOF: If cache is empty, check localStorage backup first
+          const userId = getCurrentUserId();
+          const backup = userId ? getInstantBackup(userId, entryDate) : null;
+          
+          if (backup && getActivityTotal(backup) > 0) {
+            console.log('[useDailyEntry] onMutate: Using backup to prevent zeros overwrite');
+            // Smart merge: take HIGHER value for each counter
+            return smartMergeEntries(
+              {
+                doors_knocked: 0,
+                decision_makers: 0,
+                pitches: 0,
+                transitions: 0,
+                presentations: 0,
+                closes: 0,
+                fp_plus: 0,
+                prmr: 0,
+                is_finalized: false,
+                custom_counters: {},
+                ...updates,
+              },
+              backup
+            ) as DailyEntry;
+          }
+          
+          // No backup - use updates as-is (this is a genuinely new entry)
           return {
             doors_knocked: 0,
             decision_makers: 0,
@@ -575,6 +652,10 @@ export const useDailyEntry = (date?: string) => {
       sales_log: [],
     },
     isLoading,
+    // PHASE 2: Freshness gate - only true when server fetch succeeded OR offline with valid backup
+    isFreshDataVerified: isFreshDataVerified || isOfflineWithBackup,
+    isOfflineWithBackup,
+    fetchStatus,
     updateCounter: updateCounterMutation.mutateAsync,
     finalizeEntry: finalizeEntryMutation.mutateAsync, // Use mutateAsync so we can await it
     deleteEntry: deleteEntryMutation.mutate,
