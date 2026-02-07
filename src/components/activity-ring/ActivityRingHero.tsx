@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DailyEntry, Sale } from "@/hooks/useDailyEntry";
 import { formatHoursMinutes, formatFP, formatPRMR } from "@/lib/formatters";
@@ -9,10 +9,12 @@ import {
   buildRingSegments,
   TimelineEvent,
   RingSegment,
+  InHomeZone,
+  timeToAngle,
 } from "@/utils/inHomeZoneCalculator";
 import { detectBulkEntry } from "@/utils/bulkEntryDetector";
 import { ActivityRingLegend } from "./ActivityRingLegend";
-import { Zap } from "lucide-react";
+import { Zap, Home, Clock, Coffee } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -45,7 +47,7 @@ interface ActivityRingHeroProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-// New simplified color scheme - solid, clear colors
+// Clean, solid color scheme - no glow effects
 const RING_COLORS = {
   knocking: 'hsl(210, 80%, 55%)',   // Blue - active door work
   'in-home': 'hsl(45, 90%, 55%)',   // Amber/Gold - in a home presenting
@@ -57,6 +59,15 @@ const RING_COLORS = {
   goalProgress: 'hsl(142, 76%, 45%)', // Green - goal progress
 };
 
+// Segment labels for popovers
+const SEGMENT_LABELS: Record<string, string> = {
+  knocking: 'Knocking',
+  'in-home': 'In Home',
+  sale: 'Sale',
+  break: 'Break',
+  gap: 'Gap',
+};
+
 // Create SVG arc path
 const describeArc = (
   cx: number,
@@ -65,7 +76,6 @@ const describeArc = (
   startAngle: number,
   endAngle: number
 ): string => {
-  // Convert to radians and adjust for SVG coordinate system
   const startRad = ((startAngle - 90) * Math.PI) / 180;
   const endRad = ((endAngle - 90) * Math.PI) / 180;
   
@@ -79,6 +89,71 @@ const describeArc = (
   return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
 };
 
+// Format duration from degrees to readable time
+const formatDegreesDuration = (degrees: number, totalWorkMinutes: number): string => {
+  const minutes = Math.round((degrees / 360) * totalWorkMinutes);
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+};
+
+interface SegmentPopoverProps {
+  segment: RingSegment;
+  totalWorkMinutes: number;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: React.ReactNode;
+}
+
+const SegmentPopover = ({ segment, totalWorkMinutes, isOpen, onOpenChange, children }: SegmentPopoverProps) => {
+  const duration = formatDegreesDuration(segment.endAngle - segment.startAngle, totalWorkMinutes);
+  const label = SEGMENT_LABELS[segment.type] || segment.type;
+  
+  const getIcon = () => {
+    switch (segment.type) {
+      case 'in-home':
+      case 'sale':
+        return <Home className="w-4 h-4" />;
+      case 'break':
+        return <Coffee className="w-4 h-4" />;
+      default:
+        return <Clock className="w-4 h-4" />;
+    }
+  };
+
+  return (
+    <Popover open={isOpen} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        {children}
+      </PopoverTrigger>
+      <PopoverContent 
+        side="top" 
+        className="w-auto px-3 py-2 bg-card border-border"
+        sideOffset={8}
+      >
+        <div className="flex items-center gap-2">
+          <div 
+            className="w-3 h-3 rounded-sm" 
+            style={{ backgroundColor: RING_COLORS[segment.type] }}
+          />
+          <span className="font-medium text-sm">{label}</span>
+          <span className="text-sm text-muted-foreground">•</span>
+          <div className="flex items-center gap-1 text-sm font-medium">
+            {getIcon()}
+            {duration}
+          </div>
+        </div>
+        {segment.source === 'estimated' && (
+          <p className="text-xs text-muted-foreground mt-1">Duration estimated</p>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 export const ActivityRingHero = ({
   entry,
   counterTimestamps,
@@ -90,8 +165,9 @@ export const ActivityRingHero = ({
   size = 'lg',
 }: ActivityRingHeroProps) => {
   const [animationComplete, setAnimationComplete] = useState(false);
+  const [selectedSegmentIdx, setSelectedSegmentIdx] = useState<number | null>(null);
   
-  // Size configurations - outer ring + inner goal ring
+  // Size configurations
   const sizeConfig = {
     sm: { width: 160, radius: 60, strokeWidth: 14, innerRadius: 42, innerStroke: 8, fontSize: 'text-base' },
     md: { width: 220, radius: 85, strokeWidth: 18, innerRadius: 60, innerStroke: 10, fontSize: 'text-xl' },
@@ -102,16 +178,15 @@ export const ActivityRingHero = ({
   const center = config.width / 2;
 
   // Calculate work hours
-  const { hoursWorked, workStart, workEnd } = useMemo(() => {
+  const { hoursWorked, workStart, workEnd, totalWorkMinutes } = useMemo(() => {
     if (!entry.work_start_time || !entry.work_end_time) {
-      return { hoursWorked: 0, workStart: null, workEnd: null };
+      return { hoursWorked: 0, workStart: null, workEnd: null, totalWorkMinutes: 0 };
     }
     
     const start = parseISO(entry.work_start_time);
     const end = parseISO(entry.work_end_time);
     const minutes = differenceInMinutes(end, start);
     
-    // Subtract break time
     let breakMinutes = 0;
     if (entry.break_periods && Array.isArray(entry.break_periods)) {
       entry.break_periods.forEach(bp => {
@@ -129,6 +204,7 @@ export const ActivityRingHero = ({
       hoursWorked: Math.max(0, (minutes - breakMinutes) / 60),
       workStart: start,
       workEnd: end,
+      totalWorkMinutes: minutes,
     };
   }, [entry.work_start_time, entry.work_end_time, entry.break_periods]);
 
@@ -140,7 +216,7 @@ export const ActivityRingHero = ({
     return { fp: entry.fp_plus || 0, prmr: entry.prmr || 0 };
   }, [salesLog, entry.fp_plus, entry.prmr]);
 
-  // Parse all timeline events - including time_to_sell from sales log
+  // Parse all timeline events
   const events = useMemo<TimelineEvent[]>(() => {
     const allEvents: TimelineEvent[] = [];
     const timestamps = counterTimestamps || entry.counter_timestamps || {};
@@ -163,7 +239,6 @@ export const ActivityRingHero = ({
       }
     });
     
-    // Add sales events with time_to_sell data for accurate in-home detection
     salesLog.forEach(sale => {
       if (sale.timestamp) {
         try {
@@ -184,10 +259,9 @@ export const ActivityRingHero = ({
     return allEvents.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [counterTimestamps, entry.counter_timestamps, salesLog]);
 
-  // Build ring segments using the shared calculator
+  // Build ring segments
   const segments = useMemo<RingSegment[]>(() => {
     if (!workStart || !workEnd) {
-      // No work time data - show empty ring
       return [{ startAngle: 0, endAngle: 360, type: 'gap' }];
     }
     
@@ -195,9 +269,11 @@ export const ActivityRingHero = ({
     return buildRingSegments(events, inHomeZones, entry.break_periods || [], workStart, workEnd);
   }, [events, workStart, workEnd, entry.break_periods]);
 
-  // Calculate gap and in-home percentages from segments
-  const { gapPercent, inHomePercent } = useMemo(() => {
-    if (!segments.length) return { gapPercent: 0, inHomePercent: 0 };
+  // Calculate gap and in-home percentages
+  const { gapPercent, inHomePercent, totalInHomeMinutes, totalGapMinutes } = useMemo(() => {
+    if (!segments.length || totalWorkMinutes === 0) {
+      return { gapPercent: 0, inHomePercent: 0, totalInHomeMinutes: 0, totalGapMinutes: 0 };
+    }
     
     const totalGapDegrees = segments
       .filter(s => s.type === 'gap')
@@ -210,11 +286,10 @@ export const ActivityRingHero = ({
     return {
       gapPercent: Math.round((totalGapDegrees / 360) * 100),
       inHomePercent: Math.round((totalInHomeDegrees / 360) * 100),
+      totalInHomeMinutes: Math.round((totalInHomeDegrees / 360) * totalWorkMinutes),
+      totalGapMinutes: Math.round((totalGapDegrees / 360) * totalWorkMinutes),
     };
-  }, [segments]);
-
-  // Count sales
-  const saleCount = salesLog.filter(s => s.type === 'fp').length;
+  }, [segments, totalWorkMinutes]);
 
   // Detect bulk entry for leader warning
   const bulkEntryStats = useMemo(() => {
@@ -223,12 +298,17 @@ export const ActivityRingHero = ({
   }, [counterTimestamps, entry.counter_timestamps]);
 
   // Goal ring progress (capped at 100%)
-  const goalAngle = Math.min(100, goalProgress) * 3.6; // 360 * (progress/100)
+  const goalAngle = Math.min(100, goalProgress) * 3.6;
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimationComplete(true), 1200);
     return () => clearTimeout(timer);
   }, []);
+
+  const handleSegmentClick = useCallback((idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedSegmentIdx(selectedSegmentIdx === idx ? null : idx);
+  }, [selectedSegmentIdx]);
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -237,14 +317,6 @@ export const ActivityRingHero = ({
           viewBox={`0 0 ${config.width} ${config.width}`}
           className="transform"
         >
-          {/* Definitions for glow effect on sales */}
-          <defs>
-            <filter id="glow-sale" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-          </defs>
-
           {/* Background track - outer ring */}
           <circle
             cx={center}
@@ -288,21 +360,27 @@ export const ActivityRingHero = ({
             {segments.map((segment, idx) => {
               if (segment.endAngle <= segment.startAngle) return null;
               
-              // Ensure minimum visible arc size
               const arcSize = segment.endAngle - segment.startAngle;
               if (arcSize < 1) return null;
+              
+              // Add small gap between segments for visual separation
+              const gapOffset = 0.5;
+              const adjustedStart = segment.startAngle + gapOffset;
+              const adjustedEnd = segment.endAngle - gapOffset;
+              
+              if (adjustedEnd <= adjustedStart) return null;
               
               const pathD = describeArc(
                 center,
                 center,
                 config.radius,
-                segment.startAngle,
-                segment.endAngle
+                adjustedStart,
+                adjustedEnd
               );
               
-              const isSale = segment.type === 'sale';
               const isBreak = segment.type === 'break';
               const isGap = segment.type === 'gap';
+              const isInteractive = !isGap && segment.type !== 'knocking';
               
               return (
                 <motion.path
@@ -313,7 +391,6 @@ export const ActivityRingHero = ({
                   strokeWidth={isGap ? config.strokeWidth - 4 : config.strokeWidth}
                   strokeLinecap="round"
                   opacity={isGap ? 0.6 : 1}
-                  filter={isSale ? 'url(#glow-sale)' : undefined}
                   initial={{ pathLength: 0, opacity: 0 }}
                   animate={{ 
                     pathLength: 1, 
@@ -326,14 +403,16 @@ export const ActivityRingHero = ({
                   }}
                   style={{
                     strokeDasharray: isBreak ? '6 6' : undefined,
+                    cursor: isInteractive ? 'pointer' : 'default',
                   }}
+                  onClick={isInteractive ? (e) => handleSegmentClick(idx, e) : undefined}
                 />
               );
             })}
           </AnimatePresence>
         </svg>
 
-        {/* Center stats */}
+        {/* Center stats - clean and focused */}
         <motion.div
           className="absolute inset-0 flex flex-col items-center justify-center text-center"
           initial={{ opacity: 0, scale: 0.8 }}
@@ -346,34 +425,43 @@ export const ActivityRingHero = ({
           <div className="text-sm text-muted-foreground tabular-nums">
             ${formatPRMR(prmr)}
           </div>
-        <div className="text-xs text-muted-foreground mt-1">
-          {formatHoursMinutes(hoursWorked)}
-        </div>
-        {/* Activity breakdown for leaders */}
-        {showGapPercent && (gapPercent > 0 || inHomePercent > 0) && (
-          <div className="text-xs text-muted-foreground/70 mt-1 flex items-center gap-2">
-            {inHomePercent > 0 && (
-              <span style={{ color: 'hsl(45, 90%, 55%)' }}>{inHomePercent}% in-home</span>
-            )}
-            {gapPercent > 0 && (
-              <span>{gapPercent}% gaps</span>
-            )}
+          <div className="text-xs text-muted-foreground mt-1">
+            {formatHoursMinutes(hoursWorked)}
           </div>
-        )}
         </motion.div>
 
-        {/* Sale celebration markers */}
-        {/* Sale celebration markers */}
-        {animationComplete && saleCount > 0 && (
-          <motion.div
-            className="absolute top-0 right-0 -mt-1 -mr-1"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 400, delay: 1 }}
-          >
-            <span className="text-2xl">{saleCount > 1 ? `${saleCount}⭐` : '⭐'}</span>
-          </motion.div>
-        )}
+        {/* Segment detail popovers - positioned at segment midpoint */}
+        {animationComplete && segments.map((segment, idx) => {
+          const isInteractive = segment.type !== 'gap' && segment.type !== 'knocking';
+          if (!isInteractive) return null;
+          
+          const midAngle = (segment.startAngle + segment.endAngle) / 2;
+          const midRad = ((midAngle - 90) * Math.PI) / 180;
+          const popoverX = center + (config.radius + 30) * Math.cos(midRad);
+          const popoverY = center + (config.radius + 30) * Math.sin(midRad);
+          
+          return (
+            <div
+              key={`popover-anchor-${idx}`}
+              className="absolute"
+              style={{ 
+                left: popoverX, 
+                top: popoverY, 
+                transform: 'translate(-50%, -50%)',
+                pointerEvents: 'none',
+              }}
+            >
+              <SegmentPopover
+                segment={segment}
+                totalWorkMinutes={totalWorkMinutes}
+                isOpen={selectedSegmentIdx === idx}
+                onOpenChange={(open) => setSelectedSegmentIdx(open ? idx : null)}
+              >
+                <button className="w-1 h-1 opacity-0" aria-label="Segment details" />
+              </SegmentPopover>
+            </div>
+          );
+        })}
         
         {/* Bulk entry warning badge for leaders */}
         {showGapPercent && bulkEntryStats.bulkEntryDetected && (
@@ -426,6 +514,39 @@ export const ActivityRingHero = ({
           </motion.div>
         )}
       </div>
+      
+      {/* Activity breakdown bar - clean horizontal design for leaders */}
+      {showGapPercent && (inHomePercent > 0 || gapPercent > 0) && (
+        <motion.div
+          className="flex items-center justify-center gap-4 text-xs"
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+        >
+          {inHomePercent > 0 && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: RING_COLORS['in-home'] }} />
+              <span className="text-muted-foreground">
+                <span className="font-medium text-foreground">{inHomePercent}%</span> in-home
+                <span className="text-muted-foreground/70 ml-1">
+                  ({totalInHomeMinutes < 60 ? `${totalInHomeMinutes}m` : `${Math.floor(totalInHomeMinutes / 60)}h ${totalInHomeMinutes % 60}m`})
+                </span>
+              </span>
+            </div>
+          )}
+          {gapPercent > 0 && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: RING_COLORS.gap }} />
+              <span className="text-muted-foreground">
+                <span className="font-medium text-foreground">{gapPercent}%</span> gaps
+                <span className="text-muted-foreground/70 ml-1">
+                  ({totalGapMinutes < 60 ? `${totalGapMinutes}m` : `${Math.floor(totalGapMinutes / 60)}h ${totalGapMinutes % 60}m`})
+                </span>
+              </span>
+            </div>
+          )}
+        </motion.div>
+      )}
       
       {/* Legend */}
       {showLegend && <ActivityRingLegend />}
