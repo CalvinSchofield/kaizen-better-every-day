@@ -72,6 +72,9 @@ interface RepDrillDownExtendedData {
   todayActivity?: TodayActivityData;
   // Planned work dates for pace calculations
   plannedDates: string[];
+  // EFP mode (for Vets)
+  efpModeEnabled: boolean;
+  isVet: boolean;
 }
 
 // Season date constants
@@ -93,7 +96,7 @@ export const useRepDrillDownData = (userId: string | undefined) => {
       const endDate = todayStr;
       
       // Fetch all data in parallel
-      const [entriesResult, goalsResult, seasonFPResult, preseasonFPResult, plannedDaysResult, todayEntryResult, seasonConfigResult] = await Promise.all([
+      const [entriesResult, goalsResult, seasonFPResult, preseasonFPResult, plannedDaysResult, todayEntryResult, seasonConfigResult, repResult] = await Promise.all([
         // Last 14 days of entries
         supabase
           .from('daily_entries')
@@ -147,11 +150,22 @@ export const useRepDrillDownData = (userId: string | undefined) => {
           .select('personal_summer_start')
           .eq('user_id', userId)
           .maybeSingle(),
+        
+        // Rep info for EFP mode
+        supabase
+          .from('reps')
+          .select('year, efp_mode_enabled')
+          .eq('user_id', userId)
+          .maybeSingle(),
       ]);
       
       // Determine if this rep is in preseason based on their personal_summer_start
       const personalSummerStart = seasonConfigResult.data?.personal_summer_start || SUMMER_START;
       const isPreseason = todayStr < personalSummerStart;
+      
+      // Check if rep has EFP mode enabled (Vets only)
+      const isVet = repResult.data?.year === 'Vet';
+      const efpModeEnabled = isVet && (repResult.data?.efp_mode_enabled || false);
 
       // Helper to calculate FP from entry (prioritize sales_log)
       const getFpFromEntry = (entry: any): number => {
@@ -330,6 +344,8 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         purposeUpdatedAt: goalsResult.data?.purpose_updated_at || null,
         todayActivity,
         plannedDates,
+        efpModeEnabled,
+        isVet,
       };
     },
     enabled: !!userId,

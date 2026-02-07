@@ -480,6 +480,7 @@ export const RepDrillDownDrawer = ({
                 focusTier={goalData.focusTier}
                 availableTiers={goalData.availableTiers}
                 selectedDate={selectedDate}
+                efpModeEnabled={extendedData.efpModeEnabled}
               />
             ) : !isLoadingExtended && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">

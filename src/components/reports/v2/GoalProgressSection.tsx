@@ -48,6 +48,9 @@ interface GoalProgressSectionProps {
   // The selected date being viewed (for day label)
   selectedDate?: Date;
   
+  // EFP mode - show EFP instead of FP+ for Vets
+  efpModeEnabled?: boolean;
+  
   className?: string;
 }
 
@@ -143,10 +146,14 @@ export const GoalProgressSection = ({
   availableTiers,
   onTierChange,
   selectedDate,
+  efpModeEnabled = false,
   className,
 }: GoalProgressSectionProps) => {
   const [selectedTimeframe, setSelectedTimeframe] = useState<GoalTimeframe>('D');
   const [showTierDrawer, setShowTierDrawer] = useState(false);
+  
+  // Metric label based on EFP mode
+  const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
   
   // Get current tier label
   const tierLabel = isPreseason 
@@ -262,7 +269,7 @@ export const GoalProgressSection = ({
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{currentData.label}</span>
             <span className="font-medium tabular-nums">
-              {formatFP(totalProgress)}
+              {formatFP(totalProgress)} {metricLabel}
               {currentData.showLiveSegment && (
                 <span className="text-rose-500/80"> (+{formatFP(currentData.live)} live)</span>
               )}
@@ -389,7 +396,7 @@ export const GoalProgressSection = ({
                       />
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                      <span>{formatFP(seasonFP)} earned</span>
+                      <span>{formatFP(seasonFP)} {metricLabel} earned</span>
                       <span>{Math.round(progressPercent)}%</span>
                     </div>
                   </div>
@@ -446,7 +453,7 @@ export const GoalProgressSection = ({
                           />
                         </div>
                         <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                          <span>{formatFP(seasonFP)} earned</span>
+                          <span>{formatFP(seasonFP)} {metricLabel} earned</span>
                           <span>{Math.round(tierProgress)}%</span>
                         </div>
                       </div>
