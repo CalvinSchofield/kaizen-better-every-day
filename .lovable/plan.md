@@ -3,6 +3,9 @@
 # Competitions System Audit & Enhancement Plan
 
 ## Executive Summary
+✅ **Phase 1 Complete**: Fixed the RLS policy bug preventing challenge edits.
+✅ **Phase 2 Complete**: Added downline auto-approve for edits (leaders editing their own downline's challenges).
+
 After a thorough audit of the competitions/incentives codebase, I found **one critical bug** causing the "Failed to propose edit" error, plus identified several areas for improvement to make this a world-class competition experience.
 
 ---

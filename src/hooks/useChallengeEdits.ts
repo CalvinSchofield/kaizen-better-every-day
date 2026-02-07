@@ -128,7 +128,43 @@ export const useProposeEdit = () => {
 
       if (!participants?.length) throw new Error('No participants found');
 
-      // Create the proposal
+      // Check if proposer has leadership access and all participants are in downline
+      let canAutoApprove = false;
+      try {
+        const { data: accessData } = await supabase.functions.invoke('fetch-team-access');
+        const downlineUserIds = new Set<string>(accessData?.accessibleUserIds || []);
+        
+        if (accessData?.accessLevel && accessData.accessLevel !== 'none') {
+          const allInDownline = participants.every(p => downlineUserIds.has(p.user_id));
+          if (allInDownline) {
+            canAutoApprove = true;
+            console.log('[useProposeEdit] All participants in downline, auto-approving edit');
+          }
+        }
+      } catch (e) {
+        console.error('[useProposeEdit] Failed to check team access:', e);
+      }
+
+      if (canAutoApprove) {
+        // Directly apply changes without creating a proposal
+        const updateData: Record<string, string> = {};
+        if (changes.stakes !== undefined) updateData.stakes = changes.stakes;
+        if (changes.end_date !== undefined) updateData.end_date = changes.end_date;
+        if (changes.visibility !== undefined) updateData.visibility = changes.visibility;
+
+        if (Object.keys(updateData).length > 0) {
+          const { error } = await supabase
+            .from('challenges')
+            .update(updateData)
+            .eq('id', challengeId);
+          
+          if (error) throw error;
+        }
+
+        return { autoApproved: true };
+      }
+
+      // Create the proposal (needs approval from all participants)
       const { data: proposal, error: proposalError } = await supabase
         .from('challenge_edit_proposals')
         .insert({
@@ -178,11 +214,12 @@ export const useProposeEdit = () => {
         }
       }
 
-      return proposal;
+      return { ...proposal, autoApproved: false };
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['challenge-edit-proposals', variables.challengeId] });
       queryClient.invalidateQueries({ queryKey: ['challenges'] });
+      queryClient.invalidateQueries({ queryKey: ['my-active-challenges'] });
     },
   });
 };
