@@ -131,13 +131,16 @@ export const ActivityRingHero = ({
   const config = sizeConfig[size];
   const center = config.width / 2;
 
-  const { hoursWorked, workStart, workEnd, totalWorkMinutes } = useMemo(() => {
-    if (!entry.work_start_time || !entry.work_end_time) {
-      return { hoursWorked: 0, workStart: null, workEnd: null, totalWorkMinutes: 0 };
+  const { hoursWorked, workStart, workEnd, totalWorkMinutes, isLive } = useMemo(() => {
+    // Require at least work_start_time; for live view, use "now" as temporary end
+    if (!entry.work_start_time) {
+      return { hoursWorked: 0, workStart: null, workEnd: null, totalWorkMinutes: 0, isLive: false };
     }
     
     const start = parseISO(entry.work_start_time);
-    const end = parseISO(entry.work_end_time);
+    // If work_end_time is missing (rep still working), use current time
+    const isLiveSession = !entry.work_end_time;
+    const end = entry.work_end_time ? parseISO(entry.work_end_time) : new Date();
     const minutes = differenceInMinutes(end, start);
     
     let breakMinutes = 0;
@@ -158,6 +161,7 @@ export const ActivityRingHero = ({
       workStart: start,
       workEnd: end,
       totalWorkMinutes: minutes,
+      isLive: isLiveSession,
     };
   }, [entry.work_start_time, entry.work_end_time, entry.break_periods]);
 
@@ -565,6 +569,19 @@ export const ActivityRingHero = ({
             {formatHoursMinutes(hoursWorked)}
           </div>
         </motion.div>
+
+        {/* Live indicator */}
+        {isLive && (
+          <motion.div
+            className="absolute top-0 right-0 -mt-1 -mr-1 flex items-center gap-1 text-[10px] font-semibold bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full border border-green-500/30"
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 400, delay: 0.5 }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            LIVE
+          </motion.div>
+        )}
 
         {/* Bulk entry warning */}
         {showGapPercent && bulkEntryStats.bulkEntryDetected && (
