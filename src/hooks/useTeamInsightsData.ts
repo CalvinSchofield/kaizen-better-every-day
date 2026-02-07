@@ -28,8 +28,10 @@ interface RepInfo {
   name: string;
   year: string;
   timezone?: string;
+  teamId?: string | null;
   teamName?: string;
   mgmtGroupName?: string;
+  recruiterName?: string | null;
 }
 
 interface TeamInsightsData {
@@ -178,8 +180,10 @@ interface TeamInsightsData {
     name: string;
     year: string;
     timezone?: string;
+    teamId?: string | null;
     teamName: string;
     mgmtGroupName: string;
+    recruiterName?: string | null;
     doors: number;
     dms: number;
     pitches: number;
@@ -1014,8 +1018,10 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           name: rep.name,
           year: rep.year,
           timezone: rep.timezone,
+          teamId: rep.teamId || null,
           teamName: rep.teamName || 'No Team',
           mgmtGroupName: rep.mgmtGroupName || 'No Group',
+          recruiterName: rep.recruiterName || null,
           doors: repTotals.doors,
           dms: repTotals.dms,
           pitches: repTotals.pitches,
