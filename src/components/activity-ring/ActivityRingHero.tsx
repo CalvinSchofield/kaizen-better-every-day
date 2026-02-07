@@ -31,9 +31,10 @@ interface ActivityRingHeroProps {
   };
   counterTimestamps?: Record<string, string[]>;
   salesLog?: Sale[];
-  goalProgress?: number; // Deprecated - kept for compatibility
-  showGoalRing?: boolean; // Deprecated - kept for compatibility
+  goalProgress?: number; // 0-100, percentage towards daily goal
+  showGoalRing?: boolean; // Whether to show inner goal ring (default true when goalProgress > 0)
   showLegend?: boolean;
+  showGapPercent?: boolean; // Whether to show gap percentage (for leaders)
   size?: 'sm' | 'md' | 'lg';
 }
 
@@ -45,6 +46,8 @@ const RING_COLORS = {
   break: 'hsl(35, 90%, 50%)',        // Orange - break time
   gap: 'hsl(0, 0%, 25%)',            // Dark gray - not working
   background: 'hsl(0, 0%, 12%)',     // Ring background track
+  goalTrack: 'hsl(0, 0%, 18%)',      // Inner ring track
+  goalProgress: 'hsl(142, 76%, 45%)', // Green - goal progress
 };
 
 // Create SVG arc path
@@ -73,16 +76,19 @@ export const ActivityRingHero = ({
   entry,
   counterTimestamps,
   salesLog = [],
+  goalProgress = 0,
+  showGoalRing = true,
   showLegend = true,
+  showGapPercent = false,
   size = 'lg',
 }: ActivityRingHeroProps) => {
   const [animationComplete, setAnimationComplete] = useState(false);
   
-  // Size configurations - single ring design
+  // Size configurations - outer ring + inner goal ring
   const sizeConfig = {
-    sm: { width: 160, radius: 60, strokeWidth: 14, fontSize: 'text-base' },
-    md: { width: 220, radius: 85, strokeWidth: 18, fontSize: 'text-xl' },
-    lg: { width: 280, radius: 110, strokeWidth: 22, fontSize: 'text-2xl' },
+    sm: { width: 160, radius: 60, strokeWidth: 14, innerRadius: 42, innerStroke: 8, fontSize: 'text-base' },
+    md: { width: 220, radius: 85, strokeWidth: 18, innerRadius: 60, innerStroke: 10, fontSize: 'text-xl' },
+    lg: { width: 280, radius: 110, strokeWidth: 22, innerRadius: 78, innerStroke: 12, fontSize: 'text-2xl' },
   };
   
   const config = sizeConfig[size];
@@ -179,8 +185,22 @@ export const ActivityRingHero = ({
     return buildRingSegments(events, inHomeZones, entry.break_periods || [], workStart, workEnd);
   }, [events, workStart, workEnd, entry.break_periods]);
 
+  // Calculate gap percentage from segments
+  const gapPercent = useMemo(() => {
+    if (!segments.length) return 0;
+    
+    const totalGapDegrees = segments
+      .filter(s => s.type === 'gap')
+      .reduce((sum, s) => sum + (s.endAngle - s.startAngle), 0);
+    
+    return Math.round((totalGapDegrees / 360) * 100);
+  }, [segments]);
+
   // Count sales
   const saleCount = salesLog.filter(s => s.type === 'fp').length;
+
+  // Goal ring progress (capped at 100%)
+  const goalAngle = Math.min(100, goalProgress) * 3.6; // 360 * (progress/100)
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimationComplete(true), 1200);
@@ -202,7 +222,7 @@ export const ActivityRingHero = ({
             </filter>
           </defs>
 
-          {/* Background track */}
+          {/* Background track - outer ring */}
           <circle
             cx={center}
             cy={center}
@@ -213,7 +233,34 @@ export const ActivityRingHero = ({
             opacity={0.5}
           />
 
-          {/* Timeline segments */}
+          {/* Inner goal ring - background track */}
+          {showGoalRing && goalProgress > 0 && (
+            <circle
+              cx={center}
+              cy={center}
+              r={config.innerRadius}
+              fill="none"
+              stroke={RING_COLORS.goalTrack}
+              strokeWidth={config.innerStroke}
+              opacity={0.6}
+            />
+          )}
+
+          {/* Inner goal ring - progress */}
+          {showGoalRing && goalProgress > 0 && goalAngle > 0 && (
+            <motion.path
+              d={describeArc(center, center, config.innerRadius, 0, goalAngle)}
+              fill="none"
+              stroke={RING_COLORS.goalProgress}
+              strokeWidth={config.innerStroke}
+              strokeLinecap="round"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 1 }}
+              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+            />
+          )}
+
+          {/* Timeline segments - outer ring */}
           <AnimatePresence>
             {segments.map((segment, idx) => {
               if (segment.endAngle <= segment.startAngle) return null;
@@ -279,6 +326,12 @@ export const ActivityRingHero = ({
           <div className="text-xs text-muted-foreground mt-1">
             {formatHoursMinutes(hoursWorked)}
           </div>
+          {/* Gap percentage for leaders */}
+          {showGapPercent && gapPercent > 0 && (
+            <div className="text-xs text-muted-foreground/70 mt-1">
+              {gapPercent}% gaps
+            </div>
+          )}
         </motion.div>
 
         {/* Sale celebration markers */}
@@ -290,6 +343,24 @@ export const ActivityRingHero = ({
             transition={{ type: "spring", stiffness: 400, delay: 1 }}
           >
             <span className="text-2xl">{saleCount > 1 ? `${saleCount}⭐` : '⭐'}</span>
+          </motion.div>
+        )}
+        
+        {/* Goal progress indicator (small badge) */}
+        {showGoalRing && goalProgress > 0 && (
+          <motion.div
+            className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.8 }}
+          >
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+              goalProgress >= 100 
+                ? 'bg-primary/20 text-primary' 
+                : 'bg-muted/50 text-muted-foreground'
+            }`}>
+              {Math.round(goalProgress)}% of goal
+            </span>
           </motion.div>
         )}
       </div>
