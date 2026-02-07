@@ -15,7 +15,7 @@ import { ReportsTeamFilter, TeamFilter } from "@/components/reports/v2/ReportsTe
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar } from "lucide-react";
+import { Calendar, RefreshCw, AlertCircle } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths, startOfYear, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -30,9 +30,10 @@ export const ReportsV2Page = () => {
   const [showCustomSheet, setShowCustomSheet] = useState(false);
   const [selectedRepId, setSelectedRepId] = useState<string | null>(null);
   const [teamFilter, setTeamFilter] = useState<TeamFilter>('all');
+  const [isRetrying, setIsRetrying] = useState(false);
   
   // Get team access
-  const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
+  const { data: teamAccess, isLoading: accessLoading, error: teamAccessError, refetch: refetchTeamAccess, wasLeader } = useTeamAccess();
   
   // Get current user's ID to include self in reports
   const { data: currentUserId } = useQuery({
@@ -257,7 +258,42 @@ export const ReportsV2Page = () => {
     );
   }
 
-  // No access
+  // Recovery UI for leaders who failed to load
+  const showLeaderRecoveryUI = (teamAccessError || !teamAccess) && wasLeader;
+
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    try {
+      await refetchTeamAccess();
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
+  // No access - but check if this might be a failed leader session first
+  if (showLeaderRecoveryUI) {
+    return (
+      <div className="p-4">
+        <Card className="p-8 text-center border-destructive/50 bg-destructive/5">
+          <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
+          <h3 className="font-semibold text-foreground mb-1">Couldn't load reports</h3>
+          <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
+            There was a problem connecting to the server. Please try again.
+          </p>
+          <Button 
+            onClick={handleRetry} 
+            disabled={isRetrying}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRetrying ? 'animate-spin' : ''}`} />
+            {isRetrying ? 'Retrying...' : 'Try Again'}
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   if (!teamAccess || teamAccess.accessLevel === 'none') {
     return (
       <div className="p-4">
