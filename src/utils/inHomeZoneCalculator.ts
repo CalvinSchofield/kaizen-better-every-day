@@ -522,77 +522,56 @@ export function buildRingSegments(
   // Sort by start angle, then by priority (descending)
   intervals.sort((a, b) => a.start - b.start || b.priority - a.priority);
   
-  // NON-OVERLAPPING merge - properly split intervals when higher priority overlaps
+  // Simple non-overlapping merge using priority-based "painting"
+  // Higher priority intervals overwrite lower priority ones
   const finalIntervals: TimeInterval[] = [];
   
-  for (const interval of intervals) {
-    if (finalIntervals.length === 0) {
-      finalIntervals.push({ ...interval });
-      continue;
-    }
+  // First, add all intervals sorted by priority (highest first)
+  const sortedByPriority = [...intervals].sort((a, b) => b.priority - a.priority);
+  
+  for (const interval of sortedByPriority) {
+    // Skip invalid intervals
+    if (interval.end <= interval.start) continue;
     
-    // Check for overlaps with existing intervals
-    let added = false;
-    const newFinal: TimeInterval[] = [];
+    // Find what parts of this interval are not yet covered
+    const uncoveredParts: { start: number; end: number }[] = [];
+    let currentStart = interval.start;
     
-    for (const existing of finalIntervals) {
-      // No overlap
-      if (interval.end <= existing.start || interval.start >= existing.end) {
-        newFinal.push(existing);
-        continue;
-      }
+    // Sort existing intervals by start angle
+    const sortedExisting = [...finalIntervals].sort((a, b) => a.start - b.start);
+    
+    for (const existing of sortedExisting) {
+      if (existing.end <= currentStart) continue; // Existing is before our current position
+      if (existing.start >= interval.end) break; // Existing is after our interval
       
-      // Overlap exists - split based on priority
-      if (interval.priority > existing.priority) {
-        // Higher priority interval takes over the overlap
-        if (existing.start < interval.start) {
-          newFinal.push({ ...existing, end: interval.start });
-        }
-        if (existing.end > interval.end) {
-          newFinal.push({ ...existing, start: interval.end });
-        }
-      } else {
-        // Lower priority - clip the new interval
-        if (interval.start < existing.start) {
-          if (!added) {
-            newFinal.push({ ...interval, end: existing.start });
-            added = true;
-          }
-        }
-        if (interval.end > existing.end) {
-          if (!added) {
-            newFinal.push({ ...interval, start: existing.end });
-            added = true;
-          }
-        }
-        newFinal.push(existing);
-        continue;
+      // There's overlap
+      if (existing.start > currentStart) {
+        // Gap before the existing interval
+        uncoveredParts.push({ start: currentStart, end: Math.min(existing.start, interval.end) });
       }
-      newFinal.push(existing);
+      currentStart = Math.max(currentStart, existing.end);
+      
+      if (currentStart >= interval.end) break;
     }
     
-    if (!added && interval.priority >= Math.max(...finalIntervals.map(f => f.priority), 0)) {
-      newFinal.push({ ...interval });
-    } else if (!added) {
-      // Find gaps to insert
-      const sortedFinal = [...newFinal].sort((a, b) => a.start - b.start);
-      let canAdd = true;
-      for (const f of sortedFinal) {
-        if (!(interval.end <= f.start || interval.start >= f.end)) {
-          canAdd = false;
-          break;
-        }
-      }
-      if (canAdd) {
-        newFinal.push({ ...interval });
-      }
+    // Add remaining uncovered part
+    if (currentStart < interval.end) {
+      uncoveredParts.push({ start: currentStart, end: interval.end });
     }
     
-    finalIntervals.length = 0;
-    finalIntervals.push(...newFinal);
+    // Add uncovered parts as new intervals
+    for (const part of uncoveredParts) {
+      if (part.end - part.start > 0.5) { // Min threshold
+        finalIntervals.push({
+          ...interval,
+          start: part.start,
+          end: part.end,
+        });
+      }
+    }
   }
   
-  // Sort final intervals
+  // Sort final intervals by start angle
   finalIntervals.sort((a, b) => a.start - b.start);
   
   // Build final segments with gap filling
