@@ -16,7 +16,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "lucide-react";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths, startOfYear } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths, startOfYear, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
 // Preseason dates
@@ -402,7 +402,7 @@ export const ReportsV2Page = () => {
         isOpen={!!selectedRepId}
         onClose={() => setSelectedRepId(null)}
         onSendSms={handleSendSms}
-        initialDate={new Date(dateRange.end)}
+        initialDate={parseISO(dateRange.end)}
       />
 
       {/* Custom Date Range Sheet */}
