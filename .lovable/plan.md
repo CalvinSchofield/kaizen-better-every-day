@@ -1,245 +1,212 @@
 
-# Pre-Working State for Track Page
+# Refined In-Home Zone Detection Logic
 
-## Overview
+## Problem Summary
 
-When a rep opens the Track page before starting their day, they'll see a motivating "mission briefing" view that sets them up for success. This view transforms once they tap "Start My Day" into the familiar counter grid.
+Based on your workflow explanation, the core issue is:
+
+1. **Door knocks are accurate** — tapped within seconds of knocking
+2. **Everything else is delayed** — DM, Pitch, Transition, Presentation, Close are often marked after the fact, sometimes all at once after a sale
+
+This means the current algorithm (which calculates duration from door timestamp → indicator timestamp) often produces **misleading results** when events are batch-logged.
+
+**But we already have the solution**: When logging a sale, you capture `time_to_sell_minutes` with a source (`door`, `transition`, or `manual`). This is the *ground truth* for how long you were actually in the home.
 
 ---
 
-## Visual Design (Mobile-First)
+## Proposed Algorithm Refinement
+
+### Data Priority Hierarchy
 
 ```text
-┌─────────────────────────────────────────┐
-│                                         │
-│   ☀️ Good morning, Quinn                │
-│   February 7, 2026                      │
-│                                         │
-├─────────────────────────────────────────┤
-│                                         │
-│   ┌─────────────────────────────────┐   │
-│   │  🎯 TODAY'S MISSION             │   │
-│   │                                 │   │
-│   │     Hit 0.8 FP+                 │   │
-│   │     (preseason pace)            │   │
-│   │                                 │   │
-│   │  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─   │   │
-│   │                                 │   │
-│   │  📊 THIS WEEK                   │   │
-│   │  Need 4.2 FP+ to stay on pace   │   │
-│   │  (You have 1.1 so far)          │   │
-│   │                                 │   │
-│   └─────────────────────────────────┘   │
-│                                         │
-│   ┌─────────────────────────────────┐   │
-│   │  🏆 SEASON GOALS                │   │
-│   │                                 │   │
-│   │  Preseason: 42 FP+              │   │  ← Shows only during preseason
-│   │  ━━━━━━━━░░░░░ 28.4 / 42        │   │
-│   │                                 │   │
-│   └─────────────────────────────────┘   │
-│                                         │
-│   OR (after summer starts):             │
-│                                         │
-│   ┌─────────────────────────────────┐   │
-│   │  🏆 SUMMER GOALS                │   │
-│   │                                 │   │
-│   │  Must Do    Will Do   Could Do  │   │  ← Tier pills
-│   │    [60]       [80]      [100]   │   │
-│   │                                 │   │
-│   │  Your focus: Will Do (80 FP+)   │   │
-│   │  ━━━━━━━━░░░░░ 12.4 / 80        │   │
-│   │                                 │   │
-│   └─────────────────────────────────┘   │
-│                                         │
-│   ┌─────────────────────────────────┐   │
-│   │  ⚔️ ACTIVE COMPETITIONS         │   │
-│   │                                 │   │
-│   │  Quinn vs Ammon — 3.2 to 2.8    │   │
-│   │  🎯 Loser buys lunch            │   │
-│   │                                 │   │
-│   │  🎁 First to 5 FP+ gets $50     │   │
-│   │                                 │   │
-│   └─────────────────────────────────┘   │
-│                                         │
-│   ┌─────────────────────────────────┐   │
-│   │                                 │   │
-│   │   [ 🚀 START MY DAY ]           │   │  ← Big CTA button
-│   │                                 │   │
-│   └─────────────────────────────────┘   │
-│                                         │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  PRIORITY 1: Explicit Sale Duration (Most Accurate)        │
+│  └── Use sale.time_to_sell_minutes when available          │
+│      Duration calculated back from sale timestamp          │
+├─────────────────────────────────────────────────────────────┤
+│  PRIORITY 2: Non-Batched Timestamps (Good Accuracy)        │
+│  └── Door → Indicator with >2 minute gap                   │
+│      (indicates real-time logging, not rapid taps)         │
+├─────────────────────────────────────────────────────────────┤
+│  PRIORITY 3: Batch-Logged Fallback (Estimated)             │
+│  └── Use intelligent defaults based on indicator type      │
+│      - Sale: 30 min (average close takes longer)           │
+│      - Presentation: 20 min                                │
+│      - Transition only: 15 min                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
----
+### Key Changes to `calculateInHomeZones`
 
-## Component Architecture
-
-### New Component: `PreWorkingState.tsx`
-
-Located at: `src/components/track/PreWorkingState.tsx`
-
-This component renders when:
-- `entry.work_start_time === null` (day not started)
-- `entry.is_finalized === false` (not already complete)
-
-#### Props:
-```typescript
-interface PreWorkingStateProps {
-  repData: any;
-  onStartDay: () => void;
-  isStarting?: boolean;
-}
-```
-
-### Sub-Components (inside PreWorkingState):
-
-1. **DailyMissionCard**: Shows today's FP+ goal and weekly pace
-2. **SeasonGoalsCard**: Preseason or summer tier goals (season-aware)
-3. **ActiveCompetitionsPreview**: Compact view of challenges/incentives
-4. **StartDayButton**: Large, prominent CTA
+1. **Accept sales log as input** to access `time_to_sell_minutes`
+2. **For sales with explicit duration**: Calculate zone start by subtracting duration from sale timestamp
+3. **Detect batch logging**: If door→indicator gap is <30 seconds, assume batch logged
+4. **Better fallback durations**: Different defaults for different interaction types
 
 ---
 
 ## Technical Implementation
 
-### 1. Season-Aware Goal Logic (Reuse `useFocusTier`)
-
-The existing `useFocusTier` hook already provides:
-- `isUserSummerStarted`: Boolean for preseason vs summer
-- `focusTier`: Current focus tier (mustDo/willDo/couldDo)
-- `focusTierGoal`: The goal value for the focused tier
-- `allTiers`: All three tier values for display
-
-This hook will be used directly in PreWorkingState.
-
-### 2. Daily/Weekly Goal Calculation (Reuse `calculateSalesPace`)
-
-From `src/utils/salesPaceCalculator.ts`, we can get:
-- `dailyGoal`: FP+ needed per day to hit the focused goal
-- `weeklyGoal`: FP+ needed this week (dailyGoal × remaining days this week)
-
-### 3. Challenges/Incentives (Reuse existing hooks)
-
-From existing hooks:
-- `useMyActiveChallenges()`: Active challenges
-- `useMyActiveIncentives()`: Active incentives
-
-These will be displayed in a compact format.
-
-### 4. Track.tsx Changes
-
-Update the rendering logic:
+### Updated Interface
 
 ```typescript
-// Current flow:
-// 1. isInitializing → Skeleton
-// 2. isPreBlitzRookie → Locked state
-// 3. entry.is_finalized → Activity Ring view
-// 4. Default → Counter grid
+export interface TimelineEvent {
+  timestamp: Date;
+  type: 'doors_knocked' | 'decision_makers' | 'pitches' | 'transitions' | 'presentations' | 'closes' | 'sale';
+  label?: string;
+  prmr?: number;
+  timeToSellMinutes?: number;  // NEW: From sales_log
+  timeToSellSource?: 'transition' | 'door' | 'manual';  // NEW
+}
+```
 
-// New flow:
-// 1. isInitializing → Skeleton
-// 2. isPreBlitzRookie → Locked state  
-// 3. entry.is_finalized → Activity Ring view
-// 4. !entry.work_start_time → PreWorkingState (NEW)
-// 5. Default → Counter grid
+### Updated Zone Calculation
+
+```typescript
+function calculateInHomeZones(
+  events: TimelineEvent[],
+  workStart: Date,
+  workEnd: Date
+): InHomeZone[] {
+  // ... existing setup ...
+  
+  for (const indicator of inHomeIndicators) {
+    const isSale = indicator.type === 'sale' || indicator.type === 'closes';
+    
+    // PRIORITY 1: Use explicit time_to_sell_minutes for sales
+    if (isSale && indicator.timeToSellMinutes && indicator.timeToSellMinutes > 0) {
+      const duration = indicator.timeToSellMinutes;
+      const calculatedStart = new Date(indicator.timestamp.getTime() - duration * 60 * 1000);
+      const clampedStart = calculatedStart < workStart ? workStart : calculatedStart;
+      
+      zones.push({
+        doorTime: clampedStart,
+        endTime: indicator.timestamp,
+        duration,
+        endType: 'sale',
+        hasSale: true,
+        source: 'explicit',  // NEW: Track data source
+      });
+      continue;
+    }
+    
+    // PRIORITY 2: Find matching door knock (only if not batch-logged)
+    let bestDoorIdx = findNearestUnusedDoor(doorEvents, indicator, usedDoorIndices);
+    
+    if (bestDoorIdx >= 0) {
+      const doorEvent = doorEvents[bestDoorIdx];
+      const timeDiff = indicator.timestamp.getTime() - doorEvent.timestamp.getTime();
+      
+      // Detect batch logging: <30 seconds is suspicious
+      const isBatchLogged = timeDiff < BATCH_THRESHOLD_MS;
+      
+      if (!isBatchLogged) {
+        // Real-time logging - use actual timestamps
+        usedDoorIndices.add(bestDoorIdx);
+        zones.push({
+          doorTime: doorEvent.timestamp,
+          endTime: indicator.timestamp,
+          duration: timeDiff / (1000 * 60),
+          endType: getEndType(indicator),
+          hasSale: isSale,
+          source: 'timestamps',
+        });
+        continue;
+      }
+    }
+    
+    // PRIORITY 3: Fallback with type-specific defaults
+    const defaultDuration = getDefaultDuration(indicator.type);
+    const syntheticStart = new Date(indicator.timestamp.getTime() - defaultDuration * 60 * 1000);
+    const clampedStart = syntheticStart < workStart ? workStart : syntheticStart;
+    
+    zones.push({
+      doorTime: clampedStart,
+      endTime: indicator.timestamp,
+      duration: defaultDuration,
+      endType: getEndType(indicator),
+      hasSale: isSale,
+      source: 'estimated',  // Flag for UI warning
+    });
+  }
+  
+  return zones;
+}
+
+function getDefaultDuration(type: string): number {
+  switch (type) {
+    case 'sale':
+    case 'closes':
+      return 30;  // Sales typically take longer
+    case 'presentations':
+      return 20;  // Presentation without sale
+    case 'transitions':
+      return 15;  // Just got in, no presentation
+    default:
+      return 20;
+  }
+}
 ```
 
 ---
 
-## Files to Create/Modify
+## UI Enhancements
 
-| File | Action | Description |
-|------|--------|-------------|
-| `src/components/track/PreWorkingState.tsx` | CREATE | Main pre-working view |
-| `src/components/track/DailyMissionCard.tsx` | CREATE | Today's mission with daily/weekly goals |
-| `src/components/track/SeasonGoalsPreview.tsx` | CREATE | Season-aware goal display |
-| `src/components/track/CompetitionsPreview.tsx` | CREATE | Compact challenges/incentives |
-| `src/components/track/index.ts` | CREATE | Export barrel file |
-| `src/pages/Track.tsx` | MODIFY | Add pre-working state check |
+### Show Data Source Quality
 
----
-
-## Data Flow
+When displaying in-home metrics to leaders, indicate confidence level:
 
 ```text
-PreWorkingState
-    │
-    ├── useFocusTier() ─────────────────┐
-    │   └── isUserSummerStarted         │
-    │   └── focusTier                   │
-    │   └── allTiers                    │
-    │                                   │
-    ├── useRepGoals() ──────────────────┤
-    │   └── preseason_fp_goal           │
-    │   └── setup_complete              ├──→ DailyMissionCard
-    │                                   │    SeasonGoalsPreview
-    ├── usePlannedDays() ───────────────┤
-    │   └── plannedDays                 │
-    │                                   │
-    ├── usePreseasonFP() ───────────────┤
-    │   └── totalFP                     │
-    │   └── knockingDays                │
-    │                                   │
-    ├── calculateSalesPace() ───────────┘
-    │   └── dailyGoal
-    │   └── remainingDailyNeeded
-    │
-    ├── useMyActiveChallenges() ────────┐
-    │   └── challenges[]                ├──→ CompetitionsPreview
-    ├── useMyActiveIncentives() ────────┤
-    │   └── incentives[]                │
-    │                                   │
-    └── onStartDay() ───────────────────────→ StartDayButton
+┌─────────────────────────────────────────┐
+│  In-Home: 45 min (3 interactions)       │
+│  ├── ✓ 25 min (explicit from CRM)       │
+│  ├── ✓ 12 min (real-time logged)        │
+│  └── ⚠ ~8 min (estimated)               │
+└─────────────────────────────────────────┘
 ```
 
----
+This tells the leader:
+- 2 of 3 in-home zones are reliable
+- 1 is estimated due to batch logging
 
-## UX Considerations
+### Ring Visualization
 
-### Preseason Mode (today < personal_summer_start)
-- Show ONLY preseason goal
-- Daily need = preseason_goal / planned_preseason_days
-- Weekly need = daily_need × days_remaining_this_week
+- **Solid amber arc**: High-confidence in-home zone (explicit or real-time)
+- **Striped/dashed amber arc**: Estimated zone (batch-logged fallback)
 
-### Summer Mode (today >= personal_summer_start)
-- Show all three tier goals with pills
-- Highlight the focused tier
-- Allow tapping to switch focus tier
-- Daily/weekly calculations use the focused tier goal
-
-### No Goals Set Up
-- Show a CTA to set up goals (similar to DailyFocusCard behavior)
-- Still show challenges/incentives if any exist
-- Start Day button still works
-
-### Empty Competitions State
-- Don't show the competitions section if no active challenges/incentives
-- Keeps the view clean
-
-### Haptic Feedback
-- `hapticMedium` on "Start My Day" tap
-- Button shows loading state while processing
+This gives leaders visual feedback on data quality without hiding the information.
 
 ---
 
-## Motion & Polish
+## Files to Modify
 
-- Subtle fade-in animation on mount (framer-motion)
-- Staggered card entrance for premium feel
-- Progress bars use existing Progress component
-- Tier pills use existing chip styling from DailyFocusCard
-- Start button uses `active:scale-[0.97]` for tactile press
+| File | Changes |
+|------|---------|
+| `src/utils/inHomeZoneCalculator.ts` | Add sales data parameter, implement priority-based duration logic, add source tracking |
+| `src/components/activity-ring/ActivityRingHero.tsx` | Pass sales log to zone calculator, optionally show source breakdown |
+| `src/components/reports/v2/RepDayActivityFlow.tsx` | Update to use new zone source information for display |
 
 ---
 
-## Implementation Order
+## Edge Cases Handled
 
-1. Create `src/components/track/` directory structure
-2. Build `DailyMissionCard` with pace calculation
-3. Build `SeasonGoalsPreview` with tier display
-4. Build `CompetitionsPreview` with challenge/incentive summary
-5. Compose `PreWorkingState` from sub-components
-6. Update `Track.tsx` to conditionally render PreWorkingState
-7. Test across preseason/summer reps, with/without goals, with/without competitions
+| Scenario | Current Behavior | New Behavior |
+|----------|------------------|--------------|
+| Sale with CRM duration | Uses door→close gap (often wrong) | Uses explicit `time_to_sell_minutes` |
+| Rapid-tap all events after sale | Shows tiny duration | Uses 30-min sale default, flagged as estimated |
+| Transition marked during lull | Uses door→transition gap | Same (good accuracy) |
+| Multiple transitions same door | First gets the door | Each gets assigned; extras use defaults |
+| No door knock at all | 20-min default | Type-specific default (15-30 min) |
+
+---
+
+## Summary for Leaders
+
+The refined logic gives you:
+
+1. **More accurate in-home time** when reps use the CRM to record sale duration
+2. **Clear visibility** into which data is reliable vs estimated
+3. **Better coaching context** — you can see if a rep's timeline is trustworthy or needs improvement
+4. **Incentive for real-time logging** — reps who log accurately get accurate reports
+
+The bulk entry warning (⚡ badge) already tells you when data is suspect. This refinement makes the *underlying calculations* smarter when that happens.
