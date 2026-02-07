@@ -15,6 +15,7 @@ import {
   FinalizedStatsGrid,
   RingGoalProgress,
 } from "@/components/activity-ring";
+import { PreWorkingState } from "@/components/track";
 
 interface TrackProps {
   entry: DailyEntry | {
@@ -205,6 +206,16 @@ const Track = ({
           </div>
         )}
       </div>
+    );
+  }
+
+  // Pre-working state - show mission briefing before day starts
+  if (!entry.work_start_time) {
+    return (
+      <PreWorkingState
+        repName={repData?.name}
+        onStartDay={onStartWork}
+      />
     );
   }
 
