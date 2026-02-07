@@ -13,3 +13,4 @@ export { ActivityCalendarDrawer } from './ActivityCalendarDrawer';
 export { GoalTimeframeToggle } from './GoalTimeframeToggle';
 export type { GoalTimeframe } from './GoalTimeframeToggle';
 export { SegmentDetailDrawer } from './SegmentDetailDrawer';
+export { BulkEntryCoaching } from './BulkEntryCoaching';
