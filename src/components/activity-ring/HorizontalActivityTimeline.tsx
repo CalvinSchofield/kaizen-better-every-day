@@ -11,7 +11,7 @@ import {
   TimelineEvent,
   RingSegment,
 } from "@/utils/inHomeZoneCalculator";
-import { Play, Square, DollarSign, Home, Zap } from "lucide-react";
+import { Play, Square, DollarSign, Home, Zap, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface HorizontalActivityTimelineProps {
@@ -95,13 +95,16 @@ export const HorizontalActivityTimeline = ({
   onSegmentClick,
 }: HorizontalActivityTimelineProps) => {
 
-  const { hoursWorked, workStart, workEnd, totalWorkMinutes } = useMemo(() => {
-    if (!entry.work_start_time || !entry.work_end_time) {
-      return { hoursWorked: 0, workStart: null, workEnd: null, totalWorkMinutes: 0 };
+  const { hoursWorked, workStart, workEnd, totalWorkMinutes, isLive } = useMemo(() => {
+    // Require at least work_start_time; for live view, use "now" as temporary end
+    if (!entry.work_start_time) {
+      return { hoursWorked: 0, workStart: null, workEnd: null, totalWorkMinutes: 0, isLive: false };
     }
     
     const start = parseISO(entry.work_start_time);
-    const end = parseISO(entry.work_end_time);
+    // If work_end_time is missing (rep still working), use current time
+    const isLiveSession = !entry.work_end_time;
+    const end = entry.work_end_time ? parseISO(entry.work_end_time) : new Date();
     const minutes = differenceInMinutes(end, start);
     
     let breakMinutes = 0;
@@ -122,6 +125,7 @@ export const HorizontalActivityTimeline = ({
       workStart: start,
       workEnd: end,
       totalWorkMinutes: minutes,
+      isLive: isLiveSession,
     };
   }, [entry.work_start_time, entry.work_end_time, entry.break_periods]);
 
@@ -319,10 +323,22 @@ export const HorizontalActivityTimeline = ({
             <Play className="w-3.5 h-3.5 text-primary" />
             <span>{formatTimeInTimezone(workStart, entry.timezone)}</span>
           </div>
-          <span className="text-muted-foreground/60">{totalEvents} events</span>
+          {isLive ? (
+            <div className="flex items-center gap-1 text-green-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-[10px] font-semibold">LIVE</span>
+              <span className="text-muted-foreground/60 ml-1">{totalEvents} events</span>
+            </div>
+          ) : (
+            <span className="text-muted-foreground/60">{totalEvents} events</span>
+          )}
           <div className="flex items-center gap-1.5">
-            <span>{formatTimeInTimezone(workEnd, entry.timezone)}</span>
-            <Square className="w-3.5 h-3.5 text-muted-foreground" />
+            <span>{isLive ? 'Now' : formatTimeInTimezone(workEnd, entry.timezone)}</span>
+            {isLive ? (
+              <Radio className="w-3.5 h-3.5 text-green-400" />
+            ) : (
+              <Square className="w-3.5 h-3.5 text-muted-foreground" />
+            )}
           </div>
         </div>
 
