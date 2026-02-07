@@ -120,24 +120,24 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
 
       entries?.forEach(entry => {
         let value = 0;
-        const isFinalized = entry.is_finalized;
         const salesLog = entry.sales_log as any[] | null;
+        const hasSalesLog = salesLog && salesLog.length > 0;
         
         if (incentive.metric === 'fp_plus') {
-          if (isFinalized) {
-            value = entry.fp_plus || 0;
+          // Always prioritize sales_log if it has entries (regardless of finalization)
+          if (hasSalesLog) {
+            const fromLog = calculateFromSalesLog(salesLog);
+            value = fromLog.fp;
           } else {
-            const fromLog = calculateFromSalesLog(salesLog || []);
-            const fromColumn = entry.fp_plus || 0;
-            value = (salesLog && salesLog.length > 0) ? fromLog.fp : fromColumn;
+            value = entry.fp_plus || 0;
           }
         } else if (incentive.metric === 'prmr') {
-          if (isFinalized) {
-            value = entry.prmr || 0;
+          // Always prioritize sales_log if it has entries (regardless of finalization)
+          if (hasSalesLog) {
+            const fromLog = calculateFromSalesLog(salesLog);
+            value = fromLog.prmr;
           } else {
-            const fromLog = calculateFromSalesLog(salesLog || []);
-            const fromColumn = entry.prmr || 0;
-            value = (salesLog && salesLog.length > 0) ? fromLog.prmr : fromColumn;
+            value = entry.prmr || 0;
           }
         } else {
           // transitions, doors_knocked - use column directly

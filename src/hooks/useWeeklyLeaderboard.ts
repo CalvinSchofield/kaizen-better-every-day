@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getLocalDateString } from "@/lib/utils";
 import { getCleanName } from "@/utils/nameUtils";
+import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 
 interface LeaderboardEntry {
   userId: string;
@@ -79,7 +80,7 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
 
       const { data: entries, error: entriesError } = await supabase
         .from("daily_entries")
-        .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
+        .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone, sales_log, is_finalized")
         .eq("is_finalized", true)
         .gte("entry_date", sundayStr)
         .lte("entry_date", todayStr);
@@ -183,6 +184,20 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
           }
         }
         
+        // Always prioritize sales_log if it has entries (regardless of finalization)
+        const salesLog = (entry as any).sales_log as any[];
+        const hasSalesLog = salesLog && salesLog.length > 0;
+        let fp: number;
+        let prmr: number;
+        if (hasSalesLog) {
+          const calculated = calculateFromSalesLog(salesLog);
+          fp = calculated.fp;
+          prmr = calculated.prmr;
+        } else {
+          fp = entry.fp_plus || 0;
+          prmr = entry.prmr || 0;
+        }
+        
         const upgradePrmr = entry.upgrade_prmr || 0;
         const upgradeFp = upgradePrmr > 0 ? upgradePrmr / 85 : 0;
         
@@ -192,8 +207,8 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
           pitches: existing.pitches + (entry.pitches || 0),
           transitions: existing.transitions + (entry.transitions || 0),
           presentations: existing.presentations + (entry.presentations || 0),
-          fp: existing.fp + (entry.fp_plus || 0),
-          prmr: existing.prmr + (entry.prmr || 0),
+          fp: existing.fp + fp,
+          prmr: existing.prmr + prmr,
           upgradePrmr: existing.upgradePrmr + upgradePrmr,
           upgradeFp: existing.upgradeFp + upgradeFp,
           hoursWorked: existing.hoursWorked + entryHours,

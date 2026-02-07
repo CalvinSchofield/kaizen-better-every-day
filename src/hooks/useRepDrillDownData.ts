@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, differenceInDays, parseISO, isAfter, isBefore } from "date-fns";
+import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 
 interface DayActivity {
   date: string;
@@ -95,7 +96,7 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         // Last 14 days of entries
         supabase
           .from('daily_entries')
-          .select('entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, prmr, fp_plus, work_start_time, work_end_time')
+          .select('entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, prmr, fp_plus, work_start_time, work_end_time, sales_log, is_finalized')
           .eq('user_id', userId)
           .gte('entry_date', startDate)
           .lte('entry_date', endDate)
@@ -111,14 +112,14 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         // Total season FP (from preseason start to now)
         supabase
           .from('daily_entries')
-          .select('fp_plus')
+          .select('fp_plus, prmr, sales_log, is_finalized')
           .eq('user_id', userId)
           .gte('entry_date', PRESEASON_START),
         
         // Preseason FP only
         supabase
           .from('daily_entries')
-          .select('fp_plus')
+          .select('fp_plus, prmr, sales_log, is_finalized')
           .eq('user_id', userId)
           .gte('entry_date', PRESEASON_START)
           .lte('entry_date', PRESEASON_END),
@@ -140,13 +141,23 @@ export const useRepDrillDownData = (userId: string | undefined) => {
           .maybeSingle(),
       ]);
 
+      // Helper to calculate FP from entry (prioritize sales_log)
+      const getFpFromEntry = (entry: any): number => {
+        const salesLog = entry.sales_log as any[];
+        const hasSalesLog = salesLog && salesLog.length > 0;
+        if (hasSalesLog) {
+          return calculateFromSalesLog(salesLog).fp;
+        }
+        return entry.fp_plus || 0;
+      };
+      
       // Calculate personal averages from 14-day entries
       const workDays = (entriesResult.data || []).filter(e => (e.doors_knocked || 0) > 0);
       const avgDoorsPerDay = workDays.length > 0 
         ? workDays.reduce((sum, e) => sum + (e.doors_knocked || 0), 0) / workDays.length 
         : 0;
       const avgFPPerDay = workDays.length > 0
-        ? workDays.reduce((sum, e) => sum + (e.fp_plus || 0), 0) / workDays.length
+        ? workDays.reduce((sum, e) => sum + getFpFromEntry(e), 0) / workDays.length
         : 0;
 
       // Process entries with personal comparison
@@ -159,7 +170,19 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         }
         
         const doors = entry.doors_knocked || 0;
-        const fp = entry.fp_plus || 0;
+        // Always prioritize sales_log if it has entries
+        const salesLog = entry.sales_log as any[];
+        const hasSalesLog = salesLog && salesLog.length > 0;
+        let fp: number;
+        let prmr: number;
+        if (hasSalesLog) {
+          const calculated = calculateFromSalesLog(salesLog);
+          fp = calculated.fp;
+          prmr = calculated.prmr;
+        } else {
+          fp = entry.fp_plus || 0;
+          prmr = entry.prmr || 0;
+        }
         
         return {
           date: entry.entry_date,
@@ -170,7 +193,7 @@ export const useRepDrillDownData = (userId: string | undefined) => {
           presentations: entry.presentations || 0,
           closes: entry.closes || 0,
           fp,
-          prmr: entry.prmr || 0,
+          prmr,
           hoursWorked,
           startTime: entry.work_start_time || undefined,
           endTime: entry.work_end_time || undefined,
@@ -190,9 +213,9 @@ export const useRepDrillDownData = (userId: string | undefined) => {
         focusTier: goalsResult.data.focus_tier || null,
       } : null;
 
-      // Calculate total FP
-      const totalSeasonFP = (seasonFPResult.data || []).reduce((sum, e) => sum + (e.fp_plus || 0), 0);
-      const preseasonFP = (preseasonFPResult.data || []).reduce((sum, e) => sum + (e.fp_plus || 0), 0);
+      // Calculate total FP (prioritize sales_log)
+      const totalSeasonFP = (seasonFPResult.data || []).reduce((sum, e) => sum + getFpFromEntry(e), 0);
+      const preseasonFP = (preseasonFPResult.data || []).reduce((sum, e) => sum + getFpFromEntry(e), 0);
 
       // Calculate time-aware goal pace
       const plannedDates = (plannedDaysResult.data || []).map(d => d.planned_date);

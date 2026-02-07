@@ -150,15 +150,15 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
         // First, build a map of user_id to their PRMR for tiebreaker
         const prmrByUser = new Map<string, number>();
         filteredEntries.forEach(entry => {
+          // Always prioritize sales_log if it has entries (regardless of finalization)
+          const salesLog = entry.sales_log as any[];
+          const hasSalesLog = salesLog && salesLog.length > 0;
           let prmrValue: number;
-          if (entry.is_finalized) {
-            prmrValue = Number(entry.prmr) || 0;
-          } else {
-            // Prioritize sales_log if it has entries (supports edits/deletes)
-            const salesLog = entry.sales_log as any[];
+          if (hasSalesLog) {
             const fromLog = calculateFromSalesLog(salesLog);
-            const fromColumns = Number(entry.prmr) || 0;
-            prmrValue = (salesLog && salesLog.length > 0) ? fromLog.prmr : fromColumns;
+            prmrValue = fromLog.prmr;
+          } else {
+            prmrValue = Number(entry.prmr) || 0;
           }
           prmrByUser.set(entry.user_id, prmrValue);
         });
@@ -168,17 +168,15 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             const repInfo = repsMap.get(entry.user_id);
             if (!repInfo) return null;
             
+            // Always prioritize sales_log if it has entries (regardless of finalization)
+            const salesLog = entry.sales_log as any[];
+            const hasSalesLog = salesLog && salesLog.length > 0;
             let value: number;
-            if (entry.is_finalized) {
-              // Finalized: use the saved column value
-              value = Number(entry.fp_plus) || 0;
-            } else {
-              // Unfinalized: prioritize sales_log if it has entries (supports edits/deletes)
-              const salesLog = entry.sales_log as any[];
+            if (hasSalesLog) {
               const fromLog = calculateFromSalesLog(salesLog);
-              const fromColumn = Number(entry.fp_plus) || 0;
-              // Use sales_log calculation if there are sales, otherwise use column
-              value = (salesLog && salesLog.length > 0) ? fromLog.fp : fromColumn;
+              value = fromLog.fp;
+            } else {
+              value = Number(entry.fp_plus) || 0;
             }
             
             if (value === 0) return null;
@@ -212,13 +210,15 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
         // Build FP+ map for tiebreaker
         const fpByUser = new Map<string, number>();
         filteredEntries.forEach(entry => {
+          // Always prioritize sales_log if it has entries
+          const salesLog = entry.sales_log as any[];
+          const hasSalesLog = salesLog && salesLog.length > 0;
           let fpValue: number;
-          if (entry.is_finalized) {
-            fpValue = Number(entry.fp_plus) || 0;
-          } else {
-            const salesLog = entry.sales_log as any[];
+          if (hasSalesLog) {
             const fromLog = calculateFromSalesLog(salesLog);
-            fpValue = (salesLog && salesLog.length > 0) ? fromLog.fp : (Number(entry.fp_plus) || 0);
+            fpValue = fromLog.fp;
+          } else {
+            fpValue = Number(entry.fp_plus) || 0;
           }
           fpByUser.set(entry.user_id, fpValue);
         });
@@ -228,14 +228,15 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             const repInfo = repsMap.get(entry.user_id);
             if (!repInfo) return null;
             
+            // Always prioritize sales_log if it has entries
+            const salesLog = entry.sales_log as any[];
+            const hasSalesLog = salesLog && salesLog.length > 0;
             let value: number;
-            if (entry.is_finalized) {
-              value = Number(entry.prmr) || 0;
-            } else {
-              const salesLog = entry.sales_log as any[];
+            if (hasSalesLog) {
               const fromLog = calculateFromSalesLog(salesLog);
-              const fromColumns = Number(entry.prmr) || 0;
-              value = (salesLog && salesLog.length > 0) ? fromLog.prmr : fromColumns;
+              value = fromLog.prmr;
+            } else {
+              value = Number(entry.prmr) || 0;
             }
             
             if (value === 0) return null;
