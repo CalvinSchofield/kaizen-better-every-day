@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Challenge, ChallengeVisibility } from "@/hooks/useChallenges";
 import { useProposeEdit } from "@/hooks/useChallengeEdits";
+import { useCanAutoApproveEdit } from "@/hooks/useCanAutoApproveEdit";
 import { format, parseISO } from "date-fns";
 import { CalendarIcon, ChevronLeft, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
@@ -26,6 +27,14 @@ export const EditChallengeDrawer = ({ challenge, open, onOpenChange }: EditChall
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   const proposeEditMutation = useProposeEdit();
+
+  // Get participant user IDs for auto-approve check
+  const participantUserIds = useMemo(() => {
+    return (challenge as any).participants?.map((p: any) => p.user_id).filter(Boolean) || [];
+  }, [challenge]);
+
+  // Check if we can auto-approve (leader editing downline)
+  const { data: canAutoApprove = false } = useCanAutoApproveEdit(challenge.id, participantUserIds);
 
   const hasChanges = 
     stakes !== (challenge.stakes || '') || 
@@ -53,11 +62,16 @@ export const EditChallengeDrawer = ({ challenge, open, onOpenChange }: EditChall
     }
 
     try {
-      await proposeEditMutation.mutateAsync({
+      const result = await proposeEditMutation.mutateAsync({
         challengeId: challenge.id,
         changes,
       });
-      toast.success('Edit proposed! Waiting for all participants to approve.');
+      
+      if (result?.autoApproved) {
+        toast.success('Changes applied successfully!');
+      } else {
+        toast.success('Edit proposed! Waiting for all participants to approve.');
+      }
       onOpenChange(false);
     } catch (error) {
       toast.error('Failed to propose edit');
@@ -90,11 +104,23 @@ export const EditChallengeDrawer = ({ challenge, open, onOpenChange }: EditChall
         </DrawerHeader>
 
         <div className="p-4 space-y-6">
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
-            <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
-              ⚠️ All participants must approve changes before they take effect
-            </p>
-          </div>
+          {/* Show warning only if approval is needed */}
+          {!canAutoApprove && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
+              <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                ⚠️ All participants must approve changes before they take effect
+              </p>
+            </div>
+          )}
+          
+          {/* Show success message for leaders editing downline */}
+          {canAutoApprove && (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
+              <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+                ✓ As the leader, your changes will be applied immediately
+              </p>
+            </div>
+          )}
 
           {/* Stakes */}
           <div className="space-y-2">
