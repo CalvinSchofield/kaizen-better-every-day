@@ -1,6 +1,7 @@
 import { InsightsSummaryHero } from './InsightsSummaryHero';
 import { FPCumulativeChart } from '@/components/FPCumulativeChart';
 import { CanceledStatsCard } from '@/components/goals/CanceledStatsCard';
+import { MyActivityCard } from './MyActivityCard';
 import { InsightsData } from '@/hooks/useInsightsData';
 
 interface InsightsOverviewTabProps {
@@ -27,6 +28,9 @@ export const InsightsOverviewTab = ({
         efpModeEnabled={efpModeEnabled}
         dateRange={dateRange}
       />
+
+      {/* My Activity Calendar */}
+      <MyActivityCard />
 
       {/* Cancelled Stats */}
       <CanceledStatsCard />
