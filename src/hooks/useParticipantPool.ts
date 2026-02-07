@@ -180,8 +180,12 @@ export const useParticipantPool = (options: UseParticipantPoolOptions = {}): Use
   // Compute working user IDs
   const workingUserIds = useMemo(() => {
     const working = new Set<string>();
-    plannedWorkDays?.forEach(id => working.add(id));
-    activeEntries?.forEach(id => working.add(id));
+    if (plannedWorkDays instanceof Set) {
+      plannedWorkDays.forEach(id => working.add(id));
+    }
+    if (activeEntries instanceof Set) {
+      activeEntries.forEach(id => working.add(id));
+    }
     return working;
   }, [plannedWorkDays, activeEntries]);
   
