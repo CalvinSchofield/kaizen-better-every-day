@@ -1046,8 +1046,8 @@ export const SaveEntrySheet = ({
         onUpdateSale={handleUpdateLocalSale}
         onDeleteSale={handleDeleteLocalSale}
         showPrmrHelper={showPrmrHelper}
-        crmEnabled={repData?.crm_enabled || false}
-        crmDetailedEnabled={repData?.crm_detailed_enabled || false}
+        crmEnabled={true}
+        crmDetailedEnabled={true}
         counterTimestamps={entry?.counter_timestamps}
       />
 
@@ -1080,8 +1080,8 @@ export const SaveEntrySheet = ({
           setShowSaleDetail(false);
           setSelectedSale(null);
         }}
-        crmEnabled={repData?.crm_enabled || false}
-        crmDetailedEnabled={repData?.crm_detailed_enabled || false}
+        crmEnabled={true}
+        crmDetailedEnabled={true}
       />
 
       {/* Delete Entry Dialog */}

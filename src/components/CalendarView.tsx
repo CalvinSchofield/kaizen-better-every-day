@@ -665,8 +665,8 @@ export const CalendarView = ({
             });
           }
         }}
-        crmEnabled={repData?.crm_enabled || false}
-        crmDetailedEnabled={repData?.crm_detailed_enabled || false}
+        crmEnabled={true}
+        crmDetailedEnabled={true}
       />
     </div>
   );

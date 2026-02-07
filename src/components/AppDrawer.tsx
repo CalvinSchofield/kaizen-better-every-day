@@ -436,8 +436,8 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
               </Link>
             )}
 
-            {/* Customers - Only show when CRM is enabled */}
-            {repData?.crm_enabled && (
+            {/* Customers - Always show (CRM is always enabled) */}
+            {(
               <Link
                 to="/customers"
                 onClick={() => setOpen(false)}
