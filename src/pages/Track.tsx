@@ -1,11 +1,14 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Lock, BarChart3, Loader2 } from "lucide-react";
+import { Lock, BarChart3, Loader2, Calendar } from "lucide-react";
 import { useRepData } from "@/hooks/useRepData";
 import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { useVisualizationPreference } from "@/hooks/useVisualizationPreference";
+import { useEfpMode } from "@/hooks/useEfpMode";
+import { useHeader } from "@/contexts/HeaderContext";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { TimeTrackingBar } from "@/components/TimeTrackingBar";
 import { QTallyGrid } from "@/components/QTallyGrid";
 import { SalesLoggerCard } from "@/components/SalesLoggerCard";
@@ -13,20 +16,20 @@ import { BulkEntryWarning } from "@/components/ui/BulkEntryWarning";
 import { DailyEntry, Sale } from "@/hooks/useDailyEntry";
 import { detectBulkEntry } from "@/utils/bulkEntryDetector";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+import { calculateEfp } from "@/utils/efp";
+import { hapticLight } from "@/utils/haptics";
 import { addDays, subDays, parseISO, differenceInMinutes } from "date-fns";
 import {
   ActivityRingHero,
   ActivityRingLegend,
   FinalizedDayHeader,
   FinalizedStatsGrid,
-  RingGoalProgress,
   ActivityCalendarDrawer,
   HorizontalActivityTimeline,
   GoalResultCard,
   MeVsMeCard,
   CompetitionsCard,
   CoachingCard,
-  SalesRecapCard,
   DayDetailDrawer,
   SalesLogDrawer,
   UnifiedVisualizationToggle,
@@ -93,8 +96,14 @@ const Track = ({
   // Check if user is a pre-blitz rookie - use centralized hook (must be before early returns)
   const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
   
+  // EFP mode for vets
+  const { efpModeEnabled } = useEfpMode();
+  
   // Visualization preference (ring vs timeline)
   const { mode: visualizationMode, toggle: toggleVisualization } = useVisualizationPreference();
+  
+  // Header context for setting right content
+  const { setCustomRightContent } = useHeader();
   
   // Drawer states for finalized view
   const [showCalendar, setShowCalendar] = useState(false);
@@ -106,6 +115,31 @@ const Track = ({
   const [selectedSaleForDrawer, setSelectedSaleForDrawer] = useState<Sale | null>(null);
   const [selectedSegment, setSelectedSegment] = useState<RingSegment | null>(null);
   const [selectedSegmentSale, setSelectedSegmentSale] = useState<Sale | null>(null);
+  
+  // Set header calendar button when finalized
+  useEffect(() => {
+    if (entry.is_finalized) {
+      setCustomRightContent(
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            hapticLight();
+            setShowCalendar(true);
+          }}
+          className="h-10 w-10"
+          aria-label="View activity history"
+        >
+          <Calendar className="h-5 w-5" />
+        </Button>
+      );
+    } else {
+      setCustomRightContent(null);
+    }
+    
+    // Cleanup on unmount
+    return () => setCustomRightContent(null);
+  }, [entry.is_finalized, setCustomRightContent]);
   
   // Bulk entry warning state
   const [showBulkWarning, setShowBulkWarning] = useState(false);
@@ -220,12 +254,11 @@ const Track = ({
             mode={visualizationMode}
             onToggle={toggleVisualization}
             onLegendClick={() => setShowLegend(true)}
-            onCalendarClick={() => setShowCalendar(true)}
           />
         </div>
 
         {/* Activity Visualization - Ring or Timeline based on preference */}
-        <div className="px-4 py-4 flex justify-center">
+        <div className="px-4 py-2 flex justify-center">
           {visualizationMode === 'ring' ? (
             <ActivityRingHero
               entry={entry}
@@ -233,6 +266,8 @@ const Track = ({
               salesLog={salesLog}
               showGoalRing={true}
               size="lg"
+              metricLabel={efpModeEnabled ? 'EFP' : 'FP+'}
+              metricValue={efpModeEnabled ? calculateEfp(prmr) : fp}
               onSegmentClick={(segment, matchedSale) => {
                 setSelectedSegment(segment);
                 setSelectedSegmentSale(matchedSale || null);
@@ -286,18 +321,6 @@ const Track = ({
             onFPClick={() => salesLog.length > 0 && setShowSalesDrawer(true)}
             onPRMRClick={() => salesLog.length > 0 && setShowSalesDrawer(true)}
           />
-
-          {/* Sales Recap Card */}
-          {salesLog.length > 0 && (
-            <SalesRecapCard
-              salesLog={salesLog}
-              onEditSale={onEditSale}
-              onViewAll={() => setShowSalesDrawer(true)}
-            />
-          )}
-
-          {/* Goal progress context */}
-          <RingGoalProgress className="pb-2" />
         </div>
 
         {/* Activity Calendar Drawer */}

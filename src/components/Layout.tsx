@@ -379,6 +379,9 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                   </Button>
                 )}
               </div>
+            ) : location.pathname === "/track" && isEntryFinalized ? (
+              // Show calendar icon for finalized track page - handled via headerRightContent from Track
+              <div className="w-10" />
             ) : (
               <div className="w-10" /> 
             )}
