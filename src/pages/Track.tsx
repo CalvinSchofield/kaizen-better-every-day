@@ -29,6 +29,7 @@ import {
   SalesRecapCard,
   DayDetailDrawer,
   SalesLogDrawer,
+  UnifiedVisualizationToggle,
 } from "@/components/activity-ring";
 import { PreWorkingState } from "@/components/track";
 
@@ -182,10 +183,12 @@ const Track = ({
 
   // Check if entry is finalized - show Activity Ring view instead
   if (entry.is_finalized) {
-    // Calculate FP for goal result card
-    const { fp } = salesLog.length > 0 
+    // Calculate FP and PRMR for goal result card
+    const calculated = salesLog.length > 0 
       ? calculateFromSalesLog(salesLog) 
-      : { fp: entry.fp_plus || 0 };
+      : { fp: entry.fp_plus || 0, prmr: entry.prmr || 0 };
+    const fp = calculated.fp;
+    const prmr = 'prmr' in calculated ? calculated.prmr : (entry.prmr || 0);
 
     return (
       <div className="flex flex-col h-full overflow-y-auto pb-24 relative">
@@ -197,17 +200,22 @@ const Track = ({
           </div>
         )}
         
-        {/* Finalized Day Header with integrated controls */}
+        {/* Finalized Day Header - simplified */}
         <div className="mx-4 mt-4 mb-2">
           <FinalizedDayHeader
             workStart={entry.work_start_time}
             workEnd={entry.work_end_time}
             entryDate={'entry_date' in entry ? entry.entry_date : undefined}
-            showCalendar={true}
-            onCalendarClick={() => setShowCalendar(true)}
+          />
+        </div>
+        
+        {/* Unified Visualization Toggle - outside Day Complete card */}
+        <div className="flex justify-end px-4 mb-2">
+          <UnifiedVisualizationToggle
+            mode={visualizationMode}
+            onToggle={toggleVisualization}
             onLegendClick={() => setShowLegend(true)}
-            visualizationMode={visualizationMode}
-            onToggleVisualization={toggleVisualization}
+            onCalendarClick={() => setShowCalendar(true)}
           />
         </div>
 
@@ -245,11 +253,12 @@ const Track = ({
         {/* Contextual Card Stack */}
         <div className="px-4 space-y-3">
           {/* Goal Result Card - daily goal progress */}
-          <GoalResultCard fpToday={fp} />
+          <GoalResultCard fpToday={fp} prmrToday={prmr} />
 
           {/* Me vs Me Card - historical comparison */}
           <MeVsMeCard
             currentFP={fp}
+            currentPRMR={prmr}
             currentDoors={entry.doors_knocked || 0}
             entryDate={'entry_date' in entry ? entry.entry_date : undefined}
           />

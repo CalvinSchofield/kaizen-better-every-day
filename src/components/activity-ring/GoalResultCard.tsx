@@ -4,17 +4,22 @@ import { Progress } from "@/components/ui/progress";
 import { formatFP } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import { useRepGoals } from "@/hooks/useRepGoals";
+import { useEfpMode } from "@/hooks/useEfpMode";
+import { calculateEfp } from "@/utils/efp";
 
 interface GoalResultCardProps {
   fpToday: number;
+  prmrToday?: number; // For EFP calculation
   className?: string;
 }
 
 export const GoalResultCard = ({
   fpToday,
+  prmrToday = 0,
   className,
 }: GoalResultCardProps) => {
   const { goals } = useRepGoals();
+  const { efpModeEnabled } = useEfpMode();
 
   if (!goals?.setup_complete) return null;
 
@@ -33,9 +38,14 @@ export const GoalResultCard = ({
   const daysWorking = weeksWorking * 5; // Assume 5 days/week
   const dailyGoal = goal / daysWorking;
   
-  const progress = dailyGoal > 0 ? Math.min((fpToday / dailyGoal) * 100, 150) : 0;
-  const goalMet = fpToday >= dailyGoal;
-  const remaining = Math.max(0, dailyGoal - fpToday);
+  // Calculate displayed values based on EFP mode
+  const displayValue = efpModeEnabled ? calculateEfp(prmrToday) : fpToday;
+  const displayGoal = efpModeEnabled ? calculateEfp(dailyGoal * 85) : dailyGoal;
+  const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
+  
+  const progress = displayGoal > 0 ? Math.min((displayValue / displayGoal) * 100, 150) : 0;
+  const goalMet = displayValue >= displayGoal;
+  const remaining = Math.max(0, displayGoal - displayValue);
 
   return (
     <motion.div
@@ -67,9 +77,9 @@ export const GoalResultCard = ({
         
         <div className="text-right">
           <div className="text-lg font-bold tabular-nums">
-            {formatFP(fpToday)} / {formatFP(dailyGoal)}
+            {formatFP(displayValue)} / {formatFP(displayGoal)}
           </div>
-          <div className="text-xs text-muted-foreground">FP+</div>
+          <div className="text-xs text-muted-foreground">{metricLabel}</div>
         </div>
       </div>
 

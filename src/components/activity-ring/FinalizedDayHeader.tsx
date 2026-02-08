@@ -1,21 +1,11 @@
 import { motion } from "framer-motion";
-import { CheckCircle2, Clock, Calendar, Info, Circle, LayoutList } from "lucide-react";
+import { CheckCircle2, Clock } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { Button } from "@/components/ui/button";
-import { hapticLight } from "@/utils/haptics";
-import { cn } from "@/lib/utils";
-import { VisualizationMode } from "@/hooks/useVisualizationPreference";
 
 interface FinalizedDayHeaderProps {
   workStart?: string | null;
   workEnd?: string | null;
   entryDate?: string;
-  // New props for header controls
-  showCalendar?: boolean;
-  onCalendarClick?: () => void;
-  onLegendClick?: () => void;
-  visualizationMode?: VisualizationMode;
-  onToggleVisualization?: () => void;
 }
 
 const formatTime = (isoString: string): string => {
@@ -30,28 +20,8 @@ export const FinalizedDayHeader = ({
   workStart,
   workEnd,
   entryDate,
-  showCalendar = true,
-  onCalendarClick,
-  onLegendClick,
-  visualizationMode = 'ring',
-  onToggleVisualization,
 }: FinalizedDayHeaderProps) => {
   const hasWorkTimes = workStart && workEnd;
-  
-  const handleCalendarClick = () => {
-    hapticLight();
-    onCalendarClick?.();
-  };
-
-  const handleLegendClick = () => {
-    hapticLight();
-    onLegendClick?.();
-  };
-
-  const handleToggleVisualization = () => {
-    hapticLight();
-    onToggleVisualization?.();
-  };
   
   return (
     <motion.div
@@ -60,7 +30,7 @@ export const FinalizedDayHeader = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20">
+      <div className="flex items-center p-3 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20">
         {/* Left side: Status and date */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <motion.div
@@ -91,59 +61,6 @@ export const FinalizedDayHeader = ({
               )}
             </div>
           </div>
-        </div>
-        
-        {/* Right side: Control buttons */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Visualization toggle */}
-          {onToggleVisualization && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleToggleVisualization}
-              className="h-8 w-8"
-              aria-label={visualizationMode === 'ring' ? 'Switch to timeline view' : 'Switch to ring view'}
-            >
-              <motion.div
-                key={visualizationMode}
-                initial={{ opacity: 0, rotate: -90 }}
-                animate={{ opacity: 1, rotate: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                {visualizationMode === 'ring' ? (
-                  <Circle className="w-4 h-4" />
-                ) : (
-                  <LayoutList className="w-4 h-4" />
-                )}
-              </motion.div>
-            </Button>
-          )}
-
-          {/* Legend button */}
-          {onLegendClick && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleLegendClick}
-              className="h-8 w-8"
-              aria-label="Show legend"
-            >
-              <Info className="w-4 h-4" />
-            </Button>
-          )}
-
-          {/* Calendar button */}
-          {showCalendar && onCalendarClick && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleCalendarClick}
-              className="h-8 w-8"
-              aria-label="View activity history"
-            >
-              <Calendar className="w-4 h-4" />
-            </Button>
-          )}
         </div>
       </div>
     </motion.div>
