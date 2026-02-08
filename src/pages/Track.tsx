@@ -13,7 +13,7 @@ import { BulkEntryWarning } from "@/components/ui/BulkEntryWarning";
 import { DailyEntry, Sale } from "@/hooks/useDailyEntry";
 import { detectBulkEntry } from "@/utils/bulkEntryDetector";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
-import { addDays, subDays } from "date-fns";
+import { addDays, subDays, parseISO, differenceInMinutes } from "date-fns";
 import {
   ActivityRingHero,
   ActivityRingLegend,
@@ -30,7 +30,9 @@ import {
   DayDetailDrawer,
   SalesLogDrawer,
   UnifiedVisualizationToggle,
+  SegmentDetailDrawer,
 } from "@/components/activity-ring";
+import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { PreWorkingState } from "@/components/track";
 
 interface TrackProps {
@@ -99,8 +101,11 @@ const Track = ({
   const [showLegend, setShowLegend] = useState(false);
   const [showSalesDrawer, setShowSalesDrawer] = useState(false);
   const [showDayDetail, setShowDayDetail] = useState(false);
+  const [showSegmentDetail, setShowSegmentDetail] = useState(false);
   const [selectedHistoricalDate, setSelectedHistoricalDate] = useState(new Date());
   const [selectedSaleForDrawer, setSelectedSaleForDrawer] = useState<Sale | null>(null);
+  const [selectedSegment, setSelectedSegment] = useState<RingSegment | null>(null);
+  const [selectedSegmentSale, setSelectedSegmentSale] = useState<Sale | null>(null);
   
   // Bulk entry warning state
   const [showBulkWarning, setShowBulkWarning] = useState(false);
@@ -229,10 +234,9 @@ const Track = ({
               showGoalRing={true}
               size="lg"
               onSegmentClick={(segment, matchedSale) => {
-                if (segment.type === 'sale' && matchedSale) {
-                  setSelectedSaleForDrawer(matchedSale);
-                  setShowSalesDrawer(true);
-                }
+                setSelectedSegment(segment);
+                setSelectedSegmentSale(matchedSale || null);
+                setShowSegmentDetail(true);
               }}
             />
           ) : (
@@ -241,10 +245,9 @@ const Track = ({
               counterTimestamps={counterTimestamps}
               salesLog={salesLog}
               onSegmentClick={(segment, matchedSale) => {
-                if (segment.type === 'sale' && matchedSale) {
-                  setSelectedSaleForDrawer(matchedSale);
-                  setShowSalesDrawer(true);
-                }
+                setSelectedSegment(segment);
+                setSelectedSegmentSale(matchedSale || null);
+                setShowSegmentDetail(true);
               }}
             />
           )}
@@ -338,6 +341,21 @@ const Track = ({
           open={showSalesDrawer}
           onOpenChange={setShowSalesDrawer}
           salesLog={salesLog}
+        />
+
+        {/* Segment Detail Drawer - for clicking ring/timeline segments */}
+        <SegmentDetailDrawer
+          open={showSegmentDetail}
+          onOpenChange={setShowSegmentDetail}
+          segment={selectedSegment}
+          sale={selectedSegmentSale}
+          workStart={entry.work_start_time ? parseISO(entry.work_start_time) : null}
+          workEnd={entry.work_end_time ? parseISO(entry.work_end_time) : null}
+          totalWorkMinutes={
+            entry.work_start_time && entry.work_end_time 
+              ? differenceInMinutes(parseISO(entry.work_end_time), parseISO(entry.work_start_time))
+              : 0
+          }
         />
       </div>
     );

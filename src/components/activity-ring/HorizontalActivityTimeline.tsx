@@ -347,7 +347,8 @@ export const HorizontalActivityTimeline = ({
           {segments.map((segment, idx) => {
             const widthPercent = ((segment.endAngle - segment.startAngle) / 360) * 100;
             const durationMinutes = ((segment.endAngle - segment.startAngle) / 360) * totalWorkMinutes;
-            const isClickable = segment.type === 'sale' || segment.type === 'presentation' || segment.type === 'break' || segment.type === 'gap';
+            // All segments are clickable to show details
+            const isClickable = true;
             const matchedSale = segment.type === 'sale' ? findMatchedSale(segment) : undefined;
             const showLabel = durationMinutes >= 15 && (segment.type === 'gap' || segment.type === 'break' || segment.type === 'presentation');
             
@@ -361,13 +362,13 @@ export const HorizontalActivityTimeline = ({
                   "h-full relative flex items-center justify-center overflow-hidden",
                   SEGMENT_COLORS[segment.type] || 'bg-muted',
                   isBreak && "bg-transparent border-2 border-dashed border-orange-500",
-                  isClickable && "cursor-pointer hover:opacity-80 active:scale-y-90 transition-transform"
+                  "cursor-pointer hover:opacity-80 active:scale-y-90 transition-transform"
                 )}
                 style={{ width: `${Math.max(widthPercent, 0.3)}%` }}
                 initial={{ scaleX: 0 }}
                 animate={{ scaleX: 1 }}
                 transition={{ duration: 0.4, delay: idx * 0.02 }}
-                onClick={() => isClickable && onSegmentClick?.(segment, matchedSale)}
+                onClick={() => onSegmentClick?.(segment, matchedSale)}
               >
                 {/* Show duration label for significant segments */}
                 {showLabel && widthPercent > 8 && (
