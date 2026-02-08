@@ -1,26 +1,34 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Lock, BarChart3, Calendar, Loader2 } from "lucide-react";
+import { Lock, BarChart3, Loader2 } from "lucide-react";
 import { useRepData } from "@/hooks/useRepData";
 import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import { useVisualizationPreference } from "@/hooks/useVisualizationPreference";
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { TimeTrackingBar } from "@/components/TimeTrackingBar";
 import { QTallyGrid } from "@/components/QTallyGrid";
 import { SalesLoggerCard } from "@/components/SalesLoggerCard";
 import { BulkEntryWarning } from "@/components/ui/BulkEntryWarning";
 import { DailyEntry, Sale } from "@/hooks/useDailyEntry";
 import { detectBulkEntry } from "@/utils/bulkEntryDetector";
+import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+import { addDays, subDays } from "date-fns";
 import {
   ActivityRingHero,
+  ActivityRingLegend,
   FinalizedDayHeader,
   FinalizedStatsGrid,
   RingGoalProgress,
   ActivityCalendarDrawer,
-  BulkEntryCoaching,
-  SelfTimingInsights,
+  HorizontalActivityTimeline,
+  GoalResultCard,
+  MeVsMeCard,
+  CompetitionsCard,
+  CoachingCard,
+  SalesRecapCard,
+  DayDetailDrawer,
+  SalesLogDrawer,
 } from "@/components/activity-ring";
 import { PreWorkingState } from "@/components/track";
 
@@ -82,8 +90,16 @@ const Track = ({
   // Check if user is a pre-blitz rookie - use centralized hook (must be before early returns)
   const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
   
-  // Calendar drawer state for finalized view
+  // Visualization preference (ring vs timeline)
+  const { mode: visualizationMode, toggle: toggleVisualization } = useVisualizationPreference();
+  
+  // Drawer states for finalized view
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
+  const [showSalesDrawer, setShowSalesDrawer] = useState(false);
+  const [showDayDetail, setShowDayDetail] = useState(false);
+  const [selectedHistoricalDate, setSelectedHistoricalDate] = useState(new Date());
+  const [selectedSaleForDrawer, setSelectedSaleForDrawer] = useState<Sale | null>(null);
   
   // Bulk entry warning state
   const [showBulkWarning, setShowBulkWarning] = useState(false);
@@ -166,6 +182,11 @@ const Track = ({
 
   // Check if entry is finalized - show Activity Ring view instead
   if (entry.is_finalized) {
+    // Calculate FP for goal result card
+    const { fp } = salesLog.length > 0 
+      ? calculateFromSalesLog(salesLog) 
+      : { fp: entry.fp_plus || 0 };
+
     return (
       <div className="flex flex-col h-full overflow-y-auto pb-24 relative">
         {/* Subtle refreshing indicator for finalized view */}
@@ -175,83 +196,97 @@ const Track = ({
             <span className="text-xs text-muted-foreground">Syncing data...</span>
           </div>
         )}
-        {/* Finalized Day Header with Calendar Access */}
-        <div className="flex items-center justify-between mx-4 mt-4 mb-2">
-          <div className="flex-1">
-            <FinalizedDayHeader
-              workStart={entry.work_start_time}
-              workEnd={entry.work_end_time}
-              entryDate={'entry_date' in entry ? entry.entry_date : undefined}
+        
+        {/* Finalized Day Header with integrated controls */}
+        <div className="mx-4 mt-4 mb-2">
+          <FinalizedDayHeader
+            workStart={entry.work_start_time}
+            workEnd={entry.work_end_time}
+            entryDate={'entry_date' in entry ? entry.entry_date : undefined}
+            showCalendar={true}
+            onCalendarClick={() => setShowCalendar(true)}
+            onLegendClick={() => setShowLegend(true)}
+            visualizationMode={visualizationMode}
+            onToggleVisualization={toggleVisualization}
+          />
+        </div>
+
+        {/* Activity Visualization - Ring or Timeline based on preference */}
+        <div className="px-4 py-4 flex justify-center">
+          {visualizationMode === 'ring' ? (
+            <ActivityRingHero
+              entry={entry}
+              counterTimestamps={counterTimestamps}
+              salesLog={salesLog}
+              showGoalRing={true}
+              size="lg"
+              onSegmentClick={(segment, matchedSale) => {
+                if (segment.type === 'sale' && matchedSale) {
+                  setSelectedSaleForDrawer(matchedSale);
+                  setShowSalesDrawer(true);
+                }
+              }}
             />
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowCalendar(true)}
-            className="h-10 w-10 rounded-full bg-muted/50 hover:bg-muted ml-2 flex-shrink-0"
-          >
-            <Calendar className="h-5 w-5 text-muted-foreground" />
-          </Button>
+          ) : (
+            <HorizontalActivityTimeline
+              entry={entry}
+              counterTimestamps={counterTimestamps}
+              salesLog={salesLog}
+              onSegmentClick={(segment, matchedSale) => {
+                if (segment.type === 'sale' && matchedSale) {
+                  setSelectedSaleForDrawer(matchedSale);
+                  setShowSalesDrawer(true);
+                }
+              }}
+            />
+          )}
         </div>
 
-        {/* Activity Ring Hero - replaces QTallyGrid */}
-        <div className="px-4 py-6 flex justify-center">
-          <ActivityRingHero
-            entry={entry}
+        {/* Contextual Card Stack */}
+        <div className="px-4 space-y-3">
+          {/* Goal Result Card - daily goal progress */}
+          <GoalResultCard fpToday={fp} />
+
+          {/* Me vs Me Card - historical comparison */}
+          <MeVsMeCard
+            currentFP={fp}
+            currentDoors={entry.doors_knocked || 0}
+            entryDate={'entry_date' in entry ? entry.entry_date : undefined}
+          />
+
+          {/* Active Competitions */}
+          <CompetitionsCard />
+
+          {/* Coaching Insights - tips for tomorrow */}
+          <CoachingCard
+            workStartTime={entry.work_start_time}
+            workEndTime={entry.work_end_time}
+            breakPeriods={entry.break_periods}
             counterTimestamps={counterTimestamps}
+            dayOfWeek={new Date().getDay()}
+          />
+
+          {/* Stats Grid */}
+          <FinalizedStatsGrid
+            entry={entry}
             salesLog={salesLog}
-            showGoalRing={true}
-            size="lg"
+            onClosesClick={() => salesLog.length > 0 && setShowSalesDrawer(true)}
+            onFPClick={() => salesLog.length > 0 && setShowSalesDrawer(true)}
+            onPRMRClick={() => salesLog.length > 0 && setShowSalesDrawer(true)}
           />
-        </div>
 
-        {/* Self Timing Insights - encouraging tips for tomorrow */}
-        <SelfTimingInsights
-          workStartTime={entry.work_start_time}
-          workEndTime={entry.work_end_time}
-          breakMinutes={entry.break_periods?.reduce((acc, bp) => {
-            if (bp.start && bp.end) {
-              const start = new Date(bp.start).getTime();
-              const end = new Date(bp.end).getTime();
-              return acc + Math.max(0, (end - start) / 60000);
-            }
-            return acc;
-          }, 0) || 0}
-          dayOfWeek={new Date().getDay()}
-          className="mx-4 mb-4"
-        />
-
-        {/* Bulk Entry Coaching for Reps - simple, money-focused */}
-        {bulkEntryStats.bulkEntryDetected && (
-          <BulkEntryCoaching
-            batchedEventsPercent={bulkEntryStats.batchedEventsPercent}
-            largestBatch={bulkEntryStats.largestBatch}
-            className="mx-4 mb-4"
-          />
-        )}
-
-        {/* Stats summary grid */}
-        <FinalizedStatsGrid
-          entry={entry}
-          salesLog={salesLog}
-          className="mb-4"
-        />
-
-        {/* Goal progress context */}
-        <RingGoalProgress
-          className="mb-4"
-        />
-
-        {/* Sales Logger Card - Show when enabled and has sales */}
-        {salesLoggerEnabled && salesLog.length > 0 && onEditSale && onDeleteSale && (
-          <div className="px-4 pb-4">
-            <SalesLoggerCard
+          {/* Sales Recap Card */}
+          {salesLog.length > 0 && (
+            <SalesRecapCard
               salesLog={salesLog}
               onEditSale={onEditSale}
-              onDeleteSale={onDeleteSale}
+              onViewAll={() => setShowSalesDrawer(true)}
             />
-          </div>
-        )}
+          )}
+
+          {/* Goal progress context */}
+          <RingGoalProgress className="pb-2" />
+        </div>
 
         {/* Activity Calendar Drawer */}
         {userId && (
@@ -259,13 +294,42 @@ const Track = ({
             open={showCalendar}
             onOpenChange={setShowCalendar}
             userId={userId}
-            selectedDate={new Date()}
+            selectedDate={selectedHistoricalDate}
             onSelectDate={(date) => {
-              // For now, just close - in future could navigate to that day's details
+              setSelectedHistoricalDate(date);
+              setShowDayDetail(true);
               setShowCalendar(false);
             }}
           />
         )}
+
+        {/* Day Detail Drawer for historical dates */}
+        {userId && (
+          <DayDetailDrawer
+            open={showDayDetail}
+            onOpenChange={setShowDayDetail}
+            selectedDate={selectedHistoricalDate}
+            onNavigateDay={(direction) => {
+              setSelectedHistoricalDate(prev => 
+                direction === 'prev' ? subDays(prev, 1) : addDays(prev, 1)
+              );
+            }}
+            userId={userId}
+          />
+        )}
+
+        {/* Activity Ring Legend Drawer */}
+        <ActivityRingLegend
+          open={showLegend}
+          onOpenChange={setShowLegend}
+        />
+
+        {/* Sales Log Drawer */}
+        <SalesLogDrawer
+          open={showSalesDrawer}
+          onOpenChange={setShowSalesDrawer}
+          salesLog={salesLog}
+        />
       </div>
     );
   }

@@ -173,7 +173,7 @@ export const ActivityCalendarDrawer = ({
             </div>
             <div className="flex items-center gap-1.5">
               <div className="h-3 w-3 rounded-full bg-warning flex items-center justify-center">
-                <span className="text-[8px] text-warning-foreground">⭐</span>
+                <span className="text-[8px]">💰</span>
               </div>
               <span>Sale Day</span>
             </div>

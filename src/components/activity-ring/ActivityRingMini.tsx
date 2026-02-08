@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { Star } from "lucide-react";
 
 interface ActivityRingMiniProps {
   doors: number;
@@ -73,14 +72,14 @@ export const ActivityRingMini = ({
         )}
       </svg>
       
-      {/* Sale indicator star */}
+      {/* Sale indicator - money bag emoji */}
       {hasSale && (
-        <Star
-          className={cn(
-            "absolute text-amber-400 fill-amber-400",
-            size === "sm" ? "h-2.5 w-2.5" : "h-3 w-3"
-          )}
-        />
+        <span className={cn(
+          "absolute",
+          size === "sm" ? "text-[8px]" : "text-[10px]"
+        )}>
+          💰
+        </span>
       )}
       
       {/* Selected indicator */}

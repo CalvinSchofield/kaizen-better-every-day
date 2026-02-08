@@ -17,3 +17,11 @@ export { SalesLogDrawer } from './SalesLogDrawer';
 export { BulkEntryCoaching } from './BulkEntryCoaching';
 export { SelfTimingInsights } from './SelfTimingInsights';
 export { HorizontalActivityTimeline } from './HorizontalActivityTimeline';
+// New contextual card components
+export { VisualizationToggle } from './VisualizationToggle';
+export { GoalResultCard } from './GoalResultCard';
+export { MeVsMeCard } from './MeVsMeCard';
+export { CompetitionsCard } from './CompetitionsCard';
+export { CoachingCard } from './CoachingCard';
+export { SalesRecapCard } from './SalesRecapCard';
+export { DayDetailDrawer } from './DayDetailDrawer';
