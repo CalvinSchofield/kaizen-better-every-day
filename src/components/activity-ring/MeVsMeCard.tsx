@@ -2,86 +2,149 @@ import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, Calendar, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMeVsMe } from "@/hooks/useMeVsMe";
+import { useEfpMode } from "@/hooks/useEfpMode";
+import { calculateEfp } from "@/utils/efp";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfWeek, endOfWeek, parseISO } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, parseISO, startOfYear } from "date-fns";
 
 interface MeVsMeCardProps {
   currentFP: number;
+  currentPRMR?: number;
   currentDoors: number;
   entryDate?: string;
   className?: string;
 }
 
+interface ComparisonRow {
+  label: string;
+  thisYear: number;
+  lastYear: number;
+  diff: number;
+}
+
 export const MeVsMeCard = ({
   currentFP,
+  currentPRMR = 0,
   currentDoors,
   entryDate,
   className,
 }: MeVsMeCardProps) => {
   const { isEnabled, dataSummary } = useMeVsMe();
+  const { efpModeEnabled } = useEfpMode();
 
-  // Fetch historical comparison data
+  // Fetch comprehensive historical comparison data
   const { data: comparison } = useQuery({
-    queryKey: ['historical-comparison', entryDate],
+    queryKey: ['historical-comparison-full', entryDate, efpModeEnabled],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
       const today = entryDate ? parseISO(entryDate) : new Date();
-      const dayOfWeek = today.getDay();
       
-      // Get same day of week from last year
+      // Get same day last year
       const lastYearDate = new Date(today);
       lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
       const lastYearDateStr = format(lastYearDate, 'yyyy-MM-dd');
 
-      // Get week-to-date stats for this year and last year
+      // Date ranges for this year
       const weekStart = startOfWeek(today, { weekStartsOn: 0 });
-      const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
+      const monthStart = startOfMonth(today);
+      // YTD starts from season start (Sept 28, 2025 for 2026 season) - simplified to Jan 1 for now
+      const yearStart = new Date(today.getFullYear(), 0, 1);
+      const todayStr = format(today, 'yyyy-MM-dd');
       
-      // Last year same week
+      // Last year date ranges
       const lastYearWeekStart = new Date(weekStart);
       lastYearWeekStart.setFullYear(lastYearWeekStart.getFullYear() - 1);
-      const lastYearWeekEnd = new Date(weekEnd);
-      lastYearWeekEnd.setFullYear(lastYearWeekEnd.getFullYear() - 1);
+      const lastYearMonthStart = new Date(monthStart);
+      lastYearMonthStart.setFullYear(lastYearMonthStart.getFullYear() - 1);
+      const lastYearYearStart = new Date(yearStart);
+      lastYearYearStart.setFullYear(lastYearYearStart.getFullYear() - 1);
+      
+      // Calculate the "same point in year" for YTD comparison
+      const dayOfYear = Math.floor((today.getTime() - yearStart.getTime()) / (1000 * 60 * 60 * 24));
+      const lastYearSamePoint = new Date(lastYearYearStart);
+      lastYearSamePoint.setDate(lastYearSamePoint.getDate() + dayOfYear);
 
       // Query historical entries
-      const { data: sameDay } = await supabase
-        .from('historical_entries')
-        .select('fp_plus, doors_knocked')
-        .eq('user_id', user.id)
-        .eq('original_date', lastYearDateStr)
-        .maybeSingle();
+      const [sameDayResult, lastYearWTDResult, lastYearMTDResult, lastYearYTDResult, thisYearWTDResult, thisYearMTDResult, thisYearYTDResult] = await Promise.all([
+        // Same day last year
+        supabase
+          .from('historical_entries')
+          .select('fp_plus, prmr, doors_knocked')
+          .eq('user_id', user.id)
+          .eq('original_date', lastYearDateStr)
+          .maybeSingle(),
+        // Last year WTD
+        supabase
+          .from('historical_entries')
+          .select('fp_plus, prmr, doors_knocked')
+          .eq('user_id', user.id)
+          .gte('original_date', format(lastYearWeekStart, 'yyyy-MM-dd'))
+          .lte('original_date', format(new Date(lastYearWeekStart.getTime() + (today.getTime() - weekStart.getTime())), 'yyyy-MM-dd')),
+        // Last year MTD
+        supabase
+          .from('historical_entries')
+          .select('fp_plus, prmr, doors_knocked')
+          .eq('user_id', user.id)
+          .gte('original_date', format(lastYearMonthStart, 'yyyy-MM-dd'))
+          .lte('original_date', format(new Date(lastYearMonthStart.getTime() + (today.getTime() - monthStart.getTime())), 'yyyy-MM-dd')),
+        // Last year YTD
+        supabase
+          .from('historical_entries')
+          .select('fp_plus, prmr, doors_knocked')
+          .eq('user_id', user.id)
+          .gte('original_date', format(lastYearYearStart, 'yyyy-MM-dd'))
+          .lte('original_date', format(lastYearSamePoint, 'yyyy-MM-dd')),
+        // This year WTD
+        supabase
+          .from('daily_entries')
+          .select('fp_plus, prmr, doors_knocked, sales_log')
+          .eq('user_id', user.id)
+          .gte('entry_date', format(weekStart, 'yyyy-MM-dd'))
+          .lte('entry_date', todayStr),
+        // This year MTD
+        supabase
+          .from('daily_entries')
+          .select('fp_plus, prmr, doors_knocked, sales_log')
+          .eq('user_id', user.id)
+          .gte('entry_date', format(monthStart, 'yyyy-MM-dd'))
+          .lte('entry_date', todayStr),
+        // This year YTD
+        supabase
+          .from('daily_entries')
+          .select('fp_plus, prmr, doors_knocked, sales_log')
+          .eq('user_id', user.id)
+          .gte('entry_date', format(yearStart, 'yyyy-MM-dd'))
+          .lte('entry_date', todayStr),
+      ]);
 
-      const { data: lastYearWeek } = await supabase
-        .from('historical_entries')
-        .select('fp_plus, doors_knocked')
-        .eq('user_id', user.id)
-        .gte('original_date', format(lastYearWeekStart, 'yyyy-MM-dd'))
-        .lte('original_date', format(lastYearWeekEnd, 'yyyy-MM-dd'));
+      // Helper to sum entries
+      const sumEntries = (entries: any[] | null, field: 'fp_plus' | 'prmr') => {
+        if (!entries) return 0;
+        return entries.reduce((sum, e) => sum + (e[field] || 0), 0);
+      };
 
-      // Get current year week-to-date from daily_entries
-      const { data: thisYearWeek } = await supabase
-        .from('daily_entries')
-        .select('fp_plus, doors_knocked, sales_log')
-        .eq('user_id', user.id)
-        .gte('entry_date', format(weekStart, 'yyyy-MM-dd'))
-        .lte('entry_date', format(weekEnd, 'yyyy-MM-dd'));
-
-      // Calculate week totals
-      const lastYearWeekFP = lastYearWeek?.reduce((sum, e) => sum + (e.fp_plus || 0), 0) || 0;
-      const thisYearWeekFP = thisYearWeek?.reduce((sum, e) => sum + (e.fp_plus || 0), 0) || 0;
-
+      const lastYearSameDay = sameDayResult.data;
+      
       return {
-        sameDayLastYear: sameDay ? {
-          fp: sameDay.fp_plus || 0,
-          doors: sameDay.doors_knocked || 0,
+        sameDayLastYear: lastYearSameDay ? {
+          fp: lastYearSameDay.fp_plus || 0,
+          prmr: lastYearSameDay.prmr || 0,
+          doors: lastYearSameDay.doors_knocked || 0,
         } : null,
         weekToDate: {
-          lastYear: lastYearWeekFP,
-          thisYear: thisYearWeekFP,
-          diff: thisYearWeekFP - lastYearWeekFP,
+          thisYear: { fp: sumEntries(thisYearWTDResult.data, 'fp_plus'), prmr: sumEntries(thisYearWTDResult.data, 'prmr') },
+          lastYear: { fp: sumEntries(lastYearWTDResult.data, 'fp_plus'), prmr: sumEntries(lastYearWTDResult.data, 'prmr') },
+        },
+        monthToDate: {
+          thisYear: { fp: sumEntries(thisYearMTDResult.data, 'fp_plus'), prmr: sumEntries(thisYearMTDResult.data, 'prmr') },
+          lastYear: { fp: sumEntries(lastYearMTDResult.data, 'fp_plus'), prmr: sumEntries(lastYearMTDResult.data, 'prmr') },
+        },
+        yearToDate: {
+          thisYear: { fp: sumEntries(thisYearYTDResult.data, 'fp_plus'), prmr: sumEntries(thisYearYTDResult.data, 'prmr') },
+          lastYear: { fp: sumEntries(lastYearYTDResult.data, 'fp_plus'), prmr: sumEntries(lastYearYTDResult.data, 'prmr') },
         },
       };
     },
@@ -91,12 +154,63 @@ export const MeVsMeCard = ({
 
   if (!isEnabled || !dataSummary || !comparison) return null;
 
-  const hasComparison = comparison.sameDayLastYear || comparison.weekToDate.lastYear > 0;
-  if (!hasComparison) return null;
+  // Build comparison rows
+  const rows: ComparisonRow[] = [];
+  const getValue = (data: { fp: number; prmr: number }) => 
+    efpModeEnabled ? calculateEfp(data.prmr) : data.fp;
 
-  const weekDiff = comparison.weekToDate.diff;
-  const isAhead = weekDiff > 0;
-  const isBehind = weekDiff < 0;
+  // Day vs Day (same day last year)
+  if (comparison.sameDayLastYear) {
+    const thisYearValue = efpModeEnabled ? calculateEfp(currentPRMR) : currentFP;
+    const lastYearValue = getValue(comparison.sameDayLastYear);
+    rows.push({
+      label: 'Day vs. Day',
+      thisYear: thisYearValue,
+      lastYear: lastYearValue,
+      diff: thisYearValue - lastYearValue,
+    });
+  }
+
+  // WTD vs WTD
+  if (comparison.weekToDate.lastYear.fp > 0 || comparison.weekToDate.lastYear.prmr > 0) {
+    const thisYearValue = getValue(comparison.weekToDate.thisYear);
+    const lastYearValue = getValue(comparison.weekToDate.lastYear);
+    rows.push({
+      label: 'WTD vs. WTD',
+      thisYear: thisYearValue,
+      lastYear: lastYearValue,
+      diff: thisYearValue - lastYearValue,
+    });
+  }
+
+  // MTD vs MTD
+  if (comparison.monthToDate.lastYear.fp > 0 || comparison.monthToDate.lastYear.prmr > 0) {
+    const thisYearValue = getValue(comparison.monthToDate.thisYear);
+    const lastYearValue = getValue(comparison.monthToDate.lastYear);
+    rows.push({
+      label: 'MTD vs. MTD',
+      thisYear: thisYearValue,
+      lastYear: lastYearValue,
+      diff: thisYearValue - lastYearValue,
+    });
+  }
+
+  // YTD vs YTD
+  if (comparison.yearToDate.lastYear.fp > 0 || comparison.yearToDate.lastYear.prmr > 0) {
+    const thisYearValue = getValue(comparison.yearToDate.thisYear);
+    const lastYearValue = getValue(comparison.yearToDate.lastYear);
+    rows.push({
+      label: 'YTD vs. YTD',
+      thisYear: thisYearValue,
+      lastYear: lastYearValue,
+      diff: thisYearValue - lastYearValue,
+    });
+  }
+
+  if (rows.length === 0) return null;
+
+  const metricLabel = efpModeEnabled ? 'EFP' : 'FP';
+  const overallAhead = rows.filter(r => r.diff > 0).length > rows.length / 2;
 
   return (
     <motion.div
@@ -113,47 +227,39 @@ export const MeVsMeCard = ({
         <span className="font-semibold text-foreground">Me vs. Me</span>
       </div>
 
-      <div className="space-y-3">
-        {/* Week to date comparison */}
-        {comparison.weekToDate.lastYear > 0 && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">This week vs. last year</span>
-            <div className={cn(
-              "flex items-center gap-1 text-sm font-semibold",
-              isAhead ? "text-green-500" : isBehind ? "text-red-500" : "text-muted-foreground"
-            )}>
-              {isAhead ? (
-                <TrendingUp className="w-4 h-4" />
-              ) : isBehind ? (
-                <TrendingDown className="w-4 h-4" />
-              ) : (
-                <Minus className="w-4 h-4" />
-              )}
-              <span>
-                {isAhead ? '+' : ''}{weekDiff.toFixed(1)} FP
-              </span>
+      <div className="space-y-2">
+        {rows.map((row) => {
+          const isAhead = row.diff > 0;
+          const isBehind = row.diff < 0;
+          
+          return (
+            <div key={row.label} className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">{row.label}</span>
+              <div className={cn(
+                "flex items-center gap-1 text-sm font-semibold",
+                isAhead ? "text-green-500" : isBehind ? "text-red-500" : "text-muted-foreground"
+              )}>
+                {isAhead ? (
+                  <TrendingUp className="w-3 h-3" />
+                ) : isBehind ? (
+                  <TrendingDown className="w-3 h-3" />
+                ) : (
+                  <Minus className="w-3 h-3" />
+                )}
+                <span>
+                  {isAhead ? '+' : ''}{row.diff.toFixed(1)} {metricLabel}
+                </span>
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Same day last year */}
-        {comparison.sameDayLastYear && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Same day last year</span>
-            <div className="text-sm font-medium tabular-nums">
-              {comparison.sameDayLastYear.fp.toFixed(1)} FP • {comparison.sameDayLastYear.doors} doors
-            </div>
-          </div>
-        )}
+          );
+        })}
 
         {/* Encouragement message */}
         <div className="pt-2 border-t border-border/30">
           <p className="text-xs text-muted-foreground italic">
-            {isAhead 
+            {overallAhead 
               ? "You're beating your 2025 self! Keep the momentum 💪"
-              : isBehind
-              ? "Time to step it up! You've got this 🔥"
-              : "On pace with last year - let's make this year better!"}
+              : "Time to step it up! You've got this 🔥"}
           </p>
         </div>
       </div>

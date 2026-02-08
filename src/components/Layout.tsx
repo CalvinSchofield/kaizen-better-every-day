@@ -356,7 +356,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
               customRightContent
             ) : headerRightContent ? (
               headerRightContent
-            ) : location.pathname === "/track" && onSave && hasWorkStarted ? (
+            ) : location.pathname === "/track" && onSave && hasWorkStarted && !isEntryFinalized ? (
               <div className="flex items-center gap-2">
                 {syncIndicator}
                 <Button
@@ -367,17 +367,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                 >
                   <Save className="h-5 w-5" />
                 </Button>
-                {isEntryFinalized && onViewRecap ? (
-                  // After finalization, show recap button instead of reset
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onViewRecap}
-                    className="h-10 w-10"
-                  >
-                    <TrendingUp className="h-5 w-5" />
-                  </Button>
-                ) : onReset ? (
+                {onReset && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -387,7 +377,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                   >
                     <RotateCcw className="h-5 w-5" />
                   </Button>
-                ) : null}
+                )}
               </div>
             ) : (
               <div className="w-10" /> 
