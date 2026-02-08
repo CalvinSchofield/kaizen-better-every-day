@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Circle, LayoutList, Info, Calendar } from "lucide-react";
+import { Circle, LayoutList, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { hapticLight } from "@/utils/haptics";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,6 @@ interface UnifiedVisualizationToggleProps {
   mode: VisualizationMode;
   onToggle: () => void;
   onLegendClick?: () => void;
-  onCalendarClick?: () => void;
   showLive?: boolean;
   className?: string;
 }
@@ -17,13 +16,13 @@ interface UnifiedVisualizationToggleProps {
 /**
  * Unified visualization toggle that matches the Reports view style.
  * Shows: [LIVE indicator] [Ring/Line toggle] [Legend button]
+ * Calendar button is now in the header for Track page.
  * Used across Track (finalized), Reports drill-down, etc.
  */
 export const UnifiedVisualizationToggle = ({
   mode,
   onToggle,
   onLegendClick,
-  onCalendarClick,
   showLive = false,
   className,
 }: UnifiedVisualizationToggleProps) => {
@@ -35,11 +34,6 @@ export const UnifiedVisualizationToggle = ({
   const handleLegendClick = () => {
     hapticLight();
     onLegendClick?.();
-  };
-
-  const handleCalendarClick = () => {
-    hapticLight();
-    onCalendarClick?.();
   };
 
   return (
@@ -90,19 +84,6 @@ export const UnifiedVisualizationToggle = ({
           aria-label="Show legend"
         >
           <Info className="w-4 h-4" />
-        </Button>
-      )}
-
-      {/* Calendar button */}
-      {onCalendarClick && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleCalendarClick}
-          className="h-8 w-8"
-          aria-label="View activity history"
-        >
-          <Calendar className="w-4 h-4" />
         </Button>
       )}
     </div>

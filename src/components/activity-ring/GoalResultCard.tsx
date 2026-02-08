@@ -6,6 +6,9 @@ import { cn } from "@/lib/utils";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { calculateEfp } from "@/utils/efp";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 
 interface GoalResultCardProps {
   fpToday: number;
@@ -20,6 +23,24 @@ export const GoalResultCard = ({
 }: GoalResultCardProps) => {
   const { goals } = useRepGoals();
   const { efpModeEnabled } = useEfpMode();
+  const { userId } = useCurrentUserId();
+
+  // Get planned work days count for accurate daily goal
+  const { data: plannedDays } = useQuery({
+    queryKey: ['planned-work-days-count', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { count, error } = await supabase
+        .from('planned_work_days')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
 
   if (!goals?.setup_complete) return null;
 
@@ -33,14 +54,22 @@ export const GoalResultCard = ({
 
   const { goal, label } = goalMap[focusTier as keyof typeof goalMap] || goalMap.willDo;
   
-  // Calculate daily goal from seasonal goal and weeks working
+  // Calculate daily goal using planned knocking days if available, otherwise fallback
   const weeksWorking = goals.weeks_working || 14;
-  const daysWorking = weeksWorking * 5; // Assume 5 days/week
-  const dailyGoal = goal / daysWorking;
+  const fallbackDays = weeksWorking * 5; // Assume 5 days/week
+  const daysWorking = (plannedDays && plannedDays > 0) ? plannedDays : fallbackDays;
+  
+  // Daily goal in FP+ terms
+  const dailyGoalFP = goal / daysWorking;
+  
+  // For EFP mode: goal is already in FP terms, convert to EFP
+  // EFP = PRMR / 85, and avg PRMR per FP is stored in goals
+  const avgPrmrPerFp = goals.avg_prmr_per_fp || 85;
+  const dailyGoalEFP = (dailyGoalFP * avgPrmrPerFp) / 85;
   
   // Calculate displayed values based on EFP mode
   const displayValue = efpModeEnabled ? calculateEfp(prmrToday) : fpToday;
-  const displayGoal = efpModeEnabled ? calculateEfp(dailyGoal * 85) : dailyGoal;
+  const displayGoal = efpModeEnabled ? dailyGoalEFP : dailyGoalFP;
   const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
   
   const progress = displayGoal > 0 ? Math.min((displayValue / displayGoal) * 100, 150) : 0;
