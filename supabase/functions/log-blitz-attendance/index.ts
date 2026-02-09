@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
             recruit_id: repId,
             activity_type: "in_person",
             notes: `Met at ${blitzName} blitz`,
-            logged_by_user_id: user.id,
+            logged_by_user_id: repId,
             created_at: `${activityDate}T18:00:00Z`,
           });
 
