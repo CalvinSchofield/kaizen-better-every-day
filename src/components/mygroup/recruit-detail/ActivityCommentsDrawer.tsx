@@ -202,7 +202,16 @@ export const ActivityCommentsDrawer = ({
                 </div>
                 
                 {/* Logger info */}
-                {loggerInfo && (
+                {activity.notes?.toLowerCase().includes('blitz') && activity.activity_type === 'in_person' ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center">
+                      <span className="text-[8px] text-muted-foreground">⚡</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Auto-logged by system
+                    </span>
+                  </div>
+                ) : loggerInfo ? (
                   <div className="flex items-center gap-2 mt-1">
                     <Avatar className="h-5 w-5">
                       <AvatarImage src={loggerInfo.profilePhotoUrl || undefined} alt={loggerInfo.name} />
@@ -214,7 +223,7 @@ export const ActivityCommentsDrawer = ({
                       Logged by {loggerInfo.name.split(' ')[0]}
                     </span>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
             

@@ -96,11 +96,20 @@ Deno.serve(async (req) => {
     let attendees: any[] = [];
     
     if (recruitIds.length > 0) {
+      // Fetch from recruits table, then look up user_id from reps table
       const { data: recruitsData } = await supabase
         .from("recruits")
         .select("id, name, stage")
         .in("id", recruitIds);
-      attendees = recruitsData || [];
+      
+      // Enrich with user_id from reps table (same ID in unified architecture)
+      const { data: repUserIds } = await supabase
+        .from("reps")
+        .select("id, user_id")
+        .in("id", recruitIds);
+      
+      const userIdMap = new Map((repUserIds || []).map(r => [r.id, r.user_id]));
+      attendees = (recruitsData || []).map(r => ({ ...r, user_id: userIdMap.get(r.id) || null }));
     }
 
     // Also check reps table for committed_blitzes containing this blitz ID
@@ -133,6 +142,8 @@ Deno.serve(async (req) => {
       const repId = attendee.id;
       const repName = attendee.name || "Unknown";
       const repStage = attendee.stage;
+      // Use the attendee's own user_id for self-attribution, fall back to admin
+      const attendeeUserId = attendee.user_id || user.id;
 
       try {
         if (isExitStage(repStage)) {
@@ -156,14 +167,14 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Log the in_person activity
+        // Log the in_person activity - attributed to attendee's own user_id
         const { error: insertError } = await supabase
           .from("recruit_activities")
           .insert({
             recruit_id: repId,
             activity_type: "in_person",
             notes: `Met at ${blitzName} blitz`,
-            logged_by_user_id: repId,
+            logged_by_user_id: attendeeUserId,
             created_at: `${activityDate}T18:00:00Z`,
           });
 

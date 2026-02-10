@@ -430,15 +430,19 @@ export const ActivityTab = ({
                                 )}
                               </div>
                               
-                              {/* Logger avatar on the right */}
-                              {logger && (
+                              {/* Logger avatar - show system icon for blitz attendance */}
+                              {activity.notes?.toLowerCase().includes('blitz') && activity.activity_type === 'in_person' ? (
+                                <div className="h-6 w-6 shrink-0 rounded-full bg-muted flex items-center justify-center">
+                                  <span className="text-[10px]">⚡</span>
+                                </div>
+                              ) : logger ? (
                                 <Avatar className="h-6 w-6 shrink-0">
                                   <AvatarImage src={logger.profilePhotoUrl || undefined} alt={logger.name} />
                                   <AvatarFallback className="text-[10px] bg-muted">
                                     {getInitials(logger.name)}
                                   </AvatarFallback>
                                 </Avatar>
-                              )}
+                              ) : null}
                             </div>
                           
                           {/* Assignee badge on its own line if present */}
