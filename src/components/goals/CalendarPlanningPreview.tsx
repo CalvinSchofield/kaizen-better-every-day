@@ -143,7 +143,8 @@ export const CalendarPlanningPreview = ({
     return days.map(day => {
       const dateStr = format(day, 'yyyy-MM-dd');
       const isPlanned = plannedDays?.some(d => d.planned_date === dateStr) || false;
-      const isWorked = workedDates?.has(dateStr) || false;
+      const workedSet = workedDates instanceof Set ? workedDates : new Set<string>();
+      const isWorked = workedSet.has(dateStr);
       const isSunday = getDay(day) === 0;
       return {
         day: day.getDate(),
