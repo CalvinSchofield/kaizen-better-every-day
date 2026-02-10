@@ -262,7 +262,7 @@ export const RecruitDetailDrawer = ({
   });
 
   // Recruit goals
-  const { data: recruitGoals } = useQuery({
+  const { data: recruitGoals, isLoading: isLoadingGoals } = useQuery({
     queryKey: ['recruit-goals', recruitRepData?.user_id],
     queryFn: async () => {
       if (!recruitRepData?.user_id) return null;
@@ -273,7 +273,7 @@ export const RecruitDetailDrawer = ({
   });
 
   // YTD FP+ — calculate from sales_log (source of truth) with fp_plus as fallback
-  const { data: recruitYtdFP = 0 } = useQuery({
+  const { data: recruitYtdFP = 0, isLoading: isLoadingYtdFP } = useQuery({
     queryKey: ['recruit-ytd-fp', recruitRepData?.user_id],
     queryFn: async () => {
       if (!recruitRepData?.user_id) return 0;
@@ -343,7 +343,7 @@ export const RecruitDetailDrawer = ({
   }, [recruitSummerEntries]);
 
   // Planned days for recruit (for pace calculation in FocusCard)
-  const { data: recruitPlannedDays = [] } = useQuery({
+  const { data: recruitPlannedDays = [], isLoading: isLoadingPlannedDays } = useQuery({
     queryKey: ['recruit-planned-days', recruitRepData?.user_id],
     queryFn: async () => {
       if (!recruitRepData?.user_id) return [];
@@ -1069,18 +1069,45 @@ export const RecruitDetailDrawer = ({
             
             {/* Smart Focus Card */}
             <div className="mt-4">
-              <FocusCard 
-                recruit={recruit}
-                recruitRepData={recruitRepData || null}
-                recruitGoals={recruitGoals || null}
-                recruitYtdFP={recruitYtdFP}
-                plannedDays={recruitPlannedDays}
-                knockingDays={recruitKnockingDays}
-                summerStart={recruitSummerConfig?.personalSummerStart}
-                summerEnd={recruitSummerConfig?.personalSummerEnd}
-                onNavigateToTab={setActiveTab}
-                onAssignIpad={handleAssignIpad}
-              />
+              {(isLoadingGoals || isLoadingYtdFP || isLoadingPlannedDays) ? (
+                <div className="rounded-xl border border-border/50 p-4 space-y-3 animate-pulse">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-5 rounded-full bg-muted" />
+                      <div className="h-4 w-28 rounded bg-muted" />
+                    </div>
+                    <div className="h-5 w-16 rounded-full bg-muted" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-baseline justify-between">
+                      <div className="h-6 w-12 rounded bg-muted" />
+                      <div className="h-4 w-16 rounded bg-muted" />
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-muted" />
+                    <div className="flex justify-between">
+                      <div className="h-3 w-24 rounded bg-muted" />
+                      <div className="h-3 w-28 rounded bg-muted" />
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-border/30 flex justify-between">
+                    <div className="h-3 w-20 rounded bg-muted" />
+                    <div className="h-3 w-20 rounded bg-muted" />
+                  </div>
+                </div>
+              ) : (
+                <FocusCard 
+                  recruit={recruit}
+                  recruitRepData={recruitRepData || null}
+                  recruitGoals={recruitGoals || null}
+                  recruitYtdFP={recruitYtdFP}
+                  plannedDays={recruitPlannedDays}
+                  knockingDays={recruitKnockingDays}
+                  summerStart={recruitSummerConfig?.personalSummerStart}
+                  summerEnd={recruitSummerConfig?.personalSummerEnd}
+                  onNavigateToTab={setActiveTab}
+                  onAssignIpad={handleAssignIpad}
+                />
+              )}
             </div>
             
             {/* Tabbed Content */}
