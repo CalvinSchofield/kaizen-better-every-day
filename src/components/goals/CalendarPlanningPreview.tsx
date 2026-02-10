@@ -36,7 +36,7 @@ export const CalendarPlanningPreview = ({
   const [whatIfOpen, setWhatIfOpen] = useState(false);
   const { plannedDays } = usePlannedDays();
   const navigate = useNavigate();
-  const { efpModeEnabled, calculateEfp } = useEfpMode();
+  const { efpModeEnabled, calculateEfp, isVet } = useEfpMode();
   const { totalFP, totalPRMR } = usePreseasonFP();
   const { userId } = useCurrentUserId();
 
@@ -324,6 +324,7 @@ export const CalendarPlanningPreview = ({
         efpModeEnabled={efpModeEnabled}
         calculateEfp={calculateEfp}
         forecastedPreseasonTotal={stats.forecastedPreseasonTotal}
+        isVet={isVet}
       />
     </motion.div>
   );

@@ -6,8 +6,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, SlidersHorizontal } from 'lucide-react';
 import { parseISO, isBefore } from 'date-fns';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const GLOBAL_SUMMER_START = '2026-04-12';
 
@@ -25,6 +26,7 @@ interface WhatIfScenarioDrawerProps {
   efpModeEnabled: boolean;
   calculateEfp: (prmr: number) => number;
   forecastedPreseasonTotal: number;
+  isVet: boolean;
 }
 
 interface TierResult {
@@ -33,7 +35,6 @@ interface TierResult {
   dailyNeeded: number;
   weeklyNeeded: number;
   severity: 'green' | 'amber' | 'red';
-  contextLine: string;
 }
 
 const AnimatedNumber = ({ value, suffix = '' }: { value: number; suffix?: string }) => (
@@ -72,16 +73,6 @@ const severityColors = {
   },
 };
 
-function getContextLine(dailyNeeded: number, efpLabel: string): string {
-  if (dailyNeeded <= 0) return "You're already there! 🎉";
-  if (dailyNeeded < 0.5) return `Less than 1 ${efpLabel} every other day`;
-  if (dailyNeeded < 1) return `About 1 ${efpLabel} every ${Math.round(1 / dailyNeeded)} days`;
-  if (dailyNeeded < 2) return `About 1 ${efpLabel} per day — very doable`;
-  if (dailyNeeded < 3) return `Solid pace — ${Math.round(dailyNeeded)} per day`;
-  if (dailyNeeded < 5) return `Aggressive — gotta bring it every day`;
-  return `Elite pace — every door counts`;
-}
-
 function getSeverity(dailyNeeded: number): 'green' | 'amber' | 'red' {
   if (dailyNeeded <= 0) return 'green';
   if (dailyNeeded <= 2) return 'green';
@@ -99,15 +90,22 @@ export const WhatIfScenarioDrawer = ({
   efpModeEnabled,
   calculateEfp,
   forecastedPreseasonTotal,
+  isVet,
 }: WhatIfScenarioDrawerProps) => {
   const [hypothetical, setHypothetical] = useState<number | ''>(Math.round(forecastedPreseasonTotal * 10) / 10);
+  const [customCancelRate, setCustomCancelRate] = useState<number | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const efpLabel = efpModeEnabled ? 'EFP' : 'FP+';
+  const baseCancelRate = goals?.cancel_rate || 0;
+  const activeCancelRate = customCancelRate !== null ? customCancelRate : baseCancelRate;
 
   // Reset when opened
   const handleOpenChange = useCallback((o: boolean) => {
     if (o) {
       setHypothetical(Math.round(forecastedPreseasonTotal * 10) / 10);
+      setCustomCancelRate(null);
+      setAdvancedOpen(false);
     }
     onOpenChange(o);
   }, [forecastedPreseasonTotal, onOpenChange]);
@@ -120,26 +118,25 @@ export const WhatIfScenarioDrawer = ({
       return !isBefore(date, summerStart);
     }).length || 0;
 
-    // Estimate weeks: summer days / 6 (assuming ~6 day work weeks)
     const summerWeeks = futureSummerPlanned > 0 ? futureSummerPlanned / 6 : 1;
     return { days: futureSummerPlanned, weeks: Math.max(1, summerWeeks) };
   }, [plannedDays]);
 
-  // Presets
+  // Presets differ by vet/rookie
   const presets = useMemo(() => {
     const base = Math.round(forecastedPreseasonTotal * 10) / 10;
+    const increments = isVet ? [10, 20] : [5, 10];
     return [
       { label: 'Current pace', value: base },
-      { label: `+5 more`, value: Math.round((base + 5) * 10) / 10 },
-      { label: `+10 more`, value: Math.round((base + 10) * 10) / 10 },
+      { label: `+${increments[0]} more`, value: Math.round((base + increments[0]) * 10) / 10 },
+      { label: `+${increments[1]} more`, value: Math.round((base + increments[1]) * 10) / 10 },
     ];
-  }, [forecastedPreseasonTotal]);
+  }, [forecastedPreseasonTotal, isVet]);
 
   // Tier results
   const tierResults = useMemo((): TierResult[] => {
     const hyp = typeof hypothetical === 'number' ? hypothetical : 0;
-    const cancelRate = goals?.cancel_rate || 0;
-    const buffer = (goal: number) => cancelRate > 0 && cancelRate < 1 ? goal / (1 - cancelRate) : goal;
+    const buffer = (goal: number) => activeCancelRate > 0 && activeCancelRate < 1 ? goal / (1 - activeCancelRate) : goal;
 
     const tiers = [
       { label: 'Must Do', goal: goals?.must_do_fp_goal || 0 },
@@ -161,10 +158,9 @@ export const WhatIfScenarioDrawer = ({
         dailyNeeded: roundedDaily,
         weeklyNeeded: roundedWeekly,
         severity: getSeverity(roundedDaily),
-        contextLine: getContextLine(roundedDaily, efpLabel),
       };
     });
-  }, [hypothetical, goals, summerStats, efpLabel]);
+  }, [hypothetical, goals, summerStats, activeCancelRate]);
 
   return (
     <Drawer open={open} onOpenChange={handleOpenChange}>
@@ -270,12 +266,66 @@ export const WhatIfScenarioDrawer = ({
                       <span className="text-xs text-muted-foreground ml-1">/week</span>
                     </div>
                   </div>
-
-                  <p className="text-xs text-muted-foreground">{tier.contextLine}</p>
                 </motion.div>
               );
             })}
           </div>
+
+          {/* Advanced: Cancel rate override */}
+          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+            <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <SlidersHorizontal className="w-4 h-4" />
+              <span className="font-medium">Fine-tune assumptions</span>
+              <motion.span
+                animate={{ rotate: advancedOpen ? 90 : 0 }}
+                transition={{ duration: 0.15 }}
+                className="ml-auto text-xs"
+              >
+                ▸
+              </motion.span>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="pt-2 pb-1 space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-foreground">
+                      Summer cancel rate
+                    </label>
+                    <span className="text-sm font-semibold text-foreground">
+                      {Math.round((customCancelRate !== null ? customCancelRate : baseCancelRate) * 1000) / 10}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={0.25}
+                    step={0.001}
+                    value={customCancelRate !== null ? customCancelRate : baseCancelRate}
+                    onChange={(e) => {
+                      hapticLight();
+                      setCustomCancelRate(parseFloat(e.target.value));
+                    }}
+                    className="w-full h-2 rounded-full appearance-none bg-muted accent-primary cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>0%</span>
+                    <span>25%</span>
+                  </div>
+                  {customCancelRate !== null && customCancelRate !== baseCancelRate && (
+                    <button
+                      onClick={() => {
+                        hapticLight();
+                        setCustomCancelRate(null);
+                      }}
+                      className="text-xs text-primary font-medium"
+                    >
+                      Reset to your rate ({Math.round(baseCancelRate * 1000) / 10}%)
+                    </button>
+                  )}
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       </DrawerContent>
     </Drawer>
