@@ -89,12 +89,12 @@ export const RecruitSearchDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[50svh]">
+      <DrawerContent className="max-h-[85svh]">
         <DrawerHeader className="pb-2">
           <DrawerTitle>Search Recruits</DrawerTitle>
         </DrawerHeader>
-        <div className="px-5 pb-6 flex flex-col" style={{ maxHeight: 'calc(50svh - 80px)' }}>
-          <Command shouldFilter={false} className="rounded-xl border-0 bg-transparent flex flex-col flex-1 overflow-hidden">
+        <div className="px-5 pb-6 flex flex-col min-h-0" style={{ maxHeight: 'calc(85svh - 80px)' }}>
+          <Command shouldFilter={false} className="rounded-xl border-0 bg-transparent flex flex-col flex-1 min-h-0">
             <div className="rounded-xl border bg-muted/30 shrink-0">
               <CommandInput
                 placeholder="Search by name or phone..."
@@ -104,7 +104,7 @@ export const RecruitSearchDrawer = ({
                 className="h-12"
               />
             </div>
-            <CommandList className="mt-3 flex-1 overflow-y-auto">
+            <CommandList className="mt-3 flex-1 overflow-y-auto min-h-0 max-h-none">
               {searchQuery.trim() === "" ? (
                 <CommandEmpty className="py-8 text-center text-sm text-muted-foreground">
                   Start typing to search...
