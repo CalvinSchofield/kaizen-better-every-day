@@ -9,10 +9,14 @@ import { hapticLight } from '@/utils/haptics';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
 import { usePreseasonFP } from '@/hooks/usePreseasonFP';
 import { useEfpMode } from '@/hooks/useEfpMode';
+import { useCurrentUserId } from '@/hooks/useCurrentUserId';
 import { useNavigate } from 'react-router-dom';
-import { format, parseISO, isBefore, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameMonth, isToday } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { format, parseISO, isBefore, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, isAfter } from 'date-fns';
 
 const PRESEASON_END = '2026-04-11';
+const GLOBAL_SUMMER_START = '2026-04-12';
 
 interface CalendarPlanningPreviewProps {
   goals: any;
@@ -32,6 +36,7 @@ export const CalendarPlanningPreview = ({
   const { plannedDays } = usePlannedDays();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { totalFP, totalPRMR } = usePreseasonFP();
+  const { userId } = useCurrentUserId();
 
   const efpLabel = efpModeEnabled ? 'EFP' : 'FP+';
 
@@ -40,29 +45,45 @@ export const CalendarPlanningPreview = ({
     setIsOpen(prev => !prev);
   }, []);
 
-  // Compute stats
+  // Fetch worked dates for the current month to show green dots
+  const { data: workedDates } = useQuery({
+    queryKey: ['calendar-preview-worked-dates', userId],
+    queryFn: async () => {
+      if (!userId) return new Set<string>();
+      const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+      const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+      const { data, error } = await supabase
+        .from('daily_entries')
+        .select('entry_date')
+        .eq('user_id', userId)
+        .eq('is_finalized', true)
+        .gte('entry_date', monthStart)
+        .lte('entry_date', monthEnd);
+      if (error) return new Set<string>();
+      return new Set((data || []).map(e => e.entry_date));
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Compute stats with preseason vs summer split
   const stats = useMemo(() => {
     const today = new Date();
-    const todayStr = format(today, 'yyyy-MM-dd');
     const preseasonEnd = parseISO(PRESEASON_END);
+    const summerStart = parseISO(GLOBAL_SUMMER_START);
 
     const totalPlanned = plannedDays?.length || 0;
 
-    // Future planned days
-    const futurePlanned = plannedDays?.filter(d => {
-      const date = parseISO(d.planned_date);
-      return date > today && !isBefore(preseasonEnd, date);
-    }).length || 0;
+    const isPreseasonTier = activeTier === 'preseason';
 
     // Get active goal
-    const conversionFactor = efpModeEnabled ? 1 : 1;
-    const activeGoal = activeTier === 'preseason'
-      ? (goals?.preseason_fp_goal || 0) * conversionFactor
+    const activeGoal = isPreseasonTier
+      ? (goals?.preseason_fp_goal || 0)
       : activeTier === 'mustDo'
-        ? (goals?.must_do_fp_goal || 0) * conversionFactor
+        ? (goals?.must_do_fp_goal || 0)
         : activeTier === 'willDo'
-          ? (goals?.will_do_fp_goal || 0) * conversionFactor
-          : (goals?.could_do_fp_goal || 0) * conversionFactor;
+          ? (goals?.will_do_fp_goal || 0)
+          : (goals?.could_do_fp_goal || 0);
 
     // Apply cancel buffer
     const cancelRate = goals?.cancel_rate || 0;
@@ -70,21 +91,45 @@ export const CalendarPlanningPreview = ({
       ? activeGoal / (1 - cancelRate)
       : activeGoal;
 
-    // Remaining needed
-    const remaining = Math.max(0, fundedGoalNeeded - currentProgress);
-    const remainingDays = futurePlanned + 1; // +1 for today
-    const dailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
+    let dailyNeeded: number;
 
-    // Total planned season days
-    const totalDays = knockingDays + futurePlanned;
-    const dailyGoal = totalDays > 0 ? fundedGoalNeeded / totalDays : 0;
+    if (isPreseasonTier) {
+      // PRESEASON: only count preseason planned days and preseason progress
+      const futurePreseasonPlanned = plannedDays?.filter(d => {
+        const date = parseISO(d.planned_date);
+        return date > today && !isAfter(date, preseasonEnd);
+      }).length || 0;
+
+      const remaining = Math.max(0, fundedGoalNeeded - currentProgress);
+      const remainingDays = futurePreseasonPlanned + 1; // +1 for today
+      dailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
+    } else {
+      // SUMMER TIER: forecast preseason total, then compute summer needed
+      // Forecast preseason total = current progress + (daily average × remaining preseason days)
+      const futurePreseasonPlanned = plannedDays?.filter(d => {
+        const date = parseISO(d.planned_date);
+        return date > today && !isAfter(date, preseasonEnd);
+      }).length || 0;
+
+      const dailyAvg = knockingDays > 0 ? currentProgress / knockingDays : 0;
+      const forecastedPreseasonTotal = currentProgress + (dailyAvg * futurePreseasonPlanned);
+
+      // What's left for summer
+      const remainingForSummer = Math.max(0, fundedGoalNeeded - forecastedPreseasonTotal);
+
+      // Summer planned days
+      const futureSummerPlanned = plannedDays?.filter(d => {
+        const date = parseISO(d.planned_date);
+        return !isBefore(date, summerStart);
+      }).length || 0;
+
+      dailyNeeded = futureSummerPlanned > 0 ? remainingForSummer / futureSummerPlanned : 0;
+    }
 
     return {
       totalPlanned,
-      futurePlanned,
       knockingDays,
       dailyNeeded: Math.round(dailyNeeded * 10) / 10,
-      dailyGoal: Math.round(dailyGoal * 10) / 10,
     };
   }, [plannedDays, goals, activeTier, efpModeEnabled, knockingDays, currentProgress]);
 
@@ -98,21 +143,22 @@ export const CalendarPlanningPreview = ({
     return days.map(day => {
       const dateStr = format(day, 'yyyy-MM-dd');
       const isPlanned = plannedDays?.some(d => d.planned_date === dateStr) || false;
+      const isWorked = workedDates?.has(dateStr) || false;
       const isSunday = getDay(day) === 0;
       return {
         day: day.getDate(),
         isPlanned,
+        isWorked,
         isToday: isToday(day),
         isSunday,
         dayOfWeek: getDay(day),
       };
     });
-  }, [plannedDays]);
+  }, [plannedDays, workedDates]);
 
   // Offset for first day of month
   const firstDayOffset = useMemo(() => {
-    const today = new Date();
-    return getDay(startOfMonth(today));
+    return getDay(startOfMonth(new Date()));
   }, []);
 
   return (
@@ -151,7 +197,7 @@ export const CalendarPlanningPreview = ({
                   {stats.totalPlanned} days planned
                 </motion.div>
                 <div className="text-xs text-muted-foreground">
-                  Need {stats.dailyNeeded} {efpLabel}/day to hit your goal
+                  Need {stats.dailyNeeded} {efpLabel}/day to hit your {activeTier === 'preseason' ? 'preseason' : 'summer'} goal
                 </div>
                 {stats.knockingDays > 0 && (
                   <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
@@ -191,8 +237,20 @@ export const CalendarPlanningPreview = ({
 
                     {/* Mini month calendar strip */}
                     <div>
-                      <div className="text-xs font-medium text-muted-foreground mb-2">
-                        {format(new Date(), 'MMMM yyyy')}
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="text-xs font-medium text-muted-foreground">
+                          {format(new Date(), 'MMMM yyyy')}
+                        </div>
+                        <div className="flex items-center gap-2 ml-auto">
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <span className="text-[8px] text-muted-foreground">Worked</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-primary/30" />
+                            <span className="text-[8px] text-muted-foreground">Planned</span>
+                          </div>
+                        </div>
                       </div>
                       <div className="grid grid-cols-7 gap-1">
                         {/* Day headers */}
@@ -212,9 +270,13 @@ export const CalendarPlanningPreview = ({
                             className={cn(
                               "aspect-square rounded-full flex items-center justify-center text-[8px] font-medium",
                               d.isToday && "ring-1 ring-primary",
-                              d.isPlanned && "bg-primary/20 text-primary",
-                              d.isSunday && !d.isPlanned && "text-muted-foreground/30",
-                              !d.isPlanned && !d.isSunday && "text-muted-foreground/60"
+                              // Worked days get green (takes priority over planned amber)
+                              d.isWorked && "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400",
+                              // Planned but not yet worked = amber/primary
+                              d.isPlanned && !d.isWorked && "bg-primary/20 text-primary",
+                              // Default states
+                              d.isSunday && !d.isPlanned && !d.isWorked && "text-muted-foreground/30",
+                              !d.isPlanned && !d.isWorked && !d.isSunday && "text-muted-foreground/60"
                             )}
                           >
                             {d.day}
