@@ -14,9 +14,10 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Recruit } from "@/hooks/useGroupRecruits";
-import { User } from "lucide-react";
 import { hapticLight } from "@/utils/haptics";
+import { getInitials } from "@/utils/nameUtils";
 
 interface RecruitSearchDrawerProps {
   open: boolean;
@@ -39,6 +40,25 @@ const getStageColor = (stage: string | null | undefined): string => {
   if (lower.includes("evaluating")) return "bg-blue-500/20 text-blue-600";
   if (lower.includes("reached")) return "bg-purple-500/20 text-purple-600";
   return "bg-muted text-muted-foreground";
+};
+
+const stagePriority: Record<string, number> = {
+  "Sold (5+) 💰": 0,
+  "Sold 💲": 1,
+  "Shadow ✅": 2,
+  "Signed": 3,
+  "Evaluating": 4,
+  "Reached Out": 5,
+  "100 List": 6,
+  "Potential Follow Up": 7,
+  "Signed but Not Interested": 8,
+  "Not Interested": 9,
+};
+
+const yearPriority: Record<string, number> = {
+  "Rookie": 0,
+  "Sophomore": 1,
+  "Vet": 2,
 };
 
 export const RecruitSearchDrawer = ({
@@ -74,24 +94,6 @@ export const RecruitSearchDrawer = ({
     });
 
     // Sort by stage priority then year
-    const stagePriority: Record<string, number> = {
-      "Sold (5+) 💰": 0,
-      "Sold 💲": 1,
-      "Shadow ✅": 2,
-      "Signed": 3,
-      "Evaluating": 4,
-      "Reached Out": 5,
-      "100 List": 6,
-      "Potential Follow Up": 7,
-      "Signed but Not Interested": 8,
-      "Not Interested": 9,
-    };
-    const yearPriority: Record<string, number> = {
-      "Rookie": 0,
-      "Sophomore": 1,
-      "Vet": 2,
-    };
-
     deduped.sort((a, b) => {
       const stageA = stagePriority[a.stage || ""] ?? 6;
       const stageB = stagePriority[b.stage || ""] ?? 6;
@@ -144,9 +146,12 @@ export const RecruitSearchDrawer = ({
                       onSelect={() => handleSelect(recruit)}
                       className="flex items-center gap-3 py-3.5 px-3 cursor-pointer rounded-xl mb-1"
                     >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted shrink-0">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                      </div>
+                      <Avatar className="h-10 w-10 shrink-0">
+                        <AvatarImage src={recruit.profilePhotoUrl || undefined} alt={recruit.name} />
+                        <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
+                          {getInitials(recruit.name)}
+                        </AvatarFallback>
+                      </Avatar>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{recruit.name}</p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
