@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Ban, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Ban, CalendarDays, Sparkles } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { SaleDetailSheet } from "@/components/SaleDetailSheet";
@@ -468,6 +468,38 @@ export const CalendarView = ({
         </button>
       </div>
 
+      {/* Empty state CTA - no days planned yet or missing summer dates */}
+      {!planningMode && (!plannedDays || plannedDays.length === 0) && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 p-4 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 text-center space-y-2"
+        >
+          <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center mx-auto">
+            <Sparkles className="w-5 h-5 text-primary" />
+          </div>
+          <h3 className="font-semibold text-sm">Plan your season</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed max-w-[260px] mx-auto">
+            Tap <strong>"Plan"</strong> above, then tap the days you'll be working. This powers your daily pace targets and keeps your goals on track.
+          </p>
+          {(!personalSummerStart || !personalSummerEnd) && (
+            <p className="text-[10px] text-muted-foreground/70 mt-1">
+              💡 Set your summer start & end dates in Goals to unlock summer planning
+            </p>
+          )}
+          <button
+            onClick={() => {
+              hapticLight();
+              setPlanningMode(true);
+            }}
+            className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-semibold active:scale-[0.97] transition-transform"
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+            Start Planning
+          </button>
+        </motion.div>
+      )}
+
       {/* Calendar Grid */}
       {viewMode === "month" ? (
         <div data-tour="calendar-grid" className="grid grid-cols-7 gap-2" style={swipeStyle} {...swipeHandlers}>
@@ -716,21 +748,28 @@ export const CalendarView = ({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 60, opacity: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed bottom-20 left-4 right-4 z-40"
+            className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-40"
           >
             <div className="bg-card border border-border rounded-2xl shadow-lg px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <CalendarDays className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium">
-                  {plannedDays?.length || 0} days planned
-                </span>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">
+                    {plannedDays?.length || 0} days planned
+                  </span>
+                  {viewTotals.daysWorked > 0 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {viewTotals.daysWorked} worked this {viewMode === 'week' ? 'week' : 'month'}
+                    </span>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => {
                   hapticLight();
                   setPlanningMode(false);
                 }}
-                className="text-xs font-medium text-primary active:scale-[0.97] transition-transform"
+                className="text-xs font-semibold text-primary px-3 py-1.5 rounded-full bg-primary/10 active:scale-[0.97] transition-transform"
               >
                 Done
               </button>
