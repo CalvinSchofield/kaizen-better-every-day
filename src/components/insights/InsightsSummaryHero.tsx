@@ -1,4 +1,5 @@
 import { TrendingUp, TrendingDown, Target, CheckCircle2, Zap, Rocket } from 'lucide-react';
+import { GOAL_TIER_CONFIG } from '@/config/goalTiers';
 import { Card } from '@/components/ui/card';
 import { useRepGoals } from '@/hooks/useRepGoals';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
@@ -121,9 +122,9 @@ export const InsightsSummaryHero = ({
   
   // Tier display config
   const tierConfig: Record<FocusTier, { label: string; color: string }> = {
-    mustDo: { label: 'Must Do', color: 'text-amber-600 dark:text-amber-400' },
-    willDo: { label: 'Will Do', color: 'text-primary' },
-    couldDo: { label: 'Could Do', color: 'text-emerald-600 dark:text-emerald-400' },
+    mustDo: { label: 'Must Do', color: GOAL_TIER_CONFIG.mustDo.color },
+    willDo: { label: 'Will Do', color: GOAL_TIER_CONFIG.willDo.color },
+    couldDo: { label: 'Could Do', color: GOAL_TIER_CONFIG.couldDo.color },
   };
   
   return (

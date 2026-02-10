@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { GOAL_TIER_CONFIG } from "@/config/goalTiers";
 import { formatFP } from "@/lib/formatters";
 import { Target, TrendingUp, AlertTriangle, XCircle, HelpCircle, Users, ChevronDown, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -100,9 +101,9 @@ export const TeamGoalSummary = ({ status, statusDetails, baseline, isLiveView, p
 
     // During summer, group by focus_tier (Must Do, Will Do, Could Do)
     const tierConfig = [
-      { key: 'mustDo', name: 'Must Do', color: 'border-red-400' },
-      { key: 'willDo', name: 'Will Do', color: 'border-blue-400' },
-      { key: 'couldDo', name: 'Could Do', color: 'border-green-400' },
+      { key: 'mustDo', name: 'Must Do', color: GOAL_TIER_CONFIG.mustDo.borderColor },
+      { key: 'willDo', name: 'Will Do', color: GOAL_TIER_CONFIG.willDo.borderColor },
+      { key: 'couldDo', name: 'Could Do', color: GOAL_TIER_CONFIG.couldDo.borderColor },
     ] as const;
 
     const breakdowns: TierBreakdown[] = [];

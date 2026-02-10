@@ -1,19 +1,20 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Check, Target, Zap, Trophy, ArrowRight } from "lucide-react";
+import { Check, ArrowRight } from "lucide-react";
 import { formatCurrency, calculateTakeHome } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
 import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
 import { UnfundedHelpDrawer } from "@/components/goals/UnfundedHelpDrawer";
+import { GOAL_TIER_CONFIG, type GoalTier } from "@/config/goalTiers";
 
-export type GoalTier = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
+export type { GoalTier };
 
 interface GoalTierCardProps {
   tier: GoalTier;
   fpGoal: number;
   displayGoal?: number;
   currentProgress?: number;
-  fundedProgress?: number; // Only passed when different from currentProgress
+  fundedProgress?: number;
   avgPrmrPerFp?: number;
   upgradeFpGoal?: number;
   rentType?: string;
@@ -24,32 +25,7 @@ interface GoalTierCardProps {
   onClick?: () => void;
 }
 
-const tierConfig: Record<GoalTier, { label: string; icon: typeof Target; color: string; bgColor: string }> = {
-  preseason: {
-    label: 'Preseason',
-    icon: Target,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-500/10',
-  },
-  mustDo: { 
-    label: 'Must Do', 
-    icon: Target, 
-    color: 'text-amber-500',
-    bgColor: 'bg-amber-500/10',
-  },
-  willDo: { 
-    label: 'Will Do', 
-    icon: Zap, 
-    color: 'text-primary',
-    bgColor: 'bg-primary/10',
-  },
-  couldDo: { 
-    label: 'Could Do', 
-    icon: Trophy, 
-    color: 'text-green-500',
-    bgColor: 'bg-green-500/10',
-  },
-};
+const tierConfig = GOAL_TIER_CONFIG;
 
 export const GoalTierCard = ({
   tier,

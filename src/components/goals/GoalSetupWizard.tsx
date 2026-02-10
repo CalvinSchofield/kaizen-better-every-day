@@ -515,10 +515,10 @@ export const GoalSetupWizard = ({
         </div>
 
         {isRookie && mustDoFpGoal > 0 && (
-          <div className="rounded-xl bg-amber-500/10 p-4 border border-amber-500/20">
+          <div className="rounded-xl bg-emerald-500/10 p-4 border border-emerald-500/20">
             <div className="flex items-center gap-2 mb-2">
-              <Target className="h-4 w-4 text-amber-500" />
-              <span className="font-semibold text-amber-500">Must Do (Minimum)</span>
+              <Target className="h-4 w-4 text-emerald-500" />
+              <span className="font-semibold text-emerald-500">Must Do (Minimum)</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-2xl font-bold">{mustDoFpGoal} {metricLabel}</span>
@@ -533,7 +533,7 @@ export const GoalSetupWizard = ({
         {!isRookie && (
           <div>
             <Label htmlFor="mustDo" className="flex items-center gap-2">
-              <span className="text-amber-500 font-semibold">Must Do Goal</span>
+              <span className="text-emerald-500 font-semibold">Must Do Goal</span>
               <span className="text-xs text-muted-foreground">(Minimum target)</span>
             </Label>
             <div className="flex items-center gap-3 mt-2">
@@ -557,7 +557,7 @@ export const GoalSetupWizard = ({
 
         <div>
           <Label htmlFor="willDo" className="flex items-center gap-2">
-            <span className="text-primary font-semibold">Will Do Goal</span>
+            <span className="text-amber-500 font-semibold">Will Do Goal</span>
             <span className="text-xs text-muted-foreground">(Realistic target)</span>
           </Label>
           <div className="flex items-center gap-3 mt-2">
@@ -580,7 +580,7 @@ export const GoalSetupWizard = ({
 
         <div>
           <Label htmlFor="couldDo" className="flex items-center gap-2">
-            <span className="text-green-500 font-semibold">Could Do Goal</span>
+            <span className="text-purple-500 font-semibold">Could Do Goal</span>
             <span className="text-xs text-muted-foreground">(Stretch target)</span>
           </Label>
           <div className="flex items-center gap-3 mt-2">

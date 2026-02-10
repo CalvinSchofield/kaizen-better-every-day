@@ -9,6 +9,7 @@ import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { TrendingUp, TrendingDown, Minus, SlidersHorizontal } from 'lucide-react';
 import { parseISO, isBefore } from 'date-fns';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { GOAL_TIER_CONFIG } from '@/config/goalTiers';
 
 const GLOBAL_SUMMER_START = '2026-04-12';
 
@@ -139,9 +140,9 @@ export const WhatIfScenarioDrawer = ({
     const buffer = (goal: number) => activeCancelRate > 0 && activeCancelRate < 1 ? goal / (1 - activeCancelRate) : goal;
 
     const tiers = [
-      { label: 'Must Do', goal: goals?.must_do_fp_goal || 0 },
-      { label: 'Will Do', goal: goals?.will_do_fp_goal || 0 },
-      { label: 'Could Do', goal: goals?.could_do_fp_goal || 0 },
+      { label: GOAL_TIER_CONFIG.mustDo.label, goal: goals?.must_do_fp_goal || 0 },
+      { label: GOAL_TIER_CONFIG.willDo.label, goal: goals?.will_do_fp_goal || 0 },
+      { label: GOAL_TIER_CONFIG.couldDo.label, goal: goals?.could_do_fp_goal || 0 },
     ];
 
     return tiers.map(tier => {
