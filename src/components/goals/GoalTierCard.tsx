@@ -4,6 +4,7 @@ import { Check, Target, Zap, Trophy, ArrowRight } from "lucide-react";
 import { formatCurrency, calculateTakeHome } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
 import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
+import { UnfundedHelpDrawer } from "@/components/goals/UnfundedHelpDrawer";
 
 export type GoalTier = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
 
@@ -161,6 +162,14 @@ export const GoalTierCard = ({
                     </span>
                   )}
                 </div>
+                {(currentProgress - (fundedProgress || 0)) > 0 && (
+                  <div className="mt-1">
+                    <UnfundedHelpDrawer
+                      unfundedCount={currentProgress - (fundedProgress || 0)}
+                      variant="button"
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <>

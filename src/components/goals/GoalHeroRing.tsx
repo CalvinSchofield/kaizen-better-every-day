@@ -5,6 +5,7 @@ import { calculateUpfrontPay } from "@/utils/roiCalculations";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
+import { UnfundedHelpDrawer } from "@/components/goals/UnfundedHelpDrawer";
 
 export type GoalTier = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
 
@@ -497,15 +498,23 @@ export const GoalHeroRing = ({
 
       {/* Funded vs Unfunded legend */}
       {showFunded && (
-        <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            {fundedProgress?.toFixed(1)} funded
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-primary/40" />
-            {(currentProgress - (fundedProgress || 0)).toFixed(1)} unfunded
-          </span>
+        <div className="flex flex-col items-center gap-2 mt-4">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              {fundedProgress?.toFixed(1)} funded
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-primary/40" />
+              {(currentProgress - (fundedProgress || 0)).toFixed(1)} unfunded
+            </span>
+          </div>
+          {(currentProgress - (fundedProgress || 0)) > 0 && (
+            <UnfundedHelpDrawer
+              unfundedCount={currentProgress - (fundedProgress || 0)}
+              variant="button"
+            />
+          )}
         </div>
       )}
 
