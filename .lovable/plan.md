@@ -1,89 +1,60 @@
 
 
-# Reimagine the Calendar Day-Tap Drawer
+# Planning Mode Visual Overhaul
 
-## The Problem
-Tapping any day on the calendar opens a full manual entry form (activity counters, time tracking, sales) that encourages reps to retroactively log entire days -- the opposite of how the app should work. The Track page is the intended real-time tracking tool.
+## Goal
+Make planning mode feel like a distinct, prestigious experience -- visually separated from the normal calendar with a unique atmosphere, and replace the goals/insights cards with a helpful instruction card.
 
-## The Solution
-Replace the current `SaveEntrySheet` usage in CalendarView with a new, lighter-weight `CalendarDayDrawer` that has two distinct states based on whether the day has data or not.
+## Changes
 
----
+### 1. Distinct Planning Mode Background and Atmosphere
+When `planningMode` is true, the entire calendar page wrapper shifts to a different visual treatment:
+- Background changes from `bg-background` to a subtle gradient or tinted background (e.g., `bg-gradient-to-b from-primary/5 to-background` -- a soft wash of the brand color)
+- Calendar day tiles in planning mode get a slightly different styling -- tappable days show a subtle pulse/glow effect, planned days use a more prominent filled state
+- The "Planning" toggle button stays highlighted as it is now
+- Smooth crossfade transition between modes using framer-motion
 
-## State 1: Day WITH Data (read-only summary + Add Sale)
+### 2. Hide Goals Card and Summary Teaser in Planning Mode
+Wrap `GoalProgressCard` and `CalendarSummaryTeaser` in a condition: only render when `!planningMode`. This clears the lower section for the instruction card.
 
-When tapping a past or current day that has finalized data:
+### 3. New Planning Mode Instruction Card
+When `planningMode` is true, show a clean, elegant card in place of the goals/insights section:
+- Icon + heading: "Plan Your Work Days"
+- Bullet-style instructions with small icons:
+  - Tap a day to mark it as a work day
+  - Tap again to remove it
+  - Sundays and past dates cannot be planned
+- Shows current count: "X days planned so far"
+- Subtle, polished design -- rounded card, muted tones, no clutter
 
-- **Read-only activity summary** -- a compact card showing doors, pitches, closes, time worked (no editable inputs)
-- **Sales list** -- existing sales shown as tappable chips (same style as current), opening the existing SaleDetailSheet
-- **"+ Add Sale" button** -- for logging referrals or late-arriving sales (opens the existing LogSaleSheet flow)
-- **No activity editing, no time editing** -- those fields are gone
+### 4. File Changes
 
-```text
-+-------------------------------+
-|  Feb 8 - Saturday             |
-+-------------------------------+
-|  Activity          Time       |
-|  42 doors          9:15 AM -  |
-|  6 pitches         4:30 PM    |
-|  2 closes          (7h 15m)   |
-+-------------------------------+
-|  Sales           [+ Add Sale] |
-|  [FP $85] [FP $102]          |
-|  FP+: 2.00  |  PRMR: $187    |
-+-------------------------------+
+**Edit: `src/components/CalendarView.tsx`**
+- Wrap the outer `div` className in a `cn()` call that adds the planning mode background classes when active
+- Add `AnimatePresence` / `motion.div` around the goal card section and the new instruction card for smooth transitions
+- Conditionally render `GoalProgressCard` + `CalendarSummaryTeaser` only when `!planningMode`
+- Conditionally render the new inline planning instruction card when `planningMode` is true
+- The instruction card is simple JSX inline in this file (no new component needed -- it's ~20 lines of markup)
+
+### Technical Details
+
+Background transition approach:
+```
+cn(
+  "min-h-screen p-4 pb-24 transition-colors duration-300",
+  planningMode
+    ? "bg-gradient-to-b from-primary/8 via-primary/3 to-background"
+    : "bg-background"
+)
 ```
 
-## State 2: Day WITHOUT Data (nudge + Add Sale)
-
-When tapping a past day with no data:
-
-- **Friendly nudge message** -- "Track your day in real-time using the Track tab! It's the best way to capture your work accurately."
-- **"Go to Track" button** -- navigates to /track (only shown if tapping today)
-- **"+ Add Sale" button** -- for logging a referral or sale that happened on this day
-- **No activity counters, no time inputs**
-
-```text
-+-------------------------------+
-|  Feb 6 - Thursday             |
-+-------------------------------+
-|                               |
-|  Track your day in real-time  |
-|  using the Track tab!         |
-|                               |
-|  [+ Add a Sale or Referral]   |
-|                               |
-+-------------------------------+
+Planning instruction card (replaces goals section):
+```
+- CalendarDays icon
+- "Plan Your Work Days" heading
+- 3 short instruction lines with icons (tap to add, tap to remove, Sundays locked)
+- Planned days count pulled from existing `plannedDays?.length`
 ```
 
-## Today Behavior
-Tapping today shows the same drawer logic as past days:
-- If today has data: read-only summary + Add Sale
-- If today has no data: nudge + Add Sale (with a "Go to Track" button since it's today)
-
----
-
-## Technical Plan
-
-### New file: `src/components/CalendarDayDrawer.tsx`
-A clean, focused drawer component that replaces SaveEntrySheet usage in CalendarView:
-- Props: `open`, `onOpenChange`, `entry`, `date`, `salesLog`, `onSaleAdded` (callback after adding a sale)
-- **Has data path**: Renders a read-only activity/time card + sales list + Add Sale button
-- **No data path**: Renders nudge text + Add Sale button + optional "Go to Track" (if today)
-- Uses `LogSaleSheet` for adding sales (same component the Track page uses)
-- Uses `SaleDetailSheet` for viewing existing sales
-- When a sale is added, it calls the existing `finalizeEntry` mutation to upsert the entry with the new sale in `sales_log`
-- Drawer component (mobile-native pattern), lightweight and snappy
-
-### Edit: `src/components/CalendarView.tsx`
-- Replace `SaveEntrySheet` import with `CalendarDayDrawer`
-- Remove `handleSaveEntry` (the full manual save handler) -- no longer needed from calendar context
-- Keep `handleDeleteEntry` for the delete option on finalized entries
-- Wire up the new drawer with the selected date/entry data
-- The `handleDayClick` logic stays the same (planning mode toggle, Sunday checks, etc.)
-
-### NOT changing:
-- `SaveEntrySheet.tsx` itself stays untouched -- it's still used by `TrackWithLayout.tsx` for the Track page save flow
-- `LogSaleSheet` and `SaleDetailSheet` are reused as-is
-- No database changes needed
+Legend row stays visible in both modes (it's useful context for planning too).
 
