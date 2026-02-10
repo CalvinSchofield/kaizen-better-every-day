@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getLocalDateString } from '@/lib/utils';
+import { calculateFromSalesLog } from '@/utils/salesLogCalculations';
 
 interface LeaderboardEntry {
   userId: string;
@@ -101,9 +102,22 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
         stats.pitches += entry.pitches || 0;
         stats.transitions += entry.transitions || 0;
         stats.presentations += entry.presentations || 0;
-        stats.fp += entry.fp_plus || 0;
-        stats.prmr += entry.prmr || 0;
-        stats.upgradePrmr += entry.upgrade_prmr || 0;
+        
+        // Prioritize sales_log as source of truth
+        const salesLog = entry.sales_log as any[] | null;
+        if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
+          const calculated = calculateFromSalesLog(salesLog);
+          stats.fp += calculated.fp;
+          stats.prmr += calculated.prmr;
+          const upgradePrmr = salesLog
+            .filter((s: any) => s.type === 'upgrade' && s.install_status !== 'never_installed')
+            .reduce((sum: number, s: any) => sum + (Number(s.prmr) || 0), 0);
+          stats.upgradePrmr += upgradePrmr;
+        } else {
+          stats.fp += entry.fp_plus || 0;
+          stats.prmr += entry.prmr || 0;
+          stats.upgradePrmr += entry.upgrade_prmr || 0;
+        }
 
         // Calculate hours worked
         if (entry.work_start_time && entry.work_end_time) {

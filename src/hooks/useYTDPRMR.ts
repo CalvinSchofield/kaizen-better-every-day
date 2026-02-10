@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentUserId } from './useCurrentUserId';
+import { calculateFromSalesLog } from '@/utils/salesLogCalculations';
 
 interface YTDPRMRData {
   totalPRMR: number;
@@ -55,7 +56,7 @@ export const useYTDPRMR = () => {
       // Query all finalized entries from start of year to now
       const { data, error } = await supabase
         .from('daily_entries')
-        .select('prmr, upgrade_prmr')
+        .select('prmr, upgrade_prmr, sales_log')
         .eq('user_id', userId)
         .eq('is_finalized', true)
         .gte('entry_date', seasonStart);
@@ -65,8 +66,14 @@ export const useYTDPRMR = () => {
         return { totalPRMR: 0 };
       }
 
-      // Sum up all prmr values (prmr field IS total PRMR)
-      const total = data?.reduce((sum, entry) => sum + (entry.prmr || 0), 0) || 0;
+      // Prioritize sales_log as source of truth for PRMR
+      const total = data?.reduce((sum, entry) => {
+        const salesLog = entry.sales_log as any[] | null;
+        if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
+          return sum + calculateFromSalesLog(salesLog).prmr;
+        }
+        return sum + (entry.prmr || 0);
+      }, 0) || 0;
       const result: YTDPRMRData = { totalPRMR: Math.round(total) };
       
       // Cache the result for instant loading

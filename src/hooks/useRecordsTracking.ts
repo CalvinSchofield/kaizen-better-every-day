@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useMemo } from 'react';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from 'date-fns';
+import { calculateFromSalesLog } from '@/utils/salesLogCalculations';
 
 export interface RecordEntry {
   userId: string;
@@ -43,7 +44,7 @@ export const useRecordsTracking = ({ enabled = true, accessibleUserIds }: UseRec
       
       const { data, error } = await supabase
         .from('daily_entries')
-        .select('user_id, entry_date, fp_plus, prmr, is_finalized')
+        .select('user_id, entry_date, fp_plus, prmr, is_finalized, sales_log')
         .in('user_id', accessibleUserIds)
         .eq('is_finalized', true)
         .order('entry_date', { ascending: true });
@@ -101,7 +102,11 @@ export const useRecordsTracking = ({ enabled = true, accessibleUserIds }: UseRec
 
     entriesData.forEach(entry => {
       const userId = entry.user_id;
-      const fpPlus = Number(entry.fp_plus) || 0;
+      // Prioritize sales_log as source of truth
+      const salesLog = (entry as any).sales_log as any[] | null;
+      const fpPlus = (salesLog && Array.isArray(salesLog) && salesLog.length > 0)
+        ? calculateFromSalesLog(salesLog).fp
+        : (Number(entry.fp_plus) || 0);
       const entryDate = new Date(entry.entry_date + 'T12:00:00');
       
       // Day record
@@ -206,7 +211,11 @@ export const useRecordsTracking = ({ enabled = true, accessibleUserIds }: UseRec
 
     entriesData.forEach(entry => {
       const userId = entry.user_id;
-      const fpPlus = Number(entry.fp_plus) || 0;
+      // Prioritize sales_log as source of truth
+      const salesLog = (entry as any).sales_log as any[] | null;
+      const fpPlus = (salesLog && Array.isArray(salesLog) && salesLog.length > 0)
+        ? calculateFromSalesLog(salesLog).fp
+        : (Number(entry.fp_plus) || 0);
       const entryDate = entry.entry_date;
       const entryDateObj = new Date(entryDate + 'T12:00:00');
       const entryWeekStart = format(startOfWeek(entryDateObj, { weekStartsOn: 0 }), 'yyyy-MM-dd');
@@ -348,7 +357,7 @@ export const usePersonalRecords = (userId?: string) => {
       
       const { data, error } = await supabase
         .from('daily_entries')
-        .select('entry_date, fp_plus')
+        .select('entry_date, fp_plus, sales_log')
         .eq('user_id', userId)
         .eq('is_finalized', true)
         .order('entry_date', { ascending: true });
@@ -368,7 +377,11 @@ export const usePersonalRecords = (userId?: string) => {
     const monthTotals = new Map<string, number>();
 
     entries.forEach(entry => {
-      const fpPlus = Number(entry.fp_plus) || 0;
+      // Prioritize sales_log as source of truth
+      const salesLog = (entry as any).sales_log as any[] | null;
+      const fpPlus = (salesLog && Array.isArray(salesLog) && salesLog.length > 0)
+        ? calculateFromSalesLog(salesLog).fp
+        : (Number(entry.fp_plus) || 0);
       const entryDate = new Date(entry.entry_date + 'T12:00:00');
       
       if (fpPlus > dayRecord) dayRecord = fpPlus;

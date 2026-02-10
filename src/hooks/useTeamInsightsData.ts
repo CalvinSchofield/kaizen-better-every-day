@@ -506,7 +506,13 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
 
       // Overall averages (all-time with activity)
       const overallTotals = allEntriesWithActivity.reduce((acc, entry) => {
-        acc.fp += entry.fp_plus || 0;
+        // Prioritize sales_log as source of truth
+        const salesLog = entry.sales_log as any[] | null;
+        if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
+          acc.fp += calculateFromSalesLog(salesLog).fp;
+        } else {
+          acc.fp += entry.fp_plus || 0;
+        }
         acc.doors += entry.doors_knocked || 0;
         acc.pitches += entry.pitches || 0;
         acc.transitions += entry.transitions || 0;
@@ -589,14 +595,18 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
             });
           }
           
+          const wsSalesLog = entry.sales_log as any[] | null;
+          const hasWsSalesLog = wsSalesLog && Array.isArray(wsSalesLog) && wsSalesLog.length > 0;
+          const wsCalc = hasWsSalesLog ? calculateFromSalesLog(wsSalesLog) : null;
+          
           return {
             userId: entry.user_id,
             name: repInfo?.name || 'Unknown',
             startMinutes,
             endMinutes,
             durationMinutes: Math.max(0, durationMinutes),
-            fp: entry.fp_plus || 0,
-            prmr: entry.prmr || 0,
+            fp: wsCalc ? wsCalc.fp : (entry.fp_plus || 0),
+            prmr: wsCalc ? wsCalc.prmr : (entry.prmr || 0),
             date: format(parseISO(entry.entry_date), 'MMM d'),
             timezone: entryTimezone,
           };
@@ -718,10 +728,16 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           day.pitches += entry.pitches || 0;
           day.transitions += entry.transitions || 0;
           day.presentations += entry.presentations || 0;
-          day.fp += entry.fp_plus || 0;
-          const entryTotalPrmr = entry.prmr || 0;
-          day.prmr += entryTotalPrmr;
-          day.efp += entryTotalPrmr / 85;
+          
+          // Prioritize sales_log
+          const dtSalesLog = entry.sales_log as any[] | null;
+          const dtCalc = (dtSalesLog && Array.isArray(dtSalesLog) && dtSalesLog.length > 0) ? calculateFromSalesLog(dtSalesLog) : null;
+          const dtFp = dtCalc ? dtCalc.fp : (entry.fp_plus || 0);
+          const dtPrmr = dtCalc ? dtCalc.prmr : (entry.prmr || 0);
+          
+          day.fp += dtFp;
+          day.prmr += dtPrmr;
+          day.efp += dtPrmr / 85;
           
           // Calculate hours worked for this entry
           if (entry.work_start_time && entry.work_end_time) {
@@ -766,8 +782,11 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
         }
         
         const day = dayOfWeekData[dayName];
-        day.totalFp += entry.fp_plus || 0;
-        day.totalEfp += (entry.prmr || 0) / 85;
+        // Prioritize sales_log
+        const dowSalesLog = entry.sales_log as any[] | null;
+        const dowCalc = (dowSalesLog && Array.isArray(dowSalesLog) && dowSalesLog.length > 0) ? calculateFromSalesLog(dowSalesLog) : null;
+        day.totalFp += dowCalc ? dowCalc.fp : (entry.fp_plus || 0);
+        day.totalEfp += (dowCalc ? dowCalc.prmr : (entry.prmr || 0)) / 85;
         day.totalDoors += entry.doors_knocked || 0;
         day.totalPitches += entry.pitches || 0;
         day.totalTransitions += entry.transitions || 0;
@@ -830,8 +849,10 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
         if (!acc[date]) {
           acc[date] = { fp: 0, prmr: 0, doors: 0, closes: 0, userId: entry.user_id };
         }
-        acc[date].fp += entry.fp_plus || 0;
-        acc[date].prmr += entry.prmr || 0;
+        const bdSalesLog = entry.sales_log as any[] | null;
+        const bdCalc = (bdSalesLog && Array.isArray(bdSalesLog) && bdSalesLog.length > 0) ? calculateFromSalesLog(bdSalesLog) : null;
+        acc[date].fp += bdCalc ? bdCalc.fp : (entry.fp_plus || 0);
+        acc[date].prmr += bdCalc ? bdCalc.prmr : (entry.prmr || 0);
         acc[date].doors += entry.doors_knocked || 0;
         acc[date].closes += entry.closes || 0;
         return acc;
@@ -861,8 +882,10 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           weeklyData[weekKey] = { fp: 0, prmr: 0, doors: 0, closes: 0 };
         }
         
-        weeklyData[weekKey].fp += entry.fp_plus || 0;
-        weeklyData[weekKey].prmr += entry.prmr || 0;
+        const bwSalesLog = entry.sales_log as any[] | null;
+        const bwCalc = (bwSalesLog && Array.isArray(bwSalesLog) && bwSalesLog.length > 0) ? calculateFromSalesLog(bwSalesLog) : null;
+        weeklyData[weekKey].fp += bwCalc ? bwCalc.fp : (entry.fp_plus || 0);
+        weeklyData[weekKey].prmr += bwCalc ? bwCalc.prmr : (entry.prmr || 0);
         weeklyData[weekKey].doors += entry.doors_knocked || 0;
         weeklyData[weekKey].closes += entry.closes || 0;
       });
@@ -886,8 +909,10 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           monthlyData[monthKey] = { fp: 0, prmr: 0, doors: 0, closes: 0 };
         }
         
-        monthlyData[monthKey].fp += entry.fp_plus || 0;
-        monthlyData[monthKey].prmr += entry.prmr || 0;
+        const bmSalesLog = entry.sales_log as any[] | null;
+        const bmCalc = (bmSalesLog && Array.isArray(bmSalesLog) && bmSalesLog.length > 0) ? calculateFromSalesLog(bmSalesLog) : null;
+        monthlyData[monthKey].fp += bmCalc ? bmCalc.fp : (entry.fp_plus || 0);
+        monthlyData[monthKey].prmr += bmCalc ? bmCalc.prmr : (entry.prmr || 0);
         monthlyData[monthKey].doors += entry.doors_knocked || 0;
         monthlyData[monthKey].closes += entry.closes || 0;
       });
@@ -908,8 +933,8 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
       const bestTransitionsDay = bestTransitionsEntry ? {
         date: format(parseISO(bestTransitionsEntry.entry_date), 'MMM d, yyyy'),
         transitions: bestTransitionsEntry.transitions || 0,
-        fp: bestTransitionsEntry.fp_plus || 0,
-        efp: (bestTransitionsEntry.prmr || 0) / 85,
+        fp: (() => { const sl = bestTransitionsEntry.sales_log as any[] | null; return (sl && Array.isArray(sl) && sl.length > 0) ? calculateFromSalesLog(sl).fp : (bestTransitionsEntry.fp_plus || 0); })(),
+        efp: (() => { const sl = bestTransitionsEntry.sales_log as any[] | null; return ((sl && Array.isArray(sl) && sl.length > 0) ? calculateFromSalesLog(sl).prmr : (bestTransitionsEntry.prmr || 0)) / 85; })(),
         repName: reps.find(r => r.user_id === bestTransitionsEntry.user_id)?.name || 'Team',
       } : null;
 
@@ -1101,8 +1126,11 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
         const teamKey = `${rep.teamName || 'No Team'}|${rep.mgmtGroupName || 'No Group'}`;
         const mgmtKey = rep.mgmtGroupName || 'No Group';
         const date = entry.entry_date;
-        const fp = entry.fp_plus || 0;
-        const prmr = entry.prmr || 0;
+        // Prioritize sales_log
+        const trendSalesLog = entry.sales_log as any[] | null;
+        const trendCalc = (trendSalesLog && Array.isArray(trendSalesLog) && trendSalesLog.length > 0) ? calculateFromSalesLog(trendSalesLog) : null;
+        const fp = trendCalc ? trendCalc.fp : (entry.fp_plus || 0);
+        const prmr = trendCalc ? trendCalc.prmr : (entry.prmr || 0);
         const efp = prmr / 85;
 
         // Per rep
@@ -1187,8 +1215,11 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           };
         }
         const day = dailyGroupData[date];
-        day.totalFp += entry.fp_plus || 0;
-        day.totalPrmr += entry.prmr || 0;
+        // Prioritize sales_log
+        const dgSalesLog = entry.sales_log as any[] | null;
+        const dgCalc = (dgSalesLog && Array.isArray(dgSalesLog) && dgSalesLog.length > 0) ? calculateFromSalesLog(dgSalesLog) : null;
+        day.totalFp += dgCalc ? dgCalc.fp : (entry.fp_plus || 0);
+        day.totalPrmr += dgCalc ? dgCalc.prmr : (entry.prmr || 0);
         day.totalPresentations += entry.presentations || 0;
         day.totalTransitions += entry.transitions || 0;
         day.totalPitches += entry.pitches || 0;
@@ -1295,13 +1326,23 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           })
         : null;
 
+      // Helper to get FP/PRMR from entry using sales_log as source of truth
+      const getEntryFp = (e: DailyEntry): number => {
+        const sl = e.sales_log as any[] | null;
+        return (sl && Array.isArray(sl) && sl.length > 0) ? calculateFromSalesLog(sl).fp : (e.fp_plus || 0);
+      };
+      const getEntryPrmr = (e: DailyEntry): number => {
+        const sl = e.sales_log as any[] | null;
+        return (sl && Array.isArray(sl) && sl.length > 0) ? calculateFromSalesLog(sl).prmr : (e.prmr || 0);
+      };
+
       // Individual records
       const individualBestFpEntry = entries.length > 0
-        ? entries.reduce((best, e) => (e.fp_plus || 0) > (best.fp_plus || 0) ? e : best)
+        ? entries.reduce((best, e) => getEntryFp(e) > getEntryFp(best) ? e : best)
         : null;
 
       const individualBestPrmrEntry = entries.length > 0
-        ? entries.reduce((best, e) => (e.prmr || 0) > (best.prmr || 0) ? e : best)
+        ? entries.reduce((best, e) => getEntryPrmr(e) > getEntryPrmr(best) ? e : best)
         : null;
 
       const individualBestPresEntry = entries.length > 0
@@ -1330,11 +1371,11 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
 
       // Rookie-specific best records
       const rookieBestFpEntry = rookieEntries.length > 0
-        ? rookieEntries.reduce((best, e) => (e.fp_plus || 0) > (best.fp_plus || 0) ? e : best)
+        ? rookieEntries.reduce((best, e) => getEntryFp(e) > getEntryFp(best) ? e : best)
         : null;
 
       const rookieBestPrmrEntry = rookieEntries.length > 0
-        ? rookieEntries.reduce((best, e) => (e.prmr || 0) > (best.prmr || 0) ? e : best)
+        ? rookieEntries.reduce((best, e) => getEntryPrmr(e) > getEntryPrmr(best) ? e : best)
         : null;
 
       const rookieBestPresEntry = rookieEntries.length > 0
@@ -1418,14 +1459,14 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           avgMinutes: longestDurationDay.durations.reduce((s, t) => s + t, 0) / longestDurationDay.durations.length,
           repsWorked: longestDurationDay.durations.length,
         } : null,
-        individualBestFp: individualBestFpEntry && (individualBestFpEntry.fp_plus || 0) > 0 ? {
+        individualBestFp: individualBestFpEntry && getEntryFp(individualBestFpEntry) > 0 ? {
           date: formatDateStr(individualBestFpEntry.entry_date),
-          value: individualBestFpEntry.fp_plus || 0,
+          value: getEntryFp(individualBestFpEntry),
           ...getRepInfo(individualBestFpEntry.user_id),
         } : null,
-        individualBestPrmr: individualBestPrmrEntry && (individualBestPrmrEntry.prmr || 0) > 0 ? {
+        individualBestPrmr: individualBestPrmrEntry && getEntryPrmr(individualBestPrmrEntry) > 0 ? {
           date: formatDateStr(individualBestPrmrEntry.entry_date),
-          value: individualBestPrmrEntry.prmr || 0,
+          value: getEntryPrmr(individualBestPrmrEntry),
           ...getRepInfo(individualBestPrmrEntry.user_id),
         } : null,
         individualBestPresentations: individualBestPresEntry && (individualBestPresEntry.presentations || 0) > 0 ? {
@@ -1454,14 +1495,14 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           ...getRepInfo(individualBestDoorsEntry.user_id),
         } : null,
         // Rookie-specific best records
-        rookieBestFp: rookieBestFpEntry && (rookieBestFpEntry.fp_plus || 0) > 0 ? {
+        rookieBestFp: rookieBestFpEntry && getEntryFp(rookieBestFpEntry) > 0 ? {
           date: formatDateStr(rookieBestFpEntry.entry_date),
-          value: rookieBestFpEntry.fp_plus || 0,
+          value: getEntryFp(rookieBestFpEntry),
           ...getRepInfo(rookieBestFpEntry.user_id),
         } : null,
-        rookieBestPrmr: rookieBestPrmrEntry && (rookieBestPrmrEntry.prmr || 0) > 0 ? {
+        rookieBestPrmr: rookieBestPrmrEntry && getEntryPrmr(rookieBestPrmrEntry) > 0 ? {
           date: formatDateStr(rookieBestPrmrEntry.entry_date),
-          value: rookieBestPrmrEntry.prmr || 0,
+          value: getEntryPrmr(rookieBestPrmrEntry),
           ...getRepInfo(rookieBestPrmrEntry.user_id),
         } : null,
         rookieBestPresentations: rookieBestPresEntry && (rookieBestPresEntry.presentations || 0) > 0 ? {
