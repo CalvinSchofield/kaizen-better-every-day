@@ -56,13 +56,9 @@ export const RecruitSearchDrawer = ({
     const normalizedQuery = normalizePhone(query);
     
     const matches = recruits.filter((recruit) => {
-      // Name search (case-insensitive)
       const nameMatch = recruit.name?.toLowerCase().includes(query);
-      
-      // Phone search (normalized digits)
       const phoneMatch = normalizedQuery.length >= 3 && 
         normalizePhone(recruit.phone).includes(normalizedQuery);
-      
       return nameMatch || phoneMatch;
     });
     
@@ -76,8 +72,36 @@ export const RecruitSearchDrawer = ({
       seen.add(key);
       return true;
     });
+
+    // Sort by stage priority then year
+    const stagePriority: Record<string, number> = {
+      "Sold (5+) 💰": 0,
+      "Sold 💲": 1,
+      "Shadow ✅": 2,
+      "Signed": 3,
+      "Evaluating": 4,
+      "Reached Out": 5,
+      "100 List": 6,
+      "Potential Follow Up": 7,
+      "Signed but Not Interested": 8,
+      "Not Interested": 9,
+    };
+    const yearPriority: Record<string, number> = {
+      "Rookie": 0,
+      "Sophomore": 1,
+      "Vet": 2,
+    };
+
+    deduped.sort((a, b) => {
+      const stageA = stagePriority[a.stage || ""] ?? 6;
+      const stageB = stagePriority[b.stage || ""] ?? 6;
+      if (stageA !== stageB) return stageA - stageB;
+      const yearA = yearPriority[a.year || ""] ?? 3;
+      const yearB = yearPriority[b.year || ""] ?? 3;
+      return yearA - yearB;
+    });
     
-    return deduped.slice(0, 20);
+    return deduped.slice(0, 50);
   }, [recruits, searchQuery]);
 
   const handleSelect = (recruit: Recruit) => {
