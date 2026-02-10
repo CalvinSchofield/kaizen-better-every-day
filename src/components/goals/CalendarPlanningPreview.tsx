@@ -120,10 +120,13 @@ export const CalendarPlanningPreview = ({
       dailyNeeded = futureSummerPlanned > 0 ? remainingForSummer / futureSummerPlanned : 0;
     }
 
+    const weeklyNeeded = Math.round(dailyNeeded * 6 * 10) / 10; // 6 work days per week
+
     return {
       totalPlanned,
       knockingDays,
       dailyNeeded: Math.round(dailyNeeded * 10) / 10,
+      weeklyNeeded,
       forecastedPreseasonTotal: Math.round(forecastedPreseasonTotal * 10) / 10,
     };
   }, [plannedDays, goals, activeTier, efpModeEnabled, knockingDays, currentProgress]);
@@ -181,25 +184,23 @@ export const CalendarPlanningPreview = ({
                 )} />
               </div>
 
-              {/* Hero stat */}
+              {/* Hero stat - weekly target */}
               <div className="text-center space-y-1">
                 <motion.div
-                  key={stats.totalPlanned}
+                  key={stats.weeklyNeeded}
                   initial={{ scale: 0.95, opacity: 0.5 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 300, damping: 25 }}
                   className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-amber-500"
                 >
-                  {stats.totalPlanned} days planned
+                  {stats.weeklyNeeded} / week needed
                 </motion.div>
                 <div className="text-xs text-muted-foreground">
-                  Need {stats.dailyNeeded} {efpLabel}/day to hit your {activeTier === 'preseason' ? 'preseason' : 'summer'} goal
+                  {efpLabel} to hit your {activeTier === 'preseason' ? 'preseason' : 'summer'} goal
                 </div>
-                {stats.knockingDays > 0 && (
-                  <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
-                    {stats.knockingDays} days done so far
-                  </div>
-                )}
+                <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
+                  {stats.totalPlanned} days planned · {stats.knockingDays} worked
+                </div>
               </div>
             </div>
           </CollapsibleTrigger>
@@ -215,32 +216,23 @@ export const CalendarPlanningPreview = ({
                   className="overflow-hidden"
                 >
                   <div className="px-4 pb-4 space-y-4">
-                    {/* Summary stats row */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="text-center p-2 rounded-xl bg-muted/50">
-                        <div className="text-lg font-bold text-foreground">{stats.totalPlanned}</div>
-                        <div className="text-[10px] text-muted-foreground">Planned</div>
-                      </div>
-                      <div className="text-center p-2 rounded-xl bg-muted/50">
-                        <div className="text-lg font-bold text-foreground">{stats.knockingDays}</div>
-                        <div className="text-[10px] text-muted-foreground">Worked</div>
-                      </div>
-                      <div
-                        className="text-center p-2 rounded-xl bg-primary/10 border border-primary/20 cursor-pointer active:scale-[0.95] transition-all relative group"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          hapticLight();
-                          setWhatIfOpen(true);
-                        }}
-                      >
-                        <div className="flex items-center justify-center gap-1">
-                          <Sparkles className="w-3 h-3 text-primary opacity-70" />
-                          <span className="text-lg font-bold text-foreground">{stats.dailyNeeded}</span>
-                          <ChevronRight className="w-3 h-3 text-primary opacity-50" />
+                    {/* What-if explore CTA */}
+                    <div
+                      className="flex items-center justify-between p-3 rounded-xl bg-primary/10 border border-primary/20 cursor-pointer active:scale-[0.97] transition-all"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        hapticLight();
+                        setWhatIfOpen(true);
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-primary" />
+                        <div>
+                          <div className="text-sm font-semibold text-foreground">{stats.dailyNeeded} {efpLabel}/day needed</div>
+                          <div className="text-[10px] text-muted-foreground">Explore what-if scenarios</div>
                         </div>
-                        <div className="text-[10px] text-primary font-medium">{efpLabel}/day needed</div>
-                        <div className="text-[8px] text-muted-foreground mt-0.5">Tap to explore</div>
                       </div>
+                      <ChevronRight className="w-4 h-4 text-primary" />
                     </div>
 
                     {/* Mini month calendar strip */}
