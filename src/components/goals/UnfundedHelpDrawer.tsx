@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ExternalLink, ChevronRight, CircleDollarSign, Search, RefreshCw, Heart } from "lucide-react";
+import { ExternalLink, ChevronRight, CircleDollarSign, Search, Users, Heart } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerClose } from "@/components/ui/drawer";
 import { hapticLight } from "@/utils/haptics";
@@ -15,6 +16,7 @@ interface UnfundedHelpDrawerProps {
 
 export const UnfundedHelpDrawer = ({ unfundedCount, variant = "inline" }: UnfundedHelpDrawerProps) => {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
 
   const trigger = variant === "inline" ? (
     <button
@@ -31,7 +33,7 @@ export const UnfundedHelpDrawer = ({ unfundedCount, variant = "inline" }: Unfund
       onClick={() => hapticLight()}
     >
       <CircleDollarSign className="w-3.5 h-3.5" />
-      Fix unfunded
+      Mark Unfunded
       <ChevronRight className="w-3 h-3" />
     </Button>
   );
@@ -50,14 +52,15 @@ export const UnfundedHelpDrawer = ({ unfundedCount, variant = "inline" }: Unfund
         </DrawerHeader>
 
         <div className="px-4 pb-6 space-y-5 overflow-y-auto">
-          {/* Why it matters - keep it about money */}
+          {/* Why it matters */}
           <div className="rounded-2xl bg-primary/10 border border-primary/20 p-4">
             <p className="text-sm font-semibold text-foreground mb-1">
               💰 Why this matters to your paycheck
             </p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              "Unfunded" means that FP hasn't paid you yet. Sometimes a customer's billing just needs a quick fix. 
-              Reaching out to help them saves <strong>your sale</strong> and keeps <strong>your money</strong> on track.
+              "Unfunded" means you're not being paid on that deal. Sometimes there's a billing error you can help fix, 
+              other times it's because your customer canceled. Either way, tracking this keeps your paychecks healthy 
+              and helps you <strong>make as much money as you can</strong> this summer.
             </p>
           </div>
 
@@ -65,12 +68,12 @@ export const UnfundedHelpDrawer = ({ unfundedCount, variant = "inline" }: Unfund
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">1</div>
-              <span className="font-semibold text-sm">Check which accounts are unfunded</span>
+              <span className="font-semibold text-sm">Find your unfunded accounts</span>
             </div>
             <div className="ml-8 space-y-2">
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Go to <strong>Curator → Earnings</strong> and scroll to the <strong>"Funded Category"</strong> filter. 
-                Select <strong>"Unfunded"</strong> to see exactly which customers haven't funded yet.
+                Select <strong>"Unfunded"</strong> to see exactly which customers aren't funded yet.
               </p>
               <a
                 href={CURATOR_EARNINGS_URL}
@@ -89,13 +92,25 @@ export const UnfundedHelpDrawer = ({ unfundedCount, variant = "inline" }: Unfund
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">2</div>
-              <span className="font-semibold text-sm">Update it in your CRM</span>
+              <span className="font-semibold text-sm">Mark them in your Customers page</span>
             </div>
             <div className="ml-8 space-y-2">
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Go to your <strong>Customers</strong> page in the app. Find the customer, open their details, 
-                and update their funding status. This keeps your numbers accurate and your projections real.
+                Open a customer's details and update their funding status to <strong>"Unfunded"</strong> or <strong>"Canceled"</strong>. 
+                This keeps your <strong>projections accurate</strong> and your goal numbers real — no surprises on payday.
               </p>
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  hapticLight();
+                  navigate('/customers');
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted text-xs font-medium text-foreground active:scale-[0.97] transition-transform"
+              >
+                <Users className="w-3.5 h-3.5 text-primary" />
+                Go to Customers
+                <ChevronRight className="w-3 h-3 text-muted-foreground" />
+              </button>
             </div>
           </div>
 
@@ -107,8 +122,8 @@ export const UnfundedHelpDrawer = ({ unfundedCount, variant = "inline" }: Unfund
             </div>
             <div className="ml-8 space-y-2">
               <p className="text-xs text-muted-foreground leading-relaxed">
-                A quick call or text to your customer can often fix billing issues fast. 
-                You <strong>already did the hard work</strong> of getting the sale — don't let a billing hiccup cost you the commission.
+                If it's a billing issue, a quick call or text can often fix it. 
+                You <strong>already did the hard work</strong> — don't let a billing hiccup cost you the commission.
               </p>
             </div>
           </div>
@@ -118,7 +133,6 @@ export const UnfundedHelpDrawer = ({ unfundedCount, variant = "inline" }: Unfund
             <Heart className="w-5 h-5 text-primary mt-0.5 shrink-0" />
             <p className="text-xs text-muted-foreground leading-relaxed">
               <strong>Pro tip:</strong> Top reps check their unfunded list weekly. 
-              It's the easiest way to protect income you already earned. 
               Every account you save is money back in your pocket — no extra doors needed.
             </p>
           </div>
