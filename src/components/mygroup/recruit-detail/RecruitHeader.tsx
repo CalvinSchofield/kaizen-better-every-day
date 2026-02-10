@@ -1,8 +1,10 @@
 import { differenceInDays, parseISO } from "date-fns";
 import { Users, Clock, AlertTriangle, Sprout } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { getFirstName, stripEmojis } from "./utils";
+import { getInitials } from "@/utils/nameUtils";
 import { RecruitRepData } from "./types";
 
 interface RecruitHeaderProps {
@@ -60,7 +62,14 @@ export const RecruitHeader = ({ recruit, isLeaderOfLeaders, recruitRepData }: Re
     <div className="space-y-3">
       {/* Name and Stage */}
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <Avatar className="h-11 w-11 shrink-0">
+            <AvatarImage src={recruit.profilePhotoUrl || undefined} alt={recruit.name} />
+            <AvatarFallback className="text-sm bg-primary/10 text-primary font-semibold">
+              {getInitials(stripEmojis(recruit.name))}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold truncate">
               {stripEmojis(recruit.name)}
@@ -93,6 +102,7 @@ export const RecruitHeader = ({ recruit, isLeaderOfLeaders, recruitRepData }: Re
               )}
             </div>
           )}
+          </div>
         </div>
         
         {/* Stage Badge */}

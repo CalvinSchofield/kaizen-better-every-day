@@ -44,6 +44,7 @@ export interface Recruit {
   slackJoined?: boolean;
   ipadAssigned?: boolean;
   blitzReady?: boolean;
+  profilePhotoUrl?: string | null;
   // Legacy field for backwards compatibility
   onboardingStatus?: string | null;
 
@@ -205,7 +206,8 @@ export const useGroupRecruits = () => {
           blitz_ready,
           recruiter,
           team_leader,
-          created_at
+          created_at,
+          profile_photo_url
         `)
         .order('created_at', { ascending: false });
       
@@ -509,6 +511,7 @@ export const useGroupRecruits = () => {
           slackJoined: r.slack_joined ?? false,
           ipadAssigned: r.ipad_assigned ?? false,
           blitzReady: r.blitz_ready ?? false,
+          profilePhotoUrl: r.profile_photo_url || null,
         };
       });
 
@@ -554,6 +557,7 @@ export const useGroupRecruits = () => {
           slackJoined: ghostRecruit.slack_joined ?? false,
           ipadAssigned: ghostRecruit.ipad_assigned ?? false,
           blitzReady: ghostRecruit.blitz_ready ?? false,
+          profilePhotoUrl: null, // Ghost recruits don't have profile photos
         });
       }
 
