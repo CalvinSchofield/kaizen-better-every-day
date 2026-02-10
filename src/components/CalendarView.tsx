@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Ban, CalendarDays, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Ban, CalendarDays, Sparkles, Pointer, Undo2, Lock } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
 import { CalendarDayDrawer } from "@/components/CalendarDayDrawer";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
@@ -390,7 +390,12 @@ export const CalendarView = ({
   }), [entries, viewMode, currentDate, weekStart, weekEnd]);
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-24">
+    <div className={cn(
+      "min-h-screen p-4 pb-24 transition-all duration-500",
+      planningMode
+        ? "bg-gradient-to-b from-primary/8 via-primary/3 to-background"
+        : "bg-background"
+    )}>
       {/* Period Navigation */}
       <div className="flex items-center justify-between mb-2">
         <Button variant="ghost" size="icon" onClick={prevPeriod}>
@@ -652,31 +657,82 @@ export const CalendarView = ({
         </div>
       </div>
 
-      {/* Goal Progress Card */}
-      <div className="mt-4">
-        <GoalProgressCard 
-          entries={entries} 
-          currentDate={currentDate} 
-          viewMode={viewMode} 
-        />
-      </div>
+      {/* Goal Progress Card & Summary Teaser - hidden in planning mode */}
+      <AnimatePresence mode="wait">
+        {!planningMode ? (
+          <motion.div
+            key="normal-cards"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="mt-4">
+              <GoalProgressCard 
+                entries={entries} 
+                currentDate={currentDate} 
+                viewMode={viewMode} 
+              />
+            </div>
 
-      {/* Summary Teaser - Navigate to Insights */}
-      {viewTotals.daysWorked > 0 && (
-        <CalendarSummaryTeaser
-          viewMode={viewMode}
-          weekStart={weekStart}
-          weekEnd={new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000)}
-          currentDate={currentDate}
-          viewTotals={viewTotals}
-          prevPeriodTotals={prevPeriodTotals}
-          entries={entries}
-          cumulativeComparison={cumulativeComparison}
-          periodHistoricalTotals={periodHistoricalTotals}
-          comparisonYear={comparisonYear}
-          hasHistoricalData={hasMeVsMeData && meVsMeEnabled}
-        />
-      )}
+            {viewTotals.daysWorked > 0 && (
+              <CalendarSummaryTeaser
+                viewMode={viewMode}
+                weekStart={weekStart}
+                weekEnd={new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000)}
+                currentDate={currentDate}
+                viewTotals={viewTotals}
+                prevPeriodTotals={prevPeriodTotals}
+                entries={entries}
+                cumulativeComparison={cumulativeComparison}
+                periodHistoricalTotals={periodHistoricalTotals}
+                comparisonYear={comparisonYear}
+                hasHistoricalData={hasMeVsMeData && meVsMeEnabled}
+              />
+            )}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="planning-card"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="mt-6"
+          >
+            <div className="rounded-2xl border border-primary/20 bg-card/80 backdrop-blur-sm p-5 space-y-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center">
+                  <CalendarDays className="w-4.5 h-4.5 text-primary" />
+                </div>
+                <h3 className="text-base font-semibold text-foreground">Plan Your Work Days</h3>
+              </div>
+              
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <Pointer className="w-4 h-4 text-primary/70 shrink-0" />
+                  <span>Tap a day to mark it as a <strong className="text-foreground">work day</strong></span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <Undo2 className="w-4 h-4 text-primary/70 shrink-0" />
+                  <span>Tap again to <strong className="text-foreground">remove</strong> it</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <Lock className="w-4 h-4 text-muted-foreground/50 shrink-0" />
+                  <span>Sundays & past dates can't be planned</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-border/50">
+                <p className="text-sm font-medium text-foreground">
+                  <span className="text-primary font-bold">{plannedDays?.length || 0}</span>
+                  <span className="text-muted-foreground ml-1.5">days planned so far</span>
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Calendar Day Drawer - read-only summary or nudge */}
       <CalendarDayDrawer
