@@ -16,7 +16,7 @@ import { GoalSetupWizard } from "@/components/goals/GoalSetupWizard";
 import { GoalHeroRing, GoalTier } from "@/components/goals/GoalHeroRing";
 import { CommitmentChips } from "@/components/goals/CommitmentChips";
 import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
-import { CalendarPlanningCard } from "@/components/goals/CalendarPlanningCard";
+import { CalendarPlanningPreview } from "@/components/goals/CalendarPlanningPreview";
 import { CanceledStatsCard } from "@/components/goals/CanceledStatsCard";
 import { CancelRateDrawer } from "@/components/goals/CancelRateDrawer";
 import { EarningsBreakdownCard } from "@/components/goals/EarningsBreakdownCard";
@@ -116,7 +116,7 @@ const Goals = () => {
 
   const handleTourStepAction = useCallback((action: string) => {
     if (action === 'openGoalsCalendarPlanning') {
-      setIsCalendarOpen(true);
+      // Navigate to calendar for planning (moved from inline collapsible)
     }
   }, []);
 
@@ -1049,50 +1049,19 @@ const Goals = () => {
           </motion.div>
         )}
 
-        {/* Calendar Planning - Collapsible */}
-        <motion.div 
+        {/* Calendar Planning - Earnings-style Preview */}
+        <div 
           id="goals-calendar-planning"
           data-tour="goals-calendar-planning"
           className="px-4 pb-4"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: isUserSummerStarted ? 0.2 : 0.3 }}
         >
-          <Collapsible open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-            <CollapsibleTrigger className="w-full">
-              <div className={cn(
-                "flex items-center justify-between p-4 rounded-2xl",
-                "bg-gradient-to-r from-card to-card/80",
-                "border border-border/50",
-                "hover:shadow-md transition-shadow"
-              )}>
-                <span className="font-semibold">Calendar Planning</span>
-                <ChevronDown className={cn(
-                  "h-5 w-5 text-muted-foreground transition-transform duration-200",
-                  isCalendarOpen && "rotate-180"
-                )} />
-              </div>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="pt-2">
-                <CalendarPlanningCard
-                  mustDoFpGoal={goals.must_do_fp_goal || 0}
-                  willDoFpGoal={goals.will_do_fp_goal || 0}
-                  couldDoFpGoal={goals.could_do_fp_goal || 0}
-                  avgPrmrPerFp={goals.avg_prmr_per_fp || 85}
-                  rentType={goals.rent_type || 'Single'}
-                  weeksWorking={goals.weeks_working || 18}
-                  upgradeFpGoal={goals.upgrade_fp_goal || 0}
-                  preseasonFpGoal={goals.preseason_fp_goal || 0}
-                  cancelRate={goals.cancel_rate ?? (isRookie ? 0.10 : 0.10)}
-                  onPreseasonGoalChange={(goal) => updateGoals({ preseason_fp_goal: goal })}
-                  activeTier={activeTier}
-                  isUserSummerStarted={isUserSummerStarted}
-                />
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        </motion.div>
+          <CalendarPlanningPreview
+            goals={goals}
+            activeTier={activeTier}
+            knockingDays={workedDaysData?.knockingDays || 0}
+            currentProgress={currentProgress}
+          />
+        </div>
 
         {/* Earnings Breakdown Card - collapsible, defaults to closed */}
         <div className="px-4 pb-4">

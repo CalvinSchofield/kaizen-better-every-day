@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Ban } from "lucide-react";
+import { ChevronLeft, ChevronRight, Ban, CalendarDays } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { SaleDetailSheet } from "@/components/SaleDetailSheet";
@@ -9,6 +9,9 @@ import { useSaleUpdate } from "@/hooks/useSaleUpdate";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
+import { hapticLight } from "@/utils/haptics";
+import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useRepData } from "@/hooks/useRepData";
@@ -39,7 +42,7 @@ export const CalendarView = ({
 }: CalendarViewProps) => {
   const queryClient = useQueryClient();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
-  const { isDatePlanned, plannedDays } = usePlannedDays();
+  const { isDatePlanned, plannedDays, togglePlannedDay, isToggling } = usePlannedDays();
   const { goals } = useRepGoals();
   const { totalFP: preseasonCurrentFP, totalEFP: preseasonCurrentEFP, totalPRMR: preseasonCurrentPRMR } = usePreseasonFP();
   const { repData } = useRepData();
@@ -50,6 +53,7 @@ export const CalendarView = ({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleDetailOpen, setSaleDetailOpen] = useState(false);
+  const [planningMode, setPlanningMode] = useState(false);
   
   // Use controlled or internal state
   const viewMode = controlledViewMode ?? internalViewMode;
@@ -218,6 +222,22 @@ export const CalendarView = ({
   };
 
   const handleDayClick = (date: Date) => {
+    // Planning mode: toggle planned day
+    if (planningMode) {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const isSunday = getDay(date) === 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Don't allow planning Sundays or past dates
+      if (isSunday) return;
+      if (date < today) return;
+      
+      hapticLight();
+      togglePlannedDay(dateStr);
+      return;
+    }
+
     const isSunday = getDay(date) === 0;
     const entry = getEntryForDate(date);
     
@@ -402,7 +422,7 @@ export const CalendarView = ({
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
       {/* Period Navigation */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <Button variant="ghost" size="icon" onClick={prevPeriod}>
           <ChevronLeft className="h-5 w-5" />
         </Button>
@@ -427,6 +447,25 @@ export const CalendarView = ({
         <Button variant="ghost" size="icon" onClick={nextPeriod}>
           <ChevronRight className="h-5 w-5" />
         </Button>
+      </div>
+
+      {/* Planning Mode Toggle */}
+      <div className="flex justify-end mb-3">
+        <button
+          onClick={() => {
+            hapticLight();
+            setPlanningMode(prev => !prev);
+          }}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-[0.97]",
+            planningMode
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-muted text-muted-foreground"
+          )}
+        >
+          <CalendarDays className="w-3.5 h-3.5" />
+          {planningMode ? "Planning" : "Plan"}
+        </button>
       </div>
 
       {/* Calendar Grid */}
@@ -668,6 +707,37 @@ export const CalendarView = ({
         crmEnabled={true}
         crmDetailedEnabled={true}
       />
+
+      {/* Planning Mode Floating Summary Bar */}
+      <AnimatePresence>
+        {planningMode && (
+          <motion.div
+            initial={{ y: 60, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 60, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            className="fixed bottom-20 left-4 right-4 z-40"
+          >
+            <div className="bg-card border border-border rounded-2xl shadow-lg px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CalendarDays className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">
+                  {plannedDays?.length || 0} days planned
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  hapticLight();
+                  setPlanningMode(false);
+                }}
+                className="text-xs font-medium text-primary active:scale-[0.97] transition-transform"
+              >
+                Done
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
