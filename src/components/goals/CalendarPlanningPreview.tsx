@@ -3,7 +3,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CalendarDays, ChevronDown, ArrowRight } from 'lucide-react';
+import { CalendarDays, ChevronDown, ArrowRight, ChevronRight, Sparkles } from 'lucide-react';
+import { WhatIfScenarioDrawer } from './WhatIfScenarioDrawer';
 import { cn } from '@/lib/utils';
 import { hapticLight } from '@/utils/haptics';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
@@ -32,8 +33,9 @@ export const CalendarPlanningPreview = ({
   currentProgress,
 }: CalendarPlanningPreviewProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const navigate = useNavigate();
+  const [whatIfOpen, setWhatIfOpen] = useState(false);
   const { plannedDays } = usePlannedDays();
+  const navigate = useNavigate();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { totalFP, totalPRMR } = usePreseasonFP();
   const { userId } = useCurrentUserId();
@@ -91,38 +93,30 @@ export const CalendarPlanningPreview = ({
       ? activeGoal / (1 - cancelRate)
       : activeGoal;
 
+    // Daily average for forecasting
+    const dailyAvg = knockingDays > 0 ? currentProgress / knockingDays : 0;
+
+    // Future preseason planned days
+    const futurePreseasonPlanned = plannedDays?.filter(d => {
+      const date = parseISO(d.planned_date);
+      return date > today && !isAfter(date, preseasonEnd);
+    }).length || 0;
+
+    // Forecasted preseason total
+    const forecastedPreseasonTotal = currentProgress + (dailyAvg * futurePreseasonPlanned);
+
     let dailyNeeded: number;
 
     if (isPreseasonTier) {
-      // PRESEASON: only count preseason planned days and preseason progress
-      const futurePreseasonPlanned = plannedDays?.filter(d => {
-        const date = parseISO(d.planned_date);
-        return date > today && !isAfter(date, preseasonEnd);
-      }).length || 0;
-
       const remaining = Math.max(0, fundedGoalNeeded - currentProgress);
-      const remainingDays = futurePreseasonPlanned + 1; // +1 for today
+      const remainingDays = futurePreseasonPlanned + 1;
       dailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
     } else {
-      // SUMMER TIER: forecast preseason total, then compute summer needed
-      // Forecast preseason total = current progress + (daily average × remaining preseason days)
-      const futurePreseasonPlanned = plannedDays?.filter(d => {
-        const date = parseISO(d.planned_date);
-        return date > today && !isAfter(date, preseasonEnd);
-      }).length || 0;
-
-      const dailyAvg = knockingDays > 0 ? currentProgress / knockingDays : 0;
-      const forecastedPreseasonTotal = currentProgress + (dailyAvg * futurePreseasonPlanned);
-
-      // What's left for summer
       const remainingForSummer = Math.max(0, fundedGoalNeeded - forecastedPreseasonTotal);
-
-      // Summer planned days
       const futureSummerPlanned = plannedDays?.filter(d => {
         const date = parseISO(d.planned_date);
         return !isBefore(date, summerStart);
       }).length || 0;
-
       dailyNeeded = futureSummerPlanned > 0 ? remainingForSummer / futureSummerPlanned : 0;
     }
 
@@ -130,6 +124,7 @@ export const CalendarPlanningPreview = ({
       totalPlanned,
       knockingDays,
       dailyNeeded: Math.round(dailyNeeded * 10) / 10,
+      forecastedPreseasonTotal: Math.round(forecastedPreseasonTotal * 10) / 10,
     };
   }, [plannedDays, goals, activeTier, efpModeEnabled, knockingDays, currentProgress]);
 
@@ -230,9 +225,21 @@ export const CalendarPlanningPreview = ({
                         <div className="text-lg font-bold text-foreground">{stats.knockingDays}</div>
                         <div className="text-[10px] text-muted-foreground">Worked</div>
                       </div>
-                      <div className="text-center p-2 rounded-xl bg-muted/50">
-                        <div className="text-lg font-bold text-foreground">{stats.dailyNeeded}</div>
-                        <div className="text-[10px] text-muted-foreground">{efpLabel}/day needed</div>
+                      <div
+                        className="text-center p-2 rounded-xl bg-primary/10 border border-primary/20 cursor-pointer active:scale-[0.95] transition-all relative group"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          hapticLight();
+                          setWhatIfOpen(true);
+                        }}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <Sparkles className="w-3 h-3 text-primary opacity-70" />
+                          <span className="text-lg font-bold text-foreground">{stats.dailyNeeded}</span>
+                          <ChevronRight className="w-3 h-3 text-primary opacity-50" />
+                        </div>
+                        <div className="text-[10px] text-primary font-medium">{efpLabel}/day needed</div>
+                        <div className="text-[8px] text-muted-foreground mt-0.5">Tap to explore</div>
                       </div>
                     </div>
 
@@ -306,6 +313,18 @@ export const CalendarPlanningPreview = ({
           </AnimatePresence>
         </Collapsible>
       </Card>
+
+      <WhatIfScenarioDrawer
+        open={whatIfOpen}
+        onOpenChange={setWhatIfOpen}
+        goals={goals}
+        currentProgress={currentProgress}
+        knockingDays={knockingDays}
+        plannedDays={plannedDays}
+        efpModeEnabled={efpModeEnabled}
+        calculateEfp={calculateEfp}
+        forecastedPreseasonTotal={stats.forecastedPreseasonTotal}
+      />
     </motion.div>
   );
 };
