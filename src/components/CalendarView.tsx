@@ -1,11 +1,9 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Ban, CalendarDays, Sparkles } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
-import { SaveEntrySheet } from "@/components/SaveEntrySheet";
-import { SaleDetailSheet } from "@/components/SaleDetailSheet";
-import { useDailyEntry, Sale } from "@/hooks/useDailyEntry";
-import { useSaleUpdate } from "@/hooks/useSaleUpdate";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
+import { CalendarDayDrawer } from "@/components/CalendarDayDrawer";
+import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
@@ -46,13 +44,10 @@ export const CalendarView = ({
   const { goals } = useRepGoals();
   const { totalFP: preseasonCurrentFP, totalEFP: preseasonCurrentEFP, totalPRMR: preseasonCurrentPRMR } = usePreseasonFP();
   const { repData } = useRepData();
-  const { updateSale } = useSaleUpdate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [internalViewMode, setInternalViewMode] = useState<"month" | "week">("week");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
-  const [saleDetailOpen, setSaleDetailOpen] = useState(false);
   const [planningMode, setPlanningMode] = useState(false);
   
   // Use controlled or internal state
@@ -102,9 +97,8 @@ export const CalendarView = ({
   }, [goals, plannedDays, entries, efpModeEnabled, calculateEfp, preseasonCurrentFP, preseasonCurrentPRMR, personalSummerStart]);
 
 
-  // Only use useDailyEntry for mutations, NOT for display data
-  // Display data comes from the entries prop (source of truth)
-  const { finalizeEntry, deleteEntry, isFinalizing } = useDailyEntry(
+  // useDailyEntry for delete mutation only
+  const { deleteEntry } = useDailyEntry(
     selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined
   );
   
@@ -248,31 +242,7 @@ export const CalendarView = ({
     setSheetOpen(true);
   };
 
-  const handleSaveEntry = async (data: {
-    doors_knocked: number;
-    decision_makers: number;
-    pitches: number;
-    transitions: number;
-    presentations: number;
-    closes: number;
-    fp_plus: number;
-    prmr: number;
-    upgrade_prmr?: number | null;
-    saveDate: string;
-    work_start_time?: string;
-    work_end_time?: string;
-    custom_counters?: Record<string, number>;
-    sales_log?: Sale[];
-  }) => {
-    await new Promise<void>((resolve) => {
-      finalizeEntry(data, {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
-          resolve();
-        }
-      });
-    });
-  };
+  // handleSaveEntry removed — CalendarDayDrawer is read-only, no manual entry saving from calendar
 
   // Helper to format numbers: show 1 decimal place but strip .0
   const formatValue = (value: number): string => {
@@ -708,36 +678,15 @@ export const CalendarView = ({
         />
       )}
 
-      {/* Save Entry Sheet */}
-      <SaveEntrySheet
+      {/* Calendar Day Drawer - read-only summary or nudge */}
+      <CalendarDayDrawer
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         entry={selectedEntry}
         date={selectedDate || new Date()}
-        onSave={handleSaveEntry}
-        onDelete={selectedEntry?.is_finalized ? handleDeleteEntry : undefined}
-        isSaving={isFinalizing}
-        salesLog={selectedEntry?.sales_log || []}
-      />
-
-      {/* Sale Detail Sheet - accessed from SalesLoggerCard in Track page */}
-      <SaleDetailSheet
-        open={saleDetailOpen}
-        onOpenChange={setSaleDetailOpen}
-        sale={selectedSale}
-        entryDate={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
-        onUpdateSale={(updatedSale) => {
-          if (selectedEntry?.id && selectedDate) {
-            updateSale({
-              entryId: selectedEntry.id,
-              entryDate: format(selectedDate, 'yyyy-MM-dd'),
-              saleId: updatedSale.id,
-              updates: updatedSale,
-            });
-          }
+        onSaleAdded={() => {
+          queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
         }}
-        crmEnabled={true}
-        crmDetailedEnabled={true}
       />
 
       {/* Planning Mode Floating Summary Bar */}
