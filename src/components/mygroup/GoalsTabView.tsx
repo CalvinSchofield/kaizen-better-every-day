@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { format, parseISO, isAfter, startOfDay } from "date-fns";
 import { stripEmojis } from "./recruit-detail/utils";
+import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 import { EditSummerDatesDrawer } from "./EditSummerDatesDrawer";
 import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { calculateSalesPace, SalesPaceInput } from "@/utils/salesPaceCalculator";
@@ -135,7 +136,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
       if (!teamAccess?.accessibleUserIds?.length) return [];
       const { data } = await supabase
         .from('daily_entries')
-        .select('user_id, entry_date, fp_plus, prmr, doors_knocked, work_start_time, work_end_time, is_finalized')
+        .select('user_id, entry_date, fp_plus, prmr, doors_knocked, work_start_time, work_end_time, is_finalized, sales_log')
         .in('user_id', teamAccess.accessibleUserIds)
         .gte('entry_date', PRESEASON_START);
       return data || [];
@@ -214,8 +215,20 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
         const seasonStart = isRepInPreseason ? PRESEASON_START : (personalSummerStart || DEFAULT_SUMMER_START);
         const seasonEntries = entries.filter(e => e.entry_date >= seasonStart && e.is_finalized);
         
-        const currentFpPlus = seasonEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
-        const currentPrmr = seasonEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
+        const currentFpPlus = seasonEntries.reduce((sum, e) => {
+          const salesLog = (e as any).sales_log as any[] | null;
+          if (salesLog && salesLog.length > 0) {
+            return sum + calculateFromSalesLog(salesLog).fp;
+          }
+          return sum + (Number(e.fp_plus) || 0);
+        }, 0);
+        const currentPrmr = seasonEntries.reduce((sum, e) => {
+          const salesLog = (e as any).sales_log as any[] | null;
+          if (salesLog && salesLog.length > 0) {
+            return sum + calculateFromSalesLog(salesLog).prmr;
+          }
+          return sum + (Number(e.prmr) || 0);
+        }, 0);
         const knockingDays = seasonEntries.filter(e => 
           (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time
         ).length;

@@ -19,6 +19,7 @@ const DEFAULT_SUMMER_END = '2026-09-27';
 import { TabType, RecruitRepData, RecruitGoals, ContactForHelp, RecruitSummerConfig } from "./types";
 import { stripEmojis, getFirstName, getStageDescription, getOnboardingStepDescription } from "./utils";
 import { generateStageHelpMessage } from "@/utils/stageSpecificHelpMessage";
+import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 import { RecruitHeader } from "./RecruitHeader";
 import { QuickActionsBar } from "./QuickActionsBar";
 import { FocusCard } from "./FocusCard";
@@ -271,13 +272,25 @@ export const RecruitDetailDrawer = ({
     enabled: !!recruitRepData?.user_id && open,
   });
 
-  // YTD FP+
+  // YTD FP+ — calculate from sales_log (source of truth) with fp_plus as fallback
   const { data: recruitYtdFP = 0 } = useQuery({
     queryKey: ['recruit-ytd-fp', recruitRepData?.user_id],
     queryFn: async () => {
       if (!recruitRepData?.user_id) return 0;
-      const { data } = await supabase.from('daily_entries').select('fp_plus').eq('user_id', recruitRepData.user_id).eq('is_finalized', true);
-      return data?.reduce((sum, entry) => sum + (entry.fp_plus || 0), 0) || 0;
+      const { data } = await supabase
+        .from('daily_entries')
+        .select('fp_plus, sales_log')
+        .eq('user_id', recruitRepData.user_id)
+        .gte('entry_date', PRESEASON_START);
+      if (!data) return 0;
+      return data.reduce((sum, entry) => {
+        const salesLog = entry.sales_log as any[] | null;
+        if (salesLog && salesLog.length > 0) {
+          const calc = calculateFromSalesLog(salesLog);
+          return sum + calc.fp;
+        }
+        return sum + (entry.fp_plus || 0);
+      }, 0);
     },
     enabled: !!recruitRepData?.user_id && open,
   });
@@ -309,7 +322,7 @@ export const RecruitDetailDrawer = ({
       if (!recruitRepData?.user_id) return [];
       const { data } = await supabase
         .from('daily_entries')
-        .select('entry_date, fp_plus, work_start_time, work_end_time, doors_knocked, is_finalized')
+        .select('entry_date, fp_plus, work_start_time, work_end_time, doors_knocked, is_finalized, sales_log')
         .eq('user_id', recruitRepData.user_id)
         .gte('entry_date', PRESEASON_START)
         .order('entry_date', { ascending: false });
