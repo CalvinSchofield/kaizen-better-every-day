@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Lock, SlidersHorizontal, Calculator, ChevronDown, ArrowLeft, Loader2, Check } from "lucide-react";
+import { Lock, SlidersHorizontal, ChevronDown, ArrowLeft, Loader2, Check } from "lucide-react";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -16,6 +16,7 @@ import { GoalSetupWizard } from "@/components/goals/GoalSetupWizard";
 import { GoalHeroRing, GoalTier } from "@/components/goals/GoalHeroRing";
 import { CommitmentChips } from "@/components/goals/CommitmentChips";
 import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
+import { QuickEditGoalsDrawer } from "@/components/goals/QuickEditGoalsDrawer";
 import { CalendarPlanningPreview } from "@/components/goals/CalendarPlanningPreview";
 import { CanceledStatsCard } from "@/components/goals/CanceledStatsCard";
 import { CancelRateDrawer } from "@/components/goals/CancelRateDrawer";
@@ -97,6 +98,7 @@ const Goals = () => {
   });
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showQuickEdit, setShowQuickEdit] = useState(false);
   const [showCommitmentEditor, setShowCommitmentEditor] = useState(false);
   const [showTrainingTimer, setShowTrainingTimer] = useState(false);
   const [showBlitzEditor, setShowBlitzEditor] = useState(false);
@@ -944,20 +946,18 @@ const Goals = () => {
           </div>
           <div className="flex gap-2">
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-xl"
-              onClick={() => setShowCalculator(true)}
-            >
-              <Calculator className="h-4 w-4" />
-            </Button>
-            <Button
               id="goals-settings-button"
               data-tour="goals-settings-button"
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-xl"
-              onClick={() => setShowSetupWizard(true)}
+              onClick={() => {
+                if (goals?.setup_complete) {
+                  setShowQuickEdit(true);
+                } else {
+                  setShowSetupWizard(true);
+                }
+              }}
             >
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
@@ -1306,6 +1306,26 @@ const Goals = () => {
         onSkip={skipTour}
         onStepAction={handleTourStepAction}
       />
+      
+      {/* Quick Edit Goals Drawer */}
+      {goals && (
+        <QuickEditGoalsDrawer
+          open={showQuickEdit}
+          onOpenChange={setShowQuickEdit}
+          currentGoals={{
+            preseason_fp_goal: goals.preseason_fp_goal || 0,
+            must_do_fp_goal: goals.must_do_fp_goal || 0,
+            will_do_fp_goal: goals.will_do_fp_goal || 0,
+            could_do_fp_goal: goals.could_do_fp_goal || 0,
+          }}
+          isUserSummerStarted={isUserSummerStarted}
+          efpModeEnabled={efpModeEnabled}
+          conversionFactor={conversionFactor}
+          onSave={async (updatedGoals) => {
+            await updateGoals(updatedGoals);
+          }}
+        />
+      )}
       
       {/* Catch-up wizard for syncing official totals */}
       <CatchUpWizard
