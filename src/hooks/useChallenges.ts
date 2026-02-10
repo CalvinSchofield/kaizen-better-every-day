@@ -257,7 +257,16 @@ export const useMyActiveChallenges = () => {
 
       const repMap = new Map(reps?.map((r) => [r.user_id, r]) || []);
 
-      return (challenges || []).map((c) => ({
+      // Safety filter: exclude challenges whose end_date has passed (in case auto-complete hasn't run yet)
+      const today = new Date().toISOString().split('T')[0];
+      const filtered = (challenges || []).filter(c => {
+        // Keep pending challenges regardless of date
+        if (c.status === 'pending') return true;
+        // For active challenges, only show if end_date is today or in the future
+        return c.end_date >= today;
+      });
+
+      return filtered.map((c) => ({
         ...c,
         creator_name: repMap.get(c.created_by)?.name || 'Unknown',
         participants: c.challenge_participants?.map((p: any) => ({
