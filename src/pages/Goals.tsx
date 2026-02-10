@@ -18,6 +18,7 @@ import { CommitmentChips } from "@/components/goals/CommitmentChips";
 import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
 import { CalendarPlanningCard } from "@/components/goals/CalendarPlanningCard";
 import { CanceledStatsCard } from "@/components/goals/CanceledStatsCard";
+import { CancelRateDrawer } from "@/components/goals/CancelRateDrawer";
 import { EarningsBreakdownCard } from "@/components/goals/EarningsBreakdownCard";
 import { TrainingTimer } from "@/components/goals/TrainingTimer";
 import { BooksCompletionDrawer } from "@/components/goals/BooksSelectionDrawer";
@@ -105,7 +106,7 @@ const Goals = () => {
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
-  
+  const [showCancelRateDrawer, setShowCancelRateDrawer] = useState(false);
   // Effective FP hook for verified totals
   const { data: effectiveFPData } = useEffectiveFP({
     seasonType: 'preseason',
@@ -293,6 +294,13 @@ const Goals = () => {
   const currentProgress = efpModeEnabled ? calculateEfp(totalPRMR) : totalFpPlus;
   const fundedProgress = efpModeEnabled ? calculateEfp(fundedPRMR) : fundedFP;
 
+  // Calculate actual cancel/unfunded rate from real data
+  const actualCancelRate = useMemo(() => {
+    if (currentProgress <= 0) return null;
+    const unfunded = currentProgress - fundedProgress;
+    if (unfunded <= 0) return 0;
+    return unfunded / currentProgress;
+  }, [currentProgress, fundedProgress]);
   // Today's progress from entry (EFP or FP+ based on mode)
   // IMPORTANT: Include RUNNING totals from unfinalized sales_log for live "behind" calculation
   const todayUnfinalizedPrmr = useMemo(() => {
@@ -913,11 +921,14 @@ const Goals = () => {
         {/* Header Actions */}
         <div className="flex items-center justify-between p-4 pb-0">
           <div className="flex items-center gap-2">
-            <div className="text-xs text-muted-foreground bg-muted/50 px-2.5 py-1.5 rounded-full">
+            <button 
+              onClick={() => setShowCancelRateDrawer(true)}
+              className="text-xs text-muted-foreground bg-muted/50 px-2.5 py-1.5 rounded-full active:scale-95 transition-transform"
+            >
               <span className="font-medium">
                 {Math.round((goals.cancel_rate ?? (isRookie ? 0.10 : 0.10)) * 100)}% cancel buffer
               </span>
-            </div>
+            </button>
             {/* Sync discrepancy indicator */}
             {effectiveFPData && (effectiveFPData.needsVerification || effectiveFPData.hasDiscrepancy) && (
               <SyncDiscrepancyIndicator
@@ -1334,6 +1345,18 @@ const Goals = () => {
         seasonType="preseason"
         onComplete={() => {
           toast.success("Your official totals have been saved!");
+        }}
+      />
+      {/* Cancel rate adjustment drawer */}
+      <CancelRateDrawer
+        open={showCancelRateDrawer}
+        onOpenChange={setShowCancelRateDrawer}
+        currentRate={goals?.cancel_rate ?? (isRookie ? 0.10 : 0.10)}
+        actualCancelRate={actualCancelRate}
+        efpModeEnabled={efpModeEnabled}
+        onSave={async (rate) => {
+          await updateGoals({ cancel_rate: rate });
+          toast.success(`Cancel buffer set to ${(rate * 100).toFixed(1)}%`);
         }}
       />
     </Layout>
