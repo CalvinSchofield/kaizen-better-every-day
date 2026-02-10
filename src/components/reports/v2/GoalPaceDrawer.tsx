@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { GOAL_TIER_CONFIG } from "@/config/goalTiers";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -53,10 +54,10 @@ const STATUS_CONFIG = {
 };
 
 const TIER_CONFIG = {
-  preseason: { label: 'Preseason', color: 'border-blue-400 text-blue-600' },
-  mustDo: { label: 'Must Do', color: 'border-red-400 text-red-600' },
-  willDo: { label: 'Will Do', color: 'border-primary text-primary' },
-  couldDo: { label: 'Could Do', color: 'border-green-400 text-green-600' },
+  preseason: { label: 'Preseason', color: `${GOAL_TIER_CONFIG.preseason.borderColor} ${GOAL_TIER_CONFIG.preseason.color}` },
+  mustDo: { label: 'Must Do', color: `${GOAL_TIER_CONFIG.mustDo.borderColor} ${GOAL_TIER_CONFIG.mustDo.color}` },
+  willDo: { label: 'Will Do', color: `${GOAL_TIER_CONFIG.willDo.borderColor} ${GOAL_TIER_CONFIG.willDo.color}` },
+  couldDo: { label: 'Could Do', color: `${GOAL_TIER_CONFIG.couldDo.borderColor} ${GOAL_TIER_CONFIG.couldDo.color}` },
 };
 
 export const GoalPaceDrawer = ({

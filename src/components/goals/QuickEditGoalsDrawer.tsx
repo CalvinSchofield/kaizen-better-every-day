@@ -3,10 +3,11 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Target, Zap, Trophy, Lock, Check } from 'lucide-react';
+import { Lock, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { hapticLight, hapticSuccess } from '@/utils/haptics';
+import { GOAL_TIER_CONFIG } from '@/config/goalTiers';
 
 interface QuickEditGoalsDrawerProps {
   open: boolean;
@@ -31,39 +32,19 @@ interface QuickEditGoalsDrawerProps {
 const tierConfig = [
   {
     key: 'preseason_fp_goal' as const,
-    label: 'Preseason',
-    icon: Target,
-    color: 'text-blue-400',
-    bgColor: 'bg-blue-500/10',
-    borderColor: 'border-blue-500/20',
-    description: 'Before summer starts',
+    ...GOAL_TIER_CONFIG.preseason,
   },
   {
     key: 'must_do_fp_goal' as const,
-    label: 'Must Do',
-    icon: Target,
-    color: 'text-emerald-400',
-    bgColor: 'bg-emerald-500/10',
-    borderColor: 'border-emerald-500/20',
-    description: 'Cover expenses minimum',
+    ...GOAL_TIER_CONFIG.mustDo,
   },
   {
     key: 'will_do_fp_goal' as const,
-    label: 'Will Do',
-    icon: Zap,
-    color: 'text-amber-400',
-    bgColor: 'bg-amber-500/10',
-    borderColor: 'border-amber-500/20',
-    description: 'Committed target',
+    ...GOAL_TIER_CONFIG.willDo,
   },
   {
     key: 'could_do_fp_goal' as const,
-    label: 'Could Do',
-    icon: Trophy,
-    color: 'text-purple-400',
-    bgColor: 'bg-purple-500/10',
-    borderColor: 'border-purple-500/20',
-    description: 'Stretch goal',
+    ...GOAL_TIER_CONFIG.couldDo,
   },
 ];
 

@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import { Check, Target, Zap, Trophy, TrendingUp } from "lucide-react";
+import { Check, TrendingUp } from "lucide-react";
 import { formatCurrency, calculateTakeHome } from "@/utils/payscaleCalculator";
 import { calculateUpfrontPay } from "@/utils/roiCalculations";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
 import { UnfundedHelpDrawer } from "@/components/goals/UnfundedHelpDrawer";
+import { GOAL_TIER_CONFIG } from "@/config/goalTiers";
 
 export type GoalTier = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
 
@@ -55,42 +56,7 @@ interface GoalHeroRingProps {
   learningCurveMessage?: string;
 }
 
-const tierConfig: Record<GoalTier, { 
-  label: string; 
-  shortLabel: string;
-  icon: typeof Target; 
-  gradient: string;
-  glowColor: string;
-}> = {
-  preseason: {
-    label: 'Preseason',
-    shortLabel: 'Preseason',
-    icon: Target,
-    gradient: 'from-blue-400 to-blue-600',
-    glowColor: 'shadow-blue-500/30',
-  },
-  mustDo: { 
-    label: 'Must Do', 
-    shortLabel: 'Must',
-    icon: Target, 
-    gradient: 'from-amber-400 to-orange-500',
-    glowColor: 'shadow-amber-500/30',
-  },
-  willDo: { 
-    label: 'Will Do', 
-    shortLabel: 'Will',
-    icon: Zap, 
-    gradient: 'from-primary to-primary-dark',
-    glowColor: 'shadow-primary/30',
-  },
-  couldDo: { 
-    label: 'Could Do', 
-    shortLabel: 'Could',
-    icon: Trophy, 
-    gradient: 'from-emerald-400 to-green-600',
-    glowColor: 'shadow-emerald-500/30',
-  },
-};
+const tierConfig = GOAL_TIER_CONFIG;
 
 export const GoalHeroRing = ({
   activeTier,
