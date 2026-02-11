@@ -102,8 +102,17 @@ export const CalendarPlanningPreview = ({
       return date > today && !isAfter(date, preseasonEnd);
     }).length || 0;
 
+    // If no preseason days are explicitly planned, estimate remaining work days (Mon-Sat)
+    const remainingPreseasonWorkDays = futurePreseasonPlanned > 0
+      ? futurePreseasonPlanned
+      : (() => {
+          const days = eachDayOfInterval({ start: today, end: preseasonEnd });
+          // Exclude today (already counted in currentProgress) and Sundays
+          return days.filter(d => d > today && getDay(d) !== 0).length;
+        })();
+
     // Forecasted preseason total
-    const forecastedPreseasonTotal = currentProgress + (dailyAvg * futurePreseasonPlanned);
+    const forecastedPreseasonTotal = currentProgress + (dailyAvg * remainingPreseasonWorkDays);
 
     let dailyNeeded: number;
 
