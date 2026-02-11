@@ -143,3 +143,6 @@ verify_jwt = false
 
 [functions.send-task-assignment-notification]
 verify_jwt = false
+
+[functions.send-comment-notification]
+verify_jwt = false

@@ -27,7 +27,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { assignedToUserId, assignerUserId, recruitId, nextAction, nextActionDue } = await req.json();
+    const { assignedToUserId, assignerUserId, recruitId, nextAction, nextActionDue, activityId } = await req.json();
 
     if (!assignedToUserId || !assignerUserId) {
       return new Response(
@@ -94,7 +94,7 @@ serve(async (req) => {
     for (const sub of subscriptions || []) {
       const result = await sendWebPush(
         { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
-        { title, body, url: deepLinkUrl, type: "task_assignment" },
+        { title, body, url: deepLinkUrl, type: "task_assignment", activityId, recruitId },
         vapidPublicKey,
         vapidPrivateKey
       );

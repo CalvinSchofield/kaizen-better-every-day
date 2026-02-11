@@ -174,12 +174,15 @@ const MyGroup = () => {
     }
   }, [hasProcessedNavState, isLoading, teamAccess, location.state, currentUserRep]);
 
-  // Handle deep link from push notifications (e.g., ?recruitId=xxx&activityId=yyy)
+  // Handle deep link from push notifications (e.g., ?recruitId=xxx&activityId=yyy&openComments=true)
   useEffect(() => {
     if (hasProcessedDeepLink || isLoading) return;
     
     const recruitIdParam = searchParams.get('recruitId');
     const activityIdParam = searchParams.get('activityId');
+    const openComments = searchParams.get('openComments') === 'true';
+    const addToCalendarParam = searchParams.get('addToCalendar');
+    const completeActivityParam = searchParams.get('completeActivity');
     
     if (recruitIdParam && groupData?.recruits) {
       const targetRecruit = groupData.recruits.find(r => r.id === recruitIdParam);

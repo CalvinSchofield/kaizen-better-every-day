@@ -244,6 +244,21 @@ export const useAddComment = () => {
           // Don't fail the comment if notification fails
         }
       }
+      // Send comment notification to activity owner (non-mention case)
+      try {
+        await supabase.functions.invoke('send-comment-notification', {
+          body: {
+            activityId,
+            commenterId: userId,
+            commenterName: commenterName || 'Someone',
+            commentContent: content.trim(),
+            mentionedUserIds,
+            recruitId,
+          },
+        });
+      } catch (notifyError) {
+        console.error('Failed to send comment notification:', notifyError);
+      }
       
       return data;
     },
