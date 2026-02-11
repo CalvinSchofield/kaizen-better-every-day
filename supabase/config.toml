@@ -140,3 +140,6 @@ verify_jwt = false
 
 [functions.check-task-reminders]
 verify_jwt = false
+
+[functions.send-task-assignment-notification]
+verify_jwt = false
