@@ -49,7 +49,7 @@ export const CalendarPlanningPreview = ({
   }, []);
 
   // Fetch worked dates for the current month to show green dots
-  const { data: workedDates } = useQuery({
+  const { data: workedDates, isLoading: isLoadingWorked, isFetching: isFetchingWorked } = useQuery({
     queryKey: ['calendar-preview-worked-dates', userId],
     queryFn: async () => {
       if (!userId) return new Set<string>();
@@ -68,6 +68,9 @@ export const CalendarPlanningPreview = ({
     enabled: !!userId,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Show calendar skeleton while either planned days or worked dates are loading/refetching
+  const isCalendarLoading = isLoadingPlanned || isLoadingWorked || (isFetchingPlanned && !plannedDays) || (isFetchingWorked && !workedDates);
 
   // Compute stats with preseason vs summer split
   const stats = useMemo(() => {
@@ -275,37 +278,52 @@ export const CalendarPlanningPreview = ({
                           </div>
                         </div>
                       </div>
-                      <div className="grid grid-cols-7 gap-1">
-                        {/* Day headers */}
-                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                          <div key={i} className="text-center text-[9px] text-muted-foreground/60 font-medium">
-                            {d}
-                          </div>
-                        ))}
-                        {/* Empty cells for offset */}
-                        {Array.from({ length: firstDayOffset }).map((_, i) => (
-                          <div key={`empty-${i}`} />
-                        ))}
-                        {/* Day dots */}
-                        {miniCalendarData.map((d, i) => (
-                          <div
-                            key={i}
-                            className={cn(
-                              "aspect-square rounded-full flex items-center justify-center text-[8px] font-medium",
-                              d.isToday && "ring-1 ring-primary",
-                              // Worked days get green (takes priority over planned amber)
-                              d.isWorked && "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400",
-                              // Planned but not yet worked = amber/primary
-                              d.isPlanned && !d.isWorked && "bg-primary/20 text-primary",
-                              // Default states
-                              d.isSunday && !d.isPlanned && !d.isWorked && "text-muted-foreground/30",
-                              !d.isPlanned && !d.isWorked && !d.isSunday && "text-muted-foreground/60"
-                            )}
-                          >
-                            {d.day}
-                          </div>
-                        ))}
-                      </div>
+                      {isCalendarLoading ? (
+                        <div className="grid grid-cols-7 gap-1">
+                          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                            <div key={i} className="text-center text-[9px] text-muted-foreground/60 font-medium">
+                              {d}
+                            </div>
+                          ))}
+                          {Array.from({ length: firstDayOffset }).map((_, i) => (
+                            <div key={`empty-${i}`} />
+                          ))}
+                          {Array.from({ length: miniCalendarData.length || 28 }).map((_, i) => (
+                            <div key={`skel-${i}`} className="aspect-square flex items-center justify-center">
+                              <Skeleton className="w-6 h-6 rounded-full" />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-7 gap-1">
+                          {/* Day headers */}
+                          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                            <div key={i} className="text-center text-[9px] text-muted-foreground/60 font-medium">
+                              {d}
+                            </div>
+                          ))}
+                          {/* Empty cells for offset */}
+                          {Array.from({ length: firstDayOffset }).map((_, i) => (
+                            <div key={`empty-${i}`} />
+                          ))}
+                          {/* Day dots */}
+                          {miniCalendarData.map((d, i) => (
+                            <div
+                              key={i}
+                              className={cn(
+                                "aspect-square rounded-full flex items-center justify-center text-[8px] font-medium",
+                                d.isToday && "ring-1 ring-primary",
+                                d.isWorked && "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400",
+                                d.isPlanned && !d.isWorked && "bg-primary/20 text-primary",
+                                d.isSunday && !d.isPlanned && !d.isWorked && "text-muted-foreground/30",
+                                !d.isPlanned && !d.isWorked && !d.isSunday && "text-muted-foreground/60"
+                              )}
+                            >
+                              {d.day}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Plan Days CTA */}
