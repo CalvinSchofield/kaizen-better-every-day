@@ -5,6 +5,7 @@ import { useEfpMode } from "@/hooks/useEfpMode";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UnfundedHelpDrawer } from "@/components/goals/UnfundedHelpDrawer";
 
 interface CanceledStatsCardProps {
   className?: string;
@@ -121,6 +122,10 @@ export const CanceledStatsCard = ({ className }: CanceledStatsCardProps) => {
               <p className="text-[10px] text-muted-foreground text-center mt-3 italic">
                 These sales were installed but later cancelled. They count toward your total goal but not funded income.
               </p>
+
+              <div className="mt-3 flex justify-center">
+                <UnfundedHelpDrawer variant="button" />
+              </div>
             </div>
           </CardContent>
         </CollapsibleContent>
