@@ -205,7 +205,7 @@ export const WhatIfScenarioDrawer = ({
   }, [hypothetical, goals, effectiveSummerDays, activeCancelRate]);
 
   // Slider range for days adjustment
-  const minAdjustment = -summerDayStats.roomToRemove;
+  const minAdjustment = -Math.min(summerDayStats.roomToRemove, 24);
   const maxAdjustment = summerDayStats.roomToAdd;
   const canAdjustDays = maxAdjustment > 0 || minAdjustment < 0;
 
