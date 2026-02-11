@@ -429,60 +429,42 @@ export const RecruitDetailDrawer = ({
     }
 
     const normalizePhoneForSms = (raw: string) => raw.trim().replace(/[^\d+]/g, '');
-
     const recruitPhone = normalizePhoneForSms(recruit.phone);
 
-    // Look up the team leader's phone using the recruit's team_id for reliable lookup
+    // Look up the team leader's phone for group text
     let leaderPhone: string | null = null;
-
-    // First try using contactForHelp if it's the leader
     if (contactForHelp?.role === 'leader' && contactForHelp.phone) {
       leaderPhone = normalizePhoneForSms(contactForHelp.phone);
     } else if (recruit.teamId) {
-      // Use team_id to find the team's lead_user_id, then get their phone
       const { data: teamData } = await supabase
         .from('teams')
         .select('lead_user_id')
         .eq('id', recruit.teamId)
         .maybeSingle();
-
       if (teamData?.lead_user_id) {
         const { data: leaderRep } = await supabase
           .from('reps')
           .select('phone')
           .eq('user_id', teamData.lead_user_id)
           .maybeSingle();
-
         if (leaderRep?.phone) {
           leaderPhone = normalizePhoneForSms(leaderRep.phone);
         }
       }
     }
 
+    // Open SMS app (group or solo)
     if (leaderPhone && leaderPhone !== recruitPhone) {
-      logActivityMutation.mutate({
-        recruitId: recruit.id,
-        recruitNotionId: recruit.id,
-        activityType: 'phone_call',
-        notes: 'Text sent (group with leader)',
-        updateLastContact: true,
-      });
-      toast.success('Group text logged');
-
-      // Multi-recipient SMS separator is inconsistent across devices; "," works on iOS
       window.location.href = `sms:${recruitPhone},${leaderPhone}`;
-      return;
+    } else {
+      window.location.href = `sms:${recruitPhone}`;
     }
 
-    logActivityMutation.mutate({
-      recruitId: recruit.id,
-      recruitNotionId: recruit.id,
-      activityType: 'phone_call',
-      notes: 'Text sent',
-      updateLastContact: true,
-    });
-    toast.success('Text logged');
-    window.location.href = `sms:${recruitPhone}`;
+    // Show PostContactDrawer for notes capture after a short delay
+    setTimeout(() => {
+      setPostContactMethod('text');
+      setPostContactOpen(true);
+    }, 500);
   };
 
   const handleAskForHelp = () => {
