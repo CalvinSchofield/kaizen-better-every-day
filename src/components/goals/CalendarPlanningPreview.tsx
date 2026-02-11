@@ -195,8 +195,11 @@ export const CalendarPlanningPreview = ({
                 >
                   {stats.weeklyNeeded} / week needed
                 </motion.div>
-                <div className="text-xs text-muted-foreground">
-                  {efpLabel} to hit your {activeTier === 'preseason' ? 'preseason' : 'summer'} goal
+                <div className="text-xs text-muted-foreground leading-snug max-w-[260px] mx-auto">
+                  {activeTier === 'preseason'
+                    ? `${efpLabel} to hit your preseason goal`
+                    : `if you start summer at ~${stats.forecastedPreseasonTotal} ${efpLabel} (current pace)`
+                  }
                 </div>
                 <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
                   {stats.totalPlanned} days planned · {stats.knockingDays} worked
