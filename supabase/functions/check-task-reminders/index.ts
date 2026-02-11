@@ -76,7 +76,8 @@ async function sendNotification(
   body: string,
   url: string,
   notificationType: string,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  extraPayload: Record<string, unknown> = {}
 ): Promise<number> {
   const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
   const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
@@ -92,7 +93,7 @@ async function sendNotification(
     for (const sub of subscriptions || []) {
       const result = await sendWebPush(
         { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
-        { title, body, url, type: notificationType },
+        { title, body, url, type: notificationType, ...extraPayload },
         vapidPublicKey,
         vapidPrivateKey
       );
@@ -218,29 +219,44 @@ serve(async (req) => {
           .neq("assignment_status", "completed");
 
         if (dueTodayTasks && dueTodayTasks.length > 0) {
-          // Get recruit names
+          // Get recruit names and phones
           const recruitIds = [...new Set(dueTodayTasks.map(t => t.recruit_id).filter(Boolean))];
           const { data: recruits } = await supabase
             .from("recruits")
-            .select("id, name")
+            .select("id, name, phone")
             .in("id", recruitIds);
-          const recruitMap = new Map((recruits || []).map(r => [r.id, r.name]));
+          const recruitMap = new Map((recruits || []).map(r => [r.id, r]));
 
           const taskCount = dueTodayTasks.length;
-          const firstRecruit = dueTodayTasks[0].recruit_id ? recruitMap.get(dueTodayTasks[0].recruit_id) : null;
+          const firstTask = dueTodayTasks[0];
+          const firstRecruit = firstTask.recruit_id ? recruitMap.get(firstTask.recruit_id) : null;
 
-          const title = `📋 ${taskCount} task${taskCount > 1 ? "s" : ""} due today`;
-          const body = taskCount === 1
-            ? `${dueTodayTasks[0].next_action || "Follow up"}${firstRecruit ? ` with ${firstRecruit}` : ""}`
-            : `${firstRecruit ? `${dueTodayTasks[0].next_action || "Follow up"} with ${firstRecruit}` : dueTodayTasks[0].next_action || "Follow up"} and ${taskCount - 1} more`;
+          if (taskCount === 1 && firstRecruit) {
+            // Single task — rich notification with call/text actions
+            const title = `📋 ${firstTask.next_action || "Follow up"} with ${firstRecruit.name}`;
+            const body = `Due today`;
+            const url = `/my-group?recruitId=${firstTask.recruit_id}&activityId=${firstTask.id}`;
 
-          const sent = await sendNotification(
-            supabase, rep.user_id, title, body,
-            "/my-group",
-            "task_morning_digest",
-            { task_count: taskCount, date: localDate }
-          );
-          totalSent += sent;
+            const sent = await sendNotification(
+              supabase, rep.user_id, title, body, url,
+              "task_single_reminder",
+              { task_count: 1, date: localDate, recruit_id: firstTask.recruit_id, activity_id: firstTask.id },
+              { recruitPhone: firstRecruit.phone, recruitId: firstTask.recruit_id, activityId: firstTask.id }
+            );
+            totalSent += sent;
+          } else {
+            // Multi-task digest
+            const title = `📋 ${taskCount} tasks due today`;
+            const body = `${firstRecruit?.name ? `${firstTask.next_action || "Follow up"} with ${firstRecruit.name}` : firstTask.next_action || "Follow up"} and ${taskCount - 1} more`;
+
+            const sent = await sendNotification(
+              supabase, rep.user_id, title, body,
+              "/my-group",
+              "task_morning_digest",
+              { task_count: taskCount, date: localDate }
+            );
+            totalSent += sent;
+          }
         }
 
         // ===== 9 AM: Past-due task reminders (up to 7 days overdue) =====
@@ -271,25 +287,38 @@ serve(async (req) => {
             const recruitIds = [...new Set(pastDueTasks.map(t => t.recruit_id).filter(Boolean))];
             const { data: recruits } = await supabase
               .from("recruits")
-              .select("id, name")
+              .select("id, name, phone")
               .in("id", recruitIds);
-            const recruitMap = new Map((recruits || []).map(r => [r.id, r.name]));
+            const recruitMap = new Map((recruits || []).map(r => [r.id, r]));
 
             const taskCount = pastDueTasks.length;
-            const firstRecruit = pastDueTasks[0].recruit_id ? recruitMap.get(pastDueTasks[0].recruit_id) : null;
+            const firstTask = pastDueTasks[0];
+            const firstRecruit = firstTask.recruit_id ? recruitMap.get(firstTask.recruit_id) : null;
 
-            const title = `⚠️ ${taskCount} overdue task${taskCount > 1 ? "s" : ""}`;
-            const body = taskCount === 1
-              ? `${pastDueTasks[0].next_action || "Follow up"}${firstRecruit ? ` with ${firstRecruit}` : ""} was due ${pastDueTasks[0].next_action_due}`
-              : `${firstRecruit ? `${firstRecruit}` : "Tasks"} and ${taskCount - 1} more need attention`;
+            if (taskCount === 1 && firstRecruit) {
+              const title = `⚠️ Overdue: ${firstTask.next_action || "Follow up"} with ${firstRecruit.name}`;
+              const body = `Was due ${firstTask.next_action_due}`;
+              const url = `/my-group?recruitId=${firstTask.recruit_id}&activityId=${firstTask.id}`;
 
-            const sent = await sendNotification(
-              supabase, rep.user_id, title, body,
-              "/my-group",
-              "task_past_due",
-              { task_count: taskCount, date: localDate }
-            );
-            totalSent += sent;
+              const sent = await sendNotification(
+                supabase, rep.user_id, title, body, url,
+                "task_single_reminder",
+                { task_count: 1, date: localDate, recruit_id: firstTask.recruit_id },
+                { recruitPhone: firstRecruit.phone, recruitId: firstTask.recruit_id, activityId: firstTask.id }
+              );
+              totalSent += sent;
+            } else {
+              const title = `⚠️ ${taskCount} overdue tasks`;
+              const body = `${firstRecruit?.name || "Tasks"} and ${taskCount - 1} more need attention`;
+
+              const sent = await sendNotification(
+                supabase, rep.user_id, title, body,
+                "/my-group",
+                "task_past_due",
+                { task_count: taskCount, date: localDate }
+              );
+              totalSent += sent;
+            }
           }
         }
       }
@@ -318,25 +347,38 @@ serve(async (req) => {
           const recruitIds = [...new Set(incompleteTasks.map(t => t.recruit_id).filter(Boolean))];
           const { data: recruits } = await supabase
             .from("recruits")
-            .select("id, name")
+            .select("id, name, phone")
             .in("id", recruitIds);
-          const recruitMap = new Map((recruits || []).map(r => [r.id, r.name]));
+          const recruitMap = new Map((recruits || []).map(r => [r.id, r]));
 
           const taskCount = incompleteTasks.length;
-          const firstRecruit = incompleteTasks[0].recruit_id ? recruitMap.get(incompleteTasks[0].recruit_id) : null;
+          const firstTask = incompleteTasks[0];
+          const firstRecruit = firstTask.recruit_id ? recruitMap.get(firstTask.recruit_id) : null;
 
-          const title = `🔔 ${taskCount} task${taskCount > 1 ? "s" : ""} still due today`;
-          const body = taskCount === 1
-            ? `Don't forget: ${incompleteTasks[0].next_action || "Follow up"}${firstRecruit ? ` with ${firstRecruit}` : ""}`
-            : `${firstRecruit ? `${firstRecruit}` : "Tasks"} and ${taskCount - 1} more still need your attention`;
+          if (taskCount === 1 && firstRecruit) {
+            const title = `🔔 Don't forget: ${firstTask.next_action || "Follow up"} with ${firstRecruit.name}`;
+            const body = `Still due today`;
+            const url = `/my-group?recruitId=${firstTask.recruit_id}&activityId=${firstTask.id}`;
 
-          const sent = await sendNotification(
-            supabase, rep.user_id, title, body,
-            "/my-group",
-            "task_evening_nudge",
-            { task_count: taskCount, date: localDate }
-          );
-          totalSent += sent;
+            const sent = await sendNotification(
+              supabase, rep.user_id, title, body, url,
+              "task_single_reminder",
+              { task_count: 1, date: localDate, recruit_id: firstTask.recruit_id },
+              { recruitPhone: firstRecruit.phone, recruitId: firstTask.recruit_id, activityId: firstTask.id }
+            );
+            totalSent += sent;
+          } else {
+            const title = `🔔 ${taskCount} tasks still due today`;
+            const body = `${firstRecruit?.name || "Tasks"} and ${taskCount - 1} more still need your attention`;
+
+            const sent = await sendNotification(
+              supabase, rep.user_id, title, body,
+              "/my-group",
+              "task_evening_nudge",
+              { task_count: taskCount, date: localDate }
+            );
+            totalSent += sent;
+          }
         }
       }
     }

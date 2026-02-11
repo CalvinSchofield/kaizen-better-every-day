@@ -27,11 +27,11 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { activityId, reactorUserId, reactorName, reactionType } = await req.json();
+    const { activityId, commenterId, commenterName, commentContent, mentionedUserIds = [], recruitId } = await req.json();
 
-    if (!activityId || !reactorUserId) {
+    if (!activityId || !commenterId) {
       return new Response(
-        JSON.stringify({ error: "Missing activityId or reactorUserId" }),
+        JSON.stringify({ error: "Missing activityId or commenterId" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -53,35 +53,38 @@ serve(async (req) => {
     const targetUserId = activity.logged_by_user_id;
 
     // Don't notify yourself
-    if (targetUserId === reactorUserId) {
+    if (targetUserId === commenterId) {
       return new Response(
-        JSON.stringify({ message: "Skipping self-reaction" }),
+        JSON.stringify({ message: "Skipping self-comment" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Don't double-notify if the activity owner is already being @mentioned
+    if (mentionedUserIds.includes(targetUserId)) {
+      return new Response(
+        JSON.stringify({ message: "User already mentioned, skipping comment notification" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Get recruit name for context
+    const finalRecruitId = recruitId || activity.recruit_id;
     let recruitName = "";
-    if (activity.recruit_id) {
+    if (finalRecruitId) {
       const { data: recruit } = await supabase
         .from("recruits")
-        .select("name")
-        .eq("id", activity.recruit_id)
+        .select("name, phone")
+        .eq("id", finalRecruitId)
         .single();
       recruitName = recruit?.name || "";
     }
 
-    // Get push subscriptions
-    const { data: subscriptions } = await supabase
-      .from("push_subscriptions")
-      .select("*")
-      .eq("user_id", targetUserId);
-
-    // Get APNs tokens
-    const { data: apnsTokens } = await supabase
-      .from("apns_device_tokens")
-      .select("device_token")
-      .eq("user_id", targetUserId);
+    // Get push subscriptions and APNs tokens
+    const [{ data: subscriptions }, { data: apnsTokens }] = await Promise.all([
+      supabase.from("push_subscriptions").select("*").eq("user_id", targetUserId),
+      supabase.from("apns_device_tokens").select("device_token").eq("user_id", targetUserId),
+    ]);
 
     if ((!subscriptions || subscriptions.length === 0) && (!apnsTokens || apnsTokens.length === 0)) {
       return new Response(
@@ -90,26 +93,30 @@ serve(async (req) => {
       );
     }
 
-    const emojiMap: Record<string, string> = { like: "👍", helpful: "💡", thumbsup: "👏" };
-    const emoji = emojiMap[reactionType] || "👍";
-
-    const title = `${emoji} ${reactorName} reacted to your activity`;
+    const title = `💬 ${commenterName || "Someone"} commented on your activity`;
+    const preview = commentContent ? commentContent.substring(0, 80) : "";
     const body = recruitName
-      ? `Liked your activity on ${recruitName}`
-      : "Liked your recruiting activity";
+      ? `On ${recruitName}: "${preview}${commentContent?.length > 80 ? "..." : ""}"`
+      : `"${preview}${commentContent?.length > 80 ? "..." : ""}"`;
 
-    const deepLinkUrl = activity.recruit_id
-      ? `/my-group?recruitId=${activity.recruit_id}&activityId=${activityId}&openComments=true`
+    const deepLinkUrl = finalRecruitId
+      ? `/my-group?recruitId=${finalRecruitId}&activityId=${activityId}&openComments=true`
       : "/my-group";
 
     let successCount = 0;
-    const today = new Date().toISOString().split("T")[0];
 
     // Send web push
     for (const sub of subscriptions || []) {
       const result = await sendWebPush(
         { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
-        { title, body, url: deepLinkUrl, type: "reaction", activityId, recruitId: activity.recruit_id },
+        {
+          title,
+          body,
+          url: deepLinkUrl,
+          type: "comment",
+          activityId,
+          recruitId: finalRecruitId,
+        },
         vapidPublicKey,
         vapidPrivateKey
       );
@@ -123,12 +130,9 @@ serve(async (req) => {
 
     // Send APNs
     if (apnsTokens && apnsTokens.length > 0) {
-      const bundleId = Deno.env.get("APNS_BUNDLE_ID") || "app.lovable.00427502ff944cc991616496e2600071";
       const apnsConfigured = Deno.env.get("APNS_TEAM_ID") && Deno.env.get("APNS_KEY_ID") && Deno.env.get("APNS_PRIVATE_KEY");
-
       if (apnsConfigured) {
         try {
-          // Call the send-apns-notification function
           const apnsResponse = await fetch(`${supabaseUrl}/functions/v1/send-apns-notification`, {
             method: "POST",
             headers: {
@@ -140,11 +144,11 @@ serve(async (req) => {
               title,
               body,
               url: deepLinkUrl,
-              type: "reaction",
+              type: "comment",
             }),
           });
           if (apnsResponse.ok) successCount++;
-          else await apnsResponse.text(); // consume body
+          else await apnsResponse.text();
         } catch (e) {
           console.error("APNs call failed:", e);
         }
@@ -153,16 +157,17 @@ serve(async (req) => {
 
     // Log notification
     if (successCount > 0) {
+      const today = new Date().toISOString().split("T")[0];
       await supabase.from("notification_logs").insert({
-        user_id: reactorUserId,
+        user_id: commenterId,
         recipient_user_id: targetUserId,
-        notification_type: "reaction",
+        notification_type: "comment",
         entry_date: today,
         metadata: {
-          reactor_name: reactorName,
+          commenter_name: commenterName,
+          recruit_name: recruitName,
           activity_id: activityId,
-          recruit_id: activity.recruit_id,
-          reaction_type: reactionType,
+          recruit_id: finalRecruitId,
         },
       });
     }
@@ -173,7 +178,7 @@ serve(async (req) => {
     );
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("[send-reaction-notification] Error:", error);
+    console.error("[send-comment-notification] Error:", error);
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

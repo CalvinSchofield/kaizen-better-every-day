@@ -83,9 +83,9 @@ serve(async (req) => {
         ? `In a comment on ${recruitName}'s activity: "${commentContent.substring(0, 50)}${commentContent.length > 50 ? '...' : ''}"`
         : `"${commentContent.substring(0, 80)}${commentContent.length > 80 ? '...' : ''}"`;
 
-      // Build deep link URL with query params for direct navigation
+      // Build deep link URL with query params for direct navigation (opens comments)
       const deepLinkUrl = finalRecruitId && activityId
-        ? `/my-group?recruitId=${finalRecruitId}&activityId=${activityId}`
+        ? `/my-group?recruitId=${finalRecruitId}&activityId=${activityId}&openComments=true`
         : "/my-group";
 
       // Send to web push subscriptions
@@ -97,6 +97,8 @@ serve(async (req) => {
             body,
             url: deepLinkUrl,
             type: "mention",
+            activityId,
+            recruitId: finalRecruitId,
           },
           vapidPublicKey,
           vapidPrivateKey
