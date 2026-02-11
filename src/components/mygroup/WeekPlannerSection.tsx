@@ -313,14 +313,18 @@ export const WeekPlannerSection = ({
     setRescheduleOpen(true);
   };
 
-  const handleDirectCall = (recruit: Recruit) => {
+  const [postContactActivity, setPostContactActivity] = useState<RecruitActivity | null>(null);
+
+  const handleDirectCall = (recruit: Recruit, activity?: RecruitActivity | null) => {
     setPostContactRecruit(recruit);
+    setPostContactActivity(activity || null);
     setPostContactMethod('call');
     setPostContactOpen(true);
   };
 
-  const handleDirectText = (recruit: Recruit) => {
+  const handleDirectText = (recruit: Recruit, activity?: RecruitActivity | null) => {
     setPostContactRecruit(recruit);
+    setPostContactActivity(activity || null);
     setPostContactMethod('text');
     setPostContactOpen(true);
   };
@@ -685,10 +689,10 @@ export const WeekPlannerSection = ({
         }}
         recruit={contactingRecruit}
         scheduledActivity={contactingActivity}
-        onComplete={() => {
+        onComplete={(wasConnected) => {
           setContactMethodOpen(false);
           setContactingActivity(null);
-          if (contactingRecruit && onDismiss) {
+          if (wasConnected && contactingRecruit && onDismiss) {
             onDismiss(contactingRecruit, `Contact logged for ${contactingRecruit.name || 'recruit'}`);
           }
         }}
@@ -736,9 +740,11 @@ export const WeekPlannerSection = ({
         }}
         recruit={postContactRecruit}
         defaultMethod={postContactMethod}
+        scheduledActivity={postContactActivity}
         onComplete={(wasConnected) => {
           setPostContactOpen(false);
           setPostContactRecruit(null);
+          setPostContactActivity(null);
           setPostContactMethod(undefined);
           if (wasConnected && postContactRecruit && onDismiss) {
             onDismiss(postContactRecruit, `Contact logged for ${postContactRecruit.name || 'recruit'}`);
