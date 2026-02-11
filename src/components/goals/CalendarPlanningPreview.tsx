@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarDays, ChevronDown, ArrowRight, ChevronRight, Sparkles } from 'lucide-react';
 import { WhatIfScenarioDrawer } from './WhatIfScenarioDrawer';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { hapticLight } from '@/utils/haptics';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
@@ -34,7 +35,7 @@ export const CalendarPlanningPreview = ({
 }: CalendarPlanningPreviewProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [whatIfOpen, setWhatIfOpen] = useState(false);
-  const { plannedDays } = usePlannedDays();
+  const { plannedDays, isLoading: isLoadingPlanned, isFetching: isFetchingPlanned } = usePlannedDays();
   const navigate = useNavigate();
   const { efpModeEnabled, calculateEfp, isVet } = useEfpMode();
   const { totalFP, totalPRMR } = usePreseasonFP();
@@ -195,24 +196,34 @@ export const CalendarPlanningPreview = ({
 
               {/* Hero stat - weekly target */}
               <div className="text-center space-y-1">
-                <motion.div
-                  key={stats.weeklyNeeded}
-                  initial={{ scale: 0.95, opacity: 0.5 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                  className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-amber-500"
-                >
-                  {stats.weeklyNeeded} / week needed
-                </motion.div>
-                <div className="text-xs text-muted-foreground leading-snug max-w-[260px] mx-auto">
-                  {activeTier === 'preseason'
-                    ? `${efpLabel} to hit your preseason goal`
-                    : `if you start summer at ~${stats.forecastedPreseasonTotal} ${efpLabel} (current pace)`
-                  }
-                </div>
-                <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
-                  {stats.totalPlanned} days planned · {stats.knockingDays} worked
-                </div>
+                {isLoadingPlanned ? (
+                  <div className="space-y-2 flex flex-col items-center">
+                    <Skeleton className="h-9 w-48" />
+                    <Skeleton className="h-3 w-56" />
+                    <Skeleton className="h-5 w-36 rounded-full" />
+                  </div>
+                ) : (
+                  <>
+                    <motion.div
+                      key={stats.weeklyNeeded}
+                      initial={{ scale: 0.95, opacity: 0.5 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                      className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-amber-500"
+                    >
+                      {stats.weeklyNeeded} / week needed
+                    </motion.div>
+                    <div className="text-xs text-muted-foreground leading-snug max-w-[260px] mx-auto">
+                      {activeTier === 'preseason'
+                        ? `${efpLabel} to hit your preseason goal`
+                        : `if you start summer at ~${stats.forecastedPreseasonTotal} ${efpLabel} (current pace)`
+                      }
+                    </div>
+                    <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
+                      {stats.totalPlanned} days planned · {stats.knockingDays} worked
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </CollapsibleTrigger>
