@@ -45,6 +45,7 @@ import AdminBlitzes from "./pages/AdminBlitzes";
 import RecruitingContent from "./pages/RecruitingContent";
 import AboutTeam from "./pages/AboutTeam";
 import AddApplicant from "./pages/AddApplicant";
+import AddRecruit from "./pages/AddRecruit";
 import ReportsV2 from "./pages/ReportsV2";
 import LogSale from "./pages/LogSale";
 import { queryPersister } from "./lib/queryPersister";
@@ -321,6 +322,14 @@ const App = () => {
           element={
             <ProtectedRoute>
               <AddApplicant />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/add-recruit"
+          element={
+            <ProtectedRoute>
+              <AddRecruit />
             </ProtectedRoute>
           }
         />
