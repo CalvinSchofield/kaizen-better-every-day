@@ -495,9 +495,9 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const dailyWillDo = totalSeasonKnockingDays > 0 ? displayWillDo / totalSeasonKnockingDays : 0;
   const dailyCouldDo = totalSeasonKnockingDays > 0 ? displayCouldDo / totalSeasonKnockingDays : 0;
   
-  const weeklyMustDo = dailyMustDo * totalDaysInPeriod;
-  const weeklyWillDo = dailyWillDo * totalDaysInPeriod;
-  const weeklyCouldDo = dailyCouldDo * totalDaysInPeriod;
+  const weeklyMustDo = dailyMustDo * 6;
+  const weeklyWillDo = dailyWillDo * 6;
+  const weeklyCouldDo = dailyCouldDo * 6;
 
   // Progress percentage - use periodGoal (what you should hit this period total)
   const progressPercent = periodGoal > 0 ? (periodProgress / periodGoal) * 100 : 0;
