@@ -906,6 +906,7 @@ export const useLogRecruitActivity = () => {
       nextActionDue,
       updateLastContact = false,
       assignedToUserId,
+      activityDate,
     }: { 
       recruitId?: string; // Supabase UUID - preferred
       recruitNotionId?: string; // Legacy Notion ID - fallback
@@ -915,6 +916,7 @@ export const useLogRecruitActivity = () => {
       nextActionDue?: string;
       updateLastContact?: boolean;
       assignedToUserId?: string;
+      activityDate?: string; // ISO date string for backdating (e.g. '2025-02-08')
     }) => {
       if (!recruitId && !recruitNotionId) {
         throw new Error("Either recruitId or recruitNotionId is required");
@@ -951,35 +953,39 @@ export const useLogRecruitActivity = () => {
         actualRecruitId = recruitData?.id || null;
       }
 
+      // Build insert data, optionally overriding created_at for backdating
+      const insertPayload = {
+        recruit_id: actualRecruitId,
+        activity_type: activityType as 'phone_call' | 'in_person' | 'note' | 'next_step',
+        logged_by_user_id: session.user.id,
+        notes: notes || null,
+        next_action: nextAction || null,
+        next_action_due: nextActionDue || null,
+        assigned_to_user_id: assignedToUserId || null,
+        assignment_status: assignedToUserId ? 'pending' : null,
+        ...(activityDate ? { created_at: `${activityDate}T12:00:00.000Z` } : {}),
+      };
+
       // Insert activity directly to Supabase
       const { data, error } = await supabase
         .from('recruit_activities')
-        .insert({
-          recruit_id: actualRecruitId, // Use the correct recruit table id
-          activity_type: activityType,
-          logged_by_user_id: session.user.id,
-          notes: notes || null,
-          next_action: nextAction || null,
-          next_action_due: nextActionDue || null,
-          assigned_to_user_id: assignedToUserId || null,
-          assignment_status: assignedToUserId ? 'pending' : null,
-        })
+        .insert(insertPayload)
         .select()
         .single();
 
       if (error) throw error;
 
       // Update last_contact on the recruit for phone_call or in_person activities
-      // This should always happen for these activity types regardless of the flag
+      // Use the backdated date if provided, otherwise today
       if (actualRecruitId && (activityType === 'phone_call' || activityType === 'in_person')) {
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        const contactDate = activityDate || new Date().toISOString().split('T')[0];
         await supabase
           .from('recruits')
-          .update({ last_contact: today })
+          .update({ last_contact: contactDate })
           .eq('id', actualRecruitId);
       }
 
-      return { ...data, recruitId, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId };
+      return { ...data, recruitId, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId, activityDate };
     },
     onMutate: async ({ recruitId, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId }) => {
       await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
