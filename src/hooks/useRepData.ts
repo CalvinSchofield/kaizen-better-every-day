@@ -148,24 +148,8 @@ export const useRepData = () => {
     };
   }, [currentUserId, queryClient]);
 
-  // Get initial data from localStorage cache for instant display (prevents flicker)
-  const getInitialData = (): RepData | null => {
-    if (!currentUserId) return null;
-    const cacheKey = getRepCacheKey(currentUserId);
-    const cachedRep = localStorage.getItem(cacheKey);
-    if (cachedRep) {
-      try {
-        const { data: cached, userId: cachedUserId } = JSON.parse(cachedRep);
-        // Only use cache if it belongs to current user
-        if (cached && cachedUserId === currentUserId) {
-          return cached;
-        }
-      } catch (e) {
-        // Invalid cache, ignore
-      }
-    }
-    return null;
-  };
+  // NOTE: initialData from localStorage removed to prevent stale data display.
+  // React Query in-memory cache handles instant navigation between pages.
 
   const { data: repData, isLoading: loading } = useQuery({
     queryKey: ['rep-data', currentUserId],
@@ -174,7 +158,6 @@ export const useRepData = () => {
     gcTime: 30 * 60 * 1000, // 30 minutes - keep in cache
     refetchOnWindowFocus: true, // Refresh when app comes back to foreground
     retry: 1,
-    initialData: getInitialData() ?? undefined, // Use cached data immediately to prevent flicker
     queryFn: async () => {
       if (!currentUserId) return null;
 

@@ -129,9 +129,8 @@ const MyGroup = () => {
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
 
-  // Only consider loading if we have NO cached data - instant load from cache otherwise
-  const hasCachedData = !!groupData?.recruits?.length || !!mySuggestions?.length;
-  const isLoading = (accessLoading || (isLeader ? recruitsLoading : suggestionsLoading)) && !hasCachedData;
+  // Always show loading until server data arrives - prevents stale cache display
+  const isLoading = accessLoading || (isLeader ? recruitsLoading : suggestionsLoading);
 
   // Fetch current user's rep data to get their team leader name
   const { data: currentUserRep } = useQuery({
