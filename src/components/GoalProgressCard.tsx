@@ -94,9 +94,10 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   }, [today, personalSummerStart]);
 
   // Determine if the VIEWED DATE (currentDate) is in preseason
-  // This is used for showing the correct goal type for the viewed period
+  // For month view: if the month contains summer dates, show summer goals
+  // (use endOfMonth so transition months like April show summer context)
   const isViewedDateInPreseason = useMemo(() => {
-    const viewedDate = viewMode === "month" ? startOfMonth(currentDate) : startOfWeek(currentDate);
+    const viewedDate = viewMode === "month" ? endOfMonth(currentDate) : endOfWeek(currentDate);
     if (personalSummerStart) {
       const summerStart = parseISO(personalSummerStart);
       return viewedDate < summerStart;
