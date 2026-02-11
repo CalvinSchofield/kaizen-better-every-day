@@ -41,6 +41,22 @@ export const CalendarPlanningPreview = ({
   const { totalFP, totalPRMR } = usePreseasonFP();
   const { userId } = useCurrentUserId();
 
+  // Fetch season config for summer date range and excluded days
+  const { data: seasonConfig } = useQuery({
+    queryKey: ['season-config-whatif', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data } = await supabase
+        .from('season_config')
+        .select('personal_summer_start, personal_summer_end, excluded_summer_days')
+        .eq('user_id', userId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const efpLabel = efpModeEnabled ? 'EFP' : 'FP+';
 
   const handleToggleOpen = useCallback(() => {
@@ -358,6 +374,9 @@ export const CalendarPlanningPreview = ({
         calculateEfp={calculateEfp}
         forecastedPreseasonTotal={stats.forecastedPreseasonTotal}
         isVet={isVet}
+        personalSummerStart={seasonConfig?.personal_summer_start}
+        personalSummerEnd={seasonConfig?.personal_summer_end}
+        excludedSummerDays={(seasonConfig?.excluded_summer_days as string[]) || []}
       />
     </motion.div>
   );
