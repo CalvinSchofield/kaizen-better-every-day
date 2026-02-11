@@ -17,6 +17,10 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
+interface PushManagerRegistration extends ServiceWorkerRegistration {
+  pushManager: PushManager;
+}
+
 export function usePushNotifications() {
   const [isSupported, setIsSupported] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -52,7 +56,7 @@ export function usePushNotifications() {
         
         // Check if already subscribed
         try {
-          const registration = await navigator.serviceWorker.ready;
+          const registration = await navigator.serviceWorker.ready as PushManagerRegistration;
           const subscription = await registration.pushManager.getSubscription();
           setIsSubscribed(!!subscription);
         } catch (error) {
@@ -84,7 +88,7 @@ export function usePushNotifications() {
       }
 
       // Get service worker registration
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await navigator.serviceWorker.ready as PushManagerRegistration;
 
       // Subscribe to push
       const subscription = await registration.pushManager.subscribe({
@@ -136,7 +140,7 @@ export function usePushNotifications() {
   // Unsubscribe from push notifications
   const unsubscribe = useCallback(async (): Promise<boolean> => {
     try {
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await navigator.serviceWorker.ready as PushManagerRegistration;
       const subscription = await registration.pushManager.getSubscription();
 
       if (subscription) {
