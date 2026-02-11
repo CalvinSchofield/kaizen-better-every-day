@@ -127,36 +127,8 @@ const Goals = () => {
   const [confirmCommitBlitz, setConfirmCommitBlitz] = useState<{ id: string; name: string; date: string; endDate?: string | null; location?: string | null } | null>(null);
   const [confirmUncommitBlitz, setConfirmUncommitBlitz] = useState<{ id: string; name: string } | null>(null);
 
-  // Cache helpers for instant load - using userId directly for immediate access
-  const getKnockingDaysCache = useCallback((uid: string) => {
-    try {
-      const cached = localStorage.getItem(`goals-knocking-days-cache-${uid}`);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed.timestamp && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
-          return parsed.data;
-        }
-      }
-    } catch { /* ignore */ }
-    return undefined;
-  }, []);
-
-  const getSeasonConfigCache = useCallback((uid: string) => {
-    try {
-      const cached = localStorage.getItem(`goals-season-config-cache-${uid}`);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed.timestamp && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
-          return parsed.data;
-        }
-      }
-    } catch { /* ignore */ }
-    return undefined;
-  }, []);
-
-  // Get initial data from cache for instant display
-  const knockingDaysInitialData = userId ? getKnockingDaysCache(userId) : undefined;
-  const seasonConfigInitialData = userId ? getSeasonConfigCache(userId) : undefined;
+  // NOTE: initialData from localStorage removed to prevent stale data display.
+  // React Query in-memory cache handles instant page navigation.
 
   // Fetch knocking days count for pace calculation
   // Knocking day = doors >= 5 AND has work_start_time AND work_end_time
@@ -192,11 +164,9 @@ const Goals = () => {
       
       return result;
     },
-    enabled: !!userId, // Enable as soon as we have a userId (from cache or auth)
+    enabled: !!userId,
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
-    refetchOnMount: false,
-    initialData: knockingDaysInitialData,
   });
 
   // Fetch user's personal summer dates to determine if their summer has started
@@ -221,11 +191,9 @@ const Goals = () => {
       
       return data;
     },
-    enabled: !!userId, // Enable as soon as we have a userId (from cache or auth)
+    enabled: !!userId,
     staleTime: 30 * 60 * 1000, // 30 minutes - this rarely changes
     gcTime: 60 * 60 * 1000, // 1 hour
-    refetchOnMount: false,
-    initialData: seasonConfigInitialData,
   });
 
   // Calculate if user's personal summer has started (based on their personal_summer_start, not global date)

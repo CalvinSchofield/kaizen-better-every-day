@@ -11,22 +11,8 @@ export interface PlannedDay {
   created_at: string;
 }
 
-// Get cached planned days for instant loading - with extended cache window for reliability
-const getCachedPlannedDays = (userId: string): PlannedDay[] | undefined => {
-  try {
-    const cached = localStorage.getItem(`planned-days-cache-${userId}`);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      // Extended to 30 minutes for reliability - stale-while-revalidate pattern
-      if (parsed.timestamp && Date.now() - parsed.timestamp < 30 * 60 * 1000) {
-        return parsed.data;
-      }
-    }
-  } catch {
-    // Ignore cache errors
-  }
-  return undefined;
-};
+// NOTE: initialData from localStorage removed to prevent stale display.
+// React Query in-memory cache handles instant navigation between pages.
 
 export const usePlannedDays = () => {
   const queryClient = useQueryClient();
@@ -57,7 +43,6 @@ export const usePlannedDays = () => {
     enabled: !!userId,
     staleTime: 2 * 60 * 1000, // 2 minutes - faster revalidation
     gcTime: 30 * 60 * 1000, // Keep in memory for 30 min
-    initialData: userId ? getCachedPlannedDays(userId) : undefined,
     retry: 3, // Retry failed fetches up to 3 times
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff
   });
