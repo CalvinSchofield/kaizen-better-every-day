@@ -6,12 +6,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
-import { TrendingUp, TrendingDown, Minus, SlidersHorizontal } from 'lucide-react';
-import { parseISO, isBefore } from 'date-fns';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { TrendingUp, TrendingDown, Minus, CalendarPlus, CalendarMinus } from 'lucide-react';
+import { parseISO, isBefore, eachDayOfInterval, getDay } from 'date-fns';
+import { Slider } from '@/components/ui/slider';
 import { GOAL_TIER_CONFIG } from '@/config/goalTiers';
 
 const GLOBAL_SUMMER_START = '2026-04-12';
+const GLOBAL_SUMMER_END = '2026-09-27';
 
 interface PlannedDay {
   planned_date: string;
@@ -28,6 +29,9 @@ interface WhatIfScenarioDrawerProps {
   calculateEfp: (prmr: number) => number;
   forecastedPreseasonTotal: number;
   isVet: boolean;
+  personalSummerStart?: string | null;
+  personalSummerEnd?: string | null;
+  excludedSummerDays?: string[];
 }
 
 interface TierResult {
@@ -81,6 +85,14 @@ function getSeverity(dailyNeeded: number): 'green' | 'amber' | 'red' {
   return 'red';
 }
 
+// Calculate max possible work days (Mon-Sat) in summer range
+function getMaxSummerWorkDays(summerStart: string, summerEnd: string): number {
+  const start = parseISO(summerStart);
+  const end = parseISO(summerEnd);
+  const days = eachDayOfInterval({ start, end });
+  return days.filter(d => getDay(d) !== 0).length; // Exclude Sundays
+}
+
 export const WhatIfScenarioDrawer = ({
   open,
   onOpenChange,
@@ -92,36 +104,63 @@ export const WhatIfScenarioDrawer = ({
   calculateEfp,
   forecastedPreseasonTotal,
   isVet,
+  personalSummerStart,
+  personalSummerEnd,
+  excludedSummerDays = [],
 }: WhatIfScenarioDrawerProps) => {
   const [hypothetical, setHypothetical] = useState<number | ''>(Math.round(forecastedPreseasonTotal * 10) / 10);
   const [customCancelRate, setCustomCancelRate] = useState<number | null>(null);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [customDaysAdjustment, setCustomDaysAdjustment] = useState(0);
 
   const efpLabel = efpModeEnabled ? 'EFP' : 'FP+';
   const baseCancelRate = goals?.cancel_rate || 0;
   const activeCancelRate = customCancelRate !== null ? customCancelRate : baseCancelRate;
+
+  // Calculate summer day stats
+  const summerDayStats = useMemo(() => {
+    const effectiveStart = personalSummerStart || GLOBAL_SUMMER_START;
+    const effectiveEnd = personalSummerEnd || GLOBAL_SUMMER_END;
+    const summerStart = parseISO(effectiveStart);
+
+    // Current planned summer days from calendar
+    const currentPlanned = plannedDays?.filter(d => {
+      const date = parseISO(d.planned_date);
+      return !isBefore(date, summerStart);
+    }).length || 0;
+
+    // Max possible work days (Mon-Sat, no Sundays)
+    const maxPossible = getMaxSummerWorkDays(effectiveStart, effectiveEnd);
+
+    // Days currently excluded (off days the user has marked)
+    const excludedCount = excludedSummerDays.length;
+
+    // Room to add = max possible - current planned
+    const roomToAdd = Math.max(0, maxPossible - currentPlanned);
+
+    // Room to remove = current planned (can't go below 1 for calculation)
+    const roomToRemove = Math.max(0, currentPlanned - 1);
+
+    return {
+      currentPlanned,
+      maxPossible,
+      excludedCount,
+      roomToAdd,
+      roomToRemove,
+    };
+  }, [plannedDays, personalSummerStart, personalSummerEnd, excludedSummerDays]);
+
+  // Effective summer days = current planned + adjustment
+  const effectiveSummerDays = Math.max(1, summerDayStats.currentPlanned + customDaysAdjustment);
 
   // Reset when opened
   const handleOpenChange = useCallback((o: boolean) => {
     if (o) {
       setHypothetical(Math.round(forecastedPreseasonTotal * 10) / 10);
       setCustomCancelRate(null);
-      setAdvancedOpen(false);
+      setCustomDaysAdjustment(0);
     }
     onOpenChange(o);
   }, [forecastedPreseasonTotal, onOpenChange]);
-
-  // Count planned summer days
-  const summerStats = useMemo(() => {
-    const summerStart = parseISO(GLOBAL_SUMMER_START);
-    const futureSummerPlanned = plannedDays?.filter(d => {
-      const date = parseISO(d.planned_date);
-      return !isBefore(date, summerStart);
-    }).length || 0;
-
-    const summerWeeks = futureSummerPlanned > 0 ? futureSummerPlanned / 6 : 1;
-    return { days: futureSummerPlanned, weeks: Math.max(1, summerWeeks) };
-  }, [plannedDays]);
 
   // Presets differ by vet/rookie
   const presets = useMemo(() => {
@@ -134,10 +173,12 @@ export const WhatIfScenarioDrawer = ({
     ];
   }, [forecastedPreseasonTotal, isVet]);
 
-  // Tier results
+  // Tier results - now using effectiveSummerDays instead of just planned
   const tierResults = useMemo((): TierResult[] => {
     const hyp = typeof hypothetical === 'number' ? hypothetical : 0;
     const buffer = (goal: number) => activeCancelRate > 0 && activeCancelRate < 1 ? goal / (1 - activeCancelRate) : goal;
+
+    const summerWeeks = effectiveSummerDays > 0 ? effectiveSummerDays / 6 : 1;
 
     const tiers = [
       { label: GOAL_TIER_CONFIG.mustDo.label, goal: goals?.must_do_fp_goal || 0 },
@@ -148,8 +189,8 @@ export const WhatIfScenarioDrawer = ({
     return tiers.map(tier => {
       const funded = buffer(tier.goal);
       const remaining = Math.max(0, funded - hyp);
-      const dailyNeeded = summerStats.days > 0 ? remaining / summerStats.days : 0;
-      const weeklyNeeded = summerStats.weeks > 0 ? remaining / summerStats.weeks : 0;
+      const dailyNeeded = effectiveSummerDays > 0 ? remaining / effectiveSummerDays : 0;
+      const weeklyNeeded = summerWeeks > 0 ? remaining / summerWeeks : 0;
       const roundedDaily = Math.round(dailyNeeded * 10) / 10;
       const roundedWeekly = Math.round(weeklyNeeded * 10) / 10;
 
@@ -161,7 +202,12 @@ export const WhatIfScenarioDrawer = ({
         severity: getSeverity(roundedDaily),
       };
     });
-  }, [hypothetical, goals, summerStats, activeCancelRate]);
+  }, [hypothetical, goals, effectiveSummerDays, activeCancelRate]);
+
+  // Slider range for days adjustment
+  const minAdjustment = -summerDayStats.roomToRemove;
+  const maxAdjustment = summerDayStats.roomToAdd;
+  const canAdjustDays = maxAdjustment > 0 || minAdjustment < 0;
 
   return (
     <Drawer open={open} onOpenChange={handleOpenChange}>
@@ -222,10 +268,77 @@ export const WhatIfScenarioDrawer = ({
             ))}
           </div>
 
-          {/* Summer days context */}
-          <div className="text-center text-xs text-muted-foreground">
-            Based on <span className="font-semibold text-foreground">{summerStats.days}</span> planned summer days
-            {' '}(~{Math.round(summerStats.weeks)} weeks)
+          {/* Summer days context - now interactive */}
+          <div className="rounded-2xl border border-border bg-muted/40 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarPlus className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">Summer work days</span>
+              </div>
+              <span className="text-sm font-semibold text-foreground">
+                {effectiveSummerDays} days
+                <span className="text-xs text-muted-foreground font-normal ml-1">
+                  (~{Math.round(effectiveSummerDays / 6)} wks)
+                </span>
+              </span>
+            </div>
+
+            {canAdjustDays && (
+              <>
+                <Slider
+                  value={[customDaysAdjustment]}
+                  onValueChange={([val]) => {
+                    hapticLight();
+                    setCustomDaysAdjustment(val);
+                  }}
+                  min={minAdjustment}
+                  max={maxAdjustment}
+                  step={1}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>{summerDayStats.currentPlanned + minAdjustment} days</span>
+                  <span>{summerDayStats.currentPlanned} (current)</span>
+                  <span>{summerDayStats.currentPlanned + maxAdjustment} days</span>
+                </div>
+                {customDaysAdjustment !== 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      {customDaysAdjustment > 0 ? (
+                        <span className="text-emerald-600 dark:text-emerald-400">
+                          +{customDaysAdjustment} more days
+                        </span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400">
+                          {customDaysAdjustment} fewer days
+                        </span>
+                      )}
+                      {' '}vs your current plan
+                    </span>
+                    <button
+                      onClick={() => {
+                        hapticLight();
+                        setCustomDaysAdjustment(0);
+                      }}
+                      className="text-xs text-primary font-medium"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                )}
+                {summerDayStats.roomToAdd === 0 && (
+                  <p className="text-[10px] text-muted-foreground/70">
+                    You're already working every available day (Mon–Sat) in your summer range
+                  </p>
+                )}
+              </>
+            )}
+
+            {!canAdjustDays && (
+              <p className="text-xs text-muted-foreground">
+                You're working every available day in your summer range — no room to adjust.
+              </p>
+            )}
           </div>
 
           {/* Tier results */}
@@ -272,61 +385,43 @@ export const WhatIfScenarioDrawer = ({
             })}
           </div>
 
-          {/* Advanced: Cancel rate override */}
-          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-            <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <SlidersHorizontal className="w-4 h-4" />
-              <span className="font-medium">Fine-tune assumptions</span>
-              <motion.span
-                animate={{ rotate: advancedOpen ? 90 : 0 }}
-                transition={{ duration: 0.15 }}
-                className="ml-auto text-xs"
+          {/* Cancel rate section - more prominent */}
+          <div className="rounded-2xl border border-border bg-muted/40 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">
+                Summer cancel rate
+              </span>
+              <span className="text-sm font-semibold text-foreground">
+                {Math.round((customCancelRate !== null ? customCancelRate : baseCancelRate) * 1000) / 10}%
+              </span>
+            </div>
+            <Slider
+              value={[(customCancelRate !== null ? customCancelRate : baseCancelRate) * 100]}
+              onValueChange={([val]) => {
+                hapticLight();
+                setCustomCancelRate(val / 100);
+              }}
+              min={0}
+              max={25}
+              step={0.1}
+              className="w-full"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>0%</span>
+              <span>25%</span>
+            </div>
+            {customCancelRate !== null && customCancelRate !== baseCancelRate && (
+              <button
+                onClick={() => {
+                  hapticLight();
+                  setCustomCancelRate(null);
+                }}
+                className="text-xs text-primary font-medium"
               >
-                ▸
-              </motion.span>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="pt-2 pb-1 space-y-3">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-foreground">
-                      Summer cancel rate
-                    </label>
-                    <span className="text-sm font-semibold text-foreground">
-                      {Math.round((customCancelRate !== null ? customCancelRate : baseCancelRate) * 1000) / 10}%
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={0.25}
-                    step={0.001}
-                    value={customCancelRate !== null ? customCancelRate : baseCancelRate}
-                    onChange={(e) => {
-                      hapticLight();
-                      setCustomCancelRate(parseFloat(e.target.value));
-                    }}
-                    className="w-full h-2 rounded-full appearance-none bg-muted accent-primary cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>0%</span>
-                    <span>25%</span>
-                  </div>
-                  {customCancelRate !== null && customCancelRate !== baseCancelRate && (
-                    <button
-                      onClick={() => {
-                        hapticLight();
-                        setCustomCancelRate(null);
-                      }}
-                      className="text-xs text-primary font-medium"
-                    >
-                      Reset to your rate ({Math.round(baseCancelRate * 1000) / 10}%)
-                    </button>
-                  )}
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+                Reset to your rate ({Math.round(baseCancelRate * 1000) / 10}%)
+              </button>
+            )}
+          </div>
         </div>
       </DrawerContent>
     </Drawer>
