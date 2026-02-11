@@ -31,8 +31,8 @@ interface SwipeableTaskItemProps {
   onSchedule?: (recruit: Recruit) => void;
   onReschedule?: (recruit: Recruit, activity: RecruitActivity) => void;
   onContact?: (recruit: Recruit, activity?: RecruitActivity | null) => void;
-  onDirectCall?: (recruit: Recruit) => void;
-  onDirectText?: (recruit: Recruit) => void;
+  onDirectCall?: (recruit: Recruit, activity?: RecruitActivity | null) => void;
+  onDirectText?: (recruit: Recruit, activity?: RecruitActivity | null) => void;
   onSkipForNow?: (recruit: Recruit) => void;
   onSkipToday?: (recruit: Recruit) => void;
   showSwipeDemo?: boolean;
@@ -161,15 +161,15 @@ export const SwipeableTaskItem = ({
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `tel:${recruit.phone}`;
-    // Open post-contact drawer for calls
-    onDirectCall?.(recruit);
+    // Open post-contact drawer for calls, passing activity context
+    onDirectCall?.(recruit, activity);
   };
 
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `sms:${recruit.phone}`;
-    // Open post-contact drawer for texts
-    onDirectText?.(recruit);
+    // Open post-contact drawer for texts, passing activity context
+    onDirectText?.(recruit, activity);
   };
 
   // Determine what to display as the action/reason text
