@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
@@ -31,7 +31,7 @@ import { GoalsPaceDrawer } from "@/components/mygroup/GoalsPaceDrawer";
 import { UnreadActivityPrompt } from "@/components/mygroup/UnreadActivityPrompt";
 import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendations";
 import UpcomingTeamEventsCard from "@/components/mygroup/UpcomingTeamEventsCard";
-import { AddRecruitDrawer } from "@/components/mygroup/AddRecruitDrawer";
+// AddRecruitDrawer replaced by /add-recruit page route
 import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsCard";
 import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
 import { EditSuggestionDrawer } from "@/components/mygroup/EditSuggestionDrawer";
@@ -86,7 +86,7 @@ const MyGroup = () => {
   const { allBlitzes, allBlitzesIncludingPast, error: blitzError, refetch: refetchBlitzes, isUsingCache: blitzUsingCache } = useBlitzes();
   
   // UI State
-  const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const navigateTo = useNavigate();
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
   const [editingSuggestion, setEditingSuggestion] = useState<RecruitSuggestion | null>(null);
@@ -1108,7 +1108,7 @@ const MyGroup = () => {
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-medium mb-2">Know someone who'd be great?</p>
                 <p className="text-sm mb-4">Suggest a recruit to your team leader</p>
-                <Button onClick={() => setAddSheetOpen(true)}>
+                <Button onClick={() => navigateTo('/add-recruit')}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Someone
                 </Button>
@@ -1121,11 +1121,11 @@ const MyGroup = () => {
       {/* Floating Add Button */}
       <FloatingAddButton 
         visible={(isLeader || (mySuggestions && mySuggestions.length > 0)) ?? false}
-        onClick={() => setAddSheetOpen(true)}
+        onClick={() => navigateTo('/add-recruit')}
       />
 
       {/* Drawers */}
-      <AddRecruitDrawer open={addSheetOpen} onOpenChange={setAddSheetOpen} onRecruitCreated={handleRecruitCreated} />
+      {/* AddRecruitDrawer replaced by /add-recruit page */}
       <EditSuggestionDrawer 
         open={!!editingSuggestion} 
         onOpenChange={(open) => !open && setEditingSuggestion(null)}

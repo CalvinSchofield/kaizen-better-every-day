@@ -47,6 +47,7 @@ serve(async (req) => {
       stage,
       spouseName,
       cautionNotes,
+      recruiterUserId,
     } = await req.json();
 
     if (!name) {
@@ -127,7 +128,7 @@ serve(async (req) => {
         recruitment_source: recruitmentSource || null,
         stage: finalStage,
         year: 'Rookie',
-        recruiter_user_id: user.id,
+        recruiter_user_id: recruiterUserId || user.id,
         team_id: finalTeamId || null,
         mgmt_group_id: finalMgmtGroupId || null,
         spouse_name: spouseName || null,
