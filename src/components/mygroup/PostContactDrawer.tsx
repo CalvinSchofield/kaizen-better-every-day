@@ -278,8 +278,8 @@ export const PostContactDrawer = ({
         toast.success(`Logged ${method === 'text' ? 'text' : 'meeting'} with ${firstName}`);
       }
       
-      // If we scheduled a follow-up, show the calendar prompt instead of closing immediately
-      if (scheduledFollowUp && newActivityId && scheduleDate) {
+      // If we scheduled a follow-up assigned to me, show the calendar prompt
+      if (scheduledFollowUp && newActivityId && scheduleDate && !scheduleAssignee) {
         setScheduledActivityId(newActivityId);
         setScheduledDateString(format(scheduleDate, 'yyyy-MM-dd')); // Use date-only format
         setShowCalendarPrompt(true);

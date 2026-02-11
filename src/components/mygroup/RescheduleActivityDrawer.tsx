@@ -143,8 +143,8 @@ export const RescheduleActivityDrawer = ({
       const assigneeText = selectedAssignee ? ` (assigned to ${selectedAssignee.name})` : '';
       toast.success(`Rescheduled for ${format(selectedDate, 'MMM d')}${assigneeText}`);
       
-      // If user had this in their calendar, show prompt to update
-      if (existingCalendarEvent) {
+      // If user had this in their calendar and task is still assigned to them, show prompt to update
+      if (existingCalendarEvent && !selectedAssignee) {
         setScheduledDateString(dateOnlyString);
         setPreviousDateString(prevDate);
         setShowCalendarPrompt(true);

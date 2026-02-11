@@ -108,8 +108,8 @@ export const ScheduleFollowUpDrawer = ({
       const assigneeText = selectedAssignee ? ` (assigned to ${selectedAssignee.name})` : '';
       toast.success(`Follow-up scheduled for ${format(selectedDate, 'MMM d')}${assigneeText}`);
       
-      // Show calendar prompt instead of closing immediately
-      if (result?.id) {
+      // Show calendar prompt only if task is assigned to me (no assignee selected = me)
+      if (result?.id && !selectedAssignee) {
         setScheduledActivityId(result.id);
         setScheduledDateString(dateOnlyString);
         setShowCalendarPrompt(true);
