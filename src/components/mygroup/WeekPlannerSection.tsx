@@ -4,6 +4,7 @@ import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendatio
 import { SwipeableTaskItem } from "./SwipeableTaskItem";
 import { RecruitDetailDrawer } from "./RecruitDetailDrawer";
 import { ContactMethodDrawer } from "./ContactMethodDrawer";
+import { PostContactDrawer } from "./PostContactDrawer";
 import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
 import { RescheduleActivityDrawer } from "./RescheduleActivityDrawer";
 import { Button } from "@/components/ui/button";
@@ -121,6 +122,9 @@ export const WeekPlannerSection = ({
   const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
   const [contactingActivity, setContactingActivity] = useState<RecruitActivity | null>(null);
   const [rescheduleActivity, setRescheduleActivity] = useState<RecruitActivity | null>(null);
+  const [postContactOpen, setPostContactOpen] = useState(false);
+  const [postContactRecruit, setPostContactRecruit] = useState<Recruit | null>(null);
+  const [postContactMethod, setPostContactMethod] = useState<'call' | 'text' | undefined>(undefined);
 
   // Filter recruits for recommendations - exclude hidden stages except due follow-ups
   const filteredRecruits = useMemo(() => 
@@ -309,6 +313,18 @@ export const WeekPlannerSection = ({
     setRescheduleOpen(true);
   };
 
+  const handleDirectCall = (recruit: Recruit) => {
+    setPostContactRecruit(recruit);
+    setPostContactMethod('call');
+    setPostContactOpen(true);
+  };
+
+  const handleDirectText = (recruit: Recruit) => {
+    setPostContactRecruit(recruit);
+    setPostContactMethod('text');
+    setPostContactOpen(true);
+  };
+
   const getActivitiesForRecruit = (recruit: Recruit) => 
     activities.filter(a => a.recruit_id === recruit.id);
 
@@ -468,6 +484,8 @@ export const WeekPlannerSection = ({
                   onContact={handleSwipeContact}
                   onSchedule={handleSwipeSchedule}
                   onReschedule={isOverdueDay ? handleSwipeReschedule : undefined}
+                  onDirectCall={handleDirectCall}
+                  onDirectText={handleDirectText}
                   isOverdue={isOverdueDay}
                 />
               ));
@@ -514,6 +532,8 @@ export const WeekPlannerSection = ({
                           onContact={handleSwipeContact}
                           onSchedule={handleSwipeSchedule}
                           onReschedule={handleSwipeReschedule}
+                          onDirectCall={handleDirectCall}
+                          onDirectText={handleDirectText}
                           isOverdue
                         />
                       ))
@@ -551,6 +571,8 @@ export const WeekPlannerSection = ({
                     onContact={handleSwipeContact}
                     onSchedule={handleSwipeSchedule}
                     onReschedule={handleSwipeReschedule}
+                    onDirectCall={handleDirectCall}
+                    onDirectText={handleDirectText}
                     showSwipeDemo={index === 0 && recommendations.length === 0}
                     onDemoComplete={handleDemoComplete}
                     hasTodayScheduledActivity
@@ -584,6 +606,8 @@ export const WeekPlannerSection = ({
                           onRecruitClick={handleLocalRecruitClick}
                           onContact={handleSwipeContact}
                           onSchedule={handleSwipeSchedule}
+                          onDirectCall={handleDirectCall}
+                          onDirectText={handleDirectText}
                           onSkipForNow={onSkipForNow}
                           onSkipToday={onSkipToday}
                           showSwipeDemo={index === 0 && todayTasks.length === 0}
@@ -630,6 +654,8 @@ export const WeekPlannerSection = ({
                     onRecruitClick={handleLocalRecruitClick}
                     onContact={handleSwipeContact}
                     onSchedule={handleSwipeSchedule}
+                    onDirectCall={handleDirectCall}
+                    onDirectText={handleDirectText}
                   />
                 ))}
               </div>
@@ -695,6 +721,27 @@ export const WeekPlannerSection = ({
           setRescheduleActivity(null);
           if (contactingRecruit && onDismiss) {
             onDismiss(contactingRecruit, `Rescheduled follow-up for ${contactingRecruit.name || 'recruit'}`);
+          }
+        }}
+      />
+
+      <PostContactDrawer
+        open={postContactOpen}
+        onOpenChange={(open) => {
+          setPostContactOpen(open);
+          if (!open) {
+            setPostContactRecruit(null);
+            setPostContactMethod(undefined);
+          }
+        }}
+        recruit={postContactRecruit}
+        defaultMethod={postContactMethod}
+        onComplete={(wasConnected) => {
+          setPostContactOpen(false);
+          setPostContactRecruit(null);
+          setPostContactMethod(undefined);
+          if (wasConnected && postContactRecruit && onDismiss) {
+            onDismiss(postContactRecruit, `Contact logged for ${postContactRecruit.name || 'recruit'}`);
           }
         }}
       />
