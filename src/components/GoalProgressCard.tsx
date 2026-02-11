@@ -490,10 +490,33 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const willDoComplete = currentProgress >= displayWillDo;
   const couldDoComplete = currentProgress >= displayCouldDo;
 
-  // Summer tier daily rates (fixed, based on total season days)
-  const dailyMustDo = totalSeasonKnockingDays > 0 ? displayMustDo / totalSeasonKnockingDays : 0;
-  const dailyWillDo = totalSeasonKnockingDays > 0 ? displayWillDo / totalSeasonKnockingDays : 0;
-  const dailyCouldDo = totalSeasonKnockingDays > 0 ? displayCouldDo / totalSeasonKnockingDays : 0;
+  // Summer tier daily rates - must match fixedDailyGoal logic (subtract preseason projection)
+  const tierDailyRate = (tierGoal: number) => {
+    if (totalSeasonKnockingDays <= 0) return 0;
+    if (isInPreseason) return tierGoal / totalSeasonKnockingDays;
+    // Same preseason projection as fixedDailyGoal
+    const todayStrCalc = format(today, 'yyyy-MM-dd');
+    const stillInPreseason = todayStrCalc <= PRESEASON_END;
+    let projectedPreseasonTotal = currentProgress;
+    if (stillInPreseason) {
+      const preseasonDaysComplete = entries.filter(e => {
+        if (!e.is_finalized) return false;
+        if (e.entry_date > PRESEASON_END) return false;
+        return (e.doors_knocked || 0) >= 4 && !!e.work_start_time && !!e.work_end_time;
+      }).length;
+      if (preseasonDaysComplete > 0 && displayPreseasonGoal > 0) {
+        const pacePerDay = currentProgress / preseasonDaysComplete;
+        const remainingPreseasonPlanned = plannedDays?.filter(d => 
+          d.planned_date > todayStrCalc && d.planned_date <= PRESEASON_END
+        ).length || 0;
+        projectedPreseasonTotal = currentProgress + (pacePerDay * remainingPreseasonPlanned);
+      }
+    }
+    return Math.max(0, tierGoal - projectedPreseasonTotal) / totalSeasonKnockingDays;
+  };
+  const dailyMustDo = tierDailyRate(displayMustDo);
+  const dailyWillDo = tierDailyRate(displayWillDo);
+  const dailyCouldDo = tierDailyRate(displayCouldDo);
   
   const weeklyMustDo = dailyMustDo * 6;
   const weeklyWillDo = dailyWillDo * 6;
