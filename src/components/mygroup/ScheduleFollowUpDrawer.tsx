@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar as CalendarIcon, Loader2, User, ChevronDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, addDays, getDay, startOfDay } from "date-fns";
@@ -46,6 +46,19 @@ export const ScheduleFollowUpDrawer = ({
   const [scheduledActivityId, setScheduledActivityId] = useState<string | null>(null);
   const [scheduledDateString, setScheduledDateString] = useState<string>('');
   
+  // Reset form state when drawer opens or recruit changes
+  useEffect(() => {
+    if (open) {
+      setNotes('');
+      setNotesMentions([]);
+      setSelectedDate(addDays(new Date(), 1));
+      setSelectedAssignee(null);
+      setShowCalendarPrompt(false);
+      setScheduledActivityId(null);
+      setScheduledDateString('');
+    }
+  }, [open, recruit?.id]);
+
   const logActivityMutation = useLogRecruitActivity();
   const { data: assignableUsers = [], isLoading: assignableUsersLoading } = useAssignableUsers({
     recruitId: recruit?.id,

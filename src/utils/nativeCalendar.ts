@@ -62,9 +62,20 @@ function downloadICSFile(event: CalendarEventData): void {
 }
 
 /**
- * Open Google Calendar in new tab
+ * Open Google Calendar - use location.href for native apps (WebViews block window.open)
  */
 function openGoogleCalendar(event: CalendarEventData): void {
   const url = generateGoogleCalendarUrl(event);
-  window.open(url, '_blank');
+  if (isNativeApp()) {
+    // WebViews often block window.open; use location.href or a link click
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } else {
+    window.open(url, '_blank');
+  }
 }
