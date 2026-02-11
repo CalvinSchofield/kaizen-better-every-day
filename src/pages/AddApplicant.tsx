@@ -20,6 +20,14 @@ import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
 
 const STAGES = ["Evaluating", "Signed"] as const;
 
+// Stages that qualify a rep to be a recruiter
+const RECRUITER_QUALIFYING_STAGES = [
+  "Signed",
+  "Shadow ✅",
+  "Sold 💲",
+  "Sold (5+) 💰",
+];
+
 export default function AddApplicant() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -33,6 +41,7 @@ export default function AddApplicant() {
   const [stage, setStage] = useState<string>("");
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [selectedRecruiterId, setSelectedRecruiterId] = useState<string>("");
+  const [hasManuallyChangedTeam, setHasManuallyChangedTeam] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
   // Check auth
@@ -44,73 +53,146 @@ export default function AddApplicant() {
     },
   });
 
-  // Fetch teams the user has access to
-  const { data: teams } = useQuery({
-    queryKey: ["accessible-teams"],
+  // Get current user's rep info (for auto-populating team/recruiter)
+  const { data: currentUserRep } = useQuery({
+    queryKey: ["current-user-rep"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("teams").select("id, name, lead_user_id");
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!session,
-  });
-
-  // Fetch all reps to find team members
-  const { data: allReps } = useQuery({
-    queryKey: ["all-reps-for-assignment"],
-    queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return null;
+      const { data } = await supabase
         .from("reps")
-        .select("id, name, user_id, team_leader, email");
-      if (error) throw error;
-      return data || [];
+        .select("id, name, user_id, team_leader")
+        .eq("user_id", session.user.id)
+        .single();
+      return data;
     },
     enabled: !!session,
   });
 
-  // Filter teams to ones the user can access
+  // Get the current user's team ID from the teams table
+  const { data: currentUserTeamId } = useQuery({
+    queryKey: ["current-user-team-id"],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return null;
+      // Find team where user is lead
+      const { data: leadTeam } = await supabase
+        .from("teams")
+        .select("id")
+        .eq("lead_user_id", session.user.id)
+        .maybeSingle();
+      if (leadTeam) return leadTeam.id;
+      // Otherwise find team via accessible teams
+      const { data: teamIds } = await supabase.rpc("get_accessible_team_ids", {
+        _user_id: session.user.id,
+      });
+      return teamIds?.[0] || null;
+    },
+    enabled: !!session,
+  });
+
+  // Use teams from teamAccess (already properly scoped to user's downline)
   const accessibleTeams = useMemo(() => {
-    if (!teams || !teamAccess) return [];
-    // Area directors can see all teams
-    if (teamAccess.accessLevel === "area_director") return teams;
-    // Get team IDs from the teams array in teamAccess
-    const accessibleTeamIds = teamAccess.teams?.map((t) => t.id) || [];
-    return teams.filter((t) => accessibleTeamIds.includes(t.id));
-  }, [teams, teamAccess]);
+    if (!teamAccess?.teams) return [];
+    return teamAccess.teams.map((t) => ({ id: t.id, name: t.name }));
+  }, [teamAccess]);
 
-  // Get potential recruiters based on selected team
-  const potentialRecruiters = useMemo(() => {
-    if (!allReps || !selectedTeamId || !teams) return [];
-    
-    const selectedTeam = teams.find((t) => t.id === selectedTeamId);
-    if (!selectedTeam) return [];
+  // Fetch eligible recruiters for the selected team
+  // Includes ALL reps at qualifying stages on that team (including ghost reps)
+  const { data: eligibleRecruiters = [] } = useQuery({
+    queryKey: ["eligible-recruiters", selectedTeamId],
+    queryFn: async () => {
+      if (!selectedTeamId) return [];
 
-    // Find the team lead
-    const teamLead = allReps.find((r) => r.user_id === selectedTeam.lead_user_id);
-    if (!teamLead) return [];
+      // Get team lead info
+      const { data: team } = await supabase
+        .from("teams")
+        .select("lead_user_id")
+        .eq("id", selectedTeamId)
+        .single();
 
-    // Get team lead name for matching
-    const teamLeadName = teamLead.name?.replace(/[^\w\s]/g, "").trim().split(" ")[0].toLowerCase();
+      if (!team) return [];
 
-    // Find all reps whose team_leader matches this team lead
-    const teamMembers = allReps.filter((rep) => {
-      if (!rep.team_leader) return false;
-      const repTeamLeader = rep.team_leader.replace(/[^\w\s]/g, "").trim().split(" ")[0].toLowerCase();
-      return repTeamLeader === teamLeadName || rep.user_id === selectedTeam.lead_user_id;
-    });
+      // Find the team lead rep
+      const { data: teamLeadRep } = await supabase
+        .from("reps")
+        .select("id, name, user_id")
+        .eq("user_id", team.lead_user_id)
+        .maybeSingle();
 
-    // Include the team lead themselves
-    if (!teamMembers.find((m) => m.user_id === selectedTeam.lead_user_id)) {
-      teamMembers.unshift(teamLead);
-    }
+      if (!teamLeadRep) return [];
 
-    return teamMembers.filter((r) => r.user_id); // Only reps with user_id can be recruiters
-  }, [allReps, selectedTeamId, teams]);
+      const teamLeadName = teamLeadRep.name
+        ?.replace(/[^\w\s]/g, "")
+        .trim()
+        .split(" ")[0]
+        .toLowerCase();
 
-  // Reset recruiter when team changes
+      // Find all reps on this team (team_leader matches) at qualifying stages
+      const { data: reps } = await supabase
+        .from("reps")
+        .select("id, name, user_id, team_leader, stage")
+        .in("stage", RECRUITER_QUALIFYING_STAGES);
+
+      if (!reps) return [];
+
+      // Filter to reps on this team
+      const teamReps = reps.filter((rep) => {
+        if (!rep.team_leader) return rep.user_id === team.lead_user_id;
+        const repLeader = rep.team_leader
+          .replace(/[^\w\s]/g, "")
+          .trim()
+          .split(" ")[0]
+          .toLowerCase();
+        return repLeader === teamLeadName || rep.user_id === team.lead_user_id;
+      });
+
+      // Also include the team lead themselves (even if not at a qualifying stage)
+      if (!teamReps.find((r) => r.user_id === team.lead_user_id) && teamLeadRep.user_id) {
+        teamReps.unshift({ ...teamLeadRep, stage: "Team Lead", team_leader: "" });
+      }
+
+      return teamReps;
+    },
+    enabled: !!selectedTeamId,
+  });
+
+  // Auto-populate team and recruiter on first load
   useEffect(() => {
+    if (!hasManuallyChangedTeam && currentUserTeamId && accessibleTeams.length > 0) {
+      const userTeamExists = accessibleTeams.some((t) => t.id === currentUserTeamId);
+      if (userTeamExists && !selectedTeamId) {
+        setSelectedTeamId(currentUserTeamId);
+      }
+    }
+  }, [currentUserTeamId, accessibleTeams, hasManuallyChangedTeam, selectedTeamId]);
+
+  // Auto-select current user as recruiter when their team is selected
+  useEffect(() => {
+    if (
+      !hasManuallyChangedTeam &&
+      selectedTeamId &&
+      currentUserTeamId === selectedTeamId &&
+      session?.user?.id &&
+      eligibleRecruiters.length > 0 &&
+      !selectedRecruiterId
+    ) {
+      // Check if current user is in the eligible list
+      const currentUserInList = eligibleRecruiters.find(
+        (r) => r.user_id === session.user.id
+      );
+      if (currentUserInList?.user_id) {
+        setSelectedRecruiterId(currentUserInList.user_id);
+      }
+    }
+  }, [eligibleRecruiters, selectedTeamId, currentUserTeamId, session, hasManuallyChangedTeam, selectedRecruiterId]);
+
+  // Reset recruiter when team changes manually
+  const handleTeamChange = (teamId: string) => {
+    setSelectedTeamId(teamId);
     setSelectedRecruiterId("");
-  }, [selectedTeamId]);
+    setHasManuallyChangedTeam(true);
+  };
 
   // Create recruit mutation
   const createRecruitMutation = useMutation({
@@ -140,11 +222,7 @@ export default function AddApplicant() {
       });
 
       if (error) throw error;
-      
-      // Handle duplicate email error specifically
-      if (data?.duplicateEmail) {
-        throw new Error(data.error);
-      }
+      if (data?.duplicateEmail) throw new Error(data.error);
       if (data?.error) throw new Error(data.error);
 
       // Update the recruiter_user_id if different from current user
@@ -162,7 +240,6 @@ export default function AddApplicant() {
       return data;
     },
     onSuccess: () => {
-      // Invalidate and refetch group-recruits immediately
       queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
       queryClient.refetchQueries({ queryKey: ["group-recruits"] });
       setIsSuccess(true);
@@ -227,8 +304,8 @@ export default function AddApplicant() {
           animate={{ scale: 1, opacity: 1 }}
           className="text-center space-y-6"
         >
-          <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-10 h-10 text-green-500" />
+          <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-10 h-10 text-primary" />
           </div>
           <div>
             <h1 className="text-2xl font-bold">{name} Added!</h1>
@@ -246,8 +323,9 @@ export default function AddApplicant() {
               setPhone("");
               setEmail("");
               setStage("");
-              setSelectedTeamId("");
+              setSelectedTeamId(currentUserTeamId || "");
               setSelectedRecruiterId("");
+              setHasManuallyChangedTeam(false);
             }}>
               Add Another
             </Button>
@@ -337,7 +415,7 @@ export default function AddApplicant() {
         {/* Team */}
         <div className="space-y-2">
           <Label>Team *</Label>
-          <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+          <Select value={selectedTeamId} onValueChange={handleTeamChange}>
             <SelectTrigger>
               <SelectValue placeholder="Select team" />
             </SelectTrigger>
@@ -363,16 +441,22 @@ export default function AddApplicant() {
               <SelectValue placeholder={selectedTeamId ? "Select recruiter" : "Select a team first"} />
             </SelectTrigger>
             <SelectContent>
-              {potentialRecruiters.map((rep) => (
-                <SelectItem key={rep.user_id} value={rep.user_id!}>
+              {eligibleRecruiters.map((rep) => (
+                <SelectItem 
+                  key={rep.user_id || rep.id} 
+                  value={rep.user_id || rep.id}
+                >
                   {rep.name?.replace(/[^\w\s]/g, "").trim()}
+                  {rep.stage && !["Signed", "Shadow ✅", "Sold 💲", "Sold (5+) 💰"].includes(rep.stage) 
+                    ? "" 
+                    : ` (${rep.stage})`}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {selectedTeamId && potentialRecruiters.length === 0 && (
+          {selectedTeamId && eligibleRecruiters.length === 0 && (
             <p className="text-xs text-muted-foreground">
-              No recruiters found for this team
+              No eligible recruiters found for this team
             </p>
           )}
         </div>
