@@ -40,7 +40,8 @@ Deno.serve(async (req) => {
       notes, 
       nextAction, 
       nextActionDue,
-      assignedToUserId
+      assignedToUserId,
+      activityDate,     // Optional: ISO date string for backdating (e.g. '2025-02-08')
     } = await req.json();
 
     // Auto-set updateLastContact for phone_call and in_person activities
@@ -63,6 +64,11 @@ Deno.serve(async (req) => {
       next_action_due: nextActionDue,
     };
 
+    // If backdating, set created_at to noon on that date
+    if (activityDate) {
+      insertData.created_at = `${activityDate}T12:00:00.000Z`;
+    }
+
     // Add assignment if specified
     if (assignedToUserId) {
       insertData.assigned_to_user_id = assignedToUserId;
@@ -79,11 +85,12 @@ Deno.serve(async (req) => {
     if (insertError) throw insertError;
 
     // Update the recruits table with last contact and next action
-    const today = new Date().toISOString().split('T')[0];
+    // Use backdated date if provided, otherwise today
+    const contactDate = activityDate || new Date().toISOString().split('T')[0];
     const updateData: Record<string, unknown> = {};
     
     if (updateLastContact) {
-      updateData.last_contact = today;
+      updateData.last_contact = contactDate;
     }
     
     // For scheduled activities (next_step), prefer notes over generic nextAction for display consistency

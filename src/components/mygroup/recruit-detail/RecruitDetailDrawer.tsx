@@ -9,7 +9,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { differenceInDays, parseISO, format } from "date-fns";
-import { AlertCircle, TrendingUp, Clock, Settings, UserCircle, CalendarIcon } from "lucide-react";
+import { AlertCircle, TrendingUp, Clock, Settings, UserCircle, CalendarIcon, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Season constants for queries
@@ -105,6 +105,7 @@ export const RecruitDetailDrawer = ({
   const [selectedActivity, setSelectedActivity] = useState<RecruitActivity | null>(null);
   const [activityType, setActivityType] = useState<'phone_call' | 'in_person' | 'note' | 'next_step'>('phone_call');
   const [activityNotes, setActivityNotes] = useState('');
+  const [activityDate, setActivityDate] = useState(''); // For backdating: '' = today, 'YYYY-MM-DD' = past date
   const [nextAction, setNextAction] = useState('');
   const [nextActionDue, setNextActionDue] = useState('');
   const [editNotes, setEditNotes] = useState('');
@@ -890,6 +891,7 @@ export const RecruitDetailDrawer = ({
     setIsDirectSchedule(false);
     setActivityType('phone_call');
     setActivityNotes('');
+    setActivityDate('');
     setLogActivityOpen(true);
   };
 
@@ -981,6 +983,7 @@ export const RecruitDetailDrawer = ({
       nextAction: activityType === 'next_step' ? nextAction : undefined,
       nextActionDue: activityType === 'next_step' ? nextActionDue : undefined,
       updateLastContact: activityType === 'phone_call' || activityType === 'in_person',
+      activityDate: activityDate || undefined,
     }, {
       onSuccess: () => {
         setLogActivityOpen(false);
@@ -996,7 +999,7 @@ export const RecruitDetailDrawer = ({
           toast.success('Activity logged');
         }
         
-        setActivityNotes(''); setNextAction(''); setNextActionDue('');
+        setActivityNotes(''); setActivityDate(''); setNextAction(''); setNextActionDue('');
         // Invalidate both the activities query and the group-recruits query for full refresh
         queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
         queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
@@ -1192,7 +1195,34 @@ export const RecruitDetailDrawer = ({
                 <div><Label>Due Date</Label><Input type="date" value={nextActionDue} onChange={(e) => setNextActionDue(e.target.value)} className="mt-1" /></div>
               </>
             ) : (
-              <div><Label>Notes</Label><Textarea value={activityNotes} onChange={(e) => setActivityNotes(e.target.value)} placeholder="What happened?" className="mt-1" rows={3} /></div>
+              <>
+                <div><Label>Notes</Label><Textarea value={activityNotes} onChange={(e) => setActivityNotes(e.target.value)} placeholder="What happened?" className="mt-1" rows={3} /></div>
+                
+                {/* Backdating option */}
+                {(activityType === 'phone_call' || activityType === 'in_person') && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setActivityDate(activityDate ? '' : format(new Date(), 'yyyy-MM-dd'))}
+                      className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      {activityDate ? 'This happened today' : 'This happened in the past?'}
+                    </button>
+                    {activityDate && (
+                      <div className="mt-2 animate-fade-in">
+                        <Input 
+                          type="date" 
+                          value={activityDate} 
+                          onChange={(e) => setActivityDate(e.target.value)} 
+                          max={format(new Date(), 'yyyy-MM-dd')}
+                          className="text-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
             <Button className="w-full" onClick={handleSaveActivity} disabled={logActivityMutation.isPending}>{logActivityMutation.isPending ? 'Saving...' : 'Save Activity'}</Button>
           </div>

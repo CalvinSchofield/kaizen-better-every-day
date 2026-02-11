@@ -61,6 +61,7 @@ export const PostContactDrawer = ({
   const [notesMentions, setNotesMentions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [markTaskComplete, setMarkTaskComplete] = useState(true);
+  const [backdateValue, setBackdateValue] = useState(''); // '' = today, 'YYYY-MM-DD' = past date
   
   // Scheduling state
   const [showScheduling, setShowScheduling] = useState(false);
@@ -90,6 +91,7 @@ export const PostContactDrawer = ({
       setNotes('');
       setNotesMentions([]);
       setMarkTaskComplete(true);
+      setBackdateValue('');
       setShowScheduling(false);
       setScheduleDate(undefined);
       setQuickDateOption(null);
@@ -169,7 +171,8 @@ export const PostContactDrawer = ({
         recruitNotionId: recruit.id,
         activityType: method === 'in_person' ? 'in_person' : 'phone_call',
         notes: notes || `${actionLabel} ${firstName}${isCall ? ` - ${outcomeLabel}` : ''}`,
-        updateLastContact: wasConnected, // Only update last contact if connected
+        updateLastContact: wasConnected,
+        activityDate: backdateValue || undefined,
       });
       
       // Mark scheduled activity as complete if connected and user opted to
@@ -288,6 +291,7 @@ export const PostContactDrawer = ({
         // Reset and close
         setOutcome(null);
         setNotes('');
+        setBackdateValue('');
         setMarkTaskComplete(true);
         setShowScheduling(false);
         setScheduleDate(undefined);
@@ -309,6 +313,7 @@ export const PostContactDrawer = ({
   const handleClose = () => {
     setOutcome(null);
     setNotes('');
+    setBackdateValue('');
     setMarkTaskComplete(true);
     setShowScheduling(false);
     setScheduleDate(undefined);
@@ -415,6 +420,29 @@ export const PostContactDrawer = ({
                 autoFocus={!isCall}
                 recruitId={recruit?.id}
               />
+              
+              {/* Backdating option */}
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setBackdateValue(backdateValue ? '' : format(new Date(), 'yyyy-MM-dd'))}
+                  className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  {backdateValue ? 'This happened today' : 'This happened in the past?'}
+                </button>
+                {backdateValue && (
+                  <div className="mt-2 animate-fade-in">
+                    <input 
+                      type="date" 
+                      value={backdateValue} 
+                      onChange={(e) => setBackdateValue(e.target.value)} 
+                      max={format(new Date(), 'yyyy-MM-dd')}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
