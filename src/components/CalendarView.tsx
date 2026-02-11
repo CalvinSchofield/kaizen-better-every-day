@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Ban, CalendarDays, Sparkles, Pointer, Undo2, Lock } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
@@ -16,6 +16,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { GoalProgressCard } from "@/components/GoalProgressCard";
 import { CalendarSummaryTeaser } from "@/components/CalendarSummaryTeaser";
 import { calculateSalesPace } from "@/utils/salesPaceCalculator";
+import { useFocusTier } from "@/hooks/useFocusTier";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 import { useCalendarHistorical } from "@/hooks/useCalendarHistorical";
 
@@ -63,23 +64,29 @@ export const CalendarView = ({
     hasHistoricalData: hasMeVsMeData,
     isEnabled: meVsMeEnabled 
   } = useCalendarHistorical(currentDate, viewMode, entries);
-  
+  // Get focus tier for summer goal calculation
+  const currentProgress = efpModeEnabled ? (preseasonCurrentEFP || 0) : (preseasonCurrentFP || 0);
+  const { focusTier } = useFocusTier(currentProgress);
+
+  // Map focusTier to salesPaceCalculator activeTier format
+  const summerActiveTier = focusTier as 'mustDo' | 'willDo' | 'couldDo';
+
   // Calculate daily goal using centralized pace calculator
-  const dailyGoal = useMemo(() => {
-    if (!goals?.setup_complete) return null;
+  // Compute BOTH preseason and summer daily goals for transition months
+  const { preseasonDailyGoal, summerDailyGoal } = useMemo(() => {
+    if (!goals?.setup_complete) return { preseasonDailyGoal: null, summerDailyGoal: null };
     
-    // Count knocking days from entries
+    // Count preseason knocking days from entries
     const preseasonEndDate = parseISO(PRESEASON_END);
     const knockingDays = entries.filter(e => {
       if (!e.is_finalized) return false;
       const entryDate = parseISO(e.entry_date);
-      // Must be before preseason end and meet knocking day criteria
       if (!isBefore(entryDate, preseasonEndDate) && entryDate.getTime() !== preseasonEndDate.getTime()) return false;
       return (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time;
     }).length;
     
-    // Use centralized pace calculator
-    const result = calculateSalesPace({
+    // Calculate preseason daily goal
+    const preseasonResult = calculateSalesPace({
       goals,
       plannedDays,
       knockingDays,
@@ -87,14 +94,42 @@ export const CalendarView = ({
       currentPrmr: preseasonCurrentPRMR,
       efpModeEnabled,
       calculateEfp,
+      activeTier: 'preseason',
       personalSummerStart: personalSummerStart ? format(personalSummerStart, 'yyyy-MM-dd') : undefined,
     });
     
-    if (!result) return null;
+    // Calculate summer daily goal using focus tier
+    const summerResult = calculateSalesPace({
+      goals,
+      plannedDays,
+      knockingDays,
+      currentFpPlus: preseasonCurrentFP,
+      currentPrmr: preseasonCurrentPRMR,
+      efpModeEnabled,
+      calculateEfp,
+      activeTier: summerActiveTier,
+      personalSummerStart: personalSummerStart ? format(personalSummerStart, 'yyyy-MM-dd') : undefined,
+    });
     
-    // Return daily goal (already accounts for cancel rate buffer)
-    return Math.round(result.dailyGoal * 10) / 10;
-  }, [goals, plannedDays, entries, efpModeEnabled, calculateEfp, preseasonCurrentFP, preseasonCurrentPRMR, personalSummerStart]);
+    return {
+      preseasonDailyGoal: preseasonResult ? Math.round(preseasonResult.dailyGoal * 10) / 10 : null,
+      summerDailyGoal: summerResult && !summerResult.isInPreseason ? Math.round(summerResult.dailyGoal * 10) / 10 : null,
+    };
+  }, [goals, plannedDays, entries, efpModeEnabled, calculateEfp, preseasonCurrentFP, preseasonCurrentPRMR, personalSummerStart, summerActiveTier]);
+
+  // Helper to get daily goal for a specific date (preseason vs summer)
+  const getDailyGoalForDate = useCallback((dateStr: string): number | null => {
+    if (personalSummerStart) {
+      const summerStartStr = format(personalSummerStart, 'yyyy-MM-dd');
+      if (dateStr >= summerStartStr) {
+        return summerDailyGoal;
+      }
+    }
+    return preseasonDailyGoal;
+  }, [personalSummerStart, preseasonDailyGoal, summerDailyGoal]);
+
+  // Legacy single dailyGoal for GoalProgressCard (it calculates its own per-date goals internally)
+  const dailyGoal = preseasonDailyGoal;
 
 
   // useDailyEntry for delete mutation only
@@ -524,11 +559,14 @@ export const CalendarView = ({
                   </div>
                 )}
                 {/* Planned day goal indicator - top right corner */}
-                {isPlanned && dailyGoal && !hasEntry && (
-                  <div className="absolute top-1 right-1.5 text-[8px] text-muted-foreground/60 font-medium">
-                    {formatValue(dailyGoal)}
-                  </div>
-                )}
+                {isPlanned && !hasEntry && (() => {
+                  const cellGoal = getDailyGoalForDate(format(day, 'yyyy-MM-dd'));
+                  return cellGoal ? (
+                    <div className="absolute top-1 right-1.5 text-[8px] text-muted-foreground/60 font-medium">
+                      {formatValue(cellGoal)}
+                    </div>
+                  ) : null;
+                })()}
                 <div className={`text-sm font-semibold ${isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isPlanned && !hasEntry ? 'text-accent-foreground' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'}`}>
                   {format(day, 'd')}
                 </div>
@@ -594,11 +632,14 @@ export const CalendarView = ({
                   </div>
                 )}
                 {/* Planned day goal indicator - top right corner */}
-                {isPlanned && dailyGoal && !hasEntry && (
-                  <div className="absolute top-1 right-1.5 text-[10px] text-muted-foreground/60 font-medium">
-                    {efpModeEnabled ? formatValue(dailyGoal * (goals?.avg_prmr_per_fp || 85) / 85) : formatValue(dailyGoal)}
-                  </div>
-                )}
+                {isPlanned && !hasEntry && (() => {
+                  const cellGoal = getDailyGoalForDate(dateStr);
+                  return cellGoal ? (
+                    <div className="absolute top-1 right-1.5 text-[10px] text-muted-foreground/60 font-medium">
+                      {efpModeEnabled ? formatValue(cellGoal * (goals?.avg_prmr_per_fp || 85) / 85) : formatValue(cellGoal)}
+                    </div>
+                  ) : null;
+                })()}
                 <div className={`text-lg font-semibold ${isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isPlanned && !hasEntry ? 'text-accent-foreground' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'}`}>
                   {format(day, 'd')}
                 </div>
