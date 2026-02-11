@@ -111,8 +111,31 @@ export const useToggleReaction = () => {
     onMutate: () => {
       hapticLight();
     },
-    onSuccess: (result, variables) => {
+    onSuccess: async (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['activity-reactions'] });
+      
+      // Send notification when adding a reaction (not removing)
+      if (result.action === 'added' && userId) {
+        try {
+          // Get reactor's name
+          const { data: reactor } = await supabase
+            .from('reps')
+            .select('name')
+            .eq('user_id', userId)
+            .single();
+
+          supabase.functions.invoke('send-reaction-notification', {
+            body: {
+              activityId: variables.activityId,
+              reactorUserId: userId,
+              reactorName: reactor?.name || 'Someone',
+              reactionType: variables.reactionType || 'like',
+            },
+          }).catch(err => console.error('Reaction notification failed:', err));
+        } catch (err) {
+          console.error('Failed to send reaction notification:', err);
+        }
+      }
     },
     onError: () => {
       toast.error('Failed to update reaction');

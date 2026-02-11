@@ -134,3 +134,9 @@ verify_jwt = false
 
 [functions.cleanup-demo-data]
 verify_jwt = false
+
+[functions.send-reaction-notification]
+verify_jwt = false
+
+[functions.check-task-reminders]
+verify_jwt = false
