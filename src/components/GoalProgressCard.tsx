@@ -195,11 +195,14 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     // The cutoff is the latest finalized date, not today - finalization signals day complete
     const cutoffStr = throughDateStr || todayStr;
     
-    // Count future planned days (after cutoff, but NOT including today - we handle today separately)
+    // Count future planned days within the period that haven't been worked yet
+    // IMPORTANT: Must be within the period bounds (periodStartStr to periodEndStr)
+    // AND after the cutoff (latest finalized or today)
     const futurePlanned = plannedDays?.filter(d => 
+      d.planned_date >= periodStartStr && // Must be within this period
+      d.planned_date <= periodEndStr &&
       d.planned_date > cutoffStr && 
       d.planned_date > todayStr && // Must be AFTER today to avoid double-counting
-      d.planned_date <= periodEndStr &&
       !workedDatesSet.has(d.planned_date)
     ).length || 0;
     
@@ -646,7 +649,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
           <div className="flex items-center gap-2 p-3 rounded-xl bg-accent/30 border border-border/50">
             <Flame className="h-4 w-4 text-primary flex-shrink-0" />
             <p className="text-sm text-foreground">
-              <span className="font-semibold">{remainingForPeriod.toFixed(1)} {metricLabel} to go this {viewMode}</span>
+              <span className="font-semibold">{remainingForPeriod.toFixed(1)} {metricLabel} to go this {viewMode === 'month' ? 'month' : 'week'}</span>
               {remainingDaysInPeriod === 1 ? (
                 <span className="text-muted-foreground"> — hit it today!</span>
               ) : (
