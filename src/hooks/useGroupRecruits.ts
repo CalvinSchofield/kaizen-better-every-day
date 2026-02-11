@@ -1026,6 +1026,18 @@ export const useLogRecruitActivity = () => {
       if (identifier) {
         queryClient.invalidateQueries({ queryKey: ['recruit-activities', identifier] });
       }
+      // Send task assignment notification
+      if (data?.assignedToUserId && data?.logged_by_user_id) {
+        supabase.functions.invoke('send-task-assignment-notification', {
+          body: {
+            assignedToUserId: data.assignedToUserId,
+            assignerUserId: data.logged_by_user_id,
+            recruitId: data.recruit_id,
+            nextAction: data.next_action,
+            nextActionDue: data.next_action_due,
+          },
+        }).catch(err => console.error('Task assignment notification failed:', err));
+      }
     },
   });
 };
@@ -1128,12 +1140,25 @@ export const useUpdateRecruitActivity = () => {
         });
       }
     },
-    onSettled: (data) => {
+    onSettled: async (data) => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
       // Also invalidate the specific recruit's activities cache
       if (data?.activityId) {
         queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
+      }
+      // Send task assignment notification when reassigning
+      if (data?.assignedToUserId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        supabase.functions.invoke('send-task-assignment-notification', {
+          body: {
+            assignedToUserId: data.assignedToUserId,
+            assignerUserId: session?.user?.id,
+            recruitId: data.recruitId,
+            nextAction: data.nextAction,
+            nextActionDue: data.nextActionDue,
+          },
+        }).catch(err => console.error('Task assignment notification failed:', err));
       }
     },
   });

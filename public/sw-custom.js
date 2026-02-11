@@ -45,6 +45,11 @@ function getNotificationActions(type) {
         { action: 'view', title: '👋 Meet Them' },
         { action: 'dismiss', title: '👍 Got It' }
       ];
+    case 'task_assignment':
+      return [
+        { action: 'view', title: '👀 View Task' },
+        { action: 'dismiss', title: '✓ Dismiss' }
+      ];
     default:
       return [
         { action: 'open', title: '👀 View' },
