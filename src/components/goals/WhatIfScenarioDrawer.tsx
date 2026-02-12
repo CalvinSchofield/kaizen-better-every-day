@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { TrendingUp, TrendingDown, Minus, CalendarPlus, CalendarMinus } from 'lucide-react';
-import { parseISO, isBefore, eachDayOfInterval, getDay } from 'date-fns';
+import { parseISO, isBefore, isAfter, eachDayOfInterval, getDay } from 'date-fns';
 import { Slider } from '@/components/ui/slider';
 import { GOAL_TIER_CONFIG } from '@/config/goalTiers';
 
@@ -85,10 +85,11 @@ function getSeverity(dailyNeeded: number): 'green' | 'amber' | 'red' {
   return 'red';
 }
 
-// Calculate max possible work days (Mon-Sat) in summer range
-function getMaxSummerWorkDays(summerStart: string, summerEnd: string): number {
-  const start = parseISO(summerStart);
-  const end = parseISO(summerEnd);
+// Calculate work days (Mon-Sat) in a date range
+function getWorkDaysInRange(startDate: string, endDate: string): number {
+  const start = parseISO(startDate);
+  const end = parseISO(endDate);
+  if (isAfter(start, end)) return 0;
   const days = eachDayOfInterval({ start, end });
   return days.filter(d => getDay(d) !== 0).length; // Exclude Sundays
 }
@@ -116,28 +117,41 @@ export const WhatIfScenarioDrawer = ({
   const baseCancelRate = goals?.cancel_rate || 0;
   const activeCancelRate = customCancelRate !== null ? customCancelRate : baseCancelRate;
 
+  // Determine if summer has started for this rep
+  const effectiveSummerStart = personalSummerStart || GLOBAL_SUMMER_START;
+  const effectiveSummerEnd = personalSummerEnd || GLOBAL_SUMMER_END;
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const isSummerStarted = !isBefore(today, parseISO(effectiveSummerStart));
+
   // Calculate summer day stats
   const summerDayStats = useMemo(() => {
-    const effectiveStart = personalSummerStart || GLOBAL_SUMMER_START;
-    const effectiveEnd = personalSummerEnd || GLOBAL_SUMMER_END;
-    const summerStart = parseISO(effectiveStart);
+    const summerStart = parseISO(effectiveSummerStart);
 
-    // Current planned summer days from calendar
+    // For summer mode, count remaining days from today; for preseason, count all summer days
+    const rangeStart = isSummerStarted ? todayStr : effectiveSummerStart;
+    const rangeEnd = effectiveSummerEnd;
+
+    // Current planned summer days from calendar (future only if summer started)
     const currentPlanned = plannedDays?.filter(d => {
       const date = parseISO(d.planned_date);
+      if (isSummerStarted) {
+        // Only count future planned days
+        return !isBefore(date, today) && !isBefore(date, summerStart);
+      }
       return !isBefore(date, summerStart);
     }).length || 0;
 
-    // Max possible work days (Mon-Sat, no Sundays)
-    const maxPossible = getMaxSummerWorkDays(effectiveStart, effectiveEnd);
+    // Max possible work days (Mon-Sat) in the relevant range
+    const maxPossible = getWorkDaysInRange(rangeStart, rangeEnd);
 
-    // Days currently excluded (off days the user has marked)
+    // Days currently excluded
     const excludedCount = excludedSummerDays.length;
 
     // Room to add = max possible - current planned
     const roomToAdd = Math.max(0, maxPossible - currentPlanned);
 
-    // Room to remove = current planned (can't go below 1 for calculation)
+    // Room to remove = current planned (can't go below 1)
     const roomToRemove = Math.max(0, currentPlanned - 1);
 
     return {
@@ -147,7 +161,7 @@ export const WhatIfScenarioDrawer = ({
       roomToAdd,
       roomToRemove,
     };
-  }, [plannedDays, personalSummerStart, personalSummerEnd, excludedSummerDays]);
+  }, [plannedDays, effectiveSummerStart, effectiveSummerEnd, excludedSummerDays, isSummerStarted, todayStr]);
 
   // Effective summer days = current planned + adjustment
   const effectiveSummerDays = Math.max(1, summerDayStats.currentPlanned + customDaysAdjustment);
@@ -155,14 +169,14 @@ export const WhatIfScenarioDrawer = ({
   // Reset when opened
   const handleOpenChange = useCallback((o: boolean) => {
     if (o) {
-      setHypothetical(Math.round(forecastedPreseasonTotal * 10) / 10);
+      setHypothetical(isSummerStarted ? Math.round(currentProgress * 10) / 10 : Math.round(forecastedPreseasonTotal * 10) / 10);
       setCustomCancelRate(null);
       setCustomDaysAdjustment(0);
     }
     onOpenChange(o);
-  }, [forecastedPreseasonTotal, onOpenChange]);
+  }, [forecastedPreseasonTotal, currentProgress, isSummerStarted, onOpenChange]);
 
-  // Presets differ by vet/rookie
+  // Presets differ by vet/rookie (only for preseason mode)
   const presets = useMemo(() => {
     const base = Math.round(forecastedPreseasonTotal * 10) / 10;
     const increments = isVet ? [10, 20] : [5, 10];
@@ -173,9 +187,15 @@ export const WhatIfScenarioDrawer = ({
     ];
   }, [forecastedPreseasonTotal, isVet]);
 
-  // Tier results - now using effectiveSummerDays instead of just planned
+  // The starting point for summer calculations
+  // In summer mode: this is the actual progress so far (locked, not adjustable)
+  // In preseason mode: this is the hypothetical preseason total (adjustable)
+  const startingPoint = isSummerStarted
+    ? currentProgress
+    : (typeof hypothetical === 'number' ? hypothetical : 0);
+
+  // Tier results
   const tierResults = useMemo((): TierResult[] => {
-    const hyp = typeof hypothetical === 'number' ? hypothetical : 0;
     const buffer = (goal: number) => activeCancelRate > 0 && activeCancelRate < 1 ? goal / (1 - activeCancelRate) : goal;
 
     const summerWeeks = effectiveSummerDays > 0 ? effectiveSummerDays / 6 : 1;
@@ -188,7 +208,7 @@ export const WhatIfScenarioDrawer = ({
 
     return tiers.map(tier => {
       const funded = buffer(tier.goal);
-      const remaining = Math.max(0, funded - hyp);
+      const remaining = Math.max(0, funded - startingPoint);
       const dailyNeeded = effectiveSummerDays > 0 ? remaining / effectiveSummerDays : 0;
       const weeklyNeeded = summerWeeks > 0 ? remaining / summerWeeks : 0;
       const roundedDaily = Math.round(dailyNeeded * 10) / 10;
@@ -202,7 +222,7 @@ export const WhatIfScenarioDrawer = ({
         severity: getSeverity(roundedDaily),
       };
     });
-  }, [hypothetical, goals, effectiveSummerDays, activeCancelRate]);
+  }, [startingPoint, goals, effectiveSummerDays, activeCancelRate]);
 
   // Slider range for days adjustment
   const minAdjustment = -Math.min(summerDayStats.roomToRemove, 24);
@@ -213,67 +233,89 @@ export const WhatIfScenarioDrawer = ({
     <Drawer open={open} onOpenChange={handleOpenChange}>
       <DrawerContent className="max-h-[92svh]">
         <DrawerHeader className="pb-2">
-          <DrawerTitle className="text-xl">Plan Your Summer Pace</DrawerTitle>
+          <DrawerTitle className="text-xl">
+            {isSummerStarted ? 'Adjust Your Pace' : 'Plan Your Summer Pace'}
+          </DrawerTitle>
           <DrawerDescription>
-            Explore how your preseason total changes your summer workload
+            {isSummerStarted
+              ? 'See how work days and cancel rate affect your needed pace'
+              : 'Explore how your preseason total changes your summer workload'}
           </DrawerDescription>
         </DrawerHeader>
 
         <div className="px-4 pb-6 space-y-5 overflow-y-auto">
-          {/* Input section */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">
-              What if I start summer with…
-            </label>
-            <div className="relative">
-              <Input
-                type="number"
-                inputMode="decimal"
-                value={hypothetical}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '') {
-                    setHypothetical('');
-                  } else {
-                    setHypothetical(parseFloat(val));
-                  }
-                }}
-                className="text-2xl font-bold h-14 pr-16 text-center"
-                min={0}
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
-                {efpLabel}
-              </span>
+          {/* Preseason input - only shown before summer starts */}
+          {!isSummerStarted && (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  What if I start summer with…
+                </label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    value={hypothetical}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setHypothetical('');
+                      } else {
+                        setHypothetical(parseFloat(val));
+                      }
+                    }}
+                    className="text-2xl font-bold h-14 pr-16 text-center"
+                    min={0}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
+                    {efpLabel}
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick presets */}
+              <div className="flex gap-2">
+                {presets.map((preset) => (
+                  <button
+                    key={preset.label}
+                    onClick={() => {
+                      hapticLight();
+                      setHypothetical(preset.value);
+                    }}
+                    className={cn(
+                      "flex-1 py-2 px-3 rounded-xl text-xs font-medium transition-all active:scale-[0.96]",
+                      hypothetical === preset.value
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Summer mode: show current progress as fixed context */}
+          {isSummerStarted && (
+            <div className="rounded-2xl border border-border bg-muted/40 p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Your progress so far</span>
+                <span className="text-xl font-bold">
+                  {Math.round(currentProgress * 10) / 10} <span className="text-sm font-normal text-muted-foreground">{efpLabel}</span>
+                </span>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Quick presets */}
-          <div className="flex gap-2">
-            {presets.map((preset) => (
-              <button
-                key={preset.label}
-                onClick={() => {
-                  hapticLight();
-                  setHypothetical(preset.value);
-                }}
-                className={cn(
-                  "flex-1 py-2 px-3 rounded-xl text-xs font-medium transition-all active:scale-[0.96]",
-                  hypothetical === preset.value
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-muted text-muted-foreground"
-                )}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Summer days context - now interactive */}
+          {/* Summer days adjustment */}
           <div className="rounded-2xl border border-border bg-muted/40 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CalendarPlus className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">Summer work days</span>
+                <span className="text-sm font-medium text-foreground">
+                  {isSummerStarted ? 'Remaining work days' : 'Summer work days'}
+                </span>
               </div>
               <span className="text-sm font-semibold text-foreground">
                 {effectiveSummerDays} days
@@ -328,7 +370,7 @@ export const WhatIfScenarioDrawer = ({
                 )}
                 {summerDayStats.roomToAdd === 0 && (
                   <p className="text-[10px] text-muted-foreground/70">
-                    You're already working every available day (Mon–Sat) in your summer range
+                    You're already working every available day (Mon–Sat) in your {isSummerStarted ? 'remaining' : 'summer'} range
                   </p>
                 )}
               </>
@@ -336,7 +378,7 @@ export const WhatIfScenarioDrawer = ({
 
             {!canAdjustDays && (
               <p className="text-xs text-muted-foreground">
-                You're working every available day in your summer range — no room to adjust.
+                You're working every available day in your {isSummerStarted ? 'remaining' : 'summer'} range — no room to adjust.
               </p>
             )}
           </div>
@@ -385,7 +427,7 @@ export const WhatIfScenarioDrawer = ({
             })}
           </div>
 
-          {/* Cancel rate section - more prominent */}
+          {/* Cancel rate section */}
           <div className="rounded-2xl border border-border bg-muted/40 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-foreground">
