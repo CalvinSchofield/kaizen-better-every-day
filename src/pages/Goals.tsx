@@ -24,7 +24,7 @@ import { EarningsBreakdownCard } from "@/components/goals/EarningsBreakdownCard"
 import { TrainingTimer } from "@/components/goals/TrainingTimer";
 import { BooksCompletionDrawer } from "@/components/goals/BooksSelectionDrawer";
 import { CommitmentEditorDrawer } from "@/components/goals/CommitmentEditorDrawer";
-import { PurposeCard } from "@/components/goals/PurposeCard";
+
 import { CatchUpWizard } from "@/components/catchup/CatchUpWizard";
 import { SyncDiscrepancyIndicator } from "@/components/catchup/SyncDiscrepancyIndicator";
 import { toast } from "sonner";
@@ -40,9 +40,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isBefore, parseISO, format } from "date-fns";
 import { parseDateAsLocal } from "@/utils/blitzDateUtils";
-import { usePageTour } from "@/hooks/usePageTour";
-import { PageTour } from "@/components/PageTour";
-import { goalsTourSteps } from "@/config/pageTours";
 import { calculatePaceContext, getLearningCurvePrincipleMessage, calculateSuggestedStretchGoal } from "@/utils/learningCurveData";
 import { hasCompletedGoalsSetup } from "@/lib/goalsSetupCache";
 
@@ -86,16 +83,6 @@ const Goals = () => {
   const queryClient = useQueryClient();
   const { toast: toastHook } = useToast();
   
-  // Page tour - only show after setup is complete
-  const { 
-    showTour, 
-    completeTour, 
-    skipTour,
-  } = usePageTour({ 
-    page: 'goals', 
-    enabled: goals?.setup_complete === true,
-    delay: 800 
-  });
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showQuickEdit, setShowQuickEdit] = useState(false);
@@ -116,11 +103,6 @@ const Goals = () => {
     seasonEndDate: PRESEASON_END,
   });
 
-  const handleTourStepAction = useCallback((action: string) => {
-    if (action === 'openGoalsCalendarPlanning') {
-      // Navigate to calendar for planning (moved from inline collapsible)
-    }
-  }, []);
 
   
   // Confirmation drawer states for blitz commit/uncommit
@@ -932,22 +914,6 @@ const Goals = () => {
           </div>
         </div>
 
-        {/* Purpose Card - Your Why */}
-        {goals.purpose_statement && (
-          <motion.div 
-            className="px-4 pt-4"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <PurposeCard
-              purposeStatement={goals.purpose_statement}
-              purposeUpdatedAt={goals.purpose_updated_at}
-              onEdit={() => setShowSetupWizard(true)}
-              variant="compact"
-            />
-          </motion.div>
-        )}
 
         {/* Hero Ring Section */}
         <motion.div 
@@ -1253,27 +1219,6 @@ const Goals = () => {
         onOpenCommitmentEditor={() => setShowCommitmentEditor(true)}
       />
 
-      {/* Goals Page Tour - filtered to only show relevant steps based on season and available blitzes */}
-      <PageTour
-        steps={goalsTourSteps.filter(s => {
-          // Hide commitment chips during summer
-          if (isUserSummerStarted && s.target === 'goals-commitment-chips') return false;
-          // Hide blitz button step if no future blitzes
-          const hasAnyFutureBlitzes = allBlitzes.some(blitz => {
-            const blitzStart = new Date(blitz.date);
-            blitzStart.setHours(0, 0, 0, 0);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            return blitzStart >= today;
-          });
-          if (!hasAnyFutureBlitzes && s.target === 'goals-blitz-button') return false;
-          return true;
-        })}
-        isOpen={showTour}
-        onComplete={completeTour}
-        onSkip={skipTour}
-        onStepAction={handleTourStepAction}
-      />
       
       {/* Quick Edit Goals Drawer */}
       {goals && (

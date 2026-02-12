@@ -14,10 +14,7 @@ import { IncentivesTab } from "@/components/leaderboard/IncentivesTab";
 import { useExpandedLeaderboard, CustomDateRange } from "@/hooks/useExpandedLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
-import { usePageTour } from "@/hooks/usePageTour";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
-import { PageTour } from "@/components/PageTour";
-import { leaderboardTourSteps } from "@/config/pageTours";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -52,12 +49,6 @@ const Leaderboard = () => {
   // Subscribe to realtime sales updates for immediate leaderboard and challenge sync
   useSalesRealtime();
 
-  // Page tour
-  const { showTour, completeTour, skipTour } = usePageTour({
-    page: 'leaderboard',
-    enabled: isUserInitialized,
-    delay: 600,
-  });
 
   // Get available presets based on actual data
   const { availablePresets, autoSelectedPreset, isLoading: presetsLoading } = useAvailableLeaderboardPresets();
@@ -255,13 +246,6 @@ const Leaderboard = () => {
         <RecordsSection userId={currentUserId} />
       </div>
 
-      {/* Page Tour */}
-      <PageTour
-        steps={leaderboardTourSteps}
-        isOpen={showTour}
-        onComplete={completeTour}
-        onSkip={skipTour}
-      />
     </Layout>
   );
 };
