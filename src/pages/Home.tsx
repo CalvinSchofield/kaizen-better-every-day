@@ -35,7 +35,7 @@ import { hapticSuccess, hapticMedium, hapticWarning } from "@/utils/haptics";
 import type { PhaseData, PhaseId } from "@/pages/RampToBlitz";
 import { SyncPromptTrigger } from "@/components/catchup/WeeklySyncPrompt";
 
-import { PreseasonPrepLeaderboard } from "@/components/PreseasonPrepLeaderboard";
+
 
 interface StepStatus {
   completed: boolean;
@@ -1456,10 +1456,8 @@ const Home = () => {
           );
         })()}
 
-        {/* 2. Competition & Standards - Show after Phase 1 complete (implies goals set with leader) */}
-        {hasGoalsAccess && phase1Complete && (
-          <PreseasonPrepLeaderboard />
-        )}
+
+        {/* 3. Blitz Management Card - Show after Slack is complete so reps can manage blitz commitments */}
 
         {/* 3. Blitz Management Card - Show after Slack is complete so reps can manage blitz commitments */}
         {slackComplete && (

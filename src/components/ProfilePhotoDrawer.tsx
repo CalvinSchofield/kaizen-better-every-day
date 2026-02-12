@@ -29,7 +29,7 @@ export const ProfilePhotoDrawer = ({
     if (userId) {
       queryClient.invalidateQueries({ queryKey: ['rep-data', userId] });
     }
-    queryClient.invalidateQueries({ queryKey: ['preseason-prep-leaderboard'] });
+    
   };
 
   return (

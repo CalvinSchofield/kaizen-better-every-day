@@ -12,9 +12,6 @@ import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import { VetAlertCard } from "@/components/VetAlertCard";
-import { PreseasonStandardsCard } from "@/components/PreseasonStandardsCard";
-import { LeaderPreseasonPrepLeaderboard } from "@/components/LeaderPreseasonPrepLeaderboard";
-import { WeeklyProgressPromptCard } from "@/components/WeeklyProgressPromptCard";
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import { LeaderRookieReviewCard } from "@/components/LeaderRookieReviewCard";
 import { ActiveChallengesCard } from "@/components/ActiveChallengesCard";
@@ -776,17 +773,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
           ) : null;
         })()}
 
-        {/* Weekly Progress Prompt - Monday evenings */}
-        <WeeklyProgressPromptCard />
 
         {/* Active Challenges & Incentives - only show if user has active competitions (CTA is in knocking mode only) */}
         <ActiveChallengesCard hideCta={true} />
-
-        {/* Preseason Standards Card */}
-        <PreseasonStandardsCard />
-
-        {/* Leader Preseason Prep Leaderboard - shows rookies' progress with team leader attribution */}
-        {isLeader && <LeaderPreseasonPrepLeaderboard />}
 
         {/* Unified Blitz Management - For leaders, show above recruiting flow */}
         {isLeader && (

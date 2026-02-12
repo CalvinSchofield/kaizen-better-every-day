@@ -15,8 +15,6 @@ import { YourProgressCard } from "@/components/YourProgressCard";
 import { useYTDPRMR } from "@/hooks/useYTDPRMR";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
-import { PreseasonStandardsCard } from "@/components/PreseasonStandardsCard";
-import { WeeklyProgressPromptCard } from "@/components/WeeklyProgressPromptCard";
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import confetti from "canvas-confetti";
 import { useQueryClient } from "@tanstack/react-query";
@@ -766,8 +764,6 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
           ) : null;
         })()}
 
-        {/* Weekly Progress Prompt - Monday evenings */}
-        <WeeklyProgressPromptCard />
 
         {/* Your Progress Card */}
         <YourProgressCard 
@@ -777,9 +773,6 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
           efpModeEnabled={efpModeEnabled}
           loadingFP={loadingFP}
         />
-
-        {/* Preseason Standards Card */}
-        <PreseasonStandardsCard />
 
         {/* Upcoming Blitzes Card */}
         <Card className="home-card-spacing shadow-sm">

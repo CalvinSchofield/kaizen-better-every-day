@@ -151,7 +151,6 @@ export const useSyncedBooks = () => {
 
     if (!error) {
       queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
-      queryClient.invalidateQueries({ queryKey: ['preseason-prep-leaderboard-weekly'] });
     }
     
     return !wasRead; // Return true if book was marked as read (for celebration)
@@ -218,7 +217,6 @@ export const useSyncedBooks = () => {
 
     if (!error) {
       queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
-      queryClient.invalidateQueries({ queryKey: ['preseason-prep-leaderboard-weekly'] });
     }
 
     return !wasRead; // Return true if marked as read

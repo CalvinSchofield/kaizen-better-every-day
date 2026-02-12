@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Lock, SlidersHorizontal, ChevronDown, ArrowLeft, Loader2, Check } from "lucide-react";
+import { Lock, SlidersHorizontal, ChevronDown, ArrowLeft, Loader2, Check, BookOpen, Timer, Dumbbell, Phone } from "lucide-react";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -21,9 +21,6 @@ import { CalendarPlanningPreview } from "@/components/goals/CalendarPlanningPrev
 import { CanceledStatsCard } from "@/components/goals/CanceledStatsCard";
 import { CancelRateDrawer } from "@/components/goals/CancelRateDrawer";
 import { EarningsBreakdownCard } from "@/components/goals/EarningsBreakdownCard";
-import { TrainingTimer } from "@/components/goals/TrainingTimer";
-import { BooksCompletionDrawer } from "@/components/goals/BooksSelectionDrawer";
-import { CommitmentEditorDrawer } from "@/components/goals/CommitmentEditorDrawer";
 
 import { CatchUpWizard } from "@/components/catchup/CatchUpWizard";
 import { SyncDiscrepancyIndicator } from "@/components/catchup/SyncDiscrepancyIndicator";
@@ -68,7 +65,6 @@ const Goals = () => {
     refetch: refetchGoals
   } = useRepGoals();
   const { repData, isInitializing: repDataInitializing, loading: repDataLoading } = useRepData();
-  // Use useCurrentUserId for instant cache access before repData loads
   const { userId, isReady: authReady } = useCurrentUserId();
   const { 
     totalFP: totalFpPlus, 
@@ -86,34 +82,21 @@ const Goals = () => {
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showQuickEdit, setShowQuickEdit] = useState(false);
-  const [showCommitmentEditor, setShowCommitmentEditor] = useState(false);
-  const [showTrainingTimer, setShowTrainingTimer] = useState(false);
   const [showBlitzEditor, setShowBlitzEditor] = useState(false);
-  const [showBooksDrawer, setShowBooksDrawer] = useState(false);
   const [showCatchUpWizard, setShowCatchUpWizard] = useState(false);
   const [activeTier, setActiveTier] = useState<GoalTier>('preseason');
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
   const [showCancelRateDrawer, setShowCancelRateDrawer] = useState(false);
-  // Effective FP hook for verified totals
   const { data: effectiveFPData } = useEffectiveFP({
     seasonType: 'preseason',
     seasonStartDate: PRESEASON_START,
     seasonEndDate: PRESEASON_END,
   });
 
-
-  
-  // Confirmation drawer states for blitz commit/uncommit
   const [confirmCommitBlitz, setConfirmCommitBlitz] = useState<{ id: string; name: string; date: string; endDate?: string | null; location?: string | null } | null>(null);
   const [confirmUncommitBlitz, setConfirmUncommitBlitz] = useState<{ id: string; name: string } | null>(null);
 
-  // NOTE: initialData from localStorage removed to prevent stale data display.
-  // React Query in-memory cache handles instant page navigation.
-
-  // Fetch knocking days count for pace calculation
-  // Knocking day = doors >= 5 AND has work_start_time AND work_end_time
   const { data: workedDaysData } = useQuery({
     queryKey: ['goals-knocking-days', userId],
     queryFn: async () => {
@@ -129,14 +112,12 @@ const Goals = () => {
       
       if (error) return { knockingDays: 0 };
       
-      // Count only "knocking days" (doors >= 4 AND has both work times)
       const knockingDays = entries?.filter(e => 
         (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time
       ).length || 0;
       
       const result = { knockingDays };
       
-      // Cache for instant load
       try {
         localStorage.setItem(`goals-knocking-days-cache-${userId}`, JSON.stringify({
           data: result,
@@ -147,11 +128,10 @@ const Goals = () => {
       return result;
     },
     enabled: !!userId,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
-  // Fetch user's personal summer dates to determine if their summer has started
   const { data: seasonConfig } = useQuery({
     queryKey: ['season-config-for-goals-page', userId],
     queryFn: async () => {
@@ -163,7 +143,6 @@ const Goals = () => {
         .maybeSingle();
       if (error) throw error;
       
-      // Cache for instant load
       try {
         localStorage.setItem(`goals-season-config-cache-${userId}`, JSON.stringify({
           data,
@@ -174,11 +153,10 @@ const Goals = () => {
       return data;
     },
     enabled: !!userId,
-    staleTime: 30 * 60 * 1000, // 30 minutes - this rarely changes
-    gcTime: 60 * 60 * 1000, // 1 hour
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 
-  // Calculate if user's personal summer has started (based on their personal_summer_start, not global date)
   const isUserSummerStarted = useMemo(() => {
     const personalStart = seasonConfig?.personal_summer_start;
     if (!personalStart) return false;
@@ -188,19 +166,16 @@ const Goals = () => {
     return today >= startDate;
   }, [seasonConfig?.personal_summer_start]);
 
-  // Check and reset weekly training progress on new week
   useEffect(() => {
     if (needsWeeklyCheck && goals) {
       checkAndResetWeeklyProgress();
     }
   }, [needsWeeklyCheck, goals, checkAndResetWeeklyProgress]);
 
-  // Get committed blitzes
   const committedBlitzes = useMemo(() => {
     return (repData?.committed_blitzes as unknown as CommittedBlitz[]) || [];
   }, [repData?.committed_blitzes]);
 
-  // Calculate blitz stats
   const blitzStats = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -230,7 +205,6 @@ const Goals = () => {
     };
   }, [committedBlitzes]);
 
-  // Future available blitzes
   const futureAvailableBlitzes = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -242,52 +216,37 @@ const Goals = () => {
     });
   }, [allBlitzes]);
 
-  // Calculate current progress based on mode
   const currentProgress = efpModeEnabled ? calculateEfp(totalPRMR) : totalFpPlus;
   const fundedProgress = efpModeEnabled ? calculateEfp(fundedPRMR) : fundedFP;
 
-  // Calculate actual cancel/unfunded rate from real data
   const actualCancelRate = useMemo(() => {
     if (currentProgress <= 0) return null;
     const unfunded = currentProgress - fundedProgress;
     if (unfunded <= 0) return 0;
     return unfunded / currentProgress;
   }, [currentProgress, fundedProgress]);
-  // Today's progress from entry (EFP or FP+ based on mode)
-  // IMPORTANT: Include RUNNING totals from unfinalized sales_log for live "behind" calculation
+
   const todayUnfinalizedPrmr = useMemo(() => {
     if (!todayEntry) return 0;
-    
-    // If finalized, use the saved prmr value (already includes upgrades)
     if (todayEntry.is_finalized) {
       return todayEntry.prmr || 0;
     }
-    
-    // If not finalized, calculate from sales_log for running total
     const salesLog = (todayEntry as any)?.sales_log || [];
     if (salesLog.length > 0) {
-      // Exclude never_installed sales from totals
       return salesLog
         .filter((sale: any) => sale.install_status !== 'never_installed')
         .reduce((sum: number, sale: any) => sum + (Number(sale.prmr) || 0), 0);
     }
-    
-    // Fallback to prmr field if no sales_log (prmr already includes upgrade_prmr)
     return todayEntry.prmr || 0;
   }, [todayEntry]);
 
   const todayUnfinalizedFpPlus = useMemo(() => {
     if (!todayEntry) return 0;
-    
-    // If finalized, use the saved fp_plus value
     if (todayEntry.is_finalized) {
       return todayEntry.fp_plus || 0;
     }
-    
-    // If not finalized, calculate from sales_log for running total
     const salesLog = (todayEntry as any)?.sales_log || [];
     if (salesLog.length > 0) {
-      // Exclude never_installed sales from totals
       const fundedSales = salesLog.filter((s: any) => s.install_status !== 'never_installed');
       let fp = 0;
       fundedSales.forEach((sale: any) => {
@@ -300,8 +259,6 @@ const Goals = () => {
       });
       return fp;
     }
-    
-    // Fallback to fp_plus field if no sales_log
     return todayEntry.fp_plus || 0;
   }, [todayEntry]);
 
@@ -309,28 +266,21 @@ const Goals = () => {
     ? calculateEfp(todayUnfinalizedPrmr)
     : todayUnfinalizedFpPlus;
 
-  // Check if we're in preseason (before April 12, 2026)
   const isPreseason = new Date() < new Date('2026-04-12');
+  const conversionFactor = efpModeEnabled ? 85 / 85 : 1;
 
-  // Convert goals to display values (EFP if enabled) - always use $85 for PRMR per FP
-  const conversionFactor = efpModeEnabled ? 85 / 85 : 1; // Simplified since we're using $85
-
-  // Check if today is a planned day
   const isTodayPlanned = useMemo(() => {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     return plannedDays?.some(d => d.planned_date === todayStr) ?? false;
   }, [plannedDays]);
 
-  // Check if user has any planned days
   const hasAnyPlannedDays = (plannedDays?.length || 0) > 0;
 
-  // Calculate daily goal and remaining daily needed based on planned days
   const paceData = useMemo(() => {
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd');
     const preseasonEnd = parseISO(PRESEASON_END);
     
-    // Get active goal based on tier
     const activeGoal = activeTier === 'preseason' 
       ? (goals?.preseason_fp_goal || 0) * conversionFactor
       : activeTier === 'mustDo'
@@ -343,35 +293,28 @@ const Goals = () => {
       return { dailyGoal: 0, remainingDailyNeeded: 0, fundedGoalNeeded: 0, totalDays: 0, futurePlannedDays: 0 };
     }
     
-    // Apply cancel buffer - need to fund more to hit goal after cancellations
-    // If cancel_rate is 10% (0.1), we need to fund goal / 0.9 to end up with goal
     const cancelRate = goals?.cancel_rate || 0;
     const fundedGoalNeeded = cancelRate > 0 && cancelRate < 1 
       ? activeGoal / (1 - cancelRate) 
       : activeGoal;
     
-    // Count future planned days (not including today)
     const futurePlannedCount = plannedDays?.filter(d => {
       const date = parseISO(d.planned_date);
       return date > today && !isBefore(preseasonEnd, date);
     }).length || 0;
     
-    // Total days = knocking days already done + future planned
     const knockingDays = workedDaysData?.knockingDays || 0;
     const totalDays = knockingDays + futurePlannedCount;
     
-    // Daily goal = funded goal / total planned days
     const dailyGoal = totalDays > 0 ? fundedGoalNeeded / totalDays : 0;
     
-    // Remaining needed = (funded goal - current progress) / remaining days
     const remaining = Math.max(0, fundedGoalNeeded - currentProgress);
-    const remainingDays = futurePlannedCount + 1; // +1 for today
+    const remainingDays = futurePlannedCount + 1;
     const remainingDailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
     
     return { dailyGoal, remainingDailyNeeded, fundedGoalNeeded, totalDays, futurePlannedDays: futurePlannedCount };
   }, [goals, activeTier, conversionFactor, plannedDays, workedDaysData, currentProgress]);
 
-  // Calculate overall preseason pace status
   const preseasonPaceStatus = useMemo(() => {
     const knockingDays = workedDaysData?.knockingDays || 0;
     if (knockingDays === 0) return undefined;
@@ -379,13 +322,11 @@ const Goals = () => {
     const preseasonGoal = (goals?.preseason_fp_goal || 0) * conversionFactor;
     if (preseasonGoal <= 0) return undefined;
     
-    // Apply cancel buffer
     const cancelRate = goals?.cancel_rate || 0;
     const fundedGoalNeeded = cancelRate > 0 && cancelRate < 1 
       ? preseasonGoal / (1 - cancelRate) 
       : preseasonGoal;
     
-    // Count future planned days
     const today = new Date();
     const preseasonEnd = parseISO(PRESEASON_END);
     const futurePlannedCount = plannedDays?.filter(d => {
@@ -396,13 +337,8 @@ const Goals = () => {
     const totalDays = knockingDays + futurePlannedCount;
     if (totalDays <= 0) return undefined;
     
-    // Daily goal based on total planned + knocked days
     const dailyGoal = fundedGoalNeeded / totalDays;
-    
-    // Expected FP by now = daily goal × knocking days completed
     const expectedFp = dailyGoal * knockingDays;
-    
-    // Variance = actual - expected
     const paceVariance = currentProgress - expectedFp;
     
     return {
@@ -413,7 +349,6 @@ const Goals = () => {
     };
   }, [workedDaysData, goals, conversionFactor, plannedDays, currentProgress]);
 
-  // Goal tiers data
   const tiers = useMemo(() => ({
     preseason: {
       goal: (goals?.preseason_fp_goal || 0) * conversionFactor,
@@ -437,7 +372,6 @@ const Goals = () => {
     },
   }), [goals, conversionFactor, currentProgress]);
 
-  // Personal benchmarks hook for enhanced pace context
   const { data: benchmarks } = usePersonalBenchmarks({
     userId: repData?.user_id,
     personalSummerStart: seasonConfig?.personal_summer_start,
@@ -449,7 +383,6 @@ const Goals = () => {
     fundedGoal: paceData.fundedGoalNeeded || 0,
   });
 
-  // Calculate enhanced pace context for summer goals
   const enhancedPaceContext = useMemo(() => {
     if (!benchmarks || !isUserSummerStarted || activeTier === 'preseason') {
       return null;
@@ -482,16 +415,10 @@ const Goals = () => {
     };
   }, [benchmarks, isUserSummerStarted, activeTier, paceData.remainingDailyNeeded, isRookie, tiers.couldDo.goal]);
 
-  // Auto-select appropriate tier based on progress and season
-  // This only runs on initial load (no manual selection yet) to pick a sensible default.
-  // Once user manually selects a tier, we never override it.
   useEffect(() => {
     if (!goals) return;
-    
-    // If user has already manually selected a tier this session, respect it
     if (hasManualTierSelection) return;
 
-    // If user has a saved focus_tier in DB, use it
     if (goals.focus_tier) {
       const savedTier = goals.focus_tier as GoalTier;
       if (['mustDo', 'willDo', 'couldDo', 'preseason'].includes(savedTier)) {
@@ -500,8 +427,6 @@ const Goals = () => {
       }
     }
 
-    // Default selection logic for first load only:
-    // During preseason, default to preseason tier if available and not complete
     if (isPreseason && !tiers.preseason.complete && tiers.preseason.goal > 0) {
       setActiveTier('preseason');
     } else if (!tiers.willDo.complete && tiers.willDo.goal > 0) {
@@ -515,59 +440,12 @@ const Goals = () => {
     }
   }, [goals, tiers, isPreseason, hasManualTierSelection]);
 
-  // Handler for tier selection that persists to database (for summer tiers only)
   const handleTierSelect = async (tier: GoalTier) => {
     setHasManualTierSelection(true);
     setActiveTier(tier);
-    // Only persist summer tiers to database
     if (tier !== 'preseason') {
       await updateGoals({ focus_tier: tier });
     }
-  };
-
-  const handleQuickIncrement = async (progressKey: string) => {
-    // Check if this is a full reset action (wrap-around)
-    if (progressKey.endsWith('_reset')) {
-      const actualKey = progressKey.replace('_reset', '');
-      await updateGoals({
-        [actualKey]: 0,
-      });
-      return;
-    }
-    
-    // Check if this is a decrement by 1 action
-    if (progressKey.endsWith('_reset_one')) {
-      const actualKey = progressKey.replace('_reset_one', '');
-      const currentProgress = Number(goals?.[actualKey as keyof typeof goals]) || 0;
-      if (currentProgress > 0) {
-        await updateGoals({
-          [actualKey]: currentProgress - 1,
-        });
-      }
-      return;
-    }
-    
-    const currentProgress = Number(goals?.[progressKey as keyof typeof goals]) || 0;
-    await updateGoals({
-      [progressKey]: currentProgress + 1,
-    });
-  };
-
-  const handleSaveTrainingTime = async (totalMinutes: number) => {
-    await updateGoals({
-      training_hours_progress: totalMinutes,
-    });
-    setShowTrainingTimer(false);
-  };
-
-  // Handler to show commit confirmation drawer
-  const handleRequestCommitToBlitz = (blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null }) => {
-    setConfirmCommitBlitz(blitz);
-  };
-
-  // Handler to show uncommit confirmation drawer
-  const handleRequestUncommitFromBlitz = (blitzId: string, blitzName: string) => {
-    setConfirmUncommitBlitz({ id: blitzId, name: blitzName });
   };
 
   const handleConfirmCommitToBlitz = async () => {
@@ -589,7 +467,6 @@ const Goals = () => {
       const newCommitments = [...committedBlitzes, newCommitment];
       const newBlitzIds = newCommitments.map(b => b.id);
       
-      // Update local Supabase first
       const { error } = await supabase
         .from('reps')
         .update({ committed_blitzes: newCommitments as any })
@@ -597,7 +474,6 @@ const Goals = () => {
       
       if (error) throw error;
       
-      // Sync committed blitzes via edge function
       await supabase.functions.invoke('update-blitz-commitment', {
         body: {
           repId: repData.id,
@@ -626,7 +502,6 @@ const Goals = () => {
       const newCommitments = committedBlitzes.filter(b => b.id !== blitz.id);
       const newBlitzIds = newCommitments.map(b => b.id);
       
-      // Update local Supabase first
       const { error } = await supabase
         .from('reps')
         .update({ committed_blitzes: newCommitments as any })
@@ -634,7 +509,6 @@ const Goals = () => {
       
       if (error) throw error;
       
-      // Sync committed blitzes via edge function
       await supabase.functions.invoke('update-blitz-commitment', {
         body: {
           repId: repData.id,
@@ -652,28 +526,21 @@ const Goals = () => {
     }
   };
 
-  // Loading state - CACHE-FIRST. Never show the setup wizard until goals are definitively loaded.
   const hasGoalsData = !!goals;
   const canDecideSetup = authReady && !!userId && !isLoading;
   const isDataLoading = repDataInitializing || repDataLoading || !repData;
-  
-  // Check sticky flag - if user has EVER completed setup, never show wizard during hydration
   const stickySetupComplete = hasCompletedGoalsSetup(userId);
-  
-  // Track how long we've been waiting for goals to load (prevents infinite loading)
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+
   useEffect(() => {
     if (hasGoalsData || !stickySetupComplete) {
       setLoadingTimeout(false);
       return;
     }
-    // If we've been loading for more than 8 seconds, show a retry option
     const timer = setTimeout(() => setLoadingTimeout(true), 8000);
     return () => clearTimeout(timer);
   }, [hasGoalsData, stickySetupComplete]);
 
-  // Show loading skeleton only when we truly have no cached goals yet AND sticky flag is not set.
-  // This prevents the setup wizard from flashing while goals are still loading.
   if (!hasGoalsData && (!canDecideSetup || isDataLoading) && !stickySetupComplete) {
     return (
       <Layout>
@@ -688,8 +555,6 @@ const Goals = () => {
     );
   }
   
-  // If we have sticky flag but no goals data yet, show a minimal loading state (not wizard)
-  // With timeout fallback to prevent infinite loading
   if (stickySetupComplete && !hasGoalsData) {
     return (
       <Layout>
@@ -725,7 +590,6 @@ const Goals = () => {
     );
   }
 
-  // Locked state for pre-Phase 1 rookies
   if (!hasGoalsAccess) {
     return (
       <Layout>
@@ -746,7 +610,6 @@ const Goals = () => {
     );
   }
 
-  // Setup wizard state (only once goals are definitively known incomplete AND sticky flag not set)
   if ((canDecideSetup && !goals?.setup_complete && !stickySetupComplete) || showSetupWizard) {
     return (
       <Layout>
@@ -776,7 +639,6 @@ const Goals = () => {
             committedBlitzIds={committedBlitzes.map(b => b.id)}
             onComplete={async (data) => {
               try {
-                // Save goals
                 await updateGoals({
                   monthly_expenses: data.monthlyExpenses,
                   months_off: data.monthsOff,
@@ -788,6 +650,11 @@ const Goals = () => {
                   could_do_fp_goal: data.couldDoFpGoal,
                   preseason_fp_goal: data.preseasonFpGoal,
                   setup_complete: true,
+                  purpose_statement: data.purposeStatement,
+                  books_goal: data.booksGoal,
+                  training_hours_goal: data.trainingHoursGoal,
+                  role_plays_goal: data.rolePlaysGoal,
+                  monday_night_lights_goal: data.mnlGoal,
                 });
 
                 const { data: { user } } = await supabase.auth.getUser();
@@ -802,7 +669,6 @@ const Goals = () => {
                       onConflict: 'user_id'
                     });
                   
-                  // Sync summer dates to reps table
                   if (repData?.id) {
                     await supabase.functions.invoke('update-summer-dates', {
                       body: {
@@ -814,7 +680,6 @@ const Goals = () => {
                   }
                 }
 
-                // Handle blitz commitments if rookie selected any
                 if (isRookie && data.selectedBlitzIds && data.selectedBlitzIds.length > 0 && repData?.id) {
                   const selectedBlitzDetails = allBlitzes
                     .filter(b => data.selectedBlitzIds?.includes(b.id))
@@ -826,7 +691,6 @@ const Goals = () => {
                       location: b.location || undefined,
                     }));
                   
-                  // Update local Supabase
                   const { error: blitzError } = await supabase
                     .from('reps')
                     .update({ committed_blitzes: selectedBlitzDetails as any })
@@ -834,11 +698,8 @@ const Goals = () => {
                   
                   if (blitzError) {
                     console.error('Error saving blitz commitments:', blitzError);
-                  } else {
-                    console.log('Saved blitz commitments:', selectedBlitzDetails);
                   }
                   
-                  // Sync to edge function
                   if (repData.id) {
                     await supabase.functions.invoke('update-blitz-commitment', {
                       body: {
@@ -866,11 +727,9 @@ const Goals = () => {
 
   const activeGoalData = tiers[activeTier];
 
-  // Active state with goals - REDESIGNED
   return (
     <Layout>
       <div className="pb-24">
-        {/* Header Actions */}
         <div className="flex items-center justify-between p-4 pb-0">
           <div className="flex items-center gap-2">
             <button 
@@ -881,7 +740,6 @@ const Goals = () => {
                 {Math.round((goals.cancel_rate ?? (isRookie ? 0.10 : 0.10)) * 100)}% cancel buffer
               </span>
             </button>
-            {/* Sync discrepancy indicator */}
             {effectiveFPData && (effectiveFPData.needsVerification || effectiveFPData.hasDiscrepancy) && (
               <SyncDiscrepancyIndicator
                 hasDiscrepancy={effectiveFPData.hasDiscrepancy}
@@ -897,7 +755,6 @@ const Goals = () => {
           <div className="flex gap-2">
             <Button
               id="goals-settings-button"
-              data-tour="goals-settings-button"
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-xl"
@@ -914,11 +771,8 @@ const Goals = () => {
           </div>
         </div>
 
-
-        {/* Hero Ring Section */}
         <motion.div 
           id="goals-hero-ring"
-          data-tour="goals-hero-ring"
           className="px-4 py-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -944,7 +798,6 @@ const Goals = () => {
             hasAnyPlannedDays={hasAnyPlannedDays}
             isUserSummerStarted={isUserSummerStarted}
             preseasonPaceStatus={preseasonPaceStatus}
-            // Enhanced pace context props
             paceContext={enhancedPaceContext?.paceContext}
             knockingDaysCompleted={benchmarks?.knockingDaysCompleted}
             currentAverage={benchmarks?.currentAverage}
@@ -959,34 +812,44 @@ const Goals = () => {
           />
         </motion.div>
 
-        {/* Commitment Chips Section - ONLY show during preseason (before user's summer starts) */}
-        {!isUserSummerStarted && (
+        {/* Read-only Preseason Commitments Card - ONLY show during preseason */}
+        {!isUserSummerStarted && isRookie && (
           <motion.div 
-            id="goals-commitment-chips"
-            data-tour="goals-commitment-chips"
+            id="goals-preseason-commitments"
             className="px-4 pb-4"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <CommitmentChips
-              goals={goals}
-              preseasonFpProgress={currentProgress}
-              blitzStats={blitzStats}
-              onEdit={() => setShowCommitmentEditor(true)}
-              onQuickIncrement={handleQuickIncrement}
-              onTrainingClick={() => setShowTrainingTimer(true)}
-              onBlitzClick={() => setShowBlitzEditor(true)}
-              onBooksClick={() => setShowBooksDrawer(true)}
-              isUpdating={isUpdating}
-            />
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-sm">Your Preseason Commitments</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <BookOpen className="h-4 w-4 text-amber-500" />
+                  <span>{goals.books_goal || 0} books</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Timer className="h-4 w-4 text-blue-500" />
+                  <span>{goals.training_hours_goal || 0} hrs/wk</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Dumbbell className="h-4 w-4 text-emerald-500" />
+                  <span>{goals.role_plays_goal || 0} role plays</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Phone className="h-4 w-4 text-purple-500" />
+                  <span>{goals.monday_night_lights_goal || 0} MNL</span>
+                </div>
+              </div>
+            </div>
           </motion.div>
         )}
 
-        {/* Calendar Planning - Earnings-style Preview */}
         <div 
           id="goals-calendar-planning"
-          data-tour="goals-calendar-planning"
           className="px-4 pb-4"
         >
           <CalendarPlanningPreview
@@ -997,270 +860,180 @@ const Goals = () => {
           />
         </div>
 
-        {/* Earnings Breakdown Card - collapsible, defaults to closed */}
         <div className="px-4 pb-4">
-          <EarningsBreakdownCard />
+          <EarningsBreakdownCard 
+            goals={goals}
+            isRookie={isRookie}
+            actualCancelRate={actualCancelRate}
+            currentProgress={currentProgress}
+            fundedProgress={fundedProgress}
+            efpMode={efpModeEnabled}
+          />
         </div>
 
-        {/* Canceled Stats */}
-        <motion.div 
-          className="px-4"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <CanceledStatsCard />
-        </motion.div>
-      </div>
+        {/* Cancel Rate Drawer */}
+        <CancelRateDrawer
+          open={showCancelRateDrawer}
+          onOpenChange={setShowCancelRateDrawer}
+          cancelRate={goals.cancel_rate || 0.10}
+          onSave={async (newRate) => {
+            await updateGoals({ cancel_rate: newRate });
+            setShowCancelRateDrawer(false);
+          }}
+        />
 
-      {/* Calculator Sheet */}
-      <Sheet open={showCalculator} onOpenChange={setShowCalculator}>
-        <SheetContent side="bottom" className="h-[85vh]">
-          <SheetHeader>
-            <SheetTitle>Payscale Calculator</SheetTitle>
-          </SheetHeader>
-          <div className="mt-4 overflow-y-auto">
-            <PayscaleCalculator
-              initialFpGoal={goals.will_do_fp_goal}
-              initialAvgPrmr={goals.avg_prmr_per_fp}
-              initialRentType={goals.rent_type}
-              initialWeeks={goals.weeks_working}
-              initialUpgradeFp={goals.upgrade_fp_goal}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Training Timer Drawer */}
-      <Drawer open={showTrainingTimer} onOpenChange={setShowTrainingTimer}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Training Timer</DrawerTitle>
-          </DrawerHeader>
-          <div className="px-4 pb-6">
-            <TrainingTimer
-              currentMinutes={goals.training_hours_progress || 0}
-              weeklyGoal={(goals.training_hours_goal || 0)}
-              history={(goals.training_hours_history as any) || []}
-              streak={goals.training_streak || 0}
-              onSave={handleSaveTrainingTime}
-            />
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Blitz Editor Drawer */}
-      <Drawer open={showBlitzEditor} onOpenChange={setShowBlitzEditor}>
-        <DrawerContent className="max-h-[80dvh]">
-          <DrawerHeader>
-            <DrawerTitle>Blitz Commitments</DrawerTitle>
-          </DrawerHeader>
-          <div className="px-4 pb-6 overflow-y-auto space-y-4">
-            {/* Committed blitzes */}
-            {committedBlitzes.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">Your Trips</p>
-                <div className="space-y-2">
-                  {committedBlitzes.map(blitz => (
-                    <div 
-                      key={blitz.id}
-                      className="flex items-center justify-between p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30"
-                    >
-                      <div>
-                        <p className="font-medium">{blitz.name}</p>
-                        <p className="text-xs text-muted-foreground">{blitz.location} · {blitz.date}</p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRequestUncommitFromBlitz(blitz.id, blitz.name)}
-                        disabled={isCommitting === blitz.id}
-                      >
-                        Uncommit
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Available blitzes */}
-            {futureAvailableBlitzes.filter(b => !committedBlitzes.some(c => c.id === b.id)).length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">Available Trips</p>
-                <div className="space-y-2">
-                  {futureAvailableBlitzes
-                    .filter(b => !committedBlitzes.some(c => c.id === b.id))
-                    .map(blitz => (
-                      <div 
-                        key={blitz.id}
-                        className="flex items-center justify-between p-3 rounded-xl bg-muted/50 border border-border/50"
-                      >
-                        <div>
-                          <p className="font-medium">{blitz.name}</p>
-                          <p className="text-xs text-muted-foreground">{blitz.location} · {blitz.date}</p>
-                        </div>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => handleRequestCommitToBlitz(blitz)}
-                          disabled={isCommitting === blitz.id}
-                        >
-                          Commit
-                        </Button>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Commit Confirmation Drawer */}
-      <Drawer open={!!confirmCommitBlitz} onOpenChange={(open) => !open && setConfirmCommitBlitz(null)}>
-        <DrawerContent>
-          <DrawerHeader className="text-center">
-            <DrawerTitle>Confirm Commitment</DrawerTitle>
-          </DrawerHeader>
-          <div className="px-4 pb-6 space-y-4">
-            <div className="text-center space-y-2">
-              <p className="text-lg font-medium">{confirmCommitBlitz?.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {confirmCommitBlitz?.date && new Date(confirmCommitBlitz.date).toLocaleDateString('en-US', { 
-                  weekday: 'long',
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
-                {confirmCommitBlitz?.location && ` · ${confirmCommitBlitz.location}`}
-              </p>
-            </div>
-            <p className="text-center text-sm text-muted-foreground">
-              Are you sure you want to commit to this blitz? Your leader will be notified.
-            </p>
-            <div className="flex gap-3">
-              <Button 
-                variant="outline" 
-                className="flex-1"
-                onClick={() => setConfirmCommitBlitz(null)}
-              >
-                Cancel
-              </Button>
-              <Button 
-                className="flex-1"
-                onClick={handleConfirmCommitToBlitz}
-                disabled={isCommitting === confirmCommitBlitz?.id}
-              >
-                {isCommitting === confirmCommitBlitz?.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Check className="h-4 w-4 mr-2" />
-                )}
-                Yes, Commit
-              </Button>
-            </div>
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Uncommit Confirmation Drawer */}
-      <Drawer open={!!confirmUncommitBlitz} onOpenChange={(open) => !open && setConfirmUncommitBlitz(null)}>
-        <DrawerContent>
-          <DrawerHeader className="text-center">
-            <DrawerTitle>Confirm Uncommitment</DrawerTitle>
-          </DrawerHeader>
-          <div className="px-4 pb-6 space-y-4">
-            <div className="text-center space-y-2">
-              <p className="text-lg font-medium">{confirmUncommitBlitz?.name}</p>
-            </div>
-            <p className="text-center text-sm text-muted-foreground">
-              Are you sure you want to uncommit from this blitz? You can always commit again later.
-            </p>
-            <div className="flex gap-3">
-              <Button 
-                variant="outline" 
-                className="flex-1"
-                onClick={() => setConfirmUncommitBlitz(null)}
-              >
-                Cancel
-              </Button>
-              <Button 
-                variant="destructive"
-                className="flex-1"
-                onClick={handleConfirmUncommitFromBlitz}
-                disabled={isCommitting === confirmUncommitBlitz?.id}
-              >
-                {isCommitting === confirmUncommitBlitz?.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : null}
-                Yes, Uncommit
-              </Button>
-            </div>
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Commitment Editor Drawer */}
-      <CommitmentEditorDrawer
-        open={showCommitmentEditor}
-        onOpenChange={setShowCommitmentEditor}
-        goals={goals}
-        onUpdateGoals={updateGoals}
-        isUpdating={isUpdating}
-        preseasonFpProgress={totalFpPlus}
-      />
-
-      {/* Books Completion Drawer */}
-      <BooksCompletionDrawer
-        isOpen={showBooksDrawer}
-        onClose={() => setShowBooksDrawer(false)}
-        currentProgress={Number(goals.books_progress) || 0}
-        onUpdateProgress={(newProgress) => updateGoals({ books_progress: newProgress })}
-        onOpenCommitmentEditor={() => setShowCommitmentEditor(true)}
-      />
-
-      
-      {/* Quick Edit Goals Drawer */}
-      {goals && (
+        {/* Quick Edit Drawer */}
         <QuickEditGoalsDrawer
           open={showQuickEdit}
           onOpenChange={setShowQuickEdit}
-          currentGoals={{
-            preseason_fp_goal: goals.preseason_fp_goal || 0,
-            must_do_fp_goal: goals.must_do_fp_goal || 0,
-            will_do_fp_goal: goals.will_do_fp_goal || 0,
-            could_do_fp_goal: goals.could_do_fp_goal || 0,
+          goals={goals}
+          onSave={async (updates) => {
+            await updateGoals(updates);
+            setShowQuickEdit(false);
           }}
-          isUserSummerStarted={isUserSummerStarted}
-          efpModeEnabled={efpModeEnabled}
-          conversionFactor={conversionFactor}
-          onSave={async (updatedGoals) => {
-            await updateGoals(updatedGoals);
+          onFullEdit={() => {
+            setShowQuickEdit(false);
+            setShowSetupWizard(true);
           }}
         />
-      )}
-      
-      {/* Catch-up wizard for syncing official totals */}
-      <CatchUpWizard
-        open={showCatchUpWizard}
-        onOpenChange={setShowCatchUpWizard}
-        seasonType="preseason"
-        onComplete={() => {
-          toast.success("Your official totals have been saved!");
-        }}
-      />
-      {/* Cancel rate adjustment drawer */}
-      <CancelRateDrawer
-        open={showCancelRateDrawer}
-        onOpenChange={setShowCancelRateDrawer}
-        currentRate={goals?.cancel_rate ?? (isRookie ? 0.10 : 0.10)}
-        actualCancelRate={actualCancelRate}
-        efpModeEnabled={efpModeEnabled}
-        onSave={async (rate) => {
-          await updateGoals({ cancel_rate: rate });
-          toast.success(`Cancel buffer set to ${(rate * 100).toFixed(1)}%`);
-        }}
-      />
+
+        {/* Blitz Editor Drawer */}
+        <Drawer open={showBlitzEditor} onOpenChange={setShowBlitzEditor}>
+          <DrawerContent className="max-h-[80dvh]">
+            <DrawerHeader>
+              <DrawerTitle>Blitz Commitments</DrawerTitle>
+            </DrawerHeader>
+            <div className="px-4 pb-6 overflow-y-auto space-y-4">
+              {/* Committed blitzes */}
+              {committedBlitzes.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Your Trips</p>
+                  <div className="space-y-2">
+                    {committedBlitzes.map(blitz => (
+                      <div 
+                        key={blitz.id}
+                        className="flex items-center justify-between p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30"
+                      >
+                        <div>
+                          <p className="font-medium">{blitz.name}</p>
+                          <p className="text-sm text-muted-foreground">{formatBlitzDate(blitz.date, "MMM d")}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            setShowBlitzEditor(false);
+                            handleRequestUncommitFromBlitz(blitz.id, blitz.name);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Available blitzes */}
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Upcoming Trips</p>
+                {futureAvailableBlitzes.length > 0 ? (
+                  <div className="space-y-2">
+                    {futureAvailableBlitzes.map(blitz => (
+                      <div 
+                        key={blitz.id}
+                        className="flex items-center justify-between p-3 rounded-xl border border-border"
+                      >
+                        <div>
+                          <p className="font-medium">{blitz.name}</p>
+                          <p className="text-sm text-muted-foreground">{formatBlitzDate(blitz.date, "MMM d")}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8"
+                          onClick={() => {
+                            setShowBlitzEditor(false);
+                            handleRequestCommitToBlitz({
+                              id: blitz.id,
+                              name: blitz.name,
+                              date: blitz.date,
+                              endDate: blitz.endDate,
+                              location: blitz.location
+                            });
+                          }}
+                        >
+                          Join
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No upcoming trips available.</p>
+                )}
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
+
+        {/* Calculator Sheet */}
+        <Sheet open={showCalculator} onOpenChange={setShowCalculator}>
+          <SheetContent side="bottom" className="h-[90vh]">
+            <SheetHeader>
+              <SheetTitle>Earnings Calculator</SheetTitle>
+            </SheetHeader>
+            <div className="pt-6 h-full overflow-y-auto pb-20">
+              <PayscaleCalculator />
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Catch Up Wizard for syncing */}
+        <CatchUpWizard 
+          isOpen={showCatchUpWizard} 
+          onClose={() => setShowCatchUpWizard(false)} 
+        />
+
+        {/* Commit/Uncommit Confirmations */}
+        <Drawer open={!!confirmCommitBlitz} onOpenChange={(open) => !open && setConfirmCommitBlitz(null)}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Join {confirmCommitBlitz?.name}?</DrawerTitle>
+            </DrawerHeader>
+            <div className="p-4 pt-0 space-y-4">
+              <p className="text-muted-foreground">
+                Confirm your spot for this blitz trip.
+              </p>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setConfirmCommitBlitz(null)}>Cancel</Button>
+                <Button className="flex-1" onClick={handleConfirmCommitToBlitz} disabled={!!isCommitting}>
+                  {isCommitting === confirmCommitBlitz?.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm"}
+                </Button>
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
+
+        <Drawer open={!!confirmUncommitBlitz} onOpenChange={(open) => !open && setConfirmUncommitBlitz(null)}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Leave {confirmUncommitBlitz?.name}?</DrawerTitle>
+            </DrawerHeader>
+            <div className="p-4 pt-0 space-y-4">
+              <p className="text-muted-foreground">
+                Are you sure you want to remove this blitz from your schedule?
+              </p>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setConfirmUncommitBlitz(null)}>Cancel</Button>
+                <Button variant="destructive" className="flex-1" onClick={handleConfirmUncommitFromBlitz} disabled={!!isCommitting}>
+                  {isCommitting === confirmUncommitBlitz?.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Leave Trip"}
+                </Button>
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
+      </div>
     </Layout>
   );
 };

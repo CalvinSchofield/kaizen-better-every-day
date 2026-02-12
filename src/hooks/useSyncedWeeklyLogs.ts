@@ -122,7 +122,6 @@ export const useSyncedWeeklyLogs = () => {
 
     if (!error) {
       queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
-      queryClient.invalidateQueries({ queryKey: ['preseason-prep-leaderboard-weekly'] });
     }
     
     return newValue > 0;
@@ -153,7 +152,6 @@ export const useSyncedWeeklyLogs = () => {
 
     if (!error) {
       queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
-      queryClient.invalidateQueries({ queryKey: ['preseason-prep-leaderboard-weekly'] });
     }
   }, [repData?.user_id, weeklyRoleplayLogs, currentWeekStart, queryClient]);
 
@@ -178,7 +176,6 @@ export const useSyncedWeeklyLogs = () => {
 
     if (!error) {
       queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
-      queryClient.invalidateQueries({ queryKey: ['preseason-prep-leaderboard-weekly'] });
     }
   }, [repData?.user_id, weeklyRoleplayLogs, currentWeekStart, queryClient]);
 
