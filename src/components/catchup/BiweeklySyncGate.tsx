@@ -2,13 +2,15 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ExternalLink, ChevronRight, ChevronLeft, Check, Loader2, 
-  RefreshCw, Users, HelpCircle, ArrowRight, CalendarDays, PartyPopper
+  RefreshCw, Users, HelpCircle, ArrowRight, CalendarDays, PartyPopper,
+  TrendingUp, BarChart3, Heart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { useOfficialTotals } from "@/hooks/useOfficialTotals";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import type { EffectiveFPResult } from "@/hooks/useEffectiveFP";
@@ -36,6 +38,8 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
   const navigate = useNavigate();
   const { upsertTotalsAsync, isUpserting } = useOfficialTotals(seasonType);
   const { efpModeEnabled } = useEfpMode();
+  const { data: teamAccess } = useTeamAccess();
+  const hasRecruits = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
   const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
 
   const [step, setStep] = useState<SyncStep>('intro');
@@ -192,6 +196,24 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
                 }
               </p>
             </div>
+
+            {isInitialSync && (
+              <Card className="border-primary/20 bg-primary/5 rounded-2xl text-left mx-2">
+                <CardContent className="pt-4 space-y-3">
+                  <p className="text-sm font-medium flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary flex-shrink-0" />
+                    Why does this matter?
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Kaizen calculates your <strong>daily pace</strong> — the exact number you need to hit each day to reach your goal. That only works if we start with the right baseline.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    After this, <strong>tracking your days as you work</strong> keeps that number dialed in and helps you see exactly what's working.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             {isInitialSync && (
               <button
                 onClick={handleHaventSoldYet}
@@ -485,9 +507,12 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
             </Button>
 
             <Card className="border-primary/20 bg-primary/5 rounded-2xl">
-              <CardContent className="pt-4">
+              <CardContent className="pt-4 space-y-2">
                 <p className="text-sm text-muted-foreground">
                   Scroll down and look for any accounts that have gone <strong>unfunded</strong> or <strong>cancelled</strong>. We'll update those next.
+                </p>
+                <p className="text-xs text-muted-foreground pt-1">
+                  💡 Keeping your CRM updated means your <strong>funded rate</strong> and <strong>cancel rate</strong> stay accurate — so your earnings projections reflect reality, not wishful thinking.
                 </p>
               </CardContent>
             </Card>
@@ -499,9 +524,9 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
           <div className="space-y-5">
             <div className="text-center">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step 7 of 8</p>
-              <h3 className="text-lg font-semibold">Update Your CRM</h3>
+              <h3 className="text-lg font-semibold">Update Your Customer CRM</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Mark any unfunded/cancelled accounts so your pace stays accurate
+                Mark any unfunded or cancelled accounts so your numbers stay accurate
               </p>
             </div>
 
@@ -516,6 +541,30 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
               </span>
               <ChevronRight className="h-4 w-4" />
             </Button>
+
+            <Card className="border-primary/20 bg-primary/5 rounded-2xl">
+              <CardContent className="pt-4 space-y-3">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-primary flex-shrink-0" />
+                  Why keep your CRM updated?
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• Your <strong>funded rate</strong> and <strong>cancel rate</strong> drive your earnings projection — outdated accounts throw those off</li>
+                  <li>• Tracking each sale's status helps you see patterns in <strong>what's funding</strong> vs. what's falling through</li>
+                  <li>• When you log your days and update customers, your <strong>daily pace target</strong> reflects exactly where you are — no guessing</li>
+                </ul>
+                {hasRecruits && (
+                  <div className="pt-2 border-t border-primary/10">
+                    <p className="text-sm text-muted-foreground flex items-start gap-2">
+                      <Heart className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                      <span>
+                        <strong>As a leader</strong>, when your reps track their work and keep their CRM updated, you can see exactly where they need coaching — which helps them hit <em>their</em> goals and make more money. That directly helps you hit yours.
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         );
 
@@ -553,18 +602,44 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
 
       case 'success':
         return (
-          <div className="text-center space-y-6 py-8">
+          <div className="text-center space-y-5 py-6">
             <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
               <PartyPopper className="h-10 w-10 text-primary" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold">You're all set!</h2>
+              <h2 className="text-2xl font-bold">You're synced!</h2>
               <p className="text-muted-foreground max-w-xs mx-auto">
                 Your baseline is locked in. From here, everything you track in Kaizen builds on top of it.
               </p>
             </div>
 
-            <Card className="border-primary/20 bg-primary/5 rounded-2xl text-left">
+            {/* Education: why track daily */}
+            <Card className="rounded-2xl text-left mx-2">
+              <CardContent className="pt-4 space-y-3">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary flex-shrink-0" />
+                  Get the most out of Kaizen
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>📋 <strong>Track your days as you work</strong> — your daily pace adjusts in real time so you always know exactly what you need</li>
+                  <li>🏠 <strong>Log each sale when it happens</strong> — see your funded rate, cancel trends, and income projections stay accurate</li>
+                  <li>🔄 <strong>Update your CRM periodically</strong> — mark cancels and unfunded accounts so your numbers reflect reality</li>
+                </ul>
+                {hasRecruits && (
+                  <div className="pt-2 border-t">
+                    <p className="text-sm text-muted-foreground flex items-start gap-2">
+                      <Heart className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                      <span>
+                        <strong>For your recruits:</strong> when they track their work and update their CRM, you can see exactly where they need help — helping them sell more helps you hit your goals too.
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Calendar CTA */}
+            <Card className="border-primary/20 bg-primary/5 rounded-2xl text-left mx-2">
               <CardContent className="pt-4 space-y-2">
                 <p className="text-sm font-medium flex items-center gap-2">
                   <CalendarDays className="h-4 w-4 text-primary" />
