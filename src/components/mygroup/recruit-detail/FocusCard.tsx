@@ -22,6 +22,7 @@ import { RecruitRepData, RecruitGoals, FocusIssue, TabType } from "./types";
 import { getFirstName } from "./utils";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { calculateSalesPace } from "@/utils/salesPaceCalculator";
+import { PurposeDisplayCard } from "@/components/goals/PurposeDisplayCard";
 
 // Season constants
 const PRESEASON_START = '2025-09-28';
@@ -628,6 +629,7 @@ export const FocusCard = ({
   };
 
   return (
+    <>
     <div className={`rounded-xl border p-4 ${getColorClasses()}`}>
       {/* Goal Progress Card with Progress Bar */}
       {focusIssue.icon === 'target' && paceInfo.hasGoal ? (
@@ -741,5 +743,15 @@ export const FocusCard = ({
         </div>
       )}
     </div>
+
+      {/* Their Why - Purpose Statement */}
+      {recruitGoals?.purpose_statement && (
+        <PurposeDisplayCard
+          purposeStatement={recruitGoals.purpose_statement}
+          purposeUpdatedAt={recruitGoals.purpose_updated_at}
+          className="mt-3"
+        />
+      )}
+    </>
   );
 };
