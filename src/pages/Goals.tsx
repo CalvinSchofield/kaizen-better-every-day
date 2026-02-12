@@ -846,6 +846,10 @@ const Goals = () => {
         </div>
 
         <div className="px-4 pb-4">
+          <CanceledStatsCard />
+        </div>
+
+        <div className="px-4 pb-4">
           <EarningsBreakdownCard />
         </div>
 
