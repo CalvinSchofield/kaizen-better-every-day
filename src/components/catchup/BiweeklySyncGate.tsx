@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ExternalLink, ChevronRight, ChevronLeft, Check, Loader2, 
-  RefreshCw, Users, HelpCircle, ArrowRight
+  RefreshCw, Users, HelpCircle, ArrowRight, CalendarDays, PartyPopper
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +17,11 @@ interface BiweeklySyncGateProps {
   seasonType: 'preseason' | 'summer';
   effectiveData: EffectiveFPResult;
   isInitialSync?: boolean;
+  isUserSummerStarted?: boolean;
   onComplete: () => void;
 }
 
-type SyncStep = 'intro' | 'curator' | 'fp_plus' | 'fp_sold' | 'prmr' | 'knocking_days' | 'source' | 'crm' | 'confirm';
+type SyncStep = 'intro' | 'curator' | 'fp_plus' | 'fp_sold' | 'prmr' | 'knocking_days' | 'source' | 'crm' | 'confirm' | 'success';
 
 const STEPS: SyncStep[] = ['intro', 'curator', 'fp_plus', 'fp_sold', 'prmr', 'knocking_days', 'source', 'crm', 'confirm'];
 
@@ -31,7 +32,7 @@ const SOURCE_EARNINGS_URL = 'https://curator.vivint.com/dashboard/source-account
 type MetricChoice = 'tracked' | 'vivint' | null;
 type KnockingChoice = 'tracked' | 'manual' | 'unknown' | null;
 
-export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = false, onComplete }: BiweeklySyncGateProps) => {
+export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = false, isUserSummerStarted = false, onComplete }: BiweeklySyncGateProps) => {
   const navigate = useNavigate();
   const { upsertTotalsAsync, isUpserting } = useOfficialTotals(seasonType);
   const { efpModeEnabled } = useEfpMode();
@@ -93,7 +94,11 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
         verified_by: 'self',
         notes: `${isInitialSync ? 'Initial' : 'Biweekly'} sync: FP+ ${fpChoice}, FP sold ${fpSoldChoice}, PRMR ${prmrChoice}, Days ${knockingChoice}`,
       });
-      onComplete();
+      if (isInitialSync) {
+        setStep('success');
+      } else {
+        onComplete();
+      }
     } catch (error) {
       console.error('Failed to save sync:', error);
     }
@@ -112,7 +117,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
         verified_by: 'self',
         notes: 'Initial sync: haven\'t sold yet — zero baseline',
       });
-      onComplete();
+      setStep('success');
     } catch (error) {
       console.error('Failed to save zero baseline:', error);
     } finally {
@@ -545,27 +550,78 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
             </Card>
           </div>
         );
+
+      case 'success':
+        return (
+          <div className="text-center space-y-6 py-8">
+            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <PartyPopper className="h-10 w-10 text-primary" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">You're all set!</h2>
+              <p className="text-muted-foreground max-w-xs mx-auto">
+                Your baseline is locked in. From here, everything you track in Kaizen builds on top of it.
+              </p>
+            </div>
+
+            <Card className="border-primary/20 bg-primary/5 rounded-2xl text-left">
+              <CardContent className="pt-4 space-y-2">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-primary" />
+                  {isUserSummerStarted 
+                    ? "Plan your off days"
+                    : "Plan your preseason work days"
+                  }
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {isUserSummerStarted
+                    ? "Head to the calendar and mark any days you know you'll be off this summer. This keeps your daily pace targets accurate."
+                    : "Head to the calendar and mark which days you plan to knock before summer starts. The more days you plan, the more accurate your pace targets will be."
+                  }
+                </p>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-3 pt-2">
+              <Button 
+                onClick={() => navigate('/calendar')}
+                className="w-full h-12 rounded-2xl"
+              >
+                <CalendarDays className="h-4 w-4 mr-2" />
+                {isUserSummerStarted ? "Plan Off Days" : "Plan Work Days"}
+              </Button>
+              <button
+                onClick={onComplete}
+                className="text-sm text-muted-foreground underline underline-offset-4 active:scale-95 transition-transform"
+              >
+                I'll do this later
+              </button>
+            </div>
+          </div>
+        );
     }
   };
 
   return (
     <div className="p-4 pb-24 min-h-[70vh] flex flex-col">
-      {/* Progress bar */}
-      <div className="flex justify-center gap-1.5 mb-6">
-        {STEPS.map((s, idx) => (
-          <div
-            key={s}
-            className={cn(
-              "h-1.5 rounded-full transition-all",
-              idx === stepIndex 
-                ? "w-8 bg-primary" 
-                : idx < stepIndex 
-                  ? "w-3 bg-primary/50" 
-                  : "w-3 bg-muted"
-            )}
-          />
-        ))}
-      </div>
+      {/* Progress bar - hide on success */}
+      {step !== 'success' && (
+        <div className="flex justify-center gap-1.5 mb-6">
+          {STEPS.map((s, idx) => (
+            <div
+              key={s}
+              className={cn(
+                "h-1.5 rounded-full transition-all",
+                idx === stepIndex 
+                  ? "w-8 bg-primary" 
+                  : idx < stepIndex 
+                    ? "w-3 bg-primary/50" 
+                    : "w-3 bg-muted"
+              )}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Step content */}
       <div className="flex-1">
@@ -582,39 +638,41 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
         </AnimatePresence>
       </div>
 
-      {/* Navigation */}
-      <div className="flex gap-3 mt-6">
-        {step !== 'intro' && (
-          <Button variant="outline" onClick={handleBack} className="flex-1 h-12 rounded-2xl">
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-        )}
-        
-        {step === 'confirm' ? (
-          <Button 
-            onClick={handleSubmit} 
-            disabled={isUpserting} 
-            className="flex-1 h-12 rounded-2xl"
-          >
-            {isUpserting ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Check className="h-4 w-4 mr-2" />
-            )}
-            Confirm & Sync
-          </Button>
-        ) : (
-          <Button 
-            onClick={handleNext} 
-            disabled={!canProceed()} 
-            className="flex-1 h-12 rounded-2xl"
-          >
-            {step === 'intro' ? "Let's go" : 'Next'}
-            {step === 'intro' ? <ArrowRight className="h-4 w-4 ml-2" /> : <ChevronRight className="h-4 w-4 ml-1" />}
-          </Button>
-        )}
-      </div>
+      {/* Navigation - hide on success (success has its own buttons) */}
+      {step !== 'success' && (
+        <div className="flex gap-3 mt-6">
+          {step !== 'intro' && (
+            <Button variant="outline" onClick={handleBack} className="flex-1 h-12 rounded-2xl">
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
+          )}
+          
+          {step === 'confirm' ? (
+            <Button 
+              onClick={handleSubmit} 
+              disabled={isUpserting} 
+              className="flex-1 h-12 rounded-2xl"
+            >
+              {isUpserting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Check className="h-4 w-4 mr-2" />
+              )}
+              Confirm & Sync
+            </Button>
+          ) : (
+            <Button 
+              onClick={handleNext} 
+              disabled={!canProceed()} 
+              className="flex-1 h-12 rounded-2xl"
+            >
+              {step === 'intro' ? "Let's go" : 'Next'}
+              {step === 'intro' ? <ArrowRight className="h-4 w-4 ml-2" /> : <ChevronRight className="h-4 w-4 ml-1" />}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
