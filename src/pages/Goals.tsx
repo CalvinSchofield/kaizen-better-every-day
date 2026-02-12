@@ -846,11 +846,11 @@ const Goals = () => {
         </div>
 
         <div className="px-4 pb-4">
-          <CanceledStatsCard />
+          <EarningsBreakdownCard />
         </div>
 
         <div className="px-4 pb-4">
-          <EarningsBreakdownCard />
+          <CanceledStatsCard />
         </div>
 
         {/* Cancel Rate Drawer */}
