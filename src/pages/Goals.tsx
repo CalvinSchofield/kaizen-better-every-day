@@ -26,6 +26,7 @@ import { useSyncedWeeklyLogs } from "@/hooks/useSyncedWeeklyLogs";
 
 import { CatchUpWizard } from "@/components/catchup/CatchUpWizard";
 import { SyncDiscrepancyIndicator } from "@/components/catchup/SyncDiscrepancyIndicator";
+import { BiweeklySyncGate } from "@/components/catchup/BiweeklySyncGate";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
@@ -641,6 +642,7 @@ const Goals = () => {
             isRookie={isRookie}
             committedBlitzIds={committedBlitzes.map(b => b.id)}
             onComplete={async (data) => {
+              // ... keep existing code
               try {
               await updateGoals({
                   monthly_expenses: data.monthlyExpenses,
@@ -726,6 +728,22 @@ const Goals = () => {
             onCancel={goals?.setup_complete ? () => setShowSetupWizard(false) : undefined}
           />
         </div>
+      </Layout>
+    );
+  }
+
+  // Biweekly sync gate: after goals setup, before showing goals content
+  if (effectiveFPData?.needsBiweeklySync && effectiveFPData?.hasOfficialTotals) {
+    return (
+      <Layout>
+        <BiweeklySyncGate
+          seasonType="preseason"
+          effectiveData={effectiveFPData}
+          onComplete={() => {
+            queryClient.invalidateQueries({ queryKey: ['effective-fp'] });
+            queryClient.invalidateQueries({ queryKey: ['official-totals'] });
+          }}
+        />
       </Layout>
     );
   }

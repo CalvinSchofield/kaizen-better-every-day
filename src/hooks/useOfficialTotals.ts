@@ -9,8 +9,9 @@ export interface OfficialTotals {
   season_year: number;
   season_type: 'preseason' | 'summer';
   fp_plus: number;
+  fp_sold: number; // Families Protected count (not upgrades)
   prmr: number;
-  knocking_days: number;
+  knocking_days: number | null; // null = unknown baseline
   baseline_spent: number; // Pre-tracking spending baseline, added to tracked spending for season totals
   last_verified_at: string | null;
   verified_by: 'self' | 'leader' | 'import' | null;
@@ -23,8 +24,9 @@ export interface UpsertOfficialTotalsParams {
   season_year: number;
   season_type: 'preseason' | 'summer';
   fp_plus: number;
+  fp_sold?: number; // Families Protected count
   prmr: number;
-  knocking_days: number;
+  knocking_days: number | null; // null = unknown baseline
   baseline_spent?: number; // Pre-tracking spending baseline
   verified_by?: 'self' | 'leader' | 'import';
   notes?: string;
@@ -64,9 +66,7 @@ export const useOfficialTotals = (seasonType?: 'preseason' | 'summer') => {
       const targetUserId = params.user_id || userId;
       if (!targetUserId) throw new Error('No user ID');
 
-      const { data, error } = await supabase
-        .from('official_totals')
-        .upsert({
+      const upsertData: Record<string, any> = {
           user_id: targetUserId,
           season_year: params.season_year,
           season_type: params.season_type,
@@ -77,7 +77,14 @@ export const useOfficialTotals = (seasonType?: 'preseason' | 'summer') => {
           last_verified_at: new Date().toISOString(),
           verified_by: params.verified_by || 'self',
           notes: params.notes,
-        }, {
+        };
+      if (params.fp_sold !== undefined) {
+        upsertData.fp_sold = params.fp_sold;
+      }
+      
+      const { data, error } = await supabase
+        .from('official_totals')
+        .upsert(upsertData as any, {
           onConflict: 'user_id,season_year,season_type',
         })
         .select()
