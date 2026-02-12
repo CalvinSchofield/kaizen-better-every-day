@@ -1,62 +1,104 @@
 
 
-# My Group Interaction Logging Audit -- Fixes and Polish
+# Remove Preseason Competition + Redesign Goal Wizard with WHY/WHAT/HOW Flow
 
-## Audit Summary
+## What's Changing
 
-After tracing every contact/logging entry point across the My Group page, the overall architecture is excellent. The PostContactDrawer is the single source of truth for logging, and most paths correctly route through it. However, I found **3 flow bugs** where context is lost or behavior is inconsistent.
+### Part 1: Remove Preseason Prep Leaderboards and Competition
 
-## Bugs Found
+Remove all preseason prep leaderboard components and their supporting hooks from both the rookie and leader experiences. This includes:
 
-### Bug 1: Direct Call/Text buttons on task cards lose scheduled activity context
-When tapping the Phone or Text icon directly on a SwipeableTaskItem that has a scheduled activity, the `onDirectCall`/`onDirectText` callbacks only pass the `recruit` -- not the associated `activity`. This means the PostContactDrawer opens without knowing there's a pending task, so it **cannot offer "Mark task complete"** or auto-fill the follow-up notes.
+**Components to remove:**
+- `PreseasonPrepLeaderboard.tsx` (rookie home page)
+- `LeaderPreseasonPrepLeaderboard.tsx` (vet/leader home page)
+- `PreseasonStandardsCard.tsx` (both rookie and vet home pages)
+- `WeeklyProgressPromptCard.tsx` (weekly progress check-in prompt on both home pages)
+- `CommitmentsTracker.tsx` (stepper-based progress tracking for books, training, role plays, MNL)
+- `TrainingTimer.tsx` (training time tracker used inside CommitmentsTracker)
+- `BooksSelectionDrawer.tsx` (book selection UI used inside CommitmentsTracker)
 
-**Fix**: Update `SwipeableTaskItem` to pass `activity` in `onDirectCall`/`onDirectText`. Update `WeekPlannerSection` handlers to capture the activity and pass it as `scheduledActivity` to the PostContactDrawer.
+**Hooks to remove:**
+- `usePreseasonPrepLeaderboard.ts` (rookie leaderboard data)
+- `useLeaderPreseasonPrepLeaderboard.ts` (leader leaderboard data)
 
-### Bug 2: WeekPlannerSection's ContactMethodDrawer ignores `wasConnected`
-The `onComplete` callback in WeekPlannerSection's ContactMethodDrawer always dismisses the card, even when the user selected "No Answer". It should only dismiss when the user actually connected.
+**Pages/components to update (remove imports and usage):**
+- `Home.tsx` - remove `PreseasonPrepLeaderboard` import and rendering
+- `PostBlitzRookieHome.tsx` - remove `PreseasonStandardsCard`, `WeeklyProgressPromptCard`
+- `VetHome.tsx` - remove `PreseasonStandardsCard`, `LeaderPreseasonPrepLeaderboard`, `WeeklyProgressPromptCard`
 
-**Fix**: Change the `onComplete` handler to check the `wasConnected` parameter before calling `onDismiss`.
+**Cache invalidation cleanup** - remove `preseason-prep-leaderboard` and `leader-preseason-prep-leaderboard-weekly` query invalidations from:
+- `useRepGoals.ts`
+- `useSyncedBooks.ts`
+- `useUpdateRookieStatus.ts`
+- `useRecruitActivitiesRealtime.ts`
+- `Settings.tsx`
 
-### Bug 3: PostContactDrawer in WeekPlannerSection missing `scheduledActivity`
-The PostContactDrawer rendered in WeekPlannerSection (for direct call/text flows) never receives `scheduledActivity`, so it can't display the "Mark task complete" toggle or pre-fill follow-up notes from the existing task.
+---
 
-**Fix**: Track the associated activity alongside `postContactRecruit` and pass it through.
+### Part 2: Add WHY/WHAT/HOW Steps to Goal Setup Wizard
 
-## All Contact Flow Entry Points (Verified)
+Restructure the rookie goal wizard from its current flow into a 3-phase journey:
 
-| Entry Point | Triggers PostContactDrawer? | Has Activity Context? | Status |
-|---|---|---|---|
-| Hero "Contact Now" button | Yes (via ContactMethodDrawer) | Yes | OK |
-| Swipe right on task card | Yes (via ContactMethodDrawer) | Yes | OK |
-| Phone icon on task card | Yes (direct) | NO | BUG 1 |
-| Text icon on task card | Yes (direct) | NO | BUG 1 |
-| Recruit Detail "Call" button | Yes | No (separate context) | OK |
-| Recruit Detail "Text" button | Yes | No (separate context) | OK |
-| ContactMethodDrawer method selection | Yes | Yes | OK |
+**Current rookie flow (pre-summer):**
+1. Monthly Expenses
+2. Summer Dates
+3. Summer Goals
+4. Preseason Goal
+5. Commit to Blitzes
+6. Review
 
-## Files to Modify
+**New rookie flow (pre-summer):**
+1. **YOUR WHY** - Inspirational framing about why goals matter, with a single free-text field: "What's YOUR why?" Short motivational copy to set the tone.
+2. **Monthly Expenses** - Same as current (the WHAT begins here)
+3. **Summer Dates** - Same as current
+4. **Summer Goals (Must/Will/Could Do)** - Same as current, with copy tying back to the WHY
+5. **Preseason Goal** - Same as current
+6. **Preseason Commitments** - NEW step combining books, training hours/week, role plays, and MNL goals into one clean card-based selection (no granular tracking, just setting the commitment numbers)
+7. **Commit to Blitzes** - Same as current
+8. **Review** - Updated to show WHY statement + preseason commitments summary
 
-### `src/components/mygroup/SwipeableTaskItem.tsx`
-- Update `onDirectCall` and `onDirectText` callback signatures to include the optional `activity`
-- Pass `activity` in the `handleCall` and `handleText` handlers
+**Key design decisions:**
+- The WHY statement gets saved to `rep_goals.purpose_statement` (field already exists)
+- Preseason commitments (books goal, training hours goal, role plays goal, MNL goal) are saved during wizard completion alongside financial goals
+- No in-app progress tracking for these commitments -- the app will remind them periodically instead
+- The commitments step uses simple number selectors (stepper-style +/- buttons) for each category
+- Vet flow remains unchanged (Dates, Goals, Preseason, Review) -- no WHY step for vets
 
-### `src/components/mygroup/WeekPlannerSection.tsx`
-- Update `handleDirectCall` and `handleDirectText` to accept and store the activity
-- Add `postContactActivity` state to track the associated scheduled activity
-- Pass `scheduledActivity` to the PostContactDrawer
-- Fix ContactMethodDrawer's `onComplete` to respect `wasConnected`
+**Wizard `onComplete` updates:**
+- Add `purposeStatement: string` to output
+- Add `booksGoal`, `trainingHoursGoal`, `rolePlaysGoal`, `mnlGoal` to output
+- Goals.tsx handler saves these to `rep_goals` on completion
 
-## What's NOT Changing
-- No visual redesign needed -- the UI is already clean and well-animated
-- No changes to PostContactDrawer itself -- it already handles `scheduledActivity` correctly when provided
-- No changes to the RecruitDetailDrawer flow -- it has its own independent PostContactDrawer context
-- No changes to the Hero card or ContactMethodDrawer components
-- All existing animations, swipe gestures, and haptic feedback remain intact
+---
 
-## Implementation Order
-1. Update SwipeableTaskItem callback signatures to include activity
-2. Update WeekPlannerSection state and handlers
-3. Wire scheduledActivity to PostContactDrawer
-4. Fix ContactMethodDrawer wasConnected check
+### Part 3: Preseason Reminders (Lightweight)
 
+Instead of granular tracking UI, the app will remind rookies of their commitments through the existing notification infrastructure. The commitments remain visible on the Goals page as a simple read-only summary card showing what they committed to (no progress bars, no steppers). During summer, this card hides automatically.
+
+---
+
+## Technical Details
+
+### Files to create:
+- None required (wizard changes are in-place)
+
+### Files to delete:
+- `src/components/PreseasonPrepLeaderboard.tsx`
+- `src/components/LeaderPreseasonPrepLeaderboard.tsx`
+- `src/components/PreseasonStandardsCard.tsx`
+- `src/components/WeeklyProgressPromptCard.tsx`
+- `src/components/goals/CommitmentsTracker.tsx`
+- `src/hooks/usePreseasonPrepLeaderboard.ts`
+- `src/hooks/useLeaderPreseasonPrepLeaderboard.ts`
+
+### Files to modify:
+- `src/components/goals/GoalSetupWizard.tsx` - Add WHY step, add preseason commitments step, update step numbering and `onComplete` payload
+- `src/pages/Goals.tsx` - Update wizard completion handler to save new fields; replace CommitmentsTracker with a simple read-only commitments summary card
+- `src/pages/Home.tsx` - Remove PreseasonPrepLeaderboard
+- `src/components/PostBlitzRookieHome.tsx` - Remove PreseasonStandardsCard and WeeklyProgressPromptCard
+- `src/components/VetHome.tsx` - Remove PreseasonStandardsCard, LeaderPreseasonPrepLeaderboard, WeeklyProgressPromptCard
+- `src/hooks/useRepGoals.ts` - Remove leaderboard cache invalidation
+- `src/hooks/useSyncedBooks.ts` - Remove leaderboard cache invalidation
+- `src/hooks/useUpdateRookieStatus.ts` - Remove leaderboard cache invalidation
+- `src/hooks/useRecruitActivitiesRealtime.ts` - Remove leaderboard cache invalidation
+- `src/pages/Settings.tsx` - Remove leaderboard cache invalidation
