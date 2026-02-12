@@ -16,15 +16,13 @@ import { SaleDetailSheet } from "./SaleDetailSheet";
 import { DeleteSalePickerSheet } from "./DeleteSalePickerSheet";
 import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
 import { PendingSalesAlert } from "./PendingSalesAlert";
-import { PageTour } from "./PageTour";
+
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
 import { useSaleUpdate } from "@/hooks/useSaleUpdate";
 import { usePendingSalesQueue } from "@/hooks/usePendingSalesQueue";
 import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
 import { useCompetitorNudge } from "@/hooks/useCompetitorNudge";
-import { usePageTour } from "@/hooks/usePageTour";
-import { trackTourSteps } from "@/config/pageTours";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -73,18 +71,6 @@ const TrackWithLayout = () => {
   // This ensures iPad and Phone stay in sync automatically
   useSalesRealtime();
   
-  // Page tour
-  const { showTour, completeTour, skipTour } = usePageTour({
-    page: 'track',
-    enabled: !!repData && !isLoadingEntry,
-  });
-
-  // Enable demo mode when tour starts to prevent any data changes
-  useEffect(() => {
-    if (showTour) {
-      setIsTourDemoMode(true);
-    }
-  }, [showTour]);
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
   const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
   const [unfinalizedEntries, setUnfinalizedEntries] = useState<any[]>([]);
@@ -108,9 +94,6 @@ const TrackWithLayout = () => {
   const [pendingCloseIncrement, setPendingCloseIncrement] = useState(false);
   const [pendingPostFinalizationSale, setPendingPostFinalizationSale] = useState(false); // For sales after finalization
   const [isDeleteSalePickerOpen, setIsDeleteSalePickerOpen] = useState(false);
-  const [isTourDemoMode, setIsTourDemoMode] = useState(false); // Prevents real data changes during tour
-  const [tourForceUpgrade, setTourForceUpgrade] = useState(false); // Force upgrade mode in sale sheet
-  const [tourForceCalculatorOpen, setTourForceCalculatorOpen] = useState(false); // Force calculator open
   
   // Confetti hook for celebrations
   const { fireConfetti } = useConfetti();
@@ -655,11 +638,6 @@ const TrackWithLayout = () => {
       return;
     }
 
-    // PROTECTION LAYER 8: Block all changes during tour demo mode
-    if (isTourDemoMode) {
-      console.log('Ignoring counter change - tour demo mode active');
-      return;
-    }
     
     // Get current value to determine if adding or subtracting
     const currentValue = field.startsWith('custom_') 
@@ -810,8 +788,6 @@ const TrackWithLayout = () => {
 
   // Sales logger handlers
   const handleLogSale = useCallback(async (saleData: Omit<Sale, 'id' | 'timestamp'>) => {
-    // Block during tour demo mode
-    if (isTourDemoMode) return;
     
     const today = getTodayDate();
     
@@ -926,13 +902,12 @@ const TrackWithLayout = () => {
     }
     
     setPendingCloseIncrement(false);
-  }, [entry, updateCounter, pendingCloseIncrement, pendingPostFinalizationSale, addSaleToEntry, fireConfetti, isTourDemoMode, queueSale, processQueue]);
+  }, [entry, updateCounter, pendingCloseIncrement, pendingPostFinalizationSale, addSaleToEntry, fireConfetti, queueSale, processQueue]);
 
   // Direct handler for sales from LogSale page - bypasses pendingCloseIncrement check
   // This fixes the race condition where the navigation state handler couldn't reliably
   // set pendingCloseIncrement before calling handleLogSale
   const handleLogSaleFromPage = useCallback(async (saleData: Omit<Sale, 'id' | 'timestamp'>) => {
-    if (isTourDemoMode) return;
     
     const today = getTodayDate();
     
@@ -1013,7 +988,7 @@ const TrackWithLayout = () => {
         processQueue();
       }
     }
-  }, [entry, updateCounter, fireConfetti, isTourDemoMode, queueSale, processQueue]);
+  }, [entry, updateCounter, fireConfetti, queueSale, processQueue]);
 
   const handleEditSale = useCallback((sale: Sale) => {
     setEditingSale(sale);
@@ -1073,8 +1048,6 @@ const TrackWithLayout = () => {
   }, [entry, deleteSaleFromEntry]);
 
   const handleStartWork = () => {
-    // Block during tour demo mode
-    if (isTourDemoMode) return;
     
     // If work already started but not ended, end it instead
     if (entry.work_start_time && !entry.work_end_time) {
@@ -1092,8 +1065,6 @@ const TrackWithLayout = () => {
   };
 
   const handleEndWork = () => {
-    // Block during tour demo mode
-    if (isTourDemoMode) return;
     
     // Check if it's before sunset (7 PM)
     if (isBeforeSunset()) {
@@ -1216,14 +1187,10 @@ const TrackWithLayout = () => {
       <LogSaleSheet
         open={isLogSaleSheetOpen}
         onOpenChange={(open) => {
-          // Don't allow closing during tour demo mode (they need to complete tour)
-          if (isTourDemoMode && !open) return;
           setIsLogSaleSheetOpen(open);
           if (!open) {
             setPendingCloseIncrement(false);
             setEditingSale(null);
-            setTourForceUpgrade(false);
-            setTourForceCalculatorOpen(false);
           }
         }}
         onLogSale={handleLogSale}
@@ -1234,8 +1201,6 @@ const TrackWithLayout = () => {
         crmEnabled={true}
         crmDetailedEnabled={true}
         counterTimestamps={entry.counter_timestamps}
-        tourForceUpgrade={tourForceUpgrade}
-        tourForceCalculatorOpen={tourForceCalculatorOpen}
       />
 
       {/* Sale Detail Sheet for viewing/editing existing sales */}
@@ -1369,40 +1334,6 @@ const TrackWithLayout = () => {
         />
       )}
 
-      {/* Page Tour */}
-      <PageTour
-        steps={trackTourSteps}
-        isOpen={showTour}
-        onComplete={() => {
-          // Reset all tour state
-          setIsTourDemoMode(false);
-          setIsLogSaleSheetOpen(false);
-          setTourForceUpgrade(false);
-          setTourForceCalculatorOpen(false);
-          completeTour();
-        }}
-        onSkip={() => {
-          // Reset all tour state
-          setIsTourDemoMode(false);
-          setIsLogSaleSheetOpen(false);
-          setTourForceUpgrade(false);
-          setTourForceCalculatorOpen(false);
-          skipTour();
-        }}
-        onStepAction={(action) => {
-          if (action === 'openLogSaleSheet') {
-            setIsTourDemoMode(true);
-            setTourForceUpgrade(false);
-            setTourForceCalculatorOpen(false);
-            setIsLogSaleSheetOpen(true);
-          } else if (action === 'switchToUpgradeAndShowHelp') {
-            setTourForceUpgrade(true);
-          } else if (action === 'openUpgradeCalculator') {
-            setTourForceUpgrade(true);
-            setTourForceCalculatorOpen(true);
-          }
-        }}
-      />
     </>
   );
 };

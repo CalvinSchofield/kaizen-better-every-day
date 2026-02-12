@@ -15,7 +15,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { useUnifiedPushNotifications } from "@/hooks/useUnifiedPushNotifications";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
-import { resetAllTours } from "@/hooks/usePageTour";
+
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -1707,30 +1707,6 @@ export default function Settings() {
               >
                 <RotateCcw className="h-4 w-4" />
                 Replay
-              </Button>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Page Tours</p>
-                <p className="text-xs text-muted-foreground">Guided tours for each page</p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  if (!repData?.user_id) return;
-                  await resetAllTours(repData.user_id);
-                  await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
-                  toast({
-                    title: "Tours reset",
-                    description: "All page tours have been reset. Visit each page to see them again.",
-                  });
-                }}
-                className="gap-2"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Reset All
               </Button>
             </div>
           </CardContent>

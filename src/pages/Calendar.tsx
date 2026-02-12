@@ -8,9 +8,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
-import { PageTour } from "@/components/PageTour";
-import { usePageTour } from "@/hooks/usePageTour";
-import { calendarTourSteps } from "@/config/pageTours";
 
 interface CalendarProps {
   viewMode?: "week" | "month";
@@ -74,11 +71,6 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
     ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
     : [];
 
-  // Page tour - only show for users who can access the calendar
-  const { showTour, completeTour, skipTour } = usePageTour({
-    page: 'calendar',
-    enabled: !isPreBlitzRookie && !!repData,
-  });
 
   // Show skeleton loader while initializing auth OR loading data
   if (isInitializing || (loadingRepData && !repData)) {
@@ -147,12 +139,6 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
         onViewModeChange={onViewModeChange}
       />
       
-      <PageTour
-        steps={calendarTourSteps}
-        isOpen={showTour}
-        onComplete={completeTour}
-        onSkip={skipTour}
-      />
     </>
   );
 };

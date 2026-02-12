@@ -46,9 +46,6 @@ import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, sta
 import { toast } from "sonner";
 import { UndoBanner } from "@/components/ui/UndoBanner";
 import { AnimatePresence } from "framer-motion";
-import { usePageTour } from "@/hooks/usePageTour";
-import { PageTour } from "@/components/PageTour";
-import { myGroupTourSteps } from "@/config/pageTours";
 import {
   Drawer,
   DrawerContent,
@@ -1323,42 +1320,7 @@ const MyGroup = () => {
         }}
       />
 
-      {/* Page Tour - Leaders only */}
-      {isLeader && (
-        <MyGroupPageTour 
-          allRecruits={allRecruits}
-          onOpenRecruit={setSelectedRecruit}
-        />
-      )}
     </Layout>
-  );
-};
-
-// Separate component to use the hook conditionally
-const MyGroupPageTour = ({ 
-  allRecruits,
-  onOpenRecruit
-}: { 
-  allRecruits: Recruit[];
-  onOpenRecruit: (recruit: Recruit | null) => void;
-}) => {
-  const { showTour, completeTour, skipTour } = usePageTour({ page: 'my-group' });
-
-  const handleStepAction = (action: string) => {
-    if (action === 'openRecruitDrawer' && allRecruits.length > 0) {
-      // Open the first recruit to demonstrate the drawer
-      onOpenRecruit(allRecruits[0]);
-    }
-  };
-
-  return (
-    <PageTour
-      steps={myGroupTourSteps}
-      isOpen={showTour}
-      onComplete={completeTour}
-      onSkip={skipTour}
-      onStepAction={handleStepAction}
-    />
   );
 };
 

@@ -5,7 +5,7 @@ import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useFocusTier, FocusTier } from "@/hooks/useFocusTier";
 import { usePersonalBenchmarks } from "@/hooks/usePersonalBenchmarks";
-import { Target, Flame, Zap, Trophy, TrendingDown, Lightbulb, TrendingUp, Heart, Loader2 } from "lucide-react";
+import { Target, Flame, Zap, Trophy, TrendingDown, Lightbulb, TrendingUp, Loader2 } from "lucide-react";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -656,17 +656,6 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
                 )}
               </p>
             </div>
-            {/* Purpose reminder when behind */}
-            {goals.purpose_statement && (
-              <div className="flex items-start gap-2 p-3 rounded-xl bg-primary/5 border border-primary/10">
-                <Heart className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-muted-foreground leading-relaxed italic">
-                  Remember: "{goals.purpose_statement.length > 80 
-                    ? goals.purpose_statement.substring(0, 80) + '...' 
-                    : goals.purpose_statement}"
-                </p>
-              </div>
-            )}
           </div>
         ) : remainingForPeriod > 0 && remainingDaysInPeriod > 0 ? (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-accent/30 border border-border/50">

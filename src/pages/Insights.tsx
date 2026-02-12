@@ -9,9 +9,6 @@ import { useRookieUnlockStatus } from '@/hooks/useRookieUnlockStatus';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { useCumulativeFP } from '@/hooks/useCumulativeFP';
 import { useAvailableInsightsPresets, InsightsDatePreset, PRESEASON_START, SUMMER_START } from '@/hooks/useAvailableDatePresets';
-import { usePageTour } from '@/hooks/usePageTour';
-import { PageTour } from '@/components/PageTour';
-import { insightsTourSteps } from '@/config/pageTours';
 import { useSalesRealtime } from '@/hooks/useSalesRealtime';
 
 import { Calendar as CalendarIcon, Lock, BarChart3 } from 'lucide-react';
@@ -80,12 +77,7 @@ export default function Insights() {
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
   
-  // Page tour
-  const { showTour, completeTour, skipTour } = usePageTour({
-    page: 'insights',
-    enabled: !presetsLoading && hasAnyData,
-    delay: 600,
-  });
+  
   
   // Subscribe to realtime sales updates for immediate data sync
   useSalesRealtime();
@@ -424,13 +416,6 @@ export default function Insights() {
         </SheetContent>
       </Sheet>
 
-      {/* Page Tour */}
-      <PageTour
-        steps={insightsTourSteps}
-        isOpen={showTour}
-        onComplete={completeTour}
-        onSkip={skipTour}
-      />
     </div>
   );
 }
