@@ -732,13 +732,17 @@ const Goals = () => {
     );
   }
 
-  // Biweekly sync gate: after goals setup, before showing goals content
-  if (effectiveFPData?.needsBiweeklySync && effectiveFPData?.hasOfficialTotals) {
+  // Sync gate: initial setup (no official totals yet) OR biweekly sync window
+  const needsInitialSync = effectiveFPData && !effectiveFPData.hasOfficialTotals;
+  const needsBiweekly = effectiveFPData?.needsBiweeklySync && effectiveFPData?.hasOfficialTotals;
+
+  if (needsInitialSync || needsBiweekly) {
     return (
       <Layout>
         <BiweeklySyncGate
           seasonType="preseason"
-          effectiveData={effectiveFPData}
+          effectiveData={effectiveFPData!}
+          isInitialSync={!!needsInitialSync}
           onComplete={() => {
             queryClient.invalidateQueries({ queryKey: ['effective-fp'] });
             queryClient.invalidateQueries({ queryKey: ['official-totals'] });

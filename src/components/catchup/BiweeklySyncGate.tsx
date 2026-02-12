@@ -16,6 +16,7 @@ import type { EffectiveFPResult } from "@/hooks/useEffectiveFP";
 interface BiweeklySyncGateProps {
   seasonType: 'preseason' | 'summer';
   effectiveData: EffectiveFPResult;
+  isInitialSync?: boolean;
   onComplete: () => void;
 }
 
@@ -30,13 +31,14 @@ const SOURCE_EARNINGS_URL = 'https://curator.vivint.com/dashboard/source-account
 type MetricChoice = 'tracked' | 'vivint' | null;
 type KnockingChoice = 'tracked' | 'manual' | 'unknown' | null;
 
-export const BiweeklySyncGate = ({ seasonType, effectiveData, onComplete }: BiweeklySyncGateProps) => {
+export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = false, onComplete }: BiweeklySyncGateProps) => {
   const navigate = useNavigate();
   const { upsertTotalsAsync, isUpserting } = useOfficialTotals(seasonType);
   const { efpModeEnabled } = useEfpMode();
   const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
 
   const [step, setStep] = useState<SyncStep>('intro');
+  const [isSavingZero, setIsSavingZero] = useState(false);
   
   // Metric choices & values
   const [fpChoice, setFpChoice] = useState<MetricChoice>(null);
@@ -89,11 +91,32 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, onComplete }: Biwe
         prmr: finalPrmr,
         knocking_days: finalKnockingDays,
         verified_by: 'self',
-        notes: `Biweekly sync: FP+ ${fpChoice}, FP sold ${fpSoldChoice}, PRMR ${prmrChoice}, Days ${knockingChoice}`,
+        notes: `${isInitialSync ? 'Initial' : 'Biweekly'} sync: FP+ ${fpChoice}, FP sold ${fpSoldChoice}, PRMR ${prmrChoice}, Days ${knockingChoice}`,
       });
       onComplete();
     } catch (error) {
       console.error('Failed to save sync:', error);
+    }
+  };
+
+  const handleHaventSoldYet = async () => {
+    setIsSavingZero(true);
+    try {
+      await upsertTotalsAsync({
+        season_year: SEASON_YEAR,
+        season_type: seasonType,
+        fp_plus: 0,
+        fp_sold: 0,
+        prmr: 0,
+        knocking_days: 0,
+        verified_by: 'self',
+        notes: 'Initial sync: haven\'t sold yet — zero baseline',
+      });
+      onComplete();
+    } catch (error) {
+      console.error('Failed to save zero baseline:', error);
+    } finally {
+      setIsSavingZero(false);
     }
   };
 
@@ -154,11 +177,25 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, onComplete }: Biwe
               <RefreshCw className="h-10 w-10 text-primary" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold">Time to sync your numbers</h2>
+              <h2 className="text-2xl font-bold">
+                {isInitialSync ? "Let's sync with Vivint" : "Time to sync your numbers"}
+              </h2>
               <p className="text-muted-foreground max-w-xs mx-auto">
-                Every 2 weeks we check in to keep your pace and earnings projections accurate with what Vivint has on file.
+                {isInitialSync 
+                  ? "Before we show your pace, let's make sure we're starting from the right place by checking what Vivint has on file."
+                  : "Every 2 weeks we check in to keep your pace and earnings projections accurate with what Vivint has on file."
+                }
               </p>
             </div>
+            {isInitialSync && (
+              <button
+                onClick={handleHaventSoldYet}
+                disabled={isSavingZero}
+                className="text-sm text-muted-foreground underline underline-offset-4 active:scale-95 transition-transform disabled:opacity-50"
+              >
+                {isSavingZero ? 'Saving...' : "I haven't sold yet"}
+              </button>
+            )}
           </div>
         );
 
