@@ -1,104 +1,39 @@
+# Surface "Their Why" Throughout the Leader Experience
 
+## Current State
 
-# Remove Preseason Competition + Redesign Goal Wizard with WHY/WHAT/HOW Flow
+The purpose statement is currently visible in only **2 places**:
 
-## What's Changing
+- Reports V2 Rep Drill-Down Drawer
+- Organization tab's Edit Rep Drawer
 
-### Part 1: Remove Preseason Prep Leaderboards and Competition
+It's **missing** from the most-used leader view: the **Recruit Detail Drawer** in My Group.
 
-Remove all preseason prep leaderboard components and their supporting hooks from both the rookie and leader experiences. This includes:
+## Where to Add It
 
-**Components to remove:**
-- `PreseasonPrepLeaderboard.tsx` (rookie home page)
-- `LeaderPreseasonPrepLeaderboard.tsx` (vet/leader home page)
-- `PreseasonStandardsCard.tsx` (both rookie and vet home pages)
-- `WeeklyProgressPromptCard.tsx` (weekly progress check-in prompt on both home pages)
-- `CommitmentsTracker.tsx` (stepper-based progress tracking for books, training, role plays, MNL)
-- `TrainingTimer.tsx` (training time tracker used inside CommitmentsTracker)
-- `BooksSelectionDrawer.tsx` (book selection UI used inside CommitmentsTracker)
+### 1. Recruit Detail Drawer -- FocusCard (high impact)
 
-**Hooks to remove:**
-- `usePreseasonPrepLeaderboard.ts` (rookie leaderboard data)
-- `useLeaderPreseasonPrepLeaderboard.ts` (leader leaderboard data)
+The FocusCard is the hero section leaders see first when opening a rep's detail. Add the purpose statement as a subtle but visible element right below the pace/status info. This puts "Their Why" front and center during coaching moments.
 
-**Pages/components to update (remove imports and usage):**
-- `Home.tsx` - remove `PreseasonPrepLeaderboard` import and rendering
-- `PostBlitzRookieHome.tsx` - remove `PreseasonStandardsCard`, `WeeklyProgressPromptCard`
-- `VetHome.tsx` - remove `PreseasonStandardsCard`, `LeaderPreseasonPrepLeaderboard`, `WeeklyProgressPromptCard`
+- The data is already fetched (`rep_goals.*` query exists) but the `RecruitGoals` type in `types.ts` doesn't include `purpose_statement` or `purpose_updated_at`
+- Add those fields to `RecruitGoals`
+- Pass the purpose statement down to `FocusCard` and render a compact `PurposeDisplayCard` at the bottom of the card
 
-**Cache invalidation cleanup** - remove `preseason-prep-leaderboard` and `leader-preseason-prep-leaderboard-weekly` query invalidations from:
-- `useRepGoals.ts`
-- `useSyncedBooks.ts`
-- `useUpdateRookieStatus.ts`
-- `useRecruitActivitiesRealtime.ts`
-- `Settings.tsx`
+### 2. Recruit Detail Drawer -- DetailsTab (secondary)
 
----
+Also show it in the Details tab alongside other rep info (significant other, watch-out notes, etc.) for a more permanent reference point.
 
-### Part 2: Add WHY/WHAT/HOW Steps to Goal Setup Wizard
+## Technical Steps
 
-Restructure the rookie goal wizard from its current flow into a 3-phase journey:
+1. **Update `RecruitGoals` type** in `src/components/mygroup/recruit-detail/types.ts`
+  - Add `purpose_statement?: string | null`
+  - Add `purpose_updated_at?: string | null`
+2. **Update `FocusCard` component** in `src/components/mygroup/recruit-detail/FocusCard.tsx`
+  - Accept `purposeStatement` and `purposeUpdatedAt` props (or read from `recruitGoals`)
+  - Render `PurposeDisplayCard` at the bottom of the focus card when a statement exists
+3. **Update `RecruitDetailDrawer**` to pass the purpose data through to FocusCard
+4. **Update `DetailsTab**` to show the purpose statement in the details section (fetch is already available via parent)
 
-**Current rookie flow (pre-summer):**
-1. Monthly Expenses
-2. Summer Dates
-3. Summer Goals
-4. Preseason Goal
-5. Commit to Blitzes
-6. Review
+## Recommendation
 
-**New rookie flow (pre-summer):**
-1. **YOUR WHY** - Inspirational framing about why goals matter, with a single free-text field: "What's YOUR why?" Short motivational copy to set the tone.
-2. **Monthly Expenses** - Same as current (the WHAT begins here)
-3. **Summer Dates** - Same as current
-4. **Summer Goals (Must/Will/Could Do)** - Same as current, with copy tying back to the WHY
-5. **Preseason Goal** - Same as current
-6. **Preseason Commitments** - NEW step combining books, training hours/week, role plays, and MNL goals into one clean card-based selection (no granular tracking, just setting the commitment numbers)
-7. **Commit to Blitzes** - Same as current
-8. **Review** - Updated to show WHY statement + preseason commitments summary
-
-**Key design decisions:**
-- The WHY statement gets saved to `rep_goals.purpose_statement` (field already exists)
-- Preseason commitments (books goal, training hours goal, role plays goal, MNL goal) are saved during wizard completion alongside financial goals
-- No in-app progress tracking for these commitments -- the app will remind them periodically instead
-- The commitments step uses simple number selectors (stepper-style +/- buttons) for each category
-- Vet flow remains unchanged (Dates, Goals, Preseason, Review) -- no WHY step for vets
-
-**Wizard `onComplete` updates:**
-- Add `purposeStatement: string` to output
-- Add `booksGoal`, `trainingHoursGoal`, `rolePlaysGoal`, `mnlGoal` to output
-- Goals.tsx handler saves these to `rep_goals` on completion
-
----
-
-### Part 3: Preseason Reminders (Lightweight)
-
-Instead of granular tracking UI, the app will remind rookies of their commitments through the existing notification infrastructure. The commitments remain visible on the Goals page as a simple read-only summary card showing what they committed to (no progress bars, no steppers). During summer, this card hides automatically.
-
----
-
-## Technical Details
-
-### Files to create:
-- None required (wizard changes are in-place)
-
-### Files to delete:
-- `src/components/PreseasonPrepLeaderboard.tsx`
-- `src/components/LeaderPreseasonPrepLeaderboard.tsx`
-- `src/components/PreseasonStandardsCard.tsx`
-- `src/components/WeeklyProgressPromptCard.tsx`
-- `src/components/goals/CommitmentsTracker.tsx`
-- `src/hooks/usePreseasonPrepLeaderboard.ts`
-- `src/hooks/useLeaderPreseasonPrepLeaderboard.ts`
-
-### Files to modify:
-- `src/components/goals/GoalSetupWizard.tsx` - Add WHY step, add preseason commitments step, update step numbering and `onComplete` payload
-- `src/pages/Goals.tsx` - Update wizard completion handler to save new fields; replace CommitmentsTracker with a simple read-only commitments summary card
-- `src/pages/Home.tsx` - Remove PreseasonPrepLeaderboard
-- `src/components/PostBlitzRookieHome.tsx` - Remove PreseasonStandardsCard and WeeklyProgressPromptCard
-- `src/components/VetHome.tsx` - Remove PreseasonStandardsCard, LeaderPreseasonPrepLeaderboard, WeeklyProgressPromptCard
-- `src/hooks/useRepGoals.ts` - Remove leaderboard cache invalidation
-- `src/hooks/useSyncedBooks.ts` - Remove leaderboard cache invalidation
-- `src/hooks/useUpdateRookieStatus.ts` - Remove leaderboard cache invalidation
-- `src/hooks/useRecruitActivitiesRealtime.ts` - Remove leaderboard cache invalidation
-- `src/pages/Settings.tsx` - Remove leaderboard cache invalidation
+Start with items 1-4 (Recruit Detail Drawer) since that's where leaders spend the most time and the data is already being fetched. 
