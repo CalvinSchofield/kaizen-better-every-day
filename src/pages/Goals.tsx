@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Lock, SlidersHorizontal, ChevronDown, ArrowLeft, Loader2, Check, BookOpen, Timer, Dumbbell, Phone } from "lucide-react";
+import { Lock, SlidersHorizontal, ChevronDown, ArrowLeft, Loader2, Check, BookOpen, Timer, Dumbbell, Phone, Target } from "lucide-react";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -36,7 +36,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isBefore, parseISO, format } from "date-fns";
-import { parseDateAsLocal } from "@/utils/blitzDateUtils";
+import { parseDateAsLocal, formatBlitzDate } from "@/utils/blitzDateUtils";
 import { calculatePaceContext, getLearningCurvePrincipleMessage, calculateSuggestedStretchGoal } from "@/utils/learningCurveData";
 import { hasCompletedGoalsSetup } from "@/lib/goalsSetupCache";
 
@@ -861,21 +861,16 @@ const Goals = () => {
         </div>
 
         <div className="px-4 pb-4">
-          <EarningsBreakdownCard 
-            goals={goals}
-            isRookie={isRookie}
-            actualCancelRate={actualCancelRate}
-            currentProgress={currentProgress}
-            fundedProgress={fundedProgress}
-            efpMode={efpModeEnabled}
-          />
+          <EarningsBreakdownCard />
         </div>
 
         {/* Cancel Rate Drawer */}
         <CancelRateDrawer
           open={showCancelRateDrawer}
           onOpenChange={setShowCancelRateDrawer}
-          cancelRate={goals.cancel_rate || 0.10}
+          currentRate={goals.cancel_rate || 0.10}
+          actualCancelRate={actualCancelRate}
+          efpModeEnabled={efpModeEnabled}
           onSave={async (newRate) => {
             await updateGoals({ cancel_rate: newRate });
             setShowCancelRateDrawer(false);
@@ -886,14 +881,18 @@ const Goals = () => {
         <QuickEditGoalsDrawer
           open={showQuickEdit}
           onOpenChange={setShowQuickEdit}
-          goals={goals}
+          currentGoals={{
+            preseason_fp_goal: goals.preseason_fp_goal || 0,
+            must_do_fp_goal: goals.must_do_fp_goal || 0,
+            will_do_fp_goal: goals.will_do_fp_goal || 0,
+            could_do_fp_goal: goals.could_do_fp_goal || 0,
+          }}
+          isUserSummerStarted={isUserSummerStarted}
+          efpModeEnabled={efpModeEnabled}
+          conversionFactor={conversionFactor}
           onSave={async (updates) => {
             await updateGoals(updates);
             setShowQuickEdit(false);
-          }}
-          onFullEdit={() => {
-            setShowQuickEdit(false);
-            setShowSetupWizard(true);
           }}
         />
 
@@ -924,7 +923,7 @@ const Goals = () => {
                           className="h-8 text-muted-foreground hover:text-destructive"
                           onClick={() => {
                             setShowBlitzEditor(false);
-                            handleRequestUncommitFromBlitz(blitz.id, blitz.name);
+                            setConfirmUncommitBlitz({ id: blitz.id, name: blitz.name });
                           }}
                         >
                           Cancel
@@ -955,7 +954,7 @@ const Goals = () => {
                           className="h-8"
                           onClick={() => {
                             setShowBlitzEditor(false);
-                            handleRequestCommitToBlitz({
+                            setConfirmCommitBlitz({
                               id: blitz.id,
                               name: blitz.name,
                               date: blitz.date,
@@ -991,8 +990,9 @@ const Goals = () => {
 
         {/* Catch Up Wizard for syncing */}
         <CatchUpWizard 
-          isOpen={showCatchUpWizard} 
-          onClose={() => setShowCatchUpWizard(false)} 
+          open={showCatchUpWizard} 
+          onOpenChange={(open) => setShowCatchUpWizard(open)}
+          seasonType="preseason"
         />
 
         {/* Commit/Uncommit Confirmations */}
