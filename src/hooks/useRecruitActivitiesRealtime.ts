@@ -272,7 +272,6 @@ export const useRepsRealtime = (recruitNotionIds: string[]) => {
           // Only invalidate non-critical queries that don't cause race conditions
           queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'], exact: false });
           queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'], exact: false });
-          queryClient.invalidateQueries({ queryKey: ['leader-preseason-prep-leaderboard-weekly'], exact: false });
         }
       )
       .subscribe((status) => {

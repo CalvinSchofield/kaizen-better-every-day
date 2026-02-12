@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, Target, DollarSign, Calculator, Check, HelpCircle, Calendar as CalendarIcon, MapPin, Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, ArrowRight, Target, DollarSign, Calculator, Check, HelpCircle, Calendar as CalendarIcon, MapPin, Loader2, Heart, Minus, Plus, BookOpen, Timer, Dumbbell, Phone } from "lucide-react";
 import { 
   calculateMustDoFromExpenses, 
   calculateTakeHome, 
@@ -26,13 +27,11 @@ const parseLocalDate = (dateString: string): Date => {
   return new Date(year, month - 1, day);
 };
 
-// Summer date constraints - using local dates to avoid timezone issues
 const SUMMER_START_MIN = parseLocalDate("2026-04-12");
 const SUMMER_START_MAX = parseLocalDate("2026-06-01");
 const SUMMER_END_MIN = parseLocalDate("2026-08-01");
 const SUMMER_END_MAX = parseLocalDate("2026-09-27");
 
-// Housing options with weekly costs
 const HOUSING_OPTIONS = [
   { label: "Single Shared", value: 200 },
   { label: "Single Private", value: 385 },
@@ -56,6 +55,11 @@ interface GoalSetupWizardProps {
     summerEnd: string;
     preseasonFpGoal: number;
     selectedBlitzIds?: string[];
+    purposeStatement?: string;
+    booksGoal?: number;
+    trainingHoursGoal?: number;
+    rolePlaysGoal?: number;
+    mnlGoal?: number;
   }) => void;
   onCancel?: () => void;
 }
@@ -68,46 +72,48 @@ export const GoalSetupWizard = ({
 }: GoalSetupWizardProps) => {
   const [step, setStep] = useState(1);
   
-  // Blitz data for rookie commitment step
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
   const [selectedBlitzIds, setSelectedBlitzIds] = useState<string[]>(committedBlitzIds);
 
-  // Use EFP mode hook to determine metric label
   const { efpModeEnabled } = useEfpMode();
   const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
 
-  // Check if it's currently summer (after April 12, 2026)
   const isCurrentlySummer = new Date() >= SUMMER_START_MIN;
   
   // Calculate total steps
-  // Rookies: Expenses → Dates → Goals → [Preseason if not summer] → Blitzes → Review
-  // Vets: Dates → Goals → [Preseason if not summer] → Review
+  // Rookies pre-summer: WHY → Expenses → Dates → Goals → Preseason → Commitments → Blitzes → Review (8)
+  // Rookies summer: WHY → Expenses → Dates → Goals → Blitzes → Review (6)
+  // Vets: Dates → Goals → [Preseason if not summer] → Review (3 or 4)
   const totalSteps = isRookie 
-    ? (isCurrentlySummer ? 5 : 6) 
+    ? (isCurrentlySummer ? 6 : 8) 
     : (isCurrentlySummer ? 3 : 4);
 
-  // Form state - no prefilled values for goals except preseason defaults to 5
+  // Form state
+  const [purposeStatement, setPurposeStatement] = useState('');
   const [monthlyExpenses, setMonthlyExpenses] = useState<string>('');
-  const [monthsOff, setMonthsOff] = useState<string>('8'); // Default to 8 months (summer job - most of year is school)
-  const [housingOption, setHousingOption] = useState(HOUSING_OPTIONS[0]); // Default Single Shared
-  const avgPrmrPerFp = 85; // Hardcoded to $85
+  const [monthsOff, setMonthsOff] = useState<string>('8');
+  const [housingOption, setHousingOption] = useState(HOUSING_OPTIONS[0]);
+  const avgPrmrPerFp = 85;
   const [summerStart, setSummerStart] = useState<Date | undefined>(SUMMER_START_MIN);
   const [summerEnd, setSummerEnd] = useState<Date | undefined>(SUMMER_END_MAX);
   const [mustDoFpGoalInput, setMustDoFpGoalInput] = useState<string>('');
   const [willDoFpGoal, setWillDoFpGoal] = useState<string>('');
   const [couldDoFpGoal, setCouldDoFpGoal] = useState<string>('');
-  const [preseasonFpGoal, setPreseasonFpGoal] = useState<string>('5'); // Default to 5
+  const [preseasonFpGoal, setPreseasonFpGoal] = useState<string>('5');
+  
+  // Preseason commitment goals
+  const [booksGoal, setBooksGoal] = useState(2);
+  const [trainingHoursGoal, setTrainingHoursGoal] = useState(3);
+  const [rolePlaysGoal, setRolePlaysGoal] = useState(5);
+  const [mnlGoal, setMnlGoal] = useState(4);
 
-  // Date picker states
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
 
-  // Calculate weeks from dates - round UP since any partial week = full rent week
   const weeksWorking = summerStart && summerEnd 
     ? Math.max(1, Math.ceil(differenceInDays(summerEnd, summerStart) / 7))
     : 18;
 
-  // Calculated must-do for rookies (based on expenses)
   const mustDoFpGoal = isRookie 
     ? calculateMustDoFromExpenses(
         Number(monthlyExpenses) || 0, 
@@ -118,22 +124,18 @@ export const GoalSetupWizard = ({
       )
     : Number(mustDoFpGoalInput) || 0;
 
-  // Handle number input that allows empty strings
   const handleNumberInput = (
     value: string, 
     setter: (val: string) => void
   ) => {
-    // Allow empty string or valid numbers
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setter(value);
     }
   };
 
-  // Auto-open end date picker after selecting start date
   const handleStartDateSelect = (date: Date | undefined) => {
     setSummerStart(date);
     setStartDateOpen(false);
-    // Small delay for smooth animation
     setTimeout(() => {
       setEndDateOpen(true);
     }, 150);
@@ -151,21 +153,24 @@ export const GoalSetupWizard = ({
     if (isRookie) {
       if (isCurrentlySummer) {
         switch (step) {
-          case 1: return "Monthly Expenses";
-          case 2: return "Summer Dates";
-          case 3: return "Summer Goals";
-          case 4: return "Commit to Blitzes";
-          case 5: return "Review";
+          case 1: return "Your Why";
+          case 2: return "Monthly Expenses";
+          case 3: return "Summer Dates";
+          case 4: return "Summer Goals";
+          case 5: return "Commit to Blitzes";
+          case 6: return "Review";
           default: return "";
         }
       } else {
         switch (step) {
-          case 1: return "Monthly Expenses";
-          case 2: return "Summer Dates";
-          case 3: return "Summer Goals";
-          case 4: return "Preseason Goal";
-          case 5: return "Commit to Blitzes";
-          case 6: return "Review";
+          case 1: return "Your Why";
+          case 2: return "Monthly Expenses";
+          case 3: return "Summer Dates";
+          case 4: return "Summer Goals";
+          case 5: return "Preseason Goal";
+          case 6: return "Preseason Commitments";
+          case 7: return "Commit to Blitzes";
+          case 8: return "Review";
           default: return "";
         }
       }
@@ -208,6 +213,11 @@ export const GoalSetupWizard = ({
       summerEnd: summerEnd ? format(summerEnd, 'yyyy-MM-dd') : '2026-09-27',
       preseasonFpGoal: Number(preseasonFpGoal) || 0,
       selectedBlitzIds: isRookie ? selectedBlitzIds : undefined,
+      purposeStatement: isRookie ? purposeStatement : undefined,
+      booksGoal: isRookie && !isCurrentlySummer ? booksGoal : undefined,
+      trainingHoursGoal: isRookie && !isCurrentlySummer ? trainingHoursGoal : undefined,
+      rolePlaysGoal: isRookie && !isCurrentlySummer ? rolePlaysGoal : undefined,
+      mnlGoal: isRookie && !isCurrentlySummer ? mnlGoal : undefined,
     });
   };
 
@@ -215,66 +225,83 @@ export const GoalSetupWizard = ({
     if (isRookie) {
       if (isCurrentlySummer) {
         switch (step) {
-          case 1:
-            return renderExpensesStep();
-          case 2:
-            return renderDateSettings();
-          case 3:
-            return renderGoalInputs();
-          case 4:
-            return renderBlitzCommitment();
-          case 5:
-            return renderReview();
-          default:
-            return null;
+          case 1: return renderWhyStep();
+          case 2: return renderExpensesStep();
+          case 3: return renderDateSettings();
+          case 4: return renderGoalInputs();
+          case 5: return renderBlitzCommitment();
+          case 6: return renderReview();
+          default: return null;
         }
       } else {
         switch (step) {
-          case 1:
-            return renderExpensesStep();
-          case 2:
-            return renderDateSettings();
-          case 3:
-            return renderGoalInputs();
-          case 4:
-            return renderPreseasonGoal();
-          case 5:
-            return renderBlitzCommitment();
-          case 6:
-            return renderReview();
-          default:
-            return null;
+          case 1: return renderWhyStep();
+          case 2: return renderExpensesStep();
+          case 3: return renderDateSettings();
+          case 4: return renderGoalInputs();
+          case 5: return renderPreseasonGoal();
+          case 6: return renderPreseasonCommitments();
+          case 7: return renderBlitzCommitment();
+          case 8: return renderReview();
+          default: return null;
         }
       }
     } else {
       if (isCurrentlySummer) {
         switch (step) {
-          case 1:
-            return renderDateSettings();
-          case 2:
-            return renderGoalInputs();
-          case 3:
-            return renderReview();
-          default:
-            return null;
+          case 1: return renderDateSettings();
+          case 2: return renderGoalInputs();
+          case 3: return renderReview();
+          default: return null;
         }
       } else {
         switch (step) {
-          case 1:
-            return renderDateSettings();
-          case 2:
-            return renderGoalInputs();
-          case 3:
-            return renderPreseasonGoal();
-          case 4:
-            return renderReview();
-          default:
-            return null;
+          case 1: return renderDateSettings();
+          case 2: return renderGoalInputs();
+          case 3: return renderPreseasonGoal();
+          case 4: return renderReview();
+          default: return null;
         }
       }
     }
   };
 
+  // ===== WHY STEP (Rookie only) =====
+  const renderWhyStep = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-4">
+        <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+          <Heart className="h-7 w-7 text-primary" />
+        </div>
+        <p className="text-muted-foreground">
+          Before we set numbers, let's talk purpose.
+        </p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Your goals mean more when you know what you're fighting for.
+        </p>
+      </div>
+
+      <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 space-y-3">
+        <Label htmlFor="why" className="font-semibold">What's YOUR why?</Label>
+        <Textarea
+          id="why"
+          value={purposeStatement}
+          onChange={(e) => setPurposeStatement(e.target.value)}
+          placeholder="I'm doing this because..."
+          className="min-h-[100px] text-base resize-none"
+        />
+        <p className="text-xs text-muted-foreground">
+          Why are you working this summer? What are you trying to achieve or change?
+        </p>
+      </div>
+
+      <p className="text-xs text-muted-foreground text-center italic">
+        This is just for you. We'll remind you of it when things get tough.
+      </p>
+    </div>
+  );
+
+  // ===== EXPENSES STEP =====
   const renderExpensesStep = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
@@ -322,11 +349,17 @@ export const GoalSetupWizard = ({
           <p className="text-2xl font-bold text-primary">
             {formatCurrency((Number(monthlyExpenses) || 0) * (Number(monthsOff) || 4))}
           </p>
+          {purposeStatement && (
+            <p className="text-xs text-muted-foreground mt-2 italic">
+              Remember your why: "{purposeStatement.slice(0, 60)}{purposeStatement.length > 60 ? '...' : ''}"
+            </p>
+          )}
         </div>
       )}
     </div>
   );
 
+  // ===== DATE SETTINGS =====
   const renderDateSettings = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
@@ -336,7 +369,6 @@ export const GoalSetupWizard = ({
         </p>
       </div>
 
-      {/* Date Pickers */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-xs">Start Date</Label>
@@ -441,10 +473,10 @@ export const GoalSetupWizard = ({
           ))}
         </div>
       </div>
-
     </div>
   );
 
+  // ===== GOAL INPUTS =====
   const renderGoalInputs = () => {
     const mustDoResult = calculateTakeHome({ 
       fpGoal: mustDoFpGoal, 
@@ -564,126 +596,230 @@ export const GoalSetupWizard = ({
     );
   };
 
-  const renderPreseasonGoal = () => {
-    return (
-      <div className="space-y-6">
-        <div className="text-center mb-6">
-          <Target className="h-12 w-12 mx-auto text-blue-500 mb-3" />
-          <p className="text-muted-foreground">
-            How much do you want to sell before summer?
-          </p>
-        </div>
-
-        <div className="rounded-xl bg-blue-500/10 p-4 border border-blue-500/20">
-          <div className="flex items-center gap-2 mb-3">
-            <Target className="h-4 w-4 text-blue-500" />
-            <span className="font-semibold text-blue-500">Preseason {metricLabel} Goal</span>
-          </div>
-          <Input
-            type="text"
-            inputMode="numeric"
-            value={preseasonFpGoal}
-            onChange={(e) => handleNumberInput(e.target.value, setPreseasonFpGoal)}
-            placeholder="5"
-            className="bg-background/50 text-xl font-semibold text-center"
-          />
-          <p className="text-xs text-muted-foreground mt-3 text-center">
-            We recommend at least <span className="font-semibold text-blue-500">5 {metricLabel}</span> before the summer starts
-          </p>
-        </div>
-
-        <div className="text-center text-sm text-muted-foreground">
-          <p>Hitting your preseason goal helps you:</p>
-          <ul className="mt-2 space-y-1">
-            <li>• Build confidence before summer</li>
-            <li>• Practice your pitch on real doors</li>
-            <li>• Get comfortable with the sales process</li>
-          </ul>
-        </div>
-      </div>
-    );
-  };
-
-  const renderBlitzCommitment = () => {
-    return (
-      <div className="space-y-6">
-        <div className="text-center mb-6">
-          <MapPin className="h-12 w-12 mx-auto text-primary mb-3" />
-          <p className="text-muted-foreground">
-            Which blitzes will you attend?
-          </p>
-        </div>
-
-        {blitzesLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : allBlitzes.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No upcoming blitzes available</p>
-            <p className="text-sm mt-1">You can commit to blitzes later from the Goals page</p>
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {allBlitzes.map((blitz) => {
-              const isSelected = selectedBlitzIds.includes(blitz.id);
-              const startDate = parseDateAsLocal(blitz.date);
-              const endDate = blitz.endDate ? parseDateAsLocal(blitz.endDate) : null;
-              const startLabel = startDate ? format(startDate, "MMM d") : "";
-              const endLabel = endDate ? format(endDate, "MMM d") : "";
-
-              return (
-                <button
-                  key={blitz.id}
-                  type="button"
-                  onClick={() => toggleBlitzSelection(blitz.id)}
-                  className={cn(
-                    "w-full p-4 rounded-xl border text-left transition-all duration-150 active:scale-[0.98]",
-                    isSelected
-                      ? "border-primary bg-primary/10 ring-2 ring-primary"
-                      : "border-border"
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      checked={isSelected}
-                      className="mt-0.5 pointer-events-none"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">{blitz.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {startLabel}
-                        {blitz.endDate && endLabel && ` - ${endLabel}`}
-                      </p>
-                      {blitz.location && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                          <MapPin className="h-3 w-3" />
-                          {blitz.location}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {selectedBlitzIds.length > 0 && (
-          <div className="rounded-xl bg-primary/10 p-4 text-center">
-            <p className="font-semibold text-primary">
-              {selectedBlitzIds.length} blitz{selectedBlitzIds.length !== 1 ? 'es' : ''} selected
-            </p>
-          </div>
-        )}
-
-        <p className="text-xs text-muted-foreground text-center">
-          You can change your blitz commitments anytime from the Goals page
+  // ===== PRESEASON GOAL =====
+  const renderPreseasonGoal = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-6">
+        <Target className="h-12 w-12 mx-auto text-blue-500 mb-3" />
+        <p className="text-muted-foreground">
+          How much do you want to sell before summer?
         </p>
       </div>
+
+      <div className="rounded-xl bg-blue-500/10 p-4 border border-blue-500/20">
+        <div className="flex items-center gap-2 mb-3">
+          <Target className="h-4 w-4 text-blue-500" />
+          <span className="font-semibold text-blue-500">Preseason {metricLabel} Goal</span>
+        </div>
+        <Input
+          type="text"
+          inputMode="numeric"
+          value={preseasonFpGoal}
+          onChange={(e) => handleNumberInput(e.target.value, setPreseasonFpGoal)}
+          placeholder="5"
+          className="bg-background/50 text-xl font-semibold text-center"
+        />
+        <p className="text-xs text-muted-foreground mt-3 text-center">
+          We recommend at least <span className="font-semibold text-blue-500">5 {metricLabel}</span> before the summer starts
+        </p>
+      </div>
+
+      <div className="text-center text-sm text-muted-foreground">
+        <p>Hitting your preseason goal helps you:</p>
+        <ul className="mt-2 space-y-1">
+          <li>• Build confidence before summer</li>
+          <li>• Practice your pitch on real doors</li>
+          <li>• Get comfortable with the sales process</li>
+        </ul>
+      </div>
+    </div>
+  );
+
+  // ===== PRESEASON COMMITMENTS (NEW) =====
+  const renderPreseasonCommitments = () => {
+    const CommitmentStepper = ({ 
+      icon: Icon, 
+      label, 
+      sublabel,
+      value, 
+      onChange, 
+      min = 0,
+      max = 20,
+      color = "text-primary"
+    }: { 
+      icon: any; 
+      label: string; 
+      sublabel: string;
+      value: number; 
+      onChange: (v: number) => void; 
+      min?: number;
+      max?: number;
+      color?: string;
+    }) => (
+      <div className="rounded-xl border p-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className={cn("p-2 rounded-lg bg-muted")}>
+            <Icon className={cn("h-5 w-5", color)} />
+          </div>
+          <div>
+            <p className="font-medium text-sm">{label}</p>
+            <p className="text-xs text-muted-foreground">{sublabel}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => onChange(Math.max(min, value - 1))}
+            disabled={value <= min}
+          >
+            <Minus className="h-4 w-4" />
+          </Button>
+          <span className="w-8 text-center font-bold text-lg">{value}</span>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => onChange(Math.min(max, value + 1))}
+            disabled={value >= max}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="space-y-6">
+        <div className="text-center mb-4">
+          <Target className="h-12 w-12 mx-auto text-primary mb-3" />
+          <p className="text-muted-foreground">
+            Set your preseason standards
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            These are your commitments before summer starts. We'll remind you to keep them.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <CommitmentStepper
+            icon={BookOpen}
+            label="Books to Read"
+            sublabel="Sales & personal dev books"
+            value={booksGoal}
+            onChange={setBooksGoal}
+            color="text-amber-500"
+          />
+          <CommitmentStepper
+            icon={Timer}
+            label="Training Hours / Week"
+            sublabel="Self-study & practice time"
+            value={trainingHoursGoal}
+            onChange={setTrainingHoursGoal}
+            color="text-blue-500"
+          />
+          <CommitmentStepper
+            icon={Dumbbell}
+            label="Role Plays"
+            sublabel="Practice pitches with others"
+            value={rolePlaysGoal}
+            onChange={setRolePlaysGoal}
+            color="text-emerald-500"
+          />
+          <CommitmentStepper
+            icon={Phone}
+            label="MNL Sessions"
+            sublabel="Monday Night Lights calls"
+            value={mnlGoal}
+            onChange={setMnlGoal}
+            color="text-purple-500"
+          />
+        </div>
+      </div>
     );
   };
 
+  // ===== BLITZ COMMITMENT =====
+  const renderBlitzCommitment = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-6">
+        <MapPin className="h-12 w-12 mx-auto text-primary mb-3" />
+        <p className="text-muted-foreground">
+          Which blitzes will you attend?
+        </p>
+      </div>
+
+      {blitzesLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : allBlitzes.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <p>No upcoming blitzes available</p>
+          <p className="text-sm mt-1">You can commit to blitzes later from the Goals page</p>
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+          {allBlitzes.map((blitz) => {
+            const isSelected = selectedBlitzIds.includes(blitz.id);
+            const startDate = parseDateAsLocal(blitz.date);
+            const endDate = blitz.endDate ? parseDateAsLocal(blitz.endDate) : null;
+            const startLabel = startDate ? format(startDate, "MMM d") : "";
+            const endLabel = endDate ? format(endDate, "MMM d") : "";
+
+            return (
+              <button
+                key={blitz.id}
+                type="button"
+                onClick={() => toggleBlitzSelection(blitz.id)}
+                className={cn(
+                  "w-full p-4 rounded-xl border text-left transition-all duration-150 active:scale-[0.98]",
+                  isSelected
+                    ? "border-primary bg-primary/10 ring-2 ring-primary"
+                    : "border-border"
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    checked={isSelected}
+                    className="mt-0.5 pointer-events-none"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{blitz.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {startLabel}
+                      {blitz.endDate && endLabel && ` - ${endLabel}`}
+                    </p>
+                    {blitz.location && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                        <MapPin className="h-3 w-3" />
+                        {blitz.location}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {selectedBlitzIds.length > 0 && (
+        <div className="rounded-xl bg-primary/10 p-4 text-center">
+          <p className="font-semibold text-primary">
+            {selectedBlitzIds.length} blitz{selectedBlitzIds.length !== 1 ? 'es' : ''} selected
+          </p>
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground text-center">
+        You can change your blitz commitments anytime from the Goals page
+      </p>
+    </div>
+  );
+
+  // ===== REVIEW =====
   const renderReview = () => {
     const mustDoResult = calculateTakeHome({ 
       fpGoal: mustDoFpGoal, 
@@ -713,8 +849,18 @@ export const GoalSetupWizard = ({
           </p>
         </div>
 
+        {/* WHY statement for rookies */}
+        {isRookie && purposeStatement && (
+          <div className="rounded-xl bg-primary/5 border border-primary/20 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Heart className="h-4 w-4 text-primary" />
+              <span className="font-semibold text-primary text-sm">Your Why</span>
+            </div>
+            <p className="text-sm italic text-muted-foreground">"{purposeStatement}"</p>
+          </div>
+        )}
+
         <div className="space-y-3">
-          {/* Show preseason goal if not currently summer */}
           {!isCurrentlySummer && preseasonFpGoal && (
             <div className="rounded-xl bg-blue-500/10 p-4 flex items-center justify-between">
               <div>
@@ -756,7 +902,32 @@ export const GoalSetupWizard = ({
           )}
         </div>
 
-        {/* Show committed blitzes for rookies */}
+        {/* Preseason commitments summary */}
+        {isRookie && !isCurrentlySummer && (
+          <div className="rounded-xl bg-muted/50 p-4 border">
+            <p className="font-semibold text-sm mb-3">Preseason Commitments</p>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-amber-500" />
+                <span>{booksGoal} books</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Timer className="h-4 w-4 text-blue-500" />
+                <span>{trainingHoursGoal} hrs/wk training</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Dumbbell className="h-4 w-4 text-emerald-500" />
+                <span>{rolePlaysGoal} role plays</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-purple-500" />
+                <span>{mnlGoal} MNL sessions</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Committed blitzes for rookies */}
         {isRookie && selectedBlitzIds.length > 0 && (
           <div className="rounded-xl bg-blue-500/10 p-4 border border-blue-500/20">
             <div className="flex items-center gap-2 mb-2">
@@ -796,7 +967,6 @@ export const GoalSetupWizard = ({
             Step {step} of {totalSteps}
           </span>
         </div>
-        {/* Progress dots */}
         <div className="flex gap-2">
           {Array.from({ length: totalSteps }).map((_, i) => (
             <div

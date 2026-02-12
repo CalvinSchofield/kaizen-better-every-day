@@ -307,8 +307,6 @@ export const useRepGoals = () => {
     onSuccess: () => {
       hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
-      // Also invalidate leaderboard so it updates immediately
-      queryClient.invalidateQueries({ queryKey: ['preseason-prep-leaderboard-weekly'] });
     },
   });
 

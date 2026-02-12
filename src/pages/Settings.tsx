@@ -262,7 +262,6 @@ export default function Settings() {
 
   const handlePhotoUpdate = (_url: string | null) => {
     queryClient.invalidateQueries({ queryKey: ['rep-data'] });
-    queryClient.invalidateQueries({ queryKey: ['preseason-prep-leaderboard'] });
     queryClient.invalidateQueries({ queryKey: ['rookie-of-week'] });
   };
 

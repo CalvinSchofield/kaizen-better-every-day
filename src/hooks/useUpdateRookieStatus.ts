@@ -155,7 +155,6 @@ export const useUpdateRookieStatus = () => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'], exact: false });
-      queryClient.invalidateQueries({ queryKey: ['leader-preseason-prep-leaderboard-weekly'], exact: false });
     },
     onError: (error, variables) => {
       console.error('Failed to update rookie status:', error);
