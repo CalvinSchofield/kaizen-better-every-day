@@ -159,7 +159,7 @@ export const CommitmentsTracker = ({
 
   // Get committed blitzes
   const committedBlitzes = useMemo(() => {
-    return (repData?.committed_blitzes as CommittedBlitz[]) || [];
+    return (repData?.committed_blitzes as unknown as CommittedBlitz[]) || [];
   }, [repData?.committed_blitzes]);
 
   // Separate past blitzes (already attended) from future ones
