@@ -40,9 +40,9 @@ export interface SalesPaceInput {
   calculateEfp: (prmr: number) => number;
   activeTier?: 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
   personalSummerStart?: string | null;
-  // Optional: latest finalized entry date - if provided, use this as "through date" instead of today
-  // This allows calculations to update immediately when user saves, not wait for calendar rollover
   latestFinalizedDate?: string | null;
+  // When true, knocking days baseline is unknown - use catch-up pace calculation
+  knockingDaysUnknown?: boolean;
 }
 
 /**
@@ -71,6 +71,7 @@ export function calculateSalesPace(input: SalesPaceInput): SalesPaceResult | nul
     activeTier,
     personalSummerStart,
     latestFinalizedDate,
+    knockingDaysUnknown,
   } = input;
 
   if (!goals?.setup_complete) return null;
@@ -130,28 +131,35 @@ export function calculateSalesPace(input: SalesPaceInput): SalesPaceResult | nul
   // Total days = knocking days already done + future planned
   const totalDays = knockingDays + futurePlannedDays;
   
-  if (totalDays <= 0) return null;
-  
-  // Daily goal = funded goal / total days
-  const dailyGoal = fundedGoal / totalDays;
+  if (totalDays <= 0 && futurePlannedDays <= 0) return null;
   
   // Calculate current progress based on mode
-  // In EFP mode: progress is EFP (total PRMR / 85)
-  // In FP+ mode: progress is FP+
   const currentProgress = efpModeEnabled ? calculateEfp(currentPrmr) : currentFpPlus;
   
-  // Expected progress at this point = daily goal × knocking days completed
-  const expectedAtThisPoint = dailyGoal * knockingDays;
+  let dailyGoal: number;
+  let expectedAtThisPoint: number;
+  
+  if (knockingDaysUnknown) {
+    // When knocking days baseline is unknown, use catch-up pace:
+    // dailyGoal = remaining / futurePlannedDays
+    const remaining = Math.max(0, fundedGoal - currentProgress);
+    dailyGoal = futurePlannedDays > 0 ? remaining / futurePlannedDays : 0;
+    expectedAtThisPoint = currentProgress; // No meaningful "expected" without baseline days
+  } else {
+    if (totalDays <= 0) return null;
+    // Standard pace: Daily goal = funded goal / total days
+    dailyGoal = fundedGoal / totalDays;
+    // Expected progress at this point = daily goal × knocking days completed
+    expectedAtThisPoint = dailyGoal * knockingDays;
+  }
   
   // Pace variance = actual - expected
   const paceVariance = currentProgress - expectedAtThisPoint;
   
   // Remaining needed = (funded goal - current progress) / remaining days
   const remaining = Math.max(0, fundedGoal - currentProgress);
-  // If through date is before today, include days from through date to today in remaining
-  // Otherwise just future planned days (through date == today means today is done)
   const daysAfterThrough = throughDateStr < todayStr 
-    ? futurePlannedDays + 1 // +1 for today since it's not done yet
+    ? futurePlannedDays + 1
     : futurePlannedDays;
   const remainingDailyNeeded = daysAfterThrough > 0 ? remaining / daysAfterThrough : 0;
   

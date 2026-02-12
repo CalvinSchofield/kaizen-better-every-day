@@ -14,7 +14,7 @@ export interface EffectiveFPResult {
   // Official baseline
   officialFp: number;
   officialPrmr: number;
-  officialKnockingDays: number;
+  officialKnockingDays: number | null; // null = unknown baseline
   
   // Tracked since last verification
   trackedFpSinceVerification: number;
@@ -25,15 +25,20 @@ export interface EffectiveFPResult {
   totalTrackedFp: number;
   totalTrackedPrmr: number;
   totalTrackedKnockingDays: number;
+  totalTrackedFpSold: number; // Count of type==='fp' sales (families protected)
   
   // Discrepancy info
   hasDiscrepancy: boolean;
   discrepancyAmount: number; // positive = untracked sales, negative = over-tracked
   
+  // Knocking days status
+  knockingDaysUnknown: boolean; // true when official knocking_days is null
+  
   // Status
   lastVerifiedAt: string | null;
   daysSinceVerification: number | null;
   needsVerification: boolean;
+  needsBiweeklySync: boolean; // true when biweekly sync window is open
   hasOfficialTotals: boolean;
 }
 
@@ -78,6 +83,7 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
       let totalTrackedFp = 0;
       let totalTrackedPrmr = 0;
       let totalTrackedKnockingDays = 0;
+      let totalTrackedFpSold = 0; // Count of type==='fp' sales (families protected)
 
       // Calculate tracked values since last verification
       let trackedFpSinceVerification = 0;
@@ -93,10 +99,15 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
         const hasSalesLog = salesLog && salesLog.length > 0;
         let fp: number;
         let prmr: number;
+        let fpSoldCount = 0;
         if (hasSalesLog) {
           const calculated = calculateFromSalesLog(salesLog);
           fp = calculated.fp;
           prmr = calculated.prmr;
+          // Count FP sold (type === 'fp', excluding never_installed)
+          fpSoldCount = salesLog.filter((s: any) => 
+            s.type === 'fp' && s.install_status !== 'never_installed'
+          ).length;
         } else {
           fp = entry.fp_plus || 0;
           prmr = entry.prmr || 0;
@@ -106,6 +117,7 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
 
         totalTrackedFp += fp;
         totalTrackedPrmr += prmr;
+        totalTrackedFpSold += fpSoldCount;
         if (isKnocking) totalTrackedKnockingDays++;
 
         // Only count entries after verification date
@@ -119,7 +131,7 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
       // Get official baseline (or 0 if not set)
       const officialFp = officialTotals?.fp_plus || 0;
       const officialPrmr = officialTotals?.prmr || 0;
-      const officialKnockingDays = officialTotals?.knocking_days || 0;
+      const officialKnockingDays: number | null = officialTotals?.knocking_days ?? null;
 
       // Calculate effective totals
       // If we have official totals, use: official + tracked since verification
@@ -134,8 +146,10 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
         ? officialPrmr + trackedPrmrSinceVerification
         : totalTrackedPrmr;
       
+      // When official knocking days is null (unknown), only use tracked since verification
+      const knockingDaysUnknown = hasOfficialTotals && officialKnockingDays === null;
       const effectiveKnockingDays = hasOfficialTotals
-        ? officialKnockingDays + trackedKnockingDaysSinceVerification
+        ? (officialKnockingDays ?? 0) + trackedKnockingDaysSinceVerification
         : totalTrackedKnockingDays;
 
       // Calculate discrepancy (if official is set)
@@ -154,8 +168,21 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
         );
       }
 
-      // Needs verification if: no official totals, OR > 7 days since last verification
-      const needsVerification = !hasOfficialTotals || (daysSinceVerification !== null && daysSinceVerification > 7);
+      // Biweekly sync check: anchored to epoch Sunday (Sept 28, 2025)
+      // Every other Sunday at 6am local time, sync is required
+      const EPOCH_SUNDAY = new Date('2025-09-28T00:00:00');
+      const now = new Date();
+      const daysSinceEpoch = Math.floor((now.getTime() - EPOCH_SUNDAY.getTime()) / (1000 * 60 * 60 * 24));
+      const weeksSinceEpoch = Math.floor(daysSinceEpoch / 7);
+      const isSyncWeek = weeksSinceEpoch % 2 === 0;
+      
+      // Check if last_verified_at is within the current sync window (last 13 days)
+      const syncWindowDays = 13;
+      const isRecentlyVerified = daysSinceVerification !== null && daysSinceVerification <= syncWindowDays;
+      const needsBiweeklySync = hasOfficialTotals && isSyncWeek && !isRecentlyVerified;
+
+      // Needs verification if: no official totals, OR biweekly sync is due
+      const needsVerification = !hasOfficialTotals || needsBiweeklySync;
 
       return {
         effectiveFp,
@@ -170,11 +197,14 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
         totalTrackedFp,
         totalTrackedPrmr,
         totalTrackedKnockingDays,
+        totalTrackedFpSold,
         hasDiscrepancy,
         discrepancyAmount,
+        knockingDaysUnknown,
         lastVerifiedAt,
         daysSinceVerification,
         needsVerification,
+        needsBiweeklySync,
         hasOfficialTotals,
       };
     },

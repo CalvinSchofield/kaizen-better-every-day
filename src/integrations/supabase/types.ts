@@ -968,6 +968,7 @@ export type Database = {
           baseline_spent: number | null
           created_at: string | null
           fp_plus: number | null
+          fp_sold: number | null
           id: string
           knocking_days: number | null
           last_verified_at: string | null
@@ -983,6 +984,7 @@ export type Database = {
           baseline_spent?: number | null
           created_at?: string | null
           fp_plus?: number | null
+          fp_sold?: number | null
           id?: string
           knocking_days?: number | null
           last_verified_at?: string | null
@@ -998,6 +1000,7 @@ export type Database = {
           baseline_spent?: number | null
           created_at?: string | null
           fp_plus?: number | null
+          fp_sold?: number | null
           id?: string
           knocking_days?: number | null
           last_verified_at?: string | null
