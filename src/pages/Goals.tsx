@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Lock, SlidersHorizontal, ChevronDown, ArrowLeft, Loader2, Check, BookOpen, Timer, Dumbbell, Phone, Target } from "lucide-react";
+import { Lock, SlidersHorizontal, ChevronDown, ArrowLeft, Loader2, Check } from "lucide-react";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -21,6 +21,8 @@ import { CalendarPlanningPreview } from "@/components/goals/CalendarPlanningPrev
 import { CanceledStatsCard } from "@/components/goals/CanceledStatsCard";
 import { CancelRateDrawer } from "@/components/goals/CancelRateDrawer";
 import { EarningsBreakdownCard } from "@/components/goals/EarningsBreakdownCard";
+import { PreseasonCommitmentsCard } from "@/components/goals/PreseasonCommitmentsCard";
+import { useSyncedWeeklyLogs } from "@/hooks/useSyncedWeeklyLogs";
 
 import { CatchUpWizard } from "@/components/catchup/CatchUpWizard";
 import { SyncDiscrepancyIndicator } from "@/components/catchup/SyncDiscrepancyIndicator";
@@ -76,6 +78,7 @@ const Goals = () => {
   const { plannedDays } = usePlannedDays();
   const { entry: todayEntry } = useDailyEntry();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
+  const { incrementRolePlays } = useSyncedWeeklyLogs();
   const queryClient = useQueryClient();
   const { toast: toastHook } = useToast();
   
@@ -814,7 +817,7 @@ const Goals = () => {
           />
         </motion.div>
 
-        {/* Read-only Preseason Commitments Card - ONLY show during preseason */}
+        {/* Interactive Preseason Commitments Card - ONLY show during preseason */}
         {!isUserSummerStarted && isRookie && (
           <motion.div 
             id="goals-preseason-commitments"
@@ -823,30 +826,10 @@ const Goals = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <div className="rounded-xl border bg-muted/20 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Target className="h-4 w-4 text-primary" />
-                <span className="font-semibold text-sm">Your Preseason Commitments</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <BookOpen className="h-4 w-4 text-amber-500" />
-                  <span>{goals.books_goal || 0} books</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Timer className="h-4 w-4 text-blue-500" />
-                  <span>{goals.training_hours_goal || 0} hrs/wk</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Dumbbell className="h-4 w-4 text-emerald-500" />
-                  <span>{goals.role_plays_goal || 0} role plays</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="h-4 w-4 text-purple-500" />
-                  <span>{goals.monday_night_lights_goal || 0} MNL</span>
-                </div>
-              </div>
-            </div>
+            <PreseasonCommitmentsCard 
+              goals={goals}
+              onIncrementRolePlays={incrementRolePlays}
+            />
           </motion.div>
         )}
 
