@@ -25,7 +25,7 @@ export const usePageTour = ({ page, enabled = true, delay = 600 }: UsePageTourOp
   const [isReady, setIsReady] = useState(false);
 
   // Check if this page tour has been completed
-  const pagesToured: string[] = Array.isArray(repData?.pages_toured) ? repData.pages_toured : [];
+  const pagesToured: string[] = Array.isArray(repData?.pages_toured) ? (repData.pages_toured as unknown as string[]) : [];
   const hasCompletedTour = pagesToured.includes(page);
 
   // Trigger tour after delay if not completed

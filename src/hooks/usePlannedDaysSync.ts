@@ -125,7 +125,7 @@ export const usePlannedDaysSync = () => {
   // Get committed blitzes directly from rep data
   const committedBlitzes = useMemo(() => {
     if (!repData?.committed_blitzes) return [];
-    const blitzes = repData.committed_blitzes as CommittedBlitz[];
+    const blitzes = repData.committed_blitzes as unknown as CommittedBlitz[];
     return Array.isArray(blitzes) ? blitzes.filter(b => b && b.date) : [];
   }, [repData?.committed_blitzes]);
   
