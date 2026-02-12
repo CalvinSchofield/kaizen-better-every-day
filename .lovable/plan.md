@@ -1,92 +1,86 @@
 
 
-# Season Heatmap: GitHub-Style Production Calendar
+# Updated Biweekly Sync Gate -- Knocking Days Handling
 
-## Overview
-Replace the current single-month mini calendar inside the `CalendarPlanningPreview` card with a full-season GitHub-style contribution heatmap. This gives reps an instant visual of their entire season's production -- when they were hot, cold, or resting -- all in one glance.
+## The Change
 
-## How It Works
+Step 5 (Knocking Days) in the sync flow needs special treatment because the rep may not know how many days they've actually worked. Unlike FP+, FP Sold, and PRMR which are clearly shown on Curator, knocking days is something the rep either knows from personal tracking or doesn't.
 
-The heatmap spans from **Season Start (Sept 28, 2025)** to **Season End (Sept 27, 2026)**, laid out as a grid of small squares organized by week (columns) and day-of-week (rows), exactly like the GitHub contribution graph.
+## Updated Step 5: Knocking Days
 
-### Color Logic
-Each day's square color is determined by comparing that day's actual production (FP+ or EFP) against the **pace target for that date's season context**:
+The step presents **three options** instead of two:
 
-- **Preseason dates** (before personal summer start): compared against preseason daily pace
-- **Summer dates** (after personal summer start): compared against the focused tier's (Must/Will/Could Do) summer daily pace
+1. **"Use tracked: 15 days"** -- prefills with the app's tracked knocking days count (same as other metrics)
+2. **"Enter total days worked"** -- reveals a number input for manual entry
+3. **"I'm not sure"** -- skips this metric with a clear explanation of the consequence
 
-Color scale (5 levels):
-1. **White/empty** -- future planned work day (no data yet)
-2. **Gray** -- off day (not planned, Sunday, or excluded)
-3. **Light green** -- worked but below daily target
-4. **Medium green** -- hit or slightly exceeded daily target (100-149%)
-5. **Dark green** -- crushed it (150%+ of daily target)
+### When "I'm not sure" is Selected
 
-### Special States
-- **Today**: ring/border indicator
-- **Future off days**: subtle gray background
-- **Future work days**: white/empty (ready to be filled)
+- We store `knocking_days = NULL` (or a sentinel value like `-1`) in `official_totals` to indicate "unknown baseline"
+- A brief explanation appears: "No problem -- we'll calculate your pace based on the days you track going forward. The more days you log, the more accurate your pace gets."
+- The pace calculator (`salesPaceCalculator.ts`) must handle this case:
+  - Instead of using `officialKnockingDays + trackedKnockingDaysSinceVerification`, it uses **only** `trackedKnockingDaysSinceVerification` (days tracked since this sync point)
+  - `totalDays = trackedKnockingDaysSinceVerification + futurePlannedDays`
+  - This means pace is calculated purely on "going forward" data
 
-### Month Labels
-Month abbreviations run along the top, aligned to the first week column that starts each month.
+### How This Affects Pace Calculation
 
-## Component Architecture
-
-### New Component: `SeasonHeatmap.tsx`
-A standalone, reusable component in `src/components/goals/` that:
-- Accepts season start/end dates, daily entries, planned days, off days, daily pace targets (preseason + summer per tier), and the focused tier
-- Generates a week-column x 7-row grid from season start to season end
-- Calculates intensity per cell based on production vs. pace
-- Renders compact squares with appropriate colors
-- Horizontally scrollable on mobile with month labels fixed at top
-- Shows a tooltip or small overlay on tap with that day's stats (FP+ produced, target, date)
-
-### Modified: `CalendarPlanningPreview.tsx`
-- Remove the existing single-month mini calendar grid
-- Insert the new `SeasonHeatmap` component in its place
-- Keep the collapsible card structure, header, hero weekly stat, What-If CTA, and "Plan Days on Calendar" button exactly as they are
-- Pass required data: all daily entries for the season range, planned days, season config dates, pace targets, active tier
-
-### Data Requirements
-- **Daily entries**: query all entries from season start (2025-09-28) to today (already available via `all-daily-entries` query pattern)
-- **Planned work days**: already available via `usePlannedDays` hook
-- **Season config**: already fetched (personal_summer_start, personal_summer_end, excluded_summer_days)
-- **Pace targets**: calculated from existing goals data (preseason daily goal + summer tier daily goals)
-
-## Technical Details
-
-### Heatmap Grid Generation
-```
-For each week from season start to season end:
-  For each day (Sun-Sat):
-    - Calculate the date
-    - Look up daily_entries for that date
-    - Determine if preseason or summer based on personal_summer_start
-    - Compare production to the appropriate daily pace target
-    - Assign intensity level (0-4)
+Currently the pace formula is:
+```text
+totalDays = knockingDays (all worked) + futurePlannedDays
+dailyGoal = fundedGoal / totalDays
 ```
 
-### Responsive Design
-- The grid will be wrapped in a horizontally scrollable container on mobile
-- Each square will be approximately 10-12px with 2px gaps
-- ~52 weeks across fits well in a scrollable mobile view
-- Day-of-week labels (S, M, T, W, T, F, S) fixed on the left side
+With unknown baseline knocking days, this changes to:
+```text
+remainingGoal = fundedGoal - currentProgress (FP+ already done)
+remainingDays = trackedKnockingDaysSinceVerification + futurePlannedDays
+dailyGoal = remainingGoal / remainingDays (if remainingDays > 0)
+```
 
-### Color Palette (following existing design system)
-- Level 0 (no work / off): `bg-muted/30` (gray)
-- Level 1 (below pace): `bg-emerald-200 dark:bg-emerald-900`
-- Level 2 (near pace): `bg-emerald-400 dark:bg-emerald-700`
-- Level 3 (at/above pace): `bg-emerald-500 dark:bg-emerald-600`
-- Level 4 (crushed it): `bg-emerald-700 dark:bg-emerald-400`
-- Future planned: `bg-background` (white/dark surface)
-- Future off: `bg-muted/20`
+This is actually a **catch-up pace** since we don't know historical days -- but it's the most useful number for the rep because it tells them "given where you are now and how many days you have left, here's what you need per day."
 
-### Legend
-A small legend row below the heatmap: "Less" [gradient squares] "More" -- similar to GitHub's.
+### Subsequent Syncs
 
-### Files to Create
-- `src/components/goals/SeasonHeatmap.tsx`
+On the next biweekly sync (2 weeks later):
+- If they previously selected "I'm not sure," the tracked days since that sync point will now be known
+- The step will still show all three options, but the "Use tracked" option will now reflect the accurate count from the last 2 weeks
+- Over time, as syncs accumulate, the knocking days count becomes increasingly accurate
+
+## Technical Changes
 
 ### Files to Modify
-- `src/components/goals/CalendarPlanningPreview.tsx` -- swap mini calendar for SeasonHeatmap, fetch full-season daily entries instead of current-month-only
+
+**`src/hooks/useOfficialTotals.ts`**
+- Update `knocking_days` type to allow `null` to represent "unknown"
+- Adjust upsert logic to pass `null` when rep selects "I'm not sure"
+
+**`src/hooks/useEffectiveFP.ts`**
+- When `officialKnockingDays` is `null` (unknown), set `effectiveKnockingDays = trackedKnockingDaysSinceVerification` instead of `officialKnockingDays + trackedKnockingDaysSinceVerification`
+- Add a `knockingDaysUnknown: boolean` field to the result interface so downstream components can show contextual messaging
+
+**`src/utils/salesPaceCalculator.ts`**
+- When `knockingDays` is 0 and we detect the "unknown baseline" state, use the remaining-goal-based calculation
+- The input interface gains an optional `knockingDaysUnknown?: boolean` flag
+- When true: `dailyGoal = (fundedGoal - currentProgress) / futurePlannedDays`
+
+**`src/components/catchup/BiweeklySyncGate.tsx`** (new file from prior plan)
+- Step 5 renders three chip-style options instead of two
+- "I'm not sure" chip triggers a brief explanation and stores `null` for knocking days
+- Visual: the "I'm not sure" option is styled slightly differently (outline instead of filled) to subtly encourage entering a number while making it acceptable to skip
+
+### Database
+
+No schema change needed -- `knocking_days` in `official_totals` already allows `NULL` (it's `integer | null`).
+
+## Summary of All Sync Flow Steps (Final)
+
+1. **Open Curator** -- link + filter instructions
+2. **FP+** -- "Use tracked" or "Enter Vivint's number"
+3. **FP Sold** -- "Use tracked" or "Enter Vivint's number"
+4. **Total PRMR YTD** -- "Use tracked" or "Enter Vivint's number"
+5. **Knocking Days** -- "Use tracked" or "Enter total" or **"I'm not sure"** (skip allowed, pace adjusts)
+6. **Open Source Earnings** -- link + check for unfunded
+7. **Update CRM** -- mark unfunded/cancelled
+8. **Confirmation** -- summary + save
 
