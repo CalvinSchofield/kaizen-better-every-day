@@ -1,86 +1,116 @@
 
 
-# Updated Biweekly Sync Gate -- Knocking Days Handling
+# Fix: Initial Sync Gate + "Haven't Sold Yet" Opt-Out
 
-## The Change
+## Problems Found
 
-Step 5 (Knocking Days) in the sync flow needs special treatment because the rep may not know how many days they've actually worked. Unlike FP+, FP Sold, and PRMR which are clearly shown on Curator, knocking days is something the rep either knows from personal tracking or doesn't.
+The biweekly sync gate has a critical gap: it only activates when `hasOfficialTotals === true`. This means **no user ever sees the sync gate until they've already done an initial sync** -- but there's no mandatory initial sync in the flow. The CatchUpWizard exists as a drawer that opens from the "!" indicator, but it's completely optional and easy to miss.
 
-## Updated Step 5: Knocking Days
-
-The step presents **three options** instead of two:
-
-1. **"Use tracked: 15 days"** -- prefills with the app's tracked knocking days count (same as other metrics)
-2. **"Enter total days worked"** -- reveals a number input for manual entry
-3. **"I'm not sure"** -- skips this metric with a clear explanation of the consequence
-
-### When "I'm not sure" is Selected
-
-- We store `knocking_days = NULL` (or a sentinel value like `-1`) in `official_totals` to indicate "unknown baseline"
-- A brief explanation appears: "No problem -- we'll calculate your pace based on the days you track going forward. The more days you log, the more accurate your pace gets."
-- The pace calculator (`salesPaceCalculator.ts`) must handle this case:
-  - Instead of using `officialKnockingDays + trackedKnockingDaysSinceVerification`, it uses **only** `trackedKnockingDaysSinceVerification` (days tracked since this sync point)
-  - `totalDays = trackedKnockingDaysSinceVerification + futurePlannedDays`
-  - This means pace is calculated purely on "going forward" data
-
-### How This Affects Pace Calculation
-
-Currently the pace formula is:
+### Current Flow (Broken)
 ```text
-totalDays = knockingDays (all worked) + futurePlannedDays
-dailyGoal = fundedGoal / totalDays
+1. Loading/auth
+2. Goals access check (Ramp to Blitz gate)
+3. GoalSetupWizard (if no goals saved)
+4. BiweeklySyncGate (ONLY if hasOfficialTotals AND sync window open) -- NEVER fires for new users
+5. Normal goals content (with optional "!" indicator for sync)
 ```
 
-With unknown baseline knocking days, this changes to:
+### What Each User Type Actually Experiences
+
+| Scenario | What Happens | Problem |
+|---|---|---|
+| New rookie, no sales | Goals wizard -> goals page with all zeros | No way to say "I haven't sold yet" to opt out of sync |
+| Rookie, knocked but not tracked | Goals wizard -> goals page with 0 FP+ | Pace is wrong, no prompt to enter real Vivint numbers |
+| Rookie, tracked but inaccurate | Goals wizard -> goals page with wrong data | No verification against Vivint |
+| Soph/vet, no sales yet | Goals wizard -> goals page with zeros | Same -- no opt-out |
+| Soph/vet, sold a lot but not tracked | Goals wizard -> goals page showing 0 FP+ | Pace is catastrophically wrong |
+| Soph/vet, tracked but inaccurate | Goals wizard -> goals page with wrong data | No initial verification |
+
+## Solution: Two Changes
+
+### Change 1: Add Initial Sync Gate (right after goals wizard)
+
+After goals are saved but BEFORE showing goals content, add a **mandatory initial sync** that uses the same `BiweeklySyncGate` component. The gate condition on line 736 of `Goals.tsx` changes from:
+
 ```text
-remainingGoal = fundedGoal - currentProgress (FP+ already done)
-remainingDays = trackedKnockingDaysSinceVerification + futurePlannedDays
-dailyGoal = remainingGoal / remainingDays (if remainingDays > 0)
+BEFORE: needsBiweeklySync && hasOfficialTotals
+AFTER:  needsBiweeklySync || !hasOfficialTotals (when goals are set up)
 ```
 
-This is actually a **catch-up pace** since we don't know historical days -- but it's the most useful number for the rep because it tells them "given where you are now and how many days you have left, here's what you need per day."
+This means:
+- First time after goals setup: `hasOfficialTotals = false` -- gate fires as "initial sync"
+- Every other Sunday after that: `needsBiweeklySync = true` -- gate fires as "biweekly sync"
 
-### Subsequent Syncs
+The intro screen messaging should adapt:
+- **Initial sync**: "Before we show your pace, let's sync with Vivint to make sure we're starting from the right place"
+- **Biweekly sync**: "Time to sync your numbers" (current messaging)
 
-On the next biweekly sync (2 weeks later):
-- If they previously selected "I'm not sure," the tracked days since that sync point will now be known
-- The step will still show all three options, but the "Use tracked" option will now reflect the accurate count from the last 2 weeks
-- Over time, as syncs accumulate, the knocking days count becomes increasingly accurate
+### Change 2: Add "I haven't sold yet" Option
+
+On the intro/landing screen of the sync gate, add a third path for users who genuinely have no sales:
+
+- **"Let's go"** -- starts the 8-step flow (existing)
+- **"I haven't sold yet"** -- creates an official_totals record with all zeros (fp_plus=0, fp_sold=0, prmr=0) and stamps `last_verified_at`, effectively saying "my baseline is zero, track everything going forward"
+
+This option:
+- Should be available to ALL user types (rookie, sophomore, vet) -- early-season vets may not have sold yet
+- Only shows on the **initial sync** (not biweekly syncs, since by then they should have data)
+- Sets `hasOfficialTotals = true` with zeros, so future biweekly syncs work correctly
+- Knocking days should be set to 0 (not null) since if they haven't sold, they haven't knocked
 
 ## Technical Changes
 
-### Files to Modify
+### File: `src/pages/Goals.tsx` (line 736)
 
-**`src/hooks/useOfficialTotals.ts`**
-- Update `knocking_days` type to allow `null` to represent "unknown"
-- Adjust upsert logic to pass `null` when rep selects "I'm not sure"
+Update the gate condition:
 
-**`src/hooks/useEffectiveFP.ts`**
-- When `officialKnockingDays` is `null` (unknown), set `effectiveKnockingDays = trackedKnockingDaysSinceVerification` instead of `officialKnockingDays + trackedKnockingDaysSinceVerification`
-- Add a `knockingDaysUnknown: boolean` field to the result interface so downstream components can show contextual messaging
+```typescript
+// Show sync gate if:
+// 1. Initial setup needed (goals done but no official totals yet), OR
+// 2. Biweekly sync window is open
+const needsInitialSync = effectiveFPData && !effectiveFPData.hasOfficialTotals;
+const needsBiweekly = effectiveFPData?.needsBiweeklySync && effectiveFPData?.hasOfficialTotals;
 
-**`src/utils/salesPaceCalculator.ts`**
-- When `knockingDays` is 0 and we detect the "unknown baseline" state, use the remaining-goal-based calculation
-- The input interface gains an optional `knockingDaysUnknown?: boolean` flag
-- When true: `dailyGoal = (fundedGoal - currentProgress) / futurePlannedDays`
+if (needsInitialSync || needsBiweekly) {
+  return (
+    <Layout>
+      <BiweeklySyncGate
+        seasonType="preseason"
+        effectiveData={effectiveFPData}
+        isInitialSync={!!needsInitialSync}
+        onComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ['effective-fp'] });
+          queryClient.invalidateQueries({ queryKey: ['official-totals'] });
+        }}
+      />
+    </Layout>
+  );
+}
+```
 
-**`src/components/catchup/BiweeklySyncGate.tsx`** (new file from prior plan)
-- Step 5 renders three chip-style options instead of two
-- "I'm not sure" chip triggers a brief explanation and stores `null` for knocking days
-- Visual: the "I'm not sure" option is styled slightly differently (outline instead of filled) to subtly encourage entering a number while making it acceptable to skip
+### File: `src/components/catchup/BiweeklySyncGate.tsx`
 
-### Database
+1. Add `isInitialSync` prop to the interface
+2. Update intro screen:
+   - When `isInitialSync`: show "Let's sync with Vivint" messaging + "I haven't sold yet" button
+   - When biweekly: show current "Time to sync your numbers" messaging (no "haven't sold" option)
+3. "I haven't sold yet" handler: upserts official_totals with all zeros and calls `onComplete()`
 
-No schema change needed -- `knocking_days` in `official_totals` already allows `NULL` (it's `integer | null`).
+### File: `src/hooks/useEffectiveFP.ts`
 
-## Summary of All Sync Flow Steps (Final)
+The `needsVerification` field already covers the `!hasOfficialTotals` case (line 189: `const needsVerification = !hasOfficialTotals || needsBiweeklySync`). No change needed here -- the issue was only in `Goals.tsx` using `needsBiweeklySync` instead of `needsVerification`.
 
-1. **Open Curator** -- link + filter instructions
-2. **FP+** -- "Use tracked" or "Enter Vivint's number"
-3. **FP Sold** -- "Use tracked" or "Enter Vivint's number"
-4. **Total PRMR YTD** -- "Use tracked" or "Enter Vivint's number"
-5. **Knocking Days** -- "Use tracked" or "Enter total" or **"I'm not sure"** (skip allowed, pace adjusts)
-6. **Open Source Earnings** -- link + check for unfunded
-7. **Update CRM** -- mark unfunded/cancelled
-8. **Confirmation** -- summary + save
+## Edge Cases to Consider
+
+1. **User completes goals wizard and immediately sees sync gate**: This is correct behavior. They need to establish a baseline. The flow should feel natural -- "Great, goals are set! Now let's make sure your starting numbers are right."
+
+2. **User selects "I haven't sold yet" but actually has tracked sales in the app**: The tracked values (totalTrackedFp etc.) will still be non-zero. After saving zeros as official, the `effectiveFp` will be `0 + trackedSinceVerification` which equals their tracked totals. This is actually correct -- their "official baseline" is 0 and everything tracked is additive.
+
+3. **Biweekly sync fires but user has 0 sales still**: The flow works fine -- they tap "Use tracked: 0.0 FP+" for each metric and proceed quickly.
+
+4. **User does initial sync, then tracks for 2 weeks, then biweekly sync fires**: Works correctly. The biweekly sync shows their tracked values vs. what Vivint has.
+
+5. **The `needsBiweeklySync` timing**: Currently checks `isSyncWeek` based on epoch. The initial sync has no timing restriction -- it fires immediately after goals are saved regardless of what week it is.
+
+6. **Season type**: Currently hardcoded to `'preseason'`. This should probably be dynamic based on whether the user's personal summer has started, but that's a separate concern from this fix.
 
