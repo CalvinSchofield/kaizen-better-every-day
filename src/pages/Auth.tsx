@@ -165,6 +165,63 @@ const Auth = () => {
           return;
         }
 
+        // Validate email domain to catch common typos
+        const emailDomain = email.split('@')[1]?.toLowerCase() || '';
+        const commonTLDTypos: Record<string, string> = {
+          'con': 'com', 'cmo': 'com', 'ocm': 'com', 'comm': 'com', 'co': 'com',
+          'nte': 'net', 'ent': 'net', 'nett': 'net',
+          'ogr': 'org', 'oeg': 'org',
+          'edu': null as unknown as string, // valid
+          'gmai.com': null as unknown as string, // catch missing 'l'
+        };
+        const tld = emailDomain.split('.').pop() || '';
+        const suggestedTLD = commonTLDTypos[tld];
+        
+        // Also check for common domain typos
+        const commonDomainTypos: Record<string, string> = {
+          'gmai.com': 'gmail.com', 'gmial.com': 'gmail.com', 'gamil.com': 'gmail.com',
+          'gmal.com': 'gmail.com', 'gmil.com': 'gmail.com', 'gmail.co': 'gmail.com',
+          'gmail.con': 'gmail.com', 'gmail.cmo': 'gmail.com',
+          'yahooo.com': 'yahoo.com', 'yaho.com': 'yahoo.com',
+          'hotmal.com': 'hotmail.com', 'hotmai.com': 'hotmail.com',
+          'outlok.com': 'outlook.com', 'outloo.com': 'outlook.com',
+          'icloud.con': 'icloud.com', 'icloud.cmo': 'icloud.com',
+        };
+        const suggestedDomain = commonDomainTypos[emailDomain];
+
+        if (suggestedDomain) {
+          const correctedEmail = email.split('@')[0] + '@' + suggestedDomain;
+          toast({
+            title: "Check your email",
+            description: `Did you mean ${correctedEmail}? "${emailDomain}" looks like a typo.`,
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        if (suggestedTLD) {
+          toast({
+            title: "Check your email",
+            description: `Your email ends in ".${tld}" — did you mean ".${suggestedTLD}"?`,
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Basic format validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+        if (!emailRegex.test(email)) {
+          toast({
+            title: "Invalid email",
+            description: "Please enter a valid email address.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
         const redirectUrl = `${window.location.origin}/`;
         const { error } = await supabase.auth.signUp({
           email,
