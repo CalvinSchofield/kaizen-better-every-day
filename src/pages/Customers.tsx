@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, List, Map, Users, ArrowUpDown, ChevronDown, Plus } from 'lucide-react';
+import { Search, List, Map, Users, ArrowUpDown, ChevronDown, Plus, Lock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,8 +11,10 @@ import { useEfpMode } from '@/hooks/useEfpMode';
 import { SaleDetailSheet } from '@/components/SaleDetailSheet';
 import { LogSaleSheet } from '@/components/LogSaleSheet';
 import { useRepData } from '@/hooks/useRepData';
+import { useRookieUnlockStatus } from '@/hooks/useRookieUnlockStatus';
 import { useAddSaleToEntry } from '@/hooks/useAddSaleToEntry';
 import { Sale } from '@/hooks/useDailyEntry';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,7 +54,38 @@ const Customers = () => {
   );
   const { efpModeEnabled } = useEfpMode();
   const { repData } = useRepData();
+  const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
   const { addSale, isAddingSale } = useAddSaleToEntry();
+
+  if (isPreBlitzRookie) {
+    return (
+      <div className="min-h-screen bg-background p-4 pb-24 flex items-center justify-center">
+        <Card className="w-full max-w-md border-border/40">
+          <CardContent className="pt-8 pb-8 text-center space-y-6">
+            <div className="flex justify-center">
+              <div className="relative">
+                <Users className="h-16 w-16 text-muted-foreground/40" />
+                <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1">
+                  <Lock className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-foreground">Customers Unlock After Your Shadow Day!</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Once you've completed your shadow day or started selling, you'll see all your customers and sales tracked here.
+              </p>
+            </div>
+            <div className="pt-2">
+              <p className="text-sm text-primary font-medium">
+                Your first customer is just around the corner! 💪
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleCardClick = (sale: CustomerSale) => {
     setSelectedSale(sale);

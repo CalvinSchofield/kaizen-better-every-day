@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, Plus, History } from "lucide-react";
+import { Trophy, Plus, History, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useIncentives } from "@/hooks/useIncentives";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useRepData } from "@/hooks/useRepData";
+import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { IncentiveCard } from "./IncentiveCard";
 import { CreateIncentiveDrawer } from "./CreateIncentiveDrawer";
 
@@ -16,8 +19,33 @@ export const IncentivesTab = () => {
   
   const { data: incentives, isLoading } = useIncentives(filter);
   const { data: teamAccess } = useTeamAccess();
+  const { repData } = useRepData();
+  const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
 
   const isLeader = teamAccess?.accessLevel !== 'none';
+
+  if (isPreBlitzRookie) {
+    return (
+      <Card className="w-full border-border/40">
+        <CardContent className="pt-8 pb-8 text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="relative">
+              <Trophy className="h-14 w-14 text-muted-foreground/40" />
+              <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1">
+                <Lock className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold text-foreground">Incentives Unlock After Your Shadow Day!</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Once you've completed your shadow day or started selling, you'll see leader incentives and compete for rewards.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const tabs: { key: FilterTab; label: string; icon: typeof Trophy }[] = [
     { key: 'active', label: 'Active', icon: Trophy },
