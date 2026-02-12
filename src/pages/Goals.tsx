@@ -743,6 +743,7 @@ const Goals = () => {
           seasonType="preseason"
           effectiveData={effectiveFPData!}
           isInitialSync={!!needsInitialSync}
+          isUserSummerStarted={isUserSummerStarted}
           onComplete={() => {
             queryClient.invalidateQueries({ queryKey: ['effective-fp'] });
             queryClient.invalidateQueries({ queryKey: ['official-totals'] });
