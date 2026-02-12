@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarDays, ChevronDown, ArrowRight, ChevronRight, Sparkles } from 'lucide-react';
 import { WhatIfScenarioDrawer } from './WhatIfScenarioDrawer';
+import { SeasonHeatmap, DailyEntry } from './SeasonHeatmap';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { hapticLight } from '@/utils/haptics';
@@ -15,10 +16,12 @@ import { useCurrentUserId } from '@/hooks/useCurrentUserId';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, parseISO, isBefore, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, isAfter } from 'date-fns';
+import { format, parseISO, isBefore, eachDayOfInterval, getDay, isAfter } from 'date-fns';
 
 const PRESEASON_END = '2026-04-11';
 const GLOBAL_SUMMER_START = '2026-04-12';
+const SEASON_START = '2025-09-28';
+const SEASON_END = '2026-09-27';
 
 interface CalendarPlanningPreviewProps {
   goals: any;
@@ -57,6 +60,24 @@ export const CalendarPlanningPreview = ({
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch ALL daily entries for the full season (for heatmap)
+  const { data: seasonEntries, isLoading: isLoadingEntries } = useQuery({
+    queryKey: ['season-heatmap-entries', userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data, error } = await supabase
+        .from('daily_entries')
+        .select('entry_date, fp_plus, prmr, is_finalized')
+        .eq('user_id', userId)
+        .gte('entry_date', SEASON_START)
+        .lte('entry_date', SEASON_END);
+      if (error) return [];
+      return (data || []) as DailyEntry[];
+    },
+    enabled: !!userId,
+    staleTime: 2 * 60 * 1000,
+  });
+
   const efpLabel = efpModeEnabled ? 'EFP' : 'FP+';
 
   const handleToggleOpen = useCallback(() => {
@@ -64,29 +85,7 @@ export const CalendarPlanningPreview = ({
     setIsOpen(prev => !prev);
   }, []);
 
-  // Fetch worked dates for the current month to show green dots
-  const { data: workedDates, isLoading: isLoadingWorked, isFetching: isFetchingWorked } = useQuery({
-    queryKey: ['calendar-preview-worked-dates', userId],
-    queryFn: async () => {
-      if (!userId) return new Set<string>();
-      const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
-      const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
-      const { data, error } = await supabase
-        .from('daily_entries')
-        .select('entry_date')
-        .eq('user_id', userId)
-        .eq('is_finalized', true)
-        .gte('entry_date', monthStart)
-        .lte('entry_date', monthEnd);
-      if (error) return new Set<string>();
-      return new Set((data || []).map(e => e.entry_date));
-    },
-    enabled: !!userId,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Show calendar skeleton while either planned days or worked dates are loading/refetching
-  const isCalendarLoading = isLoadingPlanned || isLoadingWorked || (isFetchingPlanned && !plannedDays) || (isFetchingWorked && !workedDates);
+  const isCalendarLoading = isLoadingPlanned || isLoadingEntries;
 
   // Compute stats with preseason vs summer split
   const stats = useMemo(() => {
@@ -95,10 +94,8 @@ export const CalendarPlanningPreview = ({
     const summerStart = parseISO(GLOBAL_SUMMER_START);
 
     const totalPlanned = plannedDays?.length || 0;
-
     const isPreseasonTier = activeTier === 'preseason';
 
-    // Get active goal
     const activeGoal = isPreseasonTier
       ? (goals?.preseason_fp_goal || 0)
       : activeTier === 'mustDo'
@@ -107,31 +104,25 @@ export const CalendarPlanningPreview = ({
           ? (goals?.will_do_fp_goal || 0)
           : (goals?.could_do_fp_goal || 0);
 
-    // Apply cancel buffer
     const cancelRate = goals?.cancel_rate || 0;
     const fundedGoalNeeded = cancelRate > 0 && cancelRate < 1
       ? activeGoal / (1 - cancelRate)
       : activeGoal;
 
-    // Daily average for forecasting
     const dailyAvg = knockingDays > 0 ? currentProgress / knockingDays : 0;
 
-    // Future preseason planned days
     const futurePreseasonPlanned = plannedDays?.filter(d => {
       const date = parseISO(d.planned_date);
       return date > today && !isAfter(date, preseasonEnd);
     }).length || 0;
 
-    // If no preseason days are explicitly planned, estimate remaining work days (Mon-Sat)
     const remainingPreseasonWorkDays = futurePreseasonPlanned > 0
       ? futurePreseasonPlanned
       : (() => {
           const days = eachDayOfInterval({ start: today, end: preseasonEnd });
-          // Exclude today (already counted in currentProgress) and Sundays
           return days.filter(d => d > today && getDay(d) !== 0).length;
         })();
 
-    // Forecasted preseason total
     const forecastedPreseasonTotal = currentProgress + (dailyAvg * remainingPreseasonWorkDays);
 
     let dailyNeeded: number;
@@ -149,7 +140,20 @@ export const CalendarPlanningPreview = ({
       dailyNeeded = futureSummerPlanned > 0 ? remainingForSummer / futureSummerPlanned : 0;
     }
 
-    const weeklyNeeded = Math.round(dailyNeeded * 6 * 10) / 10; // 6 work days per week
+    const weeklyNeeded = Math.round(dailyNeeded * 6 * 10) / 10;
+
+    // Pace targets for heatmap
+    const preseasonGoal = goals?.preseason_fp_goal || 0;
+    const preseasonDailyPace = remainingPreseasonWorkDays > 0 ? preseasonGoal / (knockingDays + remainingPreseasonWorkDays) : 0;
+    
+    const summerGoal = activeGoal;
+    const futureSummerPlannedAll = plannedDays?.filter(d => {
+      const date = parseISO(d.planned_date);
+      return !isBefore(date, summerStart);
+    }).length || 0;
+    const summerDailyPace = futureSummerPlannedAll > 0
+      ? Math.max(0, summerGoal - forecastedPreseasonTotal) / futureSummerPlannedAll
+      : dailyNeeded;
 
     return {
       totalPlanned,
@@ -157,37 +161,10 @@ export const CalendarPlanningPreview = ({
       dailyNeeded: Math.round(dailyNeeded * 10) / 10,
       weeklyNeeded,
       forecastedPreseasonTotal: Math.round(forecastedPreseasonTotal * 10) / 10,
+      preseasonDailyPace: Math.round(preseasonDailyPace * 10) / 10,
+      summerDailyPace: Math.round(summerDailyPace * 10) / 10,
     };
   }, [plannedDays, goals, activeTier, efpModeEnabled, knockingDays, currentProgress]);
-
-  // Mini calendar data for current month
-  const miniCalendarData = useMemo(() => {
-    const today = new Date();
-    const monthStart = startOfMonth(today);
-    const monthEnd = endOfMonth(today);
-    const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
-
-    return days.map(day => {
-      const dateStr = format(day, 'yyyy-MM-dd');
-      const isPlanned = plannedDays?.some(d => d.planned_date === dateStr) || false;
-      const workedSet = workedDates instanceof Set ? workedDates : new Set<string>();
-      const isWorked = workedSet.has(dateStr);
-      const isSunday = getDay(day) === 0;
-      return {
-        day: day.getDate(),
-        isPlanned,
-        isWorked,
-        isToday: isToday(day),
-        isSunday,
-        dayOfWeek: getDay(day),
-      };
-    });
-  }, [plannedDays, workedDates]);
-
-  // Offset for first day of month
-  const firstDayOffset = useMemo(() => {
-    return getDay(startOfMonth(new Date()));
-  }, []);
 
   return (
     <motion.div
@@ -277,70 +254,18 @@ export const CalendarPlanningPreview = ({
                       <ChevronRight className="w-4 h-4 text-primary" />
                     </div>
 
-                    {/* Mini month calendar strip */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="text-xs font-medium text-muted-foreground">
-                          {format(new Date(), 'MMMM yyyy')}
-                        </div>
-                        <div className="flex items-center gap-2 ml-auto">
-                          <div className="flex items-center gap-1">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                            <span className="text-[8px] text-muted-foreground">Worked</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <div className="w-2 h-2 rounded-full bg-primary/30" />
-                            <span className="text-[8px] text-muted-foreground">Planned</span>
-                          </div>
-                        </div>
-                      </div>
-                      {isCalendarLoading ? (
-                        <div className="grid grid-cols-7 gap-1">
-                          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                            <div key={i} className="text-center text-[9px] text-muted-foreground/60 font-medium">
-                              {d}
-                            </div>
-                          ))}
-                          {Array.from({ length: firstDayOffset }).map((_, i) => (
-                            <div key={`empty-${i}`} />
-                          ))}
-                          {Array.from({ length: miniCalendarData.length || 28 }).map((_, i) => (
-                            <div key={`skel-${i}`} className="aspect-square flex items-center justify-center">
-                              <Skeleton className="w-6 h-6 rounded-full" />
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-7 gap-1">
-                          {/* Day headers */}
-                          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                            <div key={i} className="text-center text-[9px] text-muted-foreground/60 font-medium">
-                              {d}
-                            </div>
-                          ))}
-                          {/* Empty cells for offset */}
-                          {Array.from({ length: firstDayOffset }).map((_, i) => (
-                            <div key={`empty-${i}`} />
-                          ))}
-                          {/* Day dots */}
-                          {miniCalendarData.map((d, i) => (
-                            <div
-                              key={i}
-                              className={cn(
-                                "aspect-square rounded-full flex items-center justify-center text-[8px] font-medium",
-                                d.isToday && "ring-1 ring-primary",
-                                d.isWorked && "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400",
-                                d.isPlanned && !d.isWorked && "bg-primary/20 text-primary",
-                                d.isSunday && !d.isPlanned && !d.isWorked && "text-muted-foreground/30",
-                                !d.isPlanned && !d.isWorked && !d.isSunday && "text-muted-foreground/60"
-                              )}
-                            >
-                              {d.day}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    {/* Season Heatmap */}
+                    <SeasonHeatmap
+                      dailyEntries={seasonEntries}
+                      plannedDays={plannedDays}
+                      excludedSummerDays={(seasonConfig?.excluded_summer_days as string[]) || []}
+                      personalSummerStart={seasonConfig?.personal_summer_start}
+                      personalSummerEnd={seasonConfig?.personal_summer_end}
+                      preseasonDailyPace={stats.preseasonDailyPace}
+                      summerDailyPace={stats.summerDailyPace}
+                      efpModeEnabled={efpModeEnabled}
+                      isLoading={isCalendarLoading}
+                    />
 
                     {/* Plan Days CTA */}
                     <Button
