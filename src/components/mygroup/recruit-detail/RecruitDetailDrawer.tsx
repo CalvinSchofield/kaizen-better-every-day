@@ -1149,6 +1149,8 @@ export const RecruitDetailDrawer = ({
                   onStageChange={handleStageChange}
                   stageShake={stageShake}
                   onDeleted={() => onOpenChange(false)}
+                  purposeStatement={recruitGoals?.purpose_statement}
+                  purposeUpdatedAt={recruitGoals?.purpose_updated_at}
                 />
               </TabsContent>
             </Tabs>

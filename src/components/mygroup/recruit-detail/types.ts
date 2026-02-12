@@ -38,6 +38,8 @@ export interface RecruitGoals {
   setup_complete?: boolean;
   focus_tier?: string;
   cancel_rate?: number;
+  purpose_statement?: string | null;
+  purpose_updated_at?: string | null;
 }
 
 export interface RecruitSummerConfig {

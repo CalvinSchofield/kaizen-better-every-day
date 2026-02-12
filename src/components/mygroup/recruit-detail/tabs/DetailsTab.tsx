@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { PurposeDisplayCard } from "@/components/goals/PurposeDisplayCard";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { getDaysUntilBlitz, formatDaysUntilBlitz, parseDateAsLocal, formatBlitzDate } from "@/utils/blitzDateUtils";
@@ -53,6 +54,8 @@ interface DetailsTabProps {
   stageShake: boolean;
   /** Called when recruit is deleted - used to close the detail drawer */
   onDeleted?: () => void;
+  purposeStatement?: string | null;
+  purposeUpdatedAt?: string | null;
 }
 
 // Exit stages that are always allowed and permanent exit stages that need confirmation
@@ -76,6 +79,8 @@ export const DetailsTab = ({
   onStageChange,
   stageShake,
   onDeleted,
+  purposeStatement,
+  purposeUpdatedAt,
 }: DetailsTabProps) => {
   const queryClient = useQueryClient();
   const { data: teamAccess } = useTeamAccess();
@@ -232,6 +237,12 @@ export const DetailsTab = ({
           <p className="font-medium">{recruitDetails.significant_other_name}</p>
         </div>
       )}
+
+      {/* Their Why - Purpose Statement */}
+      <PurposeDisplayCard
+        purposeStatement={purposeStatement}
+        purposeUpdatedAt={purposeUpdatedAt}
+      />
       
       {/* 2. BLITZ STATUS - Consolidated Card */}
       <BlitzStatusCard 
