@@ -639,7 +639,7 @@ const Goals = () => {
             committedBlitzIds={committedBlitzes.map(b => b.id)}
             onComplete={async (data) => {
               try {
-                await updateGoals({
+              await updateGoals({
                   monthly_expenses: data.monthlyExpenses,
                   months_off: data.monthsOff,
                   rent_type: data.rentType,
@@ -651,7 +651,9 @@ const Goals = () => {
                   preseason_fp_goal: data.preseasonFpGoal,
                   setup_complete: true,
                   purpose_statement: data.purposeStatement,
+                  purpose_updated_at: data.purposeStatement ? new Date().toISOString() : undefined,
                   books_goal: data.booksGoal,
+                  books_committed: data.selectedBookIds || null,
                   training_hours_goal: data.trainingHoursGoal,
                   role_plays_goal: data.rolePlaysGoal,
                   monday_night_lights_goal: data.mnlGoal,

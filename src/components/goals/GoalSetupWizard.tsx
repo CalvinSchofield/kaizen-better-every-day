@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, ArrowRight, Target, DollarSign, Calculator, Check, HelpCircle, Calendar as CalendarIcon, MapPin, Loader2, Heart, Minus, Plus, BookOpen, Timer, Dumbbell, Phone } from "lucide-react";
+import { ArrowLeft, ArrowRight, Target, DollarSign, Calculator, Check, HelpCircle, Calendar as CalendarIcon, MapPin, Loader2, Heart, Minus, Plus, BookOpen, Timer, Dumbbell, Phone, Clock, AlertCircle } from "lucide-react";
 import { 
   calculateMustDoFromExpenses, 
   calculateTakeHome, 
@@ -12,7 +12,7 @@ import {
 } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { differenceInDays, format } from "date-fns";
+import { differenceInDays, format, differenceInWeeks } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { formatBlitzDate, parseDateAsLocal } from "@/utils/blitzDateUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -20,6 +20,8 @@ import { useBlitzes } from "@/hooks/useBlitzes";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
+import { Slider } from "@/components/ui/slider";
+import { BOOKS } from "@/components/goals/BooksSelectionDrawer";
 
 // Parse date string as local date (not UTC) to avoid timezone offset issues
 const parseLocalDate = (dateString: string): Date => {
@@ -60,9 +62,18 @@ interface GoalSetupWizardProps {
     trainingHoursGoal?: number;
     rolePlaysGoal?: number;
     mnlGoal?: number;
+    selectedBookIds?: string[];
   }) => void;
   onCancel?: () => void;
 }
+
+// Format minutes as natural duration
+const formatDuration = (minutes: number): string => {
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}hr ${mins}m` : `${hours}hr`;
+};
 
 export const GoalSetupWizard = ({ 
   isRookie, 
@@ -80,14 +91,6 @@ export const GoalSetupWizard = ({
 
   const isCurrentlySummer = new Date() >= SUMMER_START_MIN;
   
-  // Calculate total steps
-  // Rookies pre-summer: WHY → Expenses → Dates → Goals → Preseason → Commitments → Blitzes → Review (8)
-  // Rookies summer: WHY → Expenses → Dates → Goals → Blitzes → Review (6)
-  // Vets: Dates → Goals → [Preseason if not summer] → Review (3 or 4)
-  const totalSteps = isRookie 
-    ? (isCurrentlySummer ? 6 : 8) 
-    : (isCurrentlySummer ? 3 : 4);
-
   // Form state
   const [purposeStatement, setPurposeStatement] = useState('');
   const [monthlyExpenses, setMonthlyExpenses] = useState<string>('');
@@ -101,14 +104,18 @@ export const GoalSetupWizard = ({
   const [couldDoFpGoal, setCouldDoFpGoal] = useState<string>('');
   const [preseasonFpGoal, setPreseasonFpGoal] = useState<string>('5');
   
-  // Preseason commitment goals
-  const [booksGoal, setBooksGoal] = useState(2);
-  const [trainingHoursGoal, setTrainingHoursGoal] = useState(3);
-  const [rolePlaysGoal, setRolePlaysGoal] = useState(5);
-  const [mnlGoal, setMnlGoal] = useState(4);
+  // Preseason commitment goals - redesigned
+  const [selectedBookIds, setSelectedBookIds] = useState<string[]>([]);
+  // Training: stored as minutes per day (10-60), displayed naturally
+  const [trainingMinutesPerDay, setTrainingMinutesPerDay] = useState(15);
+  const [rolePlaysGoal, setRolePlaysGoal] = useState(4);
+  const [mnlCommitted, setMnlCommitted] = useState(true);
 
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
+  
+  // Validation state
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const weeksWorking = summerStart && summerEnd 
     ? Math.max(1, Math.ceil(differenceInDays(summerEnd, summerStart) / 7))
@@ -124,12 +131,65 @@ export const GoalSetupWizard = ({
       )
     : Number(mustDoFpGoalInput) || 0;
 
+  // Calculate weeks until summer for role play suggestions
+  const weeksUntilSummer = useMemo(() => {
+    const now = new Date();
+    return Math.max(1, differenceInWeeks(SUMMER_START_MIN, now));
+  }, []);
+
+  // Calculate MNL sessions available (Mondays between now and summer start)
+  const mnlSessionsAvailable = useMemo(() => {
+    const now = new Date();
+    let count = 0;
+    const current = new Date(now);
+    while (current < SUMMER_START_MIN) {
+      if (current.getDay() === 1) count++;
+      current.setDate(current.getDate() + 1);
+    }
+    return count;
+  }, []);
+
+  // Training: convert daily minutes to weekly minutes for storage
+  const trainingWeeklyMinutes = trainingMinutesPerDay * 6; // 6 days/week
+
+  // Has blitzes available
+  const hasBlitzes = !blitzesLoading && allBlitzes.length > 0;
+
+  // Build step sequence dynamically
+  const stepSequence = useMemo(() => {
+    if (isRookie) {
+      if (isCurrentlySummer) {
+        return ['why', 'expenses', 'dates', 'goals', 'blitzes', 'review'];
+      } else {
+        const steps = ['why', 'expenses', 'dates', 'goals', 'commitments'];
+        // Always show blitzes step (shows empty state if none)
+        steps.push('blitzes');
+        // Only show preseason goal if blitzes are available
+        if (hasBlitzes) {
+          steps.push('preseason');
+        }
+        steps.push('review');
+        return steps;
+      }
+    } else {
+      if (isCurrentlySummer) {
+        return ['dates', 'goals', 'review'];
+      } else {
+        return ['dates', 'goals', 'preseason', 'review'];
+      }
+    }
+  }, [isRookie, isCurrentlySummer, hasBlitzes]);
+
+  const totalSteps = stepSequence.length;
+  const currentStepType = stepSequence[step - 1];
+
   const handleNumberInput = (
     value: string, 
     setter: (val: string) => void
   ) => {
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setter(value);
+      setValidationError(null);
     }
   };
 
@@ -149,52 +209,87 @@ export const GoalSetupWizard = ({
     );
   };
 
+  const toggleBookSelection = (bookId: string) => {
+    setSelectedBookIds(prev =>
+      prev.includes(bookId)
+        ? prev.filter(id => id !== bookId)
+        : [...prev, bookId]
+    );
+  };
+
   const getStepTitle = () => {
-    if (isRookie) {
-      if (isCurrentlySummer) {
-        switch (step) {
-          case 1: return "Your Why";
-          case 2: return "Monthly Expenses";
-          case 3: return "Summer Dates";
-          case 4: return "Summer Goals";
-          case 5: return "Commit to Blitzes";
-          case 6: return "Review";
-          default: return "";
+    switch (currentStepType) {
+      case 'why': return "Your Why";
+      case 'expenses': return "Monthly Expenses";
+      case 'dates': return "Summer Dates";
+      case 'goals': return "Summer Goals";
+      case 'commitments': return "Preseason Commitments";
+      case 'blitzes': return "Commit to Blitzes";
+      case 'preseason': return "Preseason Goal";
+      case 'review': return "Review";
+      default: return "";
+    }
+  };
+
+  // Validation logic
+  const validateCurrentStep = (): boolean => {
+    setValidationError(null);
+    
+    if (!isRookie) return true; // Vets don't have required fields for now
+
+    switch (currentStepType) {
+      case 'why':
+        if (!purposeStatement.trim()) {
+          setValidationError("Tell us your why before moving forward — this is what keeps you going when it gets tough.");
+          return false;
         }
-      } else {
-        switch (step) {
-          case 1: return "Your Why";
-          case 2: return "Monthly Expenses";
-          case 3: return "Summer Dates";
-          case 4: return "Summer Goals";
-          case 5: return "Preseason Goal";
-          case 6: return "Preseason Commitments";
-          case 7: return "Commit to Blitzes";
-          case 8: return "Review";
-          default: return "";
+        if (purposeStatement.trim().length < 10) {
+          setValidationError("Give us a little more — at least a sentence about what you're fighting for.");
+          return false;
         }
-      }
-    } else {
-      if (isCurrentlySummer) {
-        switch (step) {
-          case 1: return "Summer Dates";
-          case 2: return "Summer Goals";
-          case 3: return "Review";
-          default: return "";
+        return true;
+      
+      case 'expenses':
+        if (!monthlyExpenses || Number(monthlyExpenses) <= 0) {
+          setValidationError("Enter your monthly expenses so we can calculate your Must Do goal.");
+          return false;
         }
-      } else {
-        switch (step) {
-          case 1: return "Summer Dates";
-          case 2: return "Summer Goals";
-          case 3: return "Preseason Goal";
-          case 4: return "Review";
-          default: return "";
+        return true;
+      
+      case 'goals':
+        if (!willDoFpGoal || Number(willDoFpGoal) <= 0) {
+          setValidationError(`Set your Will Do ${metricLabel} goal — this is your realistic target.`);
+          return false;
         }
-      }
+        if (!couldDoFpGoal || Number(couldDoFpGoal) <= 0) {
+          setValidationError(`Set your Could Do ${metricLabel} goal — dream big!`);
+          return false;
+        }
+        if (Number(willDoFpGoal) <= mustDoFpGoal) {
+          setValidationError(`Your Will Do goal should be higher than your Must Do (${mustDoFpGoal} ${metricLabel}).`);
+          return false;
+        }
+        if (Number(couldDoFpGoal) <= Number(willDoFpGoal)) {
+          setValidationError("Your Could Do goal should be higher than your Will Do goal.");
+          return false;
+        }
+        return true;
+
+      case 'commitments':
+        if (selectedBookIds.length === 0) {
+          setValidationError("Pick at least one book to read before the summer.");
+          return false;
+        }
+        return true;
+      
+      default:
+        return true;
     }
   };
 
   const handleNext = () => {
+    if (!validateCurrentStep()) return;
+    
     if (step < totalSteps) setStep(step + 1);
     else handleComplete();
   };
@@ -214,55 +309,25 @@ export const GoalSetupWizard = ({
       preseasonFpGoal: Number(preseasonFpGoal) || 0,
       selectedBlitzIds: isRookie ? selectedBlitzIds : undefined,
       purposeStatement: isRookie ? purposeStatement : undefined,
-      booksGoal: isRookie && !isCurrentlySummer ? booksGoal : undefined,
-      trainingHoursGoal: isRookie && !isCurrentlySummer ? trainingHoursGoal : undefined,
+      booksGoal: isRookie && !isCurrentlySummer ? selectedBookIds.length : undefined,
+      trainingHoursGoal: isRookie && !isCurrentlySummer ? trainingWeeklyMinutes : undefined,
       rolePlaysGoal: isRookie && !isCurrentlySummer ? rolePlaysGoal : undefined,
-      mnlGoal: isRookie && !isCurrentlySummer ? mnlGoal : undefined,
+      mnlGoal: isRookie && !isCurrentlySummer ? (mnlCommitted ? mnlSessionsAvailable : 0) : undefined,
+      selectedBookIds: isRookie && !isCurrentlySummer ? selectedBookIds : undefined,
     });
   };
 
   const renderStep = () => {
-    if (isRookie) {
-      if (isCurrentlySummer) {
-        switch (step) {
-          case 1: return renderWhyStep();
-          case 2: return renderExpensesStep();
-          case 3: return renderDateSettings();
-          case 4: return renderGoalInputs();
-          case 5: return renderBlitzCommitment();
-          case 6: return renderReview();
-          default: return null;
-        }
-      } else {
-        switch (step) {
-          case 1: return renderWhyStep();
-          case 2: return renderExpensesStep();
-          case 3: return renderDateSettings();
-          case 4: return renderGoalInputs();
-          case 5: return renderPreseasonGoal();
-          case 6: return renderPreseasonCommitments();
-          case 7: return renderBlitzCommitment();
-          case 8: return renderReview();
-          default: return null;
-        }
-      }
-    } else {
-      if (isCurrentlySummer) {
-        switch (step) {
-          case 1: return renderDateSettings();
-          case 2: return renderGoalInputs();
-          case 3: return renderReview();
-          default: return null;
-        }
-      } else {
-        switch (step) {
-          case 1: return renderDateSettings();
-          case 2: return renderGoalInputs();
-          case 3: return renderPreseasonGoal();
-          case 4: return renderReview();
-          default: return null;
-        }
-      }
+    switch (currentStepType) {
+      case 'why': return renderWhyStep();
+      case 'expenses': return renderExpensesStep();
+      case 'dates': return renderDateSettings();
+      case 'goals': return renderGoalInputs();
+      case 'commitments': return renderPreseasonCommitments();
+      case 'blitzes': return renderBlitzCommitment();
+      case 'preseason': return renderPreseasonGoal();
+      case 'review': return renderReview();
+      default: return null;
     }
   };
 
@@ -286,7 +351,10 @@ export const GoalSetupWizard = ({
         <Textarea
           id="why"
           value={purposeStatement}
-          onChange={(e) => setPurposeStatement(e.target.value)}
+          onChange={(e) => {
+            setPurposeStatement(e.target.value);
+            setValidationError(null);
+          }}
           placeholder="I'm doing this because..."
           className="min-h-[100px] text-base resize-none"
         />
@@ -596,145 +664,194 @@ export const GoalSetupWizard = ({
     );
   };
 
-  // ===== PRESEASON GOAL =====
-  const renderPreseasonGoal = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
-        <Target className="h-12 w-12 mx-auto text-blue-500 mb-3" />
-        <p className="text-muted-foreground">
-          How much do you want to sell before summer?
-        </p>
-      </div>
-
-      <div className="rounded-xl bg-blue-500/10 p-4 border border-blue-500/20">
-        <div className="flex items-center gap-2 mb-3">
-          <Target className="h-4 w-4 text-blue-500" />
-          <span className="font-semibold text-blue-500">Preseason {metricLabel} Goal</span>
-        </div>
-        <Input
-          type="text"
-          inputMode="numeric"
-          value={preseasonFpGoal}
-          onChange={(e) => handleNumberInput(e.target.value, setPreseasonFpGoal)}
-          placeholder="5"
-          className="bg-background/50 text-xl font-semibold text-center"
-        />
-        <p className="text-xs text-muted-foreground mt-3 text-center">
-          We recommend at least <span className="font-semibold text-blue-500">5 {metricLabel}</span> before the summer starts
-        </p>
-      </div>
-
-      <div className="text-center text-sm text-muted-foreground">
-        <p>Hitting your preseason goal helps you:</p>
-        <ul className="mt-2 space-y-1">
-          <li>• Build confidence before summer</li>
-          <li>• Practice your pitch on real doors</li>
-          <li>• Get comfortable with the sales process</li>
-        </ul>
-      </div>
-    </div>
-  );
-
-  // ===== PRESEASON COMMITMENTS (NEW) =====
+  // ===== PRESEASON COMMITMENTS (REDESIGNED) =====
   const renderPreseasonCommitments = () => {
-    const CommitmentStepper = ({ 
-      icon: Icon, 
-      label, 
-      sublabel,
-      value, 
-      onChange, 
-      min = 0,
-      max = 20,
-      color = "text-primary"
-    }: { 
-      icon: any; 
-      label: string; 
-      sublabel: string;
-      value: number; 
-      onChange: (v: number) => void; 
-      min?: number;
-      max?: number;
-      color?: string;
-    }) => (
-      <div className="rounded-xl border p-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className={cn("p-2 rounded-lg bg-muted")}>
-            <Icon className={cn("h-5 w-5", color)} />
-          </div>
-          <div>
-            <p className="font-medium text-sm">{label}</p>
-            <p className="text-xs text-muted-foreground">{sublabel}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onChange(Math.max(min, value - 1))}
-            disabled={value <= min}
-          >
-            <Minus className="h-4 w-4" />
-          </Button>
-          <span className="w-8 text-center font-bold text-lg">{value}</span>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onChange(Math.min(max, value + 1))}
-            disabled={value >= max}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    );
+    // Role play suggestion: one every other week
+    const suggestedRolePlays = Math.max(2, Math.floor(weeksUntilSummer / 2));
 
     return (
       <div className="space-y-6">
-        <div className="text-center mb-4">
+        <div className="text-center mb-2">
           <Target className="h-12 w-12 mx-auto text-primary mb-3" />
           <p className="text-muted-foreground">
             Set your preseason standards
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            These are your commitments before summer starts. We'll remind you to keep them.
+            These commitments will prepare you to crush it this summer.
           </p>
         </div>
 
+        {/* ===== BOOKS ===== */}
         <div className="space-y-3">
-          <CommitmentStepper
-            icon={BookOpen}
-            label="Books to Read"
-            sublabel="Sales & personal dev books"
-            value={booksGoal}
-            onChange={setBooksGoal}
-            color="text-amber-500"
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-amber-500" />
+            <Label className="font-semibold">Books to Read</Label>
+            <span className="text-xs text-muted-foreground ml-auto">
+              {selectedBookIds.length} selected
+            </span>
+          </div>
+          <div className="space-y-1.5 max-h-[200px] overflow-y-auto rounded-xl border p-3">
+            {BOOKS.map((book) => {
+              const isSelected = selectedBookIds.includes(book.id);
+              return (
+                <button
+                  key={book.id}
+                  onClick={() => toggleBookSelection(book.id)}
+                  className={cn(
+                    "flex items-center gap-2.5 w-full p-2.5 rounded-lg text-left transition-all active:scale-[0.98]",
+                    isSelected 
+                      ? "bg-amber-500/10 ring-1 ring-amber-500/40" 
+                      : "hover:bg-muted/50"
+                  )}
+                >
+                  <Checkbox checked={isSelected} className="pointer-events-none" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{book.title}</p>
+                    <p className="text-[11px] text-muted-foreground">{book.author}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ===== TRAINING TIME ===== */}
+        <div className="space-y-3 rounded-xl border p-4">
+          <div className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-blue-500" />
+            <Label className="font-semibold">Training Time</Label>
+          </div>
+          
+          <div className="text-center">
+            <p className="text-3xl font-bold text-primary">
+              {formatDuration(trainingMinutesPerDay)}
+              <span className="text-lg text-muted-foreground font-normal"> / day</span>
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              = {formatDuration(trainingWeeklyMinutes)} per week
+            </p>
+          </div>
+
+          <Slider
+            value={[trainingMinutesPerDay]}
+            onValueChange={([val]) => setTrainingMinutesPerDay(val)}
+            min={10}
+            max={60}
+            step={5}
+            className="py-2"
           />
-          <CommitmentStepper
-            icon={Timer}
-            label="Training Hours / Week"
-            sublabel="Self-study & practice time"
-            value={trainingHoursGoal}
-            onChange={setTrainingHoursGoal}
-            color="text-blue-500"
-          />
-          <CommitmentStepper
-            icon={Dumbbell}
-            label="Role Plays"
-            sublabel="Practice pitches with others"
-            value={rolePlaysGoal}
-            onChange={setRolePlaysGoal}
-            color="text-emerald-500"
-          />
-          <CommitmentStepper
-            icon={Phone}
-            label="MNL Sessions"
-            sublabel="Monday Night Lights calls"
-            value={mnlGoal}
-            onChange={setMnlGoal}
-            color="text-purple-500"
-          />
+          <div className="flex justify-between text-[11px] text-muted-foreground">
+            <span>10m/day</span>
+            <span>1hr/day</span>
+          </div>
+
+          <div className="rounded-lg bg-blue-500/5 border border-blue-500/10 p-3 mt-2">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              <span className="font-semibold text-blue-500">4 things to master:</span> our product, our door approach, our in-home process, and our competitors' products.
+            </p>
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+              This includes: studying the sales process, Ramp to Blitz prep, training portal videos, product knowledge, competitor research, and sales podcasts.
+            </p>
+          </div>
+        </div>
+
+        {/* ===== ROLE PLAYS ===== */}
+        <div className="rounded-xl border p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Dumbbell className="h-5 w-5 text-emerald-500" />
+            <Label className="font-semibold">Role Plays</Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Practice the sales process with vets and leaders before the summer.
+          </p>
+          <div className="flex items-center justify-center gap-4">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-10 w-10 rounded-full"
+              onClick={() => setRolePlaysGoal(Math.max(1, rolePlaysGoal - 1))}
+              disabled={rolePlaysGoal <= 1}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <span className="text-3xl font-bold w-12 text-center">{rolePlaysGoal}</span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-10 w-10 rounded-full"
+              onClick={() => setRolePlaysGoal(Math.min(30, rolePlaysGoal + 1))}
+              disabled={rolePlaysGoal >= 30}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2 justify-center">
+            <button
+              onClick={() => setRolePlaysGoal(Math.floor(weeksUntilSummer / 4))}
+              className={cn(
+                "text-xs px-3 py-1.5 rounded-full border transition-all active:scale-95",
+                rolePlaysGoal === Math.floor(weeksUntilSummer / 4)
+                  ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-600"
+                  : "border-border text-muted-foreground"
+              )}
+            >
+              Monthly ({Math.floor(weeksUntilSummer / 4)})
+            </button>
+            <button
+              onClick={() => setRolePlaysGoal(suggestedRolePlays)}
+              className={cn(
+                "text-xs px-3 py-1.5 rounded-full border transition-all active:scale-95",
+                rolePlaysGoal === suggestedRolePlays
+                  ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-600"
+                  : "border-border text-muted-foreground"
+              )}
+            >
+              Every other week ({suggestedRolePlays})
+            </button>
+            <button
+              onClick={() => setRolePlaysGoal(weeksUntilSummer)}
+              className={cn(
+                "text-xs px-3 py-1.5 rounded-full border transition-all active:scale-95",
+                rolePlaysGoal === weeksUntilSummer
+                  ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-600"
+                  : "border-border text-muted-foreground"
+              )}
+            >
+              Weekly ({weeksUntilSummer})
+            </button>
+          </div>
+        </div>
+
+        {/* ===== MNL ===== */}
+        <div className="rounded-xl border p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Phone className="h-5 w-5 text-purple-500" />
+            <Label className="font-semibold">Monday Night Lights</Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Weekly online training sessions every Monday night. We want you to commit to attending 100% and taking notes.
+          </p>
+          <button
+            onClick={() => setMnlCommitted(!mnlCommitted)}
+            className={cn(
+              "w-full p-4 rounded-xl border-2 text-left transition-all active:scale-[0.98]",
+              mnlCommitted
+                ? "border-purple-500 bg-purple-500/10"
+                : "border-border"
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <Checkbox checked={mnlCommitted} className="pointer-events-none" />
+              <div>
+                <p className="font-semibold text-sm">
+                  I commit to 100% MNL attendance
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {mnlSessionsAvailable} sessions before summer starts
+                </p>
+              </div>
+            </div>
+          </button>
         </div>
       </div>
     );
@@ -756,7 +873,7 @@ export const GoalSetupWizard = ({
         </div>
       ) : allBlitzes.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          <p>No upcoming blitzes available</p>
+          <p>No upcoming blitzes available yet</p>
           <p className="text-sm mt-1">You can commit to blitzes later from the Goals page</p>
         </div>
       ) : (
@@ -819,6 +936,45 @@ export const GoalSetupWizard = ({
     </div>
   );
 
+  // ===== PRESEASON GOAL =====
+  const renderPreseasonGoal = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-6">
+        <Target className="h-12 w-12 mx-auto text-blue-500 mb-3" />
+        <p className="text-muted-foreground">
+          How much do you want to sell before summer?
+        </p>
+      </div>
+
+      <div className="rounded-xl bg-blue-500/10 p-4 border border-blue-500/20">
+        <div className="flex items-center gap-2 mb-3">
+          <Target className="h-4 w-4 text-blue-500" />
+          <span className="font-semibold text-blue-500">Preseason {metricLabel} Goal</span>
+        </div>
+        <Input
+          type="text"
+          inputMode="numeric"
+          value={preseasonFpGoal}
+          onChange={(e) => handleNumberInput(e.target.value, setPreseasonFpGoal)}
+          placeholder="5"
+          className="bg-background/50 text-xl font-semibold text-center"
+        />
+        <p className="text-xs text-muted-foreground mt-3 text-center">
+          We recommend at least <span className="font-semibold text-blue-500">5 {metricLabel}</span> before the summer starts
+        </p>
+      </div>
+
+      <div className="text-center text-sm text-muted-foreground">
+        <p>Hitting your preseason goal helps you:</p>
+        <ul className="mt-2 space-y-1">
+          <li>• Build confidence before summer</li>
+          <li>• Practice your pitch on real doors</li>
+          <li>• Get comfortable with the sales process</li>
+        </ul>
+      </div>
+    </div>
+  );
+
   // ===== REVIEW =====
   const renderReview = () => {
     const mustDoResult = calculateTakeHome({ 
@@ -861,7 +1017,7 @@ export const GoalSetupWizard = ({
         )}
 
         <div className="space-y-3">
-          {!isCurrentlySummer && preseasonFpGoal && (
+          {!isCurrentlySummer && preseasonFpGoal && hasBlitzes && (
             <div className="rounded-xl bg-blue-500/10 p-4 flex items-center justify-between">
               <div>
                 <p className="font-semibold text-blue-500">Preseason</p>
@@ -906,22 +1062,22 @@ export const GoalSetupWizard = ({
         {isRookie && !isCurrentlySummer && (
           <div className="rounded-xl bg-muted/50 p-4 border">
             <p className="font-semibold text-sm mb-3">Preseason Commitments</p>
-            <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4 text-amber-500" />
-                <span>{booksGoal} books</span>
+                <span>{selectedBookIds.length} book{selectedBookIds.length !== 1 ? 's' : ''} to read</span>
               </div>
               <div className="flex items-center gap-2">
-                <Timer className="h-4 w-4 text-blue-500" />
-                <span>{trainingHoursGoal} hrs/wk training</span>
+                <Clock className="h-4 w-4 text-blue-500" />
+                <span>{formatDuration(trainingMinutesPerDay)}/day training ({formatDuration(trainingWeeklyMinutes)}/wk)</span>
               </div>
               <div className="flex items-center gap-2">
                 <Dumbbell className="h-4 w-4 text-emerald-500" />
-                <span>{rolePlaysGoal} role plays</span>
+                <span>{rolePlaysGoal} role play{rolePlaysGoal !== 1 ? 's' : ''}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-purple-500" />
-                <span>{mnlGoal} MNL sessions</span>
+                <span>{mnlCommitted ? `100% MNL (${mnlSessionsAvailable} sessions)` : 'MNL not committed'}</span>
               </div>
             </div>
           </div>
@@ -982,11 +1138,22 @@ export const GoalSetupWizard = ({
       <CardContent className="space-y-6">
         {renderStep()}
 
+        {/* Validation Error */}
+        {validationError && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <p>{validationError}</p>
+          </div>
+        )}
+
         <div className="flex gap-3 pt-4">
           {step > 1 ? (
             <Button
               variant="outline"
-              onClick={() => setStep(step - 1)}
+              onClick={() => {
+                setValidationError(null);
+                setStep(step - 1);
+              }}
               className="flex-1"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
