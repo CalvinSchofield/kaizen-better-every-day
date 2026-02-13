@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
 import { ProfilePhotoDrawer } from "@/components/ProfilePhotoDrawer";
-import { MomentumSparkline } from "@/components/profile/MomentumSparkline";
+import { MomentumHeatmap } from "@/components/profile/MomentumHeatmap";
 import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { getInitials } from "@/utils/nameUtils";
@@ -139,8 +139,8 @@ const Profile = () => {
         </div>
       </motion.div>
 
-      {/* Momentum Sparkline */}
-      <MomentumSparkline
+      {/* Momentum Heatmap */}
+      <MomentumHeatmap
         dailyFp={profile.dailyFpValues}
         isOwnProfile={isOwnProfile}
       />
