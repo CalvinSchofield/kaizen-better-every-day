@@ -76,14 +76,42 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
     : knockingChoice === 'unknown' ? null 
     : 0;
 
+  // Detect if user has no logged customers (catching up from scratch)
+  const hasNoLoggedCustomers = trackedFpSold === 0 && trackedFp === 0;
+
+  // Steps to skip when user has no logged customers (source/crm are irrelevant)
+  const shouldSkipStep = (s: SyncStep): boolean => {
+    if (hasNoLoggedCustomers && (s === 'source' || s === 'crm')) return true;
+    return false;
+  };
+
+  // Dynamic step numbering (excluding skipped steps)
+  const activeSteps = STEPS.filter(s => !shouldSkipStep(s));
+  const currentStepNumber = activeSteps.indexOf(step) + 1;
+  const totalSteps = activeSteps.length;
+
+  const getNextStep = (fromIndex: number): SyncStep | null => {
+    for (let i = fromIndex + 1; i < STEPS.length; i++) {
+      if (!shouldSkipStep(STEPS[i])) return STEPS[i];
+    }
+    return null;
+  };
+
+  const getPrevStep = (fromIndex: number): SyncStep | null => {
+    for (let i = fromIndex - 1; i >= 0; i--) {
+      if (!shouldSkipStep(STEPS[i])) return STEPS[i];
+    }
+    return null;
+  };
+
   const handleNext = () => {
-    const nextIndex = stepIndex + 1;
-    if (nextIndex < STEPS.length) setStep(STEPS[nextIndex]);
+    const next = getNextStep(stepIndex);
+    if (next) setStep(next);
   };
 
   const handleBack = () => {
-    const prevIndex = stepIndex - 1;
-    if (prevIndex >= 0) setStep(STEPS[prevIndex]);
+    const prev = getPrevStep(stepIndex);
+    if (prev) setStep(prev);
   };
 
   const handleSubmit = async () => {
@@ -230,7 +258,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
         return (
           <div className="space-y-5">
             <div className="text-center">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step 1 of 8</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step {currentStepNumber} of {totalSteps}</p>
               <h3 className="text-lg font-semibold">Open Your Production Report</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 We'll compare what you've tracked with Vivint's official numbers
@@ -271,7 +299,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
         return (
           <div className="space-y-5">
             <div className="text-center">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step 2 of 8</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step {currentStepNumber} of {totalSteps}</p>
               <h3 className="text-lg font-semibold">Total {metricLabel}</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 What's your total {metricLabel} this {seasonType}?
@@ -322,7 +350,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
         return (
           <div className="space-y-5">
             <div className="text-center">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step 3 of 8</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step {currentStepNumber} of {totalSteps}</p>
               <h3 className="text-lg font-semibold">Total FP Sold</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Families protected count (not upgrades)
@@ -368,7 +396,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
         return (
           <div className="space-y-5">
             <div className="text-center">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step 4 of 8</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step {currentStepNumber} of {totalSteps}</p>
               <h3 className="text-lg font-semibold">Total PRMR YTD</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Your total PRMR for this {seasonType}
@@ -419,7 +447,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
         return (
           <div className="space-y-5">
             <div className="text-center">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step 5 of 8</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step {currentStepNumber} of {totalSteps}</p>
               <h3 className="text-lg font-semibold">Days Worked</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 This helps us calculate your daily pace target
@@ -487,7 +515,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
         return (
           <div className="space-y-5">
             <div className="text-center">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step 6 of 8</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step {currentStepNumber} of {totalSteps}</p>
               <h3 className="text-lg font-semibold">Check for Unfunded Accounts</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Let's make sure your funded/unfunded status is accurate
@@ -523,7 +551,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
         return (
           <div className="space-y-5">
             <div className="text-center">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step 7 of 8</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step {currentStepNumber} of {totalSteps}</p>
               <h3 className="text-lg font-semibold">Update Your Customer CRM</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Mark any unfunded or cancelled accounts so your numbers stay accurate
@@ -533,13 +561,13 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
             <Button
               variant="outline"
               className="w-full h-14 justify-between rounded-2xl"
-              onClick={() => navigate('/customers')}
+              onClick={() => window.open('/customers', '_blank')}
             >
               <span className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Open Kaizen Customers
               </span>
-              <ChevronRight className="h-4 w-4" />
+              <ExternalLink className="h-4 w-4" />
             </Button>
 
             <Card className="border-primary/20 bg-primary/5 rounded-2xl">
@@ -572,7 +600,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
         return (
           <div className="space-y-5">
             <div className="text-center">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step 8 of 8</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step {currentStepNumber} of {totalSteps}</p>
               <h3 className="text-lg font-semibold">Confirm & Sync</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Here's what we'll save as your verified {seasonType} totals
@@ -682,19 +710,22 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
       {/* Progress bar - hide on success */}
       {step !== 'success' && (
         <div className="flex justify-center gap-1.5 mb-6">
-          {STEPS.map((s, idx) => (
-            <div
-              key={s}
-              className={cn(
-                "h-1.5 rounded-full transition-all",
-                idx === stepIndex 
-                  ? "w-8 bg-primary" 
-                  : idx < stepIndex 
-                    ? "w-3 bg-primary/50" 
-                    : "w-3 bg-muted"
-              )}
-            />
-          ))}
+          {activeSteps.map((s, idx) => {
+            const activeIndex = activeSteps.indexOf(step);
+            return (
+              <div
+                key={s}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  idx === activeIndex 
+                    ? "w-8 bg-primary" 
+                    : idx < activeIndex 
+                      ? "w-3 bg-primary/50" 
+                      : "w-3 bg-muted"
+                )}
+              />
+            );
+          })}
         </div>
       )}
 
