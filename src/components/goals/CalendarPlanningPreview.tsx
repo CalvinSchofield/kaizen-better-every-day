@@ -265,6 +265,8 @@ export const CalendarPlanningPreview = ({
                       summerDailyPace={stats.summerDailyPace}
                       efpModeEnabled={efpModeEnabled}
                       isLoading={isCalendarLoading}
+                      activeTier={activeTier}
+                      dailyNeeded={stats.dailyNeeded}
                     />
 
                     {/* Plan Days CTA */}
