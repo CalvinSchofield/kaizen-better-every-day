@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ExternalLink, ChevronRight, ChevronLeft, Check, Loader2, 
-  RefreshCw, Users, HelpCircle, ArrowRight, CalendarDays, PartyPopper,
+  RefreshCw, HelpCircle, ArrowRight, CalendarDays, PartyPopper,
   TrendingUp, BarChart3, Heart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { useOfficialTotals } from "@/hooks/useOfficialTotals";
 
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { cn } from "@/lib/utils";
+import { InlineCrmUpdate } from "@/components/catchup/InlineCrmUpdate";
 import { useNavigate } from "react-router-dom";
 import type { EffectiveFPResult } from "@/hooks/useEffectiveFP";
 
@@ -549,50 +550,16 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
 
       case 'crm':
         return (
-          <div className="space-y-5">
+          <div className="space-y-4">
             <div className="text-center">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step {currentStepNumber} of {totalSteps}</p>
               <h3 className="text-lg font-semibold">Update Your Customer CRM</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Mark any unfunded or cancelled accounts so your numbers stay accurate
+                Tap a customer to change their funding status
               </p>
             </div>
 
-            <Button
-              variant="outline"
-              className="w-full h-14 justify-between rounded-2xl"
-              onClick={() => window.open('/customers', '_blank')}
-            >
-              <span className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Open Kaizen Customers
-              </span>
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-
-            <Card className="border-primary/20 bg-primary/5 rounded-2xl">
-              <CardContent className="pt-4 space-y-3">
-                <p className="text-sm font-medium flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-primary flex-shrink-0" />
-                  Why keep your CRM updated?
-                </p>
-                <ul className="text-sm text-muted-foreground space-y-2">
-                  <li>• Your <strong>funded rate</strong> and <strong>cancel rate</strong> drive your earnings projection — outdated accounts throw those off</li>
-                  <li>• Tracking each sale's status helps you see patterns in <strong>what's funding</strong> vs. what's falling through</li>
-                  <li>• When you log your days and update customers, your <strong>daily pace target</strong> reflects exactly where you are — no guessing</li>
-                </ul>
-                {hasRecruits && (
-                  <div className="pt-2 border-t border-primary/10">
-                    <p className="text-sm text-muted-foreground flex items-start gap-2">
-                      <Heart className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                      <span>
-                        <strong>As a leader</strong>, when your reps track their work and keep their CRM updated, you can see exactly where they need coaching — which helps them hit <em>their</em> goals and make more money. That directly helps you hit yours.
-                      </span>
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <InlineCrmUpdate />
           </div>
         );
 
