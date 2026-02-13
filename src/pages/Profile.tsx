@@ -87,7 +87,7 @@ const Profile = () => {
   const lastActive = formatRelativeTime(profile.lastActiveAt);
 
   return (
-    <div className="min-h-screen bg-background overflow-y-auto">
+    <div className="min-h-screen bg-background overflow-y-auto pb-28">
       {/* Hero cover photo with overlaid name */}
       <div className="relative w-full aspect-[4/3] overflow-hidden bg-muted">
         {/* Back button + settings - floating over image */}
@@ -98,14 +98,14 @@ const Profile = () => {
               onClick={() => { hapticLight(); navigate(-1); }}
               className="p-2 -ml-2 rounded-full bg-black/30 backdrop-blur-sm active:scale-95 transition-transform"
             >
-              <ArrowLeft className="h-5 w-5 text-white" />
+              <ArrowLeft className="h-5 w-5 text-white drop-shadow-md" />
             </button>
             {isOwnProfile ? (
               <button
                 onClick={() => { hapticLight(); navigate("/settings"); }}
                 className="p-2 -mr-2 rounded-full bg-black/30 backdrop-blur-sm active:scale-95 transition-transform"
               >
-                <Settings className="h-5 w-5 text-white" />
+                <Settings className="h-5 w-5 text-white drop-shadow-md" />
               </button>
             ) : (
               <div className="w-9" />
@@ -113,12 +113,15 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Photo */}
+        {/* Photo - high quality rendering */}
         {profile.profilePhotoUrl ? (
           <img
             src={profile.profilePhotoUrl}
             alt={profile.name}
             className="w-full h-full object-cover"
+            style={{ imageRendering: 'auto' }}
+            loading="eager"
+            decoding="async"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-muted">
@@ -128,8 +131,8 @@ const Profile = () => {
           </div>
         )}
 
-        {/* Gradient overlay at bottom */}
-        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+        {/* Gradient overlay at bottom - stronger for text readability */}
+        <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
 
         {/* Overlaid name + last active */}
         <div className="absolute bottom-0 left-0 right-0 px-5 pb-5 z-10">
@@ -139,21 +142,21 @@ const Profile = () => {
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
             {firstName && (
-              <h1 className="text-white leading-tight">
-                <span className="block text-2xl font-medium tracking-wide">{firstName}</span>
+              <h1 className="leading-tight drop-shadow-lg" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
+                <span className="block text-2xl font-medium tracking-wide text-white">{firstName}</span>
                 {lastName && (
-                  <span className="block text-3xl font-black tracking-tight">{lastName}</span>
+                  <span className="block text-3xl font-black tracking-tight text-white">{lastName}</span>
                 )}
               </h1>
             )}
             <div className="flex items-center gap-2 mt-1.5">
               <YearBadge year={profile.year} fullLabel />
               {profile.officeName && (
-                <span className="text-xs text-white/70 font-medium">{profile.officeName}</span>
+                <span className="text-xs text-white/80 font-medium drop-shadow-md">{profile.officeName}</span>
               )}
             </div>
             {lastActive && (
-              <p className="text-xs text-primary font-semibold mt-1">
+              <p className="text-xs font-semibold mt-1 drop-shadow-md" style={{ color: 'hsl(var(--primary))' }}>
                 Last Active: {lastActive}
               </p>
             )}
@@ -200,7 +203,7 @@ const Profile = () => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.2 }}
-        className="px-4 pb-24"
+        className="px-4 pb-4"
       >
         <Tabs defaultValue="stats" className="w-full">
           <TabsList className="w-full grid grid-cols-3 bg-muted/50">
