@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
 import { ProfilePhotoDrawer } from "@/components/ProfilePhotoDrawer";
+import { MomentumSparkline } from "@/components/profile/MomentumSparkline";
 import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { getInitials } from "@/utils/nameUtils";
@@ -137,6 +138,12 @@ const Profile = () => {
           <StatCell label="Upgrade FP+" value={profile.ytdUpgradeFpPlus.toFixed(1)} />
         </div>
       </motion.div>
+
+      {/* Momentum Sparkline */}
+      <MomentumSparkline
+        dailyFp={profile.dailyFpValues}
+        isOwnProfile={isOwnProfile}
+      />
 
       {/* Tabbed content */}
       <motion.div
