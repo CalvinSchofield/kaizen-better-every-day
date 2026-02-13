@@ -123,6 +123,9 @@ const Profile = () => {
             <span className="text-sm text-muted-foreground">{profile.teamName}</span>
           )}
         </div>
+        {profile.officeName && (
+          <span className="text-xs text-muted-foreground/70 mt-0.5">{profile.officeName}</span>
+        )}
       </motion.div>
 
       {/* Stats bar */}
