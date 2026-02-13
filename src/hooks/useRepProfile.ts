@@ -4,6 +4,8 @@ import { calculateFromSalesLog } from '@/utils/salesLogCalculations';
 
 const SEASON_START = '2025-09-28';
 
+interface RecordEntry { value: number; date: string }
+
 interface RepProfileData {
   name: string;
   year: string | null;
@@ -17,9 +19,12 @@ interface RepProfileData {
   ytdDoors: number;
   ytdPresentations: number;
   ytdTransitions: number;
-  bestDay: { value: number; date: string } | null;
-  bestWeek: { value: number; date: string } | null;
-  bestMonth: { value: number; date: string } | null;
+  bestDayFp: RecordEntry | null;
+  bestWeekFp: RecordEntry | null;
+  bestMonthFp: RecordEntry | null;
+  bestDayPrmr: RecordEntry | null;
+  bestWeekPrmr: RecordEntry | null;
+  bestMonthPrmr: RecordEntry | null;
   /** FP+ per day worked with dates, chronologically (for momentum sparkline) */
   dailyFpValues: { date: string; fp: number }[];
   /** Whether this rep has EFP mode enabled */
@@ -49,7 +54,7 @@ export const useRepProfile = (userId: string | null) => {
           .from('personal_records')
           .select('record_type, value, entry_date')
           .eq('user_id', userId)
-          .in('record_type', ['best_day_fp', 'best_week_fp', 'best_month_fp']),
+          .in('record_type', ['daily_fp', 'weekly_fp', 'monthly_fp', 'daily_prmr', 'weekly_prmr', 'monthly_prmr']),
       ]);
 
       const rep = repResult.data;
@@ -136,9 +141,12 @@ export const useRepProfile = (userId: string | null) => {
         ytdDoors,
         ytdPresentations,
         ytdTransitions,
-        bestDay: getRecord('best_day_fp'),
-        bestWeek: getRecord('best_week_fp'),
-        bestMonth: getRecord('best_month_fp'),
+        bestDayFp: getRecord('daily_fp'),
+        bestWeekFp: getRecord('weekly_fp'),
+        bestMonthFp: getRecord('monthly_fp'),
+        bestDayPrmr: getRecord('daily_prmr'),
+        bestWeekPrmr: getRecord('weekly_prmr'),
+        bestMonthPrmr: getRecord('monthly_prmr'),
         dailyFpValues,
         efpModeEnabled,
       };

@@ -172,28 +172,20 @@ const Profile = () => {
             </div>
           </TabsContent>
 
-          {/* Records Tab */}
-          <TabsContent value="records" className="mt-4">
+          <TabsContent value="records" className="mt-4 space-y-4">
+            {/* FP+ Records */}
             <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Personal Bests</h3>
-              <RecordRow
-                icon={Flame}
-                label="Best Day"
-                record={profile.bestDay}
-                formatDate={formatDate}
-              />
-              <RecordRow
-                icon={Trophy}
-                label="Best Week"
-                record={profile.bestWeek}
-                formatDate={formatDate}
-              />
-              <RecordRow
-                icon={Target}
-                label="Best Month"
-                record={profile.bestMonth}
-                formatDate={formatDate}
-              />
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Best FP+</h3>
+              <RecordRow icon={Flame} label="Best Day" record={profile.bestDayFp} formatDate={formatDate} unit="FP+" />
+              <RecordRow icon={Trophy} label="Best Week" record={profile.bestWeekFp} formatDate={formatDate} unit="FP+" />
+              <RecordRow icon={Target} label="Best Month" record={profile.bestMonthFp} formatDate={formatDate} unit="FP+" />
+            </div>
+            {/* PRMR Records */}
+            <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Best PRMR</h3>
+              <RecordRow icon={Flame} label="Best Day" record={profile.bestDayPrmr} formatDate={formatDate} unit="PRMR" />
+              <RecordRow icon={Trophy} label="Best Week" record={profile.bestWeekPrmr} formatDate={formatDate} unit="PRMR" />
+              <RecordRow icon={Target} label="Best Month" record={profile.bestMonthPrmr} formatDate={formatDate} unit="PRMR" />
             </div>
           </TabsContent>
 
@@ -248,11 +240,13 @@ const RecordRow = ({
   label,
   record,
   formatDate,
+  unit = "FP+",
 }: {
   icon: typeof Trophy;
   label: string;
   record: { value: number; date: string } | null;
   formatDate: (d: string) => string;
+  unit?: string;
 }) => (
   <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/30">
     <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -263,7 +257,9 @@ const RecordRow = ({
     </div>
     {record ? (
       <div className="text-right shrink-0">
-        <span className="text-sm font-bold text-foreground">{record.value.toFixed(1)} FP+</span>
+        <span className="text-sm font-bold text-foreground">
+          {unit === "PRMR" ? `$${Math.round(record.value).toLocaleString()}` : record.value.toFixed(1)} {unit === "PRMR" ? "" : unit}
+        </span>
         <span className="block text-[10px] text-muted-foreground">{formatDate(record.date)}</span>
       </div>
     ) : (
