@@ -4,10 +4,11 @@ import { Trophy, TrendingUp, Flame, ChevronUp, ChevronDown, Footprints, Users, P
 import { cn } from "@/lib/utils";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { hapticSuccess, hapticWarning } from "@/utils/haptics";
+import { hapticSuccess, hapticWarning, hapticLight } from "@/utils/haptics";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { getInitials } from "@/utils/nameUtils";
+import { useNavigate } from "react-router-dom";
 
 interface LiveRaceSectionProps {
   currentUserId: string | null;
@@ -37,6 +38,7 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
   const [prevRankings, setPrevRankings] = useState<Map<string, number>>(new Map());
   const [rankChanges, setRankChanges] = useState<Map<string, 'up' | 'down' | null>>(new Map());
   const [showPhotoUpload, setShowPhotoUpload] = useState<string | null>(null);
+  const navigate = useNavigate();
   
   const { data: leaderboard, isLoading, isFetching } = useTodayLeaderboard(filterByYear);
   const userRowRef = useRef<HTMLDivElement>(null);
@@ -335,8 +337,15 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
                     )}
                   </div>
 
-                  {/* Name */}
-                  <div className="flex-1 min-w-0">
+                  {/* Name - tappable to navigate to profile */}
+                  <button
+                    className="flex-1 min-w-0 text-left active:scale-[0.98] transition-transform"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      hapticLight();
+                      navigate(`/profile/${entry.userId}`);
+                    }}
+                  >
                     <div className="flex items-center gap-1.5">
                       <span className={cn(
                         "font-medium truncate",
@@ -360,7 +369,7 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
                         On your tail
                       </span>
                     )}
-                  </div>
+                  </button>
 
                   {/* Value */}
                   <div className={cn(
