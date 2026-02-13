@@ -119,8 +119,9 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
   const finalFp = fpChoice === 'tracked' ? trackedFp : (parseFloat(fpVivint) || 0);
   const finalFpSold = fpSoldChoice === 'tracked' ? trackedFpSold : (parseInt(fpSoldVivint) || 0);
   const finalPrmr = prmrChoice === 'tracked' ? trackedPrmr : (parseFloat(prmrVivint) || 0);
-  const finalKnockingDays: number | null = 
-    knockingChoice === 'tracked' ? trackedKnockingDays 
+  const finalKnockingDays: number | null = !isInitialSync
+    ? trackedKnockingDays // biweekly: always use tracked days
+    : knockingChoice === 'tracked' ? trackedKnockingDays 
     : knockingChoice === 'manual' ? (parseInt(knockingManual) || 0)
     : knockingChoice === 'unknown' ? null 
     : 0;
@@ -131,6 +132,8 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
   // Steps to skip when user has no logged customers (source/crm are irrelevant)
   const shouldSkipStep = (s: SyncStep): boolean => {
     if (hasNoLoggedCustomers && (s === 'source' || s === 'crm')) return true;
+    // Only ask about knocking days on the initial sync (catch-up baseline)
+    if (!isInitialSync && s === 'knocking_days') return true;
     return false;
   };
 
