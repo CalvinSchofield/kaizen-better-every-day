@@ -26,10 +26,10 @@ interface RepProfileData {
   bestDayPrmr: RecordEntry | null;
   bestWeekPrmr: RecordEntry | null;
   bestMonthPrmr: RecordEntry | null;
-  /** Per day worked with dates, chronologically (for momentum sparkline) */
   dailyFpValues: { date: string; fp: number; prmr: number }[];
-  /** Whether this rep has EFP mode enabled */
   efpModeEnabled: boolean;
+  /** ISO timestamp of last activity (most recent daily entry updated_at) */
+  lastActiveAt: string | null;
 }
 
 export const useRepProfile = (userId: string | null) => {
@@ -39,7 +39,7 @@ export const useRepProfile = (userId: string | null) => {
       if (!userId) return null;
 
       // Fetch rep info, daily entries, records, and efp mode in parallel
-      const [repResult, entriesResult, recordsResult] = await Promise.all([
+      const [repResult, entriesResult, recordsResult, lastActiveResult] = await Promise.all([
         supabase
           .from('reps')
           .select('name, year, profile_photo_url, team_leader, recruiter, efp_mode_enabled')
@@ -56,6 +56,13 @@ export const useRepProfile = (userId: string | null) => {
           .select('record_type, value, entry_date')
           .eq('user_id', userId)
           .in('record_type', ['daily_fp', 'weekly_fp', 'monthly_fp', 'daily_prmr', 'weekly_prmr', 'monthly_prmr']),
+        supabase
+          .from('daily_entries')
+          .select('updated_at')
+          .eq('user_id', userId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ]);
 
       const rep = repResult.data;
@@ -154,6 +161,7 @@ export const useRepProfile = (userId: string | null) => {
         bestMonthPrmr: getRecord('monthly_prmr'),
         dailyFpValues,
         efpModeEnabled,
+        lastActiveAt: lastActiveResult.data?.updated_at || null,
       };
     },
     enabled: !!userId,

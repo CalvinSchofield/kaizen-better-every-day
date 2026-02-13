@@ -1,7 +1,6 @@
 import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Settings, Camera, ArrowLeft, Lock, Trophy, Flame, Target, Footprints, Presentation, ArrowRightLeft, Award } from "lucide-react";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
@@ -14,13 +13,33 @@ import { hapticLight } from "@/utils/haptics";
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
 
+const formatRelativeTime = (isoString: string | null): string | null => {
+  if (!isoString) return null;
+  try {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    const diffWeeks = Math.floor(diffDays / 7);
+
+    if (diffMins < 1) return "just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return `${diffWeeks}w ago`;
+  } catch {
+    return null;
+  }
+};
+
 const Profile = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { userId: currentUserId } = useCurrentUserId();
   const [photoDrawerOpen, setPhotoDrawerOpen] = useState(false);
 
-  // If /profile with no userId, redirect to own profile
   if (!userId && currentUserId) {
     return <Navigate to={`/profile/${currentUserId}`} replace />;
   }
@@ -40,8 +59,8 @@ const Profile = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <div className="pt-safe" />
+        <Skeleton className="w-full aspect-[4/3]" />
         <div className="flex-1 flex flex-col items-center px-6 pt-6 gap-4">
-          <Skeleton className="h-28 w-28 rounded-full" />
           <Skeleton className="h-6 w-40" />
           <Skeleton className="h-4 w-32" />
           <div className="flex gap-6 mt-4">
@@ -62,78 +81,102 @@ const Profile = () => {
     );
   }
 
+  const nameParts = profile.name.split(" ");
+  const firstName = nameParts[0];
+  const lastName = nameParts.slice(1).join(" ");
+  const lastActive = formatRelativeTime(profile.lastActiveAt);
+
   return (
     <div className="min-h-screen bg-background overflow-y-auto">
-      {/* Top bar */}
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md">
-        <div className="pt-safe" />
-        <div className="flex items-center justify-between px-4 h-14">
-          <button
-            onClick={() => { hapticLight(); navigate(-1); }}
-            className="p-2 -ml-2 rounded-full active:scale-95 transition-transform"
-          >
-            <ArrowLeft className="h-5 w-5 text-foreground" />
-          </button>
-          <span className="font-semibold text-sm">Profile</span>
-          {isOwnProfile ? (
+      {/* Hero cover photo with overlaid name */}
+      <div className="relative w-full aspect-[4/3] overflow-hidden bg-muted">
+        {/* Back button + settings - floating over image */}
+        <div className="absolute top-0 left-0 right-0 z-20">
+          <div className="pt-safe" />
+          <div className="flex items-center justify-between px-4 h-14">
             <button
-              onClick={() => { hapticLight(); navigate("/settings"); }}
-              className="p-2 -mr-2 rounded-full active:scale-95 transition-transform"
+              onClick={() => { hapticLight(); navigate(-1); }}
+              className="p-2 -ml-2 rounded-full bg-black/30 backdrop-blur-sm active:scale-95 transition-transform"
             >
-              <Settings className="h-5 w-5 text-foreground" />
+              <ArrowLeft className="h-5 w-5 text-white" />
             </button>
-          ) : (
-            <div className="w-9" />
-          )}
-        </div>
-      </div>
-
-      {/* Hero section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className="flex flex-col items-center px-6 pt-2 pb-6"
-      >
-        {/* Avatar with gradient ring */}
-        <div className="relative mb-4">
-          <div className="h-28 w-28 rounded-full p-[3px] bg-gradient-to-br from-primary via-primary-light to-warning">
-            <Avatar className="h-full w-full border-[3px] border-background">
-              <AvatarImage src={profile.profilePhotoUrl || undefined} alt={profile.name} />
-              <AvatarFallback className="bg-muted text-muted-foreground text-2xl font-bold">
-                {getInitials(profile.name)}
-              </AvatarFallback>
-            </Avatar>
+            {isOwnProfile ? (
+              <button
+                onClick={() => { hapticLight(); navigate("/settings"); }}
+                className="p-2 -mr-2 rounded-full bg-black/30 backdrop-blur-sm active:scale-95 transition-transform"
+              >
+                <Settings className="h-5 w-5 text-white" />
+              </button>
+            ) : (
+              <div className="w-9" />
+            )}
           </div>
-          {isOwnProfile && (
-            <button
-              onClick={() => { hapticLight(); setPhotoDrawerOpen(true); }}
-              className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg active:scale-90 transition-transform border-2 border-background"
-            >
-              <Camera className="h-4 w-4" />
-            </button>
-          )}
         </div>
 
-        {/* Name + Year badge + Team */}
-        <h1 className="text-xl font-bold text-foreground">{profile.name}</h1>
-        <div className="flex items-center gap-2 mt-1">
-          <YearBadge year={profile.year} fullLabel />
-          {profile.officeName && (
-            <span className="text-sm text-muted-foreground">{profile.officeName}</span>
-          )}
-        </div>
-        {profile.officeName && (
-          <span className="text-xs text-muted-foreground/70 mt-0.5">{profile.officeName}</span>
+        {/* Photo */}
+        {profile.profilePhotoUrl ? (
+          <img
+            src={profile.profilePhotoUrl}
+            alt={profile.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-muted">
+            <span className="text-5xl font-bold text-muted-foreground/40">
+              {getInitials(profile.name)}
+            </span>
+          </div>
         )}
-      </motion.div>
+
+        {/* Gradient overlay at bottom */}
+        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+
+        {/* Overlaid name + last active */}
+        <div className="absolute bottom-0 left-0 right-0 px-5 pb-5 z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          >
+            {firstName && (
+              <h1 className="text-white leading-tight">
+                <span className="block text-2xl font-medium tracking-wide">{firstName}</span>
+                {lastName && (
+                  <span className="block text-3xl font-black tracking-tight">{lastName}</span>
+                )}
+              </h1>
+            )}
+            <div className="flex items-center gap-2 mt-1.5">
+              <YearBadge year={profile.year} fullLabel />
+              {profile.officeName && (
+                <span className="text-xs text-white/70 font-medium">{profile.officeName}</span>
+              )}
+            </div>
+            {lastActive && (
+              <p className="text-xs text-primary font-semibold mt-1">
+                Last Active: {lastActive}
+              </p>
+            )}
+          </motion.div>
+        </div>
+
+        {/* Camera button for own profile */}
+        {isOwnProfile && (
+          <button
+            onClick={() => { hapticLight(); setPhotoDrawerOpen(true); }}
+            className="absolute bottom-4 right-4 z-20 h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg active:scale-90 transition-transform border-2 border-white/20"
+          >
+            <Camera className="h-4 w-4" />
+          </button>
+        )}
+      </div>
 
       {/* Stats bar */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.1 }}
-        className="mx-4 mb-6 rounded-2xl bg-card border border-border p-4"
+        className="mx-4 mt-4 mb-6 rounded-2xl bg-card border border-border p-4"
       >
         <div className="grid grid-cols-3 divide-x divide-border">
           <StatCell label="YTD FP+" value={profile.ytdFpPlus.toFixed(1)} />
@@ -179,14 +222,12 @@ const Profile = () => {
           </TabsContent>
 
           <TabsContent value="records" className="mt-4 space-y-4">
-            {/* FP+ Records */}
             <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Best FP+</h3>
               <RecordRow icon={Flame} label="Best Day" record={profile.bestDayFp} formatDate={formatDate} unit="FP+" />
               <RecordRow icon={Trophy} label="Best Week" record={profile.bestWeekFp} formatDate={formatDate} unit="FP+" />
               <RecordRow icon={Target} label="Best Month" record={profile.bestMonthFp} formatDate={formatDate} unit="FP+" />
             </div>
-            {/* PRMR Records */}
             <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Best PRMR</h3>
               <RecordRow icon={Flame} label="Best Day" record={profile.bestDayPrmr} formatDate={formatDate} unit="PRMR" />
@@ -195,7 +236,6 @@ const Profile = () => {
             </div>
           </TabsContent>
 
-          {/* Badges Tab (Coming Soon) */}
           <TabsContent value="badges" className="mt-4">
             <div className="bg-card border border-border rounded-2xl p-8 flex flex-col items-center text-center">
               <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -210,7 +250,6 @@ const Profile = () => {
         </Tabs>
       </motion.div>
 
-      {/* Photo Drawer */}
       {isOwnProfile && (
         <ProfilePhotoDrawer
           open={photoDrawerOpen}
