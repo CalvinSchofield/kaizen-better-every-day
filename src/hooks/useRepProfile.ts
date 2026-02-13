@@ -17,8 +17,9 @@ interface RepProfileData {
   ytdDoors: number;
   ytdPresentations: number;
   ytdTransitions: number;
-  bestDayFp: { value: number; date: string } | null;
-  bestDayPrmr: { value: number; date: string } | null;
+  bestDay: { value: number; date: string } | null;
+  bestWeek: { value: number; date: string } | null;
+  bestMonth: { value: number; date: string } | null;
   /** FP+ per day worked with dates, chronologically (for momentum sparkline) */
   dailyFpValues: { date: string; fp: number }[];
   /** Whether this rep has EFP mode enabled */
@@ -48,7 +49,7 @@ export const useRepProfile = (userId: string | null) => {
           .from('personal_records')
           .select('record_type, value, entry_date')
           .eq('user_id', userId)
-          .in('record_type', ['daily_fp', 'daily_prmr']),
+          .in('record_type', ['best_day_fp', 'best_week_fp', 'best_month_fp']),
       ]);
 
       const rep = repResult.data;
@@ -135,8 +136,9 @@ export const useRepProfile = (userId: string | null) => {
         ytdDoors,
         ytdPresentations,
         ytdTransitions,
-        bestDayFp: getRecord('daily_fp'),
-        bestDayPrmr: getRecord('daily_prmr'),
+        bestDay: getRecord('best_day_fp'),
+        bestWeek: getRecord('best_week_fp'),
+        bestMonth: getRecord('best_month_fp'),
         dailyFpValues,
         efpModeEnabled,
       };
