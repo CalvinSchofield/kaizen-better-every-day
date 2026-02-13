@@ -20,6 +20,8 @@ interface RepProfileData {
   bestDay: { value: number; date: string } | null;
   bestWeek: { value: number; date: string } | null;
   bestMonth: { value: number; date: string } | null;
+  /** FP+ per day worked, chronologically ordered (for momentum sparkline) */
+  dailyFpValues: number[];
 }
 
 export const useRepProfile = (userId: string | null) => {
@@ -77,22 +79,29 @@ export const useRepProfile = (userId: string | null) => {
       let ytdPresentations = 0;
       let ytdTransitions = 0;
 
-      for (const entry of entries) {
+      // Sort entries chronologically for sparkline
+      const sortedEntries = [...entries].sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+      const dailyFpValues: number[] = [];
+
+      for (const entry of sortedEntries) {
         const salesLog = entry.sales_log as any[] | null;
+        let dayFp = 0;
         if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
           const calc = calculateFromSalesLog(salesLog);
+          dayFp = calc.fp;
           ytdFpPlus += calc.fp;
           ytdPrmr += calc.prmr;
-          // Calculate upgrade FP+ from sales_log
           const upgradePrmr = salesLog
             .filter(s => s.type === 'upgrade' && s.install_status !== 'never_installed')
             .reduce((sum: number, s: any) => sum + (Number(s.prmr) || 0), 0);
           ytdUpgradePrmr += upgradePrmr;
         } else {
+          dayFp = entry.fp_plus || 0;
           ytdFpPlus += entry.fp_plus || 0;
           ytdPrmr += entry.prmr || 0;
           ytdUpgradePrmr += entry.upgrade_prmr || 0;
         }
+        dailyFpValues.push(Math.round(dayFp * 10) / 10);
         ytdDoors += entry.doors_knocked || 0;
         ytdPresentations += entry.presentations || 0;
         ytdTransitions += entry.transitions || 0;
@@ -121,6 +130,7 @@ export const useRepProfile = (userId: string | null) => {
         bestDay: getRecord('best_day_fp'),
         bestWeek: getRecord('best_week_fp'),
         bestMonth: getRecord('best_month_fp'),
+        dailyFpValues,
       };
     },
     enabled: !!userId,
