@@ -328,6 +328,21 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                       </div>
                     </Link>
 
+                    {/* Leaderboard - accessible in preseason via drawer */}
+                    <Link
+                      to="/leaderboard"
+                      onClick={() => { hapticLight(); setOpen(false); }}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <Trophy className="w-5 h-5 text-primary" />
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="font-semibold text-sm">Leaderboard</span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          See top performers
+                        </span>
+                      </div>
+                    </Link>
+
                     {/* Team Reports - Leaders only, hidden in preseason since it's now in the nav in knocking mode */}
                     {isLeader && !isKnockingMode && (
                       <Link
@@ -436,26 +451,43 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             <Separator />
 
             {/* Compete - Challenges & Incentives hub */}
-            <Link
-              to="/compete"
-              onClick={() => { hapticLight(); setOpen(false); }}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-            >
-              <Swords className="w-5 h-5 text-primary" />
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="font-semibold text-sm flex items-center gap-2">
-                  Compete
-                  {pendingActionCount > 0 && (
-                    <Badge variant="destructive" className="h-4 min-w-4 flex items-center justify-center p-0 text-[10px]">
-                      {pendingActionCount}
-                    </Badge>
-                  )}
-                </span>
-                <span className="text-xs text-muted-foreground truncate">
-                  Challenges & incentives
-                </span>
+            {isPreBlitzRookie ? (
+              <div className="flex items-center gap-3 p-3 rounded-lg">
+                <div className="relative">
+                  <Swords className="w-5 h-5 text-primary" />
+                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                    <Lock className="w-3 h-3 text-primary" />
+                  </div>
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="font-semibold text-sm">Compete</span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    Unlocks on first blitz
+                  </span>
+                </div>
               </div>
-            </Link>
+            ) : (
+              <Link
+                to="/compete"
+                onClick={() => { hapticLight(); setOpen(false); }}
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+              >
+                <Swords className="w-5 h-5 text-primary" />
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="font-semibold text-sm flex items-center gap-2">
+                    Compete
+                    {pendingActionCount > 0 && (
+                      <Badge variant="destructive" className="h-4 min-w-4 flex items-center justify-center p-0 text-[10px]">
+                        {pendingActionCount}
+                      </Badge>
+                    )}
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    Challenges & incentives
+                  </span>
+                </div>
+              </Link>
+            )}
 
             <Separator />
 
@@ -476,8 +508,23 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
               </Link>
             )}
 
-            {/* Customers - Always show (CRM is always enabled) */}
-            {(
+            {/* Customers */}
+            {isPreBlitzRookie ? (
+              <div className="flex items-center gap-3 p-3 rounded-lg">
+                <div className="relative">
+                  <Contact className="w-5 h-5 text-primary" />
+                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                    <Lock className="w-3 h-3 text-primary" />
+                  </div>
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="font-semibold text-sm">Customers</span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    Unlocks on first blitz
+                  </span>
+                </div>
+              </div>
+            ) : (
               <Link
                 to="/customers"
                 onClick={() => setOpen(false)}
