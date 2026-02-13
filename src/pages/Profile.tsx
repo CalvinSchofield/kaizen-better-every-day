@@ -88,32 +88,31 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-background overflow-y-auto pb-28">
-      {/* Hero cover photo with overlaid name */}
-      <div className="relative w-full aspect-[4/3] overflow-hidden bg-muted">
-        {/* Back button + settings - floating just below Dynamic Island */}
-        <div className="absolute top-0 left-0 right-0 z-20">
-          <div className="pt-safe" />
-          <div className="flex items-center justify-between px-4 pt-1">
+      {/* Hero cover photo — bleeds under status bar / Dynamic Island */}
+      <div className="relative w-full aspect-[3/4] max-h-[70vh] overflow-hidden bg-muted">
+        {/* Back + settings buttons — floated well below Dynamic Island */}
+        <div className="absolute top-0 left-0 right-0 z-20 pt-safe">
+          <div className="flex items-center justify-between px-5 pt-3">
             <button
               onClick={() => { hapticLight(); navigate(-1); }}
-              className="p-2 -ml-2 rounded-full bg-black/30 backdrop-blur-sm active:scale-95 transition-transform"
+              className="h-10 w-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
             >
-              <ArrowLeft className="h-5 w-5 text-white drop-shadow-md" />
+              <ArrowLeft className="h-5 w-5 text-white" />
             </button>
             {isOwnProfile ? (
               <button
                 onClick={() => { hapticLight(); navigate("/settings"); }}
-                className="p-2 -mr-2 rounded-full bg-black/30 backdrop-blur-sm active:scale-95 transition-transform"
+                className="h-10 w-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
               >
-                <Settings className="h-5 w-5 text-white drop-shadow-md" />
+                <Settings className="h-5 w-5 text-white" />
               </button>
             ) : (
-              <div className="w-9" />
+              <div className="w-10" />
             )}
           </div>
         </div>
 
-        {/* Photo - high quality rendering */}
+        {/* Photo — fills entire hero area */}
         {profile.profilePhotoUrl ? (
           <img
             src={profile.profilePhotoUrl}
@@ -125,44 +124,44 @@ const Profile = () => {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-muted">
-            <span className="text-5xl font-bold text-muted-foreground/40">
+            <span className="text-6xl font-bold text-muted-foreground/30">
               {getInitials(profile.name)}
             </span>
           </div>
         )}
 
-        {/* Top fade gradient - blends into Dynamic Island / status bar */}
-        <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/60 via-black/25 to-transparent z-[5]" />
+        {/* Top fade — blends into Dynamic Island / status bar area */}
+        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/70 via-black/30 to-transparent z-[5]" />
 
-        {/* Bottom gradient overlay for text readability */}
-        <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+        {/* Bottom gradient — generous fade for name readability */}
+        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-background via-background/60 to-transparent" />
 
-        {/* Overlaid name + year + office + last active */}
-        <div className="absolute bottom-0 left-0 right-0 px-5 pb-5 z-10">
+        {/* Overlaid name + meta */}
+        <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 z-10">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
             {firstName && (
-              <h1 className="leading-tight" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
-                <span className="block text-2xl font-medium tracking-wide text-white">{firstName}</span>
+              <h1 className="leading-[1.1]">
+                <span className="block text-2xl font-medium tracking-wide text-foreground">{firstName}</span>
                 {lastName && (
-                  <span className="block text-3xl font-black tracking-tight text-white">{lastName}</span>
+                  <span className="block text-4xl font-black tracking-tight text-foreground">{lastName}</span>
                 )}
               </h1>
             )}
-            <div className="flex items-center gap-2 mt-1.5">
+            <div className="flex items-center gap-2 mt-2">
               <YearBadge year={profile.year} fullLabel />
               {profile.officeName && (
                 <>
-                  <span className="text-white/40">·</span>
-                  <span className="text-xs text-white/80 font-medium drop-shadow-md">{profile.officeName}</span>
+                  <span className="text-muted-foreground/60">·</span>
+                  <span className="text-xs text-muted-foreground font-medium">{profile.officeName}</span>
                 </>
               )}
             </div>
             {lastActive && (
-              <p className="text-[11px] font-semibold mt-1.5 drop-shadow-md" style={{ color: 'hsl(var(--primary))' }}>
+              <p className="text-[11px] font-semibold mt-1.5" style={{ color: 'hsl(var(--primary))' }}>
                 Active {lastActive}
               </p>
             )}
@@ -173,7 +172,7 @@ const Profile = () => {
         {isOwnProfile && (
           <button
             onClick={() => { hapticLight(); setPhotoDrawerOpen(true); }}
-            className="absolute bottom-4 right-4 z-20 h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg active:scale-90 transition-transform border-2 border-white/20"
+            className="absolute bottom-5 right-5 z-20 h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg active:scale-90 transition-transform border-2 border-white/20"
           >
             <Camera className="h-4 w-4" />
           </button>
@@ -181,11 +180,12 @@ const Profile = () => {
       </div>
 
       {/* Stats bar */}
+      {/* Stats bar — tighter to hero, no gap */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.1 }}
-        className="mx-4 mt-4 mb-6 rounded-2xl bg-card border border-border p-4"
+        className="mx-5 -mt-1 mb-5 rounded-2xl bg-card border border-border p-4"
       >
         <div className="grid grid-cols-3 divide-x divide-border">
           <StatCell label="YTD FP+" value={profile.ytdFpPlus.toFixed(1)} />
@@ -208,7 +208,7 @@ const Profile = () => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.2 }}
-        className="px-4 pb-4"
+        className="px-5 pb-4"
       >
         <Tabs defaultValue="stats" className="w-full">
           <TabsList className="w-full grid grid-cols-3 bg-muted/50">
