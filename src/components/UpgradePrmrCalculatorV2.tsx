@@ -242,7 +242,7 @@ export const UpgradePrmrCalculator = ({
 
             {/* ========== BUILDER TAB ========== */}
             <TabsContent value="builder" className="flex-1 overflow-hidden flex flex-col mt-0">
-              <div className="flex-1 overflow-y-auto min-h-0 pb-4" style={{ overscrollBehavior: 'contain' }}>
+              <div className="flex-1 overflow-y-auto min-h-0 pb-4 basis-0" style={{ overscrollBehavior: 'contain' }}>
                 {/* Panel toggle */}
                 <div className="flex items-center justify-between rounded-xl bg-muted/50 border border-border p-3 mb-4">
                   <div className="flex items-center gap-3">
