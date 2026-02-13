@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Area, AreaChart, ResponsiveContainer, XAxis, ReferenceLine } from "recharts";
-import { calculateEfp } from "@/utils/efp";
+
 import { motion } from "framer-motion";
 import { Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -10,18 +10,17 @@ type MetricMode = 'fp' | 'prmr';
 interface MomentumSparklineProps {
   dailyFp: { date: string; fp: number; prmr: number }[];
   isOwnProfile: boolean;
-  efpMode?: boolean;
 }
 
-export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSparklineProps) => {
-  const [mode, setMode] = useState<MetricMode>(efpMode ? 'prmr' : 'fp');
+export const MomentumSparkline = ({ dailyFp, isOwnProfile }: MomentumSparklineProps) => {
+  const [mode, setMode] = useState<MetricMode>('fp');
 
   const { data, avg, trending, metricLabel, daysWorked } = useMemo(() => {
     if (!dailyFp || dailyFp.length < 2) {
       return { data: [], avg: 0, trending: true, metricLabel: 'FP+', daysWorked: 0 };
     }
 
-    const label = mode === 'prmr' ? 'PRMR' : (efpMode ? 'EFP' : 'FP+');
+    const label = mode === 'prmr' ? 'PRMR' : 'FP+';
 
     // Only include days with actual production for chart readability
     const productiveDays = dailyFp.filter(d => (d.fp ?? 0) > 0 || (d.prmr ?? 0) > 0);
@@ -39,15 +38,7 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSp
           labelStr = `${months[monthNum - 1]} ${dayNum}`;
         }
       }
-      let value: number;
-      if (mode === 'prmr') {
-        value = d.prmr ?? 0;
-      } else if (efpMode) {
-        // EFP = daily PRMR / 85
-        value = calculateEfp(d.prmr ?? 0);
-      } else {
-        value = d.fp ?? 0;
-      }
+      const value = mode === 'prmr' ? (d.prmr ?? 0) : (d.fp ?? 0);
       return { label: labelStr, value };
     });
 
@@ -66,7 +57,7 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSp
       metricLabel: label,
       daysWorked: dailyFp.length,
     };
-  }, [dailyFp, efpMode, mode]);
+  }, [dailyFp, mode]);
 
   if (!dailyFp || dailyFp.length < 2 || data.length === 0) return null;
 
@@ -98,7 +89,7 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSp
                   : 'text-muted-foreground'
               )}
             >
-              {efpMode ? 'EFP' : 'FP+'}
+              FP+
             </button>
             <button
               onClick={() => setMode('prmr')}

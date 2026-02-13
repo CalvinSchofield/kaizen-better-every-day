@@ -201,7 +201,6 @@ const Profile = () => {
       <MomentumSparkline
         dailyFp={profile.dailyFpValues}
         isOwnProfile={isOwnProfile}
-        efpMode={isOwnProfile && profile.efpModeEnabled}
       />
 
       {/* Tabbed content */}
