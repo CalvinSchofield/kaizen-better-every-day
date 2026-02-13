@@ -178,20 +178,16 @@ const Profile = () => {
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Personal Bests</h3>
               <RecordRow
                 icon={Flame}
-                label="Best Day"
-                record={profile.bestDay}
+                label="Top FP+ Day"
+                record={profile.bestDayFp}
+                suffix="FP+"
                 formatDate={formatDate}
               />
               <RecordRow
                 icon={Trophy}
-                label="Best Week"
-                record={profile.bestWeek}
-                formatDate={formatDate}
-              />
-              <RecordRow
-                icon={Target}
-                label="Best Month"
-                record={profile.bestMonth}
+                label="Top PRMR Day"
+                record={profile.bestDayPrmr}
+                suffix="PRMR"
                 formatDate={formatDate}
               />
             </div>
@@ -247,11 +243,13 @@ const RecordRow = ({
   icon: Icon,
   label,
   record,
+  suffix,
   formatDate,
 }: {
   icon: typeof Trophy;
   label: string;
   record: { value: number; date: string } | null;
+  suffix: string;
   formatDate: (d: string) => string;
 }) => (
   <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/30">
@@ -263,7 +261,9 @@ const RecordRow = ({
     </div>
     {record ? (
       <div className="text-right shrink-0">
-        <span className="text-sm font-bold text-foreground">{record.value.toFixed(1)} FP+</span>
+        <span className="text-sm font-bold text-foreground">
+          {suffix === 'PRMR' ? `$${record.value.toFixed(0)}` : record.value.toFixed(1)} {suffix}
+        </span>
         <span className="block text-[10px] text-muted-foreground">{formatDate(record.date)}</span>
       </div>
     ) : (
