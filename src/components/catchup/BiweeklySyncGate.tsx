@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { useOfficialTotals } from "@/hooks/useOfficialTotals";
-import { useEfpMode } from "@/hooks/useEfpMode";
+
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -37,10 +37,10 @@ type KnockingChoice = 'tracked' | 'manual' | 'unknown' | null;
 export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = false, isUserSummerStarted = false, onComplete }: BiweeklySyncGateProps) => {
   const navigate = useNavigate();
   const { upsertTotalsAsync, isUpserting } = useOfficialTotals(seasonType);
-  const { efpModeEnabled } = useEfpMode();
   const { data: teamAccess } = useTeamAccess();
   const hasRecruits = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
-  const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
+  // Always show FP+ in sync flow — this syncs with Vivint's official numbers which are in FP+
+  const metricLabel = 'FP+';
 
   const [step, setStep] = useState<SyncStep>('intro');
   const [isSavingZero, setIsSavingZero] = useState(false);
