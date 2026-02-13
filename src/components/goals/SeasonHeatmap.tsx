@@ -27,6 +27,8 @@ interface SeasonHeatmapProps {
   isLoading: boolean;
   activeTier: GoalTier;
   dailyNeeded: number;
+  remainingFp?: number;
+  preseasonGoalHit?: boolean;
 }
 
 type CellLevel = 'off' | 'future-off' | 'future-planned' | 'empty' | 1 | 2 | 3 | 4;
@@ -89,6 +91,8 @@ export const SeasonHeatmap = ({
   isLoading,
   activeTier,
   dailyNeeded,
+  remainingFp = 0,
+  preseasonGoalHit = false,
 }: SeasonHeatmapProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tappedCell, setTappedCell] = useState<string | null>(null);
@@ -279,15 +283,30 @@ export const SeasonHeatmap = ({
         <div className="text-xs font-medium text-muted-foreground">
           Season 2025–26
         </div>
-        <div className={cn(
-          "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold",
-          displayTierConfig.bgColor, displayTierConfig.color
-        )}>
-          <DisplayTierIcon className="w-3 h-3" />
-          <span>{displayTierConfig.label}</span>
-          <span className="opacity-60">·</span>
-          <span>{dailyNeeded} {metricLabel}/day</span>
-        </div>
+        {isCurrentlyPreseason && preseasonGoalHit ? (
+          <div className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold",
+            "bg-emerald-500/10 text-emerald-500"
+          )}>
+            <span>🎉</span>
+            <span>Preseason goal hit!</span>
+          </div>
+        ) : (
+          <div className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold",
+            displayTierConfig.bgColor, displayTierConfig.color
+          )}>
+            <DisplayTierIcon className="w-3 h-3" />
+            <span>{displayTierConfig.label}</span>
+            <span className="opacity-60">·</span>
+            <span>
+              {dailyNeeded} {metricLabel}/day
+              {isCurrentlyPreseason && remainingFp > 0 && dailyNeeded >= 5 && (
+                <span className="opacity-60"> · {remainingFp} left</span>
+              )}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-1.5 relative">

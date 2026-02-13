@@ -126,9 +126,13 @@ export const CalendarPlanningPreview = ({
     const forecastedPreseasonTotal = currentProgress + (dailyAvg * remainingPreseasonWorkDays);
 
     let dailyNeeded: number;
+    let remainingFp = 0;
+    let preseasonGoalHit = false;
 
     if (isPreseasonTier) {
       const remaining = Math.max(0, fundedGoalNeeded - currentProgress);
+      remainingFp = Math.round(remaining * 10) / 10;
+      preseasonGoalHit = remaining <= 0;
       const remainingDays = futurePreseasonPlanned + 1;
       dailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
     } else {
@@ -141,7 +145,6 @@ export const CalendarPlanningPreview = ({
     }
 
     const weeklyNeeded = Math.round(dailyNeeded * 6 * 10) / 10;
-
     // Pace targets for heatmap
     const preseasonGoal = goals?.preseason_fp_goal || 0;
     const preseasonDailyPace = remainingPreseasonWorkDays > 0 ? preseasonGoal / (knockingDays + remainingPreseasonWorkDays) : 0;
@@ -163,6 +166,8 @@ export const CalendarPlanningPreview = ({
       forecastedPreseasonTotal: Math.round(forecastedPreseasonTotal * 10) / 10,
       preseasonDailyPace: Math.round(preseasonDailyPace * 10) / 10,
       summerDailyPace: Math.round(summerDailyPace * 10) / 10,
+      remainingFp,
+      preseasonGoalHit,
     };
   }, [plannedDays, goals, activeTier, efpModeEnabled, knockingDays, currentProgress]);
 
@@ -267,6 +272,8 @@ export const CalendarPlanningPreview = ({
                       isLoading={isCalendarLoading}
                       activeTier={activeTier}
                       dailyNeeded={stats.dailyNeeded}
+                      remainingFp={stats.remainingFp}
+                      preseasonGoalHit={stats.preseasonGoalHit}
                     />
 
                     {/* Plan Days CTA */}
