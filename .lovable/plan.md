@@ -1,48 +1,121 @@
 
 
-# Skip Knocking Days Step on Biweekly Syncs
+# Redesign Upgrade PRMR Calculator
 
-## Problem
-The sync flow currently asks "How many days have you worked?" on every biweekly sync, but this should only be asked during the **initial sync** (first-time catch-up). After that, the app tracks worked days automatically through daily entries, so asking again is redundant and confusing.
+## Overview
+Replace the current chat-first calculator drawer with a package-builder-style visual equipment selector that calculates PRMR in real-time, with the chat as an optional secondary mode. The new design will be used in two places:
+1. The `/tools/upgrades` page (via "Calculate Upgrade PRMR" button)
+2. The log-sale page (via the "?" helper when sale type is upgrade)
 
-## Current Capabilities Confirmed
-- Users **can** add sales to past dates via the Calendar day drawer ("Add Sale" button navigates to the log-sale page with a date parameter)
-- Users **cannot** retroactively mark a past day as "worked" without logging some activity on it
-- Knocking days accumulate naturally from daily_entries after initial setup
+## Current Problems
+- The current calculator is chat-centric -- users must either use tiny pill-style quick-select buttons or type equipment into a chat
+- Quick select lacks product images, making it hard to identify items quickly
+- No real-time PRMR calculation -- users must press "Calculate PRMR" and wait for AI response
+- The chat approach is slow and error-prone for a simple arithmetic operation
 
-## Changes
+## Design Approach
 
-### 1. Skip `knocking_days` step on biweekly (non-initial) syncs
+### Two-Tab Layout Inside the Drawer
+A segmented control at the top switches between:
+- **Builder** (default) -- visual equipment cards with real-time PRMR, matching the package builder pattern
+- **Chat** -- the existing AI chat for reps who prefer typing
 
-**File: `src/components/catchup/BiweeklySyncGate.tsx`**
+### Builder Tab (Primary)
+Reuses the existing `UpgradeEquipmentConfigurator` and `UpgradePriceSummary` components from the package builder (`src/components/tools/package-builder/upgrade/`). This gives users:
+- Product images in rounded cards with +/- buttons
+- Categories: Cameras, Smart Home, Security
+- Video fee (new camera) controls on camera cards
+- Panel toggle
+- Real-time PRMR calculation in a sticky bottom summary bar
 
-Update the `shouldSkipStep` function to also skip `knocking_days` when `isInitialSync` is false:
+The sticky bottom bar shows:
+- PRMR value (prominent, green)
+- Monthly added amount
+- Expandable breakdown
+- A "Use this PRMR" button (when triggered from log-sale)
 
-```typescript
-const shouldSkipStep = (s: SyncStep): boolean => {
-  if (hasNoLoggedCustomers && (s === 'source' || s === 'crm')) return true;
-  // Only ask about knocking days on the initial sync (catch-up baseline)
-  if (!isInitialSync && s === 'knocking_days') return true;
-  return false;
-};
+### Chat Tab (Secondary)
+Keeps the existing chat functionality as-is for reps who prefer to type their equipment list.
+
+## Technical Plan
+
+### 1. Create New Component: `src/components/UpgradePrmrCalculatorV2.tsx`
+A new Drawer component with two tabs:
+
+**Builder tab:**
+- Reuses `UpgradeEquipmentConfigurator` for the equipment cards
+- Reuses the PRMR calculation logic from `PackageBuilder.tsx` (the `upgradePrices` useMemo)
+- Panel toggle
+- Sticky bottom bar with real-time PRMR + "Use PRMR" CTA when `onPrmrCalculated` is provided
+
+**Chat tab:**
+- Embeds the existing chat logic (messages, sendMessageToAPI, etc.) from the current `UpgradePrmrCalculator`
+
+Props remain the same:
+```
+interface UpgradePrmrCalculatorProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onPrmrCalculated?: (prmr: number) => void;
+}
 ```
 
-### 2. Use tracked knocking days automatically for biweekly syncs
+### 2. Replace Old Calculator References
+Update these files to import the new V2 component:
+- `src/pages/LogSale.tsx` -- swap `UpgradePrmrCalculator` import
+- `src/components/LogSaleSheet.tsx` -- swap import
+- `src/pages/UpgradeCheatSheet.tsx` -- swap import
 
-When submitting a biweekly sync (non-initial), automatically use the tracked knocking days value instead of requiring user input:
+### 3. Delete Old Component
+Remove `src/components/UpgradePrmrCalculator.tsx` after migration.
 
-```typescript
-// In handleSubmit, for non-initial syncs, always use tracked days
-const finalKnockingDays = isInitialSync 
-  ? (knockingChoice === 'tracked' ? trackedKnockingDays 
-     : knockingChoice === 'manual' ? (parseInt(knockingManual) || 0)
-     : knockingChoice === 'unknown' ? null : 0)
-  : trackedKnockingDays; // biweekly: always use tracked
+## Key Details
+
+### PRMR Calculation (deterministic, no AI needed for builder mode)
+```
+Equipment Total (no install fee, no tax) / 60 + (new camera count x $5)
+```
+This matches the edge function logic exactly. The builder does this client-side in real-time.
+
+### Equipment List
+Reuses `UPGRADE_EQUIPMENT_LIST` from `upgradeTypes.ts` -- same items with product images already defined.
+
+### Video Fee / New Camera Logic
+- Indoor cameras: always count as new (auto $5/mo each)
+- Doorbell and Outdoor: user toggles how many are "new" via the existing `UpgradeEquipmentCard` new-cam sub-control
+- Spotlights: no video fee
+
+### Layout Structure (Builder Tab)
+```text
++----------------------------------+
+|  [Builder]  [Chat]   (tabs)      |
++----------------------------------+
+|  Panel toggle                    |
++----------------------------------+
+|  Cameras (horizontal scroll)     |
+|  [Doorbell] [Outdoor] [Indoor].. |
++----------------------------------+
+|  Smart Home                      |
+|  [Lock] [Thermostat] [Garage]    |
++----------------------------------+
+|  Security                        |
+|  [Door/Window] [Motion] [Glass]  |
++----------------------------------+
+|                                  |
++----------------------------------+
+| PRMR: $XX  |  +$XX.XX/mo        |
+| [Use $XX.XX PRMR]               |
++----------------------------------+
 ```
 
-## Impact
-- Initial sync: still asks about knocking days (3 options: tracked, manual, "I'm not sure")
-- Biweekly sync: skips the step entirely, uses tracked days automatically
-- Step numbering and progress dots adjust dynamically (already handled by the existing `activeSteps` logic)
-- No database changes needed
+### Files Changed
+| File | Change |
+|------|--------|
+| `src/components/UpgradePrmrCalculatorV2.tsx` | New -- builder + chat tabs |
+| `src/components/UpgradePrmrCalculator.tsx` | Delete |
+| `src/pages/LogSale.tsx` | Update import |
+| `src/components/LogSaleSheet.tsx` | Update import |
+| `src/pages/UpgradeCheatSheet.tsx` | Update import |
+
+No database changes. No new dependencies. All calculation logic is client-side for the builder; the edge function is only used for the chat tab.
 
