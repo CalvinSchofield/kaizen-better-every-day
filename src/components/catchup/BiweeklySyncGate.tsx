@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ExternalLink, ChevronRight, ChevronLeft, Check, Loader2, 
@@ -35,31 +35,79 @@ const SOURCE_EARNINGS_URL = 'https://curator.vivint.com/dashboard/source-account
 type MetricChoice = 'tracked' | 'vivint' | null;
 type KnockingChoice = 'tracked' | 'manual' | 'unknown' | null;
 
+const STORAGE_KEY = 'sync-gate-progress';
+
+interface SyncProgress {
+  step: SyncStep;
+  fpChoice: MetricChoice;
+  fpVivint: string;
+  fpSoldChoice: MetricChoice;
+  fpSoldVivint: string;
+  prmrChoice: MetricChoice;
+  prmrVivint: string;
+  knockingChoice: KnockingChoice;
+  knockingManual: string;
+  seasonType: string;
+  savedAt: number;
+}
+
+const loadProgress = (seasonType: string): Partial<SyncProgress> | null => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as SyncProgress;
+    // Only restore if same season type and less than 24 hours old
+    if (saved.seasonType !== seasonType) return null;
+    if (Date.now() - saved.savedAt > 24 * 60 * 60 * 1000) return null;
+    return saved;
+  } catch { return null; }
+};
+
+const clearProgress = () => {
+  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+};
+
 export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = false, isUserSummerStarted = false, onComplete }: BiweeklySyncGateProps) => {
   const navigate = useNavigate();
   const { upsertTotalsAsync, isUpserting } = useOfficialTotals(seasonType);
   const { data: teamAccess } = useTeamAccess();
   const hasRecruits = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
-  // Always show FP+ in sync flow — this syncs with Vivint's official numbers which are in FP+
   const metricLabel = 'FP+';
 
-  const [step, setStep] = useState<SyncStep>('intro');
+  // Load saved progress on mount
+  const saved = loadProgress(seasonType);
+
+  const [step, setStep] = useState<SyncStep>(saved?.step || 'intro');
   const [isSavingZero, setIsSavingZero] = useState(false);
   
-  // Metric choices & values
-  const [fpChoice, setFpChoice] = useState<MetricChoice>(null);
-  const [fpVivint, setFpVivint] = useState('');
+  const [fpChoice, setFpChoice] = useState<MetricChoice>(saved?.fpChoice ?? null);
+  const [fpVivint, setFpVivint] = useState(saved?.fpVivint ?? '');
   
-  const [fpSoldChoice, setFpSoldChoice] = useState<MetricChoice>(null);
-  const [fpSoldVivint, setFpSoldVivint] = useState('');
+  const [fpSoldChoice, setFpSoldChoice] = useState<MetricChoice>(saved?.fpSoldChoice ?? null);
+  const [fpSoldVivint, setFpSoldVivint] = useState(saved?.fpSoldVivint ?? '');
   
-  const [prmrChoice, setPrmrChoice] = useState<MetricChoice>(null);
-  const [prmrVivint, setPrmrVivint] = useState('');
+  const [prmrChoice, setPrmrChoice] = useState<MetricChoice>(saved?.prmrChoice ?? null);
+  const [prmrVivint, setPrmrVivint] = useState(saved?.prmrVivint ?? '');
   
-  const [knockingChoice, setKnockingChoice] = useState<KnockingChoice>(null);
-  const [knockingManual, setKnockingManual] = useState('');
+  const [knockingChoice, setKnockingChoice] = useState<KnockingChoice>(saved?.knockingChoice ?? null);
+  const [knockingManual, setKnockingManual] = useState(saved?.knockingManual ?? '');
 
   const stepIndex = STEPS.indexOf(step);
+
+  // Save progress on every change
+  const saveProgress = useCallback(() => {
+    if (step === 'success') { clearProgress(); return; }
+    try {
+      const progress: SyncProgress = {
+        step, fpChoice, fpVivint, fpSoldChoice, fpSoldVivint,
+        prmrChoice, prmrVivint, knockingChoice, knockingManual,
+        seasonType, savedAt: Date.now(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+    } catch {}
+  }, [step, fpChoice, fpVivint, fpSoldChoice, fpSoldVivint, prmrChoice, prmrVivint, knockingChoice, knockingManual, seasonType]);
+
+  useEffect(() => { saveProgress(); }, [saveProgress]);
   
   // Tracked values for prefill display
   const trackedFp = effectiveData.effectiveFp;
@@ -127,6 +175,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
         verified_by: 'self',
         notes: `${isInitialSync ? 'Initial' : 'Biweekly'} sync: FP+ ${fpChoice}, FP sold ${fpSoldChoice}, PRMR ${prmrChoice}, Days ${knockingChoice}`,
       });
+      clearProgress();
       if (isInitialSync) {
         setStep('success');
       } else {
@@ -150,6 +199,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
         verified_by: 'self',
         notes: 'Initial sync: haven\'t sold yet — zero baseline',
       });
+      clearProgress();
       setStep('success');
     } catch (error) {
       console.error('Failed to save zero baseline:', error);
