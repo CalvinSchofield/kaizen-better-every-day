@@ -13,6 +13,7 @@ interface RepProfileData {
   teamLeader: string | null;
   recruiter: string | null;
   teamName: string | null;
+  officeName: string | null;
   ytdFpPlus: number;
   ytdPrmr: number;
   ytdUpgradeFpPlus: number;
@@ -135,6 +136,7 @@ export const useRepProfile = (userId: string | null) => {
         teamLeader: rep.team_leader,
         recruiter: rep.recruiter,
         teamName: teamName || rep.team_leader,
+        officeName: 'Yosemite 2026',
         ytdFpPlus,
         ytdPrmr,
         ytdUpgradeFpPlus: ytdUpgradePrmr / 85,
