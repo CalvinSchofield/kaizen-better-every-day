@@ -902,6 +902,9 @@ const Goals = () => {
           isUserSummerStarted={isUserSummerStarted}
           efpModeEnabled={efpModeEnabled}
           conversionFactor={conversionFactor}
+          personalSummerStart={seasonConfig?.personal_summer_start}
+          personalSummerEnd={seasonConfig?.personal_summer_end}
+          repId={repData?.id}
           onSave={async (updates) => {
             await updateGoals(updates);
             setShowQuickEdit(false);

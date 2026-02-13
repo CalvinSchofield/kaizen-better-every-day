@@ -3,11 +3,16 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Lock, Check } from 'lucide-react';
+import { Lock, Check, CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { hapticLight, hapticSuccess } from '@/utils/haptics';
 import { GOAL_TIER_CONFIG } from '@/config/goalTiers';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format, parseISO } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface QuickEditGoalsDrawerProps {
   open: boolean;
@@ -21,6 +26,9 @@ interface QuickEditGoalsDrawerProps {
   isUserSummerStarted: boolean;
   efpModeEnabled: boolean;
   conversionFactor: number;
+  personalSummerStart?: string | null;
+  personalSummerEnd?: string | null;
+  repId?: string;
   onSave: (goals: {
     preseason_fp_goal: number;
     must_do_fp_goal: number;
@@ -55,11 +63,19 @@ export const QuickEditGoalsDrawer = ({
   isUserSummerStarted,
   efpModeEnabled,
   conversionFactor,
+  personalSummerStart,
+  personalSummerEnd,
+  repId,
   onSave,
 }: QuickEditGoalsDrawerProps) => {
   const [values, setValues] = useState(currentGoals);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [summerStart, setSummerStart] = useState<string | null>(null);
+  const [summerEnd, setSummerEnd] = useState<string | null>(null);
+  const [startPopoverOpen, setStartPopoverOpen] = useState(false);
+  const [endPopoverOpen, setEndPopoverOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const metricLabel = efpModeEnabled ? 'EFP' : 'FP';
 
@@ -67,14 +83,50 @@ export const QuickEditGoalsDrawer = ({
   useEffect(() => {
     if (open) {
       setValues(currentGoals);
+      setSummerStart(personalSummerStart || null);
+      setSummerEnd(personalSummerEnd || null);
       setSaved(false);
     }
-  }, [open, currentGoals]);
+  }, [open, currentGoals, personalSummerStart, personalSummerEnd]);
+
+  const datesChanged =
+    summerStart !== (personalSummerStart || null) ||
+    summerEnd !== (personalSummerEnd || null);
 
   const handleSave = async () => {
     setSaving(true);
     try {
       await onSave(values);
+
+      // Save summer dates if changed
+      if (datesChanged) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('season_config')
+            .upsert({
+              user_id: user.id,
+              updated_at: new Date().toISOString(),
+              personal_summer_start: summerStart,
+              personal_summer_end: summerEnd,
+            }, { onConflict: 'user_id' });
+
+          if (repId) {
+            await supabase.functions.invoke('update-summer-dates', {
+              body: {
+                repId,
+                startDate: summerStart,
+                endDate: summerEnd,
+              },
+            });
+          }
+
+          queryClient.invalidateQueries({ queryKey: ['season-config-for-goals-page'] });
+          queryClient.invalidateQueries({ queryKey: ['season-config'] });
+          queryClient.invalidateQueries({ queryKey: ['season-config-whatif'] });
+        }
+      }
+
       hapticSuccess();
       setSaved(true);
       setTimeout(() => {
@@ -87,11 +139,13 @@ export const QuickEditGoalsDrawer = ({
     }
   };
 
-  const hasChanges =
+  const goalsChanged =
     values.preseason_fp_goal !== currentGoals.preseason_fp_goal ||
     values.must_do_fp_goal !== currentGoals.must_do_fp_goal ||
     values.will_do_fp_goal !== currentGoals.will_do_fp_goal ||
     values.could_do_fp_goal !== currentGoals.could_do_fp_goal;
+
+  const hasChanges = goalsChanged || datesChanged;
 
   // Convert displayed value when EFP mode — goals are stored in FP
   const toDisplay = (fpVal: number) =>
@@ -177,6 +231,99 @@ export const QuickEditGoalsDrawer = ({
               </motion.div>
             );
           })}
+
+          {/* Summer Dates Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="pt-2"
+          >
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              Summer Dates
+            </p>
+            <div className="space-y-2">
+              {/* Start Date */}
+              <div className="rounded-2xl border border-border bg-card p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="p-2 rounded-xl bg-emerald-500/10">
+                      <CalendarIcon className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <Label className="text-sm font-semibold">Start Date</Label>
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        When summer begins
+                      </p>
+                    </div>
+                  </div>
+                  <Popover open={startPopoverOpen} onOpenChange={setStartPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        className="text-sm font-semibold text-foreground bg-background/60 border-2 border-border rounded-xl px-3 py-2 active:scale-[0.97] transition-transform"
+                        onClick={() => hapticLight()}
+                      >
+                        {summerStart ? format(parseISO(summerStart), 'MMM d') : 'Set'}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={summerStart ? parseISO(summerStart) : undefined}
+                        onSelect={(date) => {
+                          if (date) {
+                            setSummerStart(format(date, 'yyyy-MM-dd'));
+                            setStartPopoverOpen(false);
+                          }
+                        }}
+                        defaultMonth={summerStart ? parseISO(summerStart) : new Date(2026, 3)}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              {/* End Date */}
+              <div className="rounded-2xl border border-border bg-card p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="p-2 rounded-xl bg-amber-500/10">
+                      <CalendarIcon className="h-4 w-4 text-amber-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <Label className="text-sm font-semibold">End Date</Label>
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        When summer ends
+                      </p>
+                    </div>
+                  </div>
+                  <Popover open={endPopoverOpen} onOpenChange={setEndPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        className="text-sm font-semibold text-foreground bg-background/60 border-2 border-border rounded-xl px-3 py-2 active:scale-[0.97] transition-transform"
+                        onClick={() => hapticLight()}
+                      >
+                        {summerEnd ? format(parseISO(summerEnd), 'MMM d') : 'Set'}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={summerEnd ? parseISO(summerEnd) : undefined}
+                        onSelect={(date) => {
+                          if (date) {
+                            setSummerEnd(format(date, 'yyyy-MM-dd'));
+                            setEndPopoverOpen(false);
+                          }
+                        }}
+                        defaultMonth={summerEnd ? parseISO(summerEnd) : new Date(2026, 8)}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+            </div>
+          </motion.div>
 
           <AnimatePresence>
             {hasChanges && (

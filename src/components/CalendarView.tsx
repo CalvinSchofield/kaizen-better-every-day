@@ -1,13 +1,14 @@
 import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Ban, CalendarDays, Sparkles, Pointer, Undo2, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Ban, CalendarDays, Sparkles, Pointer, Undo2, Lock, Plane, MapPin, Loader2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
 import { CalendarDayDrawer } from "@/components/CalendarDayDrawer";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
-import { hapticLight } from "@/utils/haptics";
+import { useBlitzes } from "@/hooks/useBlitzes";
+import { hapticLight, hapticSuccess } from "@/utils/haptics";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRepGoals } from "@/hooks/useRepGoals";
@@ -19,8 +20,13 @@ import { calculateSalesPace } from "@/utils/salesPaceCalculator";
 import { useFocusTier } from "@/hooks/useFocusTier";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 import { useCalendarHistorical } from "@/hooks/useCalendarHistorical";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { supabase } from "@/integrations/supabase/client";
+import { formatBlitzDate } from "@/utils/blitzDateUtils";
+import { toast } from "sonner";
 
 const PRESEASON_END = '2026-04-11';
+const GLOBAL_SUMMER_START = '2026-04-12';
 
 interface CalendarViewProps {
   entries?: any[];
@@ -50,7 +56,27 @@ export const CalendarView = ({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [planningMode, setPlanningMode] = useState(false);
+  const [confirmCommitBlitz, setConfirmCommitBlitz] = useState<any>(null);
+  const [confirmUncommitBlitz, setConfirmUncommitBlitz] = useState<any>(null);
+  const [isCommitting, setIsCommitting] = useState<string | null>(null);
   
+  // Blitz data for planning mode
+  const { allBlitzes: futureBlitzes } = useBlitzes();
+  const isPreseason = new Date() < new Date(GLOBAL_SUMMER_START);
+
+  interface CommittedBlitz {
+    id: string;
+    name: string;
+    date: string;
+    endDate?: string;
+    location?: string;
+  }
+
+  const committedBlitzes = useMemo(() => {
+    return (repData?.committed_blitzes as unknown as CommittedBlitz[]) || [];
+  }, [repData?.committed_blitzes]);
+
+  const committedBlitzIds = useMemo(() => new Set(committedBlitzes.map(b => b.id)), [committedBlitzes]);
   // Use controlled or internal state
   const viewMode = controlledViewMode ?? internalViewMode;
   const setViewMode = onViewModeChange ?? setInternalViewMode;
@@ -770,6 +796,76 @@ export const CalendarView = ({
                   <span className="text-muted-foreground ml-1.5">days planned so far</span>
                 </p>
               </div>
+
+              {/* Blitz Trips Section - only during preseason */}
+              {isPreseason && futureBlitzes.length > 0 && (
+                <div className="pt-3 border-t border-border/50 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Plane className="w-4 h-4 text-primary" />
+                    <h4 className="text-sm font-semibold text-foreground">Blitz Trips</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {futureBlitzes.map((blitz) => {
+                      const isCommitted = committedBlitzIds.has(blitz.id);
+                      const isLoading = isCommitting === blitz.id;
+                      return (
+                        <div
+                          key={blitz.id}
+                          className={cn(
+                            "flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 border transition-all",
+                            isCommitted
+                              ? "border-emerald-500/30 bg-emerald-500/5"
+                              : "border-border bg-card"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {isCommitted ? (
+                              <Plane className="w-4 h-4 text-emerald-500 shrink-0" />
+                            ) : (
+                              <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">{blitz.name}</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {formatBlitzDate(blitz.date, 'MMM d')}
+                                {blitz.endDate ? ` - ${formatBlitzDate(blitz.endDate, 'MMM d')}` : ''}
+                                {blitz.location ? ` · ${blitz.location}` : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            disabled={isLoading}
+                            onClick={() => {
+                              hapticLight();
+                              if (isCommitted) {
+                                setConfirmUncommitBlitz({ id: blitz.id, name: blitz.name });
+                              } else {
+                                setConfirmCommitBlitz({
+                                  id: blitz.id,
+                                  name: blitz.name,
+                                  date: blitz.date,
+                                  endDate: blitz.endDate,
+                                  location: blitz.location,
+                                });
+                              }
+                            }}
+                            className={cn(
+                              "text-xs font-semibold px-3 py-1.5 rounded-full shrink-0 active:scale-[0.97] transition-all",
+                              isCommitted
+                                ? "text-emerald-600 bg-emerald-500/10"
+                                : "text-primary bg-primary/10"
+                            )}
+                          >
+                            {isLoading ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : isCommitted ? 'Joined' : 'Join'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -823,6 +919,129 @@ export const CalendarView = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Blitz Commit Confirmation Drawer */}
+      <Drawer open={!!confirmCommitBlitz} onOpenChange={(o) => !o && setConfirmCommitBlitz(null)}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Join {confirmCommitBlitz?.name}?</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Committing to this blitz will automatically add all work days (Mon–Sat) during the trip as planned days.
+            </p>
+            {confirmCommitBlitz && (
+              <p className="text-sm text-foreground font-medium">
+                {formatBlitzDate(confirmCommitBlitz.date, 'MMM d')}
+                {confirmCommitBlitz.endDate ? ` – ${formatBlitzDate(confirmCommitBlitz.endDate, 'MMM d')}` : ''}
+                {confirmCommitBlitz.location ? ` · ${confirmCommitBlitz.location}` : ''}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl"
+                onClick={() => setConfirmCommitBlitz(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 rounded-xl"
+                onClick={async () => {
+                  const blitz = confirmCommitBlitz;
+                  if (!blitz || !repData?.id) return;
+                  setIsCommitting(blitz.id);
+                  setConfirmCommitBlitz(null);
+                  try {
+                    const newCommitment = {
+                      id: blitz.id,
+                      name: blitz.name,
+                      date: blitz.date,
+                      endDate: blitz.endDate || undefined,
+                      location: blitz.location || undefined,
+                    };
+                    const newCommitments = [...committedBlitzes, newCommitment];
+                    const newBlitzIds = newCommitments.map(b => b.id);
+                    const { error } = await supabase
+                      .from('reps')
+                      .update({ committed_blitzes: newCommitments as any })
+                      .eq('id', repData.id);
+                    if (error) throw error;
+                    await supabase.functions.invoke('update-blitz-commitment', {
+                      body: { repId: repData.id, blitzPageIds: newBlitzIds },
+                    });
+                    await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+                    hapticSuccess();
+                    toast.success(`Committed to ${blitz.name}`);
+                  } catch (err) {
+                    console.error('Error committing to blitz:', err);
+                    toast.error('Failed to commit');
+                  } finally {
+                    setIsCommitting(null);
+                  }
+                }}
+              >
+                Join
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Blitz Uncommit Confirmation Drawer */}
+      <Drawer open={!!confirmUncommitBlitz} onOpenChange={(o) => !o && setConfirmUncommitBlitz(null)}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Leave {confirmUncommitBlitz?.name}?</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This will remove you from the blitz and the associated planned work days.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl"
+                onClick={() => setConfirmUncommitBlitz(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1 rounded-xl"
+                onClick={async () => {
+                  const blitz = confirmUncommitBlitz;
+                  if (!blitz || !repData?.id) return;
+                  setIsCommitting(blitz.id);
+                  setConfirmUncommitBlitz(null);
+                  try {
+                    const newCommitments = committedBlitzes.filter(b => b.id !== blitz.id);
+                    const newBlitzIds = newCommitments.map(b => b.id);
+                    const { error } = await supabase
+                      .from('reps')
+                      .update({ committed_blitzes: newCommitments as any })
+                      .eq('id', repData.id);
+                    if (error) throw error;
+                    await supabase.functions.invoke('update-blitz-commitment', {
+                      body: { repId: repData.id, blitzPageIds: newBlitzIds },
+                    });
+                    await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+                    hapticSuccess();
+                    toast.success('Removed from blitz');
+                  } catch (err) {
+                    console.error('Error uncommitting:', err);
+                    toast.error('Failed to leave blitz');
+                  } finally {
+                    setIsCommitting(null);
+                  }
+                }}
+              >
+                Leave
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 };
