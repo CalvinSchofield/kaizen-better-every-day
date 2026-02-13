@@ -167,7 +167,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
         {trigger}
       </SheetTrigger>
       <SheetContent side="left" className="w-[280px] flex flex-col">
-        <SheetHeader className="pb-2">
+        <SheetHeader className="pb-2 pt-2">
           <button
             onClick={() => {
               hapticLight();
@@ -176,7 +176,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                 navigate(`/profile/${repData.user_id}`);
               }
             }}
-            className="flex flex-col items-center gap-2 w-full active:scale-[0.97] transition-transform"
+            className="flex flex-col items-center gap-1.5 w-full active:scale-[0.97] transition-transform"
           >
             <Avatar className="h-16 w-16 border-2 border-border">
               <AvatarImage src={repData?.profile_photo_url || undefined} alt={cleanFirstName || "Profile"} />
@@ -187,6 +187,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             <SheetTitle>
               {cleanFirstName ? `Hey, ${cleanFirstName}` : "Menu"}
             </SheetTitle>
+            <span className="text-[10px] text-muted-foreground font-medium -mt-1">View Profile →</span>
           </button>
         </SheetHeader>
         
