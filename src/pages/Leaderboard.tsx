@@ -3,15 +3,14 @@ import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { LeaderboardHeroBanner } from "@/components/leaderboard/LeaderboardHeroBanner";
 import { LeaderboardFilters, TimeFilter, ScopeFilter } from "@/components/leaderboard/LeaderboardFilters";
-import { SalesLeadersSection } from "@/components/leaderboard/SalesLeadersSection";
-import { ActivityLeadersSection } from "@/components/leaderboard/ActivityLeadersSection";
+import { UnifiedRaceSection } from "@/components/leaderboard/UnifiedRaceSection";
 import { GritAwardsSection } from "@/components/leaderboard/GritAwardsSection";
 import { TimingBreakdownSection } from "@/components/leaderboard/TimingBreakdownSection";
 import { RecordsSection } from "@/components/leaderboard/RecordsSection";
-import { LiveRaceSection } from "@/components/leaderboard/LiveRaceSection";
 import { ChallengesTab } from "@/components/leaderboard/ChallengesTab";
 import { IncentivesTab } from "@/components/leaderboard/IncentivesTab";
 import { useExpandedLeaderboard, CustomDateRange } from "@/hooks/useExpandedLeaderboard";
+import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
@@ -46,33 +45,26 @@ const Leaderboard = () => {
   const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
   const [isUserInitialized, setIsUserInitialized] = useState(false);
 
-  // Subscribe to realtime sales updates for immediate leaderboard and challenge sync
   useSalesRealtime();
 
-
-  // Get available presets based on actual data
   const { availablePresets, autoSelectedPreset, isLoading: presetsLoading } = useAvailableLeaderboardPresets();
 
-  // Auto-select best preset when data loads
   useEffect(() => {
     if (!presetsLoading && timeFilter === null) {
       setTimeFilter(autoSelectedPreset);
     }
   }, [presetsLoading, autoSelectedPreset, timeFilter]);
 
-  // Fetch current user info
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setCurrentUserId(user.id);
-        
         const { data: repData } = await supabase
           .from('reps')
           .select('year')
           .eq('user_id', user.id)
           .single();
-        
         if (repData) {
           setCurrentUserYear(repData.year);
           setScopeFilter(repData.year === 'Rookie' ? 'rookies' : 'all');
@@ -80,7 +72,6 @@ const Leaderboard = () => {
       }
       setIsUserInitialized(true);
     };
-    
     fetchUser();
   }, []);
 
@@ -92,12 +83,13 @@ const Leaderboard = () => {
     timeFilter === 'custom' ? customDateRange : undefined
   );
 
+  const { data: todayLeaderboard, isLoading: todayLoading, isFetching: todayFetching } = useTodayLeaderboard(filterByYear);
+
   const { data: streakData } = useAwardStreaks(filterByYear);
 
-  // Only show skeleton if we truly have no data - instant load from cache otherwise
-  const hasCachedLeaderboard = !!expandedLeaderboard;
+  const hasCachedLeaderboard = !!expandedLeaderboard || !!todayLeaderboard;
   const isInitializing = !isUserInitialized || presetsLoading || timeFilter === null;
-  
+
   if (isInitializing && !hasCachedLeaderboard) {
     return (
       <Layout>
@@ -106,20 +98,24 @@ const Leaderboard = () => {
     );
   }
 
-  const hasNoData = !expandedLeaderboard || (
-    !expandedLeaderboard.salesLeaders.mostFP && 
-    !expandedLeaderboard.activityLeaders.mostDoors && 
-    !expandedLeaderboard.gritAwards.earliestDoor
-  );
+  const isLive = timeFilter === 'live';
+
+  const hasNoData = isLive
+    ? !todayLeaderboard?.rankings || Object.values(todayLeaderboard.rankings).every(arr => arr.length === 0)
+    : !expandedLeaderboard || (
+        !expandedLeaderboard.salesLeaders.mostFP &&
+        !expandedLeaderboard.activityLeaders.mostDoors &&
+        !expandedLeaderboard.gritAwards.earliestDoor
+      );
 
   return (
     <Layout>
       <div className="p-4 space-y-6 pb-24">
-        {/* Hero Banner - Personal Achievement */}
+        {/* Hero Banner */}
         <div data-tour="leaderboard-hero">
-          <LeaderboardHeroBanner 
-            userId={currentUserId} 
-            filterByYear={filterByYear} 
+          <LeaderboardHeroBanner
+            userId={currentUserId}
+            filterByYear={filterByYear}
           />
         </div>
 
@@ -134,9 +130,8 @@ const Leaderboard = () => {
             onScopeFilterChange={setScopeFilter}
             onCustomDateRangeChange={setCustomDateRange}
           />
-          
-          {/* Subtle chip to access Compete page for non-live views */}
-          {timeFilter !== 'live' && (
+
+          {!isLive && (
             <Link
               to="/compete"
               className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors mt-2"
@@ -149,7 +144,7 @@ const Leaderboard = () => {
         </div>
 
         {/* Content */}
-        {isLoading ? (
+        {(isLive ? todayLoading : isLoading) ? (
           <div className="space-y-4 animate-pulse">
             <div className="h-24 bg-muted rounded-xl" />
             <div className="h-32 bg-muted rounded-xl" />
@@ -158,17 +153,16 @@ const Leaderboard = () => {
         ) : hasNoData ? (
           <div className="text-center py-12 text-muted-foreground">
             <p className="text-lg font-medium">
-              {scopeFilter === 'rookies' 
+              {scopeFilter === 'rookies'
                 ? "No rookies knocking yet — try switching to All!"
-                : timeFilter === 'live'
+                : isLive
                   ? "No one knocking yet. Be the first to set the pace!"
                   : "No data for this timeframe yet."}
             </p>
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Live Race - Only show for live timeframe with tabs */}
-            {timeFilter === 'live' ? (
+            {isLive ? (
               <Tabs defaultValue="race" className="w-full">
                 <TabsList className="grid w-full grid-cols-3 mb-4" data-tour="challenges-tab">
                   <TabsTrigger value="race" className="gap-1.5">
@@ -186,10 +180,15 @@ const Leaderboard = () => {
                 </TabsList>
 
                 <TabsContent value="race" className="mt-0">
-                  <LiveRaceSection
-                    currentUserId={currentUserId}
-                    filterByYear={filterByYear}
-                  />
+                  {todayLeaderboard && (
+                    <UnifiedRaceSection
+                      rankings={todayLeaderboard.rankings}
+                      currentUserId={currentUserId}
+                      isLive={true}
+                      isFetching={todayFetching}
+                      title="Live Race"
+                    />
+                  )}
                 </TabsContent>
 
                 <TabsContent value="challenges" className="mt-0">
@@ -201,51 +200,41 @@ const Leaderboard = () => {
                 </TabsContent>
               </Tabs>
             ) : (
-              <>
-                {/* Sales Leaders - Show for non-live timeframes */}
+              /* Non-live: unified ranked list */
+              expandedLeaderboard && (
                 <div data-tour="leaderboard-sales">
-                  <SalesLeadersSection
-                    mostFP={expandedLeaderboard.salesLeaders.mostFP}
-                    mostPRMR={expandedLeaderboard.salesLeaders.mostPRMR}
-                    mostUpgradeFP={expandedLeaderboard.salesLeaders.mostUpgradeFP}
-                    mostCloses={expandedLeaderboard.activityLeaders.mostCloses}
+                  <UnifiedRaceSection
+                    rankings={expandedLeaderboard.rankings}
                     currentUserId={currentUserId}
+                    isLive={false}
+                    title="Rankings"
+                  />
+                </div>
+              )
+            )}
+
+            {/* Grit Awards */}
+            {expandedLeaderboard && (
+              <>
+                <div data-tour="leaderboard-grit">
+                  <GritAwardsSection
+                    gritAwards={expandedLeaderboard.gritAwards}
+                    currentUserId={currentUserId}
+                    streaks={streakData}
                   />
                 </div>
 
-                {/* Activity Leaders - Show for non-live timeframes */}
-                <ActivityLeadersSection
-                  mostDoors={expandedLeaderboard.activityLeaders.mostDoors}
-                  mostDMs={expandedLeaderboard.activityLeaders.mostDMs}
-                  mostPitches={expandedLeaderboard.activityLeaders.mostPitches}
-                  mostTransitions={expandedLeaderboard.activityLeaders.mostTransitions}
-                  mostPresentations={expandedLeaderboard.activityLeaders.mostPresentations}
+                <TimingBreakdownSection
+                  gritAwards={expandedLeaderboard.gritAwards}
                   currentUserId={currentUserId}
                 />
               </>
             )}
-
-            {/* Grit Awards */}
-            <div data-tour="leaderboard-grit">
-              <GritAwardsSection
-                gritAwards={expandedLeaderboard.gritAwards}
-                currentUserId={currentUserId}
-                streaks={streakData}
-              />
-            </div>
-
-            {/* Timing Breakdown (Collapsible) */}
-            <TimingBreakdownSection
-              gritAwards={expandedLeaderboard.gritAwards}
-              currentUserId={currentUserId}
-            />
           </div>
         )}
 
-        {/* Records Section (Collapsible) - Personal Bests & Class Records */}
         <RecordsSection userId={currentUserId} />
       </div>
-
     </Layout>
   );
 };

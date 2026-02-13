@@ -78,10 +78,30 @@ export interface SalesLeaders {
   mostUpgradeFP: { userId: string; name: string; value: number } | null;
 }
 
+export interface RankedEntry {
+  userId: string;
+  name: string;
+  value: number;
+  profilePhotoUrl?: string | null;
+  year?: YearRank;
+}
+
+export interface ExpandedRankings {
+  fp_plus: RankedEntry[];
+  prmr: RankedEntry[];
+  presentations: RankedEntry[];
+  transitions: RankedEntry[];
+  pitches: RankedEntry[];
+  doors_knocked: RankedEntry[];
+  decision_makers: RankedEntry[];
+  closes: RankedEntry[];
+}
+
 export interface ExpandedLeaderboard {
   gritAwards: GritAwards;
   activityLeaders: ActivityLeaders;
   salesLeaders: SalesLeaders;
+  rankings: ExpandedRankings;
 }
 
 const getLocalMinutesOfDay = (timestamp: string, timezone: string): number => {
@@ -191,14 +211,15 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
 
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, year, timezone");
+        .select("user_id, name, year, timezone, profile_photo_url");
 
       if (repsError) throw repsError;
 
       const repsMap = new Map(repsData?.map(r => [r.user_id, { 
         name: r.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim(), 
         year: r.year,
-        timezone: r.timezone || 'America/Los_Angeles'
+        timezone: r.timezone || 'America/Los_Angeles',
+        profilePhotoUrl: r.profile_photo_url
       }]) || []);
 
       const query = supabase
@@ -560,6 +581,10 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         },
         salesLeaders: {
           mostFP: null, mostPRMR: null, mostUpgradeFP: null
+        },
+        rankings: {
+          fp_plus: [], prmr: [], presentations: [], transitions: [],
+          pitches: [], doors_knocked: [], decision_makers: [], closes: [],
         }
       };
 
@@ -814,7 +839,29 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
       result.salesLeaders.mostPRMR = selectWinner(salesCandidates.prmr);
       result.salesLeaders.mostUpgradeFP = selectWinner(salesCandidates.upgradeFp);
 
-      // Assign hours worked
+      // Build ranked arrays for unified race section
+      const buildRankedArray = (candidates: LeaderCandidate[]): RankedEntry[] => {
+        return [...candidates]
+          .sort((a, b) => tiebreakerCompare(a.value, b.value, a.tiebreaker, b.tiebreaker, a.year, b.year))
+          .map(c => ({
+            userId: c.userId,
+            name: c.name,
+            value: c.value,
+            profilePhotoUrl: repsMap.get(c.userId)?.profilePhotoUrl,
+            year: c.year,
+          }));
+      };
+
+      result.rankings.fp_plus = buildRankedArray(salesCandidates.fp);
+      result.rankings.prmr = buildRankedArray(salesCandidates.prmr);
+      result.rankings.doors_knocked = buildRankedArray(activityCandidates.doors);
+      result.rankings.decision_makers = buildRankedArray(activityCandidates.dms);
+      result.rankings.pitches = buildRankedArray(activityCandidates.pitches);
+      result.rankings.transitions = buildRankedArray(activityCandidates.transitions);
+      result.rankings.presentations = buildRankedArray(activityCandidates.presentations);
+      result.rankings.closes = buildRankedArray(activityCandidates.closes);
+
+      // Assign hours worked - use real work time when counter_timestamps available
       if (mostHoursCandidate) {
         result.gritAwards.mostHoursWorked = { 
           userId: mostHoursCandidate.userId, 
