@@ -1,51 +1,81 @@
 
 
-## Stable Heatmap Coloring: Use Planned Days as Baseline
+## Navigation & Access Audit: Full Findings and Fix Plan
 
-### What's Changing
+### Issue 1: Leaderboard Unreachable in Preseason Mode
 
-The heatmap cell colors will use a **fixed even-split baseline** based on the rep's actual **planned work days** — not all available Mon-Sat days in the season. This prevents cells from looking artificially dim as the season progresses.
+The Leaderboard page (`/leaderboard`) is only placed in the bottom nav when knocking mode is ON. When knocking mode is OFF (preseason), there is **no link to it anywhere** — not in the bottom nav, not in the hamburger drawer. Since this is a native app (no URL bar), the page is completely inaccessible in preseason.
 
-### Current Issue
+**Fix**: Add a Leaderboard link to the AppDrawer for all non-pre-blitz users when knocking mode is OFF. Place it alongside the Compete link (both are competitive features). It should also appear for users in knocking mode who don't have it in their bottom nav (leaders in knocking mode already have it in nav, non-leaders also have it — so this is mainly for preseason).
 
-The preseason pace baseline (`preseasonDailyPace`) currently uses `knockingDays + remainingPreseasonWorkDays`, where `remainingPreseasonWorkDays` either counts future planned days OR falls back to all remaining Mon-Sat days. As days pass, this denominator shrinks, inflating the pace and making past good days look pale.
+### Issue 2: Pre-Blitz Rookie Access Audit
 
-Summer pace already correctly uses only planned days.
+Pre-blitz rookies currently have access to these pages from the drawer that they arguably shouldn't:
+- **Compete** (Challenges & Incentives) — visible to all, no lock
+- **Customers** — visible to all, no lock  
+- **My Group** — visible, no lock
 
-### The Fix
+Per the memory on rookie access: Track, Insights, Calendar, Home, Challenges, Incentives, Customers should all be **locked** for pre-blitz rookies.
 
-**File: `src/components/goals/CalendarPlanningPreview.tsx`**
+**Fix**: Lock Compete and Customers for pre-blitz rookies in the drawer (show them with a lock icon and "Unlocks on first blitz" text, same pattern as Track/Calendar/Insights). My Group "suggest recruits" can stay since recruiting is a preseason activity.
 
-1. **Preseason baseline** (used for cell coloring only):
-   - Count all preseason planned days: past worked days (`knockingDays`) + future planned preseason days (`futurePreseasonPlanned`)
-   - Formula: `preseasonGoal / (knockingDays + futurePreseasonPlanned)`
-   - If no future days are planned, fall back to `knockingDays + 1` (today) to avoid division by zero while keeping the baseline reasonable
+### Issue 3: Pages Reachable Only via Drawer (Discoverability Check)
 
-2. **Summer baseline** — already correct, uses `futureSummerPlannedAll`. No change needed.
+These pages have no bottom nav presence and rely solely on the drawer:
+- **Insights** — drawer only (both modes). OK, secondary feature.
+- **Compete** — drawer only. OK, but consider if it should be more prominent.
+- **Customers** — drawer only. OK for now.
+- **Profile** — via avatar in drawer header. OK.
+- **Settings/Personalize** — drawer only. Standard pattern.
 
-3. **Badge (`dailyNeeded`)** — unchanged. This still shows the real-time catch-up pace so the rep knows what they actually need per day.
+All other pages are either in the bottom nav, linked from a parent page (tools sub-routes, log-sale from track, etc.), or admin-only. This is fine.
 
-### Technical Detail
+### Issue 4: Current Bottom Nav + Drawer Layout Summary
+
+For reference, here's the current mapping:
 
 ```text
-BEFORE (line 150):
-  preseasonDailyPace = preseasonGoal / (knockingDays + remainingPreseasonWorkDays)
-  // remainingPreseasonWorkDays = futurePreseasonPlanned OR all Mon-Sat left
-  // Shrinks daily, inflating pace
+PRESEASON (Knocking OFF)
+  Bottom Nav:  Home | Tools | Calendar | Goals
+  Action:      Leaders -> My Group | Non-leaders -> Training
+  Drawer:      Track, Calendar, Insights, Reports (leaders), Training (leaders)
+               Compete, My Group*, Customers, AI Assistant
+               Settings, Refresh, Logout
+  MISSING:     Leaderboard (nowhere)
 
-AFTER:
-  totalPreseasonPlannedDays = knockingDays + futurePreseasonPlanned
-  // If futurePreseasonPlanned is 0, fallback to knockingDays + 1
-  preseasonDailyPace = preseasonGoal / totalPreseasonPlannedDays
-  // Fixed denominator based on actual plan
+KNOCKING MODE ON
+  Bottom Nav:  
+    Leaders:    Home | Tools | Reports | Leaderboard (action: Track)
+    Non-leaders: Home | Leaderboard | Tools | Calendar (action: Track)
+  Drawer:      Calendar*, Insights, Goals, Training
+               Compete, My Group, Customers, AI Assistant
+               Settings, Refresh, Logout
+  (* = in drawer when not in nav)
 ```
 
-### Summary
+### Implementation Plan
 
-| Aspect | Before | After |
-|--------|--------|-------|
-| Preseason cell coloring | Shifts as days pass | Stable against planned days |
-| Summer cell coloring | Based on planned days | No change |
-| Badge (daily needed) | Dynamic catch-up pace | No change |
-| File changed | CalendarPlanningPreview.tsx | CalendarPlanningPreview.tsx only |
+**File: `src/components/AppDrawer.tsx`**
+
+1. Add Leaderboard link in the preseason (knocking OFF) section, after the existing nav links and before the Compete separator. Show it for all non-pre-blitz users with the Trophy icon:
+   ```
+   Leaderboard — "See top performers"
+   ```
+
+2. Also add Leaderboard in the knocking ON section for leaders (since non-leaders already have it in nav, but leaders with it in nav don't need it — actually leaders DO have it in nav in knocking mode, so only add it for preseason).
+
+3. Lock Compete for pre-blitz rookies: wrap the Compete link with the same lock icon pattern used for Track/Calendar/Insights. Show "Unlocks on first blitz".
+
+4. Lock Customers for pre-blitz rookies: same lock pattern.
+
+### Technical Details
+
+All changes are in `src/components/AppDrawer.tsx` only:
+
+- Use existing `isCalendarLocked` / `isPreBlitzRookie` boolean to gate Compete and Customers
+- Add a new `<Link to="/leaderboard">` block in the `!isKnockingMode` section (lines ~286-365), after Insights and before the leader-only Reports link
+- For Compete (line ~438): wrap in conditional — if `isPreBlitzRookie`, show locked version; else show normal
+- For Customers (line ~479): same conditional lock pattern
+
+No changes to bottom nav layout (`Layout.tsx`), routing (`App.tsx`), or any other files.
 
