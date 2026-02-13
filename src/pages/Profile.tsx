@@ -90,10 +90,10 @@ const Profile = () => {
     <div className="min-h-screen bg-background overflow-y-auto pb-28">
       {/* Hero cover photo with overlaid name */}
       <div className="relative w-full aspect-[4/3] overflow-hidden bg-muted">
-        {/* Back button + settings - floating over image */}
+        {/* Back button + settings - floating just below Dynamic Island */}
         <div className="absolute top-0 left-0 right-0 z-20">
           <div className="pt-safe" />
-          <div className="flex items-center justify-between px-4 pt-2 pb-1">
+          <div className="flex items-center justify-between px-4 pt-1">
             <button
               onClick={() => { hapticLight(); navigate(-1); }}
               className="p-2 -ml-2 rounded-full bg-black/30 backdrop-blur-sm active:scale-95 transition-transform"
@@ -131,10 +131,13 @@ const Profile = () => {
           </div>
         )}
 
-        {/* Gradient overlay at bottom - stronger for text readability */}
+        {/* Top fade gradient - blends into Dynamic Island / status bar */}
+        <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/60 via-black/25 to-transparent z-[5]" />
+
+        {/* Bottom gradient overlay for text readability */}
         <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
 
-        {/* Overlaid name + last active */}
+        {/* Overlaid name + year + office + last active */}
         <div className="absolute bottom-0 left-0 right-0 px-5 pb-5 z-10">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
@@ -142,7 +145,7 @@ const Profile = () => {
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
             {firstName && (
-              <h1 className="leading-tight drop-shadow-lg" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
+              <h1 className="leading-tight" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
                 <span className="block text-2xl font-medium tracking-wide text-white">{firstName}</span>
                 {lastName && (
                   <span className="block text-3xl font-black tracking-tight text-white">{lastName}</span>
@@ -152,12 +155,15 @@ const Profile = () => {
             <div className="flex items-center gap-2 mt-1.5">
               <YearBadge year={profile.year} fullLabel />
               {profile.officeName && (
-                <span className="text-xs text-white/80 font-medium drop-shadow-md">{profile.officeName}</span>
+                <>
+                  <span className="text-white/40">·</span>
+                  <span className="text-xs text-white/80 font-medium drop-shadow-md">{profile.officeName}</span>
+                </>
               )}
             </div>
             {lastActive && (
-              <p className="text-xs font-semibold mt-1 drop-shadow-md" style={{ color: 'hsl(var(--primary))' }}>
-                Last Active: {lastActive}
+              <p className="text-[11px] font-semibold mt-1.5 drop-shadow-md" style={{ color: 'hsl(var(--primary))' }}>
+                Active {lastActive}
               </p>
             )}
           </motion.div>

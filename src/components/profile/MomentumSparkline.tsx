@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Area, AreaChart, ResponsiveContainer, XAxis, ReferenceLine } from "recharts";
+import { calculateEfp } from "@/utils/efp";
 import { motion } from "framer-motion";
 import { Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,10 +39,16 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSp
           labelStr = `${months[monthNum - 1]} ${dayNum}`;
         }
       }
-      return {
-        label: labelStr,
-        value: mode === 'prmr' ? (d.prmr ?? 0) : (d.fp ?? 0),
-      };
+      let value: number;
+      if (mode === 'prmr') {
+        value = d.prmr ?? 0;
+      } else if (efpMode) {
+        // EFP = daily PRMR / 85
+        value = calculateEfp(d.prmr ?? 0);
+      } else {
+        value = d.fp ?? 0;
+      }
+      return { label: labelStr, value };
     });
 
     const values = formatted.map(d => d.value);
@@ -163,7 +170,7 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSp
             {daysWorked} days worked
           </span>
           <span className="text-[9px] text-muted-foreground">
-            Avg {mode === 'prmr' ? `$${Math.round(avg).toLocaleString()}` : avg.toFixed(1)} {metricLabel}/day
+            Avg {mode === 'prmr' ? `$${Math.round(avg).toLocaleString()}` : avg.toFixed(2)} {metricLabel}/day
           </span>
         </div>
       )}
