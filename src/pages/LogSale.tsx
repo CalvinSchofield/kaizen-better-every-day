@@ -11,7 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ArrowLeft, Trash2, HelpCircle, MapPin, Clock, Loader2, Search, CalendarIcon, X } from "lucide-react";
-import { UpgradePrmrCalculator } from "@/components/UpgradePrmrCalculator";
+import { UpgradePrmrCalculator } from "@/components/UpgradePrmrCalculatorV2";
 import { supabase } from "@/integrations/supabase/client";
 import { Sale } from "@/hooks/useDailyEntry";
 import { format } from "date-fns";

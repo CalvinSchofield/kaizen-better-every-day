@@ -3,7 +3,7 @@ import { ArrowLeft, Calculator, Clock, Target, DollarSign, ChevronRight } from "
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { UpgradePrmrCalculator } from "@/components/UpgradePrmrCalculator";
+import { UpgradePrmrCalculator } from "@/components/UpgradePrmrCalculatorV2";
 
 interface PainPoint {
   emoji: string;
