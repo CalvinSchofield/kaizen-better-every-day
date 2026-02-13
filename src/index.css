@@ -252,26 +252,6 @@ All colors MUST be HSL.
     overscroll-behavior-y: none;
   }
 
-  /* Lock orientation to portrait on mobile devices */
-  @media screen and (orientation: landscape) and (max-width: 1024px) {
-    body::before {
-      content: "Please rotate your device to portrait mode";
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: hsl(var(--background));
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-      text-align: center;
-      font-size: 1.25rem;
-      color: hsl(var(--foreground));
-    }
-  }
 }
 
 @layer components {
