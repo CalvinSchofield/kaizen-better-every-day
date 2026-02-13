@@ -1,80 +1,115 @@
 
 
-# Add Summer Date Editing to Goals + Blitz Planning in Calendar
+# Rep Profile Page -- Gamified, Premium Mobile Experience
 
-## 1. Add Summer Dates to the Quick Edit Goals Drawer
+## Overview
+Create a dedicated `/profile/:userId` route that serves as a "player card" for any rep. It draws heavy inspiration from the gaming profile references you shared -- a large hero avatar at the top, stats row, tabbed content (Stats, Records, Badges), and a settings gear icon for your own profile. This becomes the central identity hub, reachable from leaderboards, live race rows, challenges, My Group, and the hamburger menu.
 
-**File: `src/components/goals/QuickEditGoalsDrawer.tsx`**
+## Design Vision
 
-Add a "Summer Dates" section below the goal tier inputs with two date pickers (start and end). This makes it immediately discoverable when tapping the sliders/edit icon on the Goals page.
+The profile will feel like opening a player card in a competitive mobile game:
 
-- Add two date picker rows styled consistently with the tier cards (rounded-2xl border, icon + label + value)
-- Tapping each row opens a Popover with the Calendar component
-- On save, upsert to `season_config` and invoke `update-summer-dates` edge function
-- Invalidate `season-config` queries so pace recalculates
+- **Hero section**: Large circular avatar with a subtle gradient ring, name, year badge (Rookie/Sophomore/Vet), team name below
+- **Stats bar**: 3-4 key numbers in a horizontal row (YTD FP+, PRMR, FP, Upgrade FP+) -- bold values with small labels, similar to the "24 Games | 180 Achievements | 32 Friends" pattern in the reference
+- **Tabbed content** below the stats:
+  - **Stats tab** (default): Best Day, Best Week, Best Month FP+ records, plus total doors, presentations, transitions YTD
+  - **Badges tab** (placeholder): "Coming Soon" with a teaser -- future badges and selling streaks will live here
+- **Settings gear** (top-right): Only visible on your own profile, navigates to `/settings`
+- **Edit photo** (top-left): Only visible on your own profile, opens the existing `ProfilePhotoDrawer`
+- Dark card styling with rounded corners, premium shadows, smooth `framer-motion` entrance animations
 
-New props needed:
-```typescript
-personalSummerStart?: string | null;
-personalSummerEnd?: string | null;
-repId?: string;
+## Entry Points
+
+| Location | Trigger | Behavior |
+|----------|---------|----------|
+| **Hamburger menu avatar** | Tap avatar/name area | Navigate to `/profile/:myUserId` (own profile) |
+| **Live Race rows** | Tap a rep's name/avatar | Navigate to `/profile/:theirUserId` |
+| **Leaderboard leader cards** | Tap a leader card | Navigate to `/profile/:theirUserId` |
+| **Challenge/Incentive avatars** | Tap participant avatar | Navigate to `/profile/:theirUserId` |
+| **My Group recruit rows** | Already has detail drawer, add a profile link inside it | Navigate to `/profile/:recruitUserId` |
+
+For the initial implementation, we will wire up:
+1. Hamburger menu (own profile)
+2. Live Race rows (tap to view)
+
+The rest can be wired incrementally.
+
+## Technical Plan
+
+### 1. New Page: `src/pages/Profile.tsx`
+
+A full-screen page component that:
+- Reads `userId` from route params (`/profile/:userId`)
+- Fetches rep data for that user: `reps` table (name, year, profile_photo_url, team_leader, recruiter)
+- Fetches their team name via `recruits` table join or direct lookup
+- Fetches YTD stats via a new lightweight query to `daily_entries` (summing FP+, PRMR from sales_log for the season)
+- Fetches personal bests (best day/week/month FP+) reusing the existing `usePersonalRecords` pattern
+- Detects if viewing own profile (`currentUserId === params.userId`) to show edit controls
+
+**Layout:**
+```
++------------------------------------------+
+| [Edit Photo]         [Settings Gear]     |  <- only on own profile
+|                                          |
+|            (Large Avatar)                |
+|           Rep Name                       |
+|        [Rookie] badge  |  Team Name      |
+|                                          |
+|   YTD FP+   |   PRMR   |  Upgrade FP+   |
+|    12.5      |  $1,065  |     3.2        |
+|                                          |
+|  [Stats]  [Records]  [Badges]            |
+|  ----------------------------------------|
+|  Best Day:  3.5 FP+   Jun 14            |
+|  Best Week: 8.2 FP+   Jun 9-14          |
+|  Best Month: 12.5 FP+ June              |
+|                                          |
+|  Season Activity                         |
+|  Doors: 1,240  Trans: 89  Pres: 142     |
++------------------------------------------+
 ```
 
-**File: `src/pages/Goals.tsx`**
+### 2. New Hook: `src/hooks/useRepProfile.ts`
 
-Pass the new props (`seasonConfig.personal_summer_start`, `seasonConfig.personal_summer_end`, `repData?.id`) to `QuickEditGoalsDrawer`.
+A focused hook that fetches everything needed for a profile card given a `userId`:
+- Rep basic info (name, year, profile_photo_url, team_leader, recruiter)
+- Team name (via `teams` table lookup if the user has a team association)
+- YTD aggregated stats from `daily_entries` (total FP+, PRMR, upgrade FP+ from sales_log)
+- Personal best records (best day/week/month) reusing `usePersonalRecords` logic
 
-## 2. Show Blitzes in Calendar Planning Mode
+### 3. Route: Add `/profile/:userId` to `App.tsx`
 
-**File: `src/components/CalendarView.tsx`**
+- Replace the existing redirect (`/profile` -> `/settings`) with the new profile page
+- Keep backward compat: `/profile` without a userId auto-redirects to own profile
 
-When `planningMode` is true, add a blitz section inside the planning instruction card (or just below it):
+### 4. Update `AppDrawer.tsx`
 
-- Import `useBlitzes` hook to get all future blitzes
-- Use `repData.committed_blitzes` to identify committed vs available
-- Display committed blitzes as green cards with "Leave" action
-- Display uncommitted blitzes as outline cards with "Join" action
-- On commit, update `reps.committed_blitzes` (same logic as Goals page `handleConfirmCommitToBlitz`), which triggers `usePlannedDaysSync` to auto-add those dates as planned work days
-- Add confirm/uncommit drawers (mirroring the Goals page pattern)
+- Make the avatar + name area at the top tappable
+- On tap, navigate to `/profile/:myUserId` and close the drawer
+- Keep the "Personalize" settings link as-is (it stays in the drawer for direct access)
 
-Layout within the planning mode card:
-```text
-+----------------------------------+
-| Plan Your Work Days              |
-| - Tap to add, tap to remove      |
-| - Sundays locked                 |
-| - XX days planned                |
-+----------------------------------+
-| Blitz Trips                      |
-| [Spring Blitz - Apr 14]  [Join]  |
-| [Summer Blitz - Jun 2]  [Joined] |
-+----------------------------------+
-```
+### 5. Update `LiveRaceSection.tsx`
 
-The blitz section only shows during preseason (before global summer start) since that is when blitz planning is relevant.
+- Make each rep row tappable (wrap in a link or onClick handler)
+- On tap, navigate to `/profile/:userId`
+- Exclude navigation for the existing "photo upload" tap target on own row
 
-## Technical Details
+### 6. Badges Tab (Placeholder)
 
-### QuickEditGoalsDrawer Changes
-- Import `Calendar`, `Popover`, `format`/`parseISO` from date-fns
-- Add `summerStart`/`summerEnd` local state initialized from props
-- Add `CalendarIcon` date picker rows after the tier cards
-- In `handleSave`, additionally upsert `season_config` and invoke the edge function if dates changed
-- Invalidate `season-config-for-goals-page`, `season-config`, `season-config-whatif` queries
+- Render a "Coming Soon" state with a lock icon and teaser text
+- Scaffolded to accept badge data in the future (array of `{ id, name, icon, rarity, earnedDate }`)
 
-### CalendarView Changes
-- Import `useBlitzes` hook
-- Add state for `confirmCommitBlitz` / `confirmUncommitBlitz`
-- Add commit/uncommit handler functions (same pattern as Goals.tsx)
-- Add blitz list UI inside the planning mode card
-- Add confirm/leave drawers at the bottom of the component
+## Files Changed
 
-### Files Changed
 | File | Change |
 |------|--------|
-| `src/components/goals/QuickEditGoalsDrawer.tsx` | Add summer date pickers below goal tiers |
-| `src/pages/Goals.tsx` | Pass summer date props to QuickEditGoalsDrawer |
-| `src/components/CalendarView.tsx` | Add blitz list + commit actions in planning mode |
+| `src/pages/Profile.tsx` | **New** -- Full profile page |
+| `src/hooks/useRepProfile.ts` | **New** -- Data fetching hook for profile |
+| `src/App.tsx` | Add `/profile/:userId` route, update redirect |
+| `src/components/AppDrawer.tsx` | Make avatar tappable to navigate to own profile |
+| `src/components/leaderboard/LiveRaceSection.tsx` | Make rep rows tappable to navigate to profile |
 
-### No Database Changes
-All required tables (`season_config`, `reps.committed_blitzes`, `planned_work_days`) and the `update-summer-dates` edge function already exist.
+## No Database Changes
+
+All data needed (reps, daily_entries, teams) already exists with appropriate RLS policies. The profile page only reads data the user can already access via leaderboards.
+
