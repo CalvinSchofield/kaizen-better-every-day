@@ -39,10 +39,10 @@ export const useRepProfile = (userId: string | null) => {
       if (!userId) return null;
 
       // Fetch rep info, daily entries, records, and efp mode in parallel
-      const [repResult, entriesResult, recordsResult, lastActiveResult] = await Promise.all([
+      const [repResult, entriesResult, recordsResult] = await Promise.all([
         supabase
           .from('reps')
-          .select('name, year, profile_photo_url, team_leader, recruiter, efp_mode_enabled')
+          .select('name, year, profile_photo_url, team_leader, recruiter, efp_mode_enabled, updated_at')
           .eq('user_id', userId)
           .maybeSingle(),
         supabase
@@ -56,13 +56,6 @@ export const useRepProfile = (userId: string | null) => {
           .select('record_type, value, entry_date')
           .eq('user_id', userId)
           .in('record_type', ['daily_fp', 'weekly_fp', 'monthly_fp', 'daily_prmr', 'weekly_prmr', 'monthly_prmr']),
-        supabase
-          .from('daily_entries')
-          .select('updated_at')
-          .eq('user_id', userId)
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
       ]);
 
       const rep = repResult.data;
@@ -161,7 +154,7 @@ export const useRepProfile = (userId: string | null) => {
         bestMonthPrmr: getRecord('monthly_prmr'),
         dailyFpValues,
         efpModeEnabled,
-        lastActiveAt: lastActiveResult.data?.updated_at || null,
+        lastActiveAt: rep.updated_at || null,
       };
     },
     enabled: !!userId,

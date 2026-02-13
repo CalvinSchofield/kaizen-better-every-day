@@ -93,7 +93,7 @@ const Profile = () => {
         {/* Back button + settings - floating over image */}
         <div className="absolute top-0 left-0 right-0 z-20">
           <div className="pt-safe" />
-          <div className="flex items-center justify-between px-4 h-14">
+          <div className="flex items-center justify-between px-4 pt-2 pb-1">
             <button
               onClick={() => { hapticLight(); navigate(-1); }}
               className="p-2 -ml-2 rounded-full bg-black/30 backdrop-blur-sm active:scale-95 transition-transform"
