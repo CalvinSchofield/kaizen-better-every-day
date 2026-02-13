@@ -13,26 +13,31 @@ function computeBestRecords(dailyValues: { date: string; value: number }[]): {
   bestWeek: RecordEntry | null;
   bestMonth: RecordEntry | null;
 } {
-  if (dailyValues.length === 0) return { bestDay: null, bestWeek: null, bestMonth: null };
+  if (!dailyValues || dailyValues.length === 0) return { bestDay: null, bestWeek: null, bestMonth: null };
 
   // Best day
   let bestDay: RecordEntry | null = null;
   for (const d of dailyValues) {
-    if (d.value > 0 && (!bestDay || d.value > bestDay.value)) {
-      bestDay = { value: d.value, date: d.date };
+    const v = Number(d.value) || 0;
+    if (v > 0 && (!bestDay || v > bestDay.value)) {
+      bestDay = { value: v, date: d.date };
     }
   }
 
   // Best week (ISO week, Mon-Sun)
   const weekBuckets = new Map<string, { total: number; startDate: string }>();
   for (const d of dailyValues) {
-    const weekStart = format(startOfWeek(new Date(d.date + 'T12:00:00'), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const existing = weekBuckets.get(weekStart);
-    if (existing) {
-      existing.total += d.value;
-    } else {
-      weekBuckets.set(weekStart, { total: d.value, startDate: weekStart });
-    }
+    const v = Number(d.value) || 0;
+    if (v <= 0) continue;
+    try {
+      const weekStart = format(startOfWeek(new Date(d.date + 'T12:00:00'), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const existing = weekBuckets.get(weekStart);
+      if (existing) {
+        existing.total += v;
+      } else {
+        weekBuckets.set(weekStart, { total: v, startDate: weekStart });
+      }
+    } catch { /* skip invalid dates */ }
   }
   let bestWeek: RecordEntry | null = null;
   for (const [, bucket] of weekBuckets) {
@@ -44,13 +49,17 @@ function computeBestRecords(dailyValues: { date: string; value: number }[]): {
   // Best month
   const monthBuckets = new Map<string, { total: number; startDate: string }>();
   for (const d of dailyValues) {
-    const monthStart = format(startOfMonth(new Date(d.date + 'T12:00:00')), 'yyyy-MM-dd');
-    const existing = monthBuckets.get(monthStart);
-    if (existing) {
-      existing.total += d.value;
-    } else {
-      monthBuckets.set(monthStart, { total: d.value, startDate: monthStart });
-    }
+    const v = Number(d.value) || 0;
+    if (v <= 0) continue;
+    try {
+      const monthStart = format(startOfMonth(new Date(d.date + 'T12:00:00')), 'yyyy-MM-dd');
+      const existing = monthBuckets.get(monthStart);
+      if (existing) {
+        existing.total += v;
+      } else {
+        monthBuckets.set(monthStart, { total: v, startDate: monthStart });
+      }
+    } catch { /* skip invalid dates */ }
   }
   let bestMonth: RecordEntry | null = null;
   for (const [, bucket] of monthBuckets) {
