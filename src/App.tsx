@@ -48,6 +48,7 @@ import AddApplicant from "./pages/AddApplicant";
 import AddRecruit from "./pages/AddRecruit";
 import ReportsV2 from "./pages/ReportsV2";
 import LogSale from "./pages/LogSale";
+import Profile from "./pages/Profile";
 import { queryPersister } from "./lib/queryPersister";
 
 const queryClient = new QueryClient({
@@ -280,10 +281,21 @@ const App = () => {
                 </ProtectedRoute>
               }
             />
-            {/* Redirect /profile to /settings */}
+            <Route
+              path="/profile/:userId"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/profile"
-              element={<Navigate to="/settings" replace />}
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
             />
             <Route
               path="/admin/blitzes"

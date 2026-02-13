@@ -168,7 +168,16 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
       </SheetTrigger>
       <SheetContent side="left" className="w-[280px] flex flex-col">
         <SheetHeader className="pb-2">
-          <div className="flex flex-col items-center gap-2">
+          <button
+            onClick={() => {
+              hapticLight();
+              setOpen(false);
+              if (repData?.user_id) {
+                navigate(`/profile/${repData.user_id}`);
+              }
+            }}
+            className="flex flex-col items-center gap-2 w-full active:scale-[0.97] transition-transform"
+          >
             <Avatar className="h-16 w-16 border-2 border-border">
               <AvatarImage src={repData?.profile_photo_url || undefined} alt={cleanFirstName || "Profile"} />
               <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
@@ -178,7 +187,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             <SheetTitle>
               {cleanFirstName ? `Hey, ${cleanFirstName}` : "Menu"}
             </SheetTitle>
-          </div>
+          </button>
         </SheetHeader>
         
         {/* Scrollable content area */}

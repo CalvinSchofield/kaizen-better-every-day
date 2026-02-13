@@ -1,0 +1,129 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { calculateFromSalesLog } from '@/utils/salesLogCalculations';
+
+const SEASON_START = '2025-09-28';
+
+interface RepProfileData {
+  name: string;
+  year: string | null;
+  profilePhotoUrl: string | null;
+  teamLeader: string | null;
+  recruiter: string | null;
+  teamName: string | null;
+  ytdFpPlus: number;
+  ytdPrmr: number;
+  ytdUpgradeFpPlus: number;
+  ytdDoors: number;
+  ytdPresentations: number;
+  ytdTransitions: number;
+  bestDay: { value: number; date: string } | null;
+  bestWeek: { value: number; date: string } | null;
+  bestMonth: { value: number; date: string } | null;
+}
+
+export const useRepProfile = (userId: string | null) => {
+  return useQuery({
+    queryKey: ['rep-profile', userId],
+    queryFn: async (): Promise<RepProfileData | null> => {
+      if (!userId) return null;
+
+      // Fetch rep info and daily entries in parallel
+      const [repResult, entriesResult, recordsResult] = await Promise.all([
+        supabase
+          .from('reps')
+          .select('name, year, profile_photo_url, team_leader, recruiter')
+          .eq('user_id', userId)
+          .maybeSingle(),
+        supabase
+          .from('daily_entries')
+          .select('entry_date, fp_plus, prmr, sales_log, doors_knocked, presentations, transitions, upgrade_prmr')
+          .eq('user_id', userId)
+          .gte('entry_date', SEASON_START)
+          .eq('is_finalized', true),
+        supabase
+          .from('personal_records')
+          .select('record_type, value, entry_date')
+          .eq('user_id', userId)
+          .in('record_type', ['best_day_fp', 'best_week_fp', 'best_month_fp']),
+      ]);
+
+      const rep = repResult.data;
+      if (!rep) return null;
+
+      // Get team name from team_leader match
+      let teamName: string | null = null;
+      if (rep.team_leader) {
+        const { data: team } = await supabase
+          .from('teams')
+          .select('name')
+          .eq('name', rep.team_leader)
+          .maybeSingle();
+        
+        if (!team) {
+          // Try matching by lead_user_id's rep name
+          teamName = rep.team_leader;
+        } else {
+          teamName = team.name;
+        }
+      }
+
+      // Aggregate YTD stats from daily entries
+      const entries = entriesResult.data || [];
+      let ytdFpPlus = 0;
+      let ytdPrmr = 0;
+      let ytdUpgradePrmr = 0;
+      let ytdDoors = 0;
+      let ytdPresentations = 0;
+      let ytdTransitions = 0;
+
+      for (const entry of entries) {
+        const salesLog = entry.sales_log as any[] | null;
+        if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
+          const calc = calculateFromSalesLog(salesLog);
+          ytdFpPlus += calc.fp;
+          ytdPrmr += calc.prmr;
+          // Calculate upgrade FP+ from sales_log
+          const upgradePrmr = salesLog
+            .filter(s => s.type === 'upgrade' && s.install_status !== 'never_installed')
+            .reduce((sum: number, s: any) => sum + (Number(s.prmr) || 0), 0);
+          ytdUpgradePrmr += upgradePrmr;
+        } else {
+          ytdFpPlus += entry.fp_plus || 0;
+          ytdPrmr += entry.prmr || 0;
+          ytdUpgradePrmr += entry.upgrade_prmr || 0;
+        }
+        ytdDoors += entry.doors_knocked || 0;
+        ytdPresentations += entry.presentations || 0;
+        ytdTransitions += entry.transitions || 0;
+      }
+
+      // Parse personal records
+      const records = recordsResult.data || [];
+      const getRecord = (type: string) => {
+        const r = records.find(rec => rec.record_type === type);
+        return r ? { value: Number(r.value), date: r.entry_date } : null;
+      };
+
+      return {
+        name: rep.name,
+        year: rep.year,
+        profilePhotoUrl: rep.profile_photo_url,
+        teamLeader: rep.team_leader,
+        recruiter: rep.recruiter,
+        teamName: teamName || rep.team_leader,
+        ytdFpPlus,
+        ytdPrmr,
+        ytdUpgradeFpPlus: ytdUpgradePrmr / 85,
+        ytdDoors,
+        ytdPresentations,
+        ytdTransitions,
+        bestDay: getRecord('best_day_fp'),
+        bestWeek: getRecord('best_week_fp'),
+        bestMonth: getRecord('best_month_fp'),
+      };
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
+};
