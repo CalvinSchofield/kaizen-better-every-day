@@ -18,8 +18,8 @@ interface ProfilePhotoUploadProps {
 }
 
 
-const MAX_IMAGE_SIZE = 1200; // Max dimension in pixels
-const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB after compression
+const MAX_IMAGE_SIZE = 2400; // Max dimension in pixels (supports retina displays)
+const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB after compression
 
 // Resize and compress image
 const processImage = async (file: File): Promise<Blob> => {

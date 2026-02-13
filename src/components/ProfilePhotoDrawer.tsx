@@ -25,11 +25,13 @@ export const ProfilePhotoDrawer = ({
   const queryClient = useQueryClient();
 
   const handlePhotoUpdated = (url: string | null) => {
-    // Invalidate rep data to refresh the photo URL
+    // Invalidate both rep-data and rep-profile queries to refresh the photo
     if (userId) {
       queryClient.invalidateQueries({ queryKey: ['rep-data', userId] });
+      queryClient.invalidateQueries({ queryKey: ['rep-profile', userId] });
     }
-    
+    queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+    queryClient.invalidateQueries({ queryKey: ['rep-profile'] });
   };
 
   return (
