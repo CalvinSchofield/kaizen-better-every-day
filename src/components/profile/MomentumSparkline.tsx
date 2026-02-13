@@ -1,4 +1,5 @@
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
+
 import { motion } from "framer-motion";
 import { Flame } from "lucide-react";
 
