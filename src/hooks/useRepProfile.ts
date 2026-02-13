@@ -1,10 +1,66 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateFromSalesLog } from '@/utils/salesLogCalculations';
+import { startOfWeek, startOfMonth, format } from 'date-fns';
 
 const SEASON_START = '2025-09-28';
 
 interface RecordEntry { value: number; date: string }
+
+/** Given daily values, compute the best single day, best week sum, best month sum */
+function computeBestRecords(dailyValues: { date: string; value: number }[]): {
+  bestDay: RecordEntry | null;
+  bestWeek: RecordEntry | null;
+  bestMonth: RecordEntry | null;
+} {
+  if (dailyValues.length === 0) return { bestDay: null, bestWeek: null, bestMonth: null };
+
+  // Best day
+  let bestDay: RecordEntry | null = null;
+  for (const d of dailyValues) {
+    if (d.value > 0 && (!bestDay || d.value > bestDay.value)) {
+      bestDay = { value: d.value, date: d.date };
+    }
+  }
+
+  // Best week (ISO week, Mon-Sun)
+  const weekBuckets = new Map<string, { total: number; startDate: string }>();
+  for (const d of dailyValues) {
+    const weekStart = format(startOfWeek(new Date(d.date + 'T12:00:00'), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const existing = weekBuckets.get(weekStart);
+    if (existing) {
+      existing.total += d.value;
+    } else {
+      weekBuckets.set(weekStart, { total: d.value, startDate: weekStart });
+    }
+  }
+  let bestWeek: RecordEntry | null = null;
+  for (const [, bucket] of weekBuckets) {
+    if (bucket.total > 0 && (!bestWeek || bucket.total > bestWeek.value)) {
+      bestWeek = { value: bucket.total, date: bucket.startDate };
+    }
+  }
+
+  // Best month
+  const monthBuckets = new Map<string, { total: number; startDate: string }>();
+  for (const d of dailyValues) {
+    const monthStart = format(startOfMonth(new Date(d.date + 'T12:00:00')), 'yyyy-MM-dd');
+    const existing = monthBuckets.get(monthStart);
+    if (existing) {
+      existing.total += d.value;
+    } else {
+      monthBuckets.set(monthStart, { total: d.value, startDate: monthStart });
+    }
+  }
+  let bestMonth: RecordEntry | null = null;
+  for (const [, bucket] of monthBuckets) {
+    if (bucket.total > 0 && (!bestMonth || bucket.total > bestMonth.value)) {
+      bestMonth = { value: bucket.total, date: bucket.startDate };
+    }
+  }
+
+  return { bestDay, bestWeek, bestMonth };
+}
 
 interface RepProfileData {
   name: string;
@@ -38,8 +94,8 @@ export const useRepProfile = (userId: string | null) => {
     queryFn: async (): Promise<RepProfileData | null> => {
       if (!userId) return null;
 
-      // Fetch rep info, daily entries, records, and efp mode in parallel
-      const [repResult, entriesResult, recordsResult] = await Promise.all([
+      // Fetch rep info and daily entries in parallel
+      const [repResult, entriesResult] = await Promise.all([
         supabase
           .from('reps')
           .select('name, year, profile_photo_url, team_leader, recruiter, efp_mode_enabled, updated_at')
@@ -51,11 +107,6 @@ export const useRepProfile = (userId: string | null) => {
           .eq('user_id', userId)
           .gte('entry_date', SEASON_START)
           .eq('is_finalized', true),
-        supabase
-          .from('personal_records')
-          .select('record_type, value, entry_date')
-          .eq('user_id', userId)
-          .in('record_type', ['daily_fp', 'weekly_fp', 'monthly_fp', 'daily_prmr', 'weekly_prmr', 'monthly_prmr']),
       ]);
 
       const rep = repResult.data;
@@ -125,12 +176,11 @@ export const useRepProfile = (userId: string | null) => {
         ytdTransitions += entry.transitions || 0;
       }
 
-      // Parse personal records
-      const records = recordsResult.data || [];
-      const getRecord = (type: string) => {
-        const r = records.find(rec => rec.record_type === type);
-        return r ? { value: Number(r.value), date: r.entry_date } : null;
-      };
+      // Compute best records from daily data (source of truth)
+      const fpDailyValues = dailyFpValues.map(d => ({ date: d.date, value: d.fp }));
+      const prmrDailyValues = dailyFpValues.map(d => ({ date: d.date, value: d.prmr }));
+      const fpRecords = computeBestRecords(fpDailyValues);
+      const prmrRecords = computeBestRecords(prmrDailyValues);
 
       return {
         name: rep.name,
@@ -146,12 +196,12 @@ export const useRepProfile = (userId: string | null) => {
         ytdDoors,
         ytdPresentations,
         ytdTransitions,
-        bestDayFp: getRecord('daily_fp'),
-        bestWeekFp: getRecord('weekly_fp'),
-        bestMonthFp: getRecord('monthly_fp'),
-        bestDayPrmr: getRecord('daily_prmr'),
-        bestWeekPrmr: getRecord('weekly_prmr'),
-        bestMonthPrmr: getRecord('monthly_prmr'),
+        bestDayFp: fpRecords.bestDay,
+        bestWeekFp: fpRecords.bestWeek,
+        bestMonthFp: fpRecords.bestMonth,
+        bestDayPrmr: prmrRecords.bestDay,
+        bestWeekPrmr: prmrRecords.bestWeek,
+        bestMonthPrmr: prmrRecords.bestMonth,
         dailyFpValues,
         efpModeEnabled,
         lastActiveAt: rep.updated_at || null,
