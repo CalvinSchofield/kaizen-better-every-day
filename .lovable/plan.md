@@ -1,81 +1,113 @@
 
 
-## Navigation & Access Audit: Full Findings and Fix Plan
+## Unified Leaderboard Redesign: Make Every Timeframe Feel Like Live
 
-### Issue 1: Leaderboard Unreachable in Preseason Mode
+### The Problem
 
-The Leaderboard page (`/leaderboard`) is only placed in the bottom nav when knocking mode is ON. When knocking mode is OFF (preseason), there is **no link to it anywhere** — not in the bottom nav, not in the hamburger drawer. Since this is a native app (no URL bar), the page is completely inaccessible in preseason.
+The Live Race view is polished and interactive: ranked list with avatars, profile photos, working indicators, framer-motion animations, metric toggle pills, gap-to-leader indicators, and tappable profile navigation. When you switch to Yesterday, This Week, This Month, or any other timeframe, the experience drops to static "winner-only" cards (SalesLeadersSection, ActivityLeadersSection) with emoji icons and no ranked list, no avatars, no profile links, and no animations. It feels like a completely different app.
 
-**Fix**: Add a Leaderboard link to the AppDrawer for all non-pre-blitz users when knocking mode is OFF. Place it alongside the Compete link (both are competitive features). It should also appear for users in knocking mode who don't have it in their bottom nav (leaders in knocking mode already have it in nav, non-leaders also have it — so this is mainly for preseason).
+### The Vision
 
-### Issue 2: Pre-Blitz Rookie Access Audit
+Every timeframe should use the same ranked-list format as Live Race, just with the "Live" badge and working-indicator removed for historical views. The same metric toggle pills, the same avatars, the same profile navigation, the same gap indicators. One unified component that adapts its data source based on the selected timeframe.
 
-Pre-blitz rookies currently have access to these pages from the drawer that they arguably shouldn't:
-- **Compete** (Challenges & Incentives) — visible to all, no lock
-- **Customers** — visible to all, no lock  
-- **My Group** — visible, no lock
+Additionally, the Grit Awards section needs a "Most Hours Worked" upgrade to use **real work time** (from activity ring logic: total duration minus breaks minus idle gaps > 15 min) rather than simple clock-in-to-clock-out minus breaks.
 
-Per the memory on rookie access: Track, Insights, Calendar, Home, Challenges, Incentives, Customers should all be **locked** for pre-blitz rookies.
-
-**Fix**: Lock Compete and Customers for pre-blitz rookies in the drawer (show them with a lock icon and "Unlocks on first blitz" text, same pattern as Track/Calendar/Insights). My Group "suggest recruits" can stay since recruiting is a preseason activity.
-
-### Issue 3: Pages Reachable Only via Drawer (Discoverability Check)
-
-These pages have no bottom nav presence and rely solely on the drawer:
-- **Insights** — drawer only (both modes). OK, secondary feature.
-- **Compete** — drawer only. OK, but consider if it should be more prominent.
-- **Customers** — drawer only. OK for now.
-- **Profile** — via avatar in drawer header. OK.
-- **Settings/Personalize** — drawer only. Standard pattern.
-
-All other pages are either in the bottom nav, linked from a parent page (tools sub-routes, log-sale from track, etc.), or admin-only. This is fine.
-
-### Issue 4: Current Bottom Nav + Drawer Layout Summary
-
-For reference, here's the current mapping:
+### Architecture
 
 ```text
-PRESEASON (Knocking OFF)
-  Bottom Nav:  Home | Tools | Calendar | Goals
-  Action:      Leaders -> My Group | Non-leaders -> Training
-  Drawer:      Track, Calendar, Insights, Reports (leaders), Training (leaders)
-               Compete, My Group*, Customers, AI Assistant
-               Settings, Refresh, Logout
-  MISSING:     Leaderboard (nowhere)
+CURRENT FLOW (two separate UIs):
+  Live -> LiveRaceSection (useTodayLeaderboard) -> ranked list with avatars
+  Other -> SalesLeadersSection + ActivityLeadersSection (useExpandedLeaderboard) -> winner-only cards
 
-KNOCKING MODE ON
-  Bottom Nav:  
-    Leaders:    Home | Tools | Reports | Leaderboard (action: Track)
-    Non-leaders: Home | Leaderboard | Tools | Calendar (action: Track)
-  Drawer:      Calendar*, Insights, Goals, Training
-               Compete, My Group, Customers, AI Assistant
-               Settings, Refresh, Logout
-  (* = in drawer when not in nav)
+NEW FLOW (one unified UI):
+  All timeframes -> UnifiedRaceSection -> ranked list with avatars
+    Live data source:  useTodayLeaderboard (realtime, working indicators)
+    Other data source:  useExpandedLeaderboard (aggregated, returns ranked arrays instead of single winners)
 ```
 
 ### Implementation Plan
 
-**File: `src/components/AppDrawer.tsx`**
+**Phase 1: Extend useExpandedLeaderboard to return ranked arrays**
 
-1. Add Leaderboard link in the preseason (knocking OFF) section, after the existing nav links and before the Compete separator. Show it for all non-pre-blitz users with the Trophy icon:
-   ```
-   Leaderboard — "See top performers"
-   ```
+File: `src/hooks/useExpandedLeaderboard.ts`
 
-2. Also add Leaderboard in the knocking ON section for leaders (since non-leaders already have it in nav, but leaders with it in nav don't need it — actually leaders DO have it in nav in knocking mode, so only add it for preseason).
+Currently this hook computes single winners (`mostDoors`, `mostFP`, etc.). We need it to also return the full ranked arrays (like useTodayLeaderboard does) so the unified component can display everyone, not just #1.
 
-3. Lock Compete for pre-blitz rookies: wrap the Compete link with the same lock icon pattern used for Track/Calendar/Insights. Show "Unlocks on first blitz".
+- Add a `rankings` field to `ExpandedLeaderboard` interface matching `TodayLeaderboard.rankings` structure (arrays of `{ userId, name, value, profilePhotoUrl, year }`)
+- During the existing aggregation loop, collect all user totals into arrays
+- Sort each array using the existing `tiebreakerCompare`
+- Filter out zero-value entries
+- Include `profilePhotoUrl` from reps data (add `profile_photo_url` to the reps select query, which it currently omits)
 
-4. Lock Customers for pre-blitz rookies: same lock pattern.
+**Phase 2: Create UnifiedRaceSection component**
 
-### Technical Details
+File: `src/components/leaderboard/UnifiedRaceSection.tsx` (new)
 
-All changes are in `src/components/AppDrawer.tsx` only:
+A single component that renders the ranked list for ANY timeframe. It accepts:
+- `rankings`: the metric-keyed ranking arrays
+- `currentUserId`: for highlighting
+- `isLive`: boolean to show/hide working indicators and live badge
+- `filterByYear`: for scope filtering
 
-- Use existing `isCalendarLocked` / `isPreBlitzRookie` boolean to gate Compete and Customers
-- Add a new `<Link to="/leaderboard">` block in the `!isKnockingMode` section (lines ~286-365), after Insights and before the leader-only Reports link
-- For Compete (line ~438): wrap in conditional — if `isPreBlitzRookie`, show locked version; else show normal
-- For Customers (line ~479): same conditional lock pattern
+This component reuses the exact visual patterns from `LiveRaceSection`:
+- Metric toggle pills (FP+, PRMR, Presentations, Transitions, Pitches, DMs, Doors)
+- Framer-motion AnimatePresence for layout animations
+- Avatar with profile photo (tappable to navigate to `/profile/:userId`)
+- Rank badges (gold/silver/bronze/numbered)
+- Gap-to-leader and gap-behind indicators for the current user
+- "You" highlighting with border accent
+- Rank change animations (only for live mode)
+- Camera icon for current user without photo (only for live mode)
+- Working indicator dot (only for live mode)
 
-No changes to bottom nav layout (`Layout.tsx`), routing (`App.tsx`), or any other files.
+The key difference from LiveRaceSection: no real-time rank-change tracking for historical views (no polling, no haptics on rank change). Everything else is identical visually.
+
+**Phase 3: Update Leaderboard page to use unified component**
+
+File: `src/pages/Leaderboard.tsx`
+
+- Remove the conditional split between `LiveRaceSection` and `SalesLeadersSection + ActivityLeadersSection`
+- For Live: render `UnifiedRaceSection` with `isLive={true}` using `useTodayLeaderboard` data (keeps the Live Race tab + Challenges + Incentives tabs)
+- For all other timeframes: render `UnifiedRaceSection` with `isLive={false}` using the new ranked arrays from `useExpandedLeaderboard`
+- Keep Grit Awards and Timing Breakdown sections below the unified race for all timeframes
+- Remove the separate SalesLeadersSection and ActivityLeadersSection components from the page (they become unused for this page, but keep the files in case they're used elsewhere)
+
+**Phase 4: Real Work Time for "Workhorse" award**
+
+File: `src/hooks/useExpandedLeaderboard.ts`
+
+The current "Workhorse" (Most Hours Worked) calculation uses:
+```
+totalMinutes = (endTime - startTime) - breaks
+```
+
+This doesn't account for idle gaps (> 15 min between activities). The activity ring already classifies gaps > 15 min as idle "Gaps" (gray). We should use similar logic:
+
+- When `counter_timestamps` is available, calculate work time as: sum of all inter-activity intervals where the gap is less than or equal to 15 minutes, plus a small buffer per activity (e.g., 3 min per door knock event representing the actual doorstep time)
+- If `counter_timestamps` is empty/missing, fall back to the existing clock-in minus breaks calculation
+- This rewards reps who are consistently active throughout their shift rather than those who clock in early, take long idle breaks, and clock out late
+
+### File Changes Summary
+
+| File | Change |
+|---|---|
+| `src/hooks/useExpandedLeaderboard.ts` | Add `profile_photo_url` to reps query; build ranked arrays for all metrics; add real-work-time calculation for Workhorse |
+| `src/components/leaderboard/UnifiedRaceSection.tsx` | **New file** - unified ranked list component adapted from LiveRaceSection |
+| `src/pages/Leaderboard.tsx` | Replace conditional Live/Non-live rendering with UnifiedRaceSection for all timeframes |
+
+### What Stays the Same
+- Grit Awards section (Early Bird, Night Owl, Ironman, Workhorse) - appears below the race for all timeframes
+- Timing Breakdown collapsible - stays below Grit Awards
+- Records section collapsible - stays at bottom
+- Live Race tab structure (Live Race / Challenges / Incentives tabs) - only for live timeframe
+- Filter pills and scope toggle - unchanged
+- Hero banner - unchanged
+
+### What Drives Production and Adoption
+
+1. **Visible ranked lists create competition**: Seeing your name at #7 with a gap indicator saying "2.3 FP+ to catch Jackson" is far more motivating than seeing "Jackson: 14.2 FP+" in a winner card
+2. **Profile photos and avatars create identity**: When reps see their face on the leaderboard, they take ownership of their rank
+3. **Consistent UX builds habit**: The same interaction pattern (tap metric pill, see ranked list, tap name to view profile) across all timeframes means users learn it once and use it everywhere
+4. **Real work time rewards hustle, not clock gaming**: The Workhorse award using actual active time (not clock-in to clock-out) incentivizes continuous productive activity and accurate tracking
+5. **Gap indicators create urgency**: "0.5 FP+ to catch" is actionable; a static winner card is not
 
