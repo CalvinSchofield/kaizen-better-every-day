@@ -32,6 +32,8 @@ export const ProfilePhotoDrawer = ({
     }
     queryClient.invalidateQueries({ queryKey: ['rep-data'] });
     queryClient.invalidateQueries({ queryKey: ['rep-profile'] });
+    // Close drawer after successful update
+    onOpenChange(false);
   };
 
   return (
