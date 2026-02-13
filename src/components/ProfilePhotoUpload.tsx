@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Camera, X, Loader2, Check } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -159,6 +159,11 @@ export const ProfilePhotoUpload = ({
 }: ProfilePhotoUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentPhotoUrl || null);
+
+  // Sync preview when currentPhotoUrl changes (e.g. after query invalidation)
+  useEffect(() => {
+    setPreviewUrl(currentPhotoUrl || null);
+  }, [currentPhotoUrl]);
   const [cropMode, setCropMode] = useState(false);
   const [crop, setCrop] = useState<Crop>();
   const [imageSrc, setImageSrc] = useState<string | null>(null);
