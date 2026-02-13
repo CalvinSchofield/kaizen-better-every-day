@@ -15,21 +15,31 @@ interface MomentumSparklineProps {
 export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSparklineProps) => {
   const [mode, setMode] = useState<MetricMode>(efpMode ? 'prmr' : 'fp');
 
-  const { data, avg, trending, metricLabel } = useMemo(() => {
+  const { data, avg, trending, metricLabel, daysWorked } = useMemo(() => {
     if (!dailyFp || dailyFp.length < 2) {
-      return { data: [], avg: 0, trending: true, metricLabel: 'FP+' };
+      return { data: [], avg: 0, trending: true, metricLabel: 'FP+', daysWorked: 0 };
     }
 
     const label = mode === 'prmr' ? 'PRMR' : (efpMode ? 'EFP' : 'FP+');
 
-    const formatted = dailyFp.map((d) => {
-      const dateStr = typeof d.date === 'string' ? d.date : '';
-      const dt = new Date(dateStr + 'T12:00:00');
-      const isValid = !isNaN(dt.getTime());
-      const month = isValid ? dt.toLocaleString('en-US', { month: 'short' }) : '?';
-      const day = isValid ? dt.getDate() : '';
+    // Only include days with actual production for chart readability
+    const productiveDays = dailyFp.filter(d => (d.fp ?? 0) > 0 || (d.prmr ?? 0) > 0);
+
+    const formatted = productiveDays.map((d) => {
+      const dateStr = String(d.date || '');
+      // Parse YYYY-MM-DD safely
+      const parts = dateStr.split('-');
+      let labelStr = '?';
+      if (parts.length === 3) {
+        const monthNum = parseInt(parts[1], 10);
+        const dayNum = parseInt(parts[2], 10);
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+          labelStr = `${months[monthNum - 1]} ${dayNum}`;
+        }
+      }
       return {
-        label: `${month} ${day}`,
+        label: labelStr,
         value: mode === 'prmr' ? (d.prmr ?? 0) : (d.fp ?? 0),
       };
     });
@@ -47,6 +57,7 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSp
       avg: average,
       trending: recentAvg >= prevAvg,
       metricLabel: label,
+      daysWorked: dailyFp.length,
     };
   }, [dailyFp, efpMode, mode]);
 
@@ -149,7 +160,7 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSp
       {isOwnProfile && (
         <div className="flex items-center justify-between mt-1">
           <span className="text-[9px] text-muted-foreground">
-            {dailyFp.length} days worked
+            {daysWorked} days worked
           </span>
           <span className="text-[9px] text-muted-foreground">
             Avg {mode === 'prmr' ? `$${Math.round(avg).toLocaleString()}` : avg.toFixed(1)} {metricLabel}/day
