@@ -1,5 +1,5 @@
-import { useMemo, useRef, useEffect, useState } from 'react';
-import { format, parseISO, eachDayOfInterval, getDay, isToday, isBefore, startOfWeek, addDays, isAfter } from 'date-fns';
+import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
+import { format, parseISO, getDay, isToday, isBefore, startOfWeek, addDays, isAfter } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlannedDay } from '@/hooks/usePlannedDays';
@@ -39,6 +39,7 @@ interface CellData {
   target?: number;
   isToday: boolean;
   month: number;
+  isSummer: boolean;
 }
 
 // Tier-aware color palettes
@@ -92,6 +93,11 @@ export const SeasonHeatmap = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tappedCell, setTappedCell] = useState<string | null>(null);
 
+  // Dismiss tooltip on tap outside
+  const handleBackdropTap = useCallback(() => {
+    setTappedCell(null);
+  }, []);
+
   // Build lookup maps
   const entryMap = useMemo(() => {
     const map = new Map<string, DailyEntry>();
@@ -112,8 +118,8 @@ export const SeasonHeatmap = ({
     const seasonStart = parseISO(SEASON_START);
     const seasonEnd = parseISO(SEASON_END);
     const today = new Date();
+    const summerStartDate = parseISO(effectiveSummerStart);
 
-    // Start from the Monday of the week containing season start
     const gridStart = startOfWeek(seasonStart, { weekStartsOn: 1 });
     
     const allWeeks: CellData[][] = [];
@@ -125,7 +131,6 @@ export const SeasonHeatmap = ({
     while (!isAfter(currentDay, seasonEnd) || getDay(currentDay) !== 1) {
       const week: CellData[] = [];
       
-      // Mon (1) through Sat (6) — 6 rows instead of 7
       for (let i = 0; i < 6; i++) {
         const dateStr = format(currentDay, 'yyyy-MM-dd');
         const month = currentDay.getMonth();
@@ -137,7 +142,7 @@ export const SeasonHeatmap = ({
         }
 
         if (!inSeason) {
-          week.push({ date: dateStr, dayOfMonth: currentDay.getDate(), level: 'empty', isToday: false, month });
+          week.push({ date: dateStr, dayOfMonth: currentDay.getDate(), level: 'empty', isToday: false, month, isSummer: false });
           currentDay = addDays(currentDay, 1);
           continue;
         }
@@ -149,7 +154,7 @@ export const SeasonHeatmap = ({
         const entry = entryMap.get(dateStr);
         const isTodayDate = isToday(currentDay);
 
-        const isSummer = !isBefore(currentDay, parseISO(effectiveSummerStart));
+        const isSummer = !isBefore(currentDay, summerStartDate);
         const dailyTarget = isSummer ? summerDailyPace : preseasonDailyPace;
 
         let level: CellLevel;
@@ -190,6 +195,7 @@ export const SeasonHeatmap = ({
           target: dailyTarget > 0 ? Math.round(dailyTarget * 10) / 10 : undefined,
           isToday: isTodayDate,
           month,
+          isSummer,
         });
 
         currentDay = addDays(currentDay, 1);
@@ -217,22 +223,44 @@ export const SeasonHeatmap = ({
     if (isBefore(today, seasonStart)) return;
     
     const weeksSinceStart = Math.floor((today.getTime() - seasonStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
-    const cellSize = 16; // 14px cell + 2px gap
+    const cellSize = 16;
     const scrollTarget = Math.max(0, (weeksSinceStart - 3) * cellSize);
     scrollRef.current.scrollLeft = scrollTarget;
   }, [isLoading]);
 
+  // Determine if we're currently in preseason or summer
+  const today = new Date();
+  const isCurrentlyPreseason = isBefore(today, parseISO(effectiveSummerStart));
+
+  // For the badge: show Preseason during preseason, focus tier during summer
+  const displayTier: GoalTier = isCurrentlyPreseason ? 'preseason' : activeTier;
+  const displayTierConfig = GOAL_TIER_CONFIG[displayTier];
+  const DisplayTierIcon = displayTierConfig.icon;
+
   const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S'];
   const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
-  const tierConfig = GOAL_TIER_CONFIG[activeTier];
-  const TierIcon = tierConfig.icon;
-  const tierLevelColors = TIER_LEVEL_CLASSES[activeTier];
 
-  const getCellClass = (level: CellLevel) => {
+  // Get cell color: preseason dates always use blue, summer dates use focus tier
+  const getCellClass = (level: CellLevel, isSummer: boolean) => {
     const key = String(level);
-    if (tierLevelColors[key]) return tierLevelColors[key];
-    return BASE_LEVEL_CLASSES[key] || '';
+    const baseLevelClass = BASE_LEVEL_CLASSES[key];
+    if (baseLevelClass) return baseLevelClass;
+    
+    const tierForColor = isSummer ? activeTier : 'preseason';
+    const tierColors = TIER_LEVEL_CLASSES[tierForColor];
+    return tierColors[key] || '';
   };
+
+  // Find tapped cell data for the tooltip
+  const tappedCellData = useMemo(() => {
+    if (!tappedCell) return null;
+    for (const week of weeks) {
+      for (const cell of week) {
+        if (cell.date === tappedCell) return cell;
+      }
+    }
+    return null;
+  }, [tappedCell, weeks]);
 
   if (isLoading) {
     return (
@@ -253,16 +281,16 @@ export const SeasonHeatmap = ({
         </div>
         <div className={cn(
           "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold",
-          tierConfig.bgColor, tierConfig.color
+          displayTierConfig.bgColor, displayTierConfig.color
         )}>
-          <TierIcon className="w-3 h-3" />
-          <span>{tierConfig.label}</span>
+          <DisplayTierIcon className="w-3 h-3" />
+          <span>{displayTierConfig.label}</span>
           <span className="opacity-60">·</span>
           <span>{dailyNeeded} {metricLabel}/day</span>
         </div>
       </div>
 
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 relative">
         {/* Day-of-week labels — 6 rows */}
         <div className="flex flex-col gap-[2px] pt-[16px] flex-shrink-0">
           {dayLabels.map((label, i) => (
@@ -302,56 +330,65 @@ export const SeasonHeatmap = ({
                   const cell = week[dow];
                   if (!cell) return <div key={weekIdx} className="w-[14px] h-[14px]" />;
                   
-                  const isActive = tappedCell === cell.date;
+                  const isSelected = tappedCell === cell.date;
                   
                   return (
                     <div
                       key={weekIdx}
                       className={cn(
-                        "w-[14px] h-[14px] rounded-[3px] transition-colors relative",
-                        getCellClass(cell.level),
+                        "w-[14px] h-[14px] rounded-[3px] transition-all relative",
+                        getCellClass(cell.level, cell.isSummer),
                         cell.isToday && "ring-1 ring-primary ring-offset-1 ring-offset-background",
+                        isSelected && "ring-2 ring-foreground scale-[1.3] z-10",
                         cell.level === 'empty' && "opacity-0"
                       )}
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         if (cell.level === 'empty') return;
                         setTappedCell(prev => prev === cell.date ? null : cell.date);
                       }}
-                    >
-                      {/* Tooltip on tap */}
-                      {isActive && cell.level !== 'empty' && (
-                        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 rounded-lg bg-popover border border-border shadow-lg text-[10px] whitespace-nowrap pointer-events-none">
-                          <div className="font-semibold text-foreground">{format(parseISO(cell.date), 'MMM d, yyyy')}</div>
-                          {cell.production !== undefined ? (
-                            <div className="text-muted-foreground">
-                              {cell.production} {metricLabel}
-                              {cell.target ? ` / ${cell.target} target` : ''}
-                            </div>
-                          ) : (
-                            <div className="text-muted-foreground">
-                              {cell.level === 'future-planned' ? 'Planned' : 
-                               cell.level === 'future-off' ? 'Off day' : 'No data'}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    />
                   );
                 })}
               </div>
             ))}
           </div>
         </div>
+
+        {/* Floating tooltip - dismiss on tap outside */}
+        {tappedCell && tappedCellData && tappedCellData.level !== 'empty' && (
+          <>
+            {/* Invisible backdrop to catch taps outside */}
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={handleBackdropTap}
+            />
+            <div className="absolute z-50 top-0 right-0 mt-[-4px] mr-0 px-3 py-2 rounded-xl bg-popover border border-border shadow-xl text-xs pointer-events-none">
+              <div className="font-semibold text-foreground">{format(parseISO(tappedCellData.date), 'EEE, MMM d')}</div>
+              {tappedCellData.production !== undefined ? (
+                <div className="text-muted-foreground mt-0.5">
+                  {tappedCellData.production} {metricLabel}
+                  {tappedCellData.target ? ` / ${tappedCellData.target} target` : ''}
+                </div>
+              ) : (
+                <div className="text-muted-foreground mt-0.5">
+                  {tappedCellData.level === 'future-planned' ? 'Planned' : 
+                   tappedCellData.level === 'future-off' ? 'Off day' : 'No data'}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Legend — uses tier colors */}
+      {/* Legend — preseason colors (blue) + summer colors (focus tier) */}
       <div className="flex items-center justify-center gap-1.5 text-[9px] text-muted-foreground">
         <span>Less</span>
         <div className="w-[12px] h-[12px] rounded-[3px] bg-muted/30" />
-        <div className={cn("w-[12px] h-[12px] rounded-[3px]", tierLevelColors['1'])} />
-        <div className={cn("w-[12px] h-[12px] rounded-[3px]", tierLevelColors['2'])} />
-        <div className={cn("w-[12px] h-[12px] rounded-[3px]", tierLevelColors['3'])} />
-        <div className={cn("w-[12px] h-[12px] rounded-[3px]", tierLevelColors['4'])} />
+        <div className={cn("w-[12px] h-[12px] rounded-[3px]", TIER_LEVEL_CLASSES[displayTier]['1'])} />
+        <div className={cn("w-[12px] h-[12px] rounded-[3px]", TIER_LEVEL_CLASSES[displayTier]['2'])} />
+        <div className={cn("w-[12px] h-[12px] rounded-[3px]", TIER_LEVEL_CLASSES[displayTier]['3'])} />
+        <div className={cn("w-[12px] h-[12px] rounded-[3px]", TIER_LEVEL_CLASSES[displayTier]['4'])} />
         <span>More</span>
       </div>
     </div>
