@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Ban, CalendarDays, Sparkles, Pointer, Undo2, Lock, Plane, MapPin, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Ban, CalendarDays, Sparkles, Pointer, Undo2, Lock, Plane, MapPin, Loader2, CalendarIcon, Check } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
 import { CalendarDayDrawer } from "@/components/CalendarDayDrawer";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
@@ -21,6 +21,9 @@ import { useFocusTier } from "@/hooks/useFocusTier";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 import { useCalendarHistorical } from "@/hooks/useCalendarHistorical";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBlitzDate } from "@/utils/blitzDateUtils";
 import { toast } from "sonner";
@@ -60,9 +63,28 @@ export const CalendarView = ({
   const [confirmUncommitBlitz, setConfirmUncommitBlitz] = useState<any>(null);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
   
+  // Summer date editing state for planning mode
+  const [editSummerStart, setEditSummerStart] = useState<string | null>(null);
+  const [editSummerEnd, setEditSummerEnd] = useState<string | null>(null);
+  const [startPopoverOpen, setStartPopoverOpen] = useState(false);
+  const [endPopoverOpen, setEndPopoverOpen] = useState(false);
+  const [savingSummerDates, setSavingSummerDates] = useState(false);
+  const [savedSummerDates, setSavedSummerDates] = useState(false);
+  
   // Blitz data for planning mode
   const { allBlitzes: futureBlitzes } = useBlitzes();
   const isPreseason = new Date() < new Date(GLOBAL_SUMMER_START);
+  const isSummerStarted = personalSummerStart ? new Date() >= personalSummerStart : false;
+
+  // Sync summer date editing state from props
+  const personalSummerStartStr = personalSummerStart ? format(personalSummerStart, 'yyyy-MM-dd') : null;
+  const personalSummerEndStr = personalSummerEnd ? format(personalSummerEnd, 'yyyy-MM-dd') : null;
+
+  useEffect(() => {
+    setEditSummerStart(personalSummerStartStr);
+    setEditSummerEnd(personalSummerEndStr);
+    setSavedSummerDates(false);
+  }, [personalSummerStartStr, personalSummerEndStr, planningMode]);
 
   interface CommittedBlitz {
     id: string;
@@ -866,6 +888,165 @@ export const CalendarView = ({
                   </div>
                 </div>
               )}
+
+              {/* Summer Dates Section */}
+              {(() => {
+                const showStartDate = !isSummerStarted;
+                const summerDatesChanged =
+                  editSummerStart !== personalSummerStartStr ||
+                  editSummerEnd !== personalSummerEndStr;
+                // Show section if there's something to edit (end date always, start date if not started)
+                return (showStartDate || true) ? (
+                  <div className="pt-3 border-t border-border/50 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="w-4 h-4 text-primary" />
+                      <h4 className="text-sm font-semibold text-foreground">Summer Dates</h4>
+                    </div>
+                    <div className="space-y-2">
+                      {/* Start Date - hidden after summer starts */}
+                      {showStartDate && (
+                        <div className="rounded-xl border border-border bg-card px-3 py-2.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="p-1.5 rounded-lg bg-primary/10">
+                                <CalendarIcon className="h-3.5 w-3.5 text-primary" />
+                              </div>
+                              <div className="min-w-0">
+                                <Label className="text-sm font-medium">Start Date</Label>
+                              </div>
+                            </div>
+                            <Popover open={startPopoverOpen} onOpenChange={setStartPopoverOpen}>
+                              <PopoverTrigger asChild>
+                                <button
+                                  className="text-sm font-semibold text-foreground bg-background/60 border border-border rounded-xl px-3 py-1.5 active:scale-[0.97] transition-transform"
+                                  onClick={() => hapticLight()}
+                                >
+                                  {editSummerStart ? format(parseISO(editSummerStart), 'MMM d') : 'Set'}
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="end">
+                                <Calendar
+                                  mode="single"
+                                  selected={editSummerStart ? parseISO(editSummerStart) : undefined}
+                                  onSelect={(date) => {
+                                    if (date) {
+                                      setEditSummerStart(format(date, 'yyyy-MM-dd'));
+                                      setStartPopoverOpen(false);
+                                    }
+                                  }}
+                                  defaultMonth={editSummerStart ? parseISO(editSummerStart) : new Date(2026, 3)}
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* End Date */}
+                      <div className="rounded-xl border border-border bg-card px-3 py-2.5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="p-1.5 rounded-lg bg-accent/30">
+                              <CalendarIcon className="h-3.5 w-3.5 text-accent-foreground" />
+                            </div>
+                            <div className="min-w-0">
+                              <Label className="text-sm font-medium">End Date</Label>
+                            </div>
+                          </div>
+                          <Popover open={endPopoverOpen} onOpenChange={setEndPopoverOpen}>
+                            <PopoverTrigger asChild>
+                              <button
+                                className="text-sm font-semibold text-foreground bg-background/60 border border-border rounded-xl px-3 py-1.5 active:scale-[0.97] transition-transform"
+                                onClick={() => hapticLight()}
+                              >
+                                {editSummerEnd ? format(parseISO(editSummerEnd), 'MMM d') : 'Set'}
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="end">
+                              <Calendar
+                                mode="single"
+                                selected={editSummerEnd ? parseISO(editSummerEnd) : undefined}
+                                onSelect={(date) => {
+                                  if (date) {
+                                    setEditSummerEnd(format(date, 'yyyy-MM-dd'));
+                                    setEndPopoverOpen(false);
+                                  }
+                                }}
+                                defaultMonth={editSummerEnd ? parseISO(editSummerEnd) : new Date(2026, 8)}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Save button for summer dates */}
+                    <AnimatePresence>
+                      {summerDatesChanged && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 6 }}
+                        >
+                          <button
+                            disabled={savingSummerDates || savedSummerDates}
+                            onClick={async () => {
+                              setSavingSummerDates(true);
+                              try {
+                                const { data: { user } } = await supabase.auth.getUser();
+                                if (!user) throw new Error('Not authenticated');
+                                await supabase
+                                  .from('season_config')
+                                  .upsert({
+                                    user_id: user.id,
+                                    updated_at: new Date().toISOString(),
+                                    personal_summer_start: editSummerStart,
+                                    personal_summer_end: editSummerEnd,
+                                  }, { onConflict: 'user_id' });
+
+                                if (repData?.id) {
+                                  await supabase.functions.invoke('update-summer-dates', {
+                                    body: {
+                                      repId: repData.id,
+                                      startDate: editSummerStart,
+                                      endDate: editSummerEnd,
+                                    },
+                                  });
+                                }
+
+                                queryClient.invalidateQueries({ queryKey: ['season-config-for-goals-page'] });
+                                queryClient.invalidateQueries({ queryKey: ['season-config'] });
+                                queryClient.invalidateQueries({ queryKey: ['season-config-whatif'] });
+                                hapticSuccess();
+                                setSavedSummerDates(true);
+                                toast.success('Summer dates updated');
+                                setTimeout(() => setSavedSummerDates(false), 2000);
+                              } catch (err) {
+                                console.error('Error saving summer dates:', err);
+                                toast.error('Failed to save dates');
+                              } finally {
+                                setSavingSummerDates(false);
+                              }
+                            }}
+                            className={cn(
+                              "w-full py-2.5 rounded-xl text-sm font-semibold active:scale-[0.97] transition-all",
+                              savedSummerDates
+                                ? "bg-primary/10 text-primary"
+                                : "bg-primary text-primary-foreground"
+                            )}
+                          >
+                            {savedSummerDates ? (
+                              <span className="flex items-center justify-center gap-1.5">
+                                <Check className="w-4 h-4" /> Saved
+                              </span>
+                            ) : savingSummerDates ? 'Saving…' : 'Save Dates'}
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ) : null;
+              })()}
             </div>
           </motion.div>
         )}
