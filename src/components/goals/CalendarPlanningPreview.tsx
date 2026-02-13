@@ -145,9 +145,10 @@ export const CalendarPlanningPreview = ({
     }
 
     const weeklyNeeded = Math.round(dailyNeeded * 6 * 10) / 10;
-    // Pace targets for heatmap
+    // Pace targets for heatmap — use fixed baseline (total planned days) not shrinking remaining
     const preseasonGoal = goals?.preseason_fp_goal || 0;
-    const preseasonDailyPace = remainingPreseasonWorkDays > 0 ? preseasonGoal / (knockingDays + remainingPreseasonWorkDays) : 0;
+    const totalPreseasonPlannedDays = knockingDays + (futurePreseasonPlanned > 0 ? futurePreseasonPlanned : 1);
+    const preseasonDailyPace = totalPreseasonPlannedDays > 0 ? preseasonGoal / totalPreseasonPlannedDays : 0;
     
     const summerGoal = activeGoal;
     const futureSummerPlannedAll = plannedDays?.filter(d => {
