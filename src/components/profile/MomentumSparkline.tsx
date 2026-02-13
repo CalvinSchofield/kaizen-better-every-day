@@ -22,14 +22,16 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSp
 
     // Format dates as short labels (e.g. "Jan 4")
     const formatted = dailyFp.map((d) => {
-      const dt = new Date(d.date + 'T12:00:00');
-      const month = dt.toLocaleString('en-US', { month: 'short' });
-      const day = dt.getDate();
-      return { label: `${month} ${day}`, fp: d.fp };
+      const dateStr = typeof d.date === 'string' ? d.date : '';
+      const dt = new Date(dateStr + 'T12:00:00');
+      const isValid = !isNaN(dt.getTime());
+      const month = isValid ? dt.toLocaleString('en-US', { month: 'short' }) : '?';
+      const day = isValid ? dt.getDate() : '';
+      return { label: `${month} ${day}`, fp: d.fp ?? 0 };
     });
 
-    const values = dailyFp.map(d => d.fp);
-    const average = values.reduce((a, b) => a + b, 0) / values.length;
+    const values = dailyFp.map(d => d.fp ?? 0);
+    const average = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
 
     // Momentum: last 5 vs previous 5 average
     const recent5 = values.slice(-5);
