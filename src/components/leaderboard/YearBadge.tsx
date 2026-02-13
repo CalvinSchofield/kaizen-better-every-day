@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 interface YearBadgeProps {
   year: string | null | undefined;
   className?: string;
+  /** Show full label (Rookie/Sophomore/Vet) instead of single letter */
+  fullLabel?: boolean;
 }
 
 // Normalize year for display
@@ -17,7 +19,13 @@ const normalizeYear = (year: string | null | undefined): 'R' | 'S' | 'V' | null 
   return null;
 };
 
-export const YearBadge = ({ year, className }: YearBadgeProps) => {
+const FULL_LABELS: Record<string, string> = {
+  R: 'Rookie',
+  S: 'Sophomore',
+  V: 'Vet',
+};
+
+export const YearBadge = ({ year, className, fullLabel }: YearBadgeProps) => {
   const normalized = normalizeYear(year);
   
   if (!normalized) return null;
@@ -31,12 +39,13 @@ export const YearBadge = ({ year, className }: YearBadgeProps) => {
   return (
     <span 
       className={cn(
-        "inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded border",
+        "inline-flex items-center justify-center font-bold rounded border",
+        fullLabel ? "px-2 py-0.5 text-[11px]" : "w-5 h-5 text-[10px]",
         colorClasses[normalized],
         className
       )}
     >
-      {normalized}
+      {fullLabel ? FULL_LABELS[normalized] : normalized}
     </span>
   );
 };

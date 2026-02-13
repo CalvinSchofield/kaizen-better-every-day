@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
 import { ProfilePhotoDrawer } from "@/components/ProfilePhotoDrawer";
-import { MomentumHeatmap } from "@/components/profile/MomentumHeatmap";
+import { MomentumSparkline } from "@/components/profile/MomentumSparkline";
 import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { getInitials } from "@/utils/nameUtils";
@@ -118,7 +118,7 @@ const Profile = () => {
         {/* Name + Year badge + Team */}
         <h1 className="text-xl font-bold text-foreground">{profile.name}</h1>
         <div className="flex items-center gap-2 mt-1">
-          <YearBadge year={profile.year} className="w-6 h-6 text-xs" />
+          <YearBadge year={profile.year} fullLabel />
           {profile.teamName && (
             <span className="text-sm text-muted-foreground">{profile.teamName}</span>
           )}
@@ -139,10 +139,11 @@ const Profile = () => {
         </div>
       </motion.div>
 
-      {/* Momentum Heatmap */}
-      <MomentumHeatmap
+      {/* Momentum Sparkline */}
+      <MomentumSparkline
         dailyFp={profile.dailyFpValues}
         isOwnProfile={isOwnProfile}
+        efpMode={isOwnProfile && profile.efpModeEnabled}
       />
 
       {/* Tabbed content */}
