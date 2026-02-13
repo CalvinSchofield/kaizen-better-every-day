@@ -1,39 +1,42 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Area, AreaChart, ResponsiveContainer, XAxis, ReferenceLine } from "recharts";
 import { motion } from "framer-motion";
 import { Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type MetricMode = 'fp' | 'prmr';
+
 interface MomentumSparklineProps {
-  /** Array of { date, fp } for each day worked, chronologically */
-  dailyFp: { date: string; fp: number }[];
+  dailyFp: { date: string; fp: number; prmr: number }[];
   isOwnProfile: boolean;
-  /** Whether to display as EFP instead of FP+ */
   efpMode?: boolean;
 }
 
 export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSparklineProps) => {
+  const [mode, setMode] = useState<MetricMode>(efpMode ? 'prmr' : 'fp');
+
   const { data, avg, trending, metricLabel } = useMemo(() => {
     if (!dailyFp || dailyFp.length < 2) {
       return { data: [], avg: 0, trending: true, metricLabel: 'FP+' };
     }
 
-    const label = efpMode ? 'EFP' : 'FP+';
+    const label = mode === 'prmr' ? 'PRMR' : (efpMode ? 'EFP' : 'FP+');
 
-    // Format dates as short labels (e.g. "Jan 4")
     const formatted = dailyFp.map((d) => {
       const dateStr = typeof d.date === 'string' ? d.date : '';
       const dt = new Date(dateStr + 'T12:00:00');
       const isValid = !isNaN(dt.getTime());
       const month = isValid ? dt.toLocaleString('en-US', { month: 'short' }) : '?';
       const day = isValid ? dt.getDate() : '';
-      return { label: `${month} ${day}`, fp: d.fp ?? 0 };
+      return {
+        label: `${month} ${day}`,
+        value: mode === 'prmr' ? (d.prmr ?? 0) : (d.fp ?? 0),
+      };
     });
 
-    const values = dailyFp.map(d => d.fp ?? 0);
+    const values = formatted.map(d => d.value);
     const average = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
 
-    // Momentum: last 5 vs previous 5 average
     const recent5 = values.slice(-5);
     const prev5 = values.slice(-10, -5);
     const recentAvg = recent5.reduce((a, b) => a + b, 0) / (recent5.length || 1);
@@ -45,11 +48,10 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSp
       trending: recentAvg >= prevAvg,
       metricLabel: label,
     };
-  }, [dailyFp, efpMode]);
+  }, [dailyFp, efpMode, mode]);
 
   if (!dailyFp || dailyFp.length < 2 || data.length === 0) return null;
 
-  // For non-own profiles, show fewer data points (last 20 max) for the "glimpse" feel
   const displayData = isOwnProfile ? data : data.slice(-20);
 
   return (
@@ -66,16 +68,43 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSp
             Momentum
           </span>
         </div>
-        {isOwnProfile && (
-          <span className={cn(
-            "text-[10px] font-semibold px-2 py-0.5 rounded-full",
-            trending
-              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-              : 'bg-orange-500/15 text-orange-600 dark:text-orange-400'
-          )}>
-            {trending ? '↑ Rising' : '↓ Cooling'}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {/* FP+ / PRMR toggle */}
+          <div className="flex rounded-full bg-muted/60 p-0.5">
+            <button
+              onClick={() => setMode('fp')}
+              className={cn(
+                "text-[9px] font-semibold px-2 py-0.5 rounded-full transition-colors",
+                mode === 'fp'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground'
+              )}
+            >
+              {efpMode ? 'EFP' : 'FP+'}
+            </button>
+            <button
+              onClick={() => setMode('prmr')}
+              className={cn(
+                "text-[9px] font-semibold px-2 py-0.5 rounded-full transition-colors",
+                mode === 'prmr'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground'
+              )}
+            >
+              PRMR
+            </button>
+          </div>
+          {isOwnProfile && (
+            <span className={cn(
+              "text-[10px] font-semibold px-2 py-0.5 rounded-full",
+              trending
+                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                : 'bg-orange-500/15 text-orange-600 dark:text-orange-400'
+            )}>
+              {trending ? '↑ Rising' : '↓ Cooling'}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="h-[80px]">
@@ -87,7 +116,6 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSp
                 <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
               </linearGradient>
             </defs>
-            {/* Average reference line — own profile only */}
             {isOwnProfile && (
               <ReferenceLine
                 y={avg}
@@ -106,7 +134,7 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSp
             />
             <Area
               type="monotone"
-              dataKey="fp"
+              dataKey="value"
               stroke="hsl(var(--primary))"
               strokeWidth={2}
               fill="url(#momentumGradient)"
@@ -124,7 +152,7 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile, efpMode }: MomentumSp
             {dailyFp.length} days worked
           </span>
           <span className="text-[9px] text-muted-foreground">
-            Avg {avg.toFixed(1)} {metricLabel}/day
+            Avg {mode === 'prmr' ? `$${Math.round(avg).toLocaleString()}` : avg.toFixed(1)} {metricLabel}/day
           </span>
         </div>
       )}

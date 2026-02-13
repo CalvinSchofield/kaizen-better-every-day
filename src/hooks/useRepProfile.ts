@@ -26,8 +26,8 @@ interface RepProfileData {
   bestDayPrmr: RecordEntry | null;
   bestWeekPrmr: RecordEntry | null;
   bestMonthPrmr: RecordEntry | null;
-  /** FP+ per day worked with dates, chronologically (for momentum sparkline) */
-  dailyFpValues: { date: string; fp: number }[];
+  /** Per day worked with dates, chronologically (for momentum sparkline) */
+  dailyFpValues: { date: string; fp: number; prmr: number }[];
   /** Whether this rep has EFP mode enabled */
   efpModeEnabled: boolean;
 }
@@ -90,14 +90,16 @@ export const useRepProfile = (userId: string | null) => {
 
       // Sort entries chronologically for sparkline
       const sortedEntries = [...entries].sort((a, b) => a.entry_date.localeCompare(b.entry_date));
-      const dailyFpValues: { date: string; fp: number }[] = [];
+      const dailyFpValues: { date: string; fp: number; prmr: number }[] = [];
 
       for (const entry of sortedEntries) {
         const salesLog = entry.sales_log as any[] | null;
-        let dayFp = 0;
+      let dayFp = 0;
+        let dayPrmr = 0;
         if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
           const calc = calculateFromSalesLog(salesLog);
           dayFp = calc.fp;
+          dayPrmr = calc.prmr;
           ytdFpPlus += calc.fp;
           ytdPrmr += calc.prmr;
           const upgradePrmr = salesLog
@@ -106,16 +108,17 @@ export const useRepProfile = (userId: string | null) => {
           ytdUpgradePrmr += upgradePrmr;
         } else {
           dayFp = entry.fp_plus || 0;
+          dayPrmr = entry.prmr || 0;
           ytdFpPlus += entry.fp_plus || 0;
           ytdPrmr += entry.prmr || 0;
           ytdUpgradePrmr += entry.upgrade_prmr || 0;
         }
         const fpValue = Math.round(dayFp * 10) / 10;
-        // For EFP mode, also store the PRMR-based value
-        const efpValue = Math.round(((entry.prmr || 0) / 85) * 10) / 10;
+        const prmrValue = Math.round(dayPrmr);
         dailyFpValues.push({ 
           date: entry.entry_date, 
-          fp: efpModeEnabled ? efpValue : fpValue 
+          fp: fpValue,
+          prmr: prmrValue,
         });
         ytdDoors += entry.doors_knocked || 0;
         ytdPresentations += entry.presentations || 0;

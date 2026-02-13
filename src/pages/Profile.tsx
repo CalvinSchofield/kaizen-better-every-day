@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Settings, Camera, ArrowLeft, Lock, Trophy, Flame, Target, Footprints, Presentation, ArrowRightLeft } from "lucide-react";
+import { Settings, Camera, ArrowLeft, Lock, Trophy, Flame, Target, Footprints, Presentation, ArrowRightLeft, Award } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -93,7 +93,7 @@ const Profile = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="flex flex-col items-center px-6 pt-4 pb-6"
+        className="flex flex-col items-center px-6 pt-2 pb-6"
       >
         {/* Avatar with gradient ring */}
         <div className="relative mb-4">
@@ -119,8 +119,8 @@ const Profile = () => {
         <h1 className="text-xl font-bold text-foreground">{profile.name}</h1>
         <div className="flex items-center gap-2 mt-1">
           <YearBadge year={profile.year} fullLabel />
-          {profile.teamName && (
-            <span className="text-sm text-muted-foreground">{profile.teamName}</span>
+          {profile.officeName && (
+            <span className="text-sm text-muted-foreground">{profile.officeName}</span>
           )}
         </div>
         {profile.officeName && (
@@ -137,8 +137,11 @@ const Profile = () => {
       >
         <div className="grid grid-cols-3 divide-x divide-border">
           <StatCell label="YTD FP+" value={profile.ytdFpPlus.toFixed(1)} />
-          <StatCell label="PRMR" value={`$${Math.round(profile.ytdPrmr).toLocaleString()}`} />
-          <StatCell label="Upgrade FP+" value={profile.ytdUpgradeFpPlus.toFixed(1)} />
+          <StatCell label="YTD PRMR" value={`$${Math.round(profile.ytdPrmr).toLocaleString()}`} />
+          <div className="flex flex-col items-center px-2 gap-1">
+            <Award className="h-5 w-5 text-muted-foreground/50" />
+            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Coming Soon</span>
+          </div>
         </div>
       </motion.div>
 
