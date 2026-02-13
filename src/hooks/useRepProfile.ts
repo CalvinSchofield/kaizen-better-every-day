@@ -20,8 +20,10 @@ interface RepProfileData {
   bestDay: { value: number; date: string } | null;
   bestWeek: { value: number; date: string } | null;
   bestMonth: { value: number; date: string } | null;
-  /** FP+ per day worked, chronologically ordered (for momentum sparkline) */
-  dailyFpValues: number[];
+  /** FP+ per day worked with dates, chronologically (for momentum sparkline) */
+  dailyFpValues: { date: string; fp: number }[];
+  /** Whether this rep has EFP mode enabled */
+  efpModeEnabled: boolean;
 }
 
 export const useRepProfile = (userId: string | null) => {
@@ -30,11 +32,11 @@ export const useRepProfile = (userId: string | null) => {
     queryFn: async (): Promise<RepProfileData | null> => {
       if (!userId) return null;
 
-      // Fetch rep info and daily entries in parallel
+      // Fetch rep info, daily entries, records, and efp mode in parallel
       const [repResult, entriesResult, recordsResult] = await Promise.all([
         supabase
           .from('reps')
-          .select('name, year, profile_photo_url, team_leader, recruiter')
+          .select('name, year, profile_photo_url, team_leader, recruiter, efp_mode_enabled')
           .eq('user_id', userId)
           .maybeSingle(),
         supabase
@@ -52,6 +54,7 @@ export const useRepProfile = (userId: string | null) => {
 
       const rep = repResult.data;
       if (!rep) return null;
+      const efpModeEnabled = rep.efp_mode_enabled ?? false;
 
       // Get team name from team_leader match
       let teamName: string | null = null;
@@ -81,7 +84,7 @@ export const useRepProfile = (userId: string | null) => {
 
       // Sort entries chronologically for sparkline
       const sortedEntries = [...entries].sort((a, b) => a.entry_date.localeCompare(b.entry_date));
-      const dailyFpValues: number[] = [];
+      const dailyFpValues: { date: string; fp: number }[] = [];
 
       for (const entry of sortedEntries) {
         const salesLog = entry.sales_log as any[] | null;
@@ -101,7 +104,13 @@ export const useRepProfile = (userId: string | null) => {
           ytdPrmr += entry.prmr || 0;
           ytdUpgradePrmr += entry.upgrade_prmr || 0;
         }
-        dailyFpValues.push(Math.round(dayFp * 10) / 10);
+        const fpValue = Math.round(dayFp * 10) / 10;
+        // For EFP mode, also store the PRMR-based value
+        const efpValue = Math.round(((entry.prmr || 0) / 85) * 10) / 10;
+        dailyFpValues.push({ 
+          date: entry.entry_date, 
+          fp: efpModeEnabled ? efpValue : fpValue 
+        });
         ytdDoors += entry.doors_knocked || 0;
         ytdPresentations += entry.presentations || 0;
         ytdTransitions += entry.transitions || 0;
@@ -131,6 +140,7 @@ export const useRepProfile = (userId: string | null) => {
         bestWeek: getRecord('best_week_fp'),
         bestMonth: getRecord('best_month_fp'),
         dailyFpValues,
+        efpModeEnabled,
       };
     },
     enabled: !!userId,
