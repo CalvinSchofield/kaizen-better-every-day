@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Phone, MessageSquare, FileText, ChevronRight } from "lucide-react";
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface RecentActivityCardProps {
@@ -68,12 +67,7 @@ export const RecentActivityCard = ({ viewedUserId, onViewAll }: RecentActivityCa
   if (isLoading || !activities || activities.length === 0) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: 0.18 }}
-      className="mx-5 mb-4 rounded-2xl bg-card border border-border p-4"
-    >
+    <div className="rounded-2xl bg-card border border-border p-4">
       <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
         Recent Activity
       </h3>
@@ -114,6 +108,6 @@ export const RecentActivityCard = ({ viewedUserId, onViewAll }: RecentActivityCa
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
       )}
-    </motion.div>
+    </div>
   );
 };
