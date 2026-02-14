@@ -1,13 +1,13 @@
 import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Settings, Camera, ArrowLeft, Lock, Trophy, Flame, Target, Footprints, Presentation, ArrowRightLeft, Award, ClipboardList, ChevronRight } from "lucide-react";
+import { Settings, Camera, ArrowLeft, Lock, Trophy, Flame, Target, Footprints, Presentation, ArrowRightLeft, Award } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
 import { ProfilePhotoDrawer } from "@/components/ProfilePhotoDrawer";
 import { ProfileSwiper } from "@/components/profile/ProfileSwiper";
 import { ProfileContactBar } from "@/components/profile/ProfileContactBar";
-import { RecentActivityCard } from "@/components/profile/RecentActivityCard";
+
 import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
@@ -230,13 +230,10 @@ const Profile = () => {
         className="px-5 pb-4"
       >
         <Tabs defaultValue="stats" className="w-full">
-          <TabsList className={`w-full grid bg-muted/50 ${isDownline ? 'grid-cols-4' : 'grid-cols-3'}`}>
+          <TabsList className="w-full grid grid-cols-3 bg-muted/50">
             <TabsTrigger value="stats" className="text-xs font-semibold">Stats</TabsTrigger>
             <TabsTrigger value="records" className="text-xs font-semibold">Records</TabsTrigger>
             <TabsTrigger value="badges" className="text-xs font-semibold">Badges</TabsTrigger>
-            {isDownline && (
-              <TabsTrigger value="activity" className="text-xs font-semibold">Activity</TabsTrigger>
-            )}
           </TabsList>
 
           {/* Stats Tab */}
@@ -278,19 +275,6 @@ const Profile = () => {
             </div>
           </TabsContent>
 
-          {/* Activity Tab — leaders only */}
-          {isDownline && userId && (
-            <TabsContent value="activity" className="mt-4 space-y-4">
-              <RecentActivityCard viewedUserId={userId} />
-              <button
-                onClick={() => { hapticLight(); navigate(`/my-group?recruit=${userId}`); }}
-                className="w-full flex items-center justify-between rounded-2xl bg-card border border-border p-4 active:scale-[0.98] transition-transform"
-              >
-                <span className="text-sm font-semibold text-foreground">View in My Group</span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </TabsContent>
-          )}
         </Tabs>
       </motion.div>
 
