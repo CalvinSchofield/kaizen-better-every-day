@@ -1,4 +1,5 @@
-import { Flame, Sun, Moon, Zap } from "lucide-react";
+import { motion } from "framer-motion";
+import { Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GritAwards, TimingAward } from "@/hooks/useExpandedLeaderboard";
 import type { AwardStreak } from "@/hooks/useAwardStreaks";
@@ -23,14 +24,12 @@ export const GritAwardsSection = ({ gritAwards, currentUserId, streaks }: GritAw
     nightOwlSaturday,
   } = gritAwards;
 
-  // Check for Ironman: same person wins both Early Bird AND Night Owl
   const isIronmanWeekday = earlyBirdWeekday && nightOwlWeekday && 
     earlyBirdWeekday.userId === nightOwlWeekday.userId;
   const isIronmanSaturday = earlyBirdSaturday && nightOwlSaturday && 
     earlyBirdSaturday.userId === nightOwlSaturday.userId;
   const hasIronman = isIronmanWeekday || isIronmanSaturday;
 
-  // For non-ironman display
   const showEarlyBirdWeekday = earlyBirdWeekday && !isIronmanWeekday;
   const showEarlyBirdSaturday = earlyBirdSaturday && !isIronmanSaturday;
   const showNightOwlWeekday = nightOwlWeekday && !isIronmanWeekday;
@@ -40,256 +39,253 @@ export const GritAwardsSection = ({ gritAwards, currentUserId, streaks }: GritAw
   const hasNightOwl = showNightOwlWeekday || showNightOwlSaturday;
   const hasAnyAward = hasIronman || hasEarlyBird || hasNightOwl || mostHoursWorked;
 
-  if (!hasAnyAward) {
-    return null;
-  }
+  if (!hasAnyAward) return null;
 
-  // Get relevant streak for each award
   const ironmanStreakCount = streaks?.ironmanStreak?.currentStreak;
   const earlyBirdStreakCount = streaks?.earlyBirdStreak?.currentStreak;
   const nightOwlStreakCount = streaks?.nightOwlStreak?.currentStreak;
   const workhorseStreakCount = streaks?.workhorseStreak?.currentStreak;
 
+  let cardIndex = 0;
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Flame className="h-4 w-4 text-orange-500" />
-        <h2 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">
-          Grit Awards
-        </h2>
-        <span className="text-xs text-muted-foreground italic hidden sm:inline">"First to fight, last to leave"</span>
-      </div>
-
-      <div className="space-y-3">
-        {/* Ironman Award - Special! */}
-        {hasIronman && (
-          <div className="bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/30 rounded-xl p-4 animate-fade-in">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">🦾</span>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-bold text-orange-600 dark:text-orange-400">IRONMAN AWARD</p>
-                  <span className="text-xs bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full">Special!</span>
-                </div>
-              </div>
-              {ironmanStreakCount && ironmanStreakCount >= 2 && (
-                <StreakBadge count={ironmanStreakCount} holderName={streaks?.ironmanStreak?.name} />
-              )}
-            </div>
-            <p className="text-[10px] text-muted-foreground mb-2 italic">Early Bird + Night Owl = First to fight, last to leave!</p>
-            
-            <div className="grid grid-cols-2 gap-3">
-              {/* Weekday Ironman */}
-              <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Mon-Fri</p>
-                {isIronmanWeekday && earlyBirdWeekday && nightOwlWeekday ? (
-                  <div>
-                    <p className={cn(
-                      "text-sm font-medium",
-                      currentUserId === earlyBirdWeekday.userId ? "text-primary" : "text-foreground"
-                    )}>
-                      {currentUserId === earlyBirdWeekday.userId ? 'You' : earlyBirdWeekday.name}
-                      {currentUserId === earlyBirdWeekday.userId && <span className="ml-1">⭐</span>}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {earlyBirdWeekday.timeValue} → {nightOwlWeekday.timeValue}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">—</p>
-                )}
-              </div>
-
-              {/* Saturday Ironman */}
-              <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Saturday</p>
-                {isIronmanSaturday && earlyBirdSaturday && nightOwlSaturday ? (
-                  <div>
-                    <p className={cn(
-                      "text-sm font-medium",
-                      currentUserId === earlyBirdSaturday.userId ? "text-primary" : "text-foreground"
-                    )}>
-                      {currentUserId === earlyBirdSaturday.userId ? 'You' : earlyBirdSaturday.name}
-                      {currentUserId === earlyBirdSaturday.userId && <span className="ml-1">⭐</span>}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {earlyBirdSaturday.timeValue} → {nightOwlSaturday.timeValue}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">—</p>
-                )}
-              </div>
-            </div>
+      {/* Ironman — hero card */}
+      {hasIronman && (
+        <AwardCard
+          index={cardIndex++}
+          gradient="from-orange-500/20 via-amber-500/15 to-yellow-500/10 dark:from-orange-500/25 dark:via-amber-500/15 dark:to-yellow-500/10"
+          borderGlow="border-orange-500/30 dark:border-orange-500/40"
+          emoji="🦾"
+          title="Ironman"
+          badge="Legendary"
+          badgeColor="bg-orange-500/20 text-orange-600 dark:text-orange-400"
+          streakCount={ironmanStreakCount}
+          streakHolderName={streaks?.ironmanStreak?.name}
+        >
+          <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
+            First to fight & last to leave — earned both Early Bird and Night Owl.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <AwardWinnerColumn
+              label="Mon – Fri"
+              winner={isIronmanWeekday ? earlyBirdWeekday : null}
+              subtitle={isIronmanWeekday && earlyBirdWeekday && nightOwlWeekday
+                ? `${earlyBirdWeekday.timeValue} → ${nightOwlWeekday.timeValue}`
+                : undefined}
+              currentUserId={currentUserId}
+            />
+            <AwardWinnerColumn
+              label="Saturday"
+              winner={isIronmanSaturday ? earlyBirdSaturday : null}
+              subtitle={isIronmanSaturday && earlyBirdSaturday && nightOwlSaturday
+                ? `${earlyBirdSaturday.timeValue} → ${nightOwlSaturday.timeValue}`
+                : undefined}
+              currentUserId={currentUserId}
+            />
           </div>
-        )}
+        </AwardCard>
+      )}
 
-        {/* Early Bird Award - Dual Column (excluding Ironman winners) */}
-        {hasEarlyBird && (
-          <DualAwardCard
-            icon={<Sun className="h-4 w-4 text-amber-500" />}
-            emoji="🌅"
-            title="Early Bird"
-            weekdayEntry={showEarlyBirdWeekday ? earlyBirdWeekday : null}
-            saturdayEntry={showEarlyBirdSaturday ? earlyBirdSaturday : null}
-            currentUserId={currentUserId}
-            weekdayLabel="Mon-Fri (before 3 PM)"
-            saturdayLabel="Saturday (before 10 AM)"
-            streakCount={earlyBirdStreakCount}
-            streakHolderName={streaks?.earlyBirdStreak?.name}
-          />
-        )}
+      {/* Early Bird */}
+      {hasEarlyBird && (
+        <AwardCard
+          index={cardIndex++}
+          gradient="from-amber-400/15 via-yellow-300/10 to-transparent dark:from-amber-400/20 dark:via-yellow-300/10 dark:to-transparent"
+          borderGlow="border-amber-400/25 dark:border-amber-400/30"
+          emoji="🌅"
+          title="Early Bird"
+          streakCount={earlyBirdStreakCount}
+          streakHolderName={streaks?.earlyBirdStreak?.name}
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <AwardWinnerColumn
+              label="Mon – Fri"
+              winner={showEarlyBirdWeekday ? earlyBirdWeekday : null}
+              subtitle={showEarlyBirdWeekday && earlyBirdWeekday ? earlyBirdWeekday.timeValue : undefined}
+              detail={showEarlyBirdWeekday && earlyBirdWeekday ? earlyBirdWeekday.actionType : undefined}
+              currentUserId={currentUserId}
+            />
+            <AwardWinnerColumn
+              label="Saturday"
+              winner={showEarlyBirdSaturday ? earlyBirdSaturday : null}
+              subtitle={showEarlyBirdSaturday && earlyBirdSaturday ? earlyBirdSaturday.timeValue : undefined}
+              detail={showEarlyBirdSaturday && earlyBirdSaturday ? earlyBirdSaturday.actionType : undefined}
+              currentUserId={currentUserId}
+            />
+          </div>
+        </AwardCard>
+      )}
 
-        {/* Night Owl Award - Dual Column (excluding Ironman winners) */}
-        {hasNightOwl && (
-          <DualAwardCard
-            icon={<Moon className="h-4 w-4 text-indigo-500" />}
-            emoji="🌙"
-            title="Night Owl"
-            weekdayEntry={showNightOwlWeekday ? nightOwlWeekday : null}
-            saturdayEntry={showNightOwlSaturday ? nightOwlSaturday : null}
-            currentUserId={currentUserId}
-            weekdayLabel="Mon-Fri (after 7 PM)"
-            saturdayLabel="Saturday (after 7 PM)"
-            streakCount={nightOwlStreakCount}
-            streakHolderName={streaks?.nightOwlStreak?.name}
-          />
-        )}
+      {/* Night Owl */}
+      {hasNightOwl && (
+        <AwardCard
+          index={cardIndex++}
+          gradient="from-indigo-500/15 via-purple-400/10 to-transparent dark:from-indigo-500/20 dark:via-purple-400/10 dark:to-transparent"
+          borderGlow="border-indigo-400/25 dark:border-indigo-400/30"
+          emoji="🌙"
+          title="Night Owl"
+          streakCount={nightOwlStreakCount}
+          streakHolderName={streaks?.nightOwlStreak?.name}
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <AwardWinnerColumn
+              label="Mon – Fri"
+              winner={showNightOwlWeekday ? nightOwlWeekday : null}
+              subtitle={showNightOwlWeekday && nightOwlWeekday ? nightOwlWeekday.timeValue : undefined}
+              detail={showNightOwlWeekday && nightOwlWeekday ? nightOwlWeekday.actionType : undefined}
+              currentUserId={currentUserId}
+            />
+            <AwardWinnerColumn
+              label="Saturday"
+              winner={showNightOwlSaturday ? nightOwlSaturday : null}
+              subtitle={showNightOwlSaturday && nightOwlSaturday ? nightOwlSaturday.timeValue : undefined}
+              detail={showNightOwlSaturday && nightOwlSaturday ? nightOwlSaturday.actionType : undefined}
+              currentUserId={currentUserId}
+            />
+          </div>
+        </AwardCard>
+      )}
 
-        {/* Workhorse - Most Hours */}
-        {mostHoursWorked && (
-          <div className={cn(
-            "flex items-center justify-between p-3 rounded-xl transition-all",
-            currentUserId === mostHoursWorked.userId
-              ? "bg-primary/10 border-2 border-primary/20" 
-              : "bg-muted/50 border border-border"
-          )}>
-            <div className="flex items-center gap-3">
-              <span className="text-xl">⏱️</span>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold">Workhorse</p>
-                  {workhorseStreakCount && workhorseStreakCount >= 2 && (
-                    <StreakBadge count={workhorseStreakCount} holderName={streaks?.workhorseStreak?.name} />
-                  )}
-                </div>
-                <p className={cn(
-                  "text-xs",
-                  currentUserId === mostHoursWorked.userId ? "text-primary" : "text-muted-foreground"
-                )}>
-                  {currentUserId === mostHoursWorked.userId ? 'You' : mostHoursWorked.name}
-                </p>
-              </div>
+      {/* Workhorse */}
+      {mostHoursWorked && (
+        <AwardCard
+          index={cardIndex++}
+          gradient="from-sky-500/12 via-blue-400/8 to-transparent dark:from-sky-500/15 dark:via-blue-400/10 dark:to-transparent"
+          borderGlow="border-sky-400/25 dark:border-sky-400/30"
+          emoji="⏱️"
+          title="Workhorse"
+          streakCount={workhorseStreakCount}
+          streakHolderName={streaks?.workhorseStreak?.name}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className={cn(
+                "text-sm font-semibold",
+                currentUserId === mostHoursWorked.userId ? "text-primary" : "text-foreground"
+              )}>
+                {currentUserId === mostHoursWorked.userId ? "You" : mostHoursWorked.name}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">Most hours on the doors</p>
             </div>
             <div className="text-right">
-              <p className="text-lg font-bold">{mostHoursWorked.value.toFixed(1)} hrs</p>
-              {currentUserId === mostHoursWorked.userId && <span className="text-primary">⭐</span>}
+              <p className="text-2xl font-bold tracking-tight text-foreground">{mostHoursWorked.value.toFixed(1)}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">hours</p>
             </div>
           </div>
-        )}
-      </div>
+        </AwardCard>
+      )}
     </div>
   );
 };
 
-// Streak badge component - now shows the streak holder's name
-const StreakBadge = ({ count, holderName }: { count: number; holderName?: string }) => (
-  <div className="flex items-center gap-1 bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full">
-    <Zap className="h-3 w-3" />
-    <span className="text-xs font-medium">
-      {holderName ? `${holderName}: ` : ''}{count} day streak!
-    </span>
-  </div>
-);
+/* ─── Sub-components ─── */
 
-interface DualAwardCardProps {
-  icon: React.ReactNode;
+const AwardCard = ({
+  children,
+  index,
+  gradient,
+  borderGlow,
+  emoji,
+  title,
+  badge,
+  badgeColor,
+  streakCount,
+  streakHolderName,
+}: {
+  children: React.ReactNode;
+  index: number;
+  gradient: string;
+  borderGlow: string;
   emoji: string;
   title: string;
-  weekdayEntry: TimingAward | null;
-  saturdayEntry: TimingAward | null;
-  currentUserId: string | null;
-  weekdayLabel: string;
-  saturdayLabel: string;
+  badge?: string;
+  badgeColor?: string;
   streakCount?: number;
   streakHolderName?: string;
-}
-
-const DualAwardCard = ({ 
-  emoji, 
-  title, 
-  weekdayEntry, 
-  saturdayEntry, 
-  currentUserId,
-  weekdayLabel,
-  saturdayLabel,
-  streakCount,
-  streakHolderName
-}: DualAwardCardProps) => {
-  const isWeekdayCurrentUser = weekdayEntry && currentUserId === weekdayEntry.userId;
-  const isSaturdayCurrentUser = saturdayEntry && currentUserId === saturdayEntry.userId;
-  const isCurrentUserAny = isWeekdayCurrentUser || isSaturdayCurrentUser;
-
-  return (
-    <div className={cn(
-      "rounded-xl transition-all p-3",
-      isCurrentUserAny
-        ? "bg-primary/10 border-2 border-primary/20" 
-        : "bg-muted/50 border border-border"
-    )}>
-      {/* Header */}
+}) => (
+  <motion.div
+    initial={{ opacity: 0, y: 16 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.35, delay: index * 0.08, ease: "easeOut" }}
+    className={cn(
+      "relative rounded-2xl border p-4 overflow-hidden",
+      borderGlow
+    )}
+  >
+    {/* Gradient background */}
+    <div className={cn("absolute inset-0 bg-gradient-to-br", gradient)} />
+    
+    {/* Content */}
+    <div className="relative">
+      {/* Header row */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">{emoji}</span>
-          <p className="text-sm font-semibold">{title}</p>
+        <div className="flex items-center gap-2.5">
+          <span className="text-2xl">{emoji}</span>
+          <h3 className="text-base font-bold text-foreground tracking-tight">{title}</h3>
+          {badge && (
+            <span className={cn("text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full", badgeColor)}>
+              {badge}
+            </span>
+          )}
         </div>
         {streakCount && streakCount >= 2 && (
           <StreakBadge count={streakCount} holderName={streakHolderName} />
         )}
       </div>
+      {children}
+    </div>
+  </motion.div>
+);
 
-      {/* Dual columns */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* Weekday Column */}
-        <div className="space-y-1">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Mon-Fri</p>
-          {weekdayEntry ? (
-            <div>
-              <p className={cn(
-                "text-sm font-medium",
-                isWeekdayCurrentUser ? "text-primary" : "text-foreground"
-              )}>
-                {isWeekdayCurrentUser ? 'You' : weekdayEntry.name}
-                {isWeekdayCurrentUser && <span className="ml-1">⭐</span>}
-              </p>
-              <p className="text-xs text-muted-foreground">{weekdayEntry.timeValue}</p>
-              <p className="text-[10px] text-muted-foreground/70 italic">({weekdayEntry.actionType})</p>
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">—</p>
-          )}
-        </div>
-
-        {/* Saturday Column */}
-        <div className="space-y-1">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Saturday</p>
-          {saturdayEntry ? (
-            <div>
-              <p className={cn(
-                "text-sm font-medium",
-                isSaturdayCurrentUser ? "text-primary" : "text-foreground"
-              )}>
-                {isSaturdayCurrentUser ? 'You' : saturdayEntry.name}
-                {isSaturdayCurrentUser && <span className="ml-1">⭐</span>}
-              </p>
-              <p className="text-xs text-muted-foreground">{saturdayEntry.timeValue}</p>
-              <p className="text-[10px] text-muted-foreground/70 italic">({saturdayEntry.actionType})</p>
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">—</p>
-          )}
-        </div>
+const AwardWinnerColumn = ({
+  label,
+  winner,
+  subtitle,
+  detail,
+  currentUserId,
+}: {
+  label: string;
+  winner: TimingAward | null;
+  subtitle?: string;
+  detail?: string;
+  currentUserId: string | null;
+}) => {
+  if (!winner) {
+    return (
+      <div className="space-y-1">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">{label}</p>
+        <p className="text-xs text-muted-foreground/50">—</p>
       </div>
+    );
+  }
+
+  const isYou = currentUserId === winner.userId;
+
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">{label}</p>
+      <p className={cn(
+        "text-sm font-semibold leading-tight",
+        isYou ? "text-primary" : "text-foreground"
+      )}>
+        {isYou ? "You" : winner.name}
+      </p>
+      {subtitle && (
+        <p className="text-xs text-muted-foreground font-medium">{subtitle}</p>
+      )}
+      {detail && (
+        <p className="text-[10px] text-muted-foreground/60 italic">{detail}</p>
+      )}
     </div>
   );
 };
+
+const StreakBadge = ({ count, holderName }: { count: number; holderName?: string }) => (
+  <div className="flex items-center gap-1 bg-orange-500/15 dark:bg-orange-500/25 px-2.5 py-1 rounded-full">
+    <Zap className="h-3 w-3 text-orange-500" />
+    <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 tracking-wide">
+      {count}🔥
+    </span>
+  </div>
+);
