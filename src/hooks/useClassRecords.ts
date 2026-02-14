@@ -26,7 +26,7 @@ export interface ClassRecordsData {
 export const useClassRecords = () => {
   // Fetch all finalized entries
   const { data: entriesData, isLoading: entriesLoading } = useQuery({
-    queryKey: ['class-records-entries'],
+    queryKey: ['class-records-entries-v2'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('daily_entries')
