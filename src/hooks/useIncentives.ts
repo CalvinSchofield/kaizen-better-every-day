@@ -13,6 +13,7 @@ export interface EligibleRep {
   rep_name?: string;
   profile_photo_url?: string;
   timezone?: string; // For visibility calculations
+  final_value?: number | null;
 }
 
 export interface Incentive {
