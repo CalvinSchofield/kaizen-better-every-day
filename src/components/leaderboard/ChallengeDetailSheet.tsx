@@ -6,7 +6,7 @@ import { Challenge, useRespondToChallenge, useVoidChallenge } from "@/hooks/useC
 import { useChallengeProgress } from "@/hooks/useChallengeProgress";
 import { useChallengeEditProposals } from "@/hooks/useChallengeEdits";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, Eye, EyeOff, Pencil, Check, Clock, X, Swords, Users, Trash2 } from "lucide-react";
+import { Trophy, Eye, EyeOff, Pencil, Check, Clock, X, Swords, Users, Trash2, Crown, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,7 @@ import { EditChallengeDrawer } from "./EditChallengeDrawer";
 import { ChallengeEditApprovalCard } from "./ChallengeEditApprovalCard";
 import { getInitials, getCleanName, getCleanFirstName } from "@/utils/nameUtils";
 import { metricConfig } from "@/utils/challengeMetricConfig";
+import { formatCompetitionDuration } from "@/utils/competitionDateUtils";
 import { toast } from "sonner";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { useConfetti } from "@/hooks/useConfetti";
@@ -31,6 +32,245 @@ const getRoleLabel = (role: string, team?: string | null) => {
   if (team === 'a') return 'Red Team';
   if (team === 'b') return 'Blue Team';
   return 'Participant';
+};
+
+// ESPN-style completed matchup hero for 1v1
+const CompletedMatchupHero = ({ challenge, currentUserId }: { challenge: Challenge; currentUserId?: string }) => {
+  const participants = challenge.participants || [];
+  const p1 = participants[0];
+  const p2 = participants[1];
+  if (!p1 || !p2) return null;
+
+  const p1Value = p1.final_value ?? 0;
+  const p2Value = p2.final_value ?? 0;
+  const isP1Winner = challenge.winner_user_id === p1.user_id;
+  const isP2Winner = challenge.winner_user_id === p2.user_id;
+  const isTie = challenge.is_tie && !challenge.tiebreaker_winner_id;
+  const config = metricConfig[challenge.metric];
+
+  const userWon = currentUserId && challenge.winner_user_id === currentUserId;
+  const userLost = currentUserId && challenge.winner_user_id && challenge.winner_user_id !== currentUserId && participants.some(p => p.user_id === currentUserId);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-4"
+    >
+      {/* Result Banner */}
+      {(userWon || userLost || isTie) && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className={cn(
+            "text-center py-2.5 rounded-xl font-bold text-lg",
+            userWon && "bg-primary/15 text-primary",
+            userLost && "bg-destructive/10 text-destructive",
+            isTie && "bg-muted text-muted-foreground"
+          )}
+        >
+          {userWon ? "🏆 You Won!" : userLost ? "You Lost" : "🤝 Tie Game"}
+        </motion.div>
+      )}
+
+      {/* Hero matchup */}
+      <div className="flex items-center justify-around">
+        {[p1, p2].map((p, i) => {
+          const isWinner = i === 0 ? isP1Winner : isP2Winner;
+          const value = i === 0 ? p1Value : p2Value;
+          return (
+            <motion.div
+              key={p.user_id}
+              initial={{ opacity: 0, x: i === 0 ? -30 : 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 + i * 0.1, type: "spring", stiffness: 300 }}
+              className="text-center"
+            >
+              <div className="relative inline-block">
+                {isWinner && (
+                  <motion.div
+                    initial={{ scale: 0, y: 10 }}
+                    animate={{ scale: 1, y: 0 }}
+                    transition={{ delay: 0.3, type: "spring" }}
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 z-10"
+                  >
+                    <Crown className="h-6 w-6 text-amber-500 fill-amber-500" />
+                  </motion.div>
+                )}
+                <Avatar className={cn(
+                  "h-18 w-18 border-3",
+                  isWinner ? "border-amber-500 ring-2 ring-amber-500/30" : "border-border"
+                )}>
+                  <AvatarImage src={p.profile_photo_url} />
+                  <AvatarFallback className="text-xl font-bold">{getInitials(p.rep_name)}</AvatarFallback>
+                </Avatar>
+              </div>
+              <p className="font-semibold mt-2 text-sm">{getCleanFirstName(p.rep_name)}</p>
+              <motion.p
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                className={cn(
+                  "text-2xl font-bold mt-0.5",
+                  isWinner ? "text-primary" : "text-foreground"
+                )}
+              >
+                {config.format(value)}
+              </motion.p>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Score comparison bar */}
+      {(p1Value > 0 || p2Value > 0) && (() => {
+        const total = p1Value + p2Value;
+        const leftPercent = total > 0 ? (p1Value / total) * 100 : 50;
+        const margin = Math.abs(p1Value - p2Value);
+        const leaderName = p1Value >= p2Value ? getCleanFirstName(p1.rep_name) : getCleanFirstName(p2.rep_name);
+
+        return (
+          <div className="space-y-2">
+            <motion.div
+              initial={{ opacity: 0, scaleX: 0.8 }}
+              animate={{ opacity: 1, scaleX: 1 }}
+              className="relative h-4 rounded-full overflow-hidden bg-gradient-to-r from-primary/20 via-muted to-foreground/20"
+            >
+              <motion.div
+                className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/80"
+                initial={{ width: "50%" }}
+                animate={{ width: `${leftPercent}%` }}
+                transition={{ duration: 0.6 }}
+              />
+              <motion.div
+                className="absolute inset-y-0 right-0 bg-gradient-to-l from-foreground/60 to-foreground/40"
+                initial={{ width: "50%" }}
+                animate={{ width: `${100 - leftPercent}%` }}
+                transition={{ duration: 0.6 }}
+              />
+              <motion.div
+                className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-lg border-2 border-foreground/20"
+                initial={{ left: "calc(50% - 10px)" }}
+                animate={{ left: `calc(${leftPercent}% - 10px)` }}
+                transition={{ duration: 0.6 }}
+              />
+            </motion.div>
+            <p className="text-sm text-center text-muted-foreground">
+              {isTie ? "Tied!" : `${leaderName} won by ${config.format(margin)}`}
+            </p>
+          </div>
+        );
+      })()}
+    </motion.div>
+  );
+};
+
+// ESPN-style completed team battle
+const CompletedTeamHero = ({ challenge, currentUserId }: { challenge: Challenge; currentUserId?: string }) => {
+  const participants = challenge.participants || [];
+  const teamA = participants.filter(p => p.role === 'captain_a' || p.team === 'a');
+  const teamB = participants.filter(p => p.role === 'captain_b' || p.team === 'b');
+  const teamATotal = teamA.reduce((sum, p) => sum + (p.final_value ?? 0), 0);
+  const teamBTotal = teamB.reduce((sum, p) => sum + (p.final_value ?? 0), 0);
+  const config = metricConfig[challenge.metric];
+  const isTie = challenge.is_tie && !challenge.tiebreaker_winner_id;
+
+  // Determine which team the user was on
+  const userTeam = participants.find(p => p.user_id === currentUserId)?.team;
+  const userWon = currentUserId && (
+    (userTeam === 'a' && teamATotal > teamBTotal) ||
+    (userTeam === 'b' && teamBTotal > teamATotal)
+  );
+  const userLost = currentUserId && userTeam && !isTie && !userWon;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-4"
+    >
+      {/* Result Banner */}
+      {(userWon || userLost || isTie) && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className={cn(
+            "text-center py-2.5 rounded-xl font-bold text-lg",
+            userWon && "bg-primary/15 text-primary",
+            userLost && "bg-destructive/10 text-destructive",
+            isTie && "bg-muted text-muted-foreground"
+          )}
+        >
+          {userWon ? "🏆 Your Team Won!" : userLost ? "Your Team Lost" : "🤝 Tie Game"}
+        </motion.div>
+      )}
+
+      {/* Team scores */}
+      <div className="flex items-center justify-between px-4">
+        <div className="text-center">
+          <p className="text-sm font-bold text-red-600">🔴 RED</p>
+          <p className="text-2xl font-bold text-red-600">{config.format(teamATotal)}</p>
+        </div>
+        <div className="text-muted-foreground text-lg font-semibold">FINAL</div>
+        <div className="text-center">
+          <p className="text-sm font-bold text-blue-600">🔵 BLUE</p>
+          <p className="text-2xl font-bold text-blue-600">{config.format(teamBTotal)}</p>
+        </div>
+      </div>
+
+      {/* Score bar */}
+      {(teamATotal > 0 || teamBTotal > 0) && (() => {
+        const total = teamATotal + teamBTotal;
+        const redPercent = total > 0 ? (teamATotal / total) * 100 : 50;
+        return (
+          <div className="space-y-2">
+            <motion.div
+              initial={{ opacity: 0, scaleX: 0.8 }}
+              animate={{ opacity: 1, scaleX: 1 }}
+              className="relative h-4 rounded-full overflow-hidden bg-gradient-to-r from-red-500/20 via-muted to-blue-500/20"
+            >
+              <motion.div className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 to-red-400" animate={{ width: `${redPercent}%` }} transition={{ duration: 0.6 }} />
+              <motion.div className="absolute inset-y-0 right-0 bg-gradient-to-l from-blue-500 to-blue-400" animate={{ width: `${100 - redPercent}%` }} transition={{ duration: 0.6 }} />
+              <motion.div className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-lg border-2 border-foreground/20" animate={{ left: `calc(${redPercent}% - 10px)` }} transition={{ duration: 0.6 }} />
+            </motion.div>
+          </div>
+        );
+      })()}
+
+      {/* Team member leaderboards */}
+      <div className="grid grid-cols-2 gap-3">
+        {[{ team: teamA, color: 'red', label: 'Red' }, { team: teamB, color: 'blue', label: 'Blue' }].map(({ team, color, label }) => (
+          <div key={label} className="space-y-1">
+            {team
+              .sort((a, b) => (b.final_value ?? 0) - (a.final_value ?? 0))
+              .map((member, i) => (
+                <motion.div
+                  key={member.user_id}
+                  initial={{ opacity: 0, x: label === 'Red' ? -10 : 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 + i * 0.03 }}
+                  className={cn(
+                    "flex items-center gap-2 p-2 rounded-lg",
+                    i === 0 ? `bg-${color}-500/10 border border-${color}-500/30` : "bg-muted/30"
+                  )}
+                >
+                  <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}</span>
+                  <Avatar className={`h-7 w-7 border border-${color}-500/50 shrink-0`}>
+                    <AvatarImage src={member.profile_photo_url} />
+                    <AvatarFallback className="text-[10px] font-semibold">{getInitials(member.rep_name)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{getCleanFirstName(member.rep_name)}</p>
+                  </div>
+                  <span className={cn("text-sm font-bold shrink-0", i === 0 ? `text-${color}-600` : "text-foreground")}>
+                    {config.format(member.final_value ?? 0)}
+                  </span>
+                </motion.div>
+              ))}
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  );
 };
 
 export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: ChallengeDetailSheetProps) => {
@@ -59,23 +299,19 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
   const hasPendingProposals = editProposals && editProposals.length > 0;
   const is1v1 = challenge.type === '1v1';
   const isTeamBattle = challenge.type === 'group';
+  const isCompleted = challenge.status === 'completed';
 
-  // Check if current user needs to respond (hasn't accepted or declined yet)
-  // Note: Creator is auto-accepted so their `accepted` is always true, never null
   const needsMyResponse = challenge.status === 'pending' && 
     myParticipation && 
     myParticipation.accepted === null;
 
-  // Check if user previously declined but can change their response (team battles only)
   const canChangeResponse = challenge.status === 'pending' && 
     myParticipation && 
     myParticipation.accepted === false && 
     isTeamBattle;
 
-  // Creator can void pending or active challenges (not completed ones)
   const canVoid = isCreator && (challenge.status === 'pending' || challenge.status === 'active');
 
-  // Separate participants by team
   const teamA = challenge.participants?.filter(p => p.role === 'captain_a' || p.team === 'a') || [];
   const teamB = challenge.participants?.filter(p => p.role === 'captain_b' || p.team === 'b') || [];
 
@@ -225,7 +461,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
               </motion.div>
             )}
 
-            {/* Change Response CTA for users who previously declined (team battles only) */}
+            {/* Change Response CTA */}
             {canChangeResponse && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -249,7 +485,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
               </motion.div>
             )}
 
-            {/* Pending - Team View with clear separation */}
+            {/* Pending - Team View */}
             {challenge.status === 'pending' && !is1v1 && challenge.participants && (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
@@ -382,11 +618,34 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
               </motion.div>
             )}
 
-            {/* Active/Completed Matchup */}
+            {/* === COMPLETED STATE - ESPN-Style === */}
+            {isCompleted && (
+              <>
+                {is1v1 && (
+                  <CompletedMatchupHero challenge={challenge} currentUserId={currentUser?.id} />
+                )}
+                {isTeamBattle && (
+                  <CompletedTeamHero challenge={challenge} currentUserId={currentUser?.id} />
+                )}
+
+                {/* Duration info */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.25 }}
+                  className="flex items-center justify-center gap-2 text-muted-foreground"
+                >
+                  <Calendar className="h-4 w-4" />
+                  <span className="text-sm">{formatCompetitionDuration(challenge.start_date, challenge.end_date)}</span>
+                </motion.div>
+              </>
+            )}
+
+            {/* Active Matchup (existing live progress) */}
             <AnimatePresence>
-              {progress && challenge.status !== 'pending' && (
+              {progress && challenge.status === 'active' && (
                 <>
-                  {/* 1v1 Challenge - Show two participants head to head */}
+                  {/* 1v1 Challenge */}
                   {is1v1 && (
                     <motion.div 
                       initial={{ opacity: 0 }}
@@ -450,21 +709,18 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                                 animate={{ opacity: 1, scaleX: 1 }}
                                 className="relative h-4 rounded-full overflow-hidden bg-gradient-to-r from-primary/20 via-muted to-foreground/20"
                               >
-                                {/* Left side fill */}
                                 <motion.div
                                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/80"
                                   initial={{ width: "50%" }}
                                   animate={{ width: `${leftPercent}%` }}
                                   transition={{ duration: 0.6, ease: "easeOut" }}
                                 />
-                                {/* Right side fill */}
                                 <motion.div
                                   className="absolute inset-y-0 right-0 bg-gradient-to-l from-foreground/60 to-foreground/40"
                                   initial={{ width: "50%" }}
                                   animate={{ width: `${100 - leftPercent}%` }}
                                   transition={{ duration: 0.6, ease: "easeOut" }}
                                 />
-                                {/* Center indicator dot */}
                                 <motion.div
                                   className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-lg border-2 border-foreground/20"
                                   initial={{ left: "calc(50% - 10px)" }}
@@ -472,7 +728,6 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                                   transition={{ duration: 0.6, ease: "easeOut" }}
                                 />
                               </motion.div>
-                              {/* Margin text */}
                               <p className="text-sm text-center text-muted-foreground">
                                 {isTied ? "Tied!" : `${leaderName} leads by ${metricConfig[challenge.metric].format(margin)}`}
                               </p>
@@ -483,14 +738,13 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                     </motion.div>
                   )}
 
-                  {/* Team Battle - Show team leaderboards */}
+                  {/* Team Battle */}
                   {isTeamBattle && progress.teams && (
                     <motion.div 
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       className="space-y-4"
                     >
-                      {/* Red vs Blue Score Header */}
                       <div className="flex items-center justify-between px-4">
                         <div className="text-center">
                           <p className="text-sm font-bold text-red-600">🔴 RED</p>
@@ -507,7 +761,6 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                         </div>
                       </div>
 
-                      {/* Red vs Blue Score Slider */}
                       {(progress.teams.a.total_value > 0 || progress.teams.b.total_value > 0) && (
                         (() => {
                           const redTotal = progress.teams.a.total_value;
@@ -525,29 +778,10 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                                 animate={{ opacity: 1, scaleX: 1 }}
                                 className="relative h-4 rounded-full overflow-hidden bg-gradient-to-r from-red-500/20 via-muted to-blue-500/20"
                               >
-                                {/* Red side fill */}
-                                <motion.div
-                                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 to-red-400"
-                                  initial={{ width: "50%" }}
-                                  animate={{ width: `${redPercent}%` }}
-                                  transition={{ duration: 0.6, ease: "easeOut" }}
-                                />
-                                {/* Blue side fill */}
-                                <motion.div
-                                  className="absolute inset-y-0 right-0 bg-gradient-to-l from-blue-500 to-blue-400"
-                                  initial={{ width: "50%" }}
-                                  animate={{ width: `${100 - redPercent}%` }}
-                                  transition={{ duration: 0.6, ease: "easeOut" }}
-                                />
-                                {/* Center indicator dot */}
-                                <motion.div
-                                  className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-lg border-2 border-foreground/20"
-                                  initial={{ left: "calc(50% - 10px)" }}
-                                  animate={{ left: `calc(${redPercent}% - 10px)` }}
-                                  transition={{ duration: 0.6, ease: "easeOut" }}
-                                />
+                                <motion.div className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 to-red-400" initial={{ width: "50%" }} animate={{ width: `${redPercent}%` }} transition={{ duration: 0.6 }} />
+                                <motion.div className="absolute inset-y-0 right-0 bg-gradient-to-l from-blue-500 to-blue-400" initial={{ width: "50%" }} animate={{ width: `${100 - redPercent}%` }} transition={{ duration: 0.6 }} />
+                                <motion.div className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-lg border-2 border-foreground/20" initial={{ left: "calc(50% - 10px)" }} animate={{ left: `calc(${redPercent}% - 10px)` }} transition={{ duration: 0.6 }} />
                               </motion.div>
-                              {/* Margin text */}
                               <p className="text-sm text-center text-muted-foreground">
                                 {isTied ? "Tied!" : `${leader} leads by ${metricConfig[challenge.metric].format(margin)}`}
                               </p>
@@ -556,9 +790,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                         })()
                       )}
 
-                      {/* Team Leaderboards Side by Side */}
                       <div className="grid grid-cols-2 gap-3">
-                        {/* Red Team Leaderboard */}
                         <div className="space-y-1">
                           {progress.teams.a.members
                             .sort((a, b) => b.current_value - a.current_value)
@@ -573,22 +805,15 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                                 i === 0 ? "bg-red-500/10 border border-red-500/30" : "bg-muted/30"
                               )}
                             >
-                              <span className="text-xs font-bold text-muted-foreground w-4">
-                                {i + 1}
-                              </span>
+                              <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}</span>
                               <Avatar className="h-7 w-7 border border-red-500/50 shrink-0">
                                 <AvatarImage src={member.profile_photo_url} />
-                                <AvatarFallback className="text-[10px] font-semibold">
-                                  {getInitials(member.rep_name)}
-                                </AvatarFallback>
+                                <AvatarFallback className="text-[10px] font-semibold">{getInitials(member.rep_name)}</AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-medium truncate">{getCleanFirstName(member.rep_name)}</p>
                               </div>
-                              <span className={cn(
-                                "text-sm font-bold shrink-0",
-                                i === 0 ? "text-red-600" : "text-foreground"
-                              )}>
+                              <span className={cn("text-sm font-bold shrink-0", i === 0 ? "text-red-600" : "text-foreground")}>
                                 {member.current_value.toFixed(1)}
                               </span>
                             </motion.div>
@@ -598,7 +823,6 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                           )}
                         </div>
 
-                        {/* Blue Team Leaderboard */}
                         <div className="space-y-1">
                           {progress.teams.b.members
                             .sort((a, b) => b.current_value - a.current_value)
@@ -613,22 +837,15 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                                 i === 0 ? "bg-blue-500/10 border border-blue-500/30" : "bg-muted/30"
                               )}
                             >
-                              <span className="text-xs font-bold text-muted-foreground w-4">
-                                {i + 1}
-                              </span>
+                              <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}</span>
                               <Avatar className="h-7 w-7 border border-blue-500/50 shrink-0">
                                 <AvatarImage src={member.profile_photo_url} />
-                                <AvatarFallback className="text-[10px] font-semibold">
-                                  {getInitials(member.rep_name)}
-                                </AvatarFallback>
+                                <AvatarFallback className="text-[10px] font-semibold">{getInitials(member.rep_name)}</AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-medium truncate">{getCleanFirstName(member.rep_name)}</p>
                               </div>
-                              <span className={cn(
-                                "text-sm font-bold shrink-0",
-                                i === 0 ? "text-blue-600" : "text-foreground"
-                              )}>
+                              <span className={cn("text-sm font-bold shrink-0", i === 0 ? "text-blue-600" : "text-foreground")}>
                                 {member.current_value.toFixed(1)}
                               </span>
                             </motion.div>
@@ -644,7 +861,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
               )}
             </AnimatePresence>
 
-            {/* Time Remaining - clean display for both 1v1 and team battles */}
+            {/* Time Remaining */}
             {progress && challenge.status === 'active' && (
               <motion.div 
                 initial={{ opacity: 0 }}
@@ -690,7 +907,6 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
               )}
             </motion.div>
 
-            {/* Edit button at bottom if has pending proposals */}
             {canEdit && hasPendingProposals && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -703,7 +919,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
               </motion.div>
             )}
 
-            {/* Void Challenge Button - for creators only */}
+            {/* Void Challenge Button */}
             {canVoid && (
               <motion.div
                 initial={{ opacity: 0 }}
