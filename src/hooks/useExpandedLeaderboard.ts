@@ -139,7 +139,7 @@ export interface CustomDateRange {
   end: string;
 }
 
-const getDateRange = (timeframe: TimeframeType, customRange?: CustomDateRange): { start: string; end: string } => {
+export const getDateRange = (timeframe: TimeframeType, customRange?: CustomDateRange): { start: string; end: string } => {
   const today = new Date();
   
   switch (timeframe) {
