@@ -378,25 +378,23 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         existing.presentations += entry.presentations || 0;
         existing.closes += entry.closes || 0;
 
-        // Sales metrics
-        if (entry.is_finalized) {
+        // Sales metrics — always prefer sales_log as source of truth
+        const entrySalesLog = entry.sales_log as any[];
+        if (entrySalesLog && Array.isArray(entrySalesLog) && entrySalesLog.length > 0) {
+          const fromLog = calculateFromSalesLog(entrySalesLog);
+          existing.fp += fromLog.fp;
+          existing.prmr += fromLog.prmr;
+          existing.upgradeFp += fromLog.upgradeFp;
+        } else if (entry.is_finalized) {
           existing.fp += entry.fp_plus || 0;
           existing.prmr += entry.prmr || 0;
           const upgradePrmr = entry.upgrade_prmr || 0;
           existing.upgradeFp += upgradePrmr / 85;
         } else {
-          const salesLog = entry.sales_log as any[];
-          if (salesLog && salesLog.length > 0) {
-            const fromLog = calculateFromSalesLog(salesLog);
-            existing.fp += fromLog.fp;
-            existing.prmr += fromLog.prmr;
-            existing.upgradeFp += fromLog.upgradeFp;
-          } else {
-            existing.fp += entry.fp_plus || 0;
-            existing.prmr += entry.prmr || 0;
-            const upgradePrmr = entry.upgrade_prmr || 0;
-            existing.upgradeFp += upgradePrmr / 85;
-          }
+          existing.fp += entry.fp_plus || 0;
+          existing.prmr += entry.prmr || 0;
+          const upgradePrmr = entry.upgrade_prmr || 0;
+          existing.upgradeFp += upgradePrmr / 85;
         }
 
         // Hours worked
