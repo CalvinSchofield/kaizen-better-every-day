@@ -39,7 +39,7 @@ import Objections from "./pages/Objections";
 import RampToBlitz from "./pages/RampToBlitz";
 import UpgradeCheatSheet from "./pages/UpgradeCheatSheet";
 import PackageBuilder from "./pages/PackageBuilder";
-import WeeklyRecapBuilder from "./pages/WeeklyRecapBuilder";
+
 import ProductKnowledge from "./pages/ProductKnowledge";
 import AdminBlitzes from "./pages/AdminBlitzes";
 import RecruitingContent from "./pages/RecruitingContent";
@@ -302,14 +302,6 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <AdminBlitzes />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/reports/weekly-recap"
-              element={
-                <ProtectedRoute>
-                  <WeeklyRecapBuilder />
                 </ProtectedRoute>
               }
             />
