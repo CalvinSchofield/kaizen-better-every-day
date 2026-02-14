@@ -132,7 +132,7 @@ export const LeaderboardSpotlightRow = ({
             title="Competitions"
             subtitle={getCompSubtitle()}
             badge={totalComps > 0 ? `${totalComps} Live` : undefined}
-            onClick={() => navigate("/compete")}
+            onClick={() => navigate(totalComps > 0 ? "/compete" : "/compete?tab=history")}
           />
         )}
 

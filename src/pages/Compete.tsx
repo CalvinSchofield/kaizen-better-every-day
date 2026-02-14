@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -96,10 +96,13 @@ const CompeteSkeleton = () => (
 );
 
 const Compete = () => {
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [showCreateChallenge, setShowCreateChallenge] = useState(false);
   const [showCreateIncentive, setShowCreateIncentive] = useState(false);
-  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'history'>(
+    searchParams.get('tab') === 'history' ? 'history' : 'active'
+  );
   
   const { data: challenges, isLoading: loadingChallenges } = useMyActiveChallenges();
   const { data: incentives, isLoading: loadingIncentives } = useMyActiveIncentives();

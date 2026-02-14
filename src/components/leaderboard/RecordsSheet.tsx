@@ -15,7 +15,7 @@ export const RecordsSheet = ({ open, onOpenChange, userId }: RecordsSheetProps) 
         <DrawerHeader className="pb-2">
           <DrawerTitle>Records</DrawerTitle>
         </DrawerHeader>
-        <div className="overflow-y-auto px-4 pb-6 space-y-6">
+        <div className="overflow-y-auto flex-1 px-4 pb-6 space-y-6">
           <PersonalBestsSection userId={userId} />
           <ClassRecordsSection currentUserId={userId} />
         </div>
