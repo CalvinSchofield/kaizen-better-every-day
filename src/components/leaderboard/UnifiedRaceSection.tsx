@@ -44,7 +44,7 @@ const metricConfig: Record<MetricKey, { label: string; shortLabel: string; icon:
   closes: { label: 'Closes', shortLabel: 'Closes', icon: Handshake, gapUnit: 'closes' },
 };
 
-const metricOrder: MetricKey[] = ['fp_plus', 'prmr', 'presentations', 'transitions', 'pitches', 'decision_makers', 'doors_knocked', 'closes'];
+const metricOrder: MetricKey[] = ['fp_plus', 'prmr', 'closes', 'presentations', 'transitions', 'pitches', 'decision_makers', 'doors_knocked'];
 const metricPriority: MetricKey[] = ['fp_plus', 'prmr', 'presentations', 'transitions', 'pitches', 'decision_makers', 'doors_knocked', 'closes'];
 
 export const UnifiedRaceSection = ({ rankings, currentUserId, isLive = false, isFetching = false, title }: UnifiedRaceSectionProps) => {
@@ -154,7 +154,7 @@ export const UnifiedRaceSection = ({ rankings, currentUserId, isLive = false, is
         </div>
 
         {/* Metric Toggle Pills */}
-        <div className="flex gap-1.5 flex-wrap pb-1">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
           {metricOrder.map(metric => {
             const cfg = metricConfig[metric];
             const isActive = metric === activeMetric;
