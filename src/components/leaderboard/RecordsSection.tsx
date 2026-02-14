@@ -4,6 +4,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { PersonalBestsSection } from "./PersonalBestsSection";
 import { ClassRecordsSection } from "./ClassRecordsSection";
 import { cn } from "@/lib/utils";
+import type { RecordsMetric } from "@/hooks/useRecordsTracking";
 
 interface RecordsSectionProps {
   userId: string | null;
@@ -11,6 +12,7 @@ interface RecordsSectionProps {
 
 export const RecordsSection = ({ userId }: RecordsSectionProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [metric, setMetric] = useState<RecordsMetric>('fp');
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -30,8 +32,32 @@ export const RecordsSection = ({ userId }: RecordsSectionProps) => {
         </div>
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-4 space-y-6">
-        <PersonalBestsSection userId={userId} />
-        <ClassRecordsSection currentUserId={userId} />
+        <div className="flex justify-end">
+          <div className="flex bg-muted rounded-full p-0.5">
+            <button
+              onClick={() => setMetric('fp')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                metric === 'fp'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              FP+
+            </button>
+            <button
+              onClick={() => setMetric('prmr')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                metric === 'prmr'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              PRMR
+            </button>
+          </div>
+        </div>
+        <PersonalBestsSection userId={userId} metric={metric} />
+        <ClassRecordsSection currentUserId={userId} metric={metric} />
       </CollapsibleContent>
     </Collapsible>
   );
