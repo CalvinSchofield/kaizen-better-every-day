@@ -228,9 +228,12 @@ export const EditRecruitDrawer = ({
     }
     
     // Add accessible reps from teamAccess
+    // Only include reps with a user_id (app account) since recruiter_user_id FK requires it
     if (teamAccess?.accessibleReps) {
       for (const rep of teamAccess.accessibleReps) {
         if (!rep.name || !rep.id) continue;
+        // Ghost reps (no app account) can't be assigned as recruiters
+        if (!rep.userId) continue;
         // Skip if already added (current user)
         if (currentUserRep && rep.userId === currentUserRep.user_id) continue;
         
