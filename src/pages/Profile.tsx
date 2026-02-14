@@ -202,7 +202,7 @@ const Profile = () => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.1 }}
-        className="mx-5 -mt-1 mb-5 rounded-2xl bg-card border border-border p-4"
+        className="relative z-10 mx-5 -mt-1 mb-5 rounded-2xl bg-card border border-border p-4"
       >
         <div className="grid grid-cols-3 divide-x divide-border">
           <StatCell label="YTD FP+" value={profile.ytdFpPlus.toFixed(1)} />
