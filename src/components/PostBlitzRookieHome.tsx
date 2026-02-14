@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { RepData } from "@/hooks/useRepData";
+import { useAppMode } from "@/hooks/useAppMode";
+import { LeaderboardCTA } from "@/components/LeaderboardCTA";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -40,6 +42,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { hasMnlEventToday } = useMondayNightLightsEvent();
+  const { isOnActiveBlitz } = useAppMode(repData);
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const [blitzDetailsOpen, setBlitzDetailsOpen] = useState(false);
   const [uncommitSheetOpen, setUncommitSheetOpen] = useState(false);
@@ -532,26 +535,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                 );
               })()}
             </div>
-            <div className="flex gap-2 flex-shrink-0 self-start">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isSyncing}
-                className={`rounded-full transition-all duration-300 border ${
-                  syncSuccess 
-                    ? 'bg-green-500 text-white border-green-500 hover:bg-green-500' 
-                    : 'bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 border-primary-foreground/20'
-                }`}
-                aria-label="Refresh data"
-              >
-                {syncSuccess ? (
-                  <CheckCircle2 className="w-4 h-4 animate-scale-in" />
-                ) : (
-                  <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
-                )}
-              </Button>
-            </div>
+            {/* Auto-refresh on mount, no manual button needed */}
           </div>
 
           {/* RSVP Card - Shows for upcoming blitz within windows */}
@@ -707,6 +691,11 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
               </div>
             );
           })()}
+
+          {/* LeaderboardCTA - shows when no RSVP is active */}
+          {!upcomingBlitzForRsvp && (
+            <LeaderboardCTA isOnActiveBlitz={isOnActiveBlitz} />
+          )}
         </div>
       </div>
 

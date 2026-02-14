@@ -180,7 +180,6 @@ export const KnockingModeHome = ({
               {subtitle && (
                 <p className="text-primary-foreground/80 text-sm mt-1 flex items-center gap-1.5">
                   {shouldStartSoon && knockingState === 'pre-work' && <Zap className="h-4 w-4" />}
-                  {shouldStartSoon && knockingState === 'pre-work' && <Zap className="h-4 w-4" />}
                   {subtitle}
                 </p>
               )}

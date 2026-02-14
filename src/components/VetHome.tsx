@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { RepData } from "@/hooks/useRepData";
+import { useAppMode } from "@/hooks/useAppMode";
+import { LeaderboardCTA } from "@/components/LeaderboardCTA";
 import { RecruitingFlowCarousel } from "@/components/RecruitingFlowCarousel";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
@@ -82,6 +84,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   // Get team access data for passing to VetBlitzCard
   const { data: teamAccessData } = useTeamAccess();
   const isLeader = teamAccessData?.accessLevel && teamAccessData.accessLevel !== 'none';
+  
+  // Get app mode for leaderboard CTA
+  const { isOnActiveBlitz } = useAppMode(repData);
   
   // Auto-log blitz attendance for leaders
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
@@ -696,6 +701,11 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
               </div>
             );
           })()}
+
+          {/* LeaderboardCTA - shows when no RSVP is active */}
+          {!upcomingBlitzForRsvp && (
+            <LeaderboardCTA isOnActiveBlitz={isOnActiveBlitz} />
+          )}
         </div>
       </div>
 
