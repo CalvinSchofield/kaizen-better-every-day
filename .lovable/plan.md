@@ -1,103 +1,100 @@
 
+# ESPN-Style Competition Hub Overhaul
 
-# Leaderboard Page Redesign: Clean, Focused, World-Class Mobile UX
+## Problem
+The current Compete page feels sparse compared to world-class sports apps like ESPN. Key gaps:
+- **Active challenge cards** show only a tiny score slider with no avatars, no stat comparison, no rich context
+- **Active incentive cards** show no participant avatars or progress leaderboard
+- **History detail sheets** for completed challenges show **nothing** because `useChallengeProgress` is disabled for completed status -- this is the biggest broken experience
+- **History list items** are plain text rows with no avatars or final scores
 
-## The Problem
-The current leaderboard page stacks too many sections vertically -- hero banner, filters, live race list, grit awards (Ironman/Early Bird/Night Owl/Workhorse), timing breakdown table, records collapsible, plus challenges and incentives tabs. It's information overload on a single scroll.
+## ESPN Design Principles to Apply
+Drawing from the ESPN screenshots (matchup header, stat comparison bars, season leaders with avatars):
+1. **Matchup Hero Header** -- Two avatars facing off with scores prominently displayed (like ESPN's team logo + record layout)
+2. **Stat Comparison Bars** -- Side-by-side metric bars showing who dominated each category (like ESPN's Points, Rebounds, etc.)
+3. **Participant Avatars Everywhere** -- Faces visible in list items, not just detail views
+4. **Clear Result States** -- Win/Loss/Tie badges with color-coded backgrounds
+5. **Rich Detail on Tap** -- Completed challenges must show full final scores and participants
 
-## Design Philosophy
-World-class mobile apps (Strava, Nike Run Club, Duolingo) solve this by **progressive disclosure** -- show the most important thing prominently, and let users drill into secondary content on demand. The leaderboard should feel like opening a sports app: you immediately see the race, and everything else is one tap away.
+---
 
-## Proposed Layout
+## Plan
 
-```text
-+------------------------------------------+
-|  [Hero Banner - Your Highlight]          |
-+------------------------------------------+
-|  [Live] [Yesterday] [Week] [Month] ...  |  <-- time pills (unchanged)
-|                          [All | Rookies] |
-+------------------------------------------+
-|                                          |
-|  RANKED LIST (FP+, PRMR, Doors, etc.)   |
-|  - Avatars, gap indicators, animations  |
-|  - This is the star of the show         |
-|                                          |
-+------------------------------------------+
-|                                          |
-|  HORIZONTAL SCROLL CARDS:               |
-|  [Grit Awards] [Active Competitions] [Records] |
-|                                          |
-|  Each card is a compact preview that     |
-|  taps open into a detail sheet/drawer    |
-|                                          |
-+------------------------------------------+
-```
+### 1. Fix Completed Challenge Detail (Critical Bug)
 
-## What Changes
+The `ChallengeDetailSheet` uses `useChallengeProgress` which is only `enabled` for active/pending challenges. When you tap a completed challenge from history, the progress data is `null` so the sheet shows almost nothing.
 
-### 1. Rankings stay front and center (no change)
-The `UnifiedRaceSection` with metric pills, avatars, gap-to-leader, and animations is the hero content. It stays exactly where it is and gets full attention.
+**Fix:** For completed challenges, use the `final_value` already stored on `challenge_participants` (fetched by the history hook) instead of trying to compute live progress. Add a dedicated "Completed Matchup" section to `ChallengeDetailSheet` that renders final scores from participant data when `challenge.status === 'completed'`.
 
-### 2. Collapse Grit Awards, Competitions, and Records into a horizontal "Spotlight" carousel
-Instead of stacking Grit Awards, Timing Breakdown, Challenges, Incentives, and Records vertically, present them as **compact preview cards in a horizontal scroll row** below the rankings.
+### 2. ESPN-Style Active Challenge Cards
 
-Each card is a small, visually distinct tile (~160px wide) that shows:
+Replace the current minimal active challenge card on the Compete page with an ESPN-inspired matchup card:
 
-- **Grit Awards card**: Shows the top award winner (e.g., "Ironman: Jackson, 8:30am - 9:15pm") with a flame icon. Tapping opens a bottom sheet with the full Grit Awards + Timing Breakdown detail.
-- **Active Competitions card**: Shows count of active challenges/incentives (e.g., "3 Active" with crossed swords icon). Tapping navigates to `/compete`.
-- **Records card**: Shows a teaser like "You hold 2 records" or "Class record: 14.2 FP+ in a day". Tapping opens the existing Records collapsible content in a bottom sheet.
+- **Header row**: Avatar + Name on left, "VS" divider, Avatar + Name on right (like ESPN's team header)
+- **Score display**: Large bold numbers beneath each avatar
+- **Tug-of-war slider** stays but gets bigger
+- **Metric badge** (e.g., "FP+" with icon) prominently shown
+- **Time remaining** displayed as a subtle chip
+- **Stakes** shown as a callout if present
 
-### 3. Remove the 3-tab layout in Live mode
-Currently Live mode has tabs for "Live Race", "Challenges", "Incentives". This fragments the experience. Instead:
-- Rankings always show (no tab needed).
-- Challenges and Incentives get their preview in the horizontal spotlight row, linking to `/compete` for full management.
-- This means the leaderboard page is always about the **leaderboard**, and `/compete` handles the competition hub.
+### 3. ESPN-Style Active Incentive Cards
 
-### 4. Keep the hero banner as-is
-The personal highlight callout at the top is great motivation. Keep it.
+Upgrade the incentive cards on the active tab:
 
-### 5. Non-live timeframes
-For non-live views (Yesterday, Week, Month, etc.), the same pattern applies:
-- Rankings card with metric pills
-- Spotlight row below with Grit Awards + Records (no competitions card since those are live-focused)
+- Show top 3 participant avatars in a row (with "+N more" overflow)
+- Display the leader's current score prominently
+- Show a mini progress bar toward the target
+- Metric badge with icon
+- Prize callout with reward text
 
-## Technical Plan
+### 4. ESPN-Style History List Items
+
+Replace the plain text buttons in `CompetitionItem` with richer cards:
+
+- **Challenge items**: Show both participant avatars face-to-face with final scores between them (e.g., "Adam 12.5 vs Calder 8.3")
+- **Incentive items**: Show winner avatar with trophy, prize text
+- **Date subtitle** showing when it ended
+- **Type badge** stays (1v1, Team, Race, etc.)
+
+### 5. ESPN-Style Completed Challenge Detail Sheet
+
+When tapping a completed challenge from history, show:
+
+- **Hero matchup header**: Two large avatars with final scores, winner gets a crown/trophy overlay
+- **Stat comparison section** (ESPN-style bars): If available, show the per-day breakdown or at minimum the final metric values side-by-side with comparison bars
+- **Duration info**: "Jan 15 - Jan 17" formatted date range
+- **Stakes result**: Who owes what
+- **Result banner**: "You Won!" or "You Lost" with appropriate styling
+
+### 6. ESPN-Style Completed Incentive Detail Sheet
+
+When tapping a completed incentive from history, show:
+
+- **Winner spotlight**: Large avatar of winner(s) with trophy animation
+- **Final leaderboard**: All participants ranked by final score with avatars
+- **Prize claimed** callout
+- **Duration and metric info**
+
+---
+
+## Technical Details
 
 ### Files to modify:
 
-**`src/pages/Leaderboard.tsx`**
-- Remove the `Tabs`/`TabsList`/`TabsContent` wrapping for live mode
-- Always render `UnifiedRaceSection` directly (no tab container)
-- Replace the vertically stacked `GritAwardsSection`, `TimingBreakdownSection`, and `RecordsSection` with a new `LeaderboardSpotlightRow` component
-- Remove imports for `ChallengesTab`, `IncentivesTab`, `Tabs` components
+1. **`src/hooks/useChallengeProgress.ts`** -- Add support for completed challenges by reading `final_value` from participants instead of computing from daily_entries. Change the `enabled` condition to also allow completed status, but use a different data path.
 
-**New file: `src/components/leaderboard/LeaderboardSpotlightRow.tsx`**
-- Horizontally scrolling row of compact preview cards
-- `GritSpotlightCard`: Compact grit award summary, opens `GritAwardsSheet` on tap
-- `CompetitionsSpotlightCard`: Shows active challenge/incentive count, navigates to `/compete`
-- `RecordsSpotlightCard`: Teaser of personal bests, opens `RecordsSheet` on tap
+2. **`src/components/leaderboard/ChallengeDetailSheet.tsx`** -- Add a dedicated completed state section that renders final scores from `challenge.participants` data (which already has `final_value`). Build the ESPN-style hero header with avatars and scores. Add stat comparison bars.
 
-**New file: `src/components/leaderboard/GritAwardsSheet.tsx`**
-- Bottom sheet (using `vaul` Drawer) containing the existing `GritAwardsSection` and `TimingBreakdownSection` content
+3. **`src/components/leaderboard/IncentiveDetailSheet.tsx`** -- Add a completed leaderboard section showing all participants' final rankings with avatars.
 
-**New file: `src/components/leaderboard/RecordsSheet.tsx`**
-- Bottom sheet containing the existing `PersonalBestsSection` and `ClassRecordsSection` content
+4. **`src/pages/Compete.tsx`** -- Redesign the active challenge cards (lines ~287-328) into ESPN-style matchup cards with avatars and prominent scores. Redesign the active incentive cards (lines ~366-399) with participant avatars and progress.
 
-**`src/components/leaderboard/RecordsSection.tsx`**
-- Keep as-is internally but it will now be rendered inside the sheet instead of inline
+5. **`src/components/competitions/CompetitionHistorySection.tsx`** -- Upgrade `CompetitionItem` component (lines ~183-292) to show avatars, final scores, and richer card layouts instead of plain text buttons.
 
-**`src/components/leaderboard/GritAwardsSection.tsx`** and **`TimingBreakdownSection.tsx`**
-- No changes needed -- they'll just be rendered inside the sheet
+### Data flow for completed challenges:
+- History hook already fetches `challenge_participants` with `final_value` 
+- The `Challenge` type's `participants` array already contains `final_value` per participant
+- No new database queries needed -- just need to render this existing data properly in the detail sheets
 
-### Files removed from leaderboard page (but kept for `/compete`):
-- `ChallengesTab` and `IncentivesTab` stay in the codebase for the `/compete` route, just no longer imported in `Leaderboard.tsx`
-
-### Hooks:
-- New hook `useActiveCompetitionCount` -- lightweight query that returns count of active challenges + incentives for the current user (for the spotlight card badge)
-
-## Summary of User-Facing Changes
-- The ranked list is always visible without tabs -- no more switching between "Live Race" and "Challenges"
-- Grit awards, competitions, and records become compact cards you scroll horizontally and tap to expand
-- Total vertical scroll reduced significantly
-- Competitions link to the dedicated `/compete` page instead of being embedded
-- Everything the user loves (avatars, gap indicators, metric pills, grit awards, records) is preserved -- just organized more cleanly
+### No database changes required
+All the data needed (participant names, avatars, final_value, winner_user_id, etc.) is already fetched by existing hooks. This is purely a UI/UX overhaul.
