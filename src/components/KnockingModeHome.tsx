@@ -1,4 +1,4 @@
-import { RefreshCw, Calendar, TrendingUp, Target, Cloud, CheckCircle2, Coffee, Zap } from "lucide-react";
+import { RefreshCw, Calendar, TrendingUp, Target, Cloud, CheckCircle2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyFocusCard } from "@/components/DailyFocusCard";
@@ -57,7 +57,7 @@ export const KnockingModeHome = ({
   const { isOnActiveBlitz } = useAppMode(repData);
   const { entry, deleteEntry } = useDailyEntry();
   const { data: teamAccess } = useTeamAccess();
-  const { isTodayPlanned, isRestDay, shouldStartSoon } = useTodayWorkStatus();
+  const { isTodayPlanned, shouldStartSoon } = useTodayWorkStatus();
   
   // State-based layout using rep's timezone
   const { state: knockingState, hasActivity } = useKnockingState({ 
@@ -120,18 +120,9 @@ export const KnockingModeHome = ({
     navigate('/auth');
   };
 
-  // Contextual greeting based on work day status
+  // Contextual greeting based on time of day
   const getGreeting = () => {
     const hour = new Date().getHours();
-    
-    // If it's a rest day, acknowledge it
-    if (isRestDay) {
-      if (hour < 12) return "Rest day morning";
-      if (hour < 18) return "Rest day afternoon";
-      return "Rest day evening";
-    }
-    
-    // Standard time-based greeting
     if (hour < 12) return "Good morning";
     if (hour < 18) return "Good afternoon";
     return "Good evening";
@@ -139,7 +130,6 @@ export const KnockingModeHome = ({
   
   // Get contextual subtitle based on work status
   const getSubtitle = () => {
-    if (isRestDay) return "Recharge and prepare for tomorrow";
     if (shouldStartSoon && knockingState === 'pre-work') return "Time to get started!";
     if (knockingState === 'working') return "Keep pushing!";
     if (knockingState === 'day-complete') return "Great work today!";
@@ -189,7 +179,7 @@ export const KnockingModeHome = ({
               </h1>
               {subtitle && (
                 <p className="text-primary-foreground/80 text-sm mt-1 flex items-center gap-1.5">
-                  {isRestDay && <Coffee className="h-4 w-4" />}
+                  {shouldStartSoon && knockingState === 'pre-work' && <Zap className="h-4 w-4" />}
                   {shouldStartSoon && knockingState === 'pre-work' && <Zap className="h-4 w-4" />}
                   {subtitle}
                 </p>

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTodayWorkStatus } from './useTodayWorkStatus';
 
 const GLOBAL_SUMMER_START = new Date('2026-04-12');
 const GLOBAL_SUMMER_END = new Date('2026-09-27');
@@ -141,6 +142,9 @@ export const useAppMode = (repData?: any) => {
     return isOnActiveBlitz || hasAttendedBlitz || isInSummerPeriod;
   }, [repData?.year, isOnActiveBlitz, hasAttendedBlitz, isInSummerPeriod]);
 
+  // Get today's work status (planned day + started tracking)
+  const { isTodayPlanned, hasStartedWork } = useTodayWorkStatus();
+
   // Calculate if knocking mode should be active
   const isKnockingMode = useMemo(() => {
     // Priority 1: Manual override takes precedence (only for leaders)
@@ -153,10 +157,14 @@ export const useAppMode = (repData?: any) => {
       return true;
     }
 
-    // Priority 3: Auto-enable if within personal summer dates
-    // For non-leaders (reps), this is automatic with no toggle
+    // Priority 3: Auto-enable if today is a planned work day OR rep has started tracking
+    if (isTodayPlanned || hasStartedWork) {
+      return true;
+    }
+
+    // Priority 4: Auto-enable if within personal summer dates
     return isInSummerPeriod;
-  }, [seasonConfig, isOnActiveBlitz, isInSummerPeriod, isLeader]);
+  }, [seasonConfig, isOnActiveBlitz, isTodayPlanned, hasStartedWork, isInSummerPeriod, isLeader]);
 
   // Determine if knocking toggle should be shown
   // Leaders: always show toggle so they can switch between selling and recruiting
