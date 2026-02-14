@@ -210,6 +210,7 @@ const Profile = () => {
           name={profile.name}
           phone={profile.phone}
           userId={userId}
+          canLog={isDownline}
         />
       )}
 

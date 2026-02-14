@@ -12,6 +12,8 @@ interface ProfileContactBarProps {
   phone: string | null;
   userId: string;
   repId?: string;
+  /** Only leaders with this user in their downline should log post-contact notes */
+  canLog?: boolean;
 }
 
 /** Build a minimal Recruit stub for the PostContactDrawer */
@@ -39,7 +41,7 @@ function makeRecruitStub(name: string, phone: string, userId: string): Recruit {
   };
 }
 
-export const ProfileContactBar = ({ name, phone, userId, repId }: ProfileContactBarProps) => {
+export const ProfileContactBar = ({ name, phone, userId, repId, canLog = false }: ProfileContactBarProps) => {
   const [postContactOpen, setPostContactOpen] = useState(false);
   const [contactMethod, setContactMethod] = useState<'call' | 'text'>('call');
   const [addPhoneOpen, setAddPhoneOpen] = useState(false);
@@ -62,9 +64,11 @@ export const ProfileContactBar = ({ name, phone, userId, repId }: ProfileContact
       window.open(`sms:${cleanPhone}`, '_self');
     }
 
-    // Show post-contact drawer after short delay
-    setContactMethod(method);
-    setTimeout(() => setPostContactOpen(true), 500);
+    // Show post-contact drawer after short delay (leaders only)
+    if (canLog) {
+      setContactMethod(method);
+      setTimeout(() => setPostContactOpen(true), 500);
+    }
   };
 
   const handlePhoneSaved = (cleanPhone: string) => {
