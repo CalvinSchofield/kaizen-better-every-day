@@ -1,113 +1,126 @@
 
 
-## Unified Leaderboard Redesign: Make Every Timeframe Feel Like Live
+## Profile Page Enhancement: Contact Actions, Goal Pace, and Activity Log
 
-### The Problem
+### Overview
 
-The Live Race view is polished and interactive: ranked list with avatars, profile photos, working indicators, framer-motion animations, metric toggle pills, gap-to-leader indicators, and tappable profile navigation. When you switch to Yesterday, This Week, This Month, or any other timeframe, the experience drops to static "winner-only" cards (SalesLeadersSection, ActivityLeadersSection) with emoji icons and no ranked list, no avatars, no profile links, and no animations. It feels like a completely different app.
+When viewing another rep's profile (not just leaders -- anyone in the office), surface three new contextual features below the Momentum Sparkline and above the existing Tabs section. The design stays minimal: a compact action bar and one swipeable card that doesn't clutter the page.
 
-### The Vision
+### Feature 1: Quick Contact Bar (Call / Text)
 
-Every timeframe should use the same ranked-list format as Live Race, just with the "Live" badge and working-indicator removed for historical views. The same metric toggle pills, the same avatars, the same profile navigation, the same gap indicators. One unified component that adapts its data source based on the selected timeframe.
+**Who sees it**: Anyone viewing a profile that is NOT their own.
 
-Additionally, the Grit Awards section needs a "Most Hours Worked" upgrade to use **real work time** (from activity ring logic: total duration minus breaks minus idle gaps > 15 min) rather than simple clock-in-to-clock-out minus breaks.
+**What it does**:
+- Two pill buttons: "Call" and "Text" (same style as the stats bar card, not full-width buttons)
+- Tapping "Call" opens `tel:{phone}` and then shows the PostContactDrawer to log notes
+- Tapping "Text" opens `sms:{phone}` and then shows the PostContactDrawer to log notes
+- If no phone number is on file, prompts for phone entry first (reusing the existing phone-entry pattern from RecruitDetailDrawer)
 
-### Architecture
+**Data needed**: Add `phone` to the `useRepProfile` hook's reps query. Also need to resolve the viewed user to a `Recruit` object (or a minimal stub) so PostContactDrawer can receive it.
+
+**Location on page**: Rendered as a slim card (`mx-5 mb-4 rounded-2xl bg-card border`) right after the stats bar, before the Momentum Sparkline. Two side-by-side outline buttons.
+
+### Feature 2: Goal Pace Card (Swipeable with Momentum)
+
+**Who sees it**: Leaders viewing a downline rep's profile (checked via `useTeamAccess().accessibleUserIds.includes(userId)`)
+
+**What it does**:
+- The Momentum Sparkline card becomes the first "page" in a horizontally swipeable container
+- Swiping left reveals a "Goal Pace" card that mirrors the FocusCard's pace section:
+  - Progress bar showing `ytdFP / goal` with percentage
+  - Pace status badge (Ahead / On Track / Behind / At Risk)
+  - "Avg X.XX/day | Need X.XX/day" comparison line
+  - Goal tier label (Preseason / Must Do / Will Do / Could Do)
+- Dot indicators at the bottom show which card is active (like iOS page dots)
+
+**Data needed**: Create a new hook `useDownlineGoalPace(userId)` that:
+1. Fetches `rep_goals` for the target user
+2. Fetches `season_config` for personal summer dates
+3. Calls `fetch-downline-planned-days` edge function for planned days count
+4. Fetches finalized daily entries count for knocking days
+5. Uses the existing `calculateSalesPace` utility for pace computation
+6. Returns: goal, ytdFP, paceStatus, neededDaily, currentAvgDaily, daysWorked, progressPercent, goalLabel
+
+**Location on page**: Replaces the standalone MomentumSparkline. Both cards sit in an `embla-carousel-react` horizontal scroller with snap points.
+
+### Feature 3: Recent Activity Timeline (Compact)
+
+**Who sees it**: Leaders viewing a downline rep's profile
+
+**What it does**:
+- A small "Recent Activity" section showing the last 3 logged interactions (from `recruit_activities` table)
+- Each row: icon (phone/text/note), relative time ("2d ago"), truncated notes
+- A "View All in My Group" link at the bottom that navigates to the RecruitDetailDrawer's activity tab
+
+**Data needed**: Query `recruit_activities` for the recruit record matching the viewed user (match by email or name, same pattern as RecruitDetailDrawer's `recruitRepData` lookup). Limit 3, order by `created_at desc`.
+
+**Location on page**: Rendered as a card below the Momentum/GoalPace swiper, above the Tabs section. Only appears for leaders with the viewed user in their downline.
+
+### Technical Implementation
+
+#### Files to modify:
+
+**`src/hooks/useRepProfile.ts`**
+- Add `phone` to the reps select query
+- Return `phone` in the RepProfileData interface
+
+**`src/hooks/useDownlineGoalPace.ts`** (new file)
+- Accepts `userId: string | null`
+- Fetches goals, summer config, planned days, knocking days
+- Runs `calculateSalesPace` and returns structured pace data
+- Only enabled when userId is provided
+
+**`src/components/profile/ProfileContactBar.tsx`** (new file)
+- Slim card with Call/Text buttons
+- Manages phone entry drawer state internally
+- Opens PostContactDrawer after initiating call/text
+- Needs: phone, name, userId of viewed profile + a minimal Recruit-shaped stub for PostContactDrawer
+
+**`src/components/profile/GoalPaceCard.tsx`** (new file)
+- Displays progress bar, pace badge, daily average comparison
+- Receives data from `useDownlineGoalPace`
+- Matches the card styling of MomentumSparkline (same border radius, padding, bg-card)
+
+**`src/components/profile/ProfileSwiper.tsx`** (new file)
+- Wraps MomentumSparkline + GoalPaceCard in an embla-carousel with dot indicators
+- Falls back to just MomentumSparkline when GoalPaceCard data isn't available
+
+**`src/components/profile/RecentActivityCard.tsx`** (new file)
+- Compact 3-row activity list
+- Link to open RecruitDetailDrawer or navigate to My Group
+
+**`src/pages/Profile.tsx`**
+- Import `useTeamAccess` to check if viewer is a leader with this user in downline
+- Import `useDownlineGoalPace` for pace data
+- Replace standalone `<MomentumSparkline>` with `<ProfileSwiper>` (passes GoalPaceCard when leader is viewing downline)
+- Add `<ProfileContactBar>` for non-own profiles (below stats bar, before swiper)
+- Add `<RecentActivityCard>` for leaders viewing downline (after swiper, before tabs)
+- Add PostContactDrawer + phone entry Drawer at bottom of component tree
+
+#### Visual Layout (top to bottom):
 
 ```text
-CURRENT FLOW (two separate UIs):
-  Live -> LiveRaceSection (useTodayLeaderboard) -> ranked list with avatars
-  Other -> SalesLeadersSection + ActivityLeadersSection (useExpandedLeaderboard) -> winner-only cards
-
-NEW FLOW (one unified UI):
-  All timeframes -> UnifiedRaceSection -> ranked list with avatars
-    Live data source:  useTodayLeaderboard (realtime, working indicators)
-    Other data source:  useExpandedLeaderboard (aggregated, returns ranked arrays instead of single winners)
+[Hero Photo with Name]
+[Stats Bar: YTD FP+ | YTD PRMR | Coming Soon]
+[Contact Bar: Call | Text]              <-- new, non-own profiles only
+[Swipeable: Momentum | Goal Pace]      <-- Goal Pace for leaders only
+[Recent Activity: 3 rows + link]        <-- leaders viewing downline only
+[Tabs: Stats | Records | Badges]
 ```
 
-### Implementation Plan
+#### PostContactDrawer Integration
 
-**Phase 1: Extend useExpandedLeaderboard to return ranked arrays**
+The PostContactDrawer requires a `Recruit` object. Since we're on the profile page (not My Group), we'll construct a minimal Recruit stub from the profile data:
 
-File: `src/hooks/useExpandedLeaderboard.ts`
-
-Currently this hook computes single winners (`mostDoors`, `mostFP`, etc.). We need it to also return the full ranked arrays (like useTodayLeaderboard does) so the unified component can display everyone, not just #1.
-
-- Add a `rankings` field to `ExpandedLeaderboard` interface matching `TodayLeaderboard.rankings` structure (arrays of `{ userId, name, value, profilePhotoUrl, year }`)
-- During the existing aggregation loop, collect all user totals into arrays
-- Sort each array using the existing `tiebreakerCompare`
-- Filter out zero-value entries
-- Include `profilePhotoUrl` from reps data (add `profile_photo_url` to the reps select query, which it currently omits)
-
-**Phase 2: Create UnifiedRaceSection component**
-
-File: `src/components/leaderboard/UnifiedRaceSection.tsx` (new)
-
-A single component that renders the ranked list for ANY timeframe. It accepts:
-- `rankings`: the metric-keyed ranking arrays
-- `currentUserId`: for highlighting
-- `isLive`: boolean to show/hide working indicators and live badge
-- `filterByYear`: for scope filtering
-
-This component reuses the exact visual patterns from `LiveRaceSection`:
-- Metric toggle pills (FP+, PRMR, Presentations, Transitions, Pitches, DMs, Doors)
-- Framer-motion AnimatePresence for layout animations
-- Avatar with profile photo (tappable to navigate to `/profile/:userId`)
-- Rank badges (gold/silver/bronze/numbered)
-- Gap-to-leader and gap-behind indicators for the current user
-- "You" highlighting with border accent
-- Rank change animations (only for live mode)
-- Camera icon for current user without photo (only for live mode)
-- Working indicator dot (only for live mode)
-
-The key difference from LiveRaceSection: no real-time rank-change tracking for historical views (no polling, no haptics on rank change). Everything else is identical visually.
-
-**Phase 3: Update Leaderboard page to use unified component**
-
-File: `src/pages/Leaderboard.tsx`
-
-- Remove the conditional split between `LiveRaceSection` and `SalesLeadersSection + ActivityLeadersSection`
-- For Live: render `UnifiedRaceSection` with `isLive={true}` using `useTodayLeaderboard` data (keeps the Live Race tab + Challenges + Incentives tabs)
-- For all other timeframes: render `UnifiedRaceSection` with `isLive={false}` using the new ranked arrays from `useExpandedLeaderboard`
-- Keep Grit Awards and Timing Breakdown sections below the unified race for all timeframes
-- Remove the separate SalesLeadersSection and ActivityLeadersSection components from the page (they become unused for this page, but keep the files in case they're used elsewhere)
-
-**Phase 4: Real Work Time for "Workhorse" award**
-
-File: `src/hooks/useExpandedLeaderboard.ts`
-
-The current "Workhorse" (Most Hours Worked) calculation uses:
-```
-totalMinutes = (endTime - startTime) - breaks
+```typescript
+const recruitStub: Recruit = {
+  id: repId, // from reps table
+  name: profile.name,
+  phone: profile.phone,
+  stage: 'Sold', // default for viewing context
+  // ... other required fields with safe defaults
+};
 ```
 
-This doesn't account for idle gaps (> 15 min between activities). The activity ring already classifies gaps > 15 min as idle "Gaps" (gray). We should use similar logic:
-
-- When `counter_timestamps` is available, calculate work time as: sum of all inter-activity intervals where the gap is less than or equal to 15 minutes, plus a small buffer per activity (e.g., 3 min per door knock event representing the actual doorstep time)
-- If `counter_timestamps` is empty/missing, fall back to the existing clock-in minus breaks calculation
-- This rewards reps who are consistently active throughout their shift rather than those who clock in early, take long idle breaks, and clock out late
-
-### File Changes Summary
-
-| File | Change |
-|---|---|
-| `src/hooks/useExpandedLeaderboard.ts` | Add `profile_photo_url` to reps query; build ranked arrays for all metrics; add real-work-time calculation for Workhorse |
-| `src/components/leaderboard/UnifiedRaceSection.tsx` | **New file** - unified ranked list component adapted from LiveRaceSection |
-| `src/pages/Leaderboard.tsx` | Replace conditional Live/Non-live rendering with UnifiedRaceSection for all timeframes |
-
-### What Stays the Same
-- Grit Awards section (Early Bird, Night Owl, Ironman, Workhorse) - appears below the race for all timeframes
-- Timing Breakdown collapsible - stays below Grit Awards
-- Records section collapsible - stays at bottom
-- Live Race tab structure (Live Race / Challenges / Incentives tabs) - only for live timeframe
-- Filter pills and scope toggle - unchanged
-- Hero banner - unchanged
-
-### What Drives Production and Adoption
-
-1. **Visible ranked lists create competition**: Seeing your name at #7 with a gap indicator saying "2.3 FP+ to catch Jackson" is far more motivating than seeing "Jackson: 14.2 FP+" in a winner card
-2. **Profile photos and avatars create identity**: When reps see their face on the leaderboard, they take ownership of their rank
-3. **Consistent UX builds habit**: The same interaction pattern (tap metric pill, see ranked list, tap name to view profile) across all timeframes means users learn it once and use it everywhere
-4. **Real work time rewards hustle, not clock gaming**: The Workhorse award using actual active time (not clock-in to clock-out) incentivizes continuous productive activity and accurate tracking
-5. **Gap indicators create urgency**: "0.5 FP+ to catch" is actionable; a static winner card is not
+This allows the same note-logging and follow-up scheduling flow without requiring the full My Group context.
 
