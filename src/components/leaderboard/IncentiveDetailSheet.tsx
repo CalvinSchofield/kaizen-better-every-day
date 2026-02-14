@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { ProfileAvatar } from "@/components/ui/profile-avatar";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 
@@ -300,12 +301,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                               )}
                             </motion.div>
                           )}
-                          <Avatar className="h-10 w-10">
-                            {participant.profile_photo_url && (
-                              <AvatarImage src={participant.profile_photo_url} />
-                            )}
-                            <AvatarFallback className="text-xs">{getInitials(participant.rep_name)}</AvatarFallback>
-                          </Avatar>
+                          <ProfileAvatar userId={participant.user_id} name={participant.rep_name} photoUrl={participant.profile_photo_url} onBeforeNavigate={() => onOpenChange(false)} className="h-10 w-10" fallbackClassName="text-xs" />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
@@ -396,10 +392,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                       >
                         <Crown className="h-7 w-7 text-amber-500 fill-amber-500" />
                       </motion.div>
-                      <Avatar className="h-20 w-20 border-3 border-amber-500 ring-2 ring-amber-500/30">
-                        <AvatarImage src={winner.profile_photo_url} />
-                        <AvatarFallback className="text-xl font-bold">{getInitials(winner.rep_name)}</AvatarFallback>
-                      </Avatar>
+                      <ProfileAvatar userId={winner.user_id} name={winner.rep_name} photoUrl={winner.profile_photo_url} onBeforeNavigate={() => onOpenChange(false)} className="h-20 w-20 border-3 border-amber-500 ring-2 ring-amber-500/30" fallbackClassName="text-xl font-bold" />
                     </div>
                     <div className="text-center">
                       <p className="font-bold text-lg">{getCleanName(winner.rep_name)}</p>
@@ -443,10 +436,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                             className="flex items-center gap-3 p-3 rounded-xl bg-green-500/10 border border-green-500/20"
                           >
                             <div className="relative">
-                              <Avatar className="h-10 w-10">
-                                {winner.profile_photo_url && <AvatarImage src={winner.profile_photo_url} />}
-                                <AvatarFallback className="text-xs">{getInitials(winner.rep_name)}</AvatarFallback>
-                              </Avatar>
+                              <ProfileAvatar userId={winner.user_id} name={winner.rep_name} photoUrl={winner.profile_photo_url} onBeforeNavigate={() => onOpenChange(false)} className="h-10 w-10" fallbackClassName="text-xs" />
                               <motion.div 
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
@@ -492,10 +482,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                           {index + 1}
                         </span>
                         <div className="relative">
-                          <Avatar className="h-9 w-9">
-                            {participant.profile_photo_url && <AvatarImage src={participant.profile_photo_url} />}
-                            <AvatarFallback className="text-xs">{getInitials(participant.rep_name)}</AvatarFallback>
-                          </Avatar>
+                          <ProfileAvatar userId={participant.user_id} name={participant.rep_name} photoUrl={participant.profile_photo_url} onBeforeNavigate={() => onOpenChange(false)} className="h-9 w-9" fallbackClassName="text-xs" />
                           {isWinner && (
                             <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
                               <Crown className="h-2.5 w-2.5 text-white fill-white" />
