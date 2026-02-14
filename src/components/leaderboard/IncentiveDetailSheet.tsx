@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Trophy, Users, Target, Clock, Eye, EyeOff, Pencil, XCircle, Loader2, CheckCircle2, Circle, ChevronDown } from "lucide-react";
+import { Trophy, Users, Target, Clock, Eye, EyeOff, Pencil, XCircle, Loader2, CheckCircle2, Circle, ChevronDown, Crown, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Incentive, IncentiveMetric, useCancelIncentive } from "@/hooks/useIncentives";
 import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
@@ -45,6 +45,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
   });
   
   const isActive = incentive.status === 'active';
+  const isCompleted = incentive.status === 'completed';
   const isGroupTotal = incentive.target_type === 'group_total';
   const isAnyoneWho = incentive.target_type === 'anyone_who';
   const isCreator = currentUser?.id === incentive.created_by;
@@ -61,6 +62,16 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
       toast.error(error.message || 'Failed to cancel incentive');
     }
   };
+
+  // Build completed leaderboard from eligible_reps data
+  const completedLeaderboard = isCompleted && incentive.eligible_reps
+    ? [...incentive.eligible_reps].sort((a, b) => (b.final_value ?? 0) - (a.final_value ?? 0))
+    : [];
+
+  const winnerIds = Array.isArray(incentive.winner_user_ids) ? incentive.winner_user_ids : [];
+  const userWon = currentUser?.id && (
+    incentive.winner_user_id === currentUser.id || winnerIds.includes(currentUser.id)
+  );
 
   return (
     <>
@@ -173,7 +184,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
             ))}
           </motion.div>
 
-          {/* Progress Section */}
+          {/* Active Progress Section */}
           <AnimatePresence>
             {isActive && progressData && (
               <motion.div 
@@ -202,7 +213,6 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                   )}
                 </h3>
 
-                {/* Anyone Who Progress Summary */}
                 {isAnyoneWho && (
                   <motion.div 
                     initial={{ opacity: 0, y: 10 }}
@@ -243,7 +253,6 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                   </motion.div>
                 )}
 
-                {/* Individual Contributions / Leaderboard */}
                 <div className="space-y-2">
                   {progressData.participants.map((participant, index) => {
                     const isQualified = isAnyoneWho && participant.current_value >= (progressData.targetValue || 0);
@@ -264,7 +273,6 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                         )}
                       >
                         <div className="relative">
-                          {/* First place badge for traditional incentives */}
                           {index === 0 && !isGroupTotal && !isAnyoneWho && (
                             <motion.div 
                               initial={{ scale: 0 }}
@@ -275,7 +283,6 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                               <Trophy className="h-3 w-3 text-white" />
                             </motion.div>
                           )}
-                          {/* Qualified badge for anyone_who incentives */}
                           {isAnyoneWho && (
                             <motion.div 
                               initial={{ scale: 0 }}
@@ -352,35 +359,69 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
             )}
           </AnimatePresence>
 
-          {/* Completed State */}
-          {incentive.status === 'completed' && (incentive.winner_user_id || (isAnyoneWho && incentive.winner_user_ids?.length)) && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className={cn(
-                "rounded-xl overflow-hidden",
-                isAnyoneWho 
-                  ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20"
-                  : "bg-gradient-to-r from-amber-500/20 to-orange-500/20"
-              )}
+          {/* === COMPLETED STATE - ESPN-Style === */}
+          {isCompleted && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="space-y-4"
             >
-              {isAnyoneWho && incentive.winner_user_ids?.length ? (
-                <Collapsible open={showWinners} onOpenChange={setShowWinners}>
-                  <CollapsibleTrigger className="w-full p-4 text-center">
-                    <motion.div
-                      animate={{ rotate: [0, -10, 10, -10, 10, 0], scale: [1, 1.1, 1] }}
-                      transition={{ duration: 0.5, delay: 0.2 }}
-                    >
-                      <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                    </motion.div>
-                    <div className="flex items-center justify-center gap-2">
-                      <p className="font-semibold">
-                        {incentive.winner_user_ids.length} qualified and won!
-                      </p>
+              {/* Result banner */}
+              {userWon && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-center py-2.5 rounded-xl font-bold text-lg bg-primary/15 text-primary"
+                >
+                  🏆 You Won!
+                </motion.div>
+              )}
+
+              {/* Winner spotlight for non-anyoneWho */}
+              {!isAnyoneWho && incentive.winner_user_id && (() => {
+                const winner = incentive.eligible_reps?.find(r => r.user_id === incentive.winner_user_id);
+                if (!winner) return null;
+                return (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-col items-center gap-2 py-3"
+                  >
+                    <div className="relative">
                       <motion.div
-                        animate={{ rotate: showWinners ? 180 : 0 }}
-                        transition={{ duration: 0.2 }}
+                        initial={{ scale: 0, y: 10 }}
+                        animate={{ scale: 1, y: 0 }}
+                        transition={{ delay: 0.2, type: "spring" }}
+                        className="absolute -top-3 left-1/2 -translate-x-1/2 z-10"
                       >
+                        <Crown className="h-7 w-7 text-amber-500 fill-amber-500" />
+                      </motion.div>
+                      <Avatar className="h-20 w-20 border-3 border-amber-500 ring-2 ring-amber-500/30">
+                        <AvatarImage src={winner.profile_photo_url} />
+                        <AvatarFallback className="text-xl font-bold">{getInitials(winner.rep_name)}</AvatarFallback>
+                      </Avatar>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-bold text-lg">{getCleanName(winner.rep_name)}</p>
+                      <p className="text-sm text-muted-foreground">Winner</p>
+                      {winner.final_value != null && (
+                        <p className="text-xl font-bold text-amber-600 mt-1">
+                          {winner.final_value.toFixed(1)} {metricLabels[incentive.metric]}
+                        </p>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })()}
+
+              {/* Anyone Who winners */}
+              {isAnyoneWho && winnerIds.length > 0 && (
+                <Collapsible open={showWinners} onOpenChange={setShowWinners}>
+                  <CollapsibleTrigger className="w-full p-4 text-center bg-green-500/10 rounded-xl">
+                    <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    <div className="flex items-center justify-center gap-2">
+                      <p className="font-semibold">{winnerIds.length} qualified and won!</p>
+                      <motion.div animate={{ rotate: showWinners ? 180 : 0 }} transition={{ duration: 0.2 }}>
                         <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       </motion.div>
                     </div>
@@ -389,12 +430,8 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                     </p>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="px-4 pb-4 space-y-2"
-                    >
-                      {incentive.winner_user_ids.map((winnerId, index) => {
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-4 pb-4 space-y-2">
+                      {winnerIds.map((winnerId, index) => {
                         const winner = incentive.eligible_reps?.find(r => r.user_id === winnerId);
                         if (!winner) return null;
                         return (
@@ -407,9 +444,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                           >
                             <div className="relative">
                               <Avatar className="h-10 w-10">
-                                {winner.profile_photo_url && (
-                                  <AvatarImage src={winner.profile_photo_url} />
-                                )}
+                                {winner.profile_photo_url && <AvatarImage src={winner.profile_photo_url} />}
                                 <AvatarFallback className="text-xs">{getInitials(winner.rep_name)}</AvatarFallback>
                               </Avatar>
                               <motion.div 
@@ -423,9 +458,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                             </div>
                             <div className="flex-1">
                               <p className="font-medium">{getCleanName(winner.rep_name)}</p>
-                              <span className="text-xs font-medium text-green-600">
-                                🏆 Qualified!
-                              </span>
+                              <span className="text-xs font-medium text-green-600">🏆 Qualified!</span>
                             </div>
                           </motion.div>
                         );
@@ -433,17 +466,59 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                     </motion.div>
                   </CollapsibleContent>
                 </Collapsible>
-              ) : (
-                <div className="p-4 text-center">
-                  <motion.div
-                    animate={{ rotate: [0, -10, 10, -10, 10, 0], scale: [1, 1.1, 1] }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
-                  >
-                    <Trophy className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-                  </motion.div>
-                  <p className="font-semibold">Winner claimed the prize!</p>
+              )}
+
+              {/* Completed full leaderboard */}
+              {completedLeaderboard.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold flex items-center gap-2 text-sm">
+                    <Trophy className="h-4 w-4 text-amber-500" />
+                    Final Standings
+                  </h3>
+                  {completedLeaderboard.map((participant, index) => {
+                    const isWinner = incentive.winner_user_id === participant.user_id || winnerIds.includes(participant.user_id);
+                    return (
+                      <motion.div
+                        key={participant.user_id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.1 + index * 0.04 }}
+                        className={cn(
+                          "flex items-center gap-3 p-3 rounded-xl",
+                          isWinner ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"
+                        )}
+                      >
+                        <span className="text-sm font-bold text-muted-foreground w-5 text-center">
+                          {index + 1}
+                        </span>
+                        <div className="relative">
+                          <Avatar className="h-9 w-9">
+                            {participant.profile_photo_url && <AvatarImage src={participant.profile_photo_url} />}
+                            <AvatarFallback className="text-xs">{getInitials(participant.rep_name)}</AvatarFallback>
+                          </Avatar>
+                          {isWinner && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
+                              <Crown className="h-2.5 w-2.5 text-white fill-white" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{getCleanName(participant.rep_name)}</p>
+                        </div>
+                        <p className={cn("font-bold text-sm", isWinner ? "text-amber-600" : "text-foreground")}>
+                          {(participant.final_value ?? 0).toFixed(1)}
+                        </p>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               )}
+
+              {/* Duration */}
+              <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                <span className="text-sm">{formatCompetitionDuration(incentive.start_date, incentive.end_date)}</span>
+              </div>
             </motion.div>
           )}
         </motion.div>

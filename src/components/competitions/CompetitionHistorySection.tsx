@@ -37,7 +37,6 @@ const metricLabels: Record<string, string> = {
 // Loading skeleton for the entire section
 const HistoryLoadingSkeleton = () => (
   <div className="space-y-4">
-    {/* Stats card skeleton */}
     <Card className="border-primary/20">
       <CardHeader className="pb-2">
         <Skeleton className="h-5 w-40" />
@@ -53,8 +52,6 @@ const HistoryLoadingSkeleton = () => (
         </div>
       </CardContent>
     </Card>
-
-    {/* Rivalries skeleton */}
     <Card>
       <CardHeader className="pb-3">
         <Skeleton className="h-5 w-32" />
@@ -68,29 +65,7 @@ const HistoryLoadingSkeleton = () => (
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-3 w-16" />
               </div>
-              <div className="text-right space-y-2">
-                <Skeleton className="h-5 w-12 ml-auto" />
-                <Skeleton className="h-3 w-16 ml-auto" />
-              </div>
             </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-
-    {/* History skeleton */}
-    <Card>
-      <CardHeader className="pb-3">
-        <Skeleton className="h-5 w-36" />
-      </CardHeader>
-      <CardContent className="p-0 space-y-1">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-4 w-4" />
-              <Skeleton className="h-4 w-32" />
-            </div>
-            <Skeleton className="h-5 w-16 rounded-full" />
           </div>
         ))}
       </CardContent>
@@ -192,16 +167,17 @@ const CompetitionItem = ({ challenge, incentive, currentUserId, onTap }: Competi
       ? challenge.participants?.find(p => p.user_id !== currentUserId)
       : null;
     
-    const getResultBadge = () => {
-      if (won) return { label: '🏆 Won', variant: 'default' as const, className: 'bg-primary text-primary-foreground' };
-      if (isTie) return { label: 'Tie', variant: 'secondary' as const, className: '' };
-      if (lost) return { label: 'Lost', variant: 'secondary' as const, className: '' };
-      return { label: 'Ended', variant: 'outline' as const, className: '' };
-    };
-    
-    const result = getResultBadge();
     const config = metricConfig[challenge.metric];
-    const metricIcon = config?.icon;
+
+    // Get scores for 1v1
+    const myValue = myParticipant?.final_value ?? 0;
+    const opponentValue = opponent?.final_value ?? 0;
+
+    // Team battle totals
+    const teamA = challenge.participants?.filter(p => p.role === 'captain_a' || p.team === 'a') || [];
+    const teamB = challenge.participants?.filter(p => p.role === 'captain_b' || p.team === 'b') || [];
+    const teamATotal = teamA.reduce((sum, p) => sum + (p.final_value ?? 0), 0);
+    const teamBTotal = teamB.reduce((sum, p) => sum + (p.final_value ?? 0), 0);
 
     return (
       <button
@@ -210,35 +186,87 @@ const CompetitionItem = ({ challenge, incentive, currentUserId, onTap }: Competi
           onTap();
         }}
         className={cn(
-          "w-full p-3 rounded-lg border text-left transition-all active:scale-[0.98]",
-          won ? "bg-primary/5 border-primary/30" : "bg-muted/30 hover:bg-muted/50"
+          "w-full p-3 rounded-xl border text-left transition-all active:scale-[0.97]",
+          won ? "bg-primary/5 border-primary/30" : "bg-card hover:bg-muted/50"
         )}
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Swords className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            {metricIcon && <span className="text-sm flex-shrink-0">{metricIcon}</span>}
-            <span className="text-sm font-medium truncate">
-              {challenge.type === '1v1' 
-                ? `${metricLabels[challenge.metric]} vs ${getCleanFirstName(opponent?.rep_name)}`
-                : `${metricLabels[challenge.metric]} Team Battle`
-              }
-            </span>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Type badge */}
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-              {challenge.type === '1v1' ? (
-                <><User className="h-2.5 w-2.5 mr-0.5" />1v1</>
-              ) : (
-                <><Users className="h-2.5 w-2.5 mr-0.5" />Team</>
-              )}
+        {challenge.type === '1v1' && opponent ? (
+          /* ESPN-style 1v1 face-off row */
+          <div className="flex items-center gap-2">
+            {/* Left participant (me or first) */}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="relative shrink-0">
+                <Avatar className="h-9 w-9 border border-border">
+                  <AvatarImage src={myParticipant?.profile_photo_url} />
+                  <AvatarFallback className="text-xs">{getInitials(myParticipant?.rep_name)}</AvatarFallback>
+                </Avatar>
+                {won && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
+                    <Crown className="h-2.5 w-2.5 text-white fill-white" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold truncate">{config.format(myValue)}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{getCleanFirstName(myParticipant?.rep_name)}</p>
+              </div>
+            </div>
+
+            {/* VS + metric */}
+            <div className="flex flex-col items-center shrink-0 px-1">
+              <span className="text-[10px] font-bold text-muted-foreground">VS</span>
+              <span className="text-[10px] text-muted-foreground">{config.icon} {config.label}</span>
+            </div>
+
+            {/* Right participant (opponent) */}
+            <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+              <div className="min-w-0 text-right">
+                <p className="text-sm font-bold truncate">{config.format(opponentValue)}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{getCleanFirstName(opponent.rep_name)}</p>
+              </div>
+              <div className="relative shrink-0">
+                <Avatar className="h-9 w-9 border border-border">
+                  <AvatarImage src={opponent.profile_photo_url} />
+                  <AvatarFallback className="text-xs">{getInitials(opponent.rep_name)}</AvatarFallback>
+                </Avatar>
+                {challenge.winner_user_id === opponent.user_id && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
+                    <Crown className="h-2.5 w-2.5 text-white fill-white" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Result badge */}
+            <Badge 
+              variant={won ? "default" : isTie ? "secondary" : "secondary"} 
+              className={cn("text-[10px] shrink-0 ml-1", won && "bg-primary text-primary-foreground")}
+            >
+              {won ? 'W' : isTie ? 'T' : lost ? 'L' : '-'}
             </Badge>
-            <Badge variant={result.variant} className={cn("text-xs", result.className)}>
-              {result.label}
+          </div>
+        ) : (
+          /* Team battle row */
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <Swords className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">
+                  🔴 {config.format(teamATotal)} vs {config.format(teamBTotal)} 🔵
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {config.icon} {config.label} • Team Battle
+                </p>
+              </div>
+            </div>
+            <Badge 
+              variant={won ? "default" : "secondary"} 
+              className={cn("text-xs", won && "bg-primary text-primary-foreground")}
+            >
+              {won ? '🏆 Won' : isTie ? 'Tie' : lost ? 'Lost' : 'Ended'}
             </Badge>
           </div>
-        </div>
+        )}
       </button>
     );
   }
@@ -248,14 +276,8 @@ const CompetitionItem = ({ challenge, incentive, currentUserId, onTap }: Competi
     const won = incentive.winner_user_id === currentUserId || winnerIds.includes(currentUserId);
     const hasWinner = incentive.winner_user_id || winnerIds.length > 0;
     
-    const getResultBadge = () => {
-      if (won) return { label: '🏆 Won', variant: 'default' as const, className: 'bg-primary text-primary-foreground' };
-      if (hasWinner) return { label: 'Lost', variant: 'secondary' as const, className: '' };
-      return { label: 'No Winner', variant: 'outline' as const, className: '' };
-    };
-    
-    const result = getResultBadge();
-    const eligibleCount = incentive.eligible_count || incentive.eligible_reps?.length || 0;
+    // Find winner rep info
+    const winnerRep = incentive.eligible_reps?.find(r => r.user_id === incentive.winner_user_id);
 
     return (
       <button
@@ -264,25 +286,40 @@ const CompetitionItem = ({ challenge, incentive, currentUserId, onTap }: Competi
           onTap();
         }}
         className={cn(
-          "w-full p-3 rounded-lg border text-left transition-all active:scale-[0.98]",
-          won ? "bg-amber-500/5 border-amber-500/30" : "bg-muted/30 hover:bg-muted/50"
+          "w-full p-3 rounded-xl border text-left transition-all active:scale-[0.97]",
+          won ? "bg-amber-500/5 border-amber-500/30" : "bg-card hover:bg-muted/50"
         )}
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Trophy className="h-4 w-4 text-amber-500 flex-shrink-0" />
-            <span className="text-sm font-medium truncate">{incentive.title}</span>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {eligibleCount > 1 && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                <Users className="h-2.5 w-2.5 mr-0.5" />{eligibleCount}
-              </Badge>
+        <div className="flex items-center gap-3">
+          <div className="relative shrink-0">
+            {winnerRep ? (
+              <Avatar className="h-9 w-9 border border-amber-500/50">
+                <AvatarImage src={winnerRep.profile_photo_url} />
+                <AvatarFallback className="text-xs">{getInitials(winnerRep.rep_name)}</AvatarFallback>
+              </Avatar>
+            ) : (
+              <div className="h-9 w-9 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <Trophy className="h-4 w-4 text-amber-500" />
+              </div>
             )}
-            <Badge variant={result.variant} className={cn("text-xs", result.className)}>
-              {result.label}
-            </Badge>
+            {won && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
+                <Trophy className="h-2.5 w-2.5 text-white" />
+              </div>
+            )}
           </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">{incentive.title}</p>
+            <p className="text-[11px] text-muted-foreground truncate">
+              🎁 {incentive.reward}
+            </p>
+          </div>
+          <Badge 
+            variant={won ? "default" : hasWinner ? "secondary" : "outline"} 
+            className={cn("text-xs shrink-0", won && "bg-primary text-primary-foreground")}
+          >
+            {won ? '🏆 Won' : hasWinner ? 'Lost' : 'No Winner'}
+          </Badge>
         </div>
       </button>
     );
@@ -302,7 +339,6 @@ const MonthGroup = ({ group, currentUserId, defaultOpen = false }: MonthGroupPro
   const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
   const [selectedIncentive, setSelectedIncentive] = useState<Incentive | null>(null);
 
-  // Filter out expired/voided - only show completed items with actual results
   const validChallenges = group.challenges.filter(c => 
     c.status === 'completed' && (c.winner_user_id || c.is_tie)
   );
@@ -310,7 +346,6 @@ const MonthGroup = ({ group, currentUserId, defaultOpen = false }: MonthGroupPro
     i.status === 'completed'
   );
 
-  // Don't show month if no valid items
   if (validChallenges.length === 0 && validIncentives.length === 0) {
     return null;
   }
@@ -364,7 +399,6 @@ const MonthGroup = ({ group, currentUserId, defaultOpen = false }: MonthGroupPro
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Detail Sheets */}
       {selectedChallenge && (
         <ChallengeDetailSheet
           challenge={selectedChallenge}
@@ -456,14 +490,12 @@ export const CompetitionHistorySection = () => {
   const { data: historyData, isLoading } = useCompetitionHistory();
   const [showAllRivalries, setShowAllRivalries] = useState(false);
 
-  // Get current user ID from the history data
   const currentUserId = historyData?.currentUserId || '';
 
   if (isLoading) {
     return <HistoryLoadingSkeleton />;
   }
 
-  // Filter monthly groups to only show months with valid completed items
   const validMonthlyGroups = historyData?.monthlyGroups.filter(group => {
     const hasValidChallenges = group.challenges.some(c => 
       c.status === 'completed' && (c.winner_user_id || c.is_tie)
@@ -490,12 +522,10 @@ export const CompetitionHistorySection = () => {
 
   return (
     <div className="space-y-4">
-      {/* Overall Stats */}
       {historyData.overallStats.totalChallenges > 0 && (
         <OverallStatsCard stats={historyData.overallStats} />
       )}
 
-      {/* Rivalries */}
       {historyData.rivalries.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
@@ -529,7 +559,6 @@ export const CompetitionHistorySection = () => {
         </Card>
       )}
 
-      {/* Monthly History */}
       {validMonthlyGroups.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
