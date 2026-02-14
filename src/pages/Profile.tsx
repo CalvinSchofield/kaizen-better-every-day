@@ -5,9 +5,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
 import { ProfilePhotoDrawer } from "@/components/ProfilePhotoDrawer";
-import { MomentumSparkline } from "@/components/profile/MomentumSparkline";
+import { ProfileSwiper } from "@/components/profile/ProfileSwiper";
+import { ProfileContactBar } from "@/components/profile/ProfileContactBar";
+import { RecentActivityCard } from "@/components/profile/RecentActivityCard";
 import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useDownlineGoalPace } from "@/hooks/useDownlineGoalPace";
 import { getInitials } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
 import { useState } from "react";
@@ -46,6 +50,9 @@ const Profile = () => {
 
   const { data: profile, isLoading } = useRepProfile(userId || null);
   const isOwnProfile = currentUserId === userId;
+  const { data: teamAccess } = useTeamAccess();
+  const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
+  const { data: goalPace } = useDownlineGoalPace(isDownline ? userId : null);
 
   const formatDate = (dateStr: string) => {
     try {
@@ -197,11 +204,29 @@ const Profile = () => {
         </div>
       </motion.div>
 
-      {/* Momentum Sparkline */}
-      <MomentumSparkline
+      {/* Contact Bar — anyone viewing someone else's profile */}
+      {!isOwnProfile && userId && (
+        <ProfileContactBar
+          name={profile.name}
+          phone={profile.phone}
+          userId={userId}
+        />
+      )}
+
+      {/* Momentum Sparkline / Goal Pace Swiper */}
+      <ProfileSwiper
         dailyFp={profile.dailyFpValues}
         isOwnProfile={isOwnProfile}
+        goalPace={isDownline ? (goalPace ?? null) : null}
+        repName={profile.name}
       />
+
+      {/* Recent Activity — leaders viewing downline */}
+      {isDownline && userId && (
+        <RecentActivityCard
+          viewedUserId={userId}
+        />
+      )}
 
       {/* Tabbed content */}
       <motion.div

@@ -75,6 +75,7 @@ interface RepProfileData {
   name: string;
   year: string | null;
   profilePhotoUrl: string | null;
+  phone: string | null;
   teamLeader: string | null;
   recruiter: string | null;
   teamName: string | null;
@@ -107,7 +108,7 @@ export const useRepProfile = (userId: string | null) => {
       const [repResult, entriesResult] = await Promise.all([
         supabase
           .from('reps')
-          .select('name, year, profile_photo_url, team_leader, recruiter, efp_mode_enabled, updated_at')
+          .select('name, year, profile_photo_url, phone, team_leader, recruiter, efp_mode_enabled, updated_at')
           .eq('user_id', userId)
           .maybeSingle(),
         supabase
@@ -195,6 +196,7 @@ export const useRepProfile = (userId: string | null) => {
         name: rep.name,
         year: rep.year,
         profilePhotoUrl: rep.profile_photo_url,
+        phone: rep.phone || null,
         teamLeader: rep.team_leader,
         recruiter: rep.recruiter,
         teamName: teamName || rep.team_leader,
