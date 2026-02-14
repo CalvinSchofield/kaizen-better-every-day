@@ -1,126 +1,103 @@
 
 
-## Profile Page Enhancement: Contact Actions, Goal Pace, and Activity Log
+# Leaderboard Page Redesign: Clean, Focused, World-Class Mobile UX
 
-### Overview
+## The Problem
+The current leaderboard page stacks too many sections vertically -- hero banner, filters, live race list, grit awards (Ironman/Early Bird/Night Owl/Workhorse), timing breakdown table, records collapsible, plus challenges and incentives tabs. It's information overload on a single scroll.
 
-When viewing another rep's profile (not just leaders -- anyone in the office), surface three new contextual features below the Momentum Sparkline and above the existing Tabs section. The design stays minimal: a compact action bar and one swipeable card that doesn't clutter the page.
+## Design Philosophy
+World-class mobile apps (Strava, Nike Run Club, Duolingo) solve this by **progressive disclosure** -- show the most important thing prominently, and let users drill into secondary content on demand. The leaderboard should feel like opening a sports app: you immediately see the race, and everything else is one tap away.
 
-### Feature 1: Quick Contact Bar (Call / Text)
-
-**Who sees it**: Anyone viewing a profile that is NOT their own.
-
-**What it does**:
-- Two pill buttons: "Call" and "Text" (same style as the stats bar card, not full-width buttons)
-- Tapping "Call" opens `tel:{phone}` and then shows the PostContactDrawer to log notes
-- Tapping "Text" opens `sms:{phone}` and then shows the PostContactDrawer to log notes
-- If no phone number is on file, prompts for phone entry first (reusing the existing phone-entry pattern from RecruitDetailDrawer)
-
-**Data needed**: Add `phone` to the `useRepProfile` hook's reps query. Also need to resolve the viewed user to a `Recruit` object (or a minimal stub) so PostContactDrawer can receive it.
-
-**Location on page**: Rendered as a slim card (`mx-5 mb-4 rounded-2xl bg-card border`) right after the stats bar, before the Momentum Sparkline. Two side-by-side outline buttons.
-
-### Feature 2: Goal Pace Card (Swipeable with Momentum)
-
-**Who sees it**: Leaders viewing a downline rep's profile (checked via `useTeamAccess().accessibleUserIds.includes(userId)`)
-
-**What it does**:
-- The Momentum Sparkline card becomes the first "page" in a horizontally swipeable container
-- Swiping left reveals a "Goal Pace" card that mirrors the FocusCard's pace section:
-  - Progress bar showing `ytdFP / goal` with percentage
-  - Pace status badge (Ahead / On Track / Behind / At Risk)
-  - "Avg X.XX/day | Need X.XX/day" comparison line
-  - Goal tier label (Preseason / Must Do / Will Do / Could Do)
-- Dot indicators at the bottom show which card is active (like iOS page dots)
-
-**Data needed**: Create a new hook `useDownlineGoalPace(userId)` that:
-1. Fetches `rep_goals` for the target user
-2. Fetches `season_config` for personal summer dates
-3. Calls `fetch-downline-planned-days` edge function for planned days count
-4. Fetches finalized daily entries count for knocking days
-5. Uses the existing `calculateSalesPace` utility for pace computation
-6. Returns: goal, ytdFP, paceStatus, neededDaily, currentAvgDaily, daysWorked, progressPercent, goalLabel
-
-**Location on page**: Replaces the standalone MomentumSparkline. Both cards sit in an `embla-carousel-react` horizontal scroller with snap points.
-
-### Feature 3: Recent Activity Timeline (Compact)
-
-**Who sees it**: Leaders viewing a downline rep's profile
-
-**What it does**:
-- A small "Recent Activity" section showing the last 3 logged interactions (from `recruit_activities` table)
-- Each row: icon (phone/text/note), relative time ("2d ago"), truncated notes
-- A "View All in My Group" link at the bottom that navigates to the RecruitDetailDrawer's activity tab
-
-**Data needed**: Query `recruit_activities` for the recruit record matching the viewed user (match by email or name, same pattern as RecruitDetailDrawer's `recruitRepData` lookup). Limit 3, order by `created_at desc`.
-
-**Location on page**: Rendered as a card below the Momentum/GoalPace swiper, above the Tabs section. Only appears for leaders with the viewed user in their downline.
-
-### Technical Implementation
-
-#### Files to modify:
-
-**`src/hooks/useRepProfile.ts`**
-- Add `phone` to the reps select query
-- Return `phone` in the RepProfileData interface
-
-**`src/hooks/useDownlineGoalPace.ts`** (new file)
-- Accepts `userId: string | null`
-- Fetches goals, summer config, planned days, knocking days
-- Runs `calculateSalesPace` and returns structured pace data
-- Only enabled when userId is provided
-
-**`src/components/profile/ProfileContactBar.tsx`** (new file)
-- Slim card with Call/Text buttons
-- Manages phone entry drawer state internally
-- Opens PostContactDrawer after initiating call/text
-- Needs: phone, name, userId of viewed profile + a minimal Recruit-shaped stub for PostContactDrawer
-
-**`src/components/profile/GoalPaceCard.tsx`** (new file)
-- Displays progress bar, pace badge, daily average comparison
-- Receives data from `useDownlineGoalPace`
-- Matches the card styling of MomentumSparkline (same border radius, padding, bg-card)
-
-**`src/components/profile/ProfileSwiper.tsx`** (new file)
-- Wraps MomentumSparkline + GoalPaceCard in an embla-carousel with dot indicators
-- Falls back to just MomentumSparkline when GoalPaceCard data isn't available
-
-**`src/components/profile/RecentActivityCard.tsx`** (new file)
-- Compact 3-row activity list
-- Link to open RecruitDetailDrawer or navigate to My Group
-
-**`src/pages/Profile.tsx`**
-- Import `useTeamAccess` to check if viewer is a leader with this user in downline
-- Import `useDownlineGoalPace` for pace data
-- Replace standalone `<MomentumSparkline>` with `<ProfileSwiper>` (passes GoalPaceCard when leader is viewing downline)
-- Add `<ProfileContactBar>` for non-own profiles (below stats bar, before swiper)
-- Add `<RecentActivityCard>` for leaders viewing downline (after swiper, before tabs)
-- Add PostContactDrawer + phone entry Drawer at bottom of component tree
-
-#### Visual Layout (top to bottom):
+## Proposed Layout
 
 ```text
-[Hero Photo with Name]
-[Stats Bar: YTD FP+ | YTD PRMR | Coming Soon]
-[Contact Bar: Call | Text]              <-- new, non-own profiles only
-[Swipeable: Momentum | Goal Pace]      <-- Goal Pace for leaders only
-[Recent Activity: 3 rows + link]        <-- leaders viewing downline only
-[Tabs: Stats | Records | Badges]
++------------------------------------------+
+|  [Hero Banner - Your Highlight]          |
++------------------------------------------+
+|  [Live] [Yesterday] [Week] [Month] ...  |  <-- time pills (unchanged)
+|                          [All | Rookies] |
++------------------------------------------+
+|                                          |
+|  RANKED LIST (FP+, PRMR, Doors, etc.)   |
+|  - Avatars, gap indicators, animations  |
+|  - This is the star of the show         |
+|                                          |
++------------------------------------------+
+|                                          |
+|  HORIZONTAL SCROLL CARDS:               |
+|  [Grit Awards] [Active Competitions] [Records] |
+|                                          |
+|  Each card is a compact preview that     |
+|  taps open into a detail sheet/drawer    |
+|                                          |
++------------------------------------------+
 ```
 
-#### PostContactDrawer Integration
+## What Changes
 
-The PostContactDrawer requires a `Recruit` object. Since we're on the profile page (not My Group), we'll construct a minimal Recruit stub from the profile data:
+### 1. Rankings stay front and center (no change)
+The `UnifiedRaceSection` with metric pills, avatars, gap-to-leader, and animations is the hero content. It stays exactly where it is and gets full attention.
 
-```typescript
-const recruitStub: Recruit = {
-  id: repId, // from reps table
-  name: profile.name,
-  phone: profile.phone,
-  stage: 'Sold', // default for viewing context
-  // ... other required fields with safe defaults
-};
-```
+### 2. Collapse Grit Awards, Competitions, and Records into a horizontal "Spotlight" carousel
+Instead of stacking Grit Awards, Timing Breakdown, Challenges, Incentives, and Records vertically, present them as **compact preview cards in a horizontal scroll row** below the rankings.
 
-This allows the same note-logging and follow-up scheduling flow without requiring the full My Group context.
+Each card is a small, visually distinct tile (~160px wide) that shows:
 
+- **Grit Awards card**: Shows the top award winner (e.g., "Ironman: Jackson, 8:30am - 9:15pm") with a flame icon. Tapping opens a bottom sheet with the full Grit Awards + Timing Breakdown detail.
+- **Active Competitions card**: Shows count of active challenges/incentives (e.g., "3 Active" with crossed swords icon). Tapping navigates to `/compete`.
+- **Records card**: Shows a teaser like "You hold 2 records" or "Class record: 14.2 FP+ in a day". Tapping opens the existing Records collapsible content in a bottom sheet.
+
+### 3. Remove the 3-tab layout in Live mode
+Currently Live mode has tabs for "Live Race", "Challenges", "Incentives". This fragments the experience. Instead:
+- Rankings always show (no tab needed).
+- Challenges and Incentives get their preview in the horizontal spotlight row, linking to `/compete` for full management.
+- This means the leaderboard page is always about the **leaderboard**, and `/compete` handles the competition hub.
+
+### 4. Keep the hero banner as-is
+The personal highlight callout at the top is great motivation. Keep it.
+
+### 5. Non-live timeframes
+For non-live views (Yesterday, Week, Month, etc.), the same pattern applies:
+- Rankings card with metric pills
+- Spotlight row below with Grit Awards + Records (no competitions card since those are live-focused)
+
+## Technical Plan
+
+### Files to modify:
+
+**`src/pages/Leaderboard.tsx`**
+- Remove the `Tabs`/`TabsList`/`TabsContent` wrapping for live mode
+- Always render `UnifiedRaceSection` directly (no tab container)
+- Replace the vertically stacked `GritAwardsSection`, `TimingBreakdownSection`, and `RecordsSection` with a new `LeaderboardSpotlightRow` component
+- Remove imports for `ChallengesTab`, `IncentivesTab`, `Tabs` components
+
+**New file: `src/components/leaderboard/LeaderboardSpotlightRow.tsx`**
+- Horizontally scrolling row of compact preview cards
+- `GritSpotlightCard`: Compact grit award summary, opens `GritAwardsSheet` on tap
+- `CompetitionsSpotlightCard`: Shows active challenge/incentive count, navigates to `/compete`
+- `RecordsSpotlightCard`: Teaser of personal bests, opens `RecordsSheet` on tap
+
+**New file: `src/components/leaderboard/GritAwardsSheet.tsx`**
+- Bottom sheet (using `vaul` Drawer) containing the existing `GritAwardsSection` and `TimingBreakdownSection` content
+
+**New file: `src/components/leaderboard/RecordsSheet.tsx`**
+- Bottom sheet containing the existing `PersonalBestsSection` and `ClassRecordsSection` content
+
+**`src/components/leaderboard/RecordsSection.tsx`**
+- Keep as-is internally but it will now be rendered inside the sheet instead of inline
+
+**`src/components/leaderboard/GritAwardsSection.tsx`** and **`TimingBreakdownSection.tsx`**
+- No changes needed -- they'll just be rendered inside the sheet
+
+### Files removed from leaderboard page (but kept for `/compete`):
+- `ChallengesTab` and `IncentivesTab` stay in the codebase for the `/compete` route, just no longer imported in `Leaderboard.tsx`
+
+### Hooks:
+- New hook `useActiveCompetitionCount` -- lightweight query that returns count of active challenges + incentives for the current user (for the spotlight card badge)
+
+## Summary of User-Facing Changes
+- The ranked list is always visible without tabs -- no more switching between "Live Race" and "Challenges"
+- Grit awards, competitions, and records become compact cards you scroll horizontally and tap to expand
+- Total vertical scroll reduced significantly
+- Competitions link to the dedicated `/compete` page instead of being embedded
+- Everything the user loves (avatars, gap indicators, metric pills, grit awards, records) is preserved -- just organized more cleanly
