@@ -3,9 +3,11 @@ import { useClassRecords, ClassRecordHolder } from "@/hooks/useClassRecords";
 import { formatFP } from "@/lib/formatters";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import type { RecordsMetric } from "@/hooks/useRecordsTracking";
 
 interface ClassRecordsSectionProps {
   currentUserId: string | null;
+  metric?: RecordsMetric;
 }
 
 const ClassBadge = ({ year }: { year: string }) => {
@@ -27,11 +29,13 @@ const RecordRow = ({
   icon: Icon,
   holder,
   isCurrentUser,
+  isPrmr,
 }: {
   label: string;
   icon: typeof Calendar;
   holder: ClassRecordHolder | null;
   isCurrentUser: boolean;
+  isPrmr: boolean;
 }) => {
   if (!holder) {
     return (
@@ -45,6 +49,10 @@ const RecordRow = ({
     );
   }
   
+  const formattedValue = isPrmr
+    ? `$${Math.round(holder.value).toLocaleString()}`
+    : formatFP(holder.value);
+
   return (
     <div className={cn(
       "flex items-center justify-between py-2",
@@ -56,7 +64,7 @@ const RecordRow = ({
       </div>
       <div className="flex items-center gap-2">
         {isCurrentUser && <Star className="w-3 h-3 fill-primary text-primary" />}
-        <span className="font-semibold">{formatFP(holder.value)}</span>
+        <span className="font-semibold">{formattedValue}</span>
         <span className="text-xs text-muted-foreground truncate max-w-[80px]">
           {isCurrentUser ? "You" : holder.name.split(' ')[0]}
         </span>
@@ -71,12 +79,14 @@ const ClassCard = ({
   week,
   month,
   currentUserId,
+  isPrmr,
 }: {
   year: string;
   day: ClassRecordHolder | null;
   week: ClassRecordHolder | null;
   month: ClassRecordHolder | null;
   currentUserId: string | null;
+  isPrmr: boolean;
 }) => {
   const hasAnyRecord = day || week || month;
   
@@ -95,19 +105,22 @@ const ClassCard = ({
             label="Day" 
             icon={Calendar} 
             holder={day} 
-            isCurrentUser={day?.userId === currentUserId} 
+            isCurrentUser={day?.userId === currentUserId}
+            isPrmr={isPrmr}
           />
           <RecordRow 
             label="Week" 
             icon={CalendarDays} 
             holder={week} 
-            isCurrentUser={week?.userId === currentUserId} 
+            isCurrentUser={week?.userId === currentUserId}
+            isPrmr={isPrmr}
           />
           <RecordRow 
             label="Month" 
             icon={CalendarRange} 
             holder={month} 
-            isCurrentUser={month?.userId === currentUserId} 
+            isCurrentUser={month?.userId === currentUserId}
+            isPrmr={isPrmr}
           />
         </div>
       )}
@@ -115,8 +128,11 @@ const ClassCard = ({
   );
 };
 
-export const ClassRecordsSection = ({ currentUserId }: ClassRecordsSectionProps) => {
-  const { classRecords, isLoading } = useClassRecords();
+export const ClassRecordsSection = ({ currentUserId, metric = 'fp' }: ClassRecordsSectionProps) => {
+  const { classRecords, prmrClassRecords, isLoading } = useClassRecords();
+
+  const isPrmr = metric === 'prmr';
+  const records = isPrmr ? prmrClassRecords : classRecords;
 
   if (isLoading) {
     return (
@@ -143,24 +159,27 @@ export const ClassRecordsSection = ({ currentUserId }: ClassRecordsSectionProps)
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <ClassCard
           year="Rookie"
-          day={classRecords.Rookie.day}
-          week={classRecords.Rookie.week}
-          month={classRecords.Rookie.month}
+          day={records.Rookie.day}
+          week={records.Rookie.week}
+          month={records.Rookie.month}
           currentUserId={currentUserId}
+          isPrmr={isPrmr}
         />
         <ClassCard
           year="Sophomore"
-          day={classRecords.Sophomore.day}
-          week={classRecords.Sophomore.week}
-          month={classRecords.Sophomore.month}
+          day={records.Sophomore.day}
+          week={records.Sophomore.week}
+          month={records.Sophomore.month}
           currentUserId={currentUserId}
+          isPrmr={isPrmr}
         />
         <ClassCard
           year="Vet"
-          day={classRecords.Vet.day}
-          week={classRecords.Vet.week}
-          month={classRecords.Vet.month}
+          day={records.Vet.day}
+          week={records.Vet.week}
+          month={records.Vet.month}
           currentUserId={currentUserId}
+          isPrmr={isPrmr}
         />
       </div>
     </div>

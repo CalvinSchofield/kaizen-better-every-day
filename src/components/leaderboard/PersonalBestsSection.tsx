@@ -1,11 +1,12 @@
 import type { ElementType } from "react";
 import { Trophy, Calendar, CalendarDays, CalendarRange } from "lucide-react";
-import { usePersonalRecords } from "@/hooks/useRecordsTracking";
+import { usePersonalRecords, type RecordsMetric } from "@/hooks/useRecordsTracking";
 import { formatFP } from "@/lib/formatters";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface PersonalBestsSectionProps {
   userId: string | null;
+  metric?: RecordsMetric;
 }
 
 const RecordCard = ({
@@ -16,7 +17,7 @@ const RecordCard = ({
 }: {
   icon: ElementType;
   label: string;
-  value: number;
+  value: string;
   sublabel: string;
 }) => (
   <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
@@ -25,18 +26,24 @@ const RecordCard = ({
     </div>
     <div className="min-w-0">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-xl font-bold text-foreground">{formatFP(value)}</p>
+      <p className="text-xl font-bold text-foreground">{value}</p>
       <p className="text-xs text-muted-foreground">{sublabel}</p>
     </div>
   </div>
 );
 
-export const PersonalBestsSection = ({ userId }: PersonalBestsSectionProps) => {
-  const { dayRecord, weekRecord, monthRecord, isLoading } = usePersonalRecords(userId ?? undefined);
+export const PersonalBestsSection = ({ userId, metric = 'fp' }: PersonalBestsSectionProps) => {
+  const { dayRecord, weekRecord, monthRecord, prmrDayRecord, prmrWeekRecord, prmrMonthRecord, isLoading } = usePersonalRecords(userId ?? undefined);
 
   if (!userId) return null;
 
-  const hasRecords = dayRecord > 0 || weekRecord > 0 || monthRecord > 0;
+  const isPrmr = metric === 'prmr';
+  const day = isPrmr ? prmrDayRecord : dayRecord;
+  const week = isPrmr ? prmrWeekRecord : weekRecord;
+  const month = isPrmr ? prmrMonthRecord : monthRecord;
+  const hasRecords = day > 0 || week > 0 || month > 0;
+  const formatValue = (v: number) => isPrmr ? `$${Math.round(v).toLocaleString()}` : formatFP(v);
+  const unit = isPrmr ? 'PRMR' : 'FP+';
 
   if (isLoading) {
     return (
@@ -78,20 +85,20 @@ export const PersonalBestsSection = ({ userId }: PersonalBestsSectionProps) => {
         <RecordCard
           icon={Calendar}
           label="Best Day"
-          value={dayRecord}
-          sublabel="FP+"
+          value={formatValue(day)}
+          sublabel={unit}
         />
         <RecordCard
           icon={CalendarDays}
           label="Best Week"
-          value={weekRecord}
-          sublabel="FP+"
+          value={formatValue(week)}
+          sublabel={unit}
         />
         <RecordCard
           icon={CalendarRange}
           label="Best Month"
-          value={monthRecord}
-          sublabel="FP+"
+          value={formatValue(month)}
+          sublabel={unit}
         />
       </div>
     </div>

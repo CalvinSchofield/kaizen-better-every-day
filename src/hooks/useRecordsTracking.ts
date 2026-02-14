@@ -349,6 +349,8 @@ export const useRecordsTracking = ({ enabled = true, accessibleUserIds }: UseRec
 };
 
 // Helper to get a user's personal records
+export type RecordsMetric = 'fp' | 'prmr';
+
 export const usePersonalRecords = (userId?: string) => {
   const { data: entries, isLoading } = useQuery({
     queryKey: ['personal-records', userId],
@@ -357,7 +359,7 @@ export const usePersonalRecords = (userId?: string) => {
       
       const { data, error } = await supabase
         .from('daily_entries')
-        .select('entry_date, fp_plus, sales_log')
+        .select('entry_date, fp_plus, prmr, sales_log')
         .eq('user_id', userId)
         .eq('is_finalized', true)
         .order('entry_date', { ascending: true });
@@ -370,35 +372,48 @@ export const usePersonalRecords = (userId?: string) => {
   });
 
   return useMemo(() => {
-    if (!entries?.length) return { dayRecord: 0, weekRecord: 0, monthRecord: 0, isLoading };
+    if (!entries?.length) return { 
+      dayRecord: 0, weekRecord: 0, monthRecord: 0,
+      prmrDayRecord: 0, prmrWeekRecord: 0, prmrMonthRecord: 0,
+      isLoading,
+    };
 
     let dayRecord = 0;
+    let prmrDayRecord = 0;
     const weekTotals = new Map<string, number>();
     const monthTotals = new Map<string, number>();
+    const prmrWeekTotals = new Map<string, number>();
+    const prmrMonthTotals = new Map<string, number>();
 
     entries.forEach(entry => {
-      // Prioritize sales_log as source of truth
       const salesLog = (entry as any).sales_log as any[] | null;
-      const fpPlus = (salesLog && Array.isArray(salesLog) && salesLog.length > 0)
-        ? calculateFromSalesLog(salesLog).fp
-        : (Number(entry.fp_plus) || 0);
+      const hasSalesLog = salesLog && Array.isArray(salesLog) && salesLog.length > 0;
+      const calculated = hasSalesLog ? calculateFromSalesLog(salesLog) : null;
+      const fpPlus = calculated ? calculated.fp : (Number(entry.fp_plus) || 0);
+      const prmr = calculated ? calculated.prmr : (Number(entry.prmr) || 0);
       const entryDate = new Date(entry.entry_date + 'T12:00:00');
       
       if (fpPlus > dayRecord) dayRecord = fpPlus;
+      if (prmr > prmrDayRecord) prmrDayRecord = prmr;
       
       const weekKey = format(startOfWeek(entryDate, { weekStartsOn: 0 }), 'yyyy-MM-dd');
       weekTotals.set(weekKey, (weekTotals.get(weekKey) || 0) + fpPlus);
+      prmrWeekTotals.set(weekKey, (prmrWeekTotals.get(weekKey) || 0) + prmr);
       
       const monthKey = format(entryDate, 'yyyy-MM');
       monthTotals.set(monthKey, (monthTotals.get(monthKey) || 0) + fpPlus);
+      prmrMonthTotals.set(monthKey, (prmrMonthTotals.get(monthKey) || 0) + prmr);
     });
 
     let weekRecord = 0;
     weekTotals.forEach(total => { if (total > weekRecord) weekRecord = total; });
-
     let monthRecord = 0;
     monthTotals.forEach(total => { if (total > monthRecord) monthRecord = total; });
+    let prmrWeekRecord = 0;
+    prmrWeekTotals.forEach(total => { if (total > prmrWeekRecord) prmrWeekRecord = total; });
+    let prmrMonthRecord = 0;
+    prmrMonthTotals.forEach(total => { if (total > prmrMonthRecord) prmrMonthRecord = total; });
 
-    return { dayRecord, weekRecord, monthRecord, isLoading };
+    return { dayRecord, weekRecord, monthRecord, prmrDayRecord, prmrWeekRecord, prmrMonthRecord, isLoading };
   }, [entries, isLoading]);
 };
