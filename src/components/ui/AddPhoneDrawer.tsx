@@ -179,7 +179,7 @@ export const AddPhoneDrawer = ({
             autoFocus
           />
           <p className="text-xs text-muted-foreground">
-            This will save to Notion and be available everywhere
+            This will be saved and available everywhere
           </p>
         </div>
         <div className="flex gap-3 pt-2">
