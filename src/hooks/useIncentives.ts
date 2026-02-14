@@ -124,7 +124,8 @@ export const useIncentives = (filter: 'active' | 'history' = 'active') => {
           *,
           incentive_eligible_reps (
             id,
-            user_id
+            user_id,
+            final_value
           )
         `)
         .in('status', statusFilter)
@@ -190,7 +191,8 @@ export const useMyActiveIncentives = () => {
           *,
           incentive_eligible_reps (
             id,
-            user_id
+            user_id,
+            final_value
           )
         `)
         .or(`status.eq.active,and(status.eq.completed,completed_at.gte.${twentyFourHoursAgo})`)

@@ -211,6 +211,15 @@ Deno.serve(async (req) => {
           if (updateError) {
             results.errors.push(`Incentive ${incentive.id} update error: ${updateError.message}`);
           } else {
+            // Store final_value for each eligible rep
+            for (const [uid, total] of Object.entries(userTotals)) {
+              await supabase
+                .from('incentive_eligible_reps')
+                .update({ final_value: total })
+                .eq('incentive_id', incentive.id)
+                .eq('user_id', uid);
+            }
+
             const winnerInfo = incentive.target_type === 'anyone_who' 
               ? `${winnerIds.length} qualified` 
               : winnerId ? 'winner found' : 'no winner';
