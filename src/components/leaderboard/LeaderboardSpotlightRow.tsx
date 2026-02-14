@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { hapticLight } from "@/utils/haptics";
 import { useActiveCompetitionCount } from "@/hooks/useActiveCompetitionCount";
 import { usePersonalRecords } from "@/hooks/useRecordsTracking";
+import { formatFP } from "@/lib/formatters";
 import { GritAwardsSheet } from "./GritAwardsSheet";
 import { RecordsSheet } from "./RecordsSheet";
 import type { GritAwards } from "@/hooks/useExpandedLeaderboard";
@@ -20,6 +21,7 @@ interface LeaderboardSpotlightRowProps {
     workhorseStreak: AwardStreak | null;
   };
   showCompetitions?: boolean;
+  dateRange?: { start: string; end: string };
 }
 
 const SpotlightCard = ({
@@ -70,11 +72,12 @@ export const LeaderboardSpotlightRow = ({
   currentUserId,
   streaks,
   showCompetitions = true,
+  dateRange,
 }: LeaderboardSpotlightRowProps) => {
   const [gritOpen, setGritOpen] = useState(false);
   const [recordsOpen, setRecordsOpen] = useState(false);
   const navigate = useNavigate();
-  const { data: competitionCount } = useActiveCompetitionCount();
+  const { data: competitionCount } = useActiveCompetitionCount(dateRange);
   const { dayRecord, weekRecord, monthRecord } = usePersonalRecords(currentUserId ?? undefined);
 
   // Build grit subtitle
@@ -94,13 +97,20 @@ export const LeaderboardSpotlightRow = ({
     gritAwards.mostHoursWorked
   );
 
-  // Records subtitle
+  // Records subtitle with rounded numbers
   const recordCount = [dayRecord, weekRecord, monthRecord].filter(v => v > 0).length;
   const recordsSubtitle = recordCount > 0
-    ? `Best day: ${dayRecord} FP+`
+    ? `Best day: ${formatFP(dayRecord)} FP+`
     : "View personal bests & class records";
 
   const totalComps = competitionCount?.total ?? 0;
+
+  // Competitions subtitle
+  const getCompSubtitle = () => {
+    if (totalComps > 0) return `${totalComps} active right now`;
+    if (dateRange) return "View past challenges";
+    return "Create or join challenges";
+  };
 
   return (
     <>
@@ -120,7 +130,7 @@ export const LeaderboardSpotlightRow = ({
             icon={Swords}
             iconColor="text-purple-500"
             title="Competitions"
-            subtitle={totalComps > 0 ? `${totalComps} active right now` : "Create or join challenges"}
+            subtitle={getCompSubtitle()}
             badge={totalComps > 0 ? `${totalComps} Live` : undefined}
             onClick={() => navigate("/compete")}
           />

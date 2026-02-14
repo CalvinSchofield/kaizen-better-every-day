@@ -1,6 +1,7 @@
 import type { ElementType } from "react";
 import { Trophy, Calendar, CalendarDays, CalendarRange } from "lucide-react";
 import { usePersonalRecords } from "@/hooks/useRecordsTracking";
+import { formatFP } from "@/lib/formatters";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface PersonalBestsSectionProps {
@@ -24,7 +25,7 @@ const RecordCard = ({
     </div>
     <div className="min-w-0">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-xl font-bold text-foreground">{value.toLocaleString()}</p>
+      <p className="text-xl font-bold text-foreground">{formatFP(value)}</p>
       <p className="text-xs text-muted-foreground">{sublabel}</p>
     </div>
   </div>

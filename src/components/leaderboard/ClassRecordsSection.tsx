@@ -1,5 +1,6 @@
 import { Crown, Calendar, CalendarDays, CalendarRange, Star } from "lucide-react";
 import { useClassRecords, ClassRecordHolder } from "@/hooks/useClassRecords";
+import { formatFP } from "@/lib/formatters";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -55,7 +56,7 @@ const RecordRow = ({
       </div>
       <div className="flex items-center gap-2">
         {isCurrentUser && <Star className="w-3 h-3 fill-primary text-primary" />}
-        <span className="font-semibold">{holder.value.toLocaleString()}</span>
+        <span className="font-semibold">{formatFP(holder.value)}</span>
         <span className="text-xs text-muted-foreground truncate max-w-[80px]">
           {isCurrentUser ? "You" : holder.name.split(' ')[0]}
         </span>

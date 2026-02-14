@@ -4,7 +4,7 @@ import { LeaderboardHeroBanner } from "@/components/leaderboard/LeaderboardHeroB
 import { LeaderboardFilters, TimeFilter, ScopeFilter } from "@/components/leaderboard/LeaderboardFilters";
 import { UnifiedRaceSection } from "@/components/leaderboard/UnifiedRaceSection";
 import { LeaderboardSpotlightRow } from "@/components/leaderboard/LeaderboardSpotlightRow";
-import { useExpandedLeaderboard, CustomDateRange } from "@/hooks/useExpandedLeaderboard";
+import { useExpandedLeaderboard, CustomDateRange, getDateRange } from "@/hooks/useExpandedLeaderboard";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
@@ -91,6 +91,7 @@ const Leaderboard = () => {
   }
 
   const isLive = timeFilter === 'live';
+  const currentDateRange = timeFilter ? getDateRange(timeFilter, timeFilter === 'custom' ? customDateRange : undefined) : undefined;
 
   const hasNoData = isLive
     ? !todayLeaderboard?.rankings || Object.values(todayLeaderboard.rankings).every(arr => arr.length === 0)
@@ -172,7 +173,8 @@ const Leaderboard = () => {
               gritAwards={expandedLeaderboard?.gritAwards}
               currentUserId={currentUserId}
               streaks={streakData}
-              showCompetitions={isLive}
+              showCompetitions={true}
+              dateRange={currentDateRange}
             />
           </div>
         )}
