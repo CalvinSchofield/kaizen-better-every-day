@@ -32,8 +32,8 @@ export const GritAwardsSheet = ({
         {/* Premium gradient header */}
         <div className="relative overflow-hidden">
           {/* Background gradient with warm glow */}
-          <div className="absolute inset-0 bg-gradient-to-b from-orange-500/15 via-amber-500/8 to-transparent dark:from-orange-500/20 dark:via-amber-500/10 dark:to-transparent" />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-20 bg-orange-500/20 blur-3xl rounded-full" />
+          <div className="absolute inset-0 bg-gradient-to-b from-orange-500/10 via-transparent to-transparent dark:from-orange-500/15 dark:via-transparent dark:to-transparent" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-16 bg-orange-500/15 blur-3xl rounded-full dark:bg-orange-500/20" />
           
           <div className="relative px-6 pt-4 pb-4">
             
