@@ -14,6 +14,8 @@ interface ProfileContactBarProps {
   repId?: string;
   /** Only leaders with this user in their downline should log post-contact notes */
   canLog?: boolean;
+  /** "overlay" renders compact pill buttons for the hero area */
+  variant?: 'card' | 'overlay';
 }
 
 /** Build a minimal Recruit stub for the PostContactDrawer */
@@ -41,7 +43,7 @@ function makeRecruitStub(name: string, phone: string, userId: string): Recruit {
   };
 }
 
-export const ProfileContactBar = ({ name, phone, userId, repId, canLog = false }: ProfileContactBarProps) => {
+export const ProfileContactBar = ({ name, phone, userId, repId, canLog = false, variant = 'card' }: ProfileContactBarProps) => {
   const [postContactOpen, setPostContactOpen] = useState(false);
   const [contactMethod, setContactMethod] = useState<'call' | 'text'>('call');
   const [addPhoneOpen, setAddPhoneOpen] = useState(false);
@@ -82,6 +84,41 @@ export const ProfileContactBar = ({ name, phone, userId, repId, canLog = false }
 
   const recruitStub = currentPhone ? makeRecruitStub(name, currentPhone, userId) : null;
 
+  if (variant === 'overlay') {
+    return (
+      <>
+        <button
+          onClick={() => handleContact('call')}
+          className="h-10 w-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center active:scale-90 transition-transform border-2 border-white/20"
+        >
+          <Phone className="h-4 w-4 text-white" />
+        </button>
+        <button
+          onClick={() => handleContact('text')}
+          className="h-10 w-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center active:scale-90 transition-transform border-2 border-white/20"
+        >
+          <MessageSquare className="h-4 w-4 text-white" />
+        </button>
+
+        <PostContactDrawer
+          open={postContactOpen}
+          onOpenChange={setPostContactOpen}
+          recruit={recruitStub}
+          contactMethod={contactMethod}
+        />
+        <AddPhoneDrawer
+          open={addPhoneOpen}
+          onOpenChange={setAddPhoneOpen}
+          personName={name}
+          repId={repId}
+          recruitId={userId}
+          pendingAction={pendingAction}
+          onPhoneSaved={handlePhoneSaved}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <motion.div
@@ -118,7 +155,6 @@ export const ProfileContactBar = ({ name, phone, userId, repId, canLog = false }
         recruit={recruitStub}
         contactMethod={contactMethod}
       />
-
       <AddPhoneDrawer
         open={addPhoneOpen}
         onOpenChange={setAddPhoneOpen}

@@ -175,15 +175,25 @@ const Profile = () => {
           </motion.div>
         </div>
 
-        {/* Camera button for own profile */}
-        {isOwnProfile && (
+        {/* Camera button for own profile / Call+Text for others */}
+        {isOwnProfile ? (
           <button
             onClick={() => { hapticLight(); setPhotoDrawerOpen(true); }}
             className="absolute bottom-5 right-5 z-20 h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg active:scale-90 transition-transform border-2 border-white/20"
           >
             <Camera className="h-4 w-4" />
           </button>
-        )}
+        ) : userId ? (
+          <div className="absolute bottom-5 right-5 z-20 flex gap-2">
+            <ProfileContactBar
+              name={profile.name}
+              phone={profile.phone}
+              userId={userId}
+              canLog={isDownline}
+              variant="overlay"
+            />
+          </div>
+        ) : null}
       </div>
 
       {/* Stats bar */}
@@ -204,15 +214,7 @@ const Profile = () => {
         </div>
       </motion.div>
 
-      {/* Contact Bar — anyone viewing someone else's profile */}
-      {!isOwnProfile && userId && (
-        <ProfileContactBar
-          name={profile.name}
-          phone={profile.phone}
-          userId={userId}
-          canLog={isDownline}
-        />
-      )}
+      {/* Contact drawers still need to render — handled inside ProfileContactBar */}
 
       {/* Momentum Sparkline / Goal Pace Swiper */}
       <ProfileSwiper
