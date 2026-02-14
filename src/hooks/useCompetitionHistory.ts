@@ -97,7 +97,8 @@ export const useCompetitionHistory = () => {
           *,
           incentive_eligible_reps (
             id,
-            user_id
+            user_id,
+            final_value
           )
         `)
         .in('id', incentiveIds)

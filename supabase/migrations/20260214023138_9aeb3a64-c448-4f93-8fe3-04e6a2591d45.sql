@@ -1,0 +1,1 @@
+ALTER TABLE public.incentive_eligible_reps ADD COLUMN final_value numeric DEFAULT NULL;
