@@ -80,12 +80,25 @@ export const useDownlineGoalPace = (userId: string | null) => {
       }
 
       // Parse planned days from edge function response
+      // The edge function returns { plannedDays: [{ planned_date, user_id }, ...] }
       const plannedDaysData = plannedDaysResult.data;
       const userPlannedDays: Array<{ planned_date: string }> = [];
       if (plannedDaysData && typeof plannedDaysData === 'object') {
-        const raw = plannedDaysData[userId] as string[] | undefined;
-        if (Array.isArray(raw)) {
-          raw.forEach((d: string) => userPlannedDays.push({ planned_date: d }));
+        // Handle { plannedDays: [...] } format
+        const rawArray = plannedDaysData.plannedDays;
+        if (Array.isArray(rawArray)) {
+          for (const item of rawArray) {
+            if (item.user_id === userId && item.planned_date) {
+              userPlannedDays.push({ planned_date: item.planned_date });
+            }
+          }
+        }
+        // Fallback: handle { [userId]: string[] } format
+        if (userPlannedDays.length === 0) {
+          const raw = plannedDaysData[userId] as string[] | undefined;
+          if (Array.isArray(raw)) {
+            raw.forEach((d: string) => userPlannedDays.push({ planned_date: d }));
+          }
         }
       }
 
