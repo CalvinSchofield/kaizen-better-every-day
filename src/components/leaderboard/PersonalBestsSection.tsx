@@ -20,14 +20,14 @@ const RecordCard = ({
   value: string;
   sublabel: string;
 }) => (
-  <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
-    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-      <Icon className="w-5 h-5 text-primary" />
+  <div className="bg-card border border-border rounded-xl p-3 flex items-center gap-2">
+    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+      <Icon className="w-4 h-4 text-primary" />
     </div>
     <div className="min-w-0">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-xl font-bold text-foreground">{value}</p>
-      <p className="text-xs text-muted-foreground">{sublabel}</p>
+      <p className="text-lg font-bold text-foreground leading-tight truncate">{value}</p>
+      <p className="text-[10px] text-muted-foreground">{sublabel}</p>
     </div>
   </div>
 );
