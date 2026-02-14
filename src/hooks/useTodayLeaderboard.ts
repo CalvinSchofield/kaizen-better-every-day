@@ -21,6 +21,7 @@ interface TodayLeaderboard {
     pitches: RankingEntry[];
     doors_knocked: RankingEntry[];
     decision_makers: RankingEntry[];
+    closes: RankingEntry[];
   };
 }
 
@@ -73,7 +74,7 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
       
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, is_finalized, sales_log")
+        .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, is_finalized, sales_log")
         .gte("entry_date", twoDaysAgoStr);
 
       if (error) throw error;
@@ -265,6 +266,7 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
           pitches: createRanking('pitches', 'transitions'),
           doors_knocked: createRanking('doors_knocked', 'decision_makers'),
           decision_makers: createRanking('decision_makers', 'pitches'),
+          closes: createRanking('closes', 'presentations'),
         },
       };
 
