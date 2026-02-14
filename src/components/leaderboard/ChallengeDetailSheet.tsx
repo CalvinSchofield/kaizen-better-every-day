@@ -6,6 +6,7 @@ import { Challenge, useRespondToChallenge, useVoidChallenge } from "@/hooks/useC
 import { useChallengeProgress } from "@/hooks/useChallengeProgress";
 import { useChallengeEditProposals } from "@/hooks/useChallengeEdits";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { ProfileAvatar } from "@/components/ui/profile-avatar";
 import { Trophy, Eye, EyeOff, Pencil, Check, Clock, X, Swords, Users, Trash2, Crown, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -35,7 +36,7 @@ const getRoleLabel = (role: string, team?: string | null) => {
 };
 
 // ESPN-style completed matchup hero for 1v1
-const CompletedMatchupHero = ({ challenge, currentUserId }: { challenge: Challenge; currentUserId?: string }) => {
+const CompletedMatchupHero = ({ challenge, currentUserId, onClose }: { challenge: Challenge; currentUserId?: string; onClose: () => void }) => {
   const participants = challenge.participants || [];
   const p1 = participants[0];
   const p2 = participants[1];
@@ -97,13 +98,17 @@ const CompletedMatchupHero = ({ challenge, currentUserId }: { challenge: Challen
                     <Crown className="h-6 w-6 text-amber-500 fill-amber-500" />
                   </motion.div>
                 )}
-                <Avatar className={cn(
-                  "h-18 w-18 border-3",
-                  isWinner ? "border-amber-500 ring-2 ring-amber-500/30" : "border-border"
-                )}>
-                  <AvatarImage src={p.profile_photo_url} />
-                  <AvatarFallback className="text-xl font-bold">{getInitials(p.rep_name)}</AvatarFallback>
-                </Avatar>
+                <ProfileAvatar
+                  userId={p.user_id}
+                  name={p.rep_name}
+                  photoUrl={p.profile_photo_url}
+                  onBeforeNavigate={onClose}
+                  className={cn(
+                    "h-18 w-18 border-3",
+                    isWinner ? "border-amber-500 ring-2 ring-amber-500/30" : "border-border"
+                  )}
+                  fallbackClassName="text-xl font-bold"
+                />
               </div>
               <p className="font-semibold mt-2 text-sm">{getCleanFirstName(p.rep_name)}</p>
               <motion.p
@@ -165,7 +170,7 @@ const CompletedMatchupHero = ({ challenge, currentUserId }: { challenge: Challen
 };
 
 // ESPN-style completed team battle
-const CompletedTeamHero = ({ challenge, currentUserId }: { challenge: Challenge; currentUserId?: string }) => {
+const CompletedTeamHero = ({ challenge, currentUserId, onClose }: { challenge: Challenge; currentUserId?: string; onClose: () => void }) => {
   const participants = challenge.participants || [];
   const teamA = participants.filter(p => p.role === 'captain_a' || p.team === 'a');
   const teamB = participants.filter(p => p.role === 'captain_b' || p.team === 'b');
@@ -254,10 +259,14 @@ const CompletedTeamHero = ({ challenge, currentUserId }: { challenge: Challenge;
                   )}
                 >
                   <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}</span>
-                  <Avatar className={`h-7 w-7 border border-${color}-500/50 shrink-0`}>
-                    <AvatarImage src={member.profile_photo_url} />
-                    <AvatarFallback className="text-[10px] font-semibold">{getInitials(member.rep_name)}</AvatarFallback>
-                  </Avatar>
+                  <ProfileAvatar
+                    userId={member.user_id}
+                    name={member.rep_name}
+                    photoUrl={member.profile_photo_url}
+                    onBeforeNavigate={onClose}
+                    className={`h-7 w-7 border border-${color}-500/50 shrink-0`}
+                    fallbackClassName="text-[10px] font-semibold"
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium truncate">{getCleanFirstName(member.rep_name)}</p>
                   </div>
@@ -513,10 +522,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                             participant.accepted ? "bg-green-500/10 border border-green-500/30" : "bg-muted/50"
                           )}
                         >
-                          <Avatar className="h-8 w-8 border border-red-500/50">
-                            <AvatarImage src={participant.profile_photo_url} />
-                            <AvatarFallback className="text-xs">{getInitials(participant.rep_name)}</AvatarFallback>
-                          </Avatar>
+                          <ProfileAvatar userId={participant.user_id} name={participant.rep_name} photoUrl={participant.profile_photo_url} onBeforeNavigate={() => onOpenChange(false)} className="h-8 w-8 border border-red-500/50" fallbackClassName="text-xs" />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm truncate">{getCleanName(participant.rep_name)}</p>
                           </div>
@@ -547,10 +553,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                             participant.accepted ? "bg-green-500/10 border border-green-500/30" : "bg-muted/50"
                           )}
                         >
-                          <Avatar className="h-8 w-8 border border-blue-500/50">
-                            <AvatarImage src={participant.profile_photo_url} />
-                            <AvatarFallback className="text-xs">{getInitials(participant.rep_name)}</AvatarFallback>
-                          </Avatar>
+                          <ProfileAvatar userId={participant.user_id} name={participant.rep_name} photoUrl={participant.profile_photo_url} onBeforeNavigate={() => onOpenChange(false)} className="h-8 w-8 border border-blue-500/50" fallbackClassName="text-xs" />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm truncate">{getCleanName(participant.rep_name)}</p>
                           </div>
@@ -590,13 +593,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                         "relative inline-block p-1 rounded-full",
                         participant.accepted ? "bg-green-500/20" : "bg-amber-500/20"
                       )}>
-                        <Avatar className={cn(
-                          "h-16 w-16 border-2",
-                          participant.accepted ? "border-green-500" : "border-amber-500"
-                        )}>
-                          <AvatarImage src={participant.profile_photo_url} />
-                          <AvatarFallback>{getInitials(participant.rep_name)}</AvatarFallback>
-                        </Avatar>
+                        <ProfileAvatar userId={participant.user_id} name={participant.rep_name} photoUrl={participant.profile_photo_url} onBeforeNavigate={() => onOpenChange(false)} className={cn("h-16 w-16 border-2", participant.accepted ? "border-green-500" : "border-amber-500")} />
                         <div className={cn(
                           "absolute -bottom-1 -right-1 h-6 w-6 rounded-full flex items-center justify-center",
                           participant.accepted ? "bg-green-500" : "bg-amber-500"
@@ -622,10 +619,10 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
             {isCompleted && (
               <>
                 {is1v1 && (
-                  <CompletedMatchupHero challenge={challenge} currentUserId={currentUser?.id} />
+                  <CompletedMatchupHero challenge={challenge} currentUserId={currentUser?.id} onClose={() => onOpenChange(false)} />
                 )}
                 {isTeamBattle && (
-                  <CompletedTeamHero challenge={challenge} currentUserId={currentUser?.id} />
+                  <CompletedTeamHero challenge={challenge} currentUserId={currentUser?.id} onClose={() => onOpenChange(false)} />
                 )}
 
                 {/* Duration info */}
@@ -665,13 +662,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                               whileHover={{ scale: 1.05 }}
                               transition={{ type: "spring", stiffness: 400 }}
                             >
-                              <Avatar className={cn(
-                                "h-16 w-16 mx-auto mb-2 border-2",
-                                i === 0 ? "border-primary" : "border-border"
-                              )}>
-                                <AvatarImage src={p.profile_photo_url} />
-                                <AvatarFallback className="text-lg font-semibold">{getInitials(p.rep_name)}</AvatarFallback>
-                              </Avatar>
+                              <ProfileAvatar userId={p.user_id} name={p.rep_name} photoUrl={p.profile_photo_url} onBeforeNavigate={() => onOpenChange(false)} className={cn("h-16 w-16 mx-auto mb-2 border-2", i === 0 ? "border-primary" : "border-border")} fallbackClassName="text-lg font-semibold" />
                             </motion.div>
                             <p className="font-semibold">{getCleanName(p.rep_name)}</p>
                             <motion.p 
@@ -806,10 +797,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                               )}
                             >
                               <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}</span>
-                              <Avatar className="h-7 w-7 border border-red-500/50 shrink-0">
-                                <AvatarImage src={member.profile_photo_url} />
-                                <AvatarFallback className="text-[10px] font-semibold">{getInitials(member.rep_name)}</AvatarFallback>
-                              </Avatar>
+                              <ProfileAvatar userId={member.user_id} name={member.rep_name} photoUrl={member.profile_photo_url} onBeforeNavigate={() => onOpenChange(false)} className="h-7 w-7 border border-red-500/50 shrink-0" fallbackClassName="text-[10px] font-semibold" />
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-medium truncate">{getCleanFirstName(member.rep_name)}</p>
                               </div>
@@ -838,10 +826,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                               )}
                             >
                               <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}</span>
-                              <Avatar className="h-7 w-7 border border-blue-500/50 shrink-0">
-                                <AvatarImage src={member.profile_photo_url} />
-                                <AvatarFallback className="text-[10px] font-semibold">{getInitials(member.rep_name)}</AvatarFallback>
-                              </Avatar>
+                              <ProfileAvatar userId={member.user_id} name={member.rep_name} photoUrl={member.profile_photo_url} onBeforeNavigate={() => onOpenChange(false)} className="h-7 w-7 border border-blue-500/50 shrink-0" fallbackClassName="text-[10px] font-semibold" />
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-medium truncate">{getCleanFirstName(member.rep_name)}</p>
                               </div>
