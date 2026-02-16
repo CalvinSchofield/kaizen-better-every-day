@@ -207,13 +207,15 @@ export const CalendarPlanningPreview = ({
                 ) : (
                   <>
                     <motion.div
-                      key={stats.weeklyNeeded}
+                      key={activeTier === 'preseason' ? stats.dailyNeeded : stats.weeklyNeeded}
                       initial={{ scale: 0.95, opacity: 0.5 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ type: "spring", stiffness: 300, damping: 25 }}
                       className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-amber-500"
                     >
-                      {stats.weeklyNeeded} / week needed
+                      {activeTier === 'preseason'
+                        ? `${stats.dailyNeeded} / day needed`
+                        : `${stats.weeklyNeeded} / week needed`}
                     </motion.div>
                     <div className="text-xs text-muted-foreground leading-snug max-w-[260px] mx-auto">
                       {activeTier === 'preseason'
