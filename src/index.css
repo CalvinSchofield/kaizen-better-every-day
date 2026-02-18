@@ -227,24 +227,7 @@ All colors MUST be HSL.
     --keyboard-height: 0px;
   }
   
-  /* When iOS keyboard is open, ensure proper viewport behavior */
-  html.keyboard-open {
-    /* Use the actual visual viewport height to prevent blank space */
-    height: var(--visual-viewport-height, 100%);
-    overflow: hidden;
-  }
-  
-  html.keyboard-open body {
-    height: var(--visual-viewport-height, 100%);
-    overflow: hidden;
-  }
-  
-  html.keyboard-open #root {
-    /* Constrain to visual viewport and enable scrolling */
-    height: var(--visual-viewport-height, 100%);
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-  }
+  /* keyboard-open class is added by useKeyboardViewport hook — no height forcing */
   
   #root {
     height: 100%;
