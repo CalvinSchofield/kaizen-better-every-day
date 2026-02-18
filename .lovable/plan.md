@@ -1,31 +1,50 @@
 
 
-# Home Page Polish and Persona-Aware UX Audit
+## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
 
-## ✅ Completed Changes
+### The Problem
 
-### Phase 1: Quick Fixes
-1. **Fixed duplicate Zap icon** in KnockingModeHome.tsx (removed second `<Zap>` on line 183)
-2. **Added `active:scale-[0.97]` press state** to LeaderboardCard for premium native feel
-3. **Card spacing verified** — all three home variants (KnockingModeHome, VetHome, PostBlitzRookieHome) already use `home-card-container` class consistently
+When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
 
-### Phase 1.5: Header Parity
-4. **Added LeaderboardCTA to VetHome and PostBlitzRookieHome headers** — now all three home variants show the competitive leaderboard callout in the header when no RSVP is active
-5. **Removed manual refresh button from PostBlitzRookieHome** — matches KnockingModeHome's clean pattern (data freshness handled by staleTime + pull-to-refresh)
+### Root Cause
 
-### Phase 2: Card Polish
-6. **Enhanced LeaderboardCard** — added:
-   - Circular icon container with emoji trophy for visual weight
-   - Richer subtitle: shows "You're leading [metric] [timeframe]!" with Crown icon when user leads, or "Leader name · value timeframe" with TrendingUp icon otherwise
-   - Proper text truncation for long names
-   - `active:scale-[0.97]` press feedback
+There are three things fighting each other:
 
-## Remaining Opportunities (Future Sessions)
+1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
 
-### Medium Effort
-- **Shared HomeHeader component**: The RSVP and blitz CTA logic is deeply entangled with per-component state (weather sheets, blitz data). Full extraction would require significant refactoring. The header is now visually consistent across all variants.
-- **ActiveChallengesCard compact mode**: Show a summary pill on home page instead of full expanded view
-- **VetHome 5-5-5 card**: Could be made more actionable or replaced with a smarter CTA
+2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
 
-### Low Priority
-- **Code deduplication**: VetHome (1004 lines) and PostBlitzRookieHome (1008 lines) share ~300 lines of identical RSVP, weather, and utility logic. Extracting into shared hooks would reduce maintenance risk but doesn't affect UX.
+3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+
+### The Fix
+
+#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+
+The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
+
+#### 2. Simplify `useKeyboardViewport` hook
+
+- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
+- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
+- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
+- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
+
+#### 3. Add `@capacitor/keyboard` plugin configuration
+
+Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
+
+### Files to Modify
+
+- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
+- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
+- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
+- **`package.json`** -- Add `@capacitor/keyboard` dependency
+
+### After Approval
+
+After these code changes, you will need to:
+1. Git pull the updated code
+2. Run `npm install` to get the new keyboard plugin
+3. Run `npx cap sync` to sync the plugin to iOS
+4. Rebuild in Xcode and push to TestFlight
+
