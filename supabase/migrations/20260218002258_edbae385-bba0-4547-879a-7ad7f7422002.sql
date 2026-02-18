@@ -1,0 +1,1 @@
+ALTER TYPE public.recruit_activity_type ADD VALUE IF NOT EXISTS 'text';

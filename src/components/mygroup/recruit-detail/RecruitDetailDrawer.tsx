@@ -1024,9 +1024,11 @@ export const RecruitDetailDrawer = ({
   };
 
   const getActivityIcon = (type: string, notes?: string | null) => {
-    const isText = notes?.toLowerCase().includes('text');
+    const isText = type === 'text' || notes?.toLowerCase().includes('text');
+    if (type === 'text' || (type === 'phone_call' && isText)) {
+      return <MessageSquare className="h-4 w-4 text-blue-500" />;
+    }
     if (type === 'phone_call') {
-      if (isText) return <MessageSquare className="h-4 w-4 text-blue-500" />;
       if (notes?.includes('Connected')) return <PhoneCall className="h-4 w-4 text-green-500" />;
       if (notes === 'No Answer') return <PhoneMissed className="h-4 w-4 text-muted-foreground" />;
       return <Phone className="h-4 w-4" />;

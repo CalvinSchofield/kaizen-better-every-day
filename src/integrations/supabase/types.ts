@@ -2098,6 +2098,7 @@ export type Database = {
         | "note"
         | "stage_change"
         | "next_step"
+        | "text"
       recruit_stage:
         | "100_list"
         | "reached_out"
@@ -2240,6 +2241,7 @@ export const Constants = {
         "note",
         "stage_change",
         "next_step",
+        "text",
       ],
       recruit_stage: [
         "100_list",
