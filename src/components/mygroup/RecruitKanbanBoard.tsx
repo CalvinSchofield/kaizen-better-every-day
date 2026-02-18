@@ -141,7 +141,7 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
   const getLastContactFromActivities = (recruitId: string): string | null => {
     const recruitActivities = activities.filter(a => 
       a.recruit_id === recruitId &&
-      (a.activity_type === 'phone_call' || a.activity_type === 'in_person')
+      (a.activity_type === 'phone_call' || a.activity_type === 'in_person' || a.activity_type === 'text')
     );
     
     if (recruitActivities.length === 0) return null;

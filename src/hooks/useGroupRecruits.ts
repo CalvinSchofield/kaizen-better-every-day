@@ -910,7 +910,7 @@ export const useLogRecruitActivity = () => {
     }: { 
       recruitId?: string; // Supabase UUID - preferred
       recruitNotionId?: string; // Legacy Notion ID - fallback
-      activityType: 'phone_call' | 'in_person' | 'note' | 'next_step';
+      activityType: 'phone_call' | 'in_person' | 'note' | 'next_step' | 'text';
       notes?: string;
       nextAction?: string;
       nextActionDue?: string;
@@ -956,7 +956,7 @@ export const useLogRecruitActivity = () => {
       // Build insert data, optionally overriding created_at for backdating
       const insertPayload = {
         recruit_id: actualRecruitId,
-        activity_type: activityType as 'phone_call' | 'in_person' | 'note' | 'next_step',
+        activity_type: activityType as 'phone_call' | 'in_person' | 'note' | 'next_step' | 'text',
         logged_by_user_id: session.user.id,
         notes: notes || null,
         next_action: nextAction || null,
@@ -977,7 +977,7 @@ export const useLogRecruitActivity = () => {
 
       // Update last_contact on the recruit for phone_call or in_person activities
       // Use the backdated date if provided, otherwise today
-      if (actualRecruitId && (activityType === 'phone_call' || activityType === 'in_person')) {
+      if (actualRecruitId && (activityType === 'phone_call' || activityType === 'in_person' || activityType === 'text')) {
         const contactDate = activityDate || new Date().toISOString().split('T')[0];
         await supabase
           .from('recruits')

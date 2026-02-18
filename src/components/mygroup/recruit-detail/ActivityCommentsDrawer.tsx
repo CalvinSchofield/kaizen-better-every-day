@@ -69,6 +69,7 @@ export const ActivityCommentsDrawer = ({
   if (!activity) return null;
   
   const isTextActivity = (type: string, notes?: string | null): boolean => {
+    if (type === 'text') return true;
     if (type !== 'phone_call') return false;
     const notesLower = notes?.toLowerCase() || '';
     return notesLower.includes('text') || notesLower.startsWith('texted');
