@@ -10,9 +10,13 @@ const config: CapacitorConfig = {
   },
   ios: {
     contentInset: 'automatic',
-    // These will be applied when you run `npx cap sync`
-    // But Info.plist entries must be added manually in Xcode
-  }
+  },
+  plugins: {
+    Keyboard: {
+      resize: 'none',
+      style: 'DEFAULT',
+    },
+  },
 };
 
 export default config;
