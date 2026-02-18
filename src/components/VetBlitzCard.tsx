@@ -835,7 +835,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   };
 
   const getUncommittedMembers = (blitzId: string) => {
-    const allowedStages = ["Sold (5+) 💰", "Sold 💲", "Shadow ✅", "Signed", "Evaluating"];
+    const allowedStages = ["Sold (5+) 💰", "Sold 💲", "Shadow ✅", "Signed"];
     return sortTeamMembers(
       teamMembers.filter(member => 
         !member.committedBlitzes.includes(blitzId) && 
