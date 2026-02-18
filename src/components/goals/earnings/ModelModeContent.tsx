@@ -111,9 +111,9 @@ export const ModelModeContent = ({
   }, [customFpGoal, rentType, weeksWorking, spendingRate]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Input Section */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div 
           className={`relative rounded-xl border-2 transition-all duration-200 ${
             isInputFocused 
@@ -164,7 +164,7 @@ export const ModelModeContent = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="space-y-4"
+            className="space-y-2"
           >
             {/* Tier & Rate Banner */}
             <div className="rounded-lg bg-gradient-to-r from-primary/20 to-primary/5 p-3 flex items-center justify-between">
@@ -276,7 +276,7 @@ export const ModelModeContent = ({
 
       {/* Empty State */}
       {!scenario && (
-        <div className="text-center py-8 text-muted-foreground">
+        <div className="text-center py-4 text-muted-foreground">
           <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
           <p className="text-sm">Enter a {fpLabel} goal to model your earnings</p>
         </div>
