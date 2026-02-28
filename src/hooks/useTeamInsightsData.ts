@@ -339,8 +339,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
       const { data: allEntries, error: allError } = await supabase
         .from('daily_entries')
         .select('*')
-        .in('user_id', allUserIds)
-        .eq('is_finalized', true);
+        .in('user_id', allUserIds);
 
       if (allError) throw allError;
 

@@ -120,10 +120,9 @@ Deno.serve(async (req) => {
           .select('*')
           .in('user_id', filteredUserIds);
 
-        // For Live/Today view, include unfinalized entries; otherwise only finalized
-        if (!includeLive) {
-          query = query.eq('is_finalized', true);
-        }
+        // Include all entries (finalized and unfinalized) for all views.
+        // Previously only live/today included unfinalized, but this caused
+        // Yesterday/This Week to show 0 sales when auto-finalize hadn't run yet.
 
         if (dateRange?.start) {
           query = query.gte('entry_date', dateRange.start);

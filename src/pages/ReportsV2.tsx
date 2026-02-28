@@ -118,12 +118,12 @@ export const ReportsV2Page = () => {
         };
       case 'week':
         return {
-          start: format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
-          end: format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+          start: format(startOfWeek(today, { weekStartsOn: 0 }), 'yyyy-MM-dd'),
+          end: format(endOfWeek(today, { weekStartsOn: 0 }), 'yyyy-MM-dd'),
         };
       case 'lastWeek':
-        const lastWeekStart = startOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
-        const lastWeekEnd = endOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
+        const lastWeekStart = startOfWeek(subWeeks(today, 1), { weekStartsOn: 0 });
+        const lastWeekEnd = endOfWeek(subWeeks(today, 1), { weekStartsOn: 0 });
         return {
           start: format(lastWeekStart, 'yyyy-MM-dd'),
           end: format(lastWeekEnd, 'yyyy-MM-dd'),
