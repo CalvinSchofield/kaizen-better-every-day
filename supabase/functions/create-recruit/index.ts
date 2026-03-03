@@ -114,6 +114,20 @@ serve(async (req) => {
       }
     }
 
+    // Auto-resolve mgmt_group_id from team_mgmt_groups if not provided but team is known
+    if (!finalMgmtGroupId && finalTeamId) {
+      const { data: teamMgmt } = await supabase
+        .from('team_mgmt_groups')
+        .select('mgmt_group_id')
+        .eq('team_id', finalTeamId)
+        .maybeSingle();
+      
+      if (teamMgmt?.mgmt_group_id) {
+        finalMgmtGroupId = teamMgmt.mgmt_group_id;
+        console.log(`Auto-resolved mgmt_group_id: ${finalMgmtGroupId} from team: ${finalTeamId}`);
+      }
+    }
+
     // Determine stage - default to '100 List' if not provided
     const finalStage = stage || '100 List';
 
