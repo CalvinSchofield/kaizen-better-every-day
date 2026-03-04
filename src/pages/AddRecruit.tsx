@@ -336,9 +336,8 @@ export default function AddRecruit() {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: recruitData,
       });
-      if (error) throw error;
-      if (data?.duplicateEmail) throw new Error(data.error);
       if (data?.error) throw new Error(data.error);
+      if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
