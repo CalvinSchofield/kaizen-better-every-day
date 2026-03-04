@@ -151,7 +151,16 @@ const MyGroup = () => {
   useEffect(() => {
     if (hasProcessedNavState || isLoading || !teamAccess || !currentUserRep) return;
     
-    const navState = location.state as { openCategory?: string; autoSelectMyTeam?: boolean } | null;
+    const navState = location.state as { openCategory?: string; autoSelectMyTeam?: boolean; newRecruitId?: string } | null;
+    
+    // Handle newly created recruit - open detail drawer
+    if (navState?.newRecruitId) {
+      setPendingNewRecruitId(navState.newRecruitId);
+      window.history.replaceState({}, document.title);
+      setHasProcessedNavState(true);
+      return;
+    }
+    
     if (navState?.openCategory && navState?.autoSelectMyTeam) {
       // Always filter to the leader's own direct team (named after them)
       // This applies regardless of whether they're team lead, MGMT lead, or Area Director
