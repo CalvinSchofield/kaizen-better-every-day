@@ -39,6 +39,7 @@ interface FPCumulativeChartProps {
   teamData?: CumulativeDataPoint[];
   isTeamLoading?: boolean;
   highlightDateRange?: { start: Date; end: Date };
+  inline?: boolean;
 }
 
 export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange }: FPCumulativeChartProps) => {
