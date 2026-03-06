@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, ChevronDown } from "lucide-react";
+import { Trophy } from "lucide-react";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
@@ -65,15 +65,9 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
     return (
       <Card className={`p-4 border-border/50 ${className}`}>
         <button onClick={handleToggleExpand} className="w-full text-left">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-amber-500" />
-              <span className="text-sm font-semibold text-foreground">Preseason Goal</span>
-            </div>
-            <ChevronDown className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform duration-200",
-              isExpanded && "rotate-180"
-            )} />
+          <div className="flex items-center gap-2 mb-3">
+            <Trophy className="h-4 w-4 text-amber-500" />
+            <span className="text-sm font-semibold text-foreground">Preseason Goal</span>
           </div>
 
           <div className="space-y-2">
@@ -121,15 +115,9 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
   return (
     <Card className={`p-4 border-border/50 ${className}`}>
       <button onClick={handleToggleExpand} className="w-full text-left">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-amber-500" />
-            <span className="text-sm font-semibold text-foreground">Summer Goals</span>
-          </div>
-          <ChevronDown className={cn(
-            "h-4 w-4 text-muted-foreground transition-transform duration-200",
-            isExpanded && "rotate-180"
-          )} />
+        <div className="flex items-center gap-2 mb-3">
+          <Trophy className="h-4 w-4 text-amber-500" />
+          <span className="text-sm font-semibold text-foreground">Summer Goals</span>
         </div>
       </button>
 
