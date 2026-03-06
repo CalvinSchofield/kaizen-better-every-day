@@ -98,33 +98,23 @@ export const WeatherStrip = ({ repData, className }: WeatherStripProps) => {
         const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         let requestBody: any = { startDate: today, endDate: today };
 
-        if (activeBlitzLocation) {
-          requestBody.location = activeBlitzLocation;
-        } else {
-          // Try browser geolocation first
-          let gotLocation = false;
-          if (navigator.geolocation) {
-            try {
-              const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                  timeout: 5000, maximumAge: 300000, enableHighAccuracy: false,
-                });
+        // Try browser geolocation
+        let gotLocation = false;
+        if (navigator.geolocation) {
+          try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                timeout: 5000, maximumAge: 300000, enableHighAccuracy: false,
               });
-              requestBody.latitude = position.coords.latitude;
-              requestBody.longitude = position.coords.longitude;
-              gotLocation = true;
-            } catch {
-              // Geolocation failed - will try fallbacks below
-            }
-          }
-          
-          if (!gotLocation) {
-            if (repData?.blitz_trip_location) {
-              requestBody.location = repData.blitz_trip_location;
-            }
-            // If no blitz location either, call without location - edge function will use IP fallback
+            });
+            requestBody.latitude = position.coords.latitude;
+            requestBody.longitude = position.coords.longitude;
+            gotLocation = true;
+          } catch {
+            // Geolocation failed — edge function will use IP fallback
           }
         }
+        // If no geolocation, call without coords — server-side IP fallback handles it
 
         const { data, error } = await supabase.functions.invoke("get-blitz-weather", { body: requestBody });
         if (error) throw error;
