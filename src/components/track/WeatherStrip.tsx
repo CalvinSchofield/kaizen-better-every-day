@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Sunset, CloudRain } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
