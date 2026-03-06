@@ -41,15 +41,19 @@ export const useAwardStreaks = (filterByYear?: string) => {
       
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, year, timezone");
+        .select("user_id, name, year, timezone, stage");
 
       if (repsError) throw repsError;
 
-      const repsMap = new Map(repsData?.map(r => [r.user_id, { 
-        name: r.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim(), 
-        year: r.year,
-        timezone: r.timezone || 'America/Los_Angeles'
-      }]) || []);
+      const repsMap = new Map(
+        repsData
+          ?.filter(r => isRepActive(r.stage))
+          .map(r => [r.user_id, { 
+            name: r.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim(), 
+            year: r.year,
+            timezone: r.timezone || 'America/Los_Angeles'
+          }]) || []
+      );
 
       const { data: entries, error } = await supabase
         .from("daily_entries")

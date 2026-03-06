@@ -56,16 +56,20 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
       // Fetch reps with timezone info
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, year, timezone, profile_photo_url");
+        .select("user_id, name, year, timezone, profile_photo_url, stage");
 
       if (repsError) throw repsError;
 
-      const repsMap = new Map(repsData?.map(r => [r.user_id, { 
-        name: r.name, 
-        year: r.year,
-        timezone: r.timezone,
-        profilePhotoUrl: r.profile_photo_url
-      }]) || []);
+      const repsMap = new Map(
+        repsData
+          ?.filter(r => isRepActive(r.stage))
+          .map(r => [r.user_id, { 
+            name: r.name, 
+            year: r.year,
+            timezone: r.timezone,
+            profilePhotoUrl: r.profile_photo_url
+          }]) || []
+      );
 
       // Fetch entries from the last 2 days to handle timezone edge cases
       // (entry_date stored as YYYY-MM-DD may be "today" or "yesterday" depending on viewer's timezone)

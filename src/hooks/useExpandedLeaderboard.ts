@@ -212,16 +212,20 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
 
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, year, timezone, profile_photo_url");
+        .select("user_id, name, year, timezone, profile_photo_url, stage");
 
       if (repsError) throw repsError;
 
-      const repsMap = new Map(repsData?.map(r => [r.user_id, { 
-        name: r.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim(), 
-        year: r.year,
-        timezone: r.timezone || 'America/Los_Angeles',
-        profilePhotoUrl: r.profile_photo_url
-      }]) || []);
+      const repsMap = new Map(
+        repsData
+          ?.filter(r => isRepActive(r.stage))
+          .map(r => [r.user_id, { 
+            name: r.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim(), 
+            year: r.year,
+            timezone: r.timezone || 'America/Los_Angeles',
+            profilePhotoUrl: r.profile_photo_url
+          }]) || []
+      );
 
       const query = supabase
         .from("daily_entries")

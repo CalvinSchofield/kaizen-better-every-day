@@ -83,11 +83,15 @@ export const useSeasonLeaderboard = (filterByYear?: string, isSummer: boolean = 
       // Fetch all reps data
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, year");
+        .select("user_id, name, year, stage");
 
       if (repsError) throw repsError;
 
-      const repsMap = new Map(repsData?.map(r => [r.user_id, { name: r.name, year: r.year }]) || []);
+      const repsMap = new Map(
+        repsData
+          ?.filter(r => isRepActive(r.stage))
+          .map(r => [r.user_id, { name: r.name, year: r.year }]) || []
+      );
 
       // Fetch all entries for the season (include sales_log for accurate calculations)
       const { data: entries, error } = await supabase
