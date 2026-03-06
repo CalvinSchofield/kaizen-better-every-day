@@ -499,7 +499,7 @@ export const WeekPlannerSection = ({
           <div className="space-y-2">
             {(() => {
               const dateKey = format(selectedDateFilter, 'yyyy-MM-dd');
-              const dayTasks = scheduledTasks.get(dateKey) || [];
+              const dayTasks = myScheduledTasks.get(dateKey) || [];
               const isOverdueDay = isPast(selectedDateFilter) && !isDateToday(selectedDateFilter);
               
               if (dayTasks.length === 0) {
