@@ -372,7 +372,7 @@ export const WeekPlannerSection = ({
         return {
           day,
           dateKey,
-          tasks: scheduledTasks.get(dateKey) || []
+          tasks: myScheduledTasks.get(dateKey) || []
         };
       })
       .filter(({ tasks }) => tasks.length > 0);
