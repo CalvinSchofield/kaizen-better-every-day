@@ -127,6 +127,11 @@ export const CompetitionsPreview = ({ className }: CompetitionsPreviewProps) => 
   const activeChallenges = challenges?.filter(c => c.status === 'active') || [];
   const activeIncentives = incentives?.filter(i => i.status === 'active') || [];
 
+  const handleNavigate = () => {
+    hapticLight();
+    navigate('/compete');
+  };
+
   // Show empty state when nothing active
   if (!isLoading && activeChallenges.length === 0 && activeIncentives.length === 0) {
     return (
@@ -151,8 +156,6 @@ export const CompetitionsPreview = ({ className }: CompetitionsPreviewProps) => 
       </Card>
     );
   }
-
-  const handleNavigate = () => {
     hapticLight();
     navigate('/compete');
   };

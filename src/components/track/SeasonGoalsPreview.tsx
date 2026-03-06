@@ -52,6 +52,11 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
   const unitLabel = efpModeEnabled ? 'EFP' : 'FP+';
   const currentProgress = efpModeEnabled ? totalEFP : totalFP;
 
+  const handleToggleExpand = () => {
+    hapticLight();
+    setIsExpanded(!isExpanded);
+  };
+
   // Preseason mode - show only preseason goal
   if (!isUserSummerStarted) {
     const preseasonGoal = goals.preseason_fp_goal || 0;
@@ -59,22 +64,46 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
 
     return (
       <Card className={`p-4 border-border/50 ${className}`}>
-        <div className="flex items-center gap-2 mb-3">
-          <Trophy className="h-4 w-4 text-amber-500" />
-          <span className="text-sm font-semibold text-foreground">Preseason Goal</span>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-baseline justify-between">
-            <span className="text-2xl font-bold text-foreground">
-              {Math.round(currentProgress * 10) / 10}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              / {preseasonGoal} {unitLabel}
-            </span>
+        <button onClick={handleToggleExpand} className="w-full text-left">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-amber-500" />
+              <span className="text-sm font-semibold text-foreground">Preseason Goal</span>
+            </div>
+            <ChevronDown className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform duration-200",
+              isExpanded && "rotate-180"
+            )} />
           </div>
-          <Progress value={progressPercent} className="h-2" />
-        </div>
+
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-bold text-foreground">
+                {Math.round(currentProgress * 10) / 10}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                / {preseasonGoal} {unitLabel}
+              </span>
+            </div>
+            <Progress value={progressPercent} className="h-2" />
+          </div>
+        </button>
+
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="pt-4 border-t border-border/30 mt-4">
+                <FPCumulativeChart />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Card>
     );
   }
