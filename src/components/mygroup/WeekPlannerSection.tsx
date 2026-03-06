@@ -479,7 +479,7 @@ export const WeekPlannerSection = ({
               {format(selectedDateFilter, 'EEEE, MMM d')}
               {(() => {
                 const dateKey = format(selectedDateFilter, 'yyyy-MM-dd');
-                const dayTasks = scheduledTasks.get(dateKey) || [];
+                const dayTasks = myScheduledTasks.get(dateKey) || [];
                 return dayTasks.length > 0 ? (
                   <Badge variant="secondary" className="text-xs">
                     {dayTasks.length} scheduled
