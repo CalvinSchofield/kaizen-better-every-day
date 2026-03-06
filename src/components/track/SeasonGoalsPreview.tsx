@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Trophy } from "lucide-react";
+import { Trophy, ChevronDown } from "lucide-react";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
@@ -8,6 +9,8 @@ import { useFocusTier, FocusTier } from "@/hooks/useFocusTier";
 import { cn } from "@/lib/utils";
 import { hapticLight } from "@/utils/haptics";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FPCumulativeChart } from "@/components/FPCumulativeChart";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface SeasonGoalsPreviewProps {
   className?: string;
