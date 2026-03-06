@@ -91,6 +91,8 @@ const Track = ({
   onDeleteSale,
   isLoadingEntry = false,
   isRefreshing = false,
+  competitorNudge,
+  competitorLoading,
 }: TrackProps) => {
   const { repData, loading: loadingRepData, isInitializing } = useRepData();
   const userIdData = useCurrentUserId();
