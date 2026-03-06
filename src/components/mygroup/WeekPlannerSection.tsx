@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendations";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { SwipeableTaskItem } from "./SwipeableTaskItem";
 import { RecruitDetailDrawer } from "./RecruitDetailDrawer";
 import { ContactMethodDrawer } from "./ContactMethodDrawer";
@@ -10,7 +11,9 @@ import { RescheduleActivityDrawer } from "./RescheduleActivityDrawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, CalendarCheck, AlertTriangle, Users, Sparkles } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronLeft, ChevronRight, CalendarCheck, AlertTriangle, Users, Sparkles, ChevronDown } from "lucide-react";
+import { isMyTask } from "@/utils/taskOwnership";
 import { 
   format, 
   startOfWeek, 
@@ -108,6 +111,7 @@ export const WeekPlannerSection = ({
   heroOverdueItem,
   heroTodayItem,
 }: WeekPlannerSectionProps) => {
+  const { userId: currentUserId } = useCurrentUserId();
   const [showSwipeHint, setShowSwipeHint] = useState(true);
   const handleDemoComplete = useCallback(() => setShowSwipeHint(false), []);
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => 
@@ -122,6 +126,7 @@ export const WeekPlannerSection = ({
   const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
   const [contactingActivity, setContactingActivity] = useState<RecruitActivity | null>(null);
   const [rescheduleActivity, setRescheduleActivity] = useState<RecruitActivity | null>(null);
+  const [teamTasksOpen, setTeamTasksOpen] = useState(false);
   const [postContactOpen, setPostContactOpen] = useState(false);
   const [postContactRecruit, setPostContactRecruit] = useState<Recruit | null>(null);
   const [postContactMethod, setPostContactMethod] = useState<'call' | 'text' | undefined>(undefined);
@@ -194,10 +199,36 @@ export const WeekPlannerSection = ({
     return tasksMap;
   }, [activities, filteredRecruits]);
 
-  // Count overdue tasks (excluding hero item if present)
+  // Split tasks into "my tasks" and "team tasks" based on ownership
+  const { myScheduledTasks, teamScheduledTasks } = useMemo(() => {
+    const myTasks = new Map<string, { recruit: Recruit; activity: RecruitActivity }[]>();
+    const teamTasks = new Map<string, { recruit: Recruit; activity: RecruitActivity }[]>();
+
+    scheduledTasks.forEach((tasks, dateKey) => {
+      tasks.forEach(item => {
+        const isMine = isMyTask(item.activity, currentUserId);
+        const targetMap = isMine ? myTasks : teamTasks;
+        if (!targetMap.has(dateKey)) {
+          targetMap.set(dateKey, []);
+        }
+        targetMap.get(dateKey)!.push(item);
+      });
+    });
+
+    return { myScheduledTasks: myTasks, teamScheduledTasks: teamTasks };
+  }, [scheduledTasks, currentUserId]);
+
+  // Count team tasks total
+  const teamTaskCount = useMemo(() => {
+    let count = 0;
+    teamScheduledTasks.forEach(tasks => { count += tasks.length; });
+    return count;
+  }, [teamScheduledTasks]);
+
+  // Count overdue tasks (excluding hero item if present) - only MY tasks
   const overdueCount = useMemo(() => {
     let count = 0;
-    scheduledTasks.forEach((tasks, dateStr) => {
+    myScheduledTasks.forEach((tasks, dateStr) => {
       const date = parseISO(dateStr);
       if (isPast(date) && !isDateToday(date)) {
         tasks.forEach(({ recruit, activity }) => {
@@ -212,17 +243,17 @@ export const WeekPlannerSection = ({
       }
     });
     return count;
-  }, [scheduledTasks, heroOverdueItem]);
+  }, [myScheduledTasks, heroOverdueItem]);
 
-  // Count this week's tasks
+  // Count this week's tasks - only MY tasks
   const weekTaskCount = useMemo(() => {
     let count = 0;
     weekDays.forEach(day => {
       const dateKey = format(day, 'yyyy-MM-dd');
-      count += scheduledTasks.get(dateKey)?.length || 0;
+      count += myScheduledTasks.get(dateKey)?.length || 0;
     });
     return count;
-  }, [weekDays, scheduledTasks]);
+  }, [weekDays, myScheduledTasks]);
 
   // Signed reps that need nurturing
   const signedNeedingNurture = useMemo(() => 
@@ -280,7 +311,7 @@ export const WeekPlannerSection = ({
 
   // Get today's tasks (excluding hero item if present)
   const todayKey = format(new Date(), 'yyyy-MM-dd');
-  const todayTasksRaw = scheduledTasks.get(todayKey) || [];
+  const todayTasksRaw = myScheduledTasks.get(todayKey) || [];
   const todayTasks = useMemo(() => {
     if (!heroTodayItem) return todayTasksRaw;
     return todayTasksRaw.filter(({ recruit, activity }) => 
@@ -341,11 +372,11 @@ export const WeekPlannerSection = ({
         return {
           day,
           dateKey,
-          tasks: scheduledTasks.get(dateKey) || []
+          tasks: myScheduledTasks.get(dateKey) || []
         };
       })
       .filter(({ tasks }) => tasks.length > 0);
-  }, [weekDays, scheduledTasks]);
+  }, [weekDays, myScheduledTasks]);
 
   return (
     <div className="space-y-4">
@@ -397,7 +428,7 @@ export const WeekPlannerSection = ({
           >
             {weekDays.map((day) => {
               const dateKey = format(day, 'yyyy-MM-dd');
-              const dayTasks = scheduledTasks.get(dateKey) || [];
+              const dayTasks = myScheduledTasks.get(dateKey) || [];
               const isToday = isDateToday(day);
               const isPastDay = isPast(day) && !isToday;
 
@@ -448,7 +479,7 @@ export const WeekPlannerSection = ({
               {format(selectedDateFilter, 'EEEE, MMM d')}
               {(() => {
                 const dateKey = format(selectedDateFilter, 'yyyy-MM-dd');
-                const dayTasks = scheduledTasks.get(dateKey) || [];
+                const dayTasks = myScheduledTasks.get(dateKey) || [];
                 return dayTasks.length > 0 ? (
                   <Badge variant="secondary" className="text-xs">
                     {dayTasks.length} scheduled
@@ -468,7 +499,7 @@ export const WeekPlannerSection = ({
           <div className="space-y-2">
             {(() => {
               const dateKey = format(selectedDateFilter, 'yyyy-MM-dd');
-              const dayTasks = scheduledTasks.get(dateKey) || [];
+              const dayTasks = myScheduledTasks.get(dateKey) || [];
               const isOverdueDay = isPast(selectedDateFilter) && !isDateToday(selectedDateFilter);
               
               if (dayTasks.length === 0) {
@@ -510,7 +541,7 @@ export const WeekPlannerSection = ({
                 </h3>
               </div>
               <div className="space-y-2">
-                {Array.from(scheduledTasks.entries())
+                {Array.from(myScheduledTasks.entries())
                   .filter(([dateStr]) => {
                     const date = parseISO(dateStr);
                     return isPast(date) && !isDateToday(date);
@@ -666,6 +697,62 @@ export const WeekPlannerSection = ({
             </div>
           ))}
         </div>
+      )}
+
+      {/* Team Activity - Collapsible section for org-wide tasks */}
+      {teamTaskCount > 0 && !selectedDateFilter && (
+        <Collapsible open={teamTasksOpen} onOpenChange={setTeamTasksOpen}>
+          <CollapsibleTrigger className="flex items-center justify-between w-full py-3 px-1 group">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Team Activity</span>
+              <Badge variant="outline" className="text-xs">
+                {teamTaskCount}
+              </Badge>
+            </div>
+            <ChevronDown className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform duration-200",
+              teamTasksOpen && "rotate-180"
+            )} />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="space-y-3 pt-1">
+              {Array.from(teamScheduledTasks.entries())
+                .sort(([a], [b]) => parseISO(a).getTime() - parseISO(b).getTime())
+                .map(([dateStr, tasks]) => {
+                  const date = parseISO(dateStr);
+                  const isOverdueDay = isPast(date) && !isDateToday(date);
+                  return (
+                    <div key={`team-${dateStr}`} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "text-xs",
+                          isOverdueDay ? "text-destructive" : "text-muted-foreground"
+                        )}>
+                          {isDateToday(date) ? 'Today' : format(date, 'EEE, MMM d')}
+                          {isOverdueDay && ' · overdue'}
+                        </span>
+                      </div>
+                      {tasks.map(({ recruit, activity }) => (
+                        <SwipeableTaskItem
+                          key={`team-${recruit.id}-${activity.id}`}
+                          recruit={recruit}
+                          activity={activity}
+                          onRecruitClick={handleLocalRecruitClick}
+                          onContact={handleSwipeContact}
+                          onSchedule={handleSwipeSchedule}
+                          onReschedule={isOverdueDay ? handleSwipeReschedule : undefined}
+                          onDirectCall={handleDirectCall}
+                          onDirectText={handleDirectText}
+                          isOverdue={isOverdueDay}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {/* Drawers */}

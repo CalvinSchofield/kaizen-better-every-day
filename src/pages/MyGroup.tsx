@@ -46,6 +46,8 @@ import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, sta
 import { toast } from "sonner";
 import { UndoBanner } from "@/components/ui/UndoBanner";
 import { AnimatePresence } from "framer-motion";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import { isMyTask } from "@/utils/taskOwnership";
 import {
   Drawer,
   DrawerContent,
@@ -81,6 +83,7 @@ const MyGroup = () => {
   const { data: mySuggestions, isLoading: suggestionsLoading } = useMySuggestions();
   const deleteMutation = useDeleteMySuggestion();
   const { allBlitzes, allBlitzesIncludingPast, error: blitzError, refetch: refetchBlitzes, isUsingCache: blitzUsingCache } = useBlitzes();
+  const { userId: currentUserId } = useCurrentUserId();
   
   // UI State
   const navigateTo = useNavigate();
@@ -631,6 +634,8 @@ const MyGroup = () => {
     const latestNextActions = new Map<string, typeof filteredActivities[0]>();
     filteredActivities.forEach(activity => {
       if (activity.next_action_due && activity.next_action && activity.recruit_id && !activity.completed_at) {
+        // Only show MY tasks in the hero
+        if (!isMyTask(activity, currentUserId)) return;
         const existing = latestNextActions.get(activity.recruit_id);
         if (!existing || parseISO(activity.created_at) > parseISO(existing.created_at)) {
           latestNextActions.set(activity.recruit_id, activity);
@@ -659,7 +664,7 @@ const MyGroup = () => {
     // Sort by most overdue first
     overdueItems.sort((a, b) => b.daysOverdue - a.daysOverdue);
     return overdueItems[0] || null;
-  }, [filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed, isHeroDataStable]);
+  }, [filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed, isHeroDataStable, currentUserId]);
 
   // Calculate today's scheduled items - Priority 2 (after overdue, before other recommendations)
   const todayScheduledItem = useMemo<TodayScheduledItem | null>(() => {
@@ -675,6 +680,8 @@ const MyGroup = () => {
     
     filteredActivities.forEach(activity => {
       if (activity.next_action_due && activity.next_action && activity.recruit_id && !activity.completed_at) {
+        // Only show MY tasks in the hero
+        if (!isMyTask(activity, currentUserId)) return;
         const existing = latestNextActions.get(activity.recruit_id);
         if (!existing || parseISO(activity.created_at) > parseISO(existing.created_at)) {
           latestNextActions.set(activity.recruit_id, activity);
@@ -699,7 +706,7 @@ const MyGroup = () => {
       parseISO(a.activity.created_at).getTime() - parseISO(b.activity.created_at).getTime()
     );
     return todayItems[0] || null;
-  }, [filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed, isHeroDataStable, overdueScheduledFallback]);
+  }, [filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed, isHeroDataStable, overdueScheduledFallback, currentUserId]);
 
   // Fallback: if no top recommendation AND no overdue AND no today items, find the top priority from Needs Attention
   // (respecting skip functionality)

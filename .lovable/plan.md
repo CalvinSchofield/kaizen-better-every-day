@@ -1,64 +1,50 @@
 
 
-## Problem Analysis
+## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
 
-There are two related issues:
+### The Problem
 
-1. **All tasks shown as "yours"**: The `WeekPlannerSection` displays ALL `recruit_activities` with a `next_action_due` across the entire downline, regardless of who created or is assigned the task. When Misael creates a task for EJ assigned to himself, you still see it in your Overdue list as if you need to do it.
+When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
 
-2. **Too much noise for leaders with large orgs**: As an Area Director, you see every recruit and every task across the entire organization by default. As the org grows, this becomes unmanageable. The default view should surface what's most actionable for YOU.
+### Root Cause
 
-## Solution: Smart Task Ownership Filtering + Collapsible "My Org" Section
+There are three things fighting each other:
 
-### Core Logic Change
+1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
 
-Filter `scheduledTasks` in `WeekPlannerSection` to only show tasks that are **owned by the current user**:
-- Tasks where `logged_by_user_id === currentUserId` AND `assigned_to_user_id` is null (self-assigned)
-- Tasks where `assigned_to_user_id === currentUserId` (explicitly assigned to you)
-- Exclude tasks logged by others and assigned to others (like Misael's EJ task)
+2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
 
-### UI Structure for Leaders
+3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
 
-**Default view (collapsed):**
-- **"My Tasks"** — Only tasks you created for yourself or assigned to you. This is the Overdue / Today / Rest of Week planner that exists today, but filtered to YOUR tasks only.
-- **"Recommended for You"** — The existing AI recommendations, but capped at 3-4 and focused on YOUR direct recruits first, then downline.
+### The Fix
 
-**Expandable section:**
-- **"Team Activity" (collapsed by default)** — An expandable section showing tasks across the org, grouped by team/person. Leaders can tap to expand and see what their team is working on, but it doesn't clutter the default view.
+#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
 
-### Files to Change
+The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
 
-1. **`src/components/mygroup/WeekPlannerSection.tsx`**
-   - Pass `currentUserId` into the component (from parent or via `useCurrentUserId`)
-   - Filter `scheduledTasks` to only include tasks owned by the current user
-   - Add a collapsible "Team Tasks" section at the bottom showing the remaining org-wide tasks (collapsed by default)
-   - Show a count badge on the collapsed section so leaders know there's activity
+#### 2. Simplify `useKeyboardViewport` hook
 
-2. **`src/pages/MyGroup.tsx`**
-   - Pass `currentUserId` to `WeekPlannerSection`
+- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
+- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
+- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
+- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
 
-3. **`src/components/mygroup/TodaysFocusHero.tsx`**
-   - Apply the same ownership filter to the hero card's overdue/today item selection, so the hero only surfaces YOUR tasks
+#### 3. Add `@capacitor/keyboard` plugin configuration
 
-4. **`src/hooks/useRecruitingRecommendations.ts`** (minor)
-   - Optionally prioritize direct recruits (where `recruiterUserId === currentUserId`) over deep downline in recommendation scoring
+Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
 
-### How Ownership Is Determined
+### Files to Modify
 
-```text
-Activity has next_action_due?
-  ├─ assigned_to_user_id === me → SHOW in "My Tasks"
-  ├─ assigned_to_user_id === someone else → HIDE from "My Tasks" (show in "Team Tasks")
-  └─ assigned_to_user_id is null
-       ├─ logged_by_user_id === me → SHOW in "My Tasks"
-       └─ logged_by_user_id !== me → HIDE from "My Tasks" (show in "Team Tasks")
-```
+- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
+- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
+- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
+- **`package.json`** -- Add `@capacitor/keyboard` dependency
 
-### Team Tasks Collapsed Section
+### After Approval
 
-A simple collapsible card at the bottom:
-- Header: "Team Activity · 8 tasks" with a chevron
-- Collapsed by default
-- When expanded, shows the same swipeable task cards grouped by team member name
-- This preserves full visibility without creating noise
+After these code changes, you will need to:
+1. Git pull the updated code
+2. Run `npm install` to get the new keyboard plugin
+3. Run `npx cap sync` to sync the plugin to iOS
+4. Rebuild in Xcode and push to TestFlight
 
