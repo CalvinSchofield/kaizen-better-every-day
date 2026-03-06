@@ -312,6 +312,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         return "Customers";
       case "/leaderboard":
         return "Leaderboard";
+      case "/compete":
+        return "Compete";
       default:
         return "Kaizen";
     }
