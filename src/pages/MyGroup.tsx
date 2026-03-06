@@ -680,6 +680,8 @@ const MyGroup = () => {
     
     filteredActivities.forEach(activity => {
       if (activity.next_action_due && activity.next_action && activity.recruit_id && !activity.completed_at) {
+        // Only show MY tasks in the hero
+        if (!isMyTask(activity, currentUserId)) return;
         const existing = latestNextActions.get(activity.recruit_id);
         if (!existing || parseISO(activity.created_at) > parseISO(existing.created_at)) {
           latestNextActions.set(activity.recruit_id, activity);
