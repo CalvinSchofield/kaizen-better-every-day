@@ -23,6 +23,7 @@ const tierLabels: Record<FocusTier, string> = {
 };
 
 export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
   const { goals, isLoading: goalsLoading } = useRepGoals();
   const { totalFP, totalEFP } = usePreseasonFP();
   const { efpModeEnabled } = useEfpMode();

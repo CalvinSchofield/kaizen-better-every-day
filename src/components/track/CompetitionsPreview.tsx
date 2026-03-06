@@ -127,9 +127,29 @@ export const CompetitionsPreview = ({ className }: CompetitionsPreviewProps) => 
   const activeChallenges = challenges?.filter(c => c.status === 'active') || [];
   const activeIncentives = incentives?.filter(i => i.status === 'active') || [];
 
-  // Nothing to show
+  // Show empty state when nothing active
   if (!isLoading && activeChallenges.length === 0 && activeIncentives.length === 0) {
-    return null;
+    return (
+      <Card 
+        className={`p-4 border-border/50 ${className}`}
+        onClick={handleNavigate}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Swords className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">Competitions</span>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <p className="text-sm text-muted-foreground mb-3">No active competitions right now.</p>
+        <button 
+          className="text-sm font-medium text-primary active:opacity-70 transition-opacity"
+          onClick={(e) => { e.stopPropagation(); hapticLight(); navigate('/compete'); }}
+        >
+          + Create a Challenge
+        </button>
+      </Card>
+    );
   }
 
   const handleNavigate = () => {
