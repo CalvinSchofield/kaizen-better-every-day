@@ -20,10 +20,13 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   const navigate = useNavigate();
   const { repData } = useRepData();
   const { goals, isLoading: goalsLoading, hasGoalsAccess } = useRepGoals();
-  const { plannedDays } = usePlannedDays();
-  const { totalFP, totalPRMR, knockingDays } = usePreseasonFP();
+  const { plannedDays, isLoading: plannedDaysLoading } = usePlannedDays();
+  const { totalFP, totalPRMR, knockingDays, isLoading: preseasonLoading } = usePreseasonFP();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { isUserSummerStarted, focusTier, focusTierGoal } = useFocusTier();
+
+  // Wait for ALL dependent data before calculating
+  const isDataLoading = goalsLoading || plannedDaysLoading || preseasonLoading;
 
   // Determine if user is a rookie or vet for pace thresholds
   const isRookie = repData?.year === 'Rookie';
