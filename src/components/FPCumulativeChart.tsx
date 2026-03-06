@@ -443,6 +443,161 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange,
     ? Math.abs(rollingAverages.avg12Day - rollingAverages.dailyGoalPace)
     : 0;
 
+  // Inline mode: render chart content directly without Card/Collapsible wrapper
+  if (inline) {
+    return (
+      <div>
+        {/* Hero Section */}
+        <div className="text-center mb-4">
+          <div className="text-3xl font-bold">
+            {metricType === 'primary' 
+              ? (efpModeEnabled ? totalForMode.toFixed(2) : totalForMode.toFixed(1))
+              : (efpModeEnabled ? totalForMode.toFixed(1) : `$${totalForMode.toFixed(0)}`)}
+          </div>
+          <div className="text-sm text-muted-foreground mt-1">
+            {metricType === 'primary' ? primaryLabel : secondaryLabel}
+          </div>
+          {rollingAverages && metricType === 'primary' && rollingAverages.dailyGoalPace > 0 && (
+            <div className={`mt-2 text-sm font-medium flex items-center justify-center gap-1.5 ${isAboveGoal ? 'text-success' : 'text-destructive'}`}>
+              {isAboveGoal ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+              <span>
+                {efpModeEnabled ? rollingAverages.avg12Day.toFixed(2) : rollingAverages.avg12Day.toFixed(1)}/day (12-day avg)
+              </span>
+              {!isAboveGoal && (
+                <>
+                  <span className="text-muted-foreground">•</span>
+                  <span>
+                    {efpModeEnabled ? paceGap.toFixed(2) : paceGap.toFixed(1)} below goal
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Chart */}
+        <div className="pb-2">
+          <Carousel
+            setApi={setCarouselApi}
+            opts={{ startIndex: groupBy === 'day' ? 0 : groupBy === 'week' ? 1 : 2 }}
+            className="w-full"
+          >
+            <CarouselContent>
+              <CarouselItem>
+                <ChartView
+                  chartData={dayChartData}
+                  chartConfig={chartConfig}
+                  CustomTooltip={CustomTooltip}
+                  canShowGoalLine={canShowGoalLine}
+                  showGoalLine={showGoalLine}
+                  getGoalLineKey={getGoalLineKey}
+                  showHistoricalLine={showHistoricalLine}
+                  highlightDateRange={highlightDateRange}
+                />
+              </CarouselItem>
+              {hasEnoughForWeek && (
+                <CarouselItem>
+                  <ChartView
+                    chartData={weekChartData}
+                    chartConfig={chartConfig}
+                    CustomTooltip={CustomTooltip}
+                    canShowGoalLine={canShowGoalLine}
+                    showGoalLine={showGoalLine}
+                    getGoalLineKey={getGoalLineKey}
+                    showHistoricalLine={showHistoricalLine}
+                    highlightDateRange={highlightDateRange}
+                  />
+                </CarouselItem>
+              )}
+              {hasEnoughForMonth && (
+                <CarouselItem>
+                  <ChartView
+                    chartData={monthChartData}
+                    chartConfig={chartConfig}
+                    CustomTooltip={CustomTooltip}
+                    canShowGoalLine={canShowGoalLine}
+                    showGoalLine={showGoalLine}
+                    getGoalLineKey={getGoalLineKey}
+                    showHistoricalLine={showHistoricalLine}
+                    highlightDateRange={highlightDateRange}
+                  />
+                </CarouselItem>
+              )}
+            </CarouselContent>
+          </Carousel>
+
+          <div className="flex items-center justify-center gap-2 mt-3">
+            {(['day', 'week', 'month'] as const).filter((v, i) => 
+              i === 0 || (i === 1 && hasEnoughForWeek) || (i === 2 && hasEnoughForMonth)
+            ).map((view) => (
+              <button
+                key={view}
+                onClick={() => {
+                  setGroupBy(view);
+                  const idx = view === 'day' ? 0 : view === 'week' ? 1 : 2;
+                  carouselApi?.scrollTo(idx);
+                }}
+                className={`text-xs px-3 py-1 rounded-full transition-colors ${
+                  groupBy === view 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {view.charAt(0).toUpperCase() + view.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Options */}
+        <Collapsible open={showOptions} onOpenChange={setShowOptions}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="w-full text-muted-foreground gap-2">
+              <Settings2 className="w-4 h-4" />
+              Options
+              <ChevronDown className={`w-4 h-4 transition-transform ${showOptions ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="pt-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Metric:</span>
+                <div className="flex items-center gap-1 border border-border rounded-lg p-1">
+                  <Button variant={metricType === 'primary' ? 'default' : 'ghost'} size="sm" onClick={() => setMetricType('primary')} className="text-xs h-7 px-2">{primaryLabel}</Button>
+                  <Button variant={metricType === 'secondary' ? 'default' : 'ghost'} size="sm" onClick={() => setMetricType('secondary')} className="text-xs h-7 px-2">{secondaryLabel}</Button>
+                </div>
+              </div>
+              {canShowGoalLine && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Goal Line:</span>
+                  <Button variant={showGoalLine ? 'default' : 'outline'} size="sm" onClick={() => setShowGoalLine(!showGoalLine)} className="text-xs h-7 px-2">{showGoalLine ? 'On' : 'Off'}</Button>
+                </div>
+              )}
+              {canShowGoalLine && showGoalLine && isSummer && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Goal:</span>
+                  <div className="flex items-center gap-1 border border-border rounded-lg p-1">
+                    {(['mustDo', 'willDo', 'couldDo'] as const).map((tier) => (
+                      <Button key={tier} variant={selectedGoalLine === tier ? 'default' : 'ghost'} size="sm" onClick={() => setSelectedGoalLine(tier)} className="text-xs h-6 px-2">
+                        {tier === 'mustDo' ? 'Must' : tier === 'willDo' ? 'Will' : 'Could'}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {hasHistoricalData && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{comparisonYear} Data:</span>
+                  <Button variant={showHistoricalLine ? 'default' : 'outline'} size="sm" onClick={() => setShowHistoricalLine(!showHistoricalLine)} className="text-xs h-7 px-2">{showHistoricalLine ? 'Showing' : 'Hidden'}</Button>
+                </div>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+    );
+  }
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card className="overflow-hidden">
@@ -486,7 +641,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange,
                   <span>
                     {efpModeEnabled ? rollingAverages.avg12Day.toFixed(2) : rollingAverages.avg12Day.toFixed(1)}/day (12-day avg)
                   </span>
-                  {/* Only show gap when behind, not when ahead */}
                   {!isAboveGoal && (
                     <>
                       <span className="text-muted-foreground">•</span>
@@ -510,7 +664,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange,
               className="w-full"
             >
               <CarouselContent>
-                {/* Day View */}
                 <CarouselItem>
                   <ChartView
                     chartData={dayChartData}
@@ -523,7 +676,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange,
                     highlightDateRange={highlightDateRange}
                   />
                 </CarouselItem>
-                {/* Week View */}
                 {hasEnoughForWeek && (
                   <CarouselItem>
                     <ChartView
@@ -538,7 +690,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange,
                     />
                   </CarouselItem>
                 )}
-                {/* Month View */}
                 {hasEnoughForMonth && (
                   <CarouselItem>
                     <ChartView
@@ -556,7 +707,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange,
               </CarouselContent>
             </Carousel>
 
-            {/* View Indicators */}
             <div className="flex items-center justify-center gap-2 mt-3">
               {(['day', 'week', 'month'] as const).filter((v, i) => 
                 i === 0 || (i === 1 && hasEnoughForWeek) || (i === 2 && hasEnoughForMonth)
@@ -592,76 +742,35 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange,
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <div className="pt-3 space-y-3">
-                  {/* Metric Toggle */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">Metric:</span>
                     <div className="flex items-center gap-1 border border-border rounded-lg p-1">
-                      <Button
-                        variant={metricType === 'primary' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setMetricType('primary')}
-                        className="text-xs h-7 px-2"
-                      >
-                        {primaryLabel}
-                      </Button>
-                      <Button
-                        variant={metricType === 'secondary' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setMetricType('secondary')}
-                        className="text-xs h-7 px-2"
-                      >
-                        {secondaryLabel}
-                      </Button>
+                      <Button variant={metricType === 'primary' ? 'default' : 'ghost'} size="sm" onClick={() => setMetricType('primary')} className="text-xs h-7 px-2">{primaryLabel}</Button>
+                      <Button variant={metricType === 'secondary' ? 'default' : 'ghost'} size="sm" onClick={() => setMetricType('secondary')} className="text-xs h-7 px-2">{secondaryLabel}</Button>
                     </div>
                   </div>
-
-                  {/* Goal Toggle */}
                   {canShowGoalLine && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">Goal Line:</span>
-                      <Button
-                        variant={showGoalLine ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setShowGoalLine(!showGoalLine)}
-                        className="text-xs h-7 px-2"
-                      >
-                        {showGoalLine ? 'On' : 'Off'}
-                      </Button>
+                      <Button variant={showGoalLine ? 'default' : 'outline'} size="sm" onClick={() => setShowGoalLine(!showGoalLine)} className="text-xs h-7 px-2">{showGoalLine ? 'On' : 'Off'}</Button>
                     </div>
                   )}
-
-                  {/* Summer Goal Selector */}
                   {canShowGoalLine && showGoalLine && isSummer && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">Goal:</span>
                       <div className="flex items-center gap-1 border border-border rounded-lg p-1">
                         {(['mustDo', 'willDo', 'couldDo'] as const).map((tier) => (
-                          <Button
-                            key={tier}
-                            variant={selectedGoalLine === tier ? 'default' : 'ghost'}
-                            size="sm"
-                            onClick={() => setSelectedGoalLine(tier)}
-                            className="text-xs h-6 px-2"
-                          >
+                          <Button key={tier} variant={selectedGoalLine === tier ? 'default' : 'ghost'} size="sm" onClick={() => setSelectedGoalLine(tier)} className="text-xs h-6 px-2">
                             {tier === 'mustDo' ? 'Must' : tier === 'willDo' ? 'Will' : 'Could'}
                           </Button>
                         ))}
                       </div>
                     </div>
                   )}
-
-                  {/* Historical Toggle */}
                   {hasHistoricalData && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">{comparisonYear} Data:</span>
-                      <Button
-                        variant={showHistoricalLine ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setShowHistoricalLine(!showHistoricalLine)}
-                        className="text-xs h-7 px-2"
-                      >
-                        {showHistoricalLine ? 'Showing' : 'Hidden'}
-                      </Button>
+                      <Button variant={showHistoricalLine ? 'default' : 'outline'} size="sm" onClick={() => setShowHistoricalLine(!showHistoricalLine)} className="text-xs h-7 px-2">{showHistoricalLine ? 'Showing' : 'Hidden'}</Button>
                     </div>
                   )}
                 </div>
