@@ -46,6 +46,8 @@ import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, sta
 import { toast } from "sonner";
 import { UndoBanner } from "@/components/ui/UndoBanner";
 import { AnimatePresence } from "framer-motion";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import { isMyTask } from "@/utils/taskOwnership";
 import {
   Drawer,
   DrawerContent,
