@@ -403,6 +403,9 @@ const Track = ({
   // Active tracking state - show normal counters with entrance animation
   return (
     <div className="flex flex-col h-full">
+      {/* Competitor Nudge Banner - subtle motivational strip */}
+      <CompetitorNudgeBanner competitor={competitorNudge as any} loading={competitorLoading} />
+
       {/* Time Tracking Bar */}
       <motion.div 
         className="flex-shrink-0"
