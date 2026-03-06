@@ -115,13 +115,11 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
   return (
     <Card className={`p-4 border-border/50 ${className}`}>
       <button onClick={handleToggleExpand} className="w-full text-left">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-amber-500" />
-            <span className="text-sm font-semibold text-foreground">Summer Goals</span>
-          </div>
-          </div>
+        <div className="flex items-center gap-2 mb-3">
+          <Trophy className="h-4 w-4 text-amber-500" />
+          <span className="text-sm font-semibold text-foreground">Summer Goals</span>
         </div>
+      </button>
 
       {/* Tier pills */}
       <div className="flex gap-2 mb-4">
