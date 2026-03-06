@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getLocalDateString } from "@/lib/utils";
 import { getCleanName } from "@/utils/nameUtils";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+import { isRepActive } from "@/utils/repStatusUtils";
 
 interface LeaderboardEntry {
   userId: string;
