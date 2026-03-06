@@ -20,10 +20,13 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   const navigate = useNavigate();
   const { repData } = useRepData();
   const { goals, isLoading: goalsLoading, hasGoalsAccess } = useRepGoals();
-  const { plannedDays } = usePlannedDays();
-  const { totalFP, totalPRMR, knockingDays } = usePreseasonFP();
+  const { plannedDays, isLoading: plannedDaysLoading } = usePlannedDays();
+  const { totalFP, totalPRMR, knockingDays, isLoading: preseasonLoading } = usePreseasonFP();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { isUserSummerStarted, focusTier, focusTierGoal } = useFocusTier();
+
+  // Wait for ALL dependent data before calculating
+  const isDataLoading = goalsLoading || plannedDaysLoading || preseasonLoading;
 
   // Determine if user is a rookie or vet for pace thresholds
   const isRookie = repData?.year === 'Rookie';
@@ -83,7 +86,7 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   }, [paceData, plannedDays]);
 
   // Handle no goals setup
-  if (!goalsLoading && (!goals?.setup_complete || !hasGoalsAccess)) {
+  if (!isDataLoading && (!goals?.setup_complete || !hasGoalsAccess)) {
     return (
       <Card 
         className={`p-4 border-border/50 bg-card/50 ${className}`}
@@ -102,7 +105,7 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
     );
   }
 
-  if (goalsLoading || !paceData) {
+  if (isDataLoading || !paceData) {
     return (
       <Card className={`p-4 border-border/50 ${className}`}>
         <Skeleton className="h-20 w-full" />

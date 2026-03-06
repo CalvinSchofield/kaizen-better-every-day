@@ -101,6 +101,11 @@ export const WeatherStrip = ({ repData, className }: WeatherStripProps) => {
       const cached = getCachedWeather();
       if (cached) { setWeather(cached.data); setLoading(false); return; }
 
+      // Set a hard timeout so loading never hangs indefinitely
+      const timeout = setTimeout(() => {
+        setLoading(false);
+      }, 12000);
+
       try {
         const now = new Date();
         const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -109,11 +114,11 @@ export const WeatherStrip = ({ repData, className }: WeatherStripProps) => {
         if (activeBlitzLocation) {
           requestBody.location = activeBlitzLocation;
         } else {
-          if (!navigator.geolocation) { setLoading(false); return; }
+          if (!navigator.geolocation) { clearTimeout(timeout); setLoading(false); return; }
           try {
             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
               navigator.geolocation.getCurrentPosition(resolve, reject, {
-                timeout: 10000, maximumAge: 300000, enableHighAccuracy: false,
+                timeout: 5000, maximumAge: 300000, enableHighAccuracy: false,
               });
             });
             requestBody.latitude = position.coords.latitude;
@@ -121,7 +126,7 @@ export const WeatherStrip = ({ repData, className }: WeatherStripProps) => {
           } catch {
             if (repData?.blitz_trip_location) {
               requestBody.location = repData.blitz_trip_location;
-            } else { setLoading(false); return; }
+            } else { clearTimeout(timeout); setLoading(false); return; }
           }
         }
 
@@ -144,6 +149,7 @@ export const WeatherStrip = ({ repData, className }: WeatherStripProps) => {
       } catch (error) {
         console.error("Error fetching weather:", error);
       } finally {
+        clearTimeout(timeout);
         setLoading(false);
       }
     };
