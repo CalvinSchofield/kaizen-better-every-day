@@ -264,11 +264,11 @@ export const SwipeableTaskItem = ({
               </Badge>
               {/* Calendar badge if user has this in their calendar */}
               {activity && <CalendarBadge activityId={activity.id} />}
-              {/* Show assignee badge if assigned to someone else */}
-              {isAssignedToOther && assigneeName && (
+              {/* Show owner badge if task belongs to someone else */}
+              {(isAssignedToOther || isLoggedByOther) && ownerName && (
                 <Badge variant="outline" className="text-[10px] gap-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30">
                   <UserCircle className="h-3 w-3" />
-                  {assigneeName}
+                  {ownerName}
                 </Badge>
               )}
               {daysSinceContact !== null && daysSinceContact !== undefined && (
