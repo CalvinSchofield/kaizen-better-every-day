@@ -42,7 +42,7 @@ interface FPCumulativeChartProps {
   inline?: boolean;
 }
 
-export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange }: FPCumulativeChartProps) => {
+export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange, inline = false }: FPCumulativeChartProps) => {
   const [isOpen, setIsOpen] = useState(true);
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
   const [metricType, setMetricType] = useState<MetricType>('primary');
