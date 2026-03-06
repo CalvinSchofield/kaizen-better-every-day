@@ -13,6 +13,8 @@ interface WeatherForecast {
   low: number;
   weatherCode: number;
   precipitation: number;
+  sunset?: string;
+  rainAt?: string | null;
 }
 
 serve(async (req) => {
@@ -180,7 +182,7 @@ serve(async (req) => {
     }
 
     // Step 2: Fetch weather forecast using Open-Meteo Weather API (including weather conditions)
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&start_date=${startDateForRequest}&end_date=${endDateForRequest}&temperature_unit=fahrenheit&timezone=auto`;
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum,sunset&hourly=precipitation&start_date=${startDateForRequest}&end_date=${endDateForRequest}&temperature_unit=fahrenheit&timezone=auto`;
 
     console.log(`Fetching weather from: ${weatherUrl}`);
 
@@ -226,6 +228,9 @@ serve(async (req) => {
     const minTemps = weatherData.daily.temperature_2m_min;
     const weatherCodes = weatherData.daily.weather_code;
     const precipitation = weatherData.daily.precipitation_sum;
+    const sunsets = weatherData.daily.sunset || [];
+    const hourlyTimes = weatherData.hourly?.time || [];
+    const hourlyPrecip = weatherData.hourly?.precipitation || [];
 
     for (let i = 0; i < dates.length; i++) {
       const date = new Date(dates[i]);
@@ -244,6 +249,36 @@ serve(async (req) => {
         "Saturday",
       ];
 
+      // Extract sunset time (format: "2026-03-06T18:34")
+      let sunsetTime: string | undefined;
+      if (sunsets[i]) {
+        const sunsetStr = sunsets[i] as string;
+        const timePart = sunsetStr.split('T')[1];
+        if (timePart) {
+          const [h, m] = timePart.split(':').map(Number);
+          const ampm = h >= 12 ? 'pm' : 'am';
+          const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+          sunsetTime = `${h12}:${String(m).padStart(2, '0')}${ampm}`;
+        }
+      }
+
+      // Find first hour with precipitation > 0 for this date
+      let rainAt: string | null = null;
+      const dateStr = dates[i];
+      for (let h = 0; h < hourlyTimes.length; h++) {
+        if (hourlyTimes[h]?.startsWith(dateStr) && hourlyPrecip[h] > 0) {
+          const hourStr = hourlyTimes[h] as string;
+          const hourTimePart = hourStr.split('T')[1];
+          if (hourTimePart) {
+            const hourNum = parseInt(hourTimePart.split(':')[0], 10);
+            const ampm = hourNum >= 12 ? 'pm' : 'am';
+            const h12 = hourNum > 12 ? hourNum - 12 : hourNum === 0 ? 12 : hourNum;
+            rainAt = `${h12}${ampm}`;
+          }
+          break;
+        }
+      }
+
       forecasts.push({
         date: dates[i],
         dayName: dayNames[dayOfWeek],
@@ -251,6 +286,8 @@ serve(async (req) => {
         low: Math.round(minTemps[i]),
         weatherCode: weatherCodes[i],
         precipitation: precipitation[i],
+        sunset: sunsetTime,
+        rainAt,
       });
     }
 

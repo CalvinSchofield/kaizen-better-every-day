@@ -1,6 +1,6 @@
 import { ReactNode, useMemo, useEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, BookOpen, Wrench, Target, Calendar, Menu, Lock, Save, RotateCcw, BarChart3, Trophy, UserPlus, TrendingUp } from "lucide-react";
+import { Home, BookOpen, Wrench, Target, Calendar, Menu, Lock, Save, RotateCcw, BarChart3, Trophy, UserPlus, TrendingUp, Swords } from "lucide-react";
 import { hapticLight } from "@/utils/haptics";
 import { Button } from "@/components/ui/button";
 import { AppDrawer } from "@/components/AppDrawer";
@@ -195,20 +195,20 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
 
     if (effectiveIsKnockingMode) {
       if (effectiveIsLeader) {
-        // Leaders in knocking mode: Home, Tools, Reports, Leaderboard (action: Track)
+        // Leaders in knocking mode: Leaderboard, Tools, Reports, Competitions (action: Track)
         return [
-          { path: "/", icon: Home, label: "Home" },
+          { path: "/leaderboard", icon: Trophy, label: "Leaderboard" },
           { path: "/tools", icon: Wrench, label: "Tools" },
           { path: "/reports-v2", icon: BarChart3, label: "Reports" },
-          { path: "/leaderboard", icon: Trophy, label: "Leaderboard" },
+          { path: "/compete", icon: Swords, label: "Compete" },
         ];
       }
-      // Non-leaders in knocking mode: Home, Leaderboard, Tools, Calendar
+      // Non-leaders in knocking mode: Leaderboard, Tools, Competitions, Goals
       return [
-        { path: "/", icon: Home, label: "Home" },
         { path: "/leaderboard", icon: Trophy, label: "Leaderboard" },
         { path: "/tools", icon: Wrench, label: "Tools" },
-        { path: "/calendar", icon: Calendar, label: "Calendar" },
+        { path: "/compete", icon: Swords, label: "Compete" },
+        { path: "/goals", icon: Target, label: "Goals" },
       ];
     }
 
@@ -282,7 +282,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   // Get currently active tab for collapsed state
   const activeItem = [...navItems, actionButton].find((item) => item.path === location.pathname);
   const CollapsedActiveIcon =
-    activeItem && activeItem.path !== actionButton.path ? activeItem.icon : Home;
+    activeItem && activeItem.path !== actionButton.path ? activeItem.icon : Target;
 
   // Get page title based on current route
   const getPageTitle = () => {
@@ -312,6 +312,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         return "Customers";
       case "/leaderboard":
         return "Leaderboard";
+      case "/compete":
+        return "Compete";
       default:
         return "Kaizen";
     }

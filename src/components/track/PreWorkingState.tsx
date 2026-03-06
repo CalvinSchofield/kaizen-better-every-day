@@ -5,12 +5,16 @@ import { Button } from "@/components/ui/button";
 import { DailyMissionCard } from "./DailyMissionCard";
 import { SeasonGoalsPreview } from "./SeasonGoalsPreview";
 import { CompetitionsPreview } from "./CompetitionsPreview";
+import { WeatherStrip } from "./WeatherStrip";
+import { LeaderboardMiniRow } from "./LeaderboardMiniRow";
+import { MeVsMeMotivationCard } from "@/components/MeVsMeMotivationCard";
 import { hapticMedium } from "@/utils/haptics";
 import { getCleanFirstName } from "@/utils/nameUtils";
 import { format } from "date-fns";
 
 interface PreWorkingStateProps {
   repName?: string;
+  repData?: any;
   onStartDay: () => void;
   isStarting?: boolean;
 }
@@ -57,6 +61,7 @@ const itemVariants = {
 
 export const PreWorkingState = ({ 
   repName, 
+  repData,
   onStartDay, 
   isStarting = false 
 }: PreWorkingStateProps) => {
@@ -91,7 +96,7 @@ export const PreWorkingState = ({
     >
       {/* Header greeting */}
       <motion.div 
-        className="px-4 pt-6 pb-4"
+        className="px-4 pt-6 pb-2"
         variants={itemVariants}
       >
         <div className="flex items-center gap-2 mb-1">
@@ -103,7 +108,12 @@ export const PreWorkingState = ({
         <p className="text-sm text-muted-foreground">{todayFormatted}</p>
       </motion.div>
 
-      {/* Mission cards */}
+      {/* Weather strip */}
+      <motion.div className="px-4 pb-4" variants={itemVariants}>
+        <WeatherStrip repData={repData} />
+      </motion.div>
+
+      {/* Content cards */}
       <div className="flex-1 px-4 space-y-4">
         <motion.div variants={itemVariants}>
           <DailyMissionCard />
@@ -111,6 +121,14 @@ export const PreWorkingState = ({
 
         <motion.div variants={itemVariants}>
           <SeasonGoalsPreview />
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <MeVsMeMotivationCard />
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <LeaderboardMiniRow />
         </motion.div>
 
         <motion.div variants={itemVariants}>
