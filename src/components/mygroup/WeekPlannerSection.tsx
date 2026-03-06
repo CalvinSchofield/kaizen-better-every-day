@@ -756,62 +756,6 @@ export const WeekPlannerSection = ({
         </div>
       )}
 
-      {/* Team Activity - Collapsible section for org-wide tasks */}
-      {teamTaskCount > 0 && !selectedDateFilter && (
-        <Collapsible open={teamTasksOpen} onOpenChange={setTeamTasksOpen}>
-          <CollapsibleTrigger className="flex items-center justify-between w-full py-3 px-1 group">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground">Team Activity</span>
-              <Badge variant="outline" className="text-xs">
-                {teamTaskCount}
-              </Badge>
-            </div>
-            <ChevronDown className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform duration-200",
-              teamTasksOpen && "rotate-180"
-            )} />
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="space-y-3 pt-1">
-              {Array.from(teamScheduledTasks.entries())
-                .sort(([a], [b]) => parseISO(a).getTime() - parseISO(b).getTime())
-                .map(([dateStr, tasks]) => {
-                  const date = parseISO(dateStr);
-                  const isOverdueDay = isPast(date) && !isDateToday(date);
-                  return (
-                    <div key={`team-${dateStr}`} className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className={cn(
-                          "text-xs",
-                          isOverdueDay ? "text-destructive" : "text-muted-foreground"
-                        )}>
-                          {isDateToday(date) ? 'Today' : format(date, 'EEE, MMM d')}
-                          {isOverdueDay && ' · overdue'}
-                        </span>
-                      </div>
-                      {tasks.map(({ recruit, activity }) => (
-                        <SwipeableTaskItem
-                          key={`team-${recruit.id}-${activity.id}`}
-                          recruit={recruit}
-                          activity={activity}
-                          onRecruitClick={handleLocalRecruitClick}
-                          onContact={handleSwipeContact}
-                          onSchedule={handleSwipeSchedule}
-                          onReschedule={isOverdueDay ? handleSwipeReschedule : undefined}
-                          onDirectCall={handleDirectCall}
-                          onDirectText={handleDirectText}
-                          isOverdue={isOverdueDay}
-                        />
-                      ))}
-                    </div>
-                  );
-                })}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      )}
-
       {/* Drawers */}
       <RecruitDetailDrawer
         recruit={selectedRecruit}
