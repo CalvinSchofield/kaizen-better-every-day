@@ -1,4 +1,4 @@
-import { Trophy, ChevronRight } from "lucide-react";
+import { Trophy } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { hapticLight } from "@/utils/haptics";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";

@@ -1,4 +1,4 @@
-import { Swords, ChevronRight, Plus } from "lucide-react";
+import { Swords, Plus } from "lucide-react";
 import { useMyActiveChallenges } from "@/hooks/useChallenges";
 import { useMyActiveIncentives } from "@/hooks/useIncentives";
 import { useNavigate } from "react-router-dom";
