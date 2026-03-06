@@ -37,6 +37,7 @@ import {
 } from "@/components/activity-ring";
 import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { PreWorkingState } from "@/components/track";
+import { CompetitorNudgeBanner } from "@/components/track/CompetitorNudgeBanner";
 
 interface TrackProps {
   entry: DailyEntry | {
@@ -70,6 +71,8 @@ interface TrackProps {
   onDeleteSale?: (saleId: string) => void;
   isLoadingEntry?: boolean;
   isRefreshing?: boolean;
+  competitorNudge?: { name: string; metric: string; metricLabel: string; timeframe: string; gap: number; userValue: number; competitorValue: number } | null;
+  competitorLoading?: boolean;
 }
 
 const Track = ({
@@ -88,6 +91,8 @@ const Track = ({
   onDeleteSale,
   isLoadingEntry = false,
   isRefreshing = false,
+  competitorNudge,
+  competitorLoading,
 }: TrackProps) => {
   const { repData, loading: loadingRepData, isInitializing } = useRepData();
   const userIdData = useCurrentUserId();
@@ -398,6 +403,9 @@ const Track = ({
   // Active tracking state - show normal counters with entrance animation
   return (
     <div className="flex flex-col h-full">
+      {/* Competitor Nudge Banner - subtle motivational strip */}
+      <CompetitorNudgeBanner competitor={competitorNudge as any} loading={competitorLoading} />
+
       {/* Time Tracking Bar */}
       <motion.div 
         className="flex-shrink-0"

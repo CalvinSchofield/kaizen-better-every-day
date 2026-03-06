@@ -1180,6 +1180,8 @@ const TrackWithLayout = () => {
           onDeleteSale={handleDeleteSale}
           isLoadingEntry={isLoadingEntry}
           isRefreshing={isRefreshing}
+          competitorNudge={competitorNudge}
+          competitorLoading={competitorLoading}
         />
       </Layout>
 
