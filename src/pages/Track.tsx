@@ -37,6 +37,7 @@ import {
 } from "@/components/activity-ring";
 import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { PreWorkingState } from "@/components/track";
+import { CompetitorNudgeBanner } from "@/components/track/CompetitorNudgeBanner";
 
 interface TrackProps {
   entry: DailyEntry | {
