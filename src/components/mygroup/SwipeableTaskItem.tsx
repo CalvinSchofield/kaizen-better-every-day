@@ -62,6 +62,7 @@ export const SwipeableTaskItem = ({
   onDemoComplete,
   isOverdue = false,
   hasTodayScheduledActivity = false,
+  isTeamTask = false,
 }: SwipeableTaskItemProps) => {
   const [isCommitted, setIsCommitted] = useState<'left' | 'right' | null>(null);
   const [demoPlayed, setDemoPlayed] = useState(false);
