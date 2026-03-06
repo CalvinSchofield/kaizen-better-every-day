@@ -71,6 +71,8 @@ interface TrackProps {
   onDeleteSale?: (saleId: string) => void;
   isLoadingEntry?: boolean;
   isRefreshing?: boolean;
+  competitorNudge?: { name: string; metric: string; metricLabel: string; timeframe: string; gap: number; userValue: number; competitorValue: number } | null;
+  competitorLoading?: boolean;
 }
 
 const Track = ({
