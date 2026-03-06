@@ -706,7 +706,7 @@ const MyGroup = () => {
       parseISO(a.activity.created_at).getTime() - parseISO(b.activity.created_at).getTime()
     );
     return todayItems[0] || null;
-  }, [filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed, isHeroDataStable, overdueScheduledFallback]);
+  }, [filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed, isHeroDataStable, overdueScheduledFallback, currentUserId]);
 
   // Fallback: if no top recommendation AND no overdue AND no today items, find the top priority from Needs Attention
   // (respecting skip functionality)
