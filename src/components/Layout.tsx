@@ -282,7 +282,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   // Get currently active tab for collapsed state
   const activeItem = [...navItems, actionButton].find((item) => item.path === location.pathname);
   const CollapsedActiveIcon =
-    activeItem && activeItem.path !== actionButton.path ? activeItem.icon : Home;
+    activeItem && activeItem.path !== actionButton.path ? activeItem.icon : Target;
 
   // Get page title based on current route
   const getPageTitle = () => {
