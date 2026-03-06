@@ -352,6 +352,13 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange,
   const monthChartData = useMemo(() => getGroupedData('month'), [getGroupedData]);
 
   if (isLoading) {
+    if (inline) {
+      return (
+        <div className="h-64 flex items-center justify-center text-muted-foreground">
+          Loading...
+        </div>
+      );
+    }
     return (
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-4">
