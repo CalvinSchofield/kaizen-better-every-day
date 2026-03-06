@@ -389,6 +389,7 @@ const Track = ({
     return (
       <PreWorkingState
         repName={repData?.name}
+        repData={repData}
         onStartDay={onStartWork}
       />
     );

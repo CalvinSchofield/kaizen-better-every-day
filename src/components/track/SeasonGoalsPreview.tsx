@@ -120,10 +120,18 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
 
   return (
     <Card className={`p-4 border-border/50 ${className}`}>
-      <div className="flex items-center gap-2 mb-3">
-        <Trophy className="h-4 w-4 text-amber-500" />
-        <span className="text-sm font-semibold text-foreground">Summer Goals</span>
-      </div>
+      <button onClick={handleToggleExpand} className="w-full text-left">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-4 w-4 text-amber-500" />
+            <span className="text-sm font-semibold text-foreground">Summer Goals</span>
+          </div>
+          <ChevronDown className={cn(
+            "h-4 w-4 text-muted-foreground transition-transform duration-200",
+            isExpanded && "rotate-180"
+          )} />
+        </div>
+      </button>
 
       {/* Tier pills */}
       <div className="flex gap-2 mb-4">
@@ -169,6 +177,22 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
         </div>
         <Progress value={progressPercent} className="h-2" />
       </div>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="pt-4 border-t border-border/30 mt-4">
+              <FPCumulativeChart />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Card>
   );
 };
