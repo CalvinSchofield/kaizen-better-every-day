@@ -13,6 +13,8 @@ interface WeatherForecast {
   low: number;
   weatherCode: number;
   precipitation: number;
+  sunset?: string;
+  rainAt?: string | null;
 }
 
 serve(async (req) => {
