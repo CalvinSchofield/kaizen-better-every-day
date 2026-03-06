@@ -172,13 +172,34 @@ serve(async (req) => {
       lng = geocodeData.results[0].longitude;
       locationName = geocodeData.results[0].name;
     } else {
-      return new Response(
-        JSON.stringify({ error: "Either location or latitude/longitude must be provided" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      // No location provided - try IP-based geolocation as fallback
+      try {
+        const ipGeoResponse = await fetch("https://ipapi.co/json/");
+        const ipGeoData = await ipGeoResponse.json();
+        if (ipGeoData.latitude && ipGeoData.longitude) {
+          lat = ipGeoData.latitude;
+          lng = ipGeoData.longitude;
+          locationName = ipGeoData.city || "Your Location";
+          console.log(`IP geolocation fallback: ${locationName} (${lat}, ${lng})`);
+        } else {
+          return new Response(
+            JSON.stringify({ error: "Could not determine location" }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
         }
-      );
+      } catch (ipError) {
+        console.error("IP geolocation failed:", ipError);
+        return new Response(
+          JSON.stringify({ error: "Could not determine location" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
     }
 
     // Step 2: Fetch weather forecast using Open-Meteo Weather API (including weather conditions)

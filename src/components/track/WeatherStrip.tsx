@@ -114,19 +114,28 @@ export const WeatherStrip = ({ repData, className }: WeatherStripProps) => {
         if (activeBlitzLocation) {
           requestBody.location = activeBlitzLocation;
         } else {
-          if (!navigator.geolocation) { clearTimeout(timeout); setLoading(false); return; }
-          try {
-            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(resolve, reject, {
-                timeout: 5000, maximumAge: 300000, enableHighAccuracy: false,
+          // Try browser geolocation first
+          let gotLocation = false;
+          if (navigator.geolocation) {
+            try {
+              const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                  timeout: 5000, maximumAge: 300000, enableHighAccuracy: false,
+                });
               });
-            });
-            requestBody.latitude = position.coords.latitude;
-            requestBody.longitude = position.coords.longitude;
-          } catch {
+              requestBody.latitude = position.coords.latitude;
+              requestBody.longitude = position.coords.longitude;
+              gotLocation = true;
+            } catch {
+              // Geolocation failed - will try fallbacks below
+            }
+          }
+          
+          if (!gotLocation) {
             if (repData?.blitz_trip_location) {
               requestBody.location = repData.blitz_trip_location;
-            } else { clearTimeout(timeout); setLoading(false); return; }
+            }
+            // If no blitz location either, call without location - edge function will use IP fallback
           }
         }
 
