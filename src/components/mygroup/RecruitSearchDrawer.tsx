@@ -2,8 +2,6 @@ import { useState, useMemo } from "react";
 import {
   Drawer,
   DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
 } from "@/components/ui/drawer";
 import {
   Command,
@@ -82,7 +80,6 @@ export const RecruitSearchDrawer = ({
       return nameMatch || phoneMatch;
     });
     
-    // Deduplicate by phone (primary) or name (fallback)
     const seen = new Set<string>();
     const deduped = matches.filter((recruit) => {
       const phoneKey = normalizePhone(recruit.phone);
@@ -93,7 +90,6 @@ export const RecruitSearchDrawer = ({
       return true;
     });
 
-    // Sort by stage priority then year
     deduped.sort((a, b) => {
       const stageA = stagePriority[a.stage || ""] ?? 6;
       const stageB = stagePriority[b.stage || ""] ?? 6;
@@ -115,11 +111,8 @@ export const RecruitSearchDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85svh]">
-        <DrawerHeader className="pb-2">
-          <DrawerTitle>Search Recruits</DrawerTitle>
-        </DrawerHeader>
-        <div className="px-5 pb-6 flex flex-col min-h-0" style={{ maxHeight: 'calc(85svh - 80px)' }}>
+      <DrawerContent className="min-h-[85svh]">
+        <div className="px-4 pb-4 pt-2 flex flex-col flex-1 min-h-0 overflow-hidden">
           <Command shouldFilter={false} className="rounded-xl border-0 bg-transparent flex flex-col flex-1 min-h-0">
             <div className="rounded-xl border bg-muted/30 shrink-0">
               <CommandInput
@@ -138,13 +131,13 @@ export const RecruitSearchDrawer = ({
               ) : filteredRecruits.length === 0 ? (
                 <CommandEmpty className="py-8">No recruits found.</CommandEmpty>
               ) : (
-                <CommandGroup heading={`${filteredRecruits.length} result${filteredRecruits.length !== 1 ? 's' : ''}`} className="px-0">
+                <CommandGroup className="px-0">
                   {filteredRecruits.map((recruit) => (
                     <CommandItem
                       key={recruit.id}
                       value={recruit.id}
                       onSelect={() => handleSelect(recruit)}
-                      className="flex items-center gap-3 py-3.5 px-3 cursor-pointer rounded-xl mb-1"
+                      className="flex items-center gap-3 py-3.5 px-3 cursor-pointer rounded-xl mb-0.5"
                     >
                       <Avatar className="h-10 w-10 shrink-0">
                         <AvatarImage src={recruit.profilePhotoUrl || undefined} alt={recruit.name} />
