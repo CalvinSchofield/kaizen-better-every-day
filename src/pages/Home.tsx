@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { useRepData } from "@/hooks/useRepData";
 import { checkRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
