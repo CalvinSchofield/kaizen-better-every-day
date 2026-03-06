@@ -40,6 +40,8 @@ interface SwipeableTaskItemProps {
   isOverdue?: boolean;
   /** When true, swipe left should reschedule instead of creating new schedule */
   hasTodayScheduledActivity?: boolean;
+  /** When true, this is a team task - always show owner badge */
+  isTeamTask?: boolean;
 }
 
 export const SwipeableTaskItem = ({
