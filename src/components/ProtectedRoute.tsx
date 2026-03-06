@@ -5,6 +5,9 @@ import { User } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { usePrefetchData } from "@/hooks/usePrefetchData";
 import { PushNotificationInitializer } from "./PushNotificationInitializer";
+import { useRepData } from "@/hooks/useRepData";
+import { isRepActive } from "@/utils/repStatusUtils";
+import InactiveAccountScreen from "./InactiveAccountScreen";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -49,6 +52,9 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Get rep data to check stage - only runs when user is authenticated
+  const { repData, loading: repLoading } = useRepData();
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
@@ -60,6 +66,17 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Check if rep is in an inactive stage - block app access
+  if (repData && !isRepActive(repData.stage)) {
+    return (
+      <InactiveAccountScreen
+        repName={repData.name}
+        teamLeader={repData.team_leader}
+        teamLeaderPhone={repData.team_leader_phone}
+      />
+    );
   }
 
   return (

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isRepActive } from "@/utils/repStatusUtils";
 
 interface LeaderboardEntry {
   userId: string;
@@ -56,11 +57,15 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
 
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, year");
+        .select("user_id, name, year, stage");
 
       if (repsError) throw repsError;
 
-      const repsMap = new Map(repsData?.map(r => [r.user_id, { name: r.name, year: r.year }]) || []);
+      const repsMap = new Map(
+        repsData
+          ?.filter(r => isRepActive(r.stage))
+          .map(r => [r.user_id, { name: r.name, year: r.year }]) || []
+      );
 
       // Include both finalized AND unfinalized entries for yesterday
       // This ensures accurate leaderboards even when reps forget to save

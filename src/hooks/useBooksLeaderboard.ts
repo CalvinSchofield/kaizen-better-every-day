@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isRepActive } from "@/utils/repStatusUtils";
 
 interface BookLeader {
   userId: string;
@@ -25,15 +26,17 @@ export const useBooksLeaderboard = () => {
 
       if (goalsError) throw goalsError;
 
-      // Fetch rep data to get names and year
+      // Fetch rep data to get names, year, and stage
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, year");
+        .select("user_id, name, year, stage");
 
       if (repsError) throw repsError;
 
       const repsMap = new Map(
-        repsData?.map((r) => [r.user_id, { name: r.name, year: r.year }]) || []
+        repsData
+          ?.filter((r) => isRepActive(r.stage))
+          .map((r) => [r.user_id, { name: r.name, year: r.year }]) || []
       );
 
       // Process and find leaders

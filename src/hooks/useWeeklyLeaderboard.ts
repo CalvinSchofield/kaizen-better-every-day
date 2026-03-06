@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getLocalDateString } from "@/lib/utils";
 import { getCleanName } from "@/utils/nameUtils";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+import { isRepActive } from "@/utils/repStatusUtils";
 
 interface LeaderboardEntry {
   userId: string;
@@ -64,18 +65,20 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
 
       const { data: users, error: usersError } = await supabase
         .from("reps")
-        .select("user_id, name, year");
+        .select("user_id, name, year, stage");
 
       if (usersError) throw usersError;
 
       const userMap = new Map(
-        users?.map((user) => [
-          user.user_id,
-          { 
-            name: getCleanName(user.name),
-            year: user.year 
-          },
-        ]) || []
+        users
+          ?.filter(user => isRepActive(user.stage))
+          .map((user) => [
+            user.user_id,
+            { 
+              name: getCleanName(user.name),
+              year: user.year 
+            },
+          ]) || []
       );
 
       const { data: entries, error: entriesError } = await supabase

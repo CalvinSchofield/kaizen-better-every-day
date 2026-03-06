@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getWeekStartDateString } from "@/utils/timezoneUtils";
+import { isRepActive } from "@/utils/repStatusUtils";
 
 interface PrepScoreBreakdown {
   books: number;
@@ -76,13 +77,13 @@ export const useRookieOfTheWeek = () => {
       // Fetch rep info for names and timezones
       const { data: repsData, error: repsError } = await supabase
         .from('reps')
-        .select('id, user_id, name, timezone, year');
+        .select('id, user_id, name, timezone, year, stage');
 
       if (repsError) throw repsError;
 
-      // Filter to only rookies
+      // Filter to only active rookies
       const rookieUserIds = repsData
-        ?.filter(r => r.year === 'Rookie' || r.year === '2026' || r.year === '2025' || !r.year)
+        ?.filter(r => isRepActive(r.stage) && (r.year === 'Rookie' || r.year === '2026' || r.year === '2025' || !r.year))
         .map(r => r.user_id) || [];
 
       const rookies: RookieStats[] = [];
