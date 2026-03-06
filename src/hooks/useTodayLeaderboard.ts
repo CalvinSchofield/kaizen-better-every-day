@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { tiebreakerCompare, YearRank } from "@/utils/leaderboardTiebreaker";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+import { isRepActive } from "@/utils/repStatusUtils";
 import { getCleanName } from "@/utils/nameUtils";
 interface RankingEntry {
   userId: string;
