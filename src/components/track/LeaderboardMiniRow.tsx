@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { hapticLight } from "@/utils/haptics";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { useCompetitorNudge } from "@/hooks/useCompetitorNudge";
 
 interface LeaderboardMiniRowProps {
   className?: string;
@@ -12,6 +13,7 @@ export const LeaderboardMiniRow = ({ className }: LeaderboardMiniRowProps) => {
   const navigate = useNavigate();
   const { totalFP, totalEFP } = usePreseasonFP();
   const { efpModeEnabled } = useEfpMode();
+  const { competitor } = useCompetitorNudge();
 
   const currentValue = efpModeEnabled ? totalEFP : totalFP;
   const unitLabel = efpModeEnabled ? 'EFP' : 'FP+';
@@ -20,6 +22,20 @@ export const LeaderboardMiniRow = ({ className }: LeaderboardMiniRowProps) => {
     hapticLight();
     navigate('/leaderboard');
   };
+
+  // Build display text based on competitor nudge or fallback
+  let title: string;
+  let subtitle: string;
+
+  if (competitor) {
+    const gap = competitor.gap;
+    const plural = gap !== 1 ? 's' : '';
+    title = `${competitor.name} is ${gap} ${competitor.metricLabel}${plural} ahead`;
+    subtitle = `Catch them ${competitor.timeframe} →`;
+  } else {
+    title = `Your season: ${Math.round(currentValue * 10) / 10} ${unitLabel}`;
+    subtitle = 'See where you stand →';
+  }
 
   return (
     <button
@@ -30,10 +46,8 @@ export const LeaderboardMiniRow = ({ className }: LeaderboardMiniRowProps) => {
         <Trophy className="h-4 w-4 text-amber-500" />
       </div>
       <div className="flex-1 text-left">
-        <p className="text-sm font-medium text-foreground">
-          Your season: {Math.round(currentValue * 10) / 10} {unitLabel}
-        </p>
-        <p className="text-xs text-muted-foreground">See where you stand →</p>
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
       </div>
       <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
     </button>
