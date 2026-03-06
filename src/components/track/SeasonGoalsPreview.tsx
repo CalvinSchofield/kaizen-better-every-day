@@ -188,7 +188,7 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
             className="overflow-hidden"
           >
             <div className="pt-4 border-t border-border/30 mt-4">
-              <FPCumulativeChart />
+              <FPCumulativeChart inline />
             </div>
           </motion.div>
         )}
