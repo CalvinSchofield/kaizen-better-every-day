@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getWeekStartDateString } from "@/utils/timezoneUtils";
+import { isRepActive } from "@/utils/repStatusUtils";
 
 interface PrepScoreBreakdown {
   books: number;
