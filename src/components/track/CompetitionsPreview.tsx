@@ -63,7 +63,7 @@ export const CompetitionsPreview = ({ className }: CompetitionsPreviewProps) => 
         <p className="text-sm font-medium text-foreground">{label}</p>
         <p className="text-xs text-muted-foreground">View details →</p>
       </div>
-      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+      
     </button>
   );
 };
