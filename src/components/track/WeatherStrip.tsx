@@ -141,7 +141,7 @@ export const WeatherStrip = ({ repData, className }: WeatherStripProps) => {
     };
 
     fetchWeather();
-  }, [activeBlitzLocation, repData?.blitz_trip_location]);
+  }, []);
 
   if (loading) {
     return <Skeleton className={`h-8 w-full rounded-lg ${className}`} />;
