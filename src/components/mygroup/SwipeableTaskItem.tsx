@@ -40,6 +40,8 @@ interface SwipeableTaskItemProps {
   isOverdue?: boolean;
   /** When true, swipe left should reschedule instead of creating new schedule */
   hasTodayScheduledActivity?: boolean;
+  /** When true, this is a team task - always show owner badge */
+  isTeamTask?: boolean;
 }
 
 export const SwipeableTaskItem = ({
@@ -60,6 +62,7 @@ export const SwipeableTaskItem = ({
   onDemoComplete,
   isOverdue = false,
   hasTodayScheduledActivity = false,
+  isTeamTask = false,
 }: SwipeableTaskItemProps) => {
   const [isCommitted, setIsCommitted] = useState<'left' | 'right' | null>(null);
   const [demoPlayed, setDemoPlayed] = useState(false);
@@ -81,21 +84,33 @@ export const SwipeableTaskItem = ({
   const isAssignedToOther = activity?.assigned_to_user_id && 
     activity.assigned_to_user_id !== currentUserId;
 
-  // Get assignee name if assigned to someone else
-  const { data: assigneeName } = useQuery({
-    queryKey: ['assignee-name', activity?.assigned_to_user_id],
+  // Check if task was logged by someone else (and not explicitly assigned)
+  const isLoggedByOther = !activity?.assigned_to_user_id && 
+    activity?.logged_by_user_id && 
+    activity.logged_by_user_id !== currentUserId;
+
+  // The user ID to look up for the owner badge
+  const ownerUserId = isAssignedToOther 
+    ? activity?.assigned_to_user_id 
+    : isLoggedByOther 
+      ? activity?.logged_by_user_id 
+      : null;
+
+  // Get owner name for badge display
+  const { data: ownerName } = useQuery({
+    queryKey: ['task-owner-name', ownerUserId],
     queryFn: async () => {
-      if (!activity?.assigned_to_user_id) return null;
+      if (!ownerUserId) return null;
       const { data } = await supabase
         .from('reps')
         .select('name')
-        .eq('user_id', activity.assigned_to_user_id)
+        .eq('user_id', ownerUserId)
         .single();
       if (!data) return null;
       const cleanName = stripEmojis(data.name);
       return cleanName?.split(' ')[0] || null;
     },
-    enabled: !!isAssignedToOther,
+    enabled: !!ownerUserId,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -249,11 +264,11 @@ export const SwipeableTaskItem = ({
               </Badge>
               {/* Calendar badge if user has this in their calendar */}
               {activity && <CalendarBadge activityId={activity.id} />}
-              {/* Show assignee badge if assigned to someone else */}
-              {isAssignedToOther && assigneeName && (
+              {/* Show owner badge if task belongs to someone else */}
+              {(isAssignedToOther || isLoggedByOther) && ownerName && (
                 <Badge variant="outline" className="text-[10px] gap-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30">
                   <UserCircle className="h-3 w-3" />
-                  {assigneeName}
+                  {ownerName}
                 </Badge>
               )}
               {daysSinceContact !== null && daysSinceContact !== undefined && (
