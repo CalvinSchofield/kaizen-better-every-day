@@ -155,10 +155,7 @@ export const CompetitionsPreview = ({ className }: CompetitionsPreviewProps) => 
         </button>
       </Card>
     );
-  }
-    hapticLight();
-    navigate('/compete');
-  };
+
 
   // Show max 2 challenges and 2 incentives in preview
   const previewChallenges = activeChallenges.slice(0, 2);
