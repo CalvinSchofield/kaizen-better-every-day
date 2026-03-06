@@ -1010,29 +1010,15 @@ const Home = () => {
   // Use centralized unlock status (includes Shadow ✅ check)
   const { isUnlocked, hasAttendedBlitz, isOnActiveBlitz, hasCompletedShadow } = checkRookieUnlockStatus(repData);
   
-  // Check if knocking mode is active - route to KnockingModeHome
+  // Check if knocking mode is active - redirect to Track (which now serves as the home)
   if (isKnockingMode) {
     const year = repData.year || "Rookie";
     const isVetOrSoph = year === "Vet" || year === "Sophomore";
     // Rookies qualify if they completed phase 4 AND are unlocked (attended blitz OR shadow ✅)
     const isBlitzReadyRookie = year === "Rookie" && phase4Complete && isUnlocked;
     
-    // TODO: Add team lead detection logic
-    const isTeamLead = false;
-    const anyBlitzWithin14Days = false;
-    
     if (isVetOrSoph || isBlitzReadyRookie) {
-      return (
-        <KnockingModeHome
-          variant={isVetOrSoph ? "vet" : "rookie"}
-          repData={repData}
-          onSync={handleSync}
-          isSyncing={isSyncing}
-          syncSuccess={syncSuccess}
-          isTeamLead={isTeamLead}
-          anyBlitzWithin14Days={anyBlitzWithin14Days}
-        />
-      );
+      return <Navigate to="/track" replace />;
     }
   }
   
