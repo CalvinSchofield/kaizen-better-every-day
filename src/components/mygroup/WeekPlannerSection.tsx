@@ -541,7 +541,7 @@ export const WeekPlannerSection = ({
                 </h3>
               </div>
               <div className="space-y-2">
-                {Array.from(scheduledTasks.entries())
+                {Array.from(myScheduledTasks.entries())
                   .filter(([dateStr]) => {
                     const date = parseISO(dateStr);
                     return isPast(date) && !isDateToday(date);
