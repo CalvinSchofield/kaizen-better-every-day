@@ -105,7 +105,7 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
     );
   }
 
-  if (goalsLoading || !paceData) {
+  if (isDataLoading || !paceData) {
     return (
       <Card className={`p-4 border-border/50 ${className}`}>
         <Skeleton className="h-20 w-full" />
