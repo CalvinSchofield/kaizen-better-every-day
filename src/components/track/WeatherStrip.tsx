@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Sunset, CloudRain } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -82,19 +82,6 @@ export const WeatherStrip = ({ repData, className }: WeatherStripProps) => {
   });
   const [loading, setLoading] = useState(() => !getCachedWeather());
 
-  // Find active blitz location
-  const activeBlitzLocation = useMemo(() => {
-    if (!repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes)) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const blitz = repData.committed_blitzes.find((b: any) => {
-      if (!b?.date || !b?.endDate) return false;
-      const start = new Date(b.date); start.setHours(0, 0, 0, 0);
-      const end = new Date(b.endDate); end.setHours(0, 0, 0, 0);
-      return today >= start && today <= end;
-    });
-    return blitz?.location || null;
-  }, [repData?.committed_blitzes]);
 
   useEffect(() => {
     const fetchWeather = async () => {
@@ -111,33 +98,23 @@ export const WeatherStrip = ({ repData, className }: WeatherStripProps) => {
         const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         let requestBody: any = { startDate: today, endDate: today };
 
-        if (activeBlitzLocation) {
-          requestBody.location = activeBlitzLocation;
-        } else {
-          // Try browser geolocation first
-          let gotLocation = false;
-          if (navigator.geolocation) {
-            try {
-              const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                  timeout: 5000, maximumAge: 300000, enableHighAccuracy: false,
-                });
+        // Try browser geolocation
+        let gotLocation = false;
+        if (navigator.geolocation) {
+          try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                timeout: 5000, maximumAge: 300000, enableHighAccuracy: false,
               });
-              requestBody.latitude = position.coords.latitude;
-              requestBody.longitude = position.coords.longitude;
-              gotLocation = true;
-            } catch {
-              // Geolocation failed - will try fallbacks below
-            }
-          }
-          
-          if (!gotLocation) {
-            if (repData?.blitz_trip_location) {
-              requestBody.location = repData.blitz_trip_location;
-            }
-            // If no blitz location either, call without location - edge function will use IP fallback
+            });
+            requestBody.latitude = position.coords.latitude;
+            requestBody.longitude = position.coords.longitude;
+            gotLocation = true;
+          } catch {
+            // Geolocation failed — edge function will use IP fallback
           }
         }
+        // If no geolocation, call without coords — server-side IP fallback handles it
 
         const { data, error } = await supabase.functions.invoke("get-blitz-weather", { body: requestBody });
         if (error) throw error;
@@ -164,7 +141,7 @@ export const WeatherStrip = ({ repData, className }: WeatherStripProps) => {
     };
 
     fetchWeather();
-  }, [activeBlitzLocation, repData?.blitz_trip_location]);
+  }, []);
 
   if (loading) {
     return <Skeleton className={`h-8 w-full rounded-lg ${className}`} />;
