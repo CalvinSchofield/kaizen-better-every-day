@@ -199,10 +199,36 @@ export const WeekPlannerSection = ({
     return tasksMap;
   }, [activities, filteredRecruits]);
 
-  // Count overdue tasks (excluding hero item if present)
+  // Split tasks into "my tasks" and "team tasks" based on ownership
+  const { myScheduledTasks, teamScheduledTasks } = useMemo(() => {
+    const myTasks = new Map<string, { recruit: Recruit; activity: RecruitActivity }[]>();
+    const teamTasks = new Map<string, { recruit: Recruit; activity: RecruitActivity }[]>();
+
+    scheduledTasks.forEach((tasks, dateKey) => {
+      tasks.forEach(item => {
+        const isMine = isMyTask(item.activity, currentUserId);
+        const targetMap = isMine ? myTasks : teamTasks;
+        if (!targetMap.has(dateKey)) {
+          targetMap.set(dateKey, []);
+        }
+        targetMap.get(dateKey)!.push(item);
+      });
+    });
+
+    return { myScheduledTasks: myTasks, teamScheduledTasks: teamTasks };
+  }, [scheduledTasks, currentUserId]);
+
+  // Count team tasks total
+  const teamTaskCount = useMemo(() => {
+    let count = 0;
+    teamScheduledTasks.forEach(tasks => { count += tasks.length; });
+    return count;
+  }, [teamScheduledTasks]);
+
+  // Count overdue tasks (excluding hero item if present) - only MY tasks
   const overdueCount = useMemo(() => {
     let count = 0;
-    scheduledTasks.forEach((tasks, dateStr) => {
+    myScheduledTasks.forEach((tasks, dateStr) => {
       const date = parseISO(dateStr);
       if (isPast(date) && !isDateToday(date)) {
         tasks.forEach(({ recruit, activity }) => {
@@ -217,17 +243,17 @@ export const WeekPlannerSection = ({
       }
     });
     return count;
-  }, [scheduledTasks, heroOverdueItem]);
+  }, [myScheduledTasks, heroOverdueItem]);
 
-  // Count this week's tasks
+  // Count this week's tasks - only MY tasks
   const weekTaskCount = useMemo(() => {
     let count = 0;
     weekDays.forEach(day => {
       const dateKey = format(day, 'yyyy-MM-dd');
-      count += scheduledTasks.get(dateKey)?.length || 0;
+      count += myScheduledTasks.get(dateKey)?.length || 0;
     });
     return count;
-  }, [weekDays, scheduledTasks]);
+  }, [weekDays, myScheduledTasks]);
 
   // Signed reps that need nurturing
   const signedNeedingNurture = useMemo(() => 
