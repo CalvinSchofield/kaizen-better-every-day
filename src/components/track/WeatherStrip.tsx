@@ -82,19 +82,6 @@ export const WeatherStrip = ({ repData, className }: WeatherStripProps) => {
   });
   const [loading, setLoading] = useState(() => !getCachedWeather());
 
-  // Find active blitz location
-  const activeBlitzLocation = useMemo(() => {
-    if (!repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes)) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const blitz = repData.committed_blitzes.find((b: any) => {
-      if (!b?.date || !b?.endDate) return false;
-      const start = new Date(b.date); start.setHours(0, 0, 0, 0);
-      const end = new Date(b.endDate); end.setHours(0, 0, 0, 0);
-      return today >= start && today <= end;
-    });
-    return blitz?.location || null;
-  }, [repData?.committed_blitzes]);
 
   useEffect(() => {
     const fetchWeather = async () => {
