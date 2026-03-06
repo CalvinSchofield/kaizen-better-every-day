@@ -126,6 +126,7 @@ export const WeekPlannerSection = ({
   const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
   const [contactingActivity, setContactingActivity] = useState<RecruitActivity | null>(null);
   const [rescheduleActivity, setRescheduleActivity] = useState<RecruitActivity | null>(null);
+  const [teamTasksOpen, setTeamTasksOpen] = useState(false);
   const [postContactOpen, setPostContactOpen] = useState(false);
   const [postContactRecruit, setPostContactRecruit] = useState<Recruit | null>(null);
   const [postContactMethod, setPostContactMethod] = useState<'call' | 'text' | undefined>(undefined);
