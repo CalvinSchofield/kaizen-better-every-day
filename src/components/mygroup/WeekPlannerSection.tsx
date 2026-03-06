@@ -111,6 +111,7 @@ export const WeekPlannerSection = ({
   heroOverdueItem,
   heroTodayItem,
 }: WeekPlannerSectionProps) => {
+  const { userId: currentUserId } = useCurrentUserId();
   const [showSwipeHint, setShowSwipeHint] = useState(true);
   const handleDemoComplete = useCallback(() => setShowSwipeHint(false), []);
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => 
