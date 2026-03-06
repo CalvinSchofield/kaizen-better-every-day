@@ -311,7 +311,7 @@ export const WeekPlannerSection = ({
 
   // Get today's tasks (excluding hero item if present)
   const todayKey = format(new Date(), 'yyyy-MM-dd');
-  const todayTasksRaw = scheduledTasks.get(todayKey) || [];
+  const todayTasksRaw = myScheduledTasks.get(todayKey) || [];
   const todayTasks = useMemo(() => {
     if (!heroTodayItem) return todayTasksRaw;
     return todayTasksRaw.filter(({ recruit, activity }) => 
