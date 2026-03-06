@@ -1,6 +1,6 @@
 import { ReactNode, useMemo, useEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, BookOpen, Wrench, Target, Calendar, Menu, Lock, Save, RotateCcw, BarChart3, Trophy, UserPlus, TrendingUp } from "lucide-react";
+import { Home, BookOpen, Wrench, Target, Calendar, Menu, Lock, Save, RotateCcw, BarChart3, Trophy, UserPlus, TrendingUp, Swords } from "lucide-react";
 import { hapticLight } from "@/utils/haptics";
 import { Button } from "@/components/ui/button";
 import { AppDrawer } from "@/components/AppDrawer";
