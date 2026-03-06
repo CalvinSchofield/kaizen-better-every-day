@@ -83,6 +83,7 @@ const MyGroup = () => {
   const { data: mySuggestions, isLoading: suggestionsLoading } = useMySuggestions();
   const deleteMutation = useDeleteMySuggestion();
   const { allBlitzes, allBlitzesIncludingPast, error: blitzError, refetch: refetchBlitzes, isUsingCache: blitzUsingCache } = useBlitzes();
+  const { userId: currentUserId } = useCurrentUserId();
   
   // UI State
   const navigateTo = useNavigate();
