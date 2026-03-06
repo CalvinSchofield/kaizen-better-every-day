@@ -126,12 +126,8 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
             <Trophy className="h-4 w-4 text-amber-500" />
             <span className="text-sm font-semibold text-foreground">Summer Goals</span>
           </div>
-          <ChevronDown className={cn(
-            "h-4 w-4 text-muted-foreground transition-transform duration-200",
-            isExpanded && "rotate-180"
-          )} />
+          </div>
         </div>
-      </button>
 
       {/* Tier pills */}
       <div className="flex gap-2 mb-4">
