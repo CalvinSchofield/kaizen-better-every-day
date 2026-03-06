@@ -376,7 +376,7 @@ export const WeekPlannerSection = ({
         };
       })
       .filter(({ tasks }) => tasks.length > 0);
-  }, [weekDays, scheduledTasks]);
+  }, [weekDays, myScheduledTasks]);
 
   return (
     <div className="space-y-4">
