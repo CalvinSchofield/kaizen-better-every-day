@@ -428,7 +428,7 @@ export const WeekPlannerSection = ({
           >
             {weekDays.map((day) => {
               const dateKey = format(day, 'yyyy-MM-dd');
-              const dayTasks = scheduledTasks.get(dateKey) || [];
+              const dayTasks = myScheduledTasks.get(dateKey) || [];
               const isToday = isDateToday(day);
               const isPastDay = isPast(day) && !isToday;
 
