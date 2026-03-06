@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendations";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { SwipeableTaskItem } from "./SwipeableTaskItem";
 import { RecruitDetailDrawer } from "./RecruitDetailDrawer";
 import { ContactMethodDrawer } from "./ContactMethodDrawer";
@@ -10,7 +11,9 @@ import { RescheduleActivityDrawer } from "./RescheduleActivityDrawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, CalendarCheck, AlertTriangle, Users, Sparkles } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronLeft, ChevronRight, CalendarCheck, AlertTriangle, Users, Sparkles, ChevronDown } from "lucide-react";
+import { isMyTask } from "@/utils/taskOwnership";
 import { 
   format, 
   startOfWeek, 
