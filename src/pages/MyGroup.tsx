@@ -664,7 +664,7 @@ const MyGroup = () => {
     // Sort by most overdue first
     overdueItems.sort((a, b) => b.daysOverdue - a.daysOverdue);
     return overdueItems[0] || null;
-  }, [filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed, isHeroDataStable]);
+  }, [filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed, isHeroDataStable, currentUserId]);
 
   // Calculate today's scheduled items - Priority 2 (after overdue, before other recommendations)
   const todayScheduledItem = useMemo<TodayScheduledItem | null>(() => {
