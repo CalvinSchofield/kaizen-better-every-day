@@ -86,7 +86,7 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   }, [paceData, plannedDays]);
 
   // Handle no goals setup
-  if (!goalsLoading && (!goals?.setup_complete || !hasGoalsAccess)) {
+  if (!isDataLoading && (!goals?.setup_complete || !hasGoalsAccess)) {
     return (
       <Card 
         className={`p-4 border-border/50 bg-card/50 ${className}`}
