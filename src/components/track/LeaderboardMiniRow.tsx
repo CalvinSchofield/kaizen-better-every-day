@@ -1,0 +1,41 @@
+import { Trophy, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { hapticLight } from "@/utils/haptics";
+import { usePreseasonFP } from "@/hooks/usePreseasonFP";
+import { useEfpMode } from "@/hooks/useEfpMode";
+
+interface LeaderboardMiniRowProps {
+  className?: string;
+}
+
+export const LeaderboardMiniRow = ({ className }: LeaderboardMiniRowProps) => {
+  const navigate = useNavigate();
+  const { totalFP, totalEFP } = usePreseasonFP();
+  const { efpModeEnabled } = useEfpMode();
+
+  const currentValue = efpModeEnabled ? totalEFP : totalFP;
+  const unitLabel = efpModeEnabled ? 'EFP' : 'FP+';
+
+  const handleClick = () => {
+    hapticLight();
+    navigate('/leaderboard');
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`group flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-card border border-border/50 active:scale-[0.98] transition-all ${className}`}
+    >
+      <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+        <Trophy className="h-4 w-4 text-amber-500" />
+      </div>
+      <div className="flex-1 text-left">
+        <p className="text-sm font-medium text-foreground">
+          Your season: {Math.round(currentValue * 10) / 10} {unitLabel}
+        </p>
+        <p className="text-xs text-muted-foreground">See where you stand →</p>
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+    </button>
+  );
+};
