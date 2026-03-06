@@ -98,7 +98,7 @@ export const WeatherStrip = ({ repData, className }: WeatherStripProps) => {
         const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         let requestBody: any = { startDate: today, endDate: today };
 
-        // Try browser geolocation
+        // Try browser geolocation first
         let gotLocation = false;
         if (navigator.geolocation) {
           try {
@@ -111,10 +111,25 @@ export const WeatherStrip = ({ repData, className }: WeatherStripProps) => {
             requestBody.longitude = position.coords.longitude;
             gotLocation = true;
           } catch {
-            // Geolocation failed — edge function will use IP fallback
+            console.log("Browser geolocation failed, trying IP fallback...");
           }
         }
-        // If no geolocation, call without coords — server-side IP fallback handles it
+
+        // Client-side IP geolocation fallback (edge function IP resolves to server, not user)
+        if (!gotLocation) {
+          try {
+            const ipResponse = await fetch("https://ipapi.co/json/", { signal: AbortSignal.timeout(4000) });
+            const ipData = await ipResponse.json();
+            if (ipData.latitude && ipData.longitude) {
+              requestBody.latitude = ipData.latitude;
+              requestBody.longitude = ipData.longitude;
+              gotLocation = true;
+              console.log("IP geolocation fallback:", ipData.city);
+            }
+          } catch {
+            console.log("IP geolocation fallback failed");
+          }
+        }
 
         const { data, error } = await supabase.functions.invoke("get-blitz-weather", { body: requestBody });
         if (error) throw error;

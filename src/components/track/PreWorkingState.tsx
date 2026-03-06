@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { DailyMissionCard } from "./DailyMissionCard";
 import { SeasonGoalsPreview } from "./SeasonGoalsPreview";
 import { CompetitionsPreview } from "./CompetitionsPreview";
+import { WeeklyActivityCard } from "./WeeklyActivityCard";
 import { WeatherStrip } from "./WeatherStrip";
 import { LeaderboardMiniRow } from "./LeaderboardMiniRow";
 import { MeVsMeMotivationCard } from "@/components/MeVsMeMotivationCard";
@@ -117,6 +118,10 @@ export const PreWorkingState = ({
       <div className="flex-1 px-4 space-y-4">
         <motion.div variants={itemVariants}>
           <DailyMissionCard />
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <WeeklyActivityCard />
         </motion.div>
 
         <motion.div variants={itemVariants}>
