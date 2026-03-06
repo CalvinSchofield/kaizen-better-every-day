@@ -182,7 +182,7 @@ serve(async (req) => {
     }
 
     // Step 2: Fetch weather forecast using Open-Meteo Weather API (including weather conditions)
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&start_date=${startDateForRequest}&end_date=${endDateForRequest}&temperature_unit=fahrenheit&timezone=auto`;
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum,sunset&hourly=precipitation&start_date=${startDateForRequest}&end_date=${endDateForRequest}&temperature_unit=fahrenheit&timezone=auto`;
 
     console.log(`Fetching weather from: ${weatherUrl}`);
 
