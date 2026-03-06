@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getLocalDateString } from "@/lib/utils";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+import { isRepActive } from "@/utils/repStatusUtils";
 
 interface LeaderboardEntry {
   userId: string;
