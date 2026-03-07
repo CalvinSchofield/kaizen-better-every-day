@@ -685,6 +685,40 @@ const Goals = () => {
                       },
                     });
                   }
+
+                  // Auto-generate Mon-Sat planned work days for the summer range
+                  if (data.summerStart && data.summerEnd) {
+                    const { eachDayOfInterval, getDay, format: fnsFormat } = await import('date-fns');
+                    const parseLocal = (s: string) => {
+                      const [y, m, d] = s.split('-').map(Number);
+                      return new Date(y, m - 1, d);
+                    };
+                    const startD = parseLocal(data.summerStart);
+                    const endD = parseLocal(data.summerEnd);
+                    const todayD = new Date();
+                    todayD.setHours(0, 0, 0, 0);
+                    
+                    const workDays = eachDayOfInterval({ start: startD, end: endD })
+                      .filter(d => getDay(d) !== 0 && d >= todayD) // Skip Sundays & past days
+                      .map(d => ({ user_id: user.id, planned_date: fnsFormat(d, 'yyyy-MM-dd') }));
+
+                    if (workDays.length > 0) {
+                      // Delete existing planned days in range first to avoid conflicts
+                      await supabase
+                        .from('planned_work_days')
+                        .delete()
+                        .eq('user_id', user.id)
+                        .gte('planned_date', data.summerStart)
+                        .lte('planned_date', data.summerEnd);
+
+                      // Insert in batches of 500
+                      for (let i = 0; i < workDays.length; i += 500) {
+                        await supabase
+                          .from('planned_work_days')
+                          .insert(workDays.slice(i, i + 500));
+                      }
+                    }
+                  }
                 }
 
                 if (isRookie && data.selectedBlitzIds && data.selectedBlitzIds.length > 0 && repData?.id) {
