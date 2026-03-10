@@ -377,3 +377,4 @@ export const useRecruitingRecommendations = (
       })
       .map(({ _depth, ...rec }) => rec);
   }, [recruits, activities, blitzes, repDataMap, currentUserId]);
+};
