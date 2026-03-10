@@ -135,14 +135,22 @@ export const useDailyEntry = (date?: string) => {
 
   // Track offline status with valid backup
   const [isOfflineWithBackup, setIsOfflineWithBackup] = useState(false);
+  // Track if we have a valid backup (for immediate interaction)
+  const [hasValidBackup, setHasValidBackup] = useState(() => {
+    const userId = getCurrentUserId();
+    const backup = userId ? getInstantBackup(userId, entryDate) : null;
+    return getActivityTotal(backup) > 0;
+  });
 
   // Check offline status with valid backup
   useEffect(() => {
     const checkOfflineStatus = () => {
+      const userId = getCurrentUserId();
+      const backup = userId ? getInstantBackup(userId, entryDate) : null;
+      const hasActivity = getActivityTotal(backup) > 0;
+      setHasValidBackup(hasActivity);
+      
       if (!navigator.onLine) {
-        const userId = getCurrentUserId();
-        const backup = userId ? getInstantBackup(userId, entryDate) : null;
-        const hasActivity = getActivityTotal(backup) > 0;
         setIsOfflineWithBackup(hasActivity);
       } else {
         setIsOfflineWithBackup(false);
@@ -157,6 +165,50 @@ export const useDailyEntry = (date?: string) => {
       window.removeEventListener('offline', checkOfflineStatus);
     };
   }, [entryDate]);
+
+  // AUTO-SYNC: Push backup to server when coming back online
+  useEffect(() => {
+    const handleOnline = async () => {
+      const userId = getCurrentUserId();
+      if (!userId) return;
+      
+      const backup = getInstantBackup(userId, entryDate);
+      if (!backup || getActivityTotal(backup) === 0) return;
+      
+      console.log('[useDailyEntry] Back online - pushing backup to server via safe upsert');
+      try {
+        await supabase.rpc('upsert_daily_entry_safe', {
+          p_user_id: userId,
+          p_entry_date: entryDate,
+          p_doors_knocked: backup.doors_knocked ?? null,
+          p_decision_makers: backup.decision_makers ?? null,
+          p_pitches: backup.pitches ?? null,
+          p_transitions: backup.transitions ?? null,
+          p_presentations: backup.presentations ?? null,
+          p_closes: backup.closes ?? null,
+          p_fp_plus: backup.fp_plus ?? null,
+          p_prmr: backup.prmr ?? null,
+          p_upgrade_prmr: backup.upgrade_prmr ?? null,
+          p_work_start_time: backup.work_start_time ?? null,
+          p_work_end_time: backup.work_end_time ?? null,
+          p_break_periods: backup.break_periods ? JSON.parse(JSON.stringify(backup.break_periods)) : null,
+          p_counter_timestamps: backup.counter_timestamps ? JSON.parse(JSON.stringify(backup.counter_timestamps)) : null,
+          p_custom_counters: backup.custom_counters ? JSON.parse(JSON.stringify(backup.custom_counters)) : null,
+          p_timezone: backup.timezone ?? null,
+          p_sales_log: backup.sales_log ? JSON.parse(JSON.stringify(backup.sales_log)) : null,
+          p_is_finalized: null,
+        });
+        console.log('[useDailyEntry] Backup synced to server successfully');
+        // Refresh from server after sync
+        queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
+      } catch (err) {
+        console.error('[useDailyEntry] Failed to sync backup on reconnect:', err);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [entryDate, queryClient]);
 
   // BULLETPROOF: Get initial data from localStorage backup for instant hydration
   const initialData = getInitialDataFromBackup(entryDate);
