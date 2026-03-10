@@ -93,8 +93,11 @@ export const CalendarPlanningPreview = ({
     const preseasonEnd = parseISO(PRESEASON_END);
     const summerStart = parseISO(GLOBAL_SUMMER_START);
 
-    const totalPlanned = plannedDays?.length || 0;
     const isPreseasonTier = activeTier === 'preseason';
+
+    const preseasonPlanned = plannedDays?.filter(d => !isAfter(parseISO(d.planned_date), preseasonEnd)).length || 0;
+    const summerPlanned = plannedDays?.filter(d => !isBefore(parseISO(d.planned_date), summerStart)).length || 0;
+    const totalPlanned = isPreseasonTier ? preseasonPlanned : summerPlanned;
 
     const activeGoal = isPreseasonTier
       ? (goals?.preseason_fp_goal || 0)
