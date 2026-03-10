@@ -46,7 +46,8 @@ export const useRecruitingRecommendations = (
   recruits: Recruit[],
   activities: RecruitActivity[],
   blitzes?: BlitzEvent[],
-  repDataMap?: Map<string, RepData>
+  repDataMap?: Map<string, RepData>,
+  currentUserId?: string | null
 ) => {
   return useMemo(() => {
     if (!recruits.length) return [];
@@ -305,7 +306,57 @@ export const useRecruitingRecommendations = (
       }
     });
 
-    // Sort by priority (highest first)
-    return recommendations.sort((a, b) => b.priority - a.priority);
-  }, [recruits, activities, blitzes, repDataMap]);
+    // Build recruiter depth for layered sorting
+    // Depth 0 = direct recruit (recruiterUserId === currentUserId)
+    // Depth 1+ = recruited by someone in my downline chain
+    const depthCache = new Map<string, number>();
+    
+    const getRecruiterDepth = (recruit: Recruit): number => {
+      if (!currentUserId) return 0; // No user context, treat all equal
+      
+      const cached = depthCache.get(recruit.id);
+      if (cached !== undefined) return cached;
+      
+      if (recruit.recruiterUserId === currentUserId) {
+        depthCache.set(recruit.id, 0);
+        return 0;
+      }
+      
+      // Trace up the recruiter chain using recruiterUserId
+      // Build userId->recruit lookup from repDataMap
+      if (repDataMap && recruit.recruiterUserId) {
+        // Find the recruit record whose rep has user_id matching this recruit's recruiterUserId
+        for (const r of recruits) {
+          const repData = repDataMap.get(r.id);
+          if (repData && (repData as any).user_id === recruit.recruiterUserId) {
+            const parentDepth = getRecruiterDepth(r);
+            const depth = parentDepth + 1;
+            depthCache.set(recruit.id, depth);
+            return depth;
+          }
+        }
+      }
+      
+      // Can't trace further — treat as distant
+      depthCache.set(recruit.id, 99);
+      return 99;
+    };
+
+    // Sort: within same priority tier, direct recruits come first
+    return recommendations
+      .map(rec => ({
+        ...rec,
+        _depth: getRecruiterDepth(rec.recruit),
+      }))
+      .sort((a, b) => {
+        // Group into priority tiers (within 30 points = same tier)
+        const tierA = Math.floor(a.priority / 30);
+        const tierB = Math.floor(b.priority / 30);
+        
+        if (tierA !== tierB) return tierB - tierA;
+        if (a._depth !== b._depth) return a._depth - b._depth;
+        return b.priority - a.priority;
+      })
+      .map(({ _depth, ...rec }) => rec);
+  }, [recruits, activities, blitzes, repDataMap, currentUserId]);
 };
