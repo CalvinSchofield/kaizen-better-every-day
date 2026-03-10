@@ -464,34 +464,29 @@ export const useDailyEntry = (date?: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Build upsert payload - only include sales_log if provided
-      const upsertPayload: any = {
-        user_id: user.id,
-        entry_date: data.saveDate,
-        doors_knocked: data.doors_knocked,
-        decision_makers: data.decision_makers,
-        pitches: data.pitches,
-        transitions: data.transitions,
-        presentations: data.presentations,
-        closes: data.closes,
-        fp_plus: data.fp_plus,
-        prmr: data.prmr,
-        upgrade_prmr: data.upgrade_prmr,
-        work_start_time: data.work_start_time,
-        work_end_time: data.work_end_time,
-        is_finalized: true,
-      };
-
-      // Include sales_log if provided (auto-generated or existing)
-      if (data.sales_log !== undefined) {
-        upsertPayload.sales_log = data.sales_log;
-      }
-
-      const { error } = await supabase
-        .from('daily_entries')
-        .upsert(upsertPayload, {
-          onConflict: 'user_id,entry_date'
-        });
+      // BULLETPROOF: Use safe upsert RPC for finalization to prevent data overwrites
+      // This ensures sales_log, counter_timestamps etc. are merged, not replaced
+      const { data: result, error } = await supabase.rpc('upsert_daily_entry_safe', {
+        p_user_id: user.id,
+        p_entry_date: data.saveDate,
+        p_doors_knocked: data.doors_knocked,
+        p_decision_makers: data.decision_makers,
+        p_pitches: data.pitches,
+        p_transitions: data.transitions,
+        p_presentations: data.presentations,
+        p_closes: data.closes,
+        p_fp_plus: data.fp_plus,
+        p_prmr: data.prmr,
+        p_upgrade_prmr: data.upgrade_prmr ?? null,
+        p_work_start_time: data.work_start_time ?? null,
+        p_work_end_time: data.work_end_time ?? null,
+        p_break_periods: null,
+        p_counter_timestamps: null,
+        p_custom_counters: null,
+        p_timezone: null,
+        p_sales_log: data.sales_log ? JSON.parse(JSON.stringify(data.sales_log)) : null,
+        p_is_finalized: true,
+      });
 
       if (error) throw error;
       
