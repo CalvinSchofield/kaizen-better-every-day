@@ -67,7 +67,7 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
     }).length || 0;
 
     // Calculate what's needed this week to stay on pace
-    const weeklyNeeded = paceData.dailyGoal * remainingDaysThisWeek;
+    const weeklyNeeded = paceData.remainingDailyNeeded * remainingDaysThisWeek;
 
     // Get week's progress so far (days already worked this week)
     const weekStartStr = format(weekStart, 'yyyy-MM-dd');
