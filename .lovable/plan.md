@@ -1,50 +1,86 @@
+# Unlock App for Rookies When Personal Summer Starts
 
+## Problem
 
-## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
+Rookies who haven't completed Ramp to Blitz are locked out of Track, Insights, Calendar, and other field tools. Once their personal summer date arrives, they should have full access regardless of ramp completion -- especially since the leader's ability to track ramp progress for them disappears once summer starts.
 
-### The Problem
+## Solution
 
-When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
+Add `personal_summer_start` as an additional unlock condition in the centralized `useRookieUnlockStatus` hook. If today >= the rookie's personal summer start date, they're unlocked.
 
-### Root Cause
+Since `repData` doesn't include summer dates, the hook needs to fetch from `season_config`. To keep it lightweight:
 
-There are three things fighting each other:
+- Accept an optional `personalSummerStart` parameter (string or null)
+- The calling components that already have this data can pass it in
+- Also add a standalone check using the global fallback date for the pure function version
 
-1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
+## Changes
 
-2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
+### `src/hooks/useRookieUnlockStatus.ts`
 
-3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+- Add `personalSummerStart?: string | null` to the `RepDataForUnlock` interface
+- Add a `hasSummerStarted` check: `today >= personalSummerStart`
+- Include it in the `isUnlocked` condition: `hasAttendedOrOnBlitz || hasQualifyingStage || hasSummerStarted`
+- Same for the pure `checkRookieUnlockStatus` function
 
-### The Fix
+### Callers that need to pass summer start data
 
-#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+The hook is used in ~10 files. Most already have access to `useAppMode` or `season_config` nearby. The key change: pass `personalSummerStart` from wherever it's available. For pages that don't have it, the hook will use the global fallback (`2026-04-12`) -- but since we're currently pre-summer, this won't incorrectly unlock anyone early.
 
-The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
+**Files to update to pass summer start:**
 
-#### 2. Simplify `useKeyboardViewport` hook
+- `src/pages/Track.tsx` -- already uses `useAppMode`, can get `seasonConfig.personal_summer_start`
+- `src/pages/Home.tsx` -- already uses `useAppMode`
+- `src/pages/Insights.tsx` -- add `useAppMode` or pass from existing data
+- `src/pages/Calendar.tsx` -- already fetches season_config
+- `src/pages/Customers.tsx` -- add season config access
+- `src/components/Layout.tsx` -- nav bar lock logic
+- `src/components/AppDrawer.tsx` -- drawer lock logic
+- `src/components/leaderboard/ChallengesTab.tsx` and `IncentivesTab.tsx`
 
-- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
-- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
-- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
-- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
+**Approach:** Rather than updating every caller, I'll make the hook self-sufficient by adding an internal `useQuery` for `season_config` that only fires when the user is a rookie who isn't already unlocked by other conditions. This way zero callers need changes.
 
-#### 3. Add `@capacitor/keyboard` plugin configuration
+## Technical Detail
 
-Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
+```typescript
+// Inside useRookieUnlockStatus, after checking blitz/stage:
+const needsSummerCheck = isRookie && !hasAttendedOrOnBlitz && !hasQualifyingStage;
 
-### Files to Modify
+const { data: seasonConfig } = useQuery({
+  queryKey: ['rookie-summer-check'],
+  enabled: needsSummerCheck,
+  staleTime: 5 * 60 * 1000,
+  queryFn: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data } = await supabase
+      .from('season_config')
+      .select('personal_summer_start')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    return data;
+  },
+});
 
-- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
-- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
-- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
-- **`package.json`** -- Add `@capacitor/keyboard` dependency
+const hasSummerStarted = useMemo(() => {
+  if (!needsSummerCheck) return false;
+  const start = seasonConfig?.personal_summer_start;
+  if (!start) {
+    // Fallback to global date
+    return new Date() >= new Date('2026-04-12T00:00:00');
+  }
+  return new Date() >= new Date(start + 'T00:00:00');
+}, [needsSummerCheck, seasonConfig]);
 
-### After Approval
+const isUnlocked = hasAttendedOrOnBlitz || hasQualifyingStage || hasSummerStarted;
+```
 
-After these code changes, you will need to:
-1. Git pull the updated code
-2. Run `npm install` to get the new keyboard plugin
-3. Run `npx cap sync` to sync the plugin to iOS
-4. Rebuild in Xcode and push to TestFlight
+The pure function `checkRookieUnlockStatus` will use the global fallback only (since it can't query async), which is acceptable for its usage contexts.
 
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+STILL DONT GIVD REPS MARKED AS NOT INTERESRED or SIGNED BUT NOT INTERESTED or POTENTIAL FOLLOW UP access to ANSYTHIMG in the app remember
