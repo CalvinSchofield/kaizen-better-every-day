@@ -66,10 +66,10 @@ export const useCumulativeFP = () => {
     queryFn: async () => {
       if (!userId) return [];
 
-      // Fetch only finalized entries - no placeholder for today
+      // Fetch finalized entries INCLUDING sales_log for accurate calculation
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("entry_date, fp_plus, prmr, upgrade_prmr, is_finalized, doors_knocked, work_start_time, work_end_time")
+        .select("entry_date, fp_plus, prmr, upgrade_prmr, is_finalized, doors_knocked, work_start_time, work_end_time, sales_log")
         .eq("user_id", userId)
         .eq("is_finalized", true)
         .order("entry_date", { ascending: true });
@@ -95,9 +95,24 @@ export const useCumulativeFP = () => {
       let knockingDayCount = 0;
 
       entries.forEach((entry) => {
-        // prmr field IS total PRMR (already includes upgrade_prmr)
-        const totalPrmr = entry.prmr || 0;
-        const fpValue = entry.fp_plus || 0;
+        // UNIFIED: Calculate from sales_log when available (matches usePreseasonFP exactly)
+        const salesLog = entry.sales_log as unknown as Sale[] | null;
+        let totalPrmr: number;
+        let fpValue: number;
+        
+        if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
+          const validSales = salesLog.filter((s: Sale) => s.install_status !== 'never_installed');
+          const fpSales = validSales.filter((s: Sale) => s.type === 'fp');
+          const upgradeSales = validSales.filter((s: Sale) => s.type === 'upgrade');
+          const upgradePrmrTotal = upgradeSales.reduce((sum: number, s: Sale) => sum + (s.prmr || 0), 0);
+          
+          totalPrmr = validSales.reduce((sum: number, s: Sale) => sum + (s.prmr || 0), 0);
+          fpValue = fpSales.length + (upgradePrmrTotal / 85);
+        } else {
+          // Fallback to raw columns for legacy entries
+          totalPrmr = entry.prmr || 0;
+          fpValue = entry.fp_plus || 0;
+        }
         
         // Check if this is a knocking day
         const entryIsKnockingDay = isKnockingDay(entry);
