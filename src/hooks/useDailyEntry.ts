@@ -400,6 +400,22 @@ export const useDailyEntry = (date?: string) => {
       queryClient.setQueryData(['daily-entry', entryDate], context?.previousEntry);
       // Don't show generic error toast here - let the caller handle offline-aware messaging
     },
+    onSuccess: (data) => {
+      // Mark backup as server-confirmed after successful mutation
+      const userId = getCurrentUserId();
+      if (userId && data) {
+        try {
+          const key = `track-backup-${userId}-${entryDate}`;
+          const stored = localStorage.getItem(key);
+          if (stored) {
+            const backup = JSON.parse(stored);
+            backup.lastServerSync = new Date().toISOString();
+            localStorage.setItem(key, JSON.stringify(backup));
+            console.log('[useDailyEntry] Backup marked as server-confirmed');
+          }
+        } catch {}
+      }
+    },
     onSettled: () => {
       // BULLETPROOF: DON'T invalidate daily-entry during active tracking
       // This was causing race conditions where stale data overwrote optimistic updates
