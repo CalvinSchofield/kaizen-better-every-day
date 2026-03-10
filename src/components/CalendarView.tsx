@@ -160,8 +160,9 @@ export const CalendarView = ({
     });
     
     return {
-      preseasonDailyGoal: preseasonResult ? Math.round(preseasonResult.dailyGoal * 10) / 10 : null,
-      summerDailyGoal: summerResult && !summerResult.isInPreseason ? Math.round(summerResult.dailyGoal * 10) / 10 : null,
+      // Use catch-up pace (remaining / remaining days) to match Goals page
+      preseasonDailyGoal: preseasonResult ? Math.round(preseasonResult.remainingDailyNeeded * 10) / 10 : null,
+      summerDailyGoal: summerResult && !summerResult.isInPreseason ? Math.round(summerResult.remainingDailyNeeded * 10) / 10 : null,
     };
   }, [goals, plannedDays, entries, efpModeEnabled, calculateEfp, preseasonCurrentFP, preseasonCurrentPRMR, personalSummerStart, summerActiveTier]);
 
