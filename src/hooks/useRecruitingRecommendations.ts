@@ -306,57 +306,43 @@ export const useRecruitingRecommendations = (
       }
     });
 
-    // Build recruiter depth map for layered sorting
+    // Build recruiter depth for layered sorting
     // Depth 0 = direct recruit (recruiterUserId === currentUserId)
-    // Depth 1 = recruited by one of my direct recruits, etc.
+    // Depth 1+ = recruited by someone in my downline chain
+    const depthCache = new Map<string, number>();
+    
     const getRecruiterDepth = (recruit: Recruit): number => {
-      if (!currentUserId) return 999;
-      if (recruit.recruiterUserId === currentUserId) return 0;
+      if (!currentUserId) return 0; // No user context, treat all equal
       
-      // Build a quick lookup: userId -> recruiterUserId
-      const userIdToRecruiterUserId = new Map<string, string | null>();
-      // We also need to map recruit IDs to their recruiterUserId for chain tracing
-      // recruits have recruiterUserId which is the auth user_id of the recruiter
-      // To trace up: find the recruit whose userId matches this recruit's recruiterUserId
-      const recruiterUserIdToRecruit = new Map<string, Recruit>();
-      for (const r of recruits) {
-        // Some recruits may have a user account; map by recruiterUserId for chain tracing
-        if (r.recruiterUserId) {
-          // Multiple recruits can share the same recruiter
-        }
-        recruiterUserIdToRecruit.set(r.id, r);
+      const cached = depthCache.get(recruit.id);
+      if (cached !== undefined) return cached;
+      
+      if (recruit.recruiterUserId === currentUserId) {
+        depthCache.set(recruit.id, 0);
+        return 0;
       }
       
-      // Trace up the recruiter chain (max 6 levels)
-      let current = recruit;
-      for (let depth = 1; depth <= 6; depth++) {
-        const parentUserId = current.recruiterUserId;
-        if (!parentUserId) return 999;
-        if (parentUserId === currentUserId) return depth;
-        // Find the recruit record for this parent
-        const parentRecruit = recruits.find(r => r.recruiterUserId === parentUserId && r.recruiterUserId !== r.id as any);
-        // Actually we need to find the recruit whose user account matches parentUserId
-        // But recruits don't have userId. We need to trace via recruiterUserId chain.
-        // Simpler: find any recruit whose recruiterUserId would chain up
-        const parentAsRecruit = recruits.find(r => {
-          // A recruit is "the parent" if they have an associated rep with user_id === parentUserId
-          // We can use repDataMap or the recruit's own ID matching
-          // Actually, recruiterUserId on a recruit points to the auth user_id of their recruiter
-          // So to find the recruiter's own recruit record, we look for a recruit whose repDataMap entry has user_id === parentUserId
-          if (repDataMap) {
-            const repData = repDataMap.get(r.id);
-            if (repData && (repData as any).user_id === parentUserId) return true;
+      // Trace up the recruiter chain using recruiterUserId
+      // Build userId->recruit lookup from repDataMap
+      if (repDataMap && recruit.recruiterUserId) {
+        // Find the recruit record whose rep has user_id matching this recruit's recruiterUserId
+        for (const r of recruits) {
+          const repData = repDataMap.get(r.id);
+          if (repData && (repData as any).user_id === recruit.recruiterUserId) {
+            const parentDepth = getRecruiterDepth(r);
+            const depth = parentDepth + 1;
+            depthCache.set(recruit.id, depth);
+            return depth;
           }
-          return false;
-        });
-        if (!parentAsRecruit) return 999;
-        current = parentAsRecruit;
+        }
       }
-      return 999;
+      
+      // Can't trace further — treat as distant
+      depthCache.set(recruit.id, 99);
+      return 99;
     };
 
-    // Sort by priority (highest first), with depth as tiebreaker within same priority tier
-    // Apply a depth penalty: direct recruits get full priority, deeper ones get penalized
+    // Sort: within same priority tier, direct recruits come first
     return recommendations
       .map(rec => ({
         ...rec,
@@ -367,12 +353,8 @@ export const useRecruitingRecommendations = (
         const tierA = Math.floor(a.priority / 30);
         const tierB = Math.floor(b.priority / 30);
         
-        if (tierA !== tierB) return tierB - tierA; // Higher tier first
-        
-        // Within same tier, sort by depth (closer = first)
+        if (tierA !== tierB) return tierB - tierA;
         if (a._depth !== b._depth) return a._depth - b._depth;
-        
-        // Same depth, same tier: sort by raw priority
         return b.priority - a.priority;
       })
       .map(({ _depth, ...rec }) => rec);
