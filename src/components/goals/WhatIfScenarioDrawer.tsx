@@ -112,6 +112,21 @@ export const WhatIfScenarioDrawer = ({
   const [hypothetical, setHypothetical] = useState<number | ''>(Math.round(forecastedPreseasonTotal * 10) / 10);
   const [customCancelRate, setCustomCancelRate] = useState<number | null>(null);
   const [customDaysAdjustment, setCustomDaysAdjustment] = useState(0);
+  const prevForecastRef = useRef(forecastedPreseasonTotal);
+
+  // Sync hypothetical when forecastedPreseasonTotal actually changes (data loads)
+  // but only if user hasn't manually edited the value
+  useEffect(() => {
+    if (forecastedPreseasonTotal !== prevForecastRef.current) {
+      const oldRounded = Math.round(prevForecastRef.current * 10) / 10;
+      const currentVal = typeof hypothetical === 'number' ? hypothetical : 0;
+      // Only auto-sync if user hasn't manually changed it from the previous forecast
+      if (currentVal === oldRounded || currentVal === 0) {
+        setHypothetical(Math.round(forecastedPreseasonTotal * 10) / 10);
+      }
+      prevForecastRef.current = forecastedPreseasonTotal;
+    }
+  }, [forecastedPreseasonTotal, hypothetical]);
 
   const efpLabel = efpModeEnabled ? 'EFP' : 'FP+';
   const baseCancelRate = goals?.cancel_rate || 0;
