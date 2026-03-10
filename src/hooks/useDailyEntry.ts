@@ -135,14 +135,22 @@ export const useDailyEntry = (date?: string) => {
 
   // Track offline status with valid backup
   const [isOfflineWithBackup, setIsOfflineWithBackup] = useState(false);
+  // Track if we have a valid backup (for immediate interaction)
+  const [hasValidBackup, setHasValidBackup] = useState(() => {
+    const userId = getCurrentUserId();
+    const backup = userId ? getInstantBackup(userId, entryDate) : null;
+    return getActivityTotal(backup) > 0;
+  });
 
   // Check offline status with valid backup
   useEffect(() => {
     const checkOfflineStatus = () => {
+      const userId = getCurrentUserId();
+      const backup = userId ? getInstantBackup(userId, entryDate) : null;
+      const hasActivity = getActivityTotal(backup) > 0;
+      setHasValidBackup(hasActivity);
+      
       if (!navigator.onLine) {
-        const userId = getCurrentUserId();
-        const backup = userId ? getInstantBackup(userId, entryDate) : null;
-        const hasActivity = getActivityTotal(backup) > 0;
         setIsOfflineWithBackup(hasActivity);
       } else {
         setIsOfflineWithBackup(false);
@@ -157,6 +165,50 @@ export const useDailyEntry = (date?: string) => {
       window.removeEventListener('offline', checkOfflineStatus);
     };
   }, [entryDate]);
+
+  // AUTO-SYNC: Push backup to server when coming back online
+  useEffect(() => {
+    const handleOnline = async () => {
+      const userId = getCurrentUserId();
+      if (!userId) return;
+      
+      const backup = getInstantBackup(userId, entryDate);
+      if (!backup || getActivityTotal(backup) === 0) return;
+      
+      console.log('[useDailyEntry] Back online - pushing backup to server via safe upsert');
+      try {
+        await supabase.rpc('upsert_daily_entry_safe', {
+          p_user_id: userId,
+          p_entry_date: entryDate,
+          p_doors_knocked: backup.doors_knocked ?? null,
+          p_decision_makers: backup.decision_makers ?? null,
+          p_pitches: backup.pitches ?? null,
+          p_transitions: backup.transitions ?? null,
+          p_presentations: backup.presentations ?? null,
+          p_closes: backup.closes ?? null,
+          p_fp_plus: backup.fp_plus ?? null,
+          p_prmr: backup.prmr ?? null,
+          p_upgrade_prmr: backup.upgrade_prmr ?? null,
+          p_work_start_time: backup.work_start_time ?? null,
+          p_work_end_time: backup.work_end_time ?? null,
+          p_break_periods: backup.break_periods ? JSON.parse(JSON.stringify(backup.break_periods)) : null,
+          p_counter_timestamps: backup.counter_timestamps ? JSON.parse(JSON.stringify(backup.counter_timestamps)) : null,
+          p_custom_counters: backup.custom_counters ? JSON.parse(JSON.stringify(backup.custom_counters)) : null,
+          p_timezone: backup.timezone ?? null,
+          p_sales_log: backup.sales_log ? JSON.parse(JSON.stringify(backup.sales_log)) : null,
+          p_is_finalized: null,
+        });
+        console.log('[useDailyEntry] Backup synced to server successfully');
+        // Refresh from server after sync
+        queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
+      } catch (err) {
+        console.error('[useDailyEntry] Failed to sync backup on reconnect:', err);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [entryDate, queryClient]);
 
   // BULLETPROOF: Get initial data from localStorage backup for instant hydration
   const initialData = getInitialDataFromBackup(entryDate);
@@ -348,6 +400,22 @@ export const useDailyEntry = (date?: string) => {
       queryClient.setQueryData(['daily-entry', entryDate], context?.previousEntry);
       // Don't show generic error toast here - let the caller handle offline-aware messaging
     },
+    onSuccess: (data) => {
+      // Mark backup as server-confirmed after successful mutation
+      const userId = getCurrentUserId();
+      if (userId && data) {
+        try {
+          const key = `track-backup-${userId}-${entryDate}`;
+          const stored = localStorage.getItem(key);
+          if (stored) {
+            const backup = JSON.parse(stored);
+            backup.lastServerSync = new Date().toISOString();
+            localStorage.setItem(key, JSON.stringify(backup));
+            console.log('[useDailyEntry] Backup marked as server-confirmed');
+          }
+        } catch {}
+      }
+    },
     onSettled: () => {
       // BULLETPROOF: DON'T invalidate daily-entry during active tracking
       // This was causing race conditions where stale data overwrote optimistic updates
@@ -396,34 +464,29 @@ export const useDailyEntry = (date?: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Build upsert payload - only include sales_log if provided
-      const upsertPayload: any = {
-        user_id: user.id,
-        entry_date: data.saveDate,
-        doors_knocked: data.doors_knocked,
-        decision_makers: data.decision_makers,
-        pitches: data.pitches,
-        transitions: data.transitions,
-        presentations: data.presentations,
-        closes: data.closes,
-        fp_plus: data.fp_plus,
-        prmr: data.prmr,
-        upgrade_prmr: data.upgrade_prmr,
-        work_start_time: data.work_start_time,
-        work_end_time: data.work_end_time,
-        is_finalized: true,
-      };
-
-      // Include sales_log if provided (auto-generated or existing)
-      if (data.sales_log !== undefined) {
-        upsertPayload.sales_log = data.sales_log;
-      }
-
-      const { error } = await supabase
-        .from('daily_entries')
-        .upsert(upsertPayload, {
-          onConflict: 'user_id,entry_date'
-        });
+      // BULLETPROOF: Use safe upsert RPC for finalization to prevent data overwrites
+      // This ensures sales_log, counter_timestamps etc. are merged, not replaced
+      const { data: result, error } = await supabase.rpc('upsert_daily_entry_safe', {
+        p_user_id: user.id,
+        p_entry_date: data.saveDate,
+        p_doors_knocked: data.doors_knocked,
+        p_decision_makers: data.decision_makers,
+        p_pitches: data.pitches,
+        p_transitions: data.transitions,
+        p_presentations: data.presentations,
+        p_closes: data.closes,
+        p_fp_plus: data.fp_plus,
+        p_prmr: data.prmr,
+        p_upgrade_prmr: data.upgrade_prmr ?? null,
+        p_work_start_time: data.work_start_time ?? null,
+        p_work_end_time: data.work_end_time ?? null,
+        p_break_periods: null,
+        p_counter_timestamps: null,
+        p_custom_counters: null,
+        p_timezone: null,
+        p_sales_log: data.sales_log ? JSON.parse(JSON.stringify(data.sales_log)) : null,
+        p_is_finalized: true,
+      });
 
       if (error) throw error;
       
@@ -651,11 +714,10 @@ export const useDailyEntry = (date?: string) => {
     // True when actively fetching data (initial load or background refresh)
     isRefreshing,
     // PHASE 2: Freshness gate - true when:
-    // 1. Query has completed fetching (fetchStatus is 'idle' meaning not actively fetching)
+    // 1. Query has completed fetching (fetchStatus is 'idle')
     // 2. OR we're offline with a valid backup
-    // This prevents the "Syncing your data" toast from showing forever if the query
-    // takes a long time or the user has no backup data
-    isFreshDataVerified: fetchStatus === 'idle' || isOfflineWithBackup,
+    // 3. OR we have a valid backup (allow immediate interaction while syncing in background)
+    isFreshDataVerified: fetchStatus === 'idle' || isOfflineWithBackup || hasValidBackup,
     isOfflineWithBackup,
     fetchStatus,
     updateCounter: updateCounterMutation.mutateAsync,
