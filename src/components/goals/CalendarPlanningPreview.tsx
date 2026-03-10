@@ -93,8 +93,11 @@ export const CalendarPlanningPreview = ({
     const preseasonEnd = parseISO(PRESEASON_END);
     const summerStart = parseISO(GLOBAL_SUMMER_START);
 
-    const totalPlanned = plannedDays?.length || 0;
     const isPreseasonTier = activeTier === 'preseason';
+
+    const preseasonPlanned = plannedDays?.filter(d => !isAfter(parseISO(d.planned_date), preseasonEnd)).length || 0;
+    const summerPlanned = plannedDays?.filter(d => !isBefore(parseISO(d.planned_date), summerStart)).length || 0;
+    const totalPlanned = isPreseasonTier ? preseasonPlanned : summerPlanned;
 
     const activeGoal = isPreseasonTier
       ? (goals?.preseason_fp_goal || 0)
@@ -224,7 +227,7 @@ export const CalendarPlanningPreview = ({
                       }
                     </div>
                     <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
-                      {stats.totalPlanned} days planned · {stats.knockingDays} worked
+                      {stats.totalPlanned} {activeTier === 'preseason' ? 'preseason' : 'summer'} days planned · {stats.knockingDays} worked
                     </div>
                   </>
                 )}
