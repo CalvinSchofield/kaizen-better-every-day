@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEfpMode } from "./useEfpMode";
 import { useCurrentUserId } from "./useCurrentUserId";
+import { Sale } from "./useDailyEntry";
 
 export type CumulativeDataPoint = {
   date: string;
