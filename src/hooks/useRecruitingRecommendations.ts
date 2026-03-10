@@ -46,7 +46,8 @@ export const useRecruitingRecommendations = (
   recruits: Recruit[],
   activities: RecruitActivity[],
   blitzes?: BlitzEvent[],
-  repDataMap?: Map<string, RepData>
+  repDataMap?: Map<string, RepData>,
+  currentUserId?: string | null
 ) => {
   return useMemo(() => {
     if (!recruits.length) return [];
