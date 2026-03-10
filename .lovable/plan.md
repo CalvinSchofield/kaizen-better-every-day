@@ -1,50 +1,42 @@
 
 
-## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
+## The Problem: Two Different Numbers Measuring Two Different Things
 
-### The Problem
+**"162 days planned"** on the Goals page = ALL planned days across the entire season (preseason + summer). This is just `plannedDays.length`.
 
-When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
+**"136 days"** in the What-If drawer = only the planned days that fall ON or AFTER the summer start date. It filters `plannedDays` to only count summer-range dates.
 
-### Root Cause
+So 162 - 136 = 26 preseason planned days. Neither is "lying" — they're counting different date ranges. But the What-If drawer IS correctly pulling from the actual `planned_days` table (which already excludes off days you've removed). If you've marked off days in the calendar, those should already be removed from `planned_days` and thus not counted in the 136.
 
-There are three things fighting each other:
+**However**, there's a subtle issue: the What-If drawer does NOT cross-check against `excluded_summer_days` from `season_config`. It only counts what's in the `planned_days` table. If the sync between excluded days and planned days got out of sync at any point, the 136 could be wrong.
 
-1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
+## Plan
 
-2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
+### 1. Fix the "162 days planned" badge to show context-appropriate counts
+In `CalendarPlanningPreview.tsx`, the badge at line 227 shows `stats.totalPlanned` which is ALL planned days. When viewing a summer tier (Must/Will/Could), it should show only summer planned days. When viewing Preseason, show only preseason planned days. This prevents confusion.
 
-3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+### 2. Make What-If drawer authoritative by cross-referencing excluded days
+In `WhatIfScenarioDrawer.tsx` (lines 136-143), after counting planned summer days, also subtract any `excludedSummerDays` that might still exist in the `planned_days` table due to sync issues. This makes the number defensive:
 
-### The Fix
+```typescript
+const currentPlanned = plannedDays?.filter(d => {
+  const date = parseISO(d.planned_date);
+  if (isSummerStarted) {
+    return !isBefore(date, today) && !isBefore(date, summerStart) && !excludedSummerDays.includes(d.planned_date);
+  }
+  return !isBefore(date, summerStart) && !excludedSummerDays.includes(d.planned_date);
+}).length || 0;
+```
 
-#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+### 3. Update the CalendarPlanningPreview stats to split counts
+In `CalendarPlanningPreview.tsx` around line 96, split `totalPlanned` into `preseasonPlanned` and `summerPlanned`, then display the relevant one based on `activeTier`:
 
-The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
+- Preseason tab: "X preseason days planned · Y worked"
+- Must/Will/Could tabs: "X summer days planned · Y worked"
 
-#### 2. Simplify `useKeyboardViewport` hook
+This way the number on the Goals page will match What-If when looking at summer tiers.
 
-- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
-- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
-- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
-- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
-
-#### 3. Add `@capacitor/keyboard` plugin configuration
-
-Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
-
-### Files to Modify
-
-- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
-- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
-- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
-- **`package.json`** -- Add `@capacitor/keyboard` dependency
-
-### After Approval
-
-After these code changes, you will need to:
-1. Git pull the updated code
-2. Run `npm install` to get the new keyboard plugin
-3. Run `npx cap sync` to sync the plugin to iOS
-4. Rebuild in Xcode and push to TestFlight
+### Files to modify
+- `src/components/goals/CalendarPlanningPreview.tsx` — split planned day counts by season, display contextually
+- `src/components/goals/WhatIfScenarioDrawer.tsx` — add defensive `excludedSummerDays` filter to planned day count
 
