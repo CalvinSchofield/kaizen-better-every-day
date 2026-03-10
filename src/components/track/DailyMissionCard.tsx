@@ -67,7 +67,7 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
     }).length || 0;
 
     // Calculate what's needed this week to stay on pace
-    const weeklyNeeded = paceData.dailyGoal * remainingDaysThisWeek;
+    const weeklyNeeded = paceData.remainingDailyNeeded * remainingDaysThisWeek;
 
     // Get week's progress so far (days already worked this week)
     const weekStartStr = format(weekStart, 'yyyy-MM-dd');
@@ -113,7 +113,8 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
     );
   }
 
-  const dailyGoal = Math.round(paceData.dailyGoal * 10) / 10;
+  // Use catch-up pace (remaining / remaining days) to match Goals page
+  const dailyGoal = Math.round(paceData.remainingDailyNeeded * 10) / 10;
   const unitLabel = efpModeEnabled ? 'EFP' : 'FP+';
   const seasonLabel = isUserSummerStarted 
     ? focusTier === 'mustDo' ? 'Must Do' : focusTier === 'willDo' ? 'Will Do' : 'Could Do'
