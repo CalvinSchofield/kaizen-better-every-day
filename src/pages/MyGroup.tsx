@@ -605,7 +605,8 @@ const MyGroup = () => {
     filteredRecruits, 
     filteredActivities,
     allBlitzesIncludingPast,
-    repDataMap
+    repDataMap,
+    currentUserId
   );
   // Only show skeleton on TRUE initial load (no cached data at all)
   // Cached data is shown instantly; React Query updates in background automatically
