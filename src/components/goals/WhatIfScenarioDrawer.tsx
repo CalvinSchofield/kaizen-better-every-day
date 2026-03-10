@@ -133,10 +133,11 @@ export const WhatIfScenarioDrawer = ({
     const rangeEnd = effectiveSummerEnd;
 
     // Current planned summer days from calendar (future only if summer started)
+    // Defensively exclude any days in excludedSummerDays that may still exist in planned_days
     const currentPlanned = plannedDays?.filter(d => {
       const date = parseISO(d.planned_date);
+      if (excludedSummerDays.includes(d.planned_date)) return false;
       if (isSummerStarted) {
-        // Only count future planned days
         return !isBefore(date, today) && !isBefore(date, summerStart);
       }
       return !isBefore(date, summerStart);
