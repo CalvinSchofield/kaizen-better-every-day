@@ -714,11 +714,10 @@ export const useDailyEntry = (date?: string) => {
     // True when actively fetching data (initial load or background refresh)
     isRefreshing,
     // PHASE 2: Freshness gate - true when:
-    // 1. Query has completed fetching (fetchStatus is 'idle' meaning not actively fetching)
+    // 1. Query has completed fetching (fetchStatus is 'idle')
     // 2. OR we're offline with a valid backup
-    // This prevents the "Syncing your data" toast from showing forever if the query
-    // takes a long time or the user has no backup data
-    isFreshDataVerified: fetchStatus === 'idle' || isOfflineWithBackup,
+    // 3. OR we have a valid backup (allow immediate interaction while syncing in background)
+    isFreshDataVerified: fetchStatus === 'idle' || isOfflineWithBackup || hasValidBackup,
     isOfflineWithBackup,
     fetchStatus,
     updateCounter: updateCounterMutation.mutateAsync,

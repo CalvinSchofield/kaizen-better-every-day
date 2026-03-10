@@ -595,15 +595,11 @@ const TrackWithLayout = () => {
   const showPrmrHelper = isRookie || preseasonFP < 20;
 
   const handleCounterChange = useCallback(async (field: string, value: number) => {
-    // PHASE 2: FRESHNESS GATE - Block counter changes until we've verified data
-    // This prevents the bug where tapping while loading overwrites existing data
+    // PHASE 2: FRESHNESS GATE - Only block if NO backup AND still loading
+    // With a valid backup, allow immediate interaction (snappy UX)
     if (!isFreshDataVerified && !isOfflineWithBackup) {
-      console.log('[BULLETPROOF] Counter change blocked - waiting for fresh data verification');
-      toast.info('Syncing your data...', { 
-        description: 'Please wait a moment before tracking',
-        duration: 2000,
-        icon: '🔄'
-      });
+      console.log('[BULLETPROOF] Counter change blocked - no backup and still loading');
+      setSyncStatus('pending');
       return;
     }
     
