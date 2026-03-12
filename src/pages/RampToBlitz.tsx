@@ -65,7 +65,6 @@ const RampToBlitz = () => {
   // Phase 2-4 progress tracking
   const phase2Progress = {
     productStudied: watchedVideoIds.includes('phase2-product'),
-    quizPassed: watchedVideoIds.includes('phase2-quiz-passed'),
     upgradesStudied: watchedVideoIds.includes('phase2-upgrades'),
     takeoverStudied: watchedVideoIds.includes('phase2-takeover'),
     pitchSubmitted: watchedVideoIds.includes('phase2-pitch-submitted'),
@@ -73,14 +72,12 @@ const RampToBlitz = () => {
 
   const phase3Progress = {
     ipadReady: watchedVideoIds.includes('phase3-ipad-ready'),
-    whyWritten: watchedVideoIds.includes('phase3-why-written'),
     practiceScheduled: watchedVideoIds.includes('phase3-practice-scheduled'),
   };
 
   const phase4Progress = {
     packingDone: watchedVideoIds.includes('phase4-packing-done'),
     essentialsChecked: watchedVideoIds.includes('phase4-essentials-checked'),
-    playbookReady: watchedVideoIds.includes('phase4-playbook-ready'),
   };
 
   // Determine phase completion and lock status
