@@ -199,28 +199,28 @@ export const ProgressTab = ({
   const rampStepConfigs = [
     { 
       field: 'ramp_phase_1_complete', 
-      label: 'Onboard & Get Ready', 
+      label: 'Pay & Goals', 
       complete: progressData.ramp_phase_1_complete, 
       phase: 1,
       locked: !onboardingComplete // Locked until all onboarding complete
     },
     { 
       field: 'ramp_phase_2_complete', 
-      label: 'Start Training', 
+      label: 'Product & Process', 
       complete: progressData.ramp_phase_2_complete, 
       phase: 2,
       locked: !progressData.ramp_phase_1_complete // Locked until phase 1 complete
     },
     { 
       field: 'ramp_phase_3_complete', 
-      label: 'Practice', 
+      label: 'iPad & Practice', 
       complete: progressData.ramp_phase_3_complete, 
       phase: 3,
       locked: !progressData.ramp_phase_2_complete // Locked until phase 2 complete
     },
     { 
       field: 'ramp_phase_4_complete', 
-      label: 'Saddle Up', 
+      label: 'Packing List', 
       complete: progressData.ramp_phase_4_complete, 
       phase: 4,
       locked: !progressData.ramp_phase_3_complete // Locked until phase 3 complete
