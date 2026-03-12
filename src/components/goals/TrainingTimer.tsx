@@ -27,7 +27,7 @@ export const TrainingTimer = ({
   const [manualMinutes, setManualMinutes] = useState(0);
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [adjustAmount, setAdjustAmount] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startTimeRef = useRef<number | null>(null);
 
   // Format seconds to MM:SS

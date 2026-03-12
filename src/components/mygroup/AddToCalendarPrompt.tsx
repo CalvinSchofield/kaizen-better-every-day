@@ -1,19 +1,24 @@
 import { useState } from "react";
-import { Calendar, Clock, Phone, X } from "lucide-react";
+import { Calendar, Bell, X } from "lucide-react";
 import { format, parse } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { InlineTimePicker, formatTime12, getDefaultTime } from "@/components/ui/time-picker";
 import { 
   getCalendarTitle, 
   buildCalendarDescription,
   CalendarEventData 
 } from "@/utils/calendarLinks";
-import { addToNativeCalendar } from "@/utils/nativeCalendar";
+import { 
+  addToNativeCalendarEvent, 
+  addToNativeReminder, 
+  detectCalendarType,
+  suggestTime 
+} from "@/utils/nativeCalendar";
 import { useAddCalendarEvent, useActivityCalendarEvent, useUpdateCalendarEvent } from "@/hooks/useActivityCalendarEvents";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { toast } from "sonner";
 import { hapticSuccess } from "@/utils/haptics";
 import { cn } from "@/lib/utils";
+import { formatTime12 } from "@/components/ui/time-picker";
 
 interface AddToCalendarPromptProps {
   activityId: string;
@@ -21,9 +26,7 @@ interface AddToCalendarPromptProps {
   scheduledDate: string; // YYYY-MM-DD format
   notes: string;
   onClose: () => void;
-  /** If true, this is a reschedule - show different messaging */
   isReschedule?: boolean;
-  /** Previous date if rescheduling */
   previousDate?: string;
 }
 
@@ -36,18 +39,24 @@ export function AddToCalendarPrompt({
   isReschedule = false,
   previousDate,
 }: AddToCalendarPromptProps) {
-  const [selectedTime, setSelectedTime] = useState(getDefaultTime());
+  const [isAdding, setIsAdding] = useState(false);
   
   const addCalendarEventMutation = useAddCalendarEvent();
   const updateCalendarEventMutation = useUpdateCalendarEvent();
   const { data: existingCalendarEvent } = useActivityCalendarEvent(activityId);
   
-  const handleAddToCalendar = async () => {
+  const suggestedType = detectCalendarType(notes);
+  const suggestedTimeStr = suggestTime(notes);
+  
+  const formattedDate = format(parse(scheduledDate, 'yyyy-MM-dd', new Date()), 'EEE, MMM d');
+
+  const handleAdd = async (type: 'event' | 'reminder') => {
+    setIsAdding(true);
+    
     const eventTitle = getCalendarTitle(recruit.name, notes);
     const description = buildCalendarDescription(notes, recruit.phone);
     
-    // Parse date and time to create full Date object
-    const [hours, minutes] = selectedTime.split(':').map(Number);
+    const [hours, minutes] = suggestedTimeStr.split(':').map(Number);
     const eventDate = parse(scheduledDate, 'yyyy-MM-dd', new Date());
     eventDate.setHours(hours, minutes, 0, 0);
     
@@ -55,26 +64,30 @@ export function AddToCalendarPrompt({
       title: eventTitle,
       description,
       startDate: eventDate,
-      durationMinutes: 15, // Default 15 min for a call/text
+      durationMinutes: type === 'event' ? 15 : 5,
     };
     
-    // Add to native calendar
-    await addToNativeCalendar(calendarEvent);
+    // Open native sheet
+    if (type === 'reminder') {
+      await addToNativeReminder(calendarEvent);
+    } else {
+      await addToNativeCalendarEvent(calendarEvent);
+    }
     
-    // Track in our database
+    // Track in DB
     try {
       if (existingCalendarEvent) {
         await updateCalendarEventMutation.mutateAsync({
           id: existingCalendarEvent.id,
           calendarDate: scheduledDate,
-          calendarTime: selectedTime,
+          calendarTime: suggestedTimeStr,
           eventTitle,
         });
       } else {
         await addCalendarEventMutation.mutateAsync({
           activityId,
           calendarDate: scheduledDate,
-          calendarTime: selectedTime,
+          calendarTime: suggestedTimeStr,
           recruitName: recruit.name,
           eventTitle,
         });
@@ -84,106 +97,54 @@ export function AddToCalendarPrompt({
       
       if (isReschedule && previousDate) {
         toast.success('Calendar updated!', {
-          description: `Remember to remove the old ${format(parse(previousDate, 'yyyy-MM-dd', new Date()), 'MMM d')} event`,
+          description: `Remove the old ${format(parse(previousDate, 'yyyy-MM-dd', new Date()), 'MMM d')} event`,
         });
       } else {
-        toast.success('Added to calendar!');
+        toast.success(type === 'reminder' ? 'Reminder created!' : 'Added to calendar!');
       }
-      
-      onClose();
     } catch (error) {
       console.error('Failed to track calendar event:', error);
-      // Still close - the calendar event was added, just tracking failed
-      toast.success('Added to calendar!');
-      onClose();
+      toast.success(type === 'reminder' ? 'Reminder created!' : 'Added to calendar!');
     }
+    
+    setIsAdding(false);
+    onClose();
   };
-  
-  const formattedDate = format(parse(scheduledDate, 'yyyy-MM-dd', new Date()), 'EEEE, MMM d');
-  const eventTitle = getCalendarTitle(recruit.name, notes);
-  
+
   return (
-    <div className="border-t border-border bg-gradient-to-b from-muted/50 to-muted/20 p-4 space-y-4 animate-in slide-in-from-bottom-2 duration-200">
-      {/* Header */}
+    <div className="border-t border-border bg-muted/30 p-4 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Calendar className="h-4 w-4 text-primary" />
-          </div>
-          <span className="font-semibold">
-            {isReschedule ? 'Update Calendar?' : 'Add to Calendar?'}
-          </span>
-        </div>
+        <span className="text-sm font-medium text-muted-foreground">
+          {isReschedule ? 'Update calendar?' : 'Add to calendar?'} · {formattedDate}
+        </span>
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-full"
+          className="h-7 w-7 rounded-full"
           onClick={onClose}
         >
-          <X className="h-4 w-4" />
+          <X className="h-3.5 w-3.5" />
         </Button>
       </div>
       
-      {/* Previous date warning for reschedule */}
-      {isReschedule && previousDate && (
-        <div className="text-sm text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-          Previously scheduled for {format(parse(previousDate, 'yyyy-MM-dd', new Date()), 'MMM d')} — update to new date?
-        </div>
-      )}
-      
-      {/* Event Card - Streamlined Design */}
-      <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
-        {/* Event Title */}
-        <div className="px-4 py-3 border-b border-border/50">
-          <div className="font-semibold text-base">
-            {eventTitle}
-          </div>
-        </div>
-        
-        {/* Event Details */}
-        <div className="divide-y divide-border/50">
-          {/* Date Row */}
-          <div className="flex items-center gap-3 px-4 py-3">
-            <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className="text-sm">{formattedDate}</span>
-          </div>
-          
-          {/* Time Row - Tappable */}
-          <div className="flex items-center gap-3 px-4 py-3">
-            <div className="h-4 w-4 flex-shrink-0" /> {/* Spacer for alignment */}
-            <InlineTimePicker
-              value={selectedTime}
-              onChange={setSelectedTime}
-            />
-            <span className="text-xs text-muted-foreground ml-auto">Tap to change</span>
-          </div>
-          
-          {/* Phone Row */}
-          {recruit.phone && (
-            <div className="flex items-center gap-3 px-4 py-3">
-              <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <span className="text-sm text-muted-foreground">{recruit.phone}</span>
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {/* Actions */}
-      <div className="flex gap-3">
+      <div className="flex gap-2">
         <Button
-          variant="ghost"
-          className="flex-1"
-          onClick={onClose}
-        >
-          Skip
-        </Button>
-        <Button
+          variant={suggestedType === 'event' ? 'default' : 'outline'}
           className="flex-1 gap-2"
-          onClick={handleAddToCalendar}
-          disabled={addCalendarEventMutation.isPending || updateCalendarEventMutation.isPending}
+          onClick={() => handleAdd('event')}
+          disabled={isAdding}
         >
           <Calendar className="h-4 w-4" />
-          Add to Calendar
+          Calendar
+        </Button>
+        <Button
+          variant={suggestedType === 'reminder' ? 'default' : 'outline'}
+          className="flex-1 gap-2"
+          onClick={() => handleAdd('reminder')}
+          disabled={isAdding}
+        >
+          <Bell className="h-4 w-4" />
+          Reminder
         </Button>
       </div>
     </div>

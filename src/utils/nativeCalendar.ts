@@ -1,52 +1,112 @@
 import { isNativeApp, isIOS } from './platform';
-import { CalendarEventData, generateICSFile, generateGoogleCalendarUrl } from './calendarLinks';
+import { CalendarEventData, generateICSFile, generateGoogleCalendarUrl, buildCalendarDescription } from './calendarLinks';
 
 /**
- * Add event to calendar using the best available method for the platform
- * 
- * iOS Native: Opens native calendar via data URI (most reliable in WebView)
- * iOS Web: Downloads .ics file
- * Android/Desktop: Opens Google Calendar URL
+ * Detect whether the action text suggests a quick reminder vs a calendar event
  */
-export async function addToNativeCalendar(event: CalendarEventData): Promise<void> {
-  if (isNativeApp() && isIOS()) {
-    // For native iOS, open data URI which triggers system handler
-    await openCalendarDataUri(event);
-  } else if (isIOS()) {
-    // iOS Safari - download ICS file
-    downloadICSFile(event);
-  } else {
-    // Android/Desktop - Google Calendar
-    openGoogleCalendar(event);
+export function detectCalendarType(notes: string): 'reminder' | 'event' {
+  const lower = (notes || '').toLowerCase();
+  const reminderKeywords = ['text', 'message', 'send', 'remind', 'check in', 'follow up'];
+  const eventKeywords = ['call', 'meet', 'visit', 'in person', 'zoom', 'video', 'interview', 'appointment'];
+  
+  for (const kw of eventKeywords) {
+    if (lower.includes(kw)) return 'event';
+  }
+  for (const kw of reminderKeywords) {
+    if (lower.includes(kw)) return 'reminder';
+  }
+  return 'event'; // default
+}
+
+/**
+ * Suggest a smart default time based on the action text
+ * Morning actions (text/message) → 9:00 AM
+ * Call/meeting → 10:00 AM  
+ * Generic → 9:00 AM
+ */
+export function suggestTime(notes: string): string {
+  const lower = (notes || '').toLowerCase();
+  if (lower.includes('lunch') || lower.includes('noon')) return '12:00';
+  if (lower.includes('evening') || lower.includes('tonight') || lower.includes('after work')) return '18:00';
+  if (lower.includes('morning')) return '09:00';
+  if (lower.includes('call') || lower.includes('meet') || lower.includes('visit')) return '10:00';
+  return '09:00';
+}
+
+/**
+ * Add event to native calendar using @ebarooni/capacitor-calendar plugin
+ * Opens the native iOS event creation sheet pre-filled with details
+ */
+export async function addToNativeCalendarEvent(event: CalendarEventData): Promise<boolean> {
+  if (!isNativeApp()) {
+    // Web fallback
+    addToCalendarWeb(event);
+    return true;
+  }
+
+  try {
+    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
+    
+    const endDate = new Date(event.startDate.getTime() + (event.durationMinutes || 15) * 60000);
+    
+    await CapacitorCalendar.createEventWithPrompt({
+      title: event.title,
+      startDate: event.startDate.getTime(),
+      endDate: endDate.getTime(),
+      notes: event.description || '',
+      isAllDay: false,
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Native calendar event error:', error);
+    // Fall back to web approach
+    addToCalendarWeb(event);
+    return true;
   }
 }
 
 /**
- * Open calendar event as data URI
- * This works better in iOS WebView than blob downloads
+ * Add reminder using native Reminders app (iOS only)
+ * Opens the native iOS reminder creation sheet
  */
-async function openCalendarDataUri(event: CalendarEventData): Promise<void> {
-  const icsContent = generateICSFile(event);
-  
-  // Create data URI - encode for URL safety
-  const encodedContent = encodeURIComponent(icsContent);
-  const dataUri = `data:text/calendar;charset=utf-8,${encodedContent}`;
-  
-  // Create a temporary link and click it
-  const link = document.createElement('a');
-  link.href = dataUri;
-  link.download = `${event.title.replace(/[^a-zA-Z0-9]/g, '_')}.ics`;
-  link.target = '_blank';
-  
-  // Try opening in system - iOS Safari handles .ics files
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+export async function addToNativeReminder(event: CalendarEventData): Promise<boolean> {
+  if (!isNativeApp() || !isIOS()) {
+    // Web fallback - use calendar event instead
+    addToCalendarWeb(event);
+    return true;
+  }
+
+  try {
+    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
+    
+    await CapacitorCalendar.createReminderWithPrompt({
+      title: event.title,
+      dueDate: event.startDate.getTime(),
+      notes: event.description || '',
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Native reminder error:', error);
+    // Fall back to calendar event
+    addToCalendarWeb(event);
+    return true;
+  }
 }
 
 /**
- * Download ICS file (standard web approach)
+ * Web fallback: ICS download for iOS Safari, Google Calendar for others
  */
+function addToCalendarWeb(event: CalendarEventData): void {
+  if (isIOS()) {
+    downloadICSFile(event);
+  } else {
+    const url = generateGoogleCalendarUrl(event);
+    window.open(url, '_blank');
+  }
+}
+
 function downloadICSFile(event: CalendarEventData): void {
   const icsContent = generateICSFile(event);
   const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
@@ -61,21 +121,5 @@ function downloadICSFile(event: CalendarEventData): void {
   URL.revokeObjectURL(url);
 }
 
-/**
- * Open Google Calendar - use location.href for native apps (WebViews block window.open)
- */
-function openGoogleCalendar(event: CalendarEventData): void {
-  const url = generateGoogleCalendarUrl(event);
-  if (isNativeApp()) {
-    // WebViews often block window.open; use location.href or a link click
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } else {
-    window.open(url, '_blank');
-  }
-}
+// Keep legacy export for any code still using it
+export const addToNativeCalendar = addToNativeCalendarEvent;

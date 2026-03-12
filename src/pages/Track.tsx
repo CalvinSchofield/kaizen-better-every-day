@@ -149,7 +149,7 @@ const Track = ({
   // Bulk entry warning state
   const [showBulkWarning, setShowBulkWarning] = useState(false);
   const rapidTapCountRef = useRef(0);
-  const rapidTapTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const rapidTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Callback for when rapid tapping is detected on any counter
   const handleRapidTapDetected = useCallback(() => {
