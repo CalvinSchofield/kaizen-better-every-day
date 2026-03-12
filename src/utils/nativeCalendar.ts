@@ -1,5 +1,5 @@
 import { isNativeApp, isIOS } from './platform';
-import { CalendarEventData, generateICSFile, generateGoogleCalendarUrl, buildCalendarDescription } from './calendarLinks';
+import { CalendarEventData, generateICSFile, generateGoogleCalendarUrl } from './calendarLinks';
 
 /**
  * Detect whether the action text suggests a quick reminder vs a calendar event
@@ -15,14 +15,11 @@ export function detectCalendarType(notes: string): 'reminder' | 'event' {
   for (const kw of reminderKeywords) {
     if (lower.includes(kw)) return 'reminder';
   }
-  return 'event'; // default
+  return 'event';
 }
 
 /**
  * Suggest a smart default time based on the action text
- * Morning actions (text/message) → 9:00 AM
- * Call/meeting → 10:00 AM  
- * Generic → 9:00 AM
  */
 export function suggestTime(notes: string): string {
   const lower = (notes || '').toLowerCase();
@@ -34,12 +31,11 @@ export function suggestTime(notes: string): string {
 }
 
 /**
- * Add event to native calendar using @ebarooni/capacitor-calendar plugin
- * Opens the native iOS event creation sheet pre-filled with details
+ * Add event to native calendar using @ebarooni/capacitor-calendar plugin.
+ * Opens the native iOS event creation sheet pre-filled with details.
  */
 export async function addToNativeCalendarEvent(event: CalendarEventData): Promise<boolean> {
   if (!isNativeApp()) {
-    // Web fallback
     addToCalendarWeb(event);
     return true;
   }
@@ -53,26 +49,25 @@ export async function addToNativeCalendarEvent(event: CalendarEventData): Promis
       title: event.title,
       startDate: event.startDate.getTime(),
       endDate: endDate.getTime(),
-      notes: event.description || '',
+      description: event.description || '',
       isAllDay: false,
     });
     
     return true;
   } catch (error) {
     console.error('Native calendar event error:', error);
-    // Fall back to web approach
     addToCalendarWeb(event);
     return true;
   }
 }
 
 /**
- * Add reminder using native Reminders app (iOS only)
- * Opens the native iOS reminder creation sheet
+ * Add reminder using native Reminders (iOS only).
+ * Requests permission then creates reminder directly — no prompt API exists,
+ * but this adds it to Reminders with the due date set.
  */
 export async function addToNativeReminder(event: CalendarEventData): Promise<boolean> {
   if (!isNativeApp() || !isIOS()) {
-    // Web fallback - use calendar event instead
     addToCalendarWeb(event);
     return true;
   }
@@ -80,18 +75,25 @@ export async function addToNativeReminder(event: CalendarEventData): Promise<boo
   try {
     const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
     
-    await CapacitorCalendar.createReminderWithPrompt({
+    // Request reminders access first
+    const { result } = await CapacitorCalendar.requestFullRemindersAccess();
+    if (result !== 'granted') {
+      // Fall back to calendar event prompt if denied
+      return addToNativeCalendarEvent(event);
+    }
+    
+    await CapacitorCalendar.createReminder({
       title: event.title,
       dueDate: event.startDate.getTime(),
       notes: event.description || '',
+      alerts: [-0], // Alert at due time
     });
     
     return true;
   } catch (error) {
     console.error('Native reminder error:', error);
     // Fall back to calendar event
-    addToCalendarWeb(event);
-    return true;
+    return addToNativeCalendarEvent(event);
   }
 }
 
@@ -121,5 +123,5 @@ function downloadICSFile(event: CalendarEventData): void {
   URL.revokeObjectURL(url);
 }
 
-// Keep legacy export for any code still using it
+// Legacy export
 export const addToNativeCalendar = addToNativeCalendarEvent;
