@@ -110,7 +110,7 @@ const TrackWithLayout = () => {
   
   // Debounce ref for batching rapid updates
   const pendingUpdateRef = useRef<any>(null);
-  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Rapid-tap detection: track recent taps per field
   const recentTapsRef = useRef<Record<string, number[]>>({});

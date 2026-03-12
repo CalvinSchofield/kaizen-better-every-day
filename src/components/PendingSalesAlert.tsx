@@ -20,7 +20,7 @@ export const PendingSalesAlert = ({ userId }: PendingSalesAlertProps) => {
   useEffect(() => {
     if (!userId) return;
 
-    let showTimeout: NodeJS.Timeout | null = null;
+    let showTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const checkPending = () => {
       const count = getPendingCount();

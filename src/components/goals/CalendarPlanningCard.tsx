@@ -130,7 +130,7 @@ export const CalendarPlanningCard = ({
   const queryClient = useQueryClient();
   
   // Debounce timer ref for saving preseason goal
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Hook for auto-syncing with blitzes and summer dates
   const { getBlitzDays, getSummerDays, excludedSummerDays, addSummerOffDay, removeSummerOffDay } = usePlannedDaysSync();

@@ -28,7 +28,7 @@ interface PendingSalesQueue {
  * Ensures sales are never lost even if app closes or network fails
  */
 export const usePendingSalesQueue = (userId: string | null) => {
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isProcessingRef = useRef(false);
 
   // Load queue from localStorage
