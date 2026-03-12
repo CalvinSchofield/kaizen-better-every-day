@@ -169,7 +169,7 @@ const RampToBlitz = () => {
     <EdgeSwipeContainer className="bg-background pt-[max(0.5rem,env(safe-area-inset-top))]">
       {/* Back Button Header */}
       <div className="px-4 py-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-1 -ml-2">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="gap-1 -ml-2">
           <ChevronLeft className="w-4 h-4" />
           Back
         </Button>
