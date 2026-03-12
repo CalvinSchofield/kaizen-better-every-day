@@ -49,7 +49,7 @@ const RampToBlitz = () => {
     ? (repData!.watched_videos as string[])
     : [];
 
-  const requiredPhase1VideosWatched = ["what-is-blitz", "how-pay-works"].every((id) =>
+  const requiredPhase1VideosWatched = ["how-pay-works"].every((id) =>
     watchedVideoIds.includes(id)
   );
 
