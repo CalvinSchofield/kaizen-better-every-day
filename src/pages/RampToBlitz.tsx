@@ -49,7 +49,7 @@ const RampToBlitz = () => {
     ? (repData!.watched_videos as string[])
     : [];
 
-  const requiredPhase1VideosWatched = ["what-is-blitz", "how-pay-works"].every((id) =>
+  const requiredPhase1VideosWatched = ["how-pay-works"].every((id) =>
     watchedVideoIds.includes(id)
   );
 
@@ -65,7 +65,6 @@ const RampToBlitz = () => {
   // Phase 2-4 progress tracking
   const phase2Progress = {
     productStudied: watchedVideoIds.includes('phase2-product'),
-    quizPassed: watchedVideoIds.includes('phase2-quiz-passed'),
     upgradesStudied: watchedVideoIds.includes('phase2-upgrades'),
     takeoverStudied: watchedVideoIds.includes('phase2-takeover'),
     pitchSubmitted: watchedVideoIds.includes('phase2-pitch-submitted'),
@@ -73,43 +72,41 @@ const RampToBlitz = () => {
 
   const phase3Progress = {
     ipadReady: watchedVideoIds.includes('phase3-ipad-ready'),
-    whyWritten: watchedVideoIds.includes('phase3-why-written'),
     practiceScheduled: watchedVideoIds.includes('phase3-practice-scheduled'),
   };
 
   const phase4Progress = {
     packingDone: watchedVideoIds.includes('phase4-packing-done'),
     essentialsChecked: watchedVideoIds.includes('phase4-essentials-checked'),
-    playbookReady: watchedVideoIds.includes('phase4-playbook-ready'),
   };
 
   // Determine phase completion and lock status
   const phases: PhaseData[] = [
     {
       id: 1,
-      title: "Set Goals",
-      subtitle: "Onboard and get ready",
+      title: "Pay & Goals",
+      subtitle: "Understand pay and set your goals",
       isComplete: phase1Complete,
       isLocked: false,
     },
     {
       id: 2,
-      title: "Start Trainings",
-      subtitle: "Learn the fundamentals",
+      title: "Product & Process",
+      subtitle: "Learn products and the sales process",
       isComplete: repData?.ramp_phase_2_complete || false,
       isLocked: isVetOrSophomore ? false : !phase1Complete,
     },
     {
       id: 3,
-      title: "Practice",
-      subtitle: "Sharpen your skills",
+      title: "iPad & Practice",
+      subtitle: "Set up tools and practice pitching",
       isComplete: repData?.ramp_phase_3_complete || false,
       isLocked: isVetOrSophomore ? false : !repData?.ramp_phase_2_complete,
     },
     {
       id: 4,
-      title: "Saddle Up!",
-      subtitle: "Final preparations",
+      title: "Packing List",
+      subtitle: "Get packed and ready to go",
       isComplete: repData?.ramp_phase_4_complete || false,
       isLocked: isVetOrSophomore ? false : !repData?.ramp_phase_3_complete,
     },

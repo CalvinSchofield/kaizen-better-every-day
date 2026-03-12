@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { CheckCircle2, Circle, Download, Play, MessageSquare, Rocket, ChevronDown, ChevronUp, BookOpen, Target, Lightbulb, ExternalLink } from "lucide-react";
+import { CheckCircle2, Circle, Download, Play, MessageSquare, Rocket, ChevronDown, ChevronUp, BookOpen, Target, Lightbulb, ExternalLink, DollarSign } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,14 +27,7 @@ interface VideoSection {
   isRequired: boolean;
 }
 
-const VIDEOS: VideoSection[] = [
-  {
-    id: "what-is-blitz",
-    title: "What is a Blitz?",
-    description: "Learn what blitzes are and why they're the fastest path to making money",
-    youtubeId: "luFAjpElCy8",
-    isRequired: true,
-  },
+const PAY_VIDEOS: VideoSection[] = [
   {
     id: "how-pay-works",
     title: "How You Get Paid",
@@ -56,12 +49,12 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
   const { goals } = useRepGoals();
   const { saveProgress } = useRampProgress(repData?.user_id);
   const [watchedVideos, setWatchedVideos] = useState<Set<string>>(new Set());
-  const [expandedVideo, setExpandedVideo] = useState<string | null>("what-is-blitz");
+  const [expandedVideo, setExpandedVideo] = useState<string | null>("how-pay-works");
   const [isDownloading, setIsDownloading] = useState(false);
   const [expandedGoalsSection, setExpandedGoalsSection] = useState<string | null>("why");
 
   // Refs for scrolling
-  const videosRef = useRef<HTMLDivElement>(null);
+  const payRef = useRef<HTMLDivElement>(null);
   const goalsRef = useRef<HTMLDivElement>(null);
   const blitzRef = useRef<HTMLDivElement>(null);
 
@@ -73,9 +66,9 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
 
     const scrollAndExpand = () => {
       switch (scrollToStepKey) {
-        case 'videos':
-          setExpandedVideo('what-is-blitz');
-          videosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        case 'pay':
+          setExpandedVideo('how-pay-works');
+          payRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           break;
         case 'goals':
           setExpandedGoalsSection('why');
@@ -88,7 +81,6 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
       onScrollComplete?.();
     };
 
-    // Small delay to ensure DOM is ready
     setTimeout(scrollAndExpand, 150);
   }, [scrollToStepKey, onScrollComplete]);
 
@@ -103,20 +95,16 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
     Array.isArray(repData.committed_blitzes) && 
     repData.committed_blitzes.length > 0;
 
-  // Check if opted out of blitz (can't attend any)
   const hasOptedOutOfBlitz = watchedVideos.has('phase1-blitz-opted-out');
-
-  // Check if rep has texted leader about goals (self-report waiting on leader)
   const hasTextedLeaderGoals = watchedVideos.has('phase1-goals-texted-leader');
+  const payReviewed = watchedVideos.has('how-pay-works') || watchedVideos.has('phase1-pay-reviewed');
 
   const handleVideoWatched = async (videoId: string) => {
-    const video = VIDEOS.find(v => v.id === videoId);
+    const video = PAY_VIDEOS.find(v => v.id === videoId);
     
-    // Optimistically update UI
     const newWatchedVideos = new Set([...watchedVideos, videoId]);
     setWatchedVideos(newWatchedVideos);
     
-    // Save with safe merge
     const success = await saveProgress(videoId);
     
     if (success && video?.isRequired) {
@@ -125,8 +113,18 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
         description: `You've watched "${video.title}"`,
       });
     } else if (!success) {
-      // Revert on failure
       setWatchedVideos(watchedVideos);
+    }
+  };
+
+  const handlePayReviewed = async () => {
+    const success = await saveProgress('phase1-pay-reviewed');
+    if (success) {
+      setWatchedVideos(prev => new Set([...prev, 'phase1-pay-reviewed']));
+      toast({
+        title: "Pay reviewed! 💰",
+        description: "You understand how you'll get paid",
+      });
     }
   };
 
@@ -168,31 +166,23 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
       return;
     }
 
-    // Clean the phone number
     const cleanPhone = repData.team_leader_phone.replace(/\D/g, '');
     const message = encodeURIComponent(
       "Hey! I've been thinking about my goals and I'm ready to go over them with you. When can we jump on a call?"
     );
     
-    // Open SMS with prefilled message
     window.location.href = `sms:${cleanPhone}?body=${message}`;
   };
-
-  const requiredVideosWatched = VIDEOS
-    .filter(v => v.isRequired)
-    .every(v => watchedVideos.has(v.id));
 
   // Check if individual goals sections have been reviewed
   const whyReviewed = watchedVideos.has('phase1-goals-why');
   const whatReviewed = watchedVideos.has('phase1-goals-what');
   const howReviewed = watchedVideos.has('phase1-goals-how');
   const allGoalsSectionsReviewed = whyReviewed && whatReviewed && howReviewed;
-  
-  // Legacy check for old data
   const goalsReviewed = watchedVideos.has('phase1-goals-reviewed') || allGoalsSectionsReviewed;
 
   const completedSteps = [
-    requiredVideosWatched,
+    payReviewed,
     goalsReviewed || goalsSetupComplete || hasTextedLeaderGoals,
     hasCommittedBlitz || hasOptedOutOfBlitz,
   ].filter(Boolean).length;
@@ -205,7 +195,7 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
   };
 
   // All steps done, waiting on leader to verify/mark complete
-  const allStepsDoneWaitingLeader = requiredVideosWatched && 
+  const allStepsDoneWaitingLeader = payReviewed && 
     (hasCommittedBlitz || hasOptedOutOfBlitz) && 
     hasTextedLeaderGoals && 
     !goalsSetupComplete && 
@@ -225,10 +215,10 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
       {/* Completed Steps as Chips */}
       {completedSteps > 0 && completedSteps < 3 && !allStepsDoneWaitingLeader && (
         <div className="flex flex-wrap gap-2">
-          {requiredVideosWatched && (
+          {payReviewed && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              Videos watched
+              Pay reviewed
             </div>
           )}
           {(goalsReviewed || goalsSetupComplete || hasTextedLeaderGoals) && (
@@ -246,13 +236,16 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
         </div>
       )}
 
-      {/* Video Section */}
-      <div ref={videosRef} className="space-y-3">
-        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-          Watch & Learn
+      {/* ═══════════════════════════════════════════ */}
+      {/* SECTION 1: PAY & EARNINGS */}
+      {/* ═══════════════════════════════════════════ */}
+      <div ref={payRef} className="space-y-3">
+        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+          <DollarSign className="w-4 h-4" />
+          Pay & Earnings
         </h4>
         
-        {VIDEOS.map((video) => (
+        {PAY_VIDEOS.map((video) => (
           <VideoCard
             key={video.id}
             video={video}
@@ -262,36 +255,51 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
             onWatched={() => handleVideoWatched(video.id)}
           />
         ))}
+
+        {/* Payscale Download */}
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Download className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-medium text-sm">2025 Sales Rep Payscale</h4>
+                <p className="text-xs text-muted-foreground">
+                  Download to see exactly how much you can earn
+                </p>
+              </div>
+              <Button 
+                size="sm" 
+                onClick={handleDownloadPayscale}
+                disabled={isDownloading}
+              >
+                {isDownloading ? "..." : "Download"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Self-report: I've reviewed pay */}
+        {!payReviewed && (
+          <Button 
+            variant="outline"
+            className="w-full rounded-xl h-12"
+            onClick={handlePayReviewed}
+          >
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            I've Reviewed How Pay Works
+          </Button>
+        )}
       </div>
 
-      {/* Payscale Download */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Download className="w-5 h-5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-sm">2025 Sales Rep Payscale</h4>
-              <p className="text-xs text-muted-foreground">
-                Download to see exactly how much you can earn
-              </p>
-            </div>
-            <Button 
-              size="sm" 
-              onClick={handleDownloadPayscale}
-              disabled={isDownloading}
-            >
-              {isDownloading ? "..." : "Download"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Goals Review Section */}
+      {/* ═══════════════════════════════════════════ */}
+      {/* SECTION 2: GOALS & PLANNING */}
+      {/* ═══════════════════════════════════════════ */}
       <div ref={goalsRef} className="space-y-3">
-        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-          Review Your Goals
+        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+          <Target className="w-4 h-4" />
+          Goals & Planning
         </h4>
         <p className="text-xs text-muted-foreground">
           Think about these questions before your goals call with your leader
@@ -564,7 +572,7 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                 </Button>
               )}
             </div>
-            {/* Opt-out option for reps who can't attend any blitz */}
+            {/* Opt-out option */}
             {!hasCommittedBlitz && !hasOptedOutOfBlitz && (
               <div className="mt-3 pt-3 border-t border-border/50">
                 <Button 
@@ -651,7 +659,6 @@ const VideoCard = ({ video, isWatched, isExpanded, onToggle, onWatched }: VideoC
         
         <CollapsibleContent>
           <div className="px-4 pb-4">
-            {/* YouTube Embed */}
             <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-black">
               <iframe
                 src={`https://www.youtube.com/embed/${video.youtubeId}?rel=0&modestbranding=1`}

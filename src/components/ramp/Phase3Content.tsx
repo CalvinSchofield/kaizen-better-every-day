@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { CheckCircle2, Tablet, MessageSquare, ChevronDown, ChevronUp, Heart, Users, MapPin, ExternalLink, Smartphone, Image, StickyNote, Lightbulb, Play, Video, Download } from "lucide-react";
+import { CheckCircle2, Tablet, MessageSquare, ChevronDown, ChevronUp, Users, MapPin, ExternalLink, Smartphone, Image, StickyNote, Lightbulb, Play, Video, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,14 +63,12 @@ interface Phase3ContentProps {
 export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollComplete }: Phase3ContentProps) => {
   const [expandedSection, setExpandedSection] = useState<string | null>("ipad");
   const [ipadReady, setIpadReady] = useState(false);
-  const [whyWritten, setWhyWritten] = useState(false);
   const [practiceScheduled, setPracticeScheduled] = useState(false);
   const [ipadStepsChecked, setIpadStepsChecked] = useState<Record<string, boolean>>({});
   const [streetGenieVideosWatched, setStreetGenieVideosWatched] = useState<Record<string, boolean>>({});
 
   // Refs for scrolling
   const ipadRef = useRef<HTMLDivElement>(null);
-  const whyRef = useRef<HTMLDivElement>(null);
   const practiceRef = useRef<HTMLDivElement>(null);
 
   const { saveProgress } = useRampProgress(repData?.user_id);
@@ -84,10 +82,6 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
         case 'ipad':
           setExpandedSection('ipad');
           ipadRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          break;
-        case 'why':
-          setExpandedSection('why');
-          whyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           break;
         case 'practice':
           setExpandedSection('practice');
@@ -105,17 +99,14 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
     if (repData?.watched_videos && Array.isArray(repData.watched_videos)) {
       const watched = repData.watched_videos as string[];
       setIpadReady(watched.includes('phase3-ipad-ready'));
-      setWhyWritten(watched.includes('phase3-why-written'));
       setPracticeScheduled(watched.includes('phase3-practice-scheduled'));
       
-      // Load iPad app progress
       const stepsChecked: Record<string, boolean> = {};
       IPAD_APPS.forEach(app => {
         stepsChecked[app.id] = watched.includes(app.id);
       });
       setIpadStepsChecked(stepsChecked);
 
-      // Load Street Genie video progress
       const sgWatched: Record<string, boolean> = {};
       STREET_GENIE_VIDEOS.forEach(video => {
         sgWatched[video.id] = watched.includes(video.id);
@@ -161,35 +152,6 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
     }
   };
 
-  const handleTextLeaderWhy = () => {
-    if (!repData?.team_leader_phone) {
-      toast({
-        title: "No leader phone found",
-        description: "Contact your recruiter to get connected with your leader",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const cleanPhone = repData.team_leader_phone.replace(/\D/g, '');
-    const message = encodeURIComponent(
-      "Here's why I'm going on the blitz and what I want to learn:\n\n[Write your why here - what skills do you want to develop? What do you want to LEARN (not earn)?]"
-    );
-    
-    window.location.href = `sms:${cleanPhone}?body=${message}`;
-  };
-
-  const handleWhyWritten = async () => {
-    const success = await saveProgress('phase3-why-written');
-    if (success) {
-      setWhyWritten(true);
-      toast({
-        title: "Your 'Why' is locked in! 💪",
-        description: "Remember this when times get tough",
-      });
-    }
-  };
-
   const handleTextLeaderPractice = () => {
     if (!repData?.team_leader_phone) {
       toast({
@@ -202,7 +164,7 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
 
     const cleanPhone = repData.team_leader_phone.replace(/\D/g, '');
     const message = encodeURIComponent(
-      "I'm ready to do a 1-on-1 pitch practice session. Can we schedule a time, or could you connect me with a vet on the team to practice with?"
+      "I'm ready to do a 1-on-1 pitch practice session using my iPad. Can we schedule a time, or could you connect me with a vet on the team to practice with?"
     );
     
     window.location.href = `sms:${cleanPhone}?body=${message}`;
@@ -214,17 +176,17 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
       setPracticeScheduled(true);
       toast({
         title: "Practice complete! 🎯",
-        description: "You're ready for the blitz",
+        description: "You're ready for the field",
       });
     }
   };
 
   const isIPhonePWA = useIsIPhonePWA();
 
-  const completedSteps = [ipadReady, whyWritten, practiceScheduled].filter(Boolean).length;
+  const completedSteps = [ipadReady, practiceScheduled].filter(Boolean).length;
 
   // All steps done, waiting on leader to verify
-  const allStepsDoneWaitingLeader = ipadReady && whyWritten && practiceScheduled && !isComplete;
+  const allStepsDoneWaitingLeader = ipadReady && practiceScheduled && !isComplete;
 
   return (
     <div className="space-y-5 pb-20">
@@ -238,18 +200,12 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
       )}
 
       {/* Completed Steps as Chips */}
-      {completedSteps > 0 && completedSteps < 3 && !allStepsDoneWaitingLeader && (
+      {completedSteps > 0 && completedSteps < 2 && !allStepsDoneWaitingLeader && (
         <div className="flex flex-wrap gap-2">
           {ipadReady && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
               <CheckCircle2 className="w-3.5 h-3.5" />
               iPad ready
-            </div>
-          )}
-          {whyWritten && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Why written
             </div>
           )}
           {practiceScheduled && (
@@ -325,7 +281,7 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                     </div>
                   </div>
 
-                  {/* Deep Dive Videos - Nested Collapsible */}
+                  {/* Deep Dive Videos */}
                   <Collapsible>
                     <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-sm">
                       <div className="flex flex-col items-start gap-0.5">
@@ -531,7 +487,7 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
             </div>
           )}
 
-          {/* iOS Work Mode Video - Only show on iPhone PWA */}
+          {/* iOS Work Mode Video */}
           {isIPhonePWA && (
             <div className="border-t pt-3 mt-3">
               <div className="space-y-2">
@@ -566,74 +522,28 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
         </div>
       </TrainingSection>
 
-      {/* Step 2: Write Your Why */}
-      <div ref={whyRef} />
-      <TrainingSection
-        title="Write Your Why"
-        icon={<Heart className="w-4 h-4" />}
-        description="Define your purpose for the blitz"
-        isComplete={whyWritten || isComplete}
-        isLocked={!ipadReady && !isComplete}
-        requiresLeader
-        isExpanded={expandedSection === "why"}
-        onToggle={() => setExpandedSection(expandedSection === "why" ? null : "why")}
-      >
-        <div className="space-y-3">
-          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-            <h5 className="font-medium text-sm">Think about:</h5>
-            <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
-              <li>Why are you going on this blitz?</li>
-              <li>What skills do you want to develop?</li>
-              <li>What do you want to <strong>LEARN</strong> (not earn)?</li>
-            </ul>
-          </div>
-          
-          <p className="text-sm text-muted-foreground">
-            Write down your "why" and send it to your leader. This will anchor you when things get tough.
-          </p>
-
-          <Button 
-            className="w-full"
-            onClick={handleTextLeaderWhy}
-          >
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Text My "Why" to Leader
-          </Button>
-
-          {!whyWritten && (
-            <Button 
-              variant="outline"
-              className="w-full"
-              onClick={handleWhyWritten}
-            >
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              I've Sent My "Why"
-            </Button>
-          )}
-        </div>
-      </TrainingSection>
-
-      {/* Step 3: 1-on-1 Practice */}
+      {/* Step 2: 1-on-1 Practice (using iPad) */}
       <div ref={practiceRef} />
       <TrainingSection
         title="1-on-1 Pitch Practice"
         icon={<Users className="w-4 h-4" />}
-        description="Practice with a vet before blitz"
+        description="Practice with a vet using your iPad"
         isComplete={practiceScheduled || isComplete}
-        isLocked={!whyWritten && !isComplete}
+        isLocked={!ipadReady && !isComplete}
         requiresLeader
         isExpanded={expandedSection === "practice"}
         onToggle={() => setExpandedSection(expandedSection === "practice" ? null : "practice")}
       >
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Schedule a 1-on-1 pitch practice session with your leader or another vet on the team. This hands-on practice is crucial for building confidence.
+            Schedule a 1-on-1 pitch practice session with your leader or a vet. <strong>Use your iPad during the practice</strong> to get familiar with it while pitching — this is how you'll sell in the field.
           </p>
 
           <div className="bg-muted/50 rounded-lg p-3 space-y-2">
             <h5 className="font-medium text-sm">What to practice:</h5>
             <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
               <li>Fresh door approach and pitch</li>
+              <li>Using Tiled and Street Genie during the pitch</li>
               <li>Handling common objections</li>
               <li>Transition to close</li>
             </ul>

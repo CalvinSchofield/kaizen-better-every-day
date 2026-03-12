@@ -1,16 +1,17 @@
-import { useState, useEffect, useRef } from "react";
-import { CheckCircle2, PackageCheck, Tablet, Shirt, IdCard, MessageSquare, ChevronDown, ChevronUp, Shield, AlertTriangle, Lightbulb, Quote, FileText, PenLine } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { CheckCircle2, PackageCheck, Tablet, Shirt, IdCard, MessageSquare, AlertTriangle, Lightbulb, Sun, Flame } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { useRampProgress } from "@/hooks/useRampProgress";
 import type { RepData } from "@/hooks/useRepData";
 import { TrainingSection } from "./TrainingSection";
 import { PhaseCompleteCard } from "./PhaseCompleteCard";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { parseISO, isBefore } from "date-fns";
 
 interface Phase4ContentProps {
   repData: RepData | null;
@@ -19,11 +20,176 @@ interface Phase4ContentProps {
   onScrollComplete?: () => void;
 }
 
+// Detect if the rep has an upcoming blitz
+const useHasUpcomingBlitz = (repData: RepData | null) => {
+  const committedBlitzIds = useMemo(() => {
+    if (!repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes)) return [];
+    return (repData.committed_blitzes as any[]).map(b => typeof b === 'string' ? b : b?.id).filter(Boolean);
+  }, [repData?.committed_blitzes]);
+
+  const { data: blitzes } = useQuery({
+    queryKey: ['upcoming-blitzes-for-packing', committedBlitzIds],
+    enabled: committedBlitzIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('blitzes')
+        .select('id, date, name')
+        .in('id', committedBlitzIds);
+      return data || [];
+    }
+  });
+
+  return useMemo(() => {
+    if (!blitzes || blitzes.length === 0) return { hasUpcoming: false, blitzName: null };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const upcoming = blitzes.find(b => {
+      const blitzDate = parseISO(b.date);
+      return !isBefore(blitzDate, today);
+    });
+    return { hasUpcoming: !!upcoming, blitzName: upcoming?.name || null };
+  }, [blitzes]);
+};
+
+// Summer packing list categories
+const SUMMER_PACKING_LIST = {
+  knocking: {
+    title: "🚪 Knocking Essentials",
+    items: [
+      "iPad (with updated apps for work)",
+      "iPad charger + charging cable",
+      "Portable power bank (10,000+ mAh recommended)",
+      "Lightweight knocking shoes (comfy, breathable)",
+      "Work socks (5–7 pairs)",
+      "Vivint jerseys",
+      "Vivint hat",
+      "Badge ID",
+      "Lightweight work shorts (2–3 pairs)",
+      "Small backpack or side bag for knocking (optional)",
+      "Notebook + pen (or digital notes app)",
+      "Reusable water bottle",
+    ],
+  },
+  clothing: {
+    title: "👕 Clothing",
+    items: [
+      "Casual clothes (4–6 shirts, 2–3 shorts)",
+      "Gym clothes (2–3 sets)",
+      "Hoodie or light jacket (cool evenings)",
+      "Undergarments (7–10 pairs)",
+      "Pajamas or sleepwear",
+      "Church attire (1–2 outfits)",
+      "Swimwear",
+      "Slides or sandals",
+      "Laundry bag + detergent pods (can buy there)",
+    ],
+  },
+  bedding: {
+    title: "🛌 Bedding",
+    items: [
+      "Twin bed sheet (can buy there)",
+      "Blanket/comforter",
+      "Pillow + pillowcase",
+    ],
+  },
+  toiletries: {
+    title: "🧼 Toiletries & Hygiene",
+    items: [
+      "Toothbrush + toothpaste",
+      "Shower caddy or bag",
+      "Shampoo, conditioner, soap/body wash",
+      "Deodorant",
+      "Razor + shaving cream",
+      "Towel + hand towel",
+      "Nail clippers, floss, etc.",
+    ],
+  },
+  kitchen: {
+    title: "🔪 Kitchen Extras",
+    items: [
+      "Cutting board",
+      "Chef's knife or basic kitchen knife",
+      "Can opener",
+      "Measuring cup/spoons",
+      "Mixing bowl",
+      "Baking sheet or tray (if you'll use the oven)",
+      "Basic seasonings (salt, pepper, garlic powder — starter kit)",
+      "Ziploc bags or foil/wrap",
+      "Microwave-safe bowl/cup",
+      "Dish drying rack or mat",
+      "Paper towels or cleaning cloths",
+    ],
+  },
+  personal: {
+    title: "🎧 Personal/Miscellaneous",
+    items: [
+      "Phone charger + extra cable (don't share iPad and iPhone charger)",
+      "Wallet",
+      "Sunscreen",
+      "Ibuprofen/Tylenol & basic medicine",
+      "Scriptures or study materials",
+      "Journal or planner",
+      "Portable speaker/headphones",
+    ],
+  },
+};
+
+// Blitz-specific packing list (shorter trip)
+const BLITZ_PACKING_LIST = {
+  knocking: {
+    title: "🚪 Knocking Gear",
+    items: [
+      "iPad (charged, apps logged in)",
+      "iPad charger & cable",
+      "Portable battery pack",
+      "ID Badge",
+      "Vivint jerseys/polos",
+      "Vivint hat",
+      "Comfortable knocking shoes",
+      "Work socks",
+      "Lightweight work shorts (2–3 pairs)",
+      "Sunglasses",
+      "Sunscreen",
+      "Water bottle",
+    ],
+  },
+  clothing: {
+    title: "👕 Clothing",
+    items: [
+      "Casual clothes for downtime",
+      "Comfortable pants/shorts (khakis, joggers)",
+      "Light jacket or hoodie (evening)",
+      "Socks & underwear for each day",
+      "Sleepwear",
+    ],
+  },
+  personal: {
+    title: "🎧 Personal Items",
+    items: [
+      "Phone & charger",
+      "Wallet & ID",
+      "Toiletries (toothbrush, deodorant, etc.)",
+      "Any medications",
+      "Earbuds/headphones",
+      "Snacks for the car/doors",
+    ],
+  },
+  niceToHave: {
+    title: "✨ Nice to Have",
+    items: [
+      "Umbrella (just in case)",
+      "Notebook & pen",
+      "Pillow for car rides",
+      "Book or entertainment",
+    ],
+  },
+};
+
 export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollComplete }: Phase4ContentProps) => {
   const [expandedSection, setExpandedSection] = useState<string | null>("packing");
   const [packingDone, setPackingDone] = useState(false);
   const [essentialsChecked, setEssentialsChecked] = useState(false);
-  const [playbookReady, setPlaybookReady] = useState(false);
 
   // Essentials checklist state
   const [hasIpad, setHasIpad] = useState(false);
@@ -33,9 +199,16 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
   // Refs for scrolling
   const packingRef = useRef<HTMLDivElement>(null);
   const essentialsRef = useRef<HTMLDivElement>(null);
-  const playbookRef = useRef<HTMLDivElement>(null);
 
   const { saveProgress, updateIpadStatus } = useRampProgress(repData?.user_id);
+  const { hasUpcoming, blitzName } = useHasUpcomingBlitz(repData);
+
+  // Choose packing list based on context
+  const packingList = hasUpcoming ? BLITZ_PACKING_LIST : SUMMER_PACKING_LIST;
+  const packingTitle = hasUpcoming ? `Blitz Packing List${blitzName ? ` — ${blitzName}` : ''}` : "Summer Packing List";
+  const packingDescription = hasUpcoming 
+    ? "Everything you need for your blitz trip" 
+    : "Everything you need for the summer";
 
   // Handle scroll to step
   useEffect(() => {
@@ -51,10 +224,6 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
           setExpandedSection('essentials');
           essentialsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           break;
-        case 'playbook':
-          setExpandedSection('playbook');
-          playbookRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          break;
       }
       onScrollComplete?.();
     };
@@ -68,9 +237,7 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
       const watched = repData.watched_videos as string[];
       setPackingDone(watched.includes('phase4-packing-done'));
       setEssentialsChecked(watched.includes('phase4-essentials-checked'));
-      setPlaybookReady(watched.includes('phase4-playbook-ready'));
     }
-    // Load iPad status from repData
     if (repData?.ipad_assigned) {
       setHasIpad(true);
     }
@@ -89,7 +256,6 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
 
   const handleIpadChange = async (checked: boolean) => {
     setHasIpad(checked);
-    // Update Notion/DB with iPad status
     await updateIpadStatus(checked);
   };
 
@@ -109,8 +275,9 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
     if (!hasBadge) missing.push("badge");
 
     const cleanPhone = repData.team_leader_phone.replace(/\D/g, '');
+    const context = hasUpcoming ? "the blitz" : "the summer";
     const message = encodeURIComponent(
-      `I'm getting ready for the blitz but I still need: ${missing.join(", ")}. Can you help me get these?`
+      `I'm getting ready for ${context} but I still need: ${missing.join(", ")}. Can you help me get these?`
     );
     
     window.location.href = `sms:${cleanPhone}?body=${message}`;
@@ -136,23 +303,12 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
     }
   };
 
-  const handlePlaybookReady = async () => {
-    const success = await saveProgress('phase4-playbook-ready');
-    if (success) {
-      setPlaybookReady(true);
-      toast({
-        title: "You're ready for anything! 💪",
-        description: "Time to crush the blitz",
-      });
-    }
-  };
-
-  const completedSteps = [packingDone, essentialsChecked, playbookReady].filter(Boolean).length;
+  const completedSteps = [packingDone, essentialsChecked].filter(Boolean).length;
   const allEssentialsHave = hasIpad && hasUniforms && hasBadge;
   const someMissing = !hasIpad || !hasUniforms || !hasBadge;
 
   // All steps done, waiting on leader to verify
-  const allStepsDoneWaitingLeader = packingDone && essentialsChecked && playbookReady && !isComplete;
+  const allStepsDoneWaitingLeader = packingDone && essentialsChecked && !isComplete;
 
   return (
     <div className="space-y-5 pb-20">
@@ -166,7 +322,7 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
       )}
 
       {/* Completed Steps as Chips */}
-      {completedSteps > 0 && completedSteps < 3 && !allStepsDoneWaitingLeader && (
+      {completedSteps > 0 && completedSteps < 2 && !allStepsDoneWaitingLeader && (
         <div className="flex flex-wrap gap-2">
           {packingDone && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
@@ -180,91 +336,54 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
               Essentials
             </div>
           )}
-          {playbookReady && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Playbook
-            </div>
-          )}
+        </div>
+      )}
+
+      {/* Context indicator */}
+      <div className={cn(
+        "flex items-center gap-2 px-3 py-2 rounded-xl text-sm",
+        hasUpcoming 
+          ? "bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-400" 
+          : "bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-400"
+      )}>
+        {hasUpcoming ? <Flame className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+        <span className="font-medium">
+          {hasUpcoming ? `Preparing for blitz${blitzName ? `: ${blitzName}` : ''}` : "Preparing for the summer"}
+        </span>
+      </div>
+
+      {/* Summer housing note */}
+      {!hasUpcoming && (
+        <div className="bg-muted/50 rounded-xl p-3 text-xs text-muted-foreground border border-border/50">
+          <Lightbulb className="w-4 h-4 text-amber-500 inline mr-1.5" />
+          The apartments come furnished with essentials like refrigerators, dishwashers, microwaves, ovens, mattresses, bed frames, couches, tables, chairs, washers, and dryers. Bring what you can and buy what you need. Share with roommates.
         </div>
       )}
 
       {/* Step 1: Packing List */}
       <div ref={packingRef} />
       <TrainingSection
-        title="Pack Your Bags"
+        title={packingTitle}
         icon={<PackageCheck className="w-4 h-4" />}
-        description="Everything you need for the blitz trip"
+        description={packingDescription}
         isComplete={packingDone}
         isExpanded={expandedSection === "packing"}
         onToggle={() => setExpandedSection(expandedSection === "packing" ? null : "packing")}
       >
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Make sure you have everything packed for the trip:
-          </p>
-          
-          {/* Clothing Section */}
-          <div className="space-y-2">
-            <h5 className="font-medium text-sm flex items-center gap-2">
-              <Shirt className="w-4 h-4 text-primary" />
-              Clothing
-            </h5>
-            <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-              <li>3-5 knocking polos/shirts</li>
-              <li>Comfortable pants/shorts (khakis, joggers)</li>
-              <li>Comfortable walking shoes</li>
-              <li>Socks & underwear for each day</li>
-              <li>Light jacket or hoodie (evening)</li>
-              <li>Sleepwear</li>
-              <li>Casual clothes for downtime</li>
-            </ul>
-          </div>
-
-          {/* Knocking Gear Section */}
-          <div className="space-y-2">
-            <h5 className="font-medium text-sm flex items-center gap-2">
-              <Tablet className="w-4 h-4 text-primary" />
-              Knocking Gear
-            </h5>
-            <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-              <li>iPad (charged, apps logged in)</li>
-              <li>iPad charger & cable</li>
-              <li>ID Badge</li>
-              <li>Portable battery pack</li>
-              <li>Sunglasses</li>
-              <li>Hat or cap</li>
-              <li>Sunscreen</li>
-              <li>Water bottle</li>
-            </ul>
-          </div>
-
-          {/* Personal Items Section */}
-          <div className="space-y-2">
-            <h5 className="font-medium text-sm flex items-center gap-2">
-              <IdCard className="w-4 h-4 text-primary" />
-              Personal Items
-            </h5>
-            <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-              <li>Phone & charger</li>
-              <li>Wallet & ID</li>
-              <li>Toiletries (toothbrush, deodorant, etc.)</li>
-              <li>Any medications</li>
-              <li>Earbuds/headphones</li>
-              <li>Snacks for the car/doors</li>
-            </ul>
-          </div>
-
-          {/* Nice to Have Section */}
-          <div className="space-y-2 border-t pt-3">
-            <h5 className="font-medium text-sm text-muted-foreground">Nice to Have</h5>
-            <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-              <li>Umbrella (just in case)</li>
-              <li>Notebook & pen</li>
-              <li>Pillow for car rides</li>
-              <li>Book or entertainment</li>
-            </ul>
-          </div>
+          {Object.entries(packingList).map(([key, category]) => (
+            <div key={key} className="space-y-2">
+              <h5 className="font-medium text-sm">{category.title}</h5>
+              <ul className="text-sm text-muted-foreground space-y-1 ml-2">
+                {category.items.map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-muted-foreground/50 mt-0.5">☐</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
 
           {!packingDone && (
             <Button 
@@ -291,7 +410,7 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
       >
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Before the blitz, make absolutely sure you have these essentials:
+            Make absolutely sure you have these essentials:
           </p>
 
           <div className="space-y-3">
@@ -357,7 +476,7 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                 <div>
                   <p className="text-sm font-medium text-destructive">Missing essentials?</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Text your leader to get what you need before the blitz.
+                    Text your leader to get what you need.
                   </p>
                 </div>
               </div>
@@ -385,173 +504,14 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
         </div>
       </TrainingSection>
 
-      {/* Step 3: Playbook for Tough Times */}
-      <div ref={playbookRef} />
-      <TrainingSection
-        title="When It Gets Tough"
-        icon={<Shield className="w-4 h-4" />}
-        description="Your playbook for bouncing back"
-        isComplete={playbookReady}
-        isLocked={!essentialsChecked}
-        isExpanded={expandedSection === "playbook"}
-        onToggle={() => setExpandedSection(expandedSection === "playbook" ? null : "playbook")}
-      >
-        <div className="space-y-6">
-          <p className="text-sm text-muted-foreground">
-            The blitz will have ups and downs. Plan now for how you'll respond when things get tough, so you bounce back quickly.
-          </p>
-
-          {/* What You'll Face */}
-          <div className="space-y-3">
-            <h5 className="font-medium text-sm flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-primary" />
-              What you'll face
-            </h5>
-            <p className="text-sm text-muted-foreground">
-              Write down 3 things that you know will be hard for you when you start knocking and how you can overcome them:
-            </p>
-            
-            <div className="space-y-3">
-              <div className="flex items-start gap-2">
-                <span className="text-sm font-medium text-primary mt-2">1.</span>
-                <Textarea 
-                  placeholder="What will be hard? → How will I overcome it?"
-                  className="min-h-[60px] text-sm"
-                />
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-sm font-medium text-primary mt-2">2.</span>
-                <Textarea 
-                  placeholder="What will be hard? → How will I overcome it?"
-                  className="min-h-[60px] text-sm"
-                />
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-sm font-medium text-primary mt-2">3.</span>
-                <Textarea 
-                  placeholder="What will be hard? → How will I overcome it?"
-                  className="min-h-[60px] text-sm"
-                />
-              </div>
-            </div>
-
-            {/* Examples */}
-            <Collapsible>
-              <CollapsibleTrigger className="flex items-center gap-2 text-primary text-sm hover:underline">
-                <Lightbulb className="w-3 h-3" />
-                <span>See examples</span>
-                <ChevronDown className="w-3 h-3 transition-transform [[data-state=open]>&]:rotate-180" />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2">
-                <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground space-y-2">
-                  <p>• <strong>Getting rejected 20+ times in a row</strong> → tell myself "this is part of the process, this is what I was expecting"</p>
-                  <p>• <strong>Seeing others succeed faster than you</strong> → get with my leaders to talk through that worry/concern and make a gameplan to focus on my race</p>
-                  <p>• <strong>Someone yells at you for knocking their door</strong> → box breathing (4 secs in, 4 sec hold, 4 secs out, 4 hold) and revisit my why before hitting the next door</p>
-                  <p>• <strong>Doubting if this job will pan out/if you can do it</strong> → get with my leaders to talk through that concern and ask sincere questions</p>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
-
-          {/* Key Quote */}
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <Quote className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-              <p className="text-sm italic">
-                You can't control what happens, but you can control your response to the event and <strong>that</strong> will decide the outcome.
-              </p>
-            </div>
-          </div>
-
-          {/* The Playbook Framework */}
-          <div className="space-y-3">
-            <h5 className="font-medium text-sm flex items-center gap-2">
-              <Shield className="w-4 h-4 text-primary" />
-              The Playbook Framework
-            </h5>
-            
-            <div className="space-y-3">
-              {/* Step 1 */}
-              <div className="bg-muted/50 rounded-lg p-3">
-                <p className="text-sm font-medium mb-1">Step 1: Recognize what's happening</p>
-                <p className="text-sm text-muted-foreground italic">"This is one of those moments I planned for"</p>
-              </div>
-
-              {/* Step 2 */}
-              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                <p className="text-sm font-medium">Step 2: Reset your state</p>
-                <ul className="text-sm text-muted-foreground space-y-1.5 ml-4">
-                  <li>• Take 3 deep breaths</li>
-                  <li>• Reframe your self talk: <em>"This is the rep I get better on. Failure and success are not opposites — failure is part of success. I can do this"</em></li>
-                  <li>• Move your body: shake it off, smile, reset your posture, etc</li>
-                </ul>
-              </div>
-
-              {/* Step 3 */}
-              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                <p className="text-sm font-medium">Step 3: Comeback</p>
-                <p className="text-sm text-muted-foreground">Ask yourself:</p>
-                <ul className="text-sm text-muted-foreground space-y-1.5 ml-4">
-                  <li>• Who's my go-to person to call or text?</li>
-                  <li>• What playlist, talk or quote helps me reset?</li>
-                  <li>• What's one small win I can chase immediately? (1 positive conversation, 1 upgrade, 1 callback, etc)</li>
-                </ul>
-              </div>
-
-              {/* Step 4 */}
-              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                <p className="text-sm font-medium">Step 4: Remember your why</p>
-                <ul className="text-sm text-muted-foreground space-y-1.5 ml-4">
-                  <li>• Revisit your goals & gameplan</li>
-                  <li>• Remind yourself why you chose to do this hard job</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Letter to Future Self */}
-          <div className="space-y-3">
-            <h5 className="font-medium text-sm flex items-center gap-2">
-              <FileText className="w-4 h-4 text-primary" />
-              A letter to your future self
-            </h5>
-            <p className="text-sm text-muted-foreground">
-              <strong>Write a letter to your future self and share it with your leaders.</strong> Put it in a notes file on your phone or a word doc and share it.
-            </p>
-            
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <PenLine className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-400">Prompt</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    What will you do when the going gets tough? How will you respond when you want to quit? What will you never do? Why are you working so hard? What would you tell your future self that wants to give up if you could have a conversation with him/her?
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {!playbookReady && (
-            <Button 
-              className="w-full"
-              onClick={handlePlaybookReady}
-            >
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              I've Written My Playbook & Letter
-            </Button>
-          )}
-        </div>
-      </TrainingSection>
-
       {/* Completion Celebration */}
       {isComplete && (
         <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
           <CardContent className="p-6 text-center">
             <div className="text-4xl mb-3">🎉</div>
-            <h3 className="text-lg font-bold mb-2">You're Blitz Ready!</h3>
+            <h3 className="text-lg font-bold mb-2">You're Ready!</h3>
             <p className="text-sm text-muted-foreground">
-              You've completed all preparation phases. Time to go crush it!
+              You've completed all preparation. Time to go crush it!
             </p>
           </CardContent>
         </Card>

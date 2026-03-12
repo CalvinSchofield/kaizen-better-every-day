@@ -1,4 +1,4 @@
-import { ArrowRight, Play, Target, BookOpen, Tablet, PackageCheck, CheckCircle2, Clock, MessageCircle } from "lucide-react";
+import { ArrowRight, Play, Target, BookOpen, Tablet, PackageCheck, CheckCircle2, Clock, MessageCircle, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PhaseId } from "@/pages/RampToBlitz";
 
@@ -18,20 +18,17 @@ interface RampNextStepProps {
   hasCommittedBlitz: boolean;
   phase2Progress: {
     productStudied: boolean;
-    quizPassed: boolean;
     upgradesStudied: boolean;
     takeoverStudied: boolean;
     pitchSubmitted: boolean;
   };
   phase3Progress: {
     ipadReady: boolean;
-    whyWritten: boolean;
     practiceScheduled: boolean;
   };
   phase4Progress: {
     packingDone: boolean;
     essentialsChecked: boolean;
-    playbookReady: boolean;
   };
   // Leader verification status
   phase1LeaderVerified?: boolean;
@@ -43,7 +40,6 @@ interface RampNextStepProps {
 }
 
 // Check if self-service items are complete for a phase
-// This determines if the user has done THEIR part (not leader verification)
 const isSelfServiceComplete = (
   phaseId: PhaseId,
   watchedVideos: string[],
@@ -53,11 +49,10 @@ const isSelfServiceComplete = (
   phase3Progress: RampNextStepProps['phase3Progress'],
   phase4Progress: RampNextStepProps['phase4Progress']
 ): boolean => {
-  const requiredVideos = ["what-is-blitz", "how-pay-works"];
-  const requiredWatched = requiredVideos.every(v => watchedVideos.includes(v));
-
   if (phaseId === 1) {
-    // Phase 1 self-service: videos, goals reviewed/texted leader, blitz committed/opted out
+    // Section 1: Pay reviewed
+    const payReviewed = watchedVideos.includes('how-pay-works') || watchedVideos.includes('phase1-pay-reviewed');
+    // Section 2: Goals + blitz
     const goalsReviewed = watchedVideos.includes('phase1-goals-reviewed') ||
       (watchedVideos.includes('phase1-goals-why') && 
        watchedVideos.includes('phase1-goals-what') && 
@@ -65,33 +60,26 @@ const isSelfServiceComplete = (
     const hasTextedLeaderGoals = watchedVideos.includes('phase1-goals-texted-leader');
     const hasOptedOutOfBlitz = watchedVideos.includes('phase1-blitz-opted-out');
     
-    // Rep's self-service is complete if:
-    // - Watched required videos
-    // - Goals setup complete OR has reviewed goals and texted leader
-    // - Has committed to blitz OR opted out
+    const payPartDone = payReviewed;
     const goalsPartDone = goalsSetupComplete || goalsReviewed || hasTextedLeaderGoals;
     const blitzPartDone = hasCommittedBlitz || hasOptedOutOfBlitz;
     
-    return requiredWatched && goalsPartDone && blitzPartDone;
+    return payPartDone && goalsPartDone && blitzPartDone;
   }
   if (phaseId === 2) {
-    // Also consider "waiting on leader" as self-service complete
     const pitchesDone = phase2Progress.pitchSubmitted || watchedVideos.includes('phase2-pitches-sent-waiting');
     return phase2Progress.productStudied && 
-           phase2Progress.quizPassed && 
            phase2Progress.upgradesStudied && 
            phase2Progress.takeoverStudied && 
            pitchesDone;
   }
   if (phaseId === 3) {
     return phase3Progress.ipadReady && 
-           phase3Progress.whyWritten && 
            phase3Progress.practiceScheduled;
   }
   if (phaseId === 4) {
     return phase4Progress.packingDone && 
-           phase4Progress.essentialsChecked && 
-           phase4Progress.playbookReady;
+           phase4Progress.essentialsChecked;
   }
   return false;
 };
@@ -108,28 +96,25 @@ const getNextStep = (
   isPhaseLeaderVerified: boolean
 ): NextStepInfo | null => {
   
-  // If the phase is already leader verified, no next step needed
   if (isPhaseLeaderVerified) {
     return null;
   }
   
-  // Phase 1 steps
+  // Phase 1: Pay & Goals
   if (activePhase === 1) {
-    const requiredVideos = ["what-is-blitz", "how-pay-works"];
-    const requiredWatched = requiredVideos.every(v => watchedVideos.includes(v));
+    const payReviewed = watchedVideos.includes('how-pay-works') || watchedVideos.includes('phase1-pay-reviewed');
     
-    if (!requiredWatched) {
+    if (!payReviewed) {
       return {
         phaseId: 1,
-        stepKey: "videos",
-        title: "Watch the intro videos",
-        description: "Learn what blitzes are and how you get paid",
-        icon: <Play className="w-5 h-5" />,
+        stepKey: "pay",
+        title: "Learn how you get paid",
+        description: "Watch the pay video and review the payscale",
+        icon: <DollarSign className="w-5 h-5" />,
         actionLabel: "Watch Now"
       };
     }
     
-    // Check if user has done their part for goals
     const goalsReviewed = watchedVideos.includes('phase1-goals-reviewed') ||
       (watchedVideos.includes('phase1-goals-why') && 
        watchedVideos.includes('phase1-goals-what') && 
@@ -161,7 +146,7 @@ const getNextStep = (
     }
   }
   
-  // Phase 2 steps
+  // Phase 2: Product & Process
   if (activePhase === 2) {
     if (!phase2Progress.productStudied) {
       return {
@@ -171,16 +156,6 @@ const getNextStep = (
         description: "Learn what you'll be selling on the doors",
         icon: <BookOpen className="w-5 h-5" />,
         actionLabel: "Start Learning"
-      };
-    }
-    if (!phase2Progress.quizPassed) {
-      return {
-        phaseId: 2,
-        stepKey: "quiz",
-        title: "Take the product quiz",
-        description: "Test your knowledge before moving on",
-        icon: <Target className="w-5 h-5" />,
-        actionLabel: "Take Quiz"
       };
     }
     if (!phase2Progress.upgradesStudied) {
@@ -215,7 +190,7 @@ const getNextStep = (
     }
   }
   
-  // Phase 3 steps
+  // Phase 3: iPad & Practice
   if (activePhase === 3) {
     if (!phase3Progress.ipadReady) {
       return {
@@ -227,36 +202,26 @@ const getNextStep = (
         actionLabel: "Set Up iPad"
       };
     }
-    if (!phase3Progress.whyWritten) {
-      return {
-        phaseId: 3,
-        stepKey: "why",
-        title: "Write your 'Why'",
-        description: "Define your purpose for the blitz",
-        icon: <Target className="w-5 h-5" />,
-        actionLabel: "Write Why"
-      };
-    }
     if (!phase3Progress.practiceScheduled) {
       return {
         phaseId: 3,
         stepKey: "practice",
-        title: "Schedule pitch practice",
-        description: "1-on-1 practice with a vet or leader",
+        title: "Practice pitch with a vet",
+        description: "1-on-1 practice using your iPad",
         icon: <Target className="w-5 h-5" />,
         actionLabel: "Schedule"
       };
     }
   }
   
-  // Phase 4 steps
+  // Phase 4: Packing List
   if (activePhase === 4) {
     if (!phase4Progress.packingDone) {
       return {
         phaseId: 4,
         stepKey: "packing",
         title: "Pack your bags",
-        description: "Everything you need for the trip",
+        description: "Everything you need for the summer",
         icon: <PackageCheck className="w-5 h-5" />,
         actionLabel: "View List"
       };
@@ -269,16 +234,6 @@ const getNextStep = (
         description: "Triple-check your must-haves",
         icon: <Tablet className="w-5 h-5" />,
         actionLabel: "Check Items"
-      };
-    }
-    if (!phase4Progress.playbookReady) {
-      return {
-        phaseId: 4,
-        stepKey: "playbook",
-        title: "Review the tough-times playbook",
-        description: "Be ready for anything",
-        icon: <BookOpen className="w-5 h-5" />,
-        actionLabel: "Read Playbook"
       };
     }
   }
@@ -301,7 +256,6 @@ export const RampNextStep = ({
   onScrollToStep,
   teamLeaderPhone
 }: RampNextStepProps) => {
-  // Check if current phase's self-service is complete
   const selfServiceComplete = isSelfServiceComplete(
     activePhase,
     watchedVideos,
@@ -312,14 +266,12 @@ export const RampNextStep = ({
     phase4Progress
   );
 
-  // Check if current phase is leader verified
   const isLeaderVerified = 
     (activePhase === 1 && phase1LeaderVerified) ||
     (activePhase === 2 && phase2LeaderVerified) ||
     (activePhase === 3 && phase3LeaderVerified) ||
     (activePhase === 4 && phase4LeaderVerified);
 
-  // If self-service complete but not leader verified - show waiting state
   if (selfServiceComplete && !isLeaderVerified) {
     const handleTextLeader = () => {
       if (teamLeaderPhone) {
@@ -368,7 +320,6 @@ export const RampNextStep = ({
   );
 
   if (!nextStep) {
-    // All done in current phase (and verified)
     return (
       <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-2xl p-5">
         <div className="flex items-center gap-4">

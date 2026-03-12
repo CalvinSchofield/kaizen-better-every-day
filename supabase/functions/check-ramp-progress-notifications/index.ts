@@ -11,19 +11,19 @@ const corsHeaders = {
 const PHASE_MESSAGES: Record<string, { title: string; body: string }> = {
   phase_1: {
     title: "Get Started! 🚀",
-    body: "Complete your goal setup to unlock Phase 2 of your Ramp to Blitz journey"
+    body: "Review how pay works and set your goals to unlock Product & Process"
   },
   phase_2: {
     title: "Keep the Momentum! 💪",
-    body: "Finish your practice pitches to move forward in Ramp to Blitz"
+    body: "Study the product and submit your pitch recordings to move forward"
   },
   phase_3: {
     title: "Almost There! 🎯",
-    body: "One more phase to go — you're so close to being blitz ready!"
+    body: "Set up your iPad and do a 1-on-1 practice session to keep going!"
   },
   phase_4: {
     title: "Final Stretch! 🏁",
-    body: "Complete Phase 4 to unlock blitzes and join the team in the field"
+    body: "Pack your bags and check your essentials — you're almost ready!"
   }
 };
 

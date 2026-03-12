@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { CheckCircle2, BookOpen, GraduationCap, MessageSquare, Play, ExternalLink, ChevronDown, ChevronUp, Video, ArrowRight, Lightbulb, Target, DollarSign, MapPin, Camera, Send, X, AlertTriangle } from "lucide-react";
+import { CheckCircle2, BookOpen, MessageSquare, Play, ExternalLink, ChevronDown, ChevronUp, Video, ArrowRight, Lightbulb, Target, DollarSign, MapPin, Camera, Send, X, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -29,8 +29,6 @@ interface CameraInfo {
     description: string;
   }[];
 }
-
-const PRODUCT_QUIZ_URL = "https://docs.google.com/forms/d/e/1FAIpQLSc9CiA33lB2VXYz9RAGv1IPp1bjn9ypbZ9xMVa1bJ3huHwhSg/viewform";
 
 // Camera images and pain points for upgrades section
 const CAMERA_DATA: CameraInfo[] = [
@@ -110,7 +108,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
   const navigate = useNavigate();
   const [expandedSection, setExpandedSection] = useState<string | null>("product");
   const [productStudied, setProductStudied] = useState(false);
-  const [quizPassed, setQuizPassed] = useState(false);
   const [upgradesStudied, setUpgradesStudied] = useState(false);
   const [takeoverStudied, setTakeoverStudied] = useState(false);
   const [pitchSubmitted, setPitchSubmitted] = useState(false);
@@ -118,7 +115,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
 
   // Refs for scrolling
   const productRef = useRef<HTMLDivElement>(null);
-  const quizRef = useRef<HTMLDivElement>(null);
   const upgradesRef = useRef<HTMLDivElement>(null);
   const takeoverRef = useRef<HTMLDivElement>(null);
   const pitchRef = useRef<HTMLDivElement>(null);
@@ -134,10 +130,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
         case 'product':
           setExpandedSection('product');
           productRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          break;
-        case 'quiz':
-          setExpandedSection('product');
-          quizRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           break;
         case 'upgrades':
           setExpandedSection('upgrades');
@@ -163,14 +155,12 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
     if (repData?.watched_videos && Array.isArray(repData.watched_videos)) {
       const watched = repData.watched_videos as string[];
       setProductStudied(watched.includes('phase2-product'));
-      setQuizPassed(watched.includes('phase2-quiz-passed'));
       setUpgradesStudied(watched.includes('phase2-upgrades'));
       setTakeoverStudied(watched.includes('phase2-takeover'));
       setPitchSubmitted(watched.includes('phase2-pitch-submitted'));
     }
   }, [repData?.watched_videos]);
 
-  // Check if rep has self-reported sending pitches (waiting on leader feedback)
   const hasTextedLeaderPitches = repData?.watched_videos && 
     Array.isArray(repData.watched_videos) && 
     (repData.watched_videos as string[]).includes('phase2-pitches-sent-waiting');
@@ -181,18 +171,7 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
       setProductStudied(true);
       toast({
         title: "Product knowledge complete!",
-        description: "Now take the quiz to test your knowledge",
-      });
-    }
-  };
-
-  const handleQuizComplete = async () => {
-    const success = await saveProgress('phase2-quiz-passed');
-    if (success) {
-      setQuizPassed(true);
-      toast({
-        title: "Quiz complete! 🎉",
-        description: "Great job! You're ready for the next step",
+        description: "Now learn about upgrades",
       });
     }
   };
@@ -239,14 +218,12 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
 
   const completedSteps = [
     productStudied,
-    quizPassed,
     upgradesStudied,
     takeoverStudied,
     pitchSubmitted,
   ].filter(Boolean).length;
 
-  // All steps done except final leader verification
-  const allStepsDoneWaitingLeader = productStudied && quizPassed && upgradesStudied && takeoverStudied && hasTextedLeaderPitches && !pitchSubmitted && !isComplete;
+  const allStepsDoneWaitingLeader = productStudied && upgradesStudied && takeoverStudied && hasTextedLeaderPitches && !pitchSubmitted && !isComplete;
 
   return (
     <div className="space-y-5 pb-20">
@@ -260,18 +237,12 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
       )}
 
       {/* Completed Steps as Chips */}
-      {completedSteps > 0 && completedSteps < 5 && !allStepsDoneWaitingLeader && (
+      {completedSteps > 0 && completedSteps < 4 && !allStepsDoneWaitingLeader && (
         <div className="flex flex-wrap gap-2">
           {productStudied && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
               <CheckCircle2 className="w-3.5 h-3.5" />
               Product
-            </div>
-          )}
-          {quizPassed && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Quiz
             </div>
           )}
           {upgradesStudied && (
@@ -295,8 +266,9 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
         </div>
       )}
 
-
-      {/* Step 1: Product Knowledge */}
+      {/* ═══════════════════════════════════════════ */}
+      {/* SECTION 3: PRODUCT KNOWLEDGE */}
+      {/* ═══════════════════════════════════════════ */}
       <div ref={productRef} />
       <TrainingSection
         title="Study the Product"
@@ -341,54 +313,18 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
         </div>
       </TrainingSection>
 
-      {/* Step 2: Product Quiz */}
-      <div ref={quizRef} />
-      <TrainingSection
-        title="Product Knowledge Quiz"
-        icon={<GraduationCap className="w-4 h-4" />}
-        description="Test your knowledge of the products"
-        isComplete={quizPassed}
-        isLocked={!productStudied}
-        isExpanded={expandedSection === "quiz"}
-        onToggle={() => setExpandedSection(expandedSection === "quiz" ? null : "quiz")}
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Take this quiz to reinforce what you've learned and make sure you understand the products inside and out.
-          </p>
-          
-          <a
-            href={PRODUCT_QUIZ_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-3 p-4 rounded-xl bg-gradient-to-r from-primary/20 to-primary/10 border border-primary/30 hover:from-primary/30 hover:to-primary/20 transition-all active:scale-[0.98] group"
-          >
-            <GraduationCap className="w-5 h-5 text-primary" />
-            <span className="font-semibold text-primary">Take Product Quiz</span>
-            <ArrowRight className="w-4 h-4 text-primary group-hover:translate-x-1 transition-transform" />
-          </a>
+      {/* ═══════════════════════════════════════════ */}
+      {/* SECTION 4: THE PROCESS */}
+      {/* ═══════════════════════════════════════════ */}
 
-          {!quizPassed && (
-            <Button 
-              variant="outline"
-              className="w-full rounded-xl h-12"
-              onClick={handleQuizComplete}
-            >
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              I've Completed the Quiz
-            </Button>
-          )}
-        </div>
-      </TrainingSection>
-
-      {/* Step 3: Upgrades 101 */}
+      {/* Upgrades 101 */}
       <div ref={upgradesRef} />
       <TrainingSection
         title="Upgrades 101"
         icon={<Target className="w-4 h-4" />}
         description="Learn upgrades and what to say"
         isComplete={upgradesStudied}
-        isLocked={!quizPassed}
+        isLocked={!productStudied}
         isExpanded={expandedSection === "upgrades"}
         onToggle={() => setExpandedSection(expandedSection === "upgrades" ? null : "upgrades")}
       >
@@ -505,7 +441,7 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
         </div>
       </TrainingSection>
 
-      {/* Step 4: Takeover Door Approach */}
+      {/* Takeover Door Approach */}
       <div ref={takeoverRef} />
       <TrainingSection
         title="Takeover Door Approach"
@@ -545,7 +481,7 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
         </div>
       </TrainingSection>
 
-      {/* Step 5: Submit Your Pitches */}
+      {/* Submit Your Pitches */}
       <div ref={pitchRef} />
       <TrainingSection
         title="Submit Your Pitches"
@@ -560,7 +496,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
         onToggle={() => setExpandedSection(expandedSection === "submitpitches" ? null : "submitpitches")}
       >
         <div className="space-y-4">
-          {/* Info card */}
           <div className="rounded-xl bg-gradient-to-br from-violet-500/10 to-violet-600/5 border border-violet-500/20 p-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
@@ -575,8 +510,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
             </div>
           </div>
 
-
-          {/* Text leader CTA */}
           {!hasTextedLeaderPitches && (
             <Button 
               className="w-full rounded-xl h-14 text-base"
@@ -600,7 +533,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
                 Your leader will mark this complete after reviewing both pitches
               </p>
               
-              {/* Self-report: I've sent my pitches */}
               <Button 
                 variant="ghost"
                 size="sm" 
@@ -641,7 +573,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
           </DrawerHeader>
           
           <div className="p-4 space-y-4 overflow-y-auto">
-            {/* Camera Image */}
             <div className="flex justify-center">
               <div className="w-32 h-32 rounded-2xl bg-white border border-border/50 flex items-center justify-center overflow-hidden">
                 <img 
@@ -652,7 +583,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
               </div>
             </div>
 
-            {/* Why customers upgrade */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-orange-500/20 flex items-center justify-center">
@@ -674,7 +604,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
               </div>
             </div>
 
-            {/* Tip */}
             <div className="rounded-xl bg-primary/10 border border-primary/20 p-4">
               <p className="text-sm text-muted-foreground">
                 <span className="font-semibold text-primary">Tip:</span> When you see this camera at a door, bring up these pain points to help the customer realize they're missing out on newer technology!

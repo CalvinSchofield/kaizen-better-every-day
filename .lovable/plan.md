@@ -1,219 +1,50 @@
-# Restructure Ramp to Blitz: Topic-Based Sections
 
-## Current Structure vs New Structure
 
-```text
-CURRENT (Generic Phases)          NEW (Topic-Based Sections)
-========================          =========================
-Phase 1: Set Goals                Section 1: Pay & Earnings
-  - What is a Blitz video           - "How You Get Paid" video
-  - How Pay Works video             - Deep Dive video (bonus)
-  - Payscale download               - Payscale download
-  - Goals (Why/What/How)            - Self-report: "I've reviewed pay"
-  - Commit to blitz
-                                  Section 2: Goals & Planning
-Phase 2: Start Training             - Why/What/How review
-  - Study Product                    - Set goals in-app (action)
-  - Product Quiz                     - Commit to blitz
-  - Upgrades 101
-  - Takeover Approach             Section 3: Product Knowledge
-  - Submit Pitches                   - Study products (link to module)
-                                     - Self-report per product area
-Phase 3: Practice
-  - iPad Setup (apps)             Section 4: The Process
-  - Write Your Why                   - Upgrades 101 + pitch guide
-  - 1-on-1 Practice                 - Takeover approach + pitch guide
-                                     - Record & send pitch video
-Phase 4: Saddle Up!
-  - Packing List                  Section 5: iPad & Practice
-  - Knocking Essentials              - iPad apps checklist
-  - "When It Gets Tough"            - 1-on-1 practice with vet/leader
-                                       (using iPad to get familiar)
+## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
 
-                                  Section 6: Packing List
-                                     - Dynamic: "Blitz Packing" or
-                                       "Summer Packing" based on
-                                       upcoming blitz status
-                                     - Knocking essentials check
-```
+### The Problem
 
-## What Gets Removed
+When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
 
-- "What is a Blitz?" video (from Phase 1)
-- Product Quiz (from Phase 2) -- replaced by self-report per item
-- "When It Gets Tough" / playbook section (from Phase 4) -- to be refined later
-- "Write Your Why" section (from Phase 3) -- this was already covered in Goals
+### Root Cause
 
-## What Changes
+There are three things fighting each other:
 
-- Product study becomes self-report per item instead of quiz
-- iPad setup + practice combined: the action item becomes "practice pitch with vet while using the iPad"
-- Phase 4 packing list becomes context-aware (blitz vs summer)
+1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
 
-## Critical Logic Dependencies to Preserve
+2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
 
-### 1. Database Fields Stay the Same
+3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
 
-The `ramp_phase_1_complete` through `ramp_phase_4_complete` fields in the `reps` table stay unchanged. We just remap what they mean:
+### The Fix
 
-- `ramp_phase_1_complete` = "Pay & Earnings" + "Goals & Planning" (sections 1-2)
-- `ramp_phase_2_complete` = "Product Knowledge" + "The Process" (sections 3-4)  
-- `ramp_phase_3_complete` = "iPad & Practice" (section 5)
-- `ramp_phase_4_complete` = "Packing List" (section 6)
+#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
 
-This avoids any migration and preserves all existing progress, locking logic, leader verification, and Notion sync.
+The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
 
-### 2. Leader View (ProgressTab.tsx)
+#### 2. Simplify `useKeyboardViewport` hook
 
-The `rampStepConfigs` labels change to match new names:
+- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
+- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
+- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
+- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
 
-- Phase 1: "Pay & Goals" (covers sections 1-2)
-- Phase 2: "Product & Process" (covers sections 3-4)
-- Phase 3: "iPad & Practice" (section 5)
-- Phase 4: "Packing List" (section 6)
+#### 3. Add `@capacitor/keyboard` plugin configuration
 
-### 3. Locking Logic
+Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
 
-Unchanged -- Phase 2 still locks until Phase 1 complete, etc. The `RampToBlitz.tsx` phases array and `ProgressTab.tsx` locking stays identical.
+### Files to Modify
 
-### 4. Watched Videos / Progress Keys
+- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
+- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
+- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
+- **`package.json`** -- Add `@capacitor/keyboard` dependency
 
-- REMOVE: `what-is-blitz` from required videos (keep `how-pay-works`)
-- REMOVE: `phase2-quiz-passed` (no more quiz)
-- ADD: new self-report keys for product sub-items
-- KEEP: all other progress keys
+### After Approval
 
-### 5. Edge Functions & Notion Sync
+After these code changes, you will need to:
+1. Git pull the updated code
+2. Run `npm install` to get the new keyboard plugin
+3. Run `npx cap sync` to sync the plugin to iOS
+4. Rebuild in Xcode and push to TestFlight
 
-`update-rookie-status` and `fetch-blitz-attendance` use "Phase 1 ✅" etc. These stay as-is in the DB; just the UI labels change. No edge function changes needed.
-
-### 6. Hero Progress (RampHeroProgress.tsx)
-
-`PHASE_ITEMS` totals and getCompleted functions update to match new step counts per phase.
-
-### 7. Next Step Logic (RampNextStep.tsx)
-
-`getNextStep` and `isSelfServiceComplete` update to reflect new steps per phase.
-
-### 8. Notification Text
-
-`check-ramp-progress-notifications` edge function updates phase descriptions.
-
-## Files to Modify
-
-### Frontend Components (major rewrites)
-
-- `src/components/ramp/Phase1Content.tsx` -- becomes "Pay & Goals" with two visual sections
-- `src/components/ramp/Phase2Content.tsx` -- becomes "Product & Process" 
-- `src/components/ramp/Phase3Content.tsx` -- becomes "iPad & Practice" (combined)
-- `src/components/ramp/Phase4Content.tsx` -- becomes "Packing List" with blitz/summer detection
-
-### Logic & Navigation
-
-- `src/pages/RampToBlitz.tsx` -- update phase titles/subtitles
-- `src/components/ramp/RampHeroProgress.tsx` -- update PHASE_ITEMS counts
-- `src/components/ramp/RampNextStep.tsx` -- update step sequences and labels
-- `src/components/ramp/RampPhaseContent.tsx` -- no structural changes needed
-
-### Leader View
-
-- `src/components/mygroup/recruit-detail/tabs/ProgressTab.tsx` -- update rampStepConfigs labels
-- `src/components/mygroup/recruit-detail/RecruitDetailDrawer.tsx` -- update fieldToNotionStatus labels and computedOnboardingStatus
-
-### Edge Functions
-
-- `supabase/functions/check-ramp-progress-notifications/index.ts` -- update notification text
-- `supabase/functions/fetch-blitz-attendance/index.ts` -- update onboardingStatus display strings
-
-### No Changes Needed
-
-- Database schema (same 4 phase fields)
-- `update-rookie-status` edge function (same field names)
-- RLS policies
-- `useRampProgress` hook
-- `useRookieUnlockStatus` hook
-
-## Phase 4 Dynamic Content Logic
-
-```typescript
-// In Phase4Content, detect context:
-const hasUpcomingBlitz = repData?.committed_blitzes?.length > 0 
-  && allBlitzes.some(b => committedIds.includes(b.id) && isUpcoming(b));
-
-// If upcoming blitz: "Blitz Packing List" with blitz-specific items
-// If no upcoming blitz: "Summer Packing List" with summer-specific items
-// Core list is largely the same, verbiage changes
-```
-
-## Summer packing list
-
-*The apartments come furnished with essentials like refrigerators, dishwashers, microwaves, ovens, mattresses, bed frames, couches, tables, chairs, washers, and dryers. Bring what you can and buy what you need. Share with roommates.*
-
----
-
-# 🚪 Knocking Essentials
-
-- [ ] iPad (with updated apps for work)
-- [ ] iPad charger + charging cable
-- [ ] Portable power bank (10,000+ mAh recommended)
-- [ ] Lightweight knocking shoes (comfy, breathable)
-- [ ] Work socks (5–7 pairs)
-- [ ] Vivint jerseys
-- [ ] Vivint hat
-- [ ] Badge ID
-- [ ] Lightweight work shorts (2–3 pairs)
-- [ ] Small backpack or side bag for knocking (optional)
-- [ ] Notebook + pen (or digital notes app)
-- [ ] Reusable water bottle
-
-# 👕 Clothing
-
-- [ ] Casual clothes (4–6 shirts, 2–3 shorts)
-- [ ] Gym clothes (2–3 sets)
-- [ ] Hoodie or light jacket (cool evenings)
-- [ ] Undergarments (7–10 pairs)
-- [ ] Pajamas or sleepwear
-- [ ] Church attire (1–2 outfits)
-- [ ] Swimwear
-- [ ] Slides or sandals
-- [ ] Laundry bag + detergent pods (can buy there)
-
-# 🛌 Bedding
-
-- [ ] Twin bed sheet (can buy there)
-- [ ] Blanket/comforter
-- [ ] Pillow + pillowcase
-
-# 🧼 Toiletries & Hygiene
-
-- [ ] Toothbrush + toothpaste
-- [ ] Shower caddy or bag
-- [ ] Shampoo, conditioner, soap/body wash
-- [ ] Deodorant
-- [ ] Razor + shaving cream
-- [ ] Towel + hand towel
-- [ ] Nail clippers, floss, etc.
-
-# 🔪 Kitchen Extras
-
-- [ ] Cutting board
-- [ ] Chef’s knife or basic kitchen knife
-- [ ] Can opener
-- [ ] Measuring cup/spoons
-- [ ] Mixing bowl
-- [ ] Baking sheet or tray (if you’ll use the oven)
-- [ ] Basic seasonings (salt, pepper, garlic powder — starter kit)
-- [ ] Ziploc bags or foil/wrap
-- [ ] Microwave-safe bowl/cup
-- [ ] Dish drying rack or mat
-- [ ] Paper towels or cleaning cloths
-
-# 🎧 Personal/Miscellaneous
-
-- [ ] Phone charger + extra cable (don’t share iPad and iPhone charger)
-- [ ] Wallet
-- [ ] Sunscreen
-- [ ] Ibuprofen/Tylenol & basic medicine
-- [ ] Scriptures or study materials
-- [ ] Journal or planner
-- [ ] Portable speaker/headphones
