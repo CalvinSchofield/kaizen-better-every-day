@@ -38,6 +38,7 @@ interface CalendarViewProps {
   personalSummerEnd?: Date;
   viewMode?: "week" | "month";
   onViewModeChange?: (mode: "week" | "month") => void;
+  dailyGoal?: number | null;
 }
 
 export const CalendarView = ({
