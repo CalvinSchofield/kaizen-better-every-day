@@ -11,7 +11,8 @@ import { Calendar, Clock, Footprints, Target, MessageSquare, Circle, AlignJustif
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { EffortResult } from "@/utils/effortScore";
-import { GoalProgressSection } from "./GoalProgressSection";
+import { UnifiedGoalProgress } from "@/components/goals/UnifiedGoalProgress";
+import type { GoalPaceData, TimeframeData, PaceSeverity } from "@/hooks/useGoalPaceCalculator";
 import { EffortCoachingCallouts } from "./EffortCoachingCallouts";
 import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
 import { useRepDayActivity } from "@/hooks/useRepDayActivity";
