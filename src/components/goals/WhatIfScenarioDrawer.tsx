@@ -35,6 +35,8 @@ interface WhatIfScenarioDrawerProps {
   // Summer-specific stats for severity calibration (once summer starts)
   summerProgress?: number;
   summerKnockingDays?: number;
+  // Historical summer daily average (from prior year) for preseason severity calibration
+  historicalSummerAvg?: number;
 }
 
 interface TierResult {
