@@ -3,7 +3,7 @@ export { ReportsEffortSection } from './ReportsEffortSection';
 export { ReportsSkillSection } from './ReportsSkillSection';
 export { RepDrillDownDrawer } from './RepDrillDownDrawer';
 export { RepWorkTimeline } from './RepWorkTimeline';
-export { RepGoalPaceCard } from './RepGoalPaceCard';
+
 export { TeamGoalSummary } from './TeamGoalSummary';
 export { EffortThresholdSettings } from './EffortThresholdSettings';
 export { ReportsDateRangeSheet } from './ReportsDateRangeSheet';
