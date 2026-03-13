@@ -328,6 +328,7 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
   season.goal = activeGoal;
   season.actual = input.currentProgress;
   season.live = input.todayLiveFP;
+  season.expected = dailyNeeded * seasonKnockingDaysComplete;
   season.paceDiff = (input.currentProgress + input.todayLiveFP) - season.expected;
   season.isAhead = season.paceDiff >= 0;
   season.remaining = Math.max(0, activeGoal - input.currentProgress - input.todayLiveFP);
