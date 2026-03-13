@@ -48,6 +48,7 @@ export const CalendarView = ({
   personalSummerEnd,
   viewMode: controlledViewMode,
   onViewModeChange,
+  dailyGoal = null,
 }: CalendarViewProps) => {
   // Use unified dailyGoal prop from useGoalPaceCalculator (single source of truth)
   const queryClient = useQueryClient();
