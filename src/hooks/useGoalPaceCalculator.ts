@@ -128,6 +128,9 @@ export interface GoalPaceInput {
   // For severity calculation
   knockingDaysCompleted: number;
 
+  // Historical summer daily average for preseason severity calibration
+  historicalSummerAvg?: number;
+
   // Reference date (defaults to today)
   referenceDate?: Date;
 }
