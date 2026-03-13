@@ -491,15 +491,18 @@ const CompactMode = ({
         );
       })}
 
-      {/* Pace context line */}
+      {/* Mission statement */}
       {showPaceContext && data.hasGoals && data.dailyNeeded > 0 && (
-        <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/30">
-          <span className="text-muted-foreground">
-            Avg <span className="font-semibold text-foreground tabular-nums">{formatFP(data.userDailyAvg)}</span>/day
-          </span>
-          <span className={cn("font-semibold tabular-nums", severityConfig[data.severity].text)}>
-            Need {formatFP(data.dailyNeeded)}/day
-          </span>
+        <div className="text-[11px] pt-1 border-t border-border/30 space-y-0.5">
+          <div className="flex items-center gap-1">
+            <Zap className="w-3 h-3 text-primary" />
+            <span className={cn("font-semibold tabular-nums", severityConfig[data.severity].text)}>
+              {formatFP(data.dailyNeeded)} {data.metricLabel}/day to hit goal
+            </span>
+          </div>
+          <div className="text-muted-foreground">
+            Avg <span className="font-semibold text-foreground tabular-nums">{formatFP(data.userDailyAvg)}</span>/day so far
+          </div>
         </div>
       )}
     </motion.div>
