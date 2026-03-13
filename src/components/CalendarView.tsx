@@ -49,6 +49,7 @@ export const CalendarView = ({
   viewMode: controlledViewMode,
   onViewModeChange,
 }: CalendarViewProps) => {
+  // Use unified dailyGoal prop from useGoalPaceCalculator (single source of truth)
   const queryClient = useQueryClient();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { isDatePlanned, plannedDays, togglePlannedDay, isToggling } = usePlannedDays();
