@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useRepData } from "@/hooks/useRepData";
-import { GoalProgressCard } from "@/components/GoalProgressCard";
+import { CalendarGoalProgress } from "@/components/goals/CalendarGoalProgress";
 import { CalendarSummaryTeaser } from "@/components/CalendarSummaryTeaser";
 import { calculateSalesPace } from "@/utils/salesPaceCalculator";
 import { useFocusTier } from "@/hooks/useFocusTier";
@@ -177,8 +177,6 @@ export const CalendarView = ({
     return preseasonDailyGoal;
   }, [personalSummerStart, preseasonDailyGoal, summerDailyGoal]);
 
-  // Legacy single dailyGoal for GoalProgressCard (it calculates its own per-date goals internally)
-  const dailyGoal = preseasonDailyGoal;
 
 
   // useDailyEntry for delete mutation only
@@ -758,11 +756,7 @@ export const CalendarView = ({
             transition={{ duration: 0.3 }}
           >
             <div className="mt-4">
-              <GoalProgressCard 
-                entries={entries} 
-                currentDate={currentDate} 
-                viewMode={viewMode} 
-              />
+              <CalendarGoalProgress />
             </div>
 
             {viewTotals.daysWorked > 0 && (
