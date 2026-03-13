@@ -64,6 +64,34 @@ export const CalendarPlanningPreview = ({
     staleTime: 5 * 60 * 1000,
   });
 
+  // Historical 2025 summer daily average for severity calibration during preseason
+  const personalSummerStart = seasonConfig?.personal_summer_start || GLOBAL_SUMMER_START;
+  const isSummerStarted = !isBefore(new Date(), parseISO(personalSummerStart));
+
+  const { data: historicalSummerAvg = 0 } = useQuery({
+    queryKey: ['historical-summer-avg', userId],
+    queryFn: async () => {
+      if (!userId) return 0;
+      const { data } = await supabase
+        .from('historical_entries')
+        .select('prmr, fp_plus, doors_knocked')
+        .eq('user_id', userId)
+        .eq('season_type', 'summer')
+        .eq('season_year', 2025);
+      if (!data || data.length === 0) return 0;
+      // Filter to actual knocking days (≥4 doors)
+      const knockingEntries = data.filter(e => (e.doors_knocked || 0) >= 4);
+      if (knockingEntries.length === 0) return 0;
+      // Calculate daily avg in the same metric (EFP or FP+)
+      const totalMetric = knockingEntries.reduce((sum, e) => {
+        return sum + (efpModeEnabled ? (Number(e.prmr) || 0) / 85 : (Number(e.fp_plus) || 0));
+      }, 0);
+      return totalMetric / knockingEntries.length;
+    },
+    enabled: !!userId,
+    staleTime: 30 * 60 * 1000, // Cache for 30 min — historical data doesn't change
+  });
+
   // Fetch ALL daily entries for the full season (for heatmap)
   const { data: seasonEntries, isLoading: isLoadingEntries } = useQuery({
     queryKey: ['season-heatmap-entries', userId],
@@ -323,6 +351,7 @@ export const CalendarPlanningPreview = ({
         excludedSummerDays={(seasonConfig?.excluded_summer_days as string[]) || []}
         summerProgress={summerProgress}
         summerKnockingDays={summerKnockingDays}
+        historicalSummerAvg={historicalSummerAvg}
       />
     </motion.div>
   );
