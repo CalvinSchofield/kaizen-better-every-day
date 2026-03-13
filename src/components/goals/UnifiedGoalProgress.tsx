@@ -146,6 +146,70 @@ const PaceBadge = ({ paceDiff, severity }: { paceDiff: number; severity: PaceSev
 };
 
 // =====================================================
+// Mission Statement — single anchor for pace
+// =====================================================
+
+const MissionStatement = ({
+  timeframe,
+  data,
+  current,
+}: {
+  timeframe: GoalTimeframe;
+  data: GoalPaceData;
+  current: TimeframeData;
+}) => {
+  const sc = severityConfig[data.severity];
+
+  const missionText = (() => {
+    switch (timeframe) {
+      case 'D':
+        return (
+          <>
+            <span className={cn("font-semibold tabular-nums", sc.text)}>{formatFP(data.dailyNeeded)} {data.metricLabel}</span>
+            <span className="text-muted-foreground"> today</span>
+          </>
+        );
+      case 'W':
+        return (
+          <>
+            <span className={cn("font-semibold tabular-nums", sc.text)}>{formatFP(current.goal)} {data.metricLabel}</span>
+            <span className="text-muted-foreground"> this week</span>
+            <span className="text-muted-foreground/60 text-[10px]"> ({formatFP(data.dailyNeeded)}/day × {current.plannedDaysTotal}d)</span>
+          </>
+        );
+      case 'M':
+        return (
+          <>
+            <span className={cn("font-semibold tabular-nums", sc.text)}>{formatFP(current.goal)} {data.metricLabel}</span>
+            <span className="text-muted-foreground"> this month</span>
+            <span className="text-muted-foreground/60 text-[10px]"> ({formatFP(data.dailyNeeded)}/day × {current.plannedDaysTotal}d)</span>
+          </>
+        );
+      case 'Y':
+        return (
+          <>
+            <span className={cn("font-semibold tabular-nums", sc.text)}>{formatFP(current.goal)} {data.metricLabel}</span>
+            <span className="text-muted-foreground"> goal</span>
+            <span className="text-muted-foreground/60 text-[10px]"> · {formatFP(data.dailyNeeded)}/day to finish</span>
+          </>
+        );
+    }
+  })();
+
+  return (
+    <div className="flex items-center justify-between text-xs px-1">
+      <div className="flex items-center gap-1 flex-wrap">
+        <Zap className="w-3 h-3 text-primary shrink-0" />
+        {missionText}
+      </div>
+      <span className="text-muted-foreground whitespace-nowrap">
+        Avg <span className="font-semibold text-foreground tabular-nums">{formatFP(data.userDailyAvg)}</span>/day
+      </span>
+    </div>
+  );
+};
+
+// =====================================================
 // Full Mode Component
 // =====================================================
 
