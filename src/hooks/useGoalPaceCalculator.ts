@@ -324,7 +324,8 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
 
   // Season
   const season = calcTimeframe(seasonStartStr, seasonEndStr, input.isPreseason ? 'Preseason' : 'Season');
-  // Override season actual with the authoritative currentProgress (which includes all entries)
+  // Override season with authoritative values
+  season.goal = activeGoal;
   season.actual = input.currentProgress;
   season.live = input.todayLiveFP;
   season.paceDiff = (input.currentProgress + input.todayLiveFP) - season.expected;
