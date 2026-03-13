@@ -1,50 +1,49 @@
+## Use 2025 Summer Historical Pace for What-If Severity Coloring
 
+### Problem
 
-## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
+During preseason, the What-If drawer's severity colors (green/amber/red) use the **preseason daily average** to calibrate. Your preseason pace (1.5 EFP/day) is much lower than your summer pace (3 EFP/day). So Must Do at 2.8/day shows amber/red when it should be green — because you've proven you can do 3/day in the summer.
 
-### The Problem
+### Solution
 
-When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
+Query the `historical_entries` table for 2025 summer knocking days (`season_type = 'summer'`, `season_year = 2025`), calculate the historical summer daily average, and use that as the severity baseline in the What-If drawer during preseason.
 
-### Root Cause
+### Changes
 
-There are three things fighting each other:
+`**src/components/goals/WhatIfScenarioDrawer.tsx**`
 
-1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
+- Add a new prop `historicalSummerAvg?: number` (the 2025 summer daily average)
+- Update `userDailyAvg` logic (line 230-235): When in preseason (`!isSummerStarted`) and `historicalSummerAvg > 0`, use `historicalSummerAvg` instead of the preseason average. This makes severity reflect "can I do this pace based on my proven summer ability?"
+- Fall back to current preseason average if no historical data exists
 
-2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
+`**src/pages/Goals.tsx**`
 
-3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+- Add a query for 2025 summer historical entries:
+  ```typescript
+  const { data: historicalSummerStats } = useQuery({
+    queryKey: ['historical-summer-avg', userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('historical_entries')
+        .select('prmr, fp_plus, doors_knocked')
+        .eq('user_id', userId)
+        .eq('season_type', 'summer')
+        .eq('season_year', 2025);
+      // Calculate daily avg from entries with ≥4 doors
+      ...
+    },
+    enabled: !!userId && !isUserSummerStarted,
+  });
+  ```
+- Pass `historicalSummerAvg` to `WhatIfScenarioDrawer`
 
-### The Fix
+`**src/hooks/useGoalPaceCalculator.ts**`
 
-#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+- Same pattern: when in preseason and historical summer data exists, use that for severity calibration instead of preseason average. This ensures the unified goal progress severity also reflects summer capability.
+- Add optional `historicalSummerAvg` to `GoalPaceInput` and use it in the severity calculation (lines 199-210)
 
-The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
+### Result
 
-#### 2. Simplify `useKeyboardViewport` hook
-
-- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
-- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
-- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
-- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
-
-#### 3. Add `@capacitor/keyboard` plugin configuration
-
-Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
-
-### Files to Modify
-
-- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
-- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
-- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
-- **`package.json`** -- Add `@capacitor/keyboard` dependency
-
-### After Approval
-
-After these code changes, you will need to:
-1. Git pull the updated code
-2. Run `npm install` to get the new keyboard plugin
-3. Run `npx cap sync` to sync the plugin to iOS
-4. Rebuild in Xcode and push to TestFlight
-
+- With ~3 EFP/day historical summer average, Must Do (2.8/day) and Will Do (3.0/day) both show **green**
+- Could Do (3.2/day) would show **green** or **amber** depending on exact historical average
+- Once summer actually starts and you have 7+ summer days, it switches to the live Summer pace THIS summer as long as the average is greater. If it's not, let's still show whichever is greater. Once we have 18 days of knocking in the new Summer at a minimum, then show the 2026 summer pace regardless of which is greater
