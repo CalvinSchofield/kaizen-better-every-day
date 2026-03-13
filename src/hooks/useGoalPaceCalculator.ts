@@ -427,6 +427,29 @@ export function useGoalPaceCalculator(): GoalPaceData {
     staleTime: 2 * 60 * 1000,
   });
 
+  // Historical 2025 summer daily average for preseason severity calibration
+  const { data: historicalSummerAvg = 0 } = useQuery({
+    queryKey: ['historical-summer-avg-pace', userId],
+    queryFn: async () => {
+      if (!userId) return 0;
+      const { data } = await supabase
+        .from('historical_entries')
+        .select('prmr, fp_plus, doors_knocked')
+        .eq('user_id', userId)
+        .eq('season_type', 'summer')
+        .eq('season_year', 2025);
+      if (!data || data.length === 0) return 0;
+      const knockingEntries = data.filter(e => (e.doors_knocked || 0) >= 4);
+      if (knockingEntries.length === 0) return 0;
+      const totalMetric = knockingEntries.reduce((sum, e) => {
+        return sum + (efpModeEnabled ? (Number(e.prmr) || 0) / 85 : (Number(e.fp_plus) || 0));
+      }, 0);
+      return totalMetric / knockingEntries.length;
+    },
+    enabled: !!userId && !isUserSummerStarted,
+    staleTime: 30 * 60 * 1000,
+  });
+
   const personalSummerStart = seasonConfig?.personal_summer_start || null;
   const isPreseason = !isUserSummerStarted;
   const conversionFactor = efpModeEnabled ? (goals?.avg_prmr_per_fp || 85) / 85 : 1;
