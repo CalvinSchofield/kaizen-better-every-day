@@ -173,6 +173,9 @@ export const useSaleUpdate = () => {
         'activity-summary',
         'insights-data',
         'customer-sales',
+        // Goal pace calculator queries
+        'today-entry-unified',
+        'all-entries-unified',
         // Leaderboards
         'today-leaderboard',
         'yesterday-leaderboard',
