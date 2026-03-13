@@ -198,10 +198,12 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
   const dailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
   const weeklyNeeded = dailyNeeded * 6;
 
-  // User daily average for severity
-  const userDailyAvg = input.knockingDaysCompleted > 0
+  // User daily average for severity — use historical summer avg during preseason if available
+  const historicalAvg = input.historicalSummerAvg || 0;
+  const rawAvg = input.knockingDaysCompleted > 0
     ? input.currentProgress / input.knockingDaysCompleted
     : 0;
+  const userDailyAvg = (input.isPreseason && historicalAvg > 0) ? historicalAvg : rawAvg;
 
   // Severity: personalized thresholds
   let severity: PaceSeverity;

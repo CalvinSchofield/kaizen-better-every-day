@@ -351,6 +351,7 @@ export const CalendarPlanningPreview = ({
         excludedSummerDays={(seasonConfig?.excluded_summer_days as string[]) || []}
         summerProgress={summerProgress}
         summerKnockingDays={summerKnockingDays}
+        historicalSummerAvg={historicalSummerAvg}
       />
     </motion.div>
   );
