@@ -30,7 +30,6 @@ const PHASE_ITEMS: Record<number, {
   1: {
     label: "Onboard & Get Ready",
     selfServiceItems: [
-      { id: "what-is-blitz", label: "Watched 'What is a Blitz?'" },
       { id: "how-pay-works", label: "Watched 'How You Get Paid'" },
       { id: "phase1-goals-why", label: "Reviewed Why" },
       { id: "phase1-goals-what", label: "Reviewed What" },
