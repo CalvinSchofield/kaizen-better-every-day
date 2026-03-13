@@ -649,9 +649,9 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
               <TrendingDown className="h-4 w-4 text-amber-500 flex-shrink-0" />
               <p className="text-sm text-amber-700 dark:text-amber-300">
                 <span className="font-semibold">{Math.abs(periodPaceDiff).toFixed(1)} behind pace</span>
-                {remainingDaysInPeriod > 0 && fixedDailyGoal > 0 && (
+                {remainingDaysInPeriod > 0 && (
                   <span className="text-muted-foreground">
-                    {' '}· Need {fixedDailyGoal.toFixed(1)}/day to catch up
+                    {' '}· Need {(remainingForPeriod / remainingDaysInPeriod).toFixed(1)}/day to catch up
                   </span>
                 )}
               </p>
