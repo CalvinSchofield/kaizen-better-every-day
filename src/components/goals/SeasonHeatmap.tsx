@@ -422,6 +422,7 @@ export const SeasonHeatmap = ({
                 <div className="text-muted-foreground mt-0.5">
                   {tappedCellData.production} {metricLabel}
                   {tappedCellData.target ? ` / ${tappedCellData.target} target` : ''}
+                  {tappedCellData.isBestDay && <span className="ml-1 text-amber-500 font-semibold">⭐ Best day!</span>}
                 </div>
               ) : (
                 <div className="text-muted-foreground mt-0.5">
