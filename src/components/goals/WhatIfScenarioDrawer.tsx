@@ -254,8 +254,6 @@ export const WhatIfScenarioDrawer = ({
 
   // Tier results
   const tierResults = useMemo((): TierResult[] => {
-    const buffer = (goal: number) => activeCancelRate > 0 && activeCancelRate < 1 ? goal / (1 - activeCancelRate) : goal;
-
     const tiers = [
       { label: GOAL_TIER_CONFIG.mustDo.label, goal: goals?.must_do_fp_goal || 0 },
       { label: GOAL_TIER_CONFIG.willDo.label, goal: goals?.will_do_fp_goal || 0 },
@@ -263,13 +261,19 @@ export const WhatIfScenarioDrawer = ({
     ];
 
     return tiers.map(tier => {
-      const funded = buffer(tier.goal);
-      const remaining = Math.max(0, funded - startingPoint);
-      const dailyNeeded = effectiveSummerDays > 0 ? remaining / effectiveSummerDays : 0;
-      // Weekly = daily × 6 (standard business week)
-      const weeklyNeeded = dailyNeeded * 6;
+      // Apply preseason cancel rate to preseason progress (startingPoint)
+      // to get net funded preseason accounts
+      const netPreseason = startingPoint * (1 - baseCancelRate);
+      // Remaining to fund in summer
+      const remainingToFund = Math.max(0, tier.goal - netPreseason);
+      // Apply summer cancel rate only to summer sales
+      const summerSellNeeded = activeCancelRate > 0 && activeCancelRate < 1
+        ? remainingToFund / (1 - activeCancelRate)
+        : remainingToFund;
+      const dailyNeeded = effectiveSummerDays > 0 ? summerSellNeeded / effectiveSummerDays : 0;
+      // Round daily first, then derive weekly from rounded daily
       const roundedDaily = Math.round(dailyNeeded * 10) / 10;
-      const roundedWeekly = Math.round(weeklyNeeded * 10) / 10;
+      const roundedWeekly = Math.round(roundedDaily * 6 * 10) / 10;
 
       return {
         label: tier.label,
@@ -279,7 +283,7 @@ export const WhatIfScenarioDrawer = ({
         severity: getSeverity(roundedDaily, userDailyAvg),
       };
     });
-  }, [startingPoint, goals, effectiveSummerDays, activeCancelRate, userDailyAvg]);
+  }, [startingPoint, goals, effectiveSummerDays, activeCancelRate, baseCancelRate, userDailyAvg]);
 
   // Slider range for days adjustment
   const minAdjustment = -Math.min(summerDayStats.roomToRemove, 24);
