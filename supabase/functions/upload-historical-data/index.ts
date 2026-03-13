@@ -162,6 +162,7 @@ serve(async (req) => {
         closes: entry.closes || 0,
         fp_plus: entry.fp_plus || 0,
         prmr: entry.prmr || 0,
+        upgrade_prmr: entry.upgrade_prmr || 0,
         hours_worked: entry.hours_worked || 0,
       });
     }
