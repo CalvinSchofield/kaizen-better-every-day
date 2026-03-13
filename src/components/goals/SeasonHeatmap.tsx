@@ -380,23 +380,28 @@ export const SeasonHeatmap = ({
                   
                   const isSelected = tappedCell === cell.date;
                   
-                  return (
-                    <div
-                      key={weekIdx}
-                      className={cn(
-                        "w-[14px] h-[14px] rounded-[3px] transition-all relative",
-                        getCellClass(cell.level, cell.isSummer),
-                        cell.isToday && "ring-1 ring-primary ring-offset-1 ring-offset-background",
-                        isSelected && "ring-2 ring-foreground scale-[1.3] z-10",
-                        cell.level === 'empty' && "opacity-0"
-                      )}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (cell.level === 'empty') return;
-                        setTappedCell(prev => prev === cell.date ? null : cell.date);
-                      }}
-                    />
-                  );
+                    return (
+                      <div
+                        key={weekIdx}
+                        className={cn(
+                          "w-[14px] h-[14px] rounded-[3px] transition-all relative",
+                          getCellClass(cell.level, cell.isSummer),
+                          cell.isToday && "ring-1 ring-primary ring-offset-1 ring-offset-background",
+                          cell.isBestDay && "ring-[1.5px] ring-amber-400 dark:ring-amber-300 ring-offset-1 ring-offset-background shadow-[0_0_4px_rgba(251,191,36,0.4)]",
+                          isSelected && "ring-2 ring-foreground scale-[1.3] z-10",
+                          cell.level === 'empty' && "opacity-0"
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (cell.level === 'empty') return;
+                          setTappedCell(prev => prev === cell.date ? null : cell.date);
+                        }}
+                      >
+                        {cell.isBestDay && (
+                          <span className="absolute -top-[5px] -right-[5px] text-[7px] z-10 leading-none">⭐</span>
+                        )}
+                      </div>
+                    );
                 })}
               </div>
             ))}
