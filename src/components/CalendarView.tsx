@@ -16,7 +16,7 @@ import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useRepData } from "@/hooks/useRepData";
 import { CalendarGoalProgress } from "@/components/goals/CalendarGoalProgress";
 import { CalendarSummaryTeaser } from "@/components/CalendarSummaryTeaser";
-import { calculateSalesPace } from "@/utils/salesPaceCalculator";
+
 import { useFocusTier } from "@/hooks/useFocusTier";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 import { useCalendarHistorical } from "@/hooks/useCalendarHistorical";
