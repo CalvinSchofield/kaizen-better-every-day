@@ -759,11 +759,7 @@ export const CalendarView = ({
             transition={{ duration: 0.3 }}
           >
             <div className="mt-4">
-              <GoalProgressCard 
-                entries={entries} 
-                currentDate={currentDate} 
-                viewMode={viewMode} 
-              />
+              <CalendarGoalProgress />
             </div>
 
             {viewTotals.daysWorked > 0 && (
