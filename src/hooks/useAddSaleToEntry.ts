@@ -105,6 +105,10 @@ export const useAddSaleToEntry = () => {
       queryClient.invalidateQueries({ queryKey: ['my-active-incentives'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['incentive-progress'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
+      // Goal pace calculator queries
+      queryClient.invalidateQueries({ queryKey: ['today-entry-unified'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['all-entries-unified'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['rep-goals'], refetchType: 'all' });
       
       toast.success('Sale added successfully! 🎉');
     },
