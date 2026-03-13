@@ -17,7 +17,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { CalendarGoalProgress } from "@/components/goals/CalendarGoalProgress";
 import { CalendarSummaryTeaser } from "@/components/CalendarSummaryTeaser";
 
-import { useFocusTier } from "@/hooks/useFocusTier";
+
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 import { useCalendarHistorical } from "@/hooks/useCalendarHistorical";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
