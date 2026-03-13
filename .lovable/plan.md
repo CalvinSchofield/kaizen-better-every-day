@@ -1,50 +1,37 @@
 
 
-## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
+## Problem
 
-### The Problem
+The pace context line currently shows three separate numbers — `Avg X/day`, `Need Y/day`, `Z/week` — and then each timeframe shows a different "goal" number. The user can't tell that these are all derived from the same daily mission. It feels like different targets rather than one consistent mission.
 
-When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
+## Solution: One Mission, Scaled to Timeframe
 
-### Root Cause
+Simplify the display so the **daily catch-up pace is the single anchor**. Everything else is just that number multiplied out:
 
-There are three things fighting each other:
+- **Day**: Need **2.4** EFP today
+- **Week**: Need **14.4** EFP this week (2.4 × 6 work days)  
+- **Month**: Need **52.8** EFP in March (2.4 × 22 work days)
+- **Season**: Need **240** EFP total (the goal itself)
 
-1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
+### UI Changes to `UnifiedGoalProgress.tsx`
 
-2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
+1. **Replace the triple pace line** (`Avg X/day | Need Y/day | Z/week`) with a single, clear "mission statement" that changes with the selected timeframe:
 
-3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+```text
+Day view:    "Your mission: 2.4 EFP today  ·  Avg 1.8/day"
+Week view:   "Your mission: 14.4 EFP this week (2.4/day × 6 days)"
+Month view:  "Your mission: 52.8 EFP in March (2.4/day × 22 days)"
+Season view: "240 EFP goal  ·  Need 2.4/day to finish on pace"
+```
 
-### The Fix
+2. **Keep severity coloring** on the mission number (green/amber/red based on whether dailyNeeded is achievable relative to user's average).
 
-#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+3. **Keep "Avg X/day"** as secondary context — it's helpful and not confusing.
 
-The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
+4. **The progress bar goal stays the same** (`dailyNeeded × planned days in period`) — but now the label explicitly shows the daily rate relationship so users understand it's the same mission scaled up.
 
-#### 2. Simplify `useKeyboardViewport` hook
+### Changes
 
-- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
-- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
-- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
-- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
-
-#### 3. Add `@capacitor/keyboard` plugin configuration
-
-Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
-
-### Files to Modify
-
-- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
-- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
-- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
-- **`package.json`** -- Add `@capacitor/keyboard` dependency
-
-### After Approval
-
-After these code changes, you will need to:
-1. Git pull the updated code
-2. Run `npm install` to get the new keyboard plugin
-3. Run `npx cap sync` to sync the plugin to iOS
-4. Rebuild in Xcode and push to TestFlight
+- **`src/components/goals/UnifiedGoalProgress.tsx`**: Replace the pace context section (lines 287-298) with a timeframe-aware mission statement. Update both Full and Compact modes.
+- **No calculation changes** — the math in `useGoalPaceCalculator` is already correct. This is purely a display clarity fix.
 
