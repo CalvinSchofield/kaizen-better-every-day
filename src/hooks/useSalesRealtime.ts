@@ -32,6 +32,9 @@ export const useSalesRealtime = () => {
             'cumulative-fp',
             'insights-data',
             'customer-sales', // For Customers page
+            // Goal pace calculator queries
+            'today-entry-unified',
+            'all-entries-unified',
             // Competitions - CRITICAL: Challenge/incentive progress must sync with sales changes
             'my-active-incentives',
             'incentive-progress',
