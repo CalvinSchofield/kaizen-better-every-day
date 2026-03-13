@@ -212,12 +212,12 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
   let severity: PaceSeverity;
   if (!hasGoals || dailyNeeded <= 0) {
     severity = 'green';
-  } else if (userDailyAvg <= 0) {
+  } else if (severityAvg <= 0) {
     // No data - use conservative fallback
     severity = dailyNeeded <= 2 ? 'green' : dailyNeeded <= 4 ? 'amber' : 'red';
-  } else if (dailyNeeded <= userDailyAvg) {
+  } else if (dailyNeeded <= severityAvg) {
     severity = 'green';
-  } else if (dailyNeeded <= userDailyAvg * 1.5) {
+  } else if (dailyNeeded <= severityAvg * 1.5) {
     severity = 'amber';
   } else {
     severity = 'red';
