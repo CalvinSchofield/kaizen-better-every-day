@@ -321,6 +321,8 @@ export const CalendarPlanningPreview = ({
         personalSummerStart={seasonConfig?.personal_summer_start}
         personalSummerEnd={seasonConfig?.personal_summer_end}
         excludedSummerDays={(seasonConfig?.excluded_summer_days as string[]) || []}
+        summerProgress={summerProgress}
+        summerKnockingDays={summerKnockingDays}
       />
     </motion.div>
   );
