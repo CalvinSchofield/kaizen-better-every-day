@@ -42,6 +42,7 @@ interface CellData {
   isToday: boolean;
   month: number;
   isSummer: boolean;
+  isBestDay: boolean;
 }
 
 // Tier-aware color palettes
@@ -146,7 +147,7 @@ export const SeasonHeatmap = ({
         }
 
         if (!inSeason) {
-          week.push({ date: dateStr, dayOfMonth: currentDay.getDate(), level: 'empty', isToday: false, month, isSummer: false });
+          week.push({ date: dateStr, dayOfMonth: currentDay.getDate(), level: 'empty', isToday: false, month, isSummer: false, isBestDay: false });
           currentDay = addDays(currentDay, 1);
           continue;
         }
@@ -164,7 +165,13 @@ export const SeasonHeatmap = ({
         let level: CellLevel;
         let production: number | undefined;
 
-        if (entry && (entry.is_finalized || isTodayDate)) {
+        // Only color a cell if it has actual production data (finalized OR today with activity)
+        const hasActivity = entry && (
+          (entry.fp_plus && entry.fp_plus > 0) || 
+          (entry.prmr && entry.prmr > 0)
+        );
+
+        if (entry && (entry.is_finalized || (isTodayDate && hasActivity))) {
           const prod = efpModeEnabled 
             ? ((entry.prmr || 0) / 85) 
             : (entry.fp_plus || 0);
@@ -200,6 +207,7 @@ export const SeasonHeatmap = ({
           isToday: isTodayDate,
           month,
           isSummer,
+          isBestDay: false, // Will be set after
         });
 
         currentDay = addDays(currentDay, 1);
@@ -214,6 +222,27 @@ export const SeasonHeatmap = ({
       weekIndex++;
       
       if (isAfter(currentDay, seasonEnd)) break;
+    }
+
+    // Find best day ever and mark it
+    let bestProduction = 0;
+    let bestDate = '';
+    for (const week of allWeeks) {
+      for (const cell of week) {
+        if (cell.production !== undefined && cell.production > bestProduction) {
+          bestProduction = cell.production;
+          bestDate = cell.date;
+        }
+      }
+    }
+    if (bestDate && bestProduction > 0) {
+      for (const week of allWeeks) {
+        for (const cell of week) {
+          if (cell.date === bestDate) {
+            cell.isBestDay = true;
+          }
+        }
+      }
     }
 
     return { weeks: allWeeks, monthLabels: labels };
@@ -351,23 +380,28 @@ export const SeasonHeatmap = ({
                   
                   const isSelected = tappedCell === cell.date;
                   
-                  return (
-                    <div
-                      key={weekIdx}
-                      className={cn(
-                        "w-[14px] h-[14px] rounded-[3px] transition-all relative",
-                        getCellClass(cell.level, cell.isSummer),
-                        cell.isToday && "ring-1 ring-primary ring-offset-1 ring-offset-background",
-                        isSelected && "ring-2 ring-foreground scale-[1.3] z-10",
-                        cell.level === 'empty' && "opacity-0"
-                      )}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (cell.level === 'empty') return;
-                        setTappedCell(prev => prev === cell.date ? null : cell.date);
-                      }}
-                    />
-                  );
+                    return (
+                      <div
+                        key={weekIdx}
+                        className={cn(
+                          "w-[14px] h-[14px] rounded-[3px] transition-all relative",
+                          getCellClass(cell.level, cell.isSummer),
+                          cell.isToday && "ring-1 ring-primary ring-offset-1 ring-offset-background",
+                          cell.isBestDay && "ring-[1.5px] ring-amber-400 dark:ring-amber-300 ring-offset-1 ring-offset-background shadow-[0_0_4px_rgba(251,191,36,0.4)]",
+                          isSelected && "ring-2 ring-foreground scale-[1.3] z-10",
+                          cell.level === 'empty' && "opacity-0"
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (cell.level === 'empty') return;
+                          setTappedCell(prev => prev === cell.date ? null : cell.date);
+                        }}
+                      >
+                        {cell.isBestDay && (
+                          <span className="absolute -top-[5px] -right-[5px] text-[7px] z-10 leading-none">⭐</span>
+                        )}
+                      </div>
+                    );
                 })}
               </div>
             ))}
@@ -388,6 +422,7 @@ export const SeasonHeatmap = ({
                 <div className="text-muted-foreground mt-0.5">
                   {tappedCellData.production} {metricLabel}
                   {tappedCellData.target ? ` / ${tappedCellData.target} target` : ''}
+                  {tappedCellData.isBestDay && <span className="ml-1 text-amber-500 font-semibold">⭐ Best day!</span>}
                 </div>
               ) : (
                 <div className="text-muted-foreground mt-0.5">
