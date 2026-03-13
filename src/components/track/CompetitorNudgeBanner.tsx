@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, ChevronRight, X } from "lucide-react";
+import { Trophy, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { hapticLight } from "@/utils/haptics";
 
@@ -38,10 +37,9 @@ const getNudgeMessage = (c: CompetitorNudge): string => {
 };
 
 export const CompetitorNudgeBanner = ({ competitor, loading }: CompetitorNudgeBannerProps) => {
-  const [dismissed, setDismissed] = useState(false);
   const navigate = useNavigate();
 
-  if (loading || !competitor || dismissed) return null;
+  if (loading || !competitor) return null;
 
   return (
     <AnimatePresence>
@@ -60,16 +58,7 @@ export const CompetitorNudgeBanner = ({ competitor, loading }: CompetitorNudgeBa
         <span className="flex-1 text-left text-foreground/80 truncate">
           {getNudgeMessage(competitor)}
         </span>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            hapticLight();
-            setDismissed(true);
-          }}
-          className="p-0.5 rounded-full hover:bg-amber-500/20 flex-shrink-0"
-        >
-          <X className="h-3 w-3 text-muted-foreground" />
-        </button>
+        <ChevronRight className="h-4 w-4 text-amber-500 flex-shrink-0" />
       </motion.button>
     </AnimatePresence>
   );
