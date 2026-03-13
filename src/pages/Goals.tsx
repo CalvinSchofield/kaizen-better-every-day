@@ -939,6 +939,8 @@ const Goals = () => {
             activeTier={activeTier}
             knockingDays={workedDaysData?.knockingDays || 0}
             currentProgress={currentProgress}
+            summerProgress={summerStatsData?.summerProgress}
+            summerKnockingDays={summerStatsData?.summerKnockingDays}
           />
         </div>
 
