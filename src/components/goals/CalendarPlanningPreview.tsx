@@ -28,6 +28,8 @@ interface CalendarPlanningPreviewProps {
   activeTier: 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
   knockingDays: number;
   currentProgress: number;
+  summerProgress?: number;
+  summerKnockingDays?: number;
 }
 
 export const CalendarPlanningPreview = ({
@@ -35,6 +37,8 @@ export const CalendarPlanningPreview = ({
   activeTier,
   knockingDays,
   currentProgress,
+  summerProgress = 0,
+  summerKnockingDays = 0,
 }: CalendarPlanningPreviewProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [whatIfOpen, setWhatIfOpen] = useState(false);
