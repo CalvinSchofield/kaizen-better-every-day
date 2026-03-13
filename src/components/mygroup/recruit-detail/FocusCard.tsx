@@ -631,7 +631,7 @@ export const FocusCard = ({
   return (
     <>
     <div className={`rounded-xl border p-4 ${getColorClasses()}`}>
-      {/* Goal Progress Card with Progress Bar */}
+      {/* Goal Progress Card with Unified Visual */}
       {focusIssue.icon === 'target' && paceInfo.hasGoal ? (
         <div className="space-y-3">
           {/* Header with icon, title and pace badge */}
@@ -640,38 +640,52 @@ export const FocusCard = ({
               <Target className="h-5 w-5" />
               <span className="font-semibold text-sm">{paceInfo.goalLabel} Goal</span>
             </div>
-            {/* Pace Status Badge */}
+            {/* Severity-based Pace Badge */}
             {paceInfo.paceStatus === 'goal-met' ? (
-              <Badge className="bg-emerald-500 text-white">🎉 Goal Met!</Badge>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-3 w-3" /> Goal Met!
+              </span>
             ) : paceInfo.paceStatus === 'ahead' ? (
-              <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-0">
-                <TrendingUp className="h-3 w-3 mr-1" /> Ahead
-              </Badge>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <TrendingUp className="h-3 w-3" /> Ahead
+              </span>
             ) : paceInfo.paceStatus === 'on-track' ? (
-              <Badge className="bg-blue-500/20 text-blue-700 dark:text-blue-400 border-0">
-                <CheckCircle2 className="h-3 w-3 mr-1" /> On Track
-              </Badge>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                <CheckCircle2 className="h-3 w-3" /> On Track
+              </span>
             ) : paceInfo.paceStatus === 'behind' ? (
-              <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-400 border-0">
-                <TrendingDown className="h-3 w-3 mr-1" /> Behind
-              </Badge>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <TrendingDown className="h-3 w-3" /> Behind
+              </span>
             ) : (
-              <Badge className="bg-destructive/20 text-destructive border-0">
-                <AlertTriangle className="h-3 w-3 mr-1" /> At Risk
-              </Badge>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/10 text-red-600 dark:text-red-400">
+                <AlertTriangle className="h-3 w-3" /> At Risk
+              </span>
             )}
           </div>
           
-          {/* Progress Display */}
+          {/* Progress Display with unified segmented bar */}
           <div className="space-y-1.5">
             <div className="flex items-baseline justify-between">
-              <span className="text-xl font-bold">{recruitYtdFP.toFixed(1)}</span>
+              <span className="text-xl font-bold tabular-nums">{recruitYtdFP.toFixed(1)}</span>
               <span className="text-sm text-muted-foreground">/ {paceInfo.goal} FP+</span>
             </div>
-            <Progress 
-              value={paceInfo.progressPercent} 
-              className={`h-2 ${paceInfo.paceStatus === 'goal-met' ? '[&>div]:bg-emerald-500' : ''}`}
-            />
+            {/* Segmented bar matching unified style */}
+            <div className="relative">
+              <div className="h-2.5 bg-muted/50 rounded-full overflow-hidden border border-border/30">
+                <div 
+                  className="h-full rounded-l-full bg-amber-400 transition-all duration-500"
+                  style={{ width: `${Math.min(100, paceInfo.progressPercent)}%` }}
+                />
+              </div>
+              {/* Expected marker */}
+              {paceInfo.expectedProgress !== undefined && paceInfo.goal > 0 && (
+                <div 
+                  className="absolute top-0 w-0.5 border-l-2 border-dashed border-muted-foreground/50"
+                  style={{ left: `${Math.min(100, (paceInfo.expectedProgress / paceInfo.goal) * 100)}%`, height: '100%' }}
+                />
+              )}
+            </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{paceInfo.progressPercent.toFixed(0)}% complete</span>
               {paceInfo.daysRemaining !== undefined && paceInfo.daysRemaining > 0 && paceInfo.paceStatus !== 'goal-met' && (
@@ -680,28 +694,30 @@ export const FocusCard = ({
             </div>
           </div>
           
-          {/* Pace Details */}
+          {/* Pace Details — unified Avg/Need display */}
           {paceInfo.paceStatus !== 'goal-met' && paceInfo.daysWorked !== undefined && paceInfo.daysWorked > 0 && (
-            <div className="pt-2 border-t border-current/10 text-xs space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">
-                  Avg <span className="font-medium text-foreground">{paceInfo.currentAvgDaily?.toFixed(2)}</span>/day
-                </span>
-                <span className="text-muted-foreground">
-                  Need <span className="font-medium text-foreground">{paceInfo.neededDaily?.toFixed(2)}</span>/day
-                </span>
-              </div>
+            <div className="flex items-center justify-between text-xs pt-2 border-t border-current/10">
+              <span className="text-muted-foreground">
+                Avg <span className="font-semibold text-foreground tabular-nums">{paceInfo.currentAvgDaily?.toFixed(2)}</span>/day
+              </span>
+              <span className={`font-semibold tabular-nums ${
+                paceInfo.neededDaily && paceInfo.currentAvgDaily && paceInfo.neededDaily <= paceInfo.currentAvgDaily 
+                  ? 'text-emerald-600 dark:text-emerald-400' 
+                  : paceInfo.neededDaily && paceInfo.currentAvgDaily && paceInfo.neededDaily <= paceInfo.currentAvgDaily * 1.5
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-red-600 dark:text-red-400'
+              }`}>
+                Need {paceInfo.neededDaily?.toFixed(2)}/day
+              </span>
               {!paceInfo.isPreseason && onToggleFocusTier && (
-                <div className="flex justify-end">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-6 text-xs px-2"
-                    onClick={onToggleFocusTier}
-                  >
-                    Change Goal
-                  </Button>
-                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 text-xs px-2"
+                  onClick={onToggleFocusTier}
+                >
+                  Change Goal
+                </Button>
               )}
             </div>
           )}
