@@ -177,8 +177,6 @@ export const CalendarView = ({
     return preseasonDailyGoal;
   }, [personalSummerStart, preseasonDailyGoal, summerDailyGoal]);
 
-  // Legacy single dailyGoal for GoalProgressCard (it calculates its own per-date goals internally)
-  const dailyGoal = preseasonDailyGoal;
 
 
   // useDailyEntry for delete mutation only
