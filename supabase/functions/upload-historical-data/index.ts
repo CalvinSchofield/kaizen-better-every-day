@@ -35,6 +35,7 @@ interface RawEntry {
   closes?: number;
   fp_plus?: number;
   prmr?: number;
+  upgrade_prmr?: number;
   hours_worked?: number;
 }
 
