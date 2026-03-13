@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
+import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 
 interface CalendarProps {
   viewMode?: "week" | "month";
