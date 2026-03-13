@@ -146,6 +146,70 @@ const PaceBadge = ({ paceDiff, severity }: { paceDiff: number; severity: PaceSev
 };
 
 // =====================================================
+// Mission Statement — single anchor for pace
+// =====================================================
+
+const MissionStatement = ({
+  timeframe,
+  data,
+  current,
+}: {
+  timeframe: GoalTimeframe;
+  data: GoalPaceData;
+  current: TimeframeData;
+}) => {
+  const sc = severityConfig[data.severity];
+
+  const missionText = (() => {
+    switch (timeframe) {
+      case 'D':
+        return (
+          <>
+            <span className={cn("font-semibold tabular-nums", sc.text)}>{formatFP(data.dailyNeeded)} {data.metricLabel}</span>
+            <span className="text-muted-foreground"> today</span>
+          </>
+        );
+      case 'W':
+        return (
+          <>
+            <span className={cn("font-semibold tabular-nums", sc.text)}>{formatFP(current.goal)} {data.metricLabel}</span>
+            <span className="text-muted-foreground"> this week</span>
+            <span className="text-muted-foreground/60 text-[10px]"> ({formatFP(data.dailyNeeded)}/day × {current.plannedDaysTotal}d)</span>
+          </>
+        );
+      case 'M':
+        return (
+          <>
+            <span className={cn("font-semibold tabular-nums", sc.text)}>{formatFP(current.goal)} {data.metricLabel}</span>
+            <span className="text-muted-foreground"> this month</span>
+            <span className="text-muted-foreground/60 text-[10px]"> ({formatFP(data.dailyNeeded)}/day × {current.plannedDaysTotal}d)</span>
+          </>
+        );
+      case 'Y':
+        return (
+          <>
+            <span className={cn("font-semibold tabular-nums", sc.text)}>{formatFP(current.goal)} {data.metricLabel}</span>
+            <span className="text-muted-foreground"> goal</span>
+            <span className="text-muted-foreground/60 text-[10px]"> · {formatFP(data.dailyNeeded)}/day to finish</span>
+          </>
+        );
+    }
+  })();
+
+  return (
+    <div className="flex items-center justify-between text-xs px-1">
+      <div className="flex items-center gap-1 flex-wrap">
+        <Zap className="w-3 h-3 text-primary shrink-0" />
+        {missionText}
+      </div>
+      <span className="text-muted-foreground whitespace-nowrap">
+        Avg <span className="font-semibold text-foreground tabular-nums">{formatFP(data.userDailyAvg)}</span>/day
+      </span>
+    </div>
+  );
+};
+
+// =====================================================
 // Full Mode Component
 // =====================================================
 
@@ -283,19 +347,13 @@ const FullMode = ({
         </div>
       </div>
 
-      {/* Pace context */}
-      {showPaceContext && data.hasGoals && (
-        <div className="flex items-center justify-between text-xs px-1">
-          <span className="text-muted-foreground">
-            Avg <span className="font-semibold text-foreground tabular-nums">{formatFP(data.userDailyAvg)}</span>/day
-          </span>
-          <span className={cn("font-semibold tabular-nums", severityConfig[data.severity].text)}>
-            Need {formatFP(data.dailyNeeded)}/day
-          </span>
-          <span className="text-muted-foreground">
-            <span className="font-semibold text-foreground tabular-nums">{formatFP(data.weeklyNeeded)}</span>/week
-          </span>
-        </div>
+      {/* Mission statement */}
+      {showPaceContext && data.hasGoals && data.dailyNeeded > 0 && (
+        <MissionStatement
+          timeframe={timeframe}
+          data={data}
+          current={current}
+        />
       )}
 
       {/* Timeframe Toggle */}
@@ -497,15 +555,18 @@ const CompactMode = ({
         );
       })}
 
-      {/* Pace context line */}
+      {/* Mission statement */}
       {showPaceContext && data.hasGoals && data.dailyNeeded > 0 && (
-        <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/30">
-          <span className="text-muted-foreground">
-            Avg <span className="font-semibold text-foreground tabular-nums">{formatFP(data.userDailyAvg)}</span>/day
-          </span>
-          <span className={cn("font-semibold tabular-nums", severityConfig[data.severity].text)}>
-            Need {formatFP(data.dailyNeeded)}/day
-          </span>
+        <div className="text-[11px] pt-1 border-t border-border/30 space-y-0.5">
+          <div className="flex items-center gap-1">
+            <Zap className="w-3 h-3 text-primary" />
+            <span className={cn("font-semibold tabular-nums", severityConfig[data.severity].text)}>
+              {formatFP(data.dailyNeeded)} {data.metricLabel}/day to hit goal
+            </span>
+          </div>
+          <div className="text-muted-foreground">
+            Avg <span className="font-semibold text-foreground tabular-nums">{formatFP(data.userDailyAvg)}</span>/day so far
+          </div>
         </div>
       )}
     </motion.div>
