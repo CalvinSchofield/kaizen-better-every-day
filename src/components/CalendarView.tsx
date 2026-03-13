@@ -616,14 +616,11 @@ export const CalendarView = ({
                   </div>
                 )}
                 {/* Planned day goal indicator - top right corner */}
-                {isPlanned && !hasEntry && (() => {
-                  const cellGoal = getDailyGoalForDate(dateStr);
-                  return cellGoal ? (
-                    <div className="absolute top-1 right-1.5 text-[10px] text-muted-foreground/60 font-medium">
-                      {efpModeEnabled ? formatValue(cellGoal * (goals?.avg_prmr_per_fp || 85) / 85) : formatValue(cellGoal)}
-                    </div>
-                  ) : null;
-                })()}
+                {isPlanned && !hasEntry && dailyGoal ? (
+                  <div className="absolute top-1 right-1.5 text-[10px] text-muted-foreground/60 font-medium">
+                    {formatValue(dailyGoal)}
+                  </div>
+                ) : null}
                 <div className={`text-lg font-semibold ${isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isPlanned && !hasEntry ? 'text-accent-foreground' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'}`}>
                   {format(day, 'd')}
                 </div>
