@@ -814,10 +814,26 @@ export const CalendarView = ({
               </div>
 
               <div className="pt-2 border-t border-border/50">
-                <p className="text-sm font-medium text-foreground">
-                  <span className="text-primary font-bold">{plannedDays?.length || 0}</span>
-                  <span className="text-muted-foreground ml-1.5">days planned so far</span>
-                </p>
+                {(() => {
+                  const summerStartStr = personalSummerStart ? format(personalSummerStart, 'yyyy-MM-dd') : null;
+                  const preseasonCount = summerStartStr
+                    ? plannedDays?.filter(d => d.planned_date < summerStartStr).length || 0
+                    : plannedDays?.length || 0;
+                  const summerCount = summerStartStr
+                    ? plannedDays?.filter(d => d.planned_date >= summerStartStr).length || 0
+                    : 0;
+                  return (
+                    <p className="text-sm font-medium text-foreground">
+                      <span className="text-primary font-bold">{plannedDays?.length || 0}</span>
+                      <span className="text-muted-foreground ml-1.5">days planned</span>
+                      {summerStartStr && (
+                        <span className="text-muted-foreground text-xs ml-1.5">
+                          ({preseasonCount} preseason · {summerCount} summer)
+                        </span>
+                      )}
+                    </p>
+                  );
+                })()}
               </div>
 
               {/* Blitz Trips Section - only during preseason */}
