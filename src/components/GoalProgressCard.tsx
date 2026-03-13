@@ -666,7 +666,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
                 <span className="text-muted-foreground"> — hit it today!</span>
               ) : (
                 <span className="text-muted-foreground">
-                  {' '}· {fixedDailyGoal.toFixed(1)}/day to stay on track
+                  {' '}· {(remainingForPeriod / remainingDaysInPeriod).toFixed(1)}/day to stay on track
                 </span>
               )}
             </p>
