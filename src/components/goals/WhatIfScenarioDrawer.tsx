@@ -32,6 +32,9 @@ interface WhatIfScenarioDrawerProps {
   personalSummerStart?: string | null;
   personalSummerEnd?: string | null;
   excludedSummerDays?: string[];
+  // Summer-specific stats for severity calibration (once summer starts)
+  summerProgress?: number;
+  summerKnockingDays?: number;
 }
 
 interface TierResult {
@@ -118,6 +121,8 @@ export const WhatIfScenarioDrawer = ({
   personalSummerStart,
   personalSummerEnd,
   excludedSummerDays = [],
+  summerProgress = 0,
+  summerKnockingDays = 0,
 }: WhatIfScenarioDrawerProps) => {
   const [hypothetical, setHypothetical] = useState<number | ''>(Math.round(forecastedPreseasonTotal * 10) / 10);
   const [customCancelRate, setCustomCancelRate] = useState<number | null>(null);
@@ -221,7 +226,13 @@ export const WhatIfScenarioDrawer = ({
     : (typeof hypothetical === 'number' ? hypothetical : 0);
 
   // User's actual daily average for severity calibration
-  const userDailyAvg = knockingDays > 0 ? currentProgress / knockingDays : 0;
+  // Once summer starts, use summer-only pace (preseason pace is very different)
+  const userDailyAvg = useMemo(() => {
+    if (isSummerStarted && summerKnockingDays > 0) {
+      return summerProgress / summerKnockingDays;
+    }
+    return knockingDays > 0 ? currentProgress / knockingDays : 0;
+  }, [isSummerStarted, summerKnockingDays, summerProgress, knockingDays, currentProgress]);
 
   // Tier results
   const tierResults = useMemo((): TierResult[] => {

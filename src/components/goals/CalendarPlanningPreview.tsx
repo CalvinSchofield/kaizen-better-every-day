@@ -28,6 +28,8 @@ interface CalendarPlanningPreviewProps {
   activeTier: 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
   knockingDays: number;
   currentProgress: number;
+  summerProgress?: number;
+  summerKnockingDays?: number;
 }
 
 export const CalendarPlanningPreview = ({
@@ -35,6 +37,8 @@ export const CalendarPlanningPreview = ({
   activeTier,
   knockingDays,
   currentProgress,
+  summerProgress = 0,
+  summerKnockingDays = 0,
 }: CalendarPlanningPreviewProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [whatIfOpen, setWhatIfOpen] = useState(false);
@@ -317,6 +321,8 @@ export const CalendarPlanningPreview = ({
         personalSummerStart={seasonConfig?.personal_summer_start}
         personalSummerEnd={seasonConfig?.personal_summer_end}
         excludedSummerDays={(seasonConfig?.excluded_summer_days as string[]) || []}
+        summerProgress={summerProgress}
+        summerKnockingDays={summerKnockingDays}
       />
     </motion.div>
   );

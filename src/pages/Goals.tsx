@@ -53,6 +53,8 @@ interface CommittedBlitz {
 
 const PRESEASON_START = '2025-09-28';
 const PRESEASON_END = '2026-04-11';
+const GLOBAL_SUMMER_START = '2026-04-12';
+const SUMMER_END = '2026-09-27';
 
 const Goals = () => {
   const { 
@@ -169,6 +171,42 @@ const Goals = () => {
     const startDate = parseISO(personalStart);
     return today >= startDate;
   }, [seasonConfig?.personal_summer_start]);
+
+  // Summer-specific stats for What-If severity calibration
+  // (preseason pace ≠ summer pace, so severity should use summer-only data once available)
+  const { data: summerStatsData } = useQuery({
+    queryKey: ['summer-stats-for-whatif', userId],
+    queryFn: async () => {
+      if (!userId) return { summerProgress: 0, summerKnockingDays: 0 };
+      const summerStart = seasonConfig?.personal_summer_start || GLOBAL_SUMMER_START;
+      const { data: entries, error } = await supabase
+        .from('daily_entries')
+        .select('entry_date, fp_plus, prmr, doors_knocked, sales_log')
+        .eq('user_id', userId)
+        .eq('is_finalized', true)
+        .gte('entry_date', summerStart)
+        .lte('entry_date', SUMMER_END);
+      if (error || !entries) return { summerProgress: 0, summerKnockingDays: 0 };
+
+      let summerFP = 0;
+      let summerKnockingDays = 0;
+      for (const entry of entries) {
+        const salesLog = entry.sales_log as any[] | null;
+        if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
+          const { calculateFromSalesLog } = await import('@/utils/salesLogCalculations');
+          const calc = calculateFromSalesLog(salesLog);
+          summerFP += calc.fp;
+        } else {
+          summerFP += entry.fp_plus || 0;
+        }
+        if ((entry.doors_knocked || 0) >= 4) summerKnockingDays++;
+      }
+      const summerProgress = efpModeEnabled ? calculateEfp(entries.reduce((sum, e) => sum + (e.prmr || 0), 0)) : summerFP;
+      return { summerProgress, summerKnockingDays };
+    },
+    enabled: !!userId && isUserSummerStarted,
+    staleTime: 10 * 60 * 1000,
+  });
 
   useEffect(() => {
     if (needsWeeklyCheck && goals) {
@@ -901,6 +939,8 @@ const Goals = () => {
             activeTier={activeTier}
             knockingDays={workedDaysData?.knockingDays || 0}
             currentProgress={currentProgress}
+            summerProgress={summerStatsData?.summerProgress}
+            summerKnockingDays={summerStatsData?.summerKnockingDays}
           />
         </div>
 
