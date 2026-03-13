@@ -226,7 +226,13 @@ export const WhatIfScenarioDrawer = ({
     : (typeof hypothetical === 'number' ? hypothetical : 0);
 
   // User's actual daily average for severity calibration
-  const userDailyAvg = knockingDays > 0 ? currentProgress / knockingDays : 0;
+  // Once summer starts, use summer-only pace (preseason pace is very different)
+  const userDailyAvg = useMemo(() => {
+    if (isSummerStarted && summerKnockingDays > 0) {
+      return summerProgress / summerKnockingDays;
+    }
+    return knockingDays > 0 ? currentProgress / knockingDays : 0;
+  }, [isSummerStarted, summerKnockingDays, summerProgress, knockingDays, currentProgress]);
 
   // Tier results
   const tierResults = useMemo((): TierResult[] => {
