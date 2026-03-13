@@ -1,50 +1,47 @@
 
 
-## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
+## Fix: What-If Calculator Cancel Rate Logic
 
 ### The Problem
 
-When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
+Your math is sound conceptually. The current code applies the summer cancel rate to the **entire goal** uniformly, which is wrong. Here's what happens now vs what should happen:
 
-### Root Cause
+**Current code (wrong):**
+```text
+funded = 500 / (1 - 0.10) = 555.56
+remaining = 555.56 - 103.8 = 451.76
+daily = 451.76 / 129 = 3.50
+```
 
-There are three things fighting each other:
+**Your expected model (correct):**
+```text
+netPreseason = 103.8 × 0.95 = 98.61   ← 5% of preseason cancels
+remaining = 500 - 98.61 = 401.39       ← what's left to fund
+summerSell = 401.39 / (1 - 0.10) = 446.0  ← sell enough at 10% cancel
+daily = 446.0 / 129 = 3.46
+```
 
-1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
+The key insight: **preseason and summer have different cancel rates**, so the buffer must be applied separately — preseason cancel rate to preseason progress, summer cancel rate only to summer sales.
 
-2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
+One small math note: `401.39 / 0.9 = 446.0`, not `401.39 × 1.1 = 441.5`. If 10% cancel, you need to sell X where `X × 0.9 = target`, so `X = target / 0.9`. I'll use the divide formula.
 
-3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+### Bug 2: Weekly rounding desync
 
-### The Fix
+`weeklyNeeded` is rounded independently from `dailyNeeded`, so displayed weekly can differ from `daily × 6`. Fix: derive weekly from the already-rounded daily.
 
-#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+### Bug 3: AnimatedNumber desync
 
-The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
+The `AnimatedNumber` component uses `AnimatePresence mode="wait"` with staggered exit/enter animations. During rapid slider movement, different tier numbers animate at different speeds, showing a mix of old and new values. Replace with instant display.
 
-#### 2. Simplify `useKeyboardViewport` hook
+### Changes — `src/components/goals/WhatIfScenarioDrawer.tsx`
 
-- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
-- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
-- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
-- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
+1. **Fix cancel rate calculation** in `tierResults` useMemo:
+   - `netPreseason = startingPoint × (1 - baseCancelRate)` — apply preseason cancel rate to preseason progress
+   - `remaining = goal - netPreseason`
+   - `summerSellNeeded = remaining / (1 - summerCancelRate)` — apply summer cancel rate only to summer portion
+   - `dailyNeeded = summerSellNeeded / effectiveSummerDays`
 
-#### 3. Add `@capacitor/keyboard` plugin configuration
+2. **Fix weekly rounding**: `roundedWeekly = roundedDaily × 6` (derive from rounded daily, not raw)
 
-Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
-
-### Files to Modify
-
-- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
-- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
-- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
-- **`package.json`** -- Add `@capacitor/keyboard` dependency
-
-### After Approval
-
-After these code changes, you will need to:
-1. Git pull the updated code
-2. Run `npm install` to get the new keyboard plugin
-3. Run `npx cap sync` to sync the plugin to iOS
-4. Rebuild in Xcode and push to TestFlight
+3. **Remove AnimatedNumber component** — replace with plain `<span>` for instant, reliable display
 
