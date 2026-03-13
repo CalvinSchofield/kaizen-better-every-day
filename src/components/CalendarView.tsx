@@ -814,10 +814,26 @@ export const CalendarView = ({
               </div>
 
               <div className="pt-2 border-t border-border/50">
-                <p className="text-sm font-medium text-foreground">
-                  <span className="text-primary font-bold">{plannedDays?.length || 0}</span>
-                  <span className="text-muted-foreground ml-1.5">days planned so far</span>
-                </p>
+                {(() => {
+                  const summerStartStr = personalSummerStart ? format(personalSummerStart, 'yyyy-MM-dd') : null;
+                  const preseasonCount = summerStartStr
+                    ? plannedDays?.filter(d => d.planned_date < summerStartStr).length || 0
+                    : plannedDays?.length || 0;
+                  const summerCount = summerStartStr
+                    ? plannedDays?.filter(d => d.planned_date >= summerStartStr).length || 0
+                    : 0;
+                  return (
+                    <p className="text-sm font-medium text-foreground">
+                      <span className="text-primary font-bold">{plannedDays?.length || 0}</span>
+                      <span className="text-muted-foreground ml-1.5">days planned</span>
+                      {summerStartStr && (
+                        <span className="text-muted-foreground text-xs ml-1.5">
+                          ({preseasonCount} preseason · {summerCount} summer)
+                        </span>
+                      )}
+                    </p>
+                  );
+                })()}
               </div>
 
               {/* Blitz Trips Section - only during preseason */}
@@ -1078,9 +1094,25 @@ export const CalendarView = ({
               <div className="flex items-center gap-3">
                 <CalendarDays className="w-4 h-4 text-primary" />
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium">
-                    {plannedDays?.length || 0} days planned
-                  </span>
+                  {(() => {
+                    const summerStartStr = personalSummerStart ? format(personalSummerStart, 'yyyy-MM-dd') : null;
+                    const preseasonCount = summerStartStr
+                      ? plannedDays?.filter(d => d.planned_date < summerStartStr).length || 0
+                      : plannedDays?.length || 0;
+                    const summerCount = summerStartStr
+                      ? plannedDays?.filter(d => d.planned_date >= summerStartStr).length || 0
+                      : 0;
+                    return (
+                      <span className="text-sm font-medium">
+                        {plannedDays?.length || 0} days planned
+                        {summerStartStr && (
+                          <span className="text-muted-foreground text-[10px] ml-1">
+                            ({preseasonCount} pre · {summerCount} sum)
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })()}
                   {viewTotals.daysWorked > 0 && (
                     <span className="text-[10px] text-muted-foreground">
                       {viewTotals.daysWorked} worked this {viewMode === 'week' ? 'week' : 'month'}
