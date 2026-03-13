@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
+import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 
 interface CalendarProps {
   viewMode?: "week" | "month";
@@ -17,6 +18,7 @@ interface CalendarProps {
 const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
   const { repData, loading: loadingRepData, isInitializing } = useRepData();
   const navigate = useNavigate();
+  const goalPaceData = useGoalPaceCalculator();
 
   // Fetch all daily entries for the logged-in user
   const { data: entries = [] } = useQuery({
@@ -137,6 +139,7 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
         personalSummerEnd={personalSummerEnd}
         viewMode={viewMode}
         onViewModeChange={onViewModeChange}
+        dailyGoal={goalPaceData.hasGoals ? goalPaceData.dailyNeeded : null}
       />
       
     </>
