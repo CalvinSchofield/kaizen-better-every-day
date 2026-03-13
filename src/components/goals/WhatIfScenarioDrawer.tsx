@@ -228,14 +228,29 @@ export const WhatIfScenarioDrawer = ({
     ? currentProgress
     : (typeof hypothetical === 'number' ? hypothetical : 0);
 
-  // User's actual daily average for severity calibration
-  // Once summer starts, use summer-only pace (preseason pace is very different)
+  // User's daily average for severity calibration
+  // Priority logic:
+  // - Preseason: use historical summer avg (proven capacity) if available, else preseason avg
+  // - Summer (< 18 days): use whichever is greater between live summer avg and historical avg
+  // - Summer (18+ days): use live summer avg regardless
   const userDailyAvg = useMemo(() => {
-    if (isSummerStarted && summerKnockingDays > 0) {
-      return summerProgress / summerKnockingDays;
+    if (isSummerStarted) {
+      const liveSummerAvg = summerKnockingDays > 0 ? summerProgress / summerKnockingDays : 0;
+      if (summerKnockingDays >= 18) {
+        // Enough summer data — use current summer pace
+        return liveSummerAvg;
+      }
+      if (summerKnockingDays >= 7) {
+        // Warm-up complete but < 18 days — use whichever is greater
+        return Math.max(liveSummerAvg, historicalSummerAvg);
+      }
+      // < 7 summer days — prefer historical if available
+      return historicalSummerAvg > 0 ? historicalSummerAvg : liveSummerAvg;
     }
+    // Preseason: use historical summer avg if available (reflects summer capacity)
+    if (historicalSummerAvg > 0) return historicalSummerAvg;
     return knockingDays > 0 ? currentProgress / knockingDays : 0;
-  }, [isSummerStarted, summerKnockingDays, summerProgress, knockingDays, currentProgress]);
+  }, [isSummerStarted, summerKnockingDays, summerProgress, historicalSummerAvg, knockingDays, currentProgress]);
 
   // Tier results
   const tierResults = useMemo((): TierResult[] => {
