@@ -355,48 +355,44 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const displayCouldDo = efpModeEnabled ? fundedCouldDo * conversionFactor : fundedCouldDo;
 
   // ==========================================
-  // FIXED DAILY PACE (never changes)
-  // PRESEASON: Funded preseason goal / preseason knocking days
-  // SUMMER: (Funded tier goal - projected preseason total) / summer knocking days
-  // This matches Goals page calculation exactly
+  // CATCH-UP DAILY PACE (dynamic - matches calendar cells)
+  // Uses remaining goal / remaining days so it adjusts as you work
+  // This matches the calendar's calculateSalesPace remainingDailyNeeded
   // ==========================================
   const fixedDailyGoal = useMemo(() => {
-    if (totalSeasonKnockingDays <= 0) return 0;
+    // Remaining planned days = total - already worked
+    const remainingDays = Math.max(0, totalSeasonKnockingDays - seasonKnockingDaysComplete);
+    if (remainingDays <= 0) return 0;
     
     if (isInPreseason) {
-      // During preseason viewing preseason dates: simple division
-      return displayPreseasonGoal / totalSeasonKnockingDays;
+      // Catch-up pace: (goal - current progress) / remaining days
+      const remaining = Math.max(0, displayPreseasonGoal - currentProgress);
+      return remaining / remainingDays;
     } else {
       // Viewing summer dates: subtract projected preseason progress first
-      // Use fundedFocusTierGoal (which is already the summer tier goal with buffer)
-      // Subtract what we're projected to hit in preseason based on current pace
-      const preseasonGoalForCalc = displayPreseasonGoal;
       const preseasonDaysComplete = entries.filter(e => {
         if (!e.is_finalized) return false;
         if (e.entry_date > PRESEASON_END) return false;
         return (e.doors_knocked || 0) >= 4 && !!e.work_start_time && !!e.work_end_time;
       }).length;
       
-      // Project preseason total based on current pace if still in preseason
       const todayStrCalc = format(today, 'yyyy-MM-dd');
       const stillInPreseason = todayStrCalc <= PRESEASON_END;
       
       let projectedPreseasonTotal = currentProgress;
       if (stillInPreseason && preseasonDaysComplete > 0 && displayPreseasonGoal > 0) {
-        // Calculate pace and project
         const pacePerDay = currentProgress / preseasonDaysComplete;
-        // Get remaining preseason planned days
         const remainingPreseasonPlanned = plannedDays?.filter(d => 
           d.planned_date > todayStrCalc && d.planned_date <= PRESEASON_END
         ).length || 0;
         projectedPreseasonTotal = currentProgress + (pacePerDay * remainingPreseasonPlanned);
       }
       
-      // Summer daily = (Summer goal - projected preseason) / summer knocking days
+      // Summer catch-up = (Summer goal - projected preseason) / remaining summer days
       const remainingForSummer = Math.max(0, fundedFocusTierGoal - projectedPreseasonTotal);
-      return remainingForSummer / totalSeasonKnockingDays;
+      return remainingForSummer / remainingDays;
     }
-  }, [isInPreseason, displayPreseasonGoal, totalSeasonKnockingDays, fundedFocusTierGoal, currentProgress, entries, today, plannedDays]);
+  }, [isInPreseason, displayPreseasonGoal, totalSeasonKnockingDays, seasonKnockingDaysComplete, fundedFocusTierGoal, currentProgress, entries, today, plannedDays]);
 
   // Check if user has no goals set up - show engaging prompt (AFTER ALL hooks/useMemos)
   // Use sticky flag to prevent CTA flash during hydration
