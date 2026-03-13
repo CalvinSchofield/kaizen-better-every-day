@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, ChevronRight, X } from "lucide-react";
+import { Trophy, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { hapticLight } from "@/utils/haptics";
 
