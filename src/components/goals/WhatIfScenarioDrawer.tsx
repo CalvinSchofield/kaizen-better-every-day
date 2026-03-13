@@ -78,10 +78,20 @@ const severityColors = {
   },
 };
 
-function getSeverity(dailyNeeded: number): 'green' | 'amber' | 'red' {
+function getSeverity(dailyNeeded: number, userDailyAvg: number): 'green' | 'amber' | 'red' {
   if (dailyNeeded <= 0) return 'green';
-  if (dailyNeeded <= 2) return 'green';
-  if (dailyNeeded <= 4) return 'amber';
+  // Green: at or below user's current average (achievable at current pace)
+  // Amber: up to 50% stretch beyond their average (a push but doable)
+  // Red: more than 50% above their average (significantly out of reach)
+  if (userDailyAvg <= 0) {
+    // No data yet — use conservative thresholds
+    if (dailyNeeded <= 2) return 'green';
+    if (dailyNeeded <= 4) return 'amber';
+    return 'red';
+  }
+  const stretchThreshold = userDailyAvg * 1.5;
+  if (dailyNeeded <= userDailyAvg) return 'green';
+  if (dailyNeeded <= stretchThreshold) return 'amber';
   return 'red';
 }
 
