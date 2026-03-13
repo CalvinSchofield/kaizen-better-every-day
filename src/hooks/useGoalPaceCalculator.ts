@@ -517,8 +517,9 @@ export function useGoalPaceCalculator(): GoalPaceData {
       conversionFactor,
       metricLabel: efpModeEnabled ? 'EFP' : 'FP+',
       knockingDaysCompleted: knockingDays,
+      historicalSummerAvg,
     });
-  }, [goals, focusTier, isPreseason, currentProgress, todayFP, todayLiveFP, plannedDays, allEntries, personalSummerStart, seasonConfig, efpModeEnabled, conversionFactor, knockingDays]);
+  }, [goals, focusTier, isPreseason, currentProgress, todayFP, todayLiveFP, plannedDays, allEntries, personalSummerStart, seasonConfig, efpModeEnabled, conversionFactor, knockingDays, historicalSummerAvg]);
 
   const tierOptions = useMemo(() => [
     { key: 'mustDo', label: 'Must Do', goal: allTiers.mustDo.goal, funded: allTiers.mustDo.funded, complete: allTiers.mustDo.complete },
