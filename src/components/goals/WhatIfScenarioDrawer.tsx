@@ -47,20 +47,6 @@ interface TierResult {
   severity: 'green' | 'amber' | 'red';
 }
 
-const AnimatedNumber = ({ value, suffix = '' }: { value: number; suffix?: string }) => (
-  <AnimatePresence mode="wait">
-    <motion.span
-      key={value}
-      initial={{ y: 8, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      exit={{ y: -8, opacity: 0 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="inline-block"
-    >
-      {value}{suffix}
-    </motion.span>
-  </AnimatePresence>
-);
 
 const severityColors = {
   green: {
