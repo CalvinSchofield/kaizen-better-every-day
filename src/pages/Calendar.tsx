@@ -18,6 +18,7 @@ interface CalendarProps {
 const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
   const { repData, loading: loadingRepData, isInitializing } = useRepData();
   const navigate = useNavigate();
+  const goalPaceData = useGoalPaceCalculator();
 
   // Fetch all daily entries for the logged-in user
   const { data: entries = [] } = useQuery({
