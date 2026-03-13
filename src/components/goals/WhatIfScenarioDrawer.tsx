@@ -125,6 +125,7 @@ export const WhatIfScenarioDrawer = ({
   excludedSummerDays = [],
   summerProgress = 0,
   summerKnockingDays = 0,
+  historicalSummerAvg = 0,
 }: WhatIfScenarioDrawerProps) => {
   const [hypothetical, setHypothetical] = useState<number | ''>(Math.round(forecastedPreseasonTotal * 10) / 10);
   const [customCancelRate, setCustomCancelRate] = useState<number | null>(null);
