@@ -42,6 +42,7 @@ interface CellData {
   isToday: boolean;
   month: number;
   isSummer: boolean;
+  isBestDay: boolean;
 }
 
 // Tier-aware color palettes
