@@ -53,6 +53,8 @@ interface CommittedBlitz {
 
 const PRESEASON_START = '2025-09-28';
 const PRESEASON_END = '2026-04-11';
+const GLOBAL_SUMMER_START = '2026-04-12';
+const SUMMER_END = '2026-09-27';
 
 const Goals = () => {
   const { 
