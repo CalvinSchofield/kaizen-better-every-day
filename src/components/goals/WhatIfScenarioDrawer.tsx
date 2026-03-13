@@ -220,11 +220,12 @@ export const WhatIfScenarioDrawer = ({
     ? currentProgress
     : (typeof hypothetical === 'number' ? hypothetical : 0);
 
+  // User's actual daily average for severity calibration
+  const userDailyAvg = knockingDays > 0 ? currentProgress / knockingDays : 0;
+
   // Tier results
   const tierResults = useMemo((): TierResult[] => {
     const buffer = (goal: number) => activeCancelRate > 0 && activeCancelRate < 1 ? goal / (1 - activeCancelRate) : goal;
-
-    const summerWeeks = effectiveSummerDays > 0 ? effectiveSummerDays / 6 : 1;
 
     const tiers = [
       { label: GOAL_TIER_CONFIG.mustDo.label, goal: goals?.must_do_fp_goal || 0 },
@@ -236,7 +237,8 @@ export const WhatIfScenarioDrawer = ({
       const funded = buffer(tier.goal);
       const remaining = Math.max(0, funded - startingPoint);
       const dailyNeeded = effectiveSummerDays > 0 ? remaining / effectiveSummerDays : 0;
-      const weeklyNeeded = summerWeeks > 0 ? remaining / summerWeeks : 0;
+      // Weekly = daily × 6 (standard business week)
+      const weeklyNeeded = dailyNeeded * 6;
       const roundedDaily = Math.round(dailyNeeded * 10) / 10;
       const roundedWeekly = Math.round(weeklyNeeded * 10) / 10;
 
@@ -245,10 +247,10 @@ export const WhatIfScenarioDrawer = ({
         goal: tier.goal,
         dailyNeeded: roundedDaily,
         weeklyNeeded: roundedWeekly,
-        severity: getSeverity(roundedDaily),
+        severity: getSeverity(roundedDaily, userDailyAvg),
       };
     });
-  }, [startingPoint, goals, effectiveSummerDays, activeCancelRate]);
+  }, [startingPoint, goals, effectiveSummerDays, activeCancelRate, userDailyAvg]);
 
   // Slider range for days adjustment
   const minAdjustment = -Math.min(summerDayStats.roomToRemove, 24);
