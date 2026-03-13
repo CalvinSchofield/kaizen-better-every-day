@@ -198,23 +198,26 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
   const dailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
   const weeklyNeeded = dailyNeeded * 6;
 
-  // User daily average for severity — use historical summer avg during preseason if available
+  // User daily average — raw is actual current-season avg (for display)
   const historicalAvg = input.historicalSummerAvg || 0;
   const rawAvg = input.knockingDaysCompleted > 0
     ? input.currentProgress / input.knockingDaysCompleted
     : 0;
-  const userDailyAvg = (input.isPreseason && historicalAvg > 0) ? historicalAvg : rawAvg;
+  // For severity thresholds, use historical avg during preseason if available
+  const severityAvg = (input.isPreseason && historicalAvg > 0) ? historicalAvg : rawAvg;
+  // For display, always use the actual current-season average
+  const userDailyAvg = rawAvg;
 
   // Severity: personalized thresholds
   let severity: PaceSeverity;
   if (!hasGoals || dailyNeeded <= 0) {
     severity = 'green';
-  } else if (userDailyAvg <= 0) {
+  } else if (severityAvg <= 0) {
     // No data - use conservative fallback
     severity = dailyNeeded <= 2 ? 'green' : dailyNeeded <= 4 ? 'amber' : 'red';
-  } else if (dailyNeeded <= userDailyAvg) {
+  } else if (dailyNeeded <= severityAvg) {
     severity = 'green';
-  } else if (dailyNeeded <= userDailyAvg * 1.5) {
+  } else if (dailyNeeded <= severityAvg * 1.5) {
     severity = 'amber';
   } else {
     severity = 'red';
