@@ -32,6 +32,9 @@ interface WhatIfScenarioDrawerProps {
   personalSummerStart?: string | null;
   personalSummerEnd?: string | null;
   excludedSummerDays?: string[];
+  // Summer-specific stats for severity calibration (once summer starts)
+  summerProgress?: number;
+  summerKnockingDays?: number;
 }
 
 interface TierResult {
