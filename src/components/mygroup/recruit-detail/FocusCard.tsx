@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { RecruitRepData, RecruitGoals, FocusIssue, TabType } from "./types";
 import { getFirstName } from "./utils";
