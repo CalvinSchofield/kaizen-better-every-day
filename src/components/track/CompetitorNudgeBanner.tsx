@@ -38,10 +38,9 @@ const getNudgeMessage = (c: CompetitorNudge): string => {
 };
 
 export const CompetitorNudgeBanner = ({ competitor, loading }: CompetitorNudgeBannerProps) => {
-  const [dismissed, setDismissed] = useState(false);
   const navigate = useNavigate();
 
-  if (loading || !competitor || dismissed) return null;
+  if (loading || !competitor) return null;
 
   return (
     <AnimatePresence>
