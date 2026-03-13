@@ -283,19 +283,13 @@ const FullMode = ({
         </div>
       </div>
 
-      {/* Pace context */}
-      {showPaceContext && data.hasGoals && (
-        <div className="flex items-center justify-between text-xs px-1">
-          <span className="text-muted-foreground">
-            Avg <span className="font-semibold text-foreground tabular-nums">{formatFP(data.userDailyAvg)}</span>/day
-          </span>
-          <span className={cn("font-semibold tabular-nums", severityConfig[data.severity].text)}>
-            Need {formatFP(data.dailyNeeded)}/day
-          </span>
-          <span className="text-muted-foreground">
-            <span className="font-semibold text-foreground tabular-nums">{formatFP(data.weeklyNeeded)}</span>/week
-          </span>
-        </div>
+      {/* Mission statement */}
+      {showPaceContext && data.hasGoals && data.dailyNeeded > 0 && (
+        <MissionStatement
+          timeframe={timeframe}
+          data={data}
+          current={current}
+        />
       )}
 
       {/* Timeframe Toggle */}
