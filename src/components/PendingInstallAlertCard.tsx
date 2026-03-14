@@ -151,16 +151,6 @@ export const PendingInstallAlertCard = () => {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="flex-1 h-7 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
-                        onClick={() => markUnfunded(sale.entryId, sale.id)}
-                        disabled={isUpdating}
-                      >
-                        <Ban className="h-3 w-3 mr-1" />
-                        Installed but Cancelled
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
                         className="flex-1 h-7 text-xs text-destructive hover:bg-destructive/10"
                         onClick={() => setConfirmRemoveFor(sale.id)}
                         disabled={isUpdating}

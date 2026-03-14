@@ -118,8 +118,8 @@ export const usePreseasonFP = () => {
           totalFP += fpCount + (upgradePrmrTotal / 85);
           totalPRMR += totalSalesPrmr;
           
-          // Only FUNDED sales count toward actual income (exclude cancelled AND never_installed)
-          const fundedSales = salesLog.filter(s => s.install_status !== 'cancelled' && s.install_status !== 'never_installed');
+          // Only FUNDED sales count toward actual income (exclude cancelled, never_installed, AND pending)
+          const fundedSales = salesLog.filter(s => s.install_status !== 'cancelled' && s.install_status !== 'never_installed' && s.install_status !== 'pending');
           const fundedFpSales = fundedSales.filter(s => s.type === 'fp');
           const fundedUpgradeSales = fundedSales.filter(s => s.type === 'upgrade');
           
