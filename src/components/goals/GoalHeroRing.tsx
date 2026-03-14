@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Check, TrendingUp } from "lucide-react";
+import { Check, TrendingUp, Clock } from "lucide-react";
 import { formatCurrency, calculateTakeHome } from "@/utils/payscaleCalculator";
 import { calculateUpfrontPay } from "@/utils/roiCalculations";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { GOAL_TIER_CONFIG } from "@/config/goalTiers";
 export type GoalTier = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
 
 interface GoalHeroRingProps {
+  pendingPipeline?: number;
   activeTier: GoalTier;
   fpGoal: number;
   currentProgress: number;
@@ -58,6 +59,7 @@ interface GoalHeroRingProps {
 const tierConfig = GOAL_TIER_CONFIG;
 
 export const GoalHeroRing = ({
+  pendingPipeline = 0,
   activeTier,
   fpGoal,
   currentProgress,
@@ -458,6 +460,21 @@ export const GoalHeroRing = ({
           {learningCurveMessage && isRookie && (
             <p className="text-xs text-muted-foreground mt-1 italic">{learningCurveMessage}</p>
           )}
+        </motion.div>
+      )}
+
+      {/* Pending pipeline badge */}
+      {pendingPipeline > 0 && !isComplete && (
+        <motion.div
+          className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20"
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <Clock className="h-3 w-3 text-primary/60" />
+          <span className="text-xs text-primary/80 font-medium">
+            {pendingPipeline.toFixed(1)} {metricLabel} in pipeline
+          </span>
         </motion.div>
       )}
 

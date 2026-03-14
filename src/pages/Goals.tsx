@@ -19,10 +19,12 @@ import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
 import { QuickEditGoalsDrawer } from "@/components/goals/QuickEditGoalsDrawer";
 import { CalendarPlanningPreview } from "@/components/goals/CalendarPlanningPreview";
 import { CanceledStatsCard } from "@/components/goals/CanceledStatsCard";
+import { PendingInstallsCard } from "@/components/goals/PendingInstallsCard";
 import { CancelRateDrawer } from "@/components/goals/CancelRateDrawer";
 import { EarningsBreakdownCard } from "@/components/goals/EarningsBreakdownCard";
 import { PreseasonCommitmentsCard } from "@/components/goals/PreseasonCommitmentsCard";
 import { useSyncedWeeklyLogs } from "@/hooks/useSyncedWeeklyLogs";
+import { usePendingInstalls } from "@/hooks/usePendingInstalls";
 
 import { CatchUpWizard } from "@/components/catchup/CatchUpWizard";
 import { SyncDiscrepancyIndicator } from "@/components/catchup/SyncDiscrepancyIndicator";
@@ -82,6 +84,7 @@ const Goals = () => {
   const { entry: todayEntry } = useDailyEntry();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { incrementRolePlays } = useSyncedWeeklyLogs();
+  const { pendingSales } = usePendingInstalls();
   const queryClient = useQueryClient();
   const { toast: toastHook } = useToast();
   
@@ -881,6 +884,12 @@ const Goals = () => {
           transition={{ duration: 0.4 }}
         >
             <GoalHeroRing
+            pendingPipeline={pendingSales.reduce((sum, sale) => {
+              if (efpModeEnabled) return sum + (Number(sale.prmr) || 0) / 85;
+              if (sale.type === 'fp') return sum + 1;
+              if (sale.type === 'upgrade') return sum + (Number(sale.prmr) || 0) / 85;
+              return sum;
+            }, 0)}
             activeTier={activeTier}
             fpGoal={activeGoalData.goal}
             currentProgress={currentProgress}
@@ -950,6 +959,10 @@ const Goals = () => {
 
         <div className="px-4 pb-4">
           <CanceledStatsCard />
+        </div>
+
+        <div className="px-4 pb-4">
+          <PendingInstallsCard />
         </div>
 
         {/* Cancel Rate Drawer */}

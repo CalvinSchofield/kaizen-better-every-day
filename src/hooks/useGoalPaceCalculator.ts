@@ -36,6 +36,7 @@ export type PaceSeverity = 'green' | 'amber' | 'red';
 export interface TimeframeData {
   actual: number;
   live: number;
+  pending: number;
   expected: number;
   goal: number;
   remaining: number;
@@ -247,6 +248,7 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     // Actual production in this period (from entries)
     let actual = 0;
     let live = 0;
+    let pending = 0;
     for (const entry of input.entries) {
       if (entry.entry_date < periodStart || entry.entry_date > periodEnd) continue;
       
@@ -263,6 +265,17 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
         if (Array.isArray(salesLog)) {
           for (const sale of salesLog) {
             if (sale.install_status === 'never_installed') continue;
+            if (sale.install_status === 'pending') {
+              // Track pending pipeline separately
+              const salePrmr = Number(sale.prmr) || 0;
+              if (input.efpModeEnabled) {
+                pending += salePrmr / 85;
+              } else {
+                if (sale.type === 'fp') pending += 1;
+                else if (sale.type === 'upgrade') pending += salePrmr / 85;
+              }
+              continue;
+            }
             const salePrmr = Number(sale.prmr) || 0;
             if (input.efpModeEnabled) {
               live += salePrmr / 85;
@@ -287,6 +300,7 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     return {
       actual,
       live,
+      pending,
       expected,
       goal,
       remaining: Math.max(0, goal - totalProgress),
@@ -298,10 +312,27 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     };
   };
 
-  // Day
+  // Day - calculate today's pending from sales_log
+  let todayPending = 0;
+  const todayEntryData = input.entries.find(e => e.entry_date === todayStr);
+  if (todayEntryData && !todayEntryData.is_finalized && Array.isArray(todayEntryData.sales_log)) {
+    for (const sale of todayEntryData.sales_log) {
+      if (sale.install_status === 'pending') {
+        const salePrmr = Number(sale.prmr) || 0;
+        if (input.efpModeEnabled) {
+          todayPending += salePrmr / 85;
+        } else {
+          if (sale.type === 'fp') todayPending += 1;
+          else if (sale.type === 'upgrade') todayPending += salePrmr / 85;
+        }
+      }
+    }
+  }
+
   const day: TimeframeData = {
     actual: input.todayFP,
     live: input.todayLiveFP,
+    pending: todayPending,
     expected: dailyNeeded,
     goal: dailyNeeded,
     remaining: Math.max(0, dailyNeeded - input.todayFP - input.todayLiveFP),
@@ -473,7 +504,8 @@ export function useGoalPaceCalculator(): GoalPaceData {
     const salesLog = todayEntry.sales_log as any[] | null;
     if (Array.isArray(salesLog)) {
       for (const sale of salesLog) {
-        if (sale.install_status === 'never_installed') continue;
+    if (sale.install_status === 'never_installed') continue;
+        if (sale.install_status === 'pending') continue;
         if (efpModeEnabled) {
           liveFP += (Number(sale.prmr) || 0) / 85;
         } else {
@@ -534,7 +566,7 @@ export function useGoalPaceCalculator(): GoalPaceData {
 
   // Default empty data
   const emptyTimeframe: TimeframeData = {
-    actual: 0, live: 0, expected: 0, goal: 0, remaining: 0,
+    actual: 0, live: 0, pending: 0, expected: 0, goal: 0, remaining: 0,
     plannedDaysElapsed: 0, plannedDaysTotal: 0, paceDiff: 0, isAhead: true, label: '',
   };
 
