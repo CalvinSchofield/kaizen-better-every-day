@@ -189,14 +189,46 @@ export const GoalHeroRing = ({
             className="opacity-40"
           />
           
-          {/* Funded progress (solid green, base layer) */}
-          {showFunded && (
+          {/* Bottom layer: funded + unfunded + pending */}
+          {pendingPipeline > 0 && !isComplete && totalWithPendingPercent > 0 && (
             <circle
               cx={size / 2}
               cy={size / 2}
               r={radius}
               fill="none"
-              stroke="hsl(120 30% 45%)"
+              stroke="hsl(var(--warning))"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={totalWithPendingDashoffset}
+              className="transition-all duration-700 ease-out"
+            />
+          )}
+
+          {/* Middle layer: funded + unfunded */}
+          {progress > 0 && (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={showFunded ? "hsl(var(--primary))" : isComplete ? "hsl(var(--success))" : "url(#progressGradient)"}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={totalDashoffset}
+              className="transition-all duration-700 ease-out"
+            />
+          )}
+
+          {/* Top layer: funded only */}
+          {showFunded && fundedPercent > 0 && (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke="hsl(var(--success))"
               strokeWidth={strokeWidth}
               strokeLinecap="round"
               strokeDasharray={circumference}
@@ -204,101 +236,6 @@ export const GoalHeroRing = ({
               className="transition-all duration-700 ease-out"
             />
           )}
-          
-          {/* Unfunded segment - only the portion beyond funded */}
-          {showFunded && (() => {
-            const fundedArc = (fundedPercent / 100) * circumference;
-            const unfundedPct = progress - fundedPercent;
-            const unfundedArc = (unfundedPct / 100) * circumference;
-            const gap = circumference - fundedArc - unfundedArc;
-            if (unfundedArc <= 0) return null;
-            return (
-              <circle
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                fill="none"
-                stroke="hsl(var(--primary))"
-                strokeWidth={strokeWidth}
-                strokeLinecap="round"
-                strokeDasharray={`0 ${fundedArc} ${unfundedArc} ${gap}`}
-                strokeDashoffset={0}
-                opacity={0.5}
-                className="transition-all duration-700 ease-out"
-              />
-            );
-          })()}
-
-          {/* Main progress (only when NOT showing funded split) */}
-          {!showFunded && (
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              fill="none"
-              stroke={isComplete ? "hsl(120 50% 50%)" : "url(#progressGradient)"}
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              className="transition-all duration-700 ease-out"
-            />
-          )}
-          
-          {/* Pending progress arc - striped segment after main progress */}
-          {pendingPercent > 0 && !isComplete && (() => {
-            const mainArcLength = (progress / 100) * circumference;
-            const pendingArcLength = (pendingPercent / 100) * circumference;
-            const remainingGap = circumference - mainArcLength - pendingArcLength;
-            return (
-              <>
-                <defs>
-                  <mask id="pendingMask">
-                    {/* White = visible. Only show the pending segment */}
-                    <circle
-                      cx={size / 2}
-                      cy={size / 2}
-                      r={radius}
-                      fill="none"
-                      stroke="white"
-                      strokeWidth={strokeWidth}
-                      strokeLinecap="butt"
-                      strokeDasharray={`0 ${mainArcLength} ${pendingArcLength} ${remainingGap}`}
-                      strokeDashoffset={0}
-                    />
-                  </mask>
-                </defs>
-                {/* Striped pending arc, masked to only the pending segment */}
-                <g mask="url(#pendingMask)">
-                  {/* Solid base */}
-                  <circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    fill="none"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={strokeWidth}
-                    strokeDasharray={circumference}
-                    strokeDashoffset={0}
-                    opacity={0.3}
-                  />
-                  {/* Dashed overlay for texture */}
-                  <circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    fill="none"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={strokeWidth}
-                    strokeLinecap="butt"
-                    strokeDasharray="6 5"
-                    strokeDashoffset={0}
-                    opacity={0.6}
-                  />
-                </g>
-              </>
-            );
-          })()}
 
           {/* Gradient definition */}
           <defs>
