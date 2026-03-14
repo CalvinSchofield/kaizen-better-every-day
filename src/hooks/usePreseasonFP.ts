@@ -72,12 +72,12 @@ export const usePreseasonFP = () => {
     queryFn: async () => {
       if (!userId) return { totalFP: 0, totalPRMR: 0, totalEFP: 0, knockingDays: 0, fundedFP: 0, fundedPRMR: 0, fundedEFP: 0 };
 
-      // Query all finalized entries before summer start date
+      // Query ALL entries (finalized AND unfinalized) before summer start date
+      // This ensures sales logged via the Customers page on non-today dates are counted
       const { data: entries, error } = await supabase
         .from('daily_entries')
-        .select('fp_plus, prmr, upgrade_prmr, sales_log, doors_knocked, work_start_time, work_end_time')
+        .select('fp_plus, prmr, upgrade_prmr, sales_log, doors_knocked, work_start_time, work_end_time, is_finalized')
         .eq('user_id', userId)
-        .eq('is_finalized', true)
         .lt('entry_date', GLOBAL_SUMMER_START);
 
       if (error) {
