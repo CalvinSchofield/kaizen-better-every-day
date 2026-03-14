@@ -52,6 +52,7 @@ export const PostSaveSuccessSheet = ({
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { knockingDays, totalFP, totalPRMR } = usePreseasonFP();
   const { repData } = useRepData();
+  const goalPaceData = useGoalPaceCalculator();
   
   // Get current season info and comparison year
   const seasonInfo = useMemo(() => getSeasonInfo(new Date()), []);
