@@ -374,10 +374,12 @@ const FullMode = ({
                   <span>Pending</span>
                 </div>
               )}
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-0 border-t-2 border-dashed border-muted-foreground/50" />
-                <span>Expected</span>
-              </div>
+              {data.knockingDaysCompleted >= 6 && (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-0 border-t-2 border-dashed border-muted-foreground/50" />
+                  <span>Expected</span>
+                </div>
+              )}
             </div>
           )}
         </div>
