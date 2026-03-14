@@ -188,7 +188,7 @@ export const GoalHeroRing = ({
             className="opacity-40"
           />
           
-          {/* Funded progress (if showing) */}
+          {/* Funded progress (solid green, base layer) */}
           {showFunded && (
             <circle
               cx={size / 2}
@@ -204,29 +204,13 @@ export const GoalHeroRing = ({
             />
           )}
           
-          {/* Main progress */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke={isComplete ? "hsl(120 50% 50%)" : "url(#progressGradient)"}
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            className={cn(
-              "transition-all duration-700 ease-out",
-              showFunded && "opacity-40"
-            )}
-          />
-          
-          
-          {/* Pending progress arc - draws only the pending segment after main progress */}
-          {pendingPercent > 0 && !isComplete && (() => {
-            const mainArcLength = (progress / 100) * circumference;
-            const pendingArcLength = (pendingPercent / 100) * circumference;
-            const remainingGap = circumference - mainArcLength - pendingArcLength;
+          {/* Unfunded segment - only the portion beyond funded */}
+          {showFunded && (() => {
+            const fundedArc = (fundedPercent / 100) * circumference;
+            const unfundedPct = progress - fundedPercent;
+            const unfundedArc = (unfundedPct / 100) * circumference;
+            const gap = circumference - fundedArc - unfundedArc;
+            if (unfundedArc <= 0) return null;
             return (
               <circle
                 cx={size / 2}
@@ -235,12 +219,86 @@ export const GoalHeroRing = ({
                 fill="none"
                 stroke="hsl(var(--primary))"
                 strokeWidth={strokeWidth}
-                strokeLinecap="butt"
-                strokeDasharray={`0 ${mainArcLength} ${pendingArcLength} ${remainingGap}`}
+                strokeLinecap="round"
+                strokeDasharray={`0 ${fundedArc} ${unfundedArc} ${gap}`}
                 strokeDashoffset={0}
-                opacity={0.4}
+                opacity={0.5}
                 className="transition-all duration-700 ease-out"
               />
+            );
+          })()}
+
+          {/* Main progress (only when NOT showing funded split) */}
+          {!showFunded && (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={isComplete ? "hsl(120 50% 50%)" : "url(#progressGradient)"}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              className="transition-all duration-700 ease-out"
+            />
+          )}
+          
+          {/* Pending progress arc - distinct segment after main progress */}
+          {pendingPercent > 0 && !isComplete && (() => {
+            const mainArcLength = (progress / 100) * circumference;
+            const pendingArcLength = (pendingPercent / 100) * circumference;
+            const remainingGap = circumference - mainArcLength - pendingArcLength;
+            // Create a dashed pattern within the pending segment
+            const dashSize = 4;
+            const gapSize = 4;
+            return (
+              <>
+                {/* Solid background for the pending segment */}
+                <circle
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={radius}
+                  fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="butt"
+                  strokeDasharray={`0 ${mainArcLength} ${pendingArcLength} ${remainingGap}`}
+                  strokeDashoffset={0}
+                  opacity={0.25}
+                  className="transition-all duration-700 ease-out"
+                />
+                {/* Dashed overlay for visual distinction */}
+                <circle
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={radius}
+                  fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="butt"
+                  strokeDasharray={`${dashSize} ${gapSize}`}
+                  strokeDashoffset={-mainArcLength}
+                  opacity={0.5}
+                  className="transition-all duration-700 ease-out"
+                  style={{
+                    clipPath: `inset(0)`, // keeps it within bounds
+                  }}
+                />
+                {/* Mask: cover everything outside the pending segment */}
+                <circle
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={radius}
+                  fill="none"
+                  stroke="hsl(var(--background))"
+                  strokeWidth={strokeWidth + 1}
+                  strokeLinecap="butt"
+                  strokeDasharray={`${mainArcLength} ${pendingArcLength} ${remainingGap}`}
+                  strokeDashoffset={0}
+                  className="transition-all duration-700 ease-out"
+                />
+              </>
             );
           })()}
 
