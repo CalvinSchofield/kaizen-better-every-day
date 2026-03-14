@@ -71,6 +71,7 @@ export const GoalHeroRing = ({
   weeksWorking,
   efpMode = false,
   onTierChange,
+  onEarningsClick,
   tiers,
   dailyGoal = 0,
   todayProgress = 0,
