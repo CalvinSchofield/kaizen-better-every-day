@@ -108,8 +108,23 @@ export function calculateInHomeZones(
   const presentationEvents = events.filter(e => e.type === 'presentations');
   const saleEvents = events.filter(e => e.type === 'sale' || e.type === 'closes');
   
+  // Deduplicate: when a 'sale' (from sales_log) and 'closes' (from counter) exist 
+  // at ~the same time, prefer the 'sale' because it carries timeToSellMinutes.
+  const DEDUP_THRESHOLD_MS = 60 * 1000; // 60 seconds
+  const deduplicatedSaleEvents = saleEvents.filter(event => {
+    if (event.type === 'closes') {
+      // Check if there's a 'sale' event within 60s of this 'closes' event
+      const hasSaleNearby = saleEvents.some(other => 
+        other.type === 'sale' && 
+        Math.abs(other.timestamp.getTime() - event.timestamp.getTime()) < DEDUP_THRESHOLD_MS
+      );
+      return !hasSaleNearby; // Drop closes if a sale exists nearby
+    }
+    return true;
+  });
+  
   // Combine all in-home indicators and sort by time
-  const inHomeIndicators = [...transitionEvents, ...presentationEvents, ...saleEvents]
+  const inHomeIndicators = [...transitionEvents, ...presentationEvents, ...deduplicatedSaleEvents]
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   
   for (const indicator of inHomeIndicators) {
@@ -430,7 +445,8 @@ export function buildRingSegments(
   });
   
   // Minimum arc sizes for visibility
-  const MIN_PRESENTATION_DEGREES = 10; // Presentations/sales need to be clearly visible
+  const MIN_SALE_DEGREES = 14; // Sales must be clearly visible with $ icon
+  const MIN_PRESENTATION_DEGREES = 10; // Presentations need to be visible
   const TRANSITION_MARKER_DEGREES = 3; // Transitions are thin markers
   
   // Add in-home zones with proper type differentiation
@@ -440,10 +456,11 @@ export function buildRingSegments(
     
     // For sales and presentations, ensure minimum visible arc
     if (zone.hasPresentation) {
-      if (endAngle - startAngle < MIN_PRESENTATION_DEGREES) {
+      const minDeg = zone.hasSale ? MIN_SALE_DEGREES : MIN_PRESENTATION_DEGREES;
+      if (endAngle - startAngle < minDeg) {
         const midpoint = (startAngle + endAngle) / 2;
-        startAngle = Math.max(0, midpoint - MIN_PRESENTATION_DEGREES / 2);
-        endAngle = Math.min(360, midpoint + MIN_PRESENTATION_DEGREES / 2);
+        startAngle = Math.max(0, midpoint - minDeg / 2);
+        endAngle = Math.min(360, midpoint + minDeg / 2);
       }
       
       if (zone.hasSale) {
