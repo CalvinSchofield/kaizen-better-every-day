@@ -463,6 +463,21 @@ export const GoalHeroRing = ({
         </motion.div>
       )}
 
+      {/* Pending pipeline badge */}
+      {pendingPipeline > 0 && !isComplete && (
+        <motion.div
+          className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20"
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <Clock className="h-3 w-3 text-primary/60" />
+          <span className="text-xs text-primary/80 font-medium">
+            {pendingPipeline.toFixed(1)} {metricLabel} in pipeline
+          </span>
+        </motion.div>
+      )}
+
       {/* Funded vs Unfunded legend */}
       {showFunded && (
         <div className="flex flex-col items-center gap-2 mt-4">
