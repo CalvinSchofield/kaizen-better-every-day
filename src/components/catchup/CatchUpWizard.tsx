@@ -88,7 +88,8 @@ export const CatchUpWizard = ({
         season_type: seasonType,
         fp_plus: fpValue,
         prmr: prmrValue,
-        knocking_days: daysValue,
+        // Only update knocking_days on initial sync; afterwards the app tracks automatically
+        ...(isInitialSync ? { knocking_days: daysValue } : {}),
         verified_by: 'self',
       });
       
