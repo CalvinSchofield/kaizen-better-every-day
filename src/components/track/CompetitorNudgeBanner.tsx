@@ -32,7 +32,8 @@ const getMetricUnit = (metric: CompetitorNudge['metric'], gap: number): string =
 
 const getNudgeMessage = (c: CompetitorNudge): string => {
   const unit = getMetricUnit(c.metric, c.gap);
-  const gapDisplay = c.metric === 'prmr' ? `$${c.gap}` : c.gap;
+  const roundedGap = c.metric === 'fp_plus' ? Math.round(c.gap * 100) / 100 : c.metric === 'prmr' ? Math.round(c.gap) : Math.round(c.gap);
+  const gapDisplay = c.metric === 'prmr' ? `$${roundedGap}` : roundedGap;
   return `${c.name} is ${gapDisplay} ${unit} ahead — catch them! 🚀`;
 };
 
