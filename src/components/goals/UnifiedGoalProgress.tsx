@@ -369,23 +369,27 @@ const FullMode = ({
           )}
 
           {/* Legend */}
-          {(current.live > 0 || current.pending > 0) && (
+          {(current.live > 0 || current.pending > 0 || current.actual > 0) && (
             <div className="flex items-center gap-4 text-[10px] text-muted-foreground pt-1">
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-amber-400" />
-                <span>Logged</span>
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Funded</span>
               </div>
+              {(current.actual - Math.min(current.funded, current.actual)) > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-primary" />
+                  <span>Unfunded</span>
+                </div>
+              )}
               {current.live > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-rose-400/80" />
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>Live</span>
                 </div>
               )}
               {current.pending > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-sm" style={{
-                    background: 'repeating-linear-gradient(45deg, hsl(var(--primary) / 0.3), hsl(var(--primary) / 0.3) 2px, hsl(var(--primary) / 0.15) 2px, hsl(var(--primary) / 0.15) 4px)',
-                  }} />
+                  <div className="w-2 h-2 rounded-full bg-warning" />
                   <span>Pending</span>
                 </div>
               )}
