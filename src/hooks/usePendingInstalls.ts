@@ -213,12 +213,7 @@ export const usePendingInstalls = () => {
       if (updateError) throw updateError;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-installs'] });
-      queryClient.invalidateQueries({ queryKey: ['daily-entry'] });
-      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
-      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
-      queryClient.invalidateQueries({ queryKey: ['canceled-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
+      invalidateAllSalesQueries(queryClient);
       toast.success('Sale removed - never installed');
     },
     onError: (error) => {

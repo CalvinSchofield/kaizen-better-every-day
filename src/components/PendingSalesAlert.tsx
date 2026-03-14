@@ -60,10 +60,8 @@ export const PendingSalesAlert = ({ userId }: PendingSalesAlertProps) => {
     await processQueue();
     setPendingCount(getPendingCount());
     
-    // Invalidate queries to refresh data
-    queryClient.invalidateQueries({ queryKey: ['daily-entry'], refetchType: 'all' });
-    queryClient.invalidateQueries({ queryKey: ['customer-sales'], refetchType: 'all' });
-    queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
+    // Invalidate all sales-dependent queries
+    invalidateAllSalesQueries(queryClient);
     
     setIsRetrying(false);
   };
