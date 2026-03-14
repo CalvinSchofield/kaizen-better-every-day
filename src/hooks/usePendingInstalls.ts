@@ -22,7 +22,7 @@ export const usePendingInstalls = (options?: { includeAllPending?: boolean }) =>
   const queryClient = useQueryClient();
 
   const { data: pendingSales = [], isLoading } = useQuery({
-    queryKey: ['pending-installs'],
+    queryKey: ['pending-installs', options?.includeAllPending ? 'all' : 'due'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
