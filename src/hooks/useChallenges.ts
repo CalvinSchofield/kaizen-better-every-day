@@ -171,7 +171,9 @@ export const useChallenges = (filter: 'active' | 'pending' | 'history' = 'active
         })),
       })) as Challenge[];
     },
-    staleTime: 30 * 1000,
+    staleTime: 10 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
   });
 };
 
