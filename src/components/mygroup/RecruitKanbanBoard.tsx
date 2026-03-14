@@ -58,13 +58,13 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
   const updateStageMutation = useUpdateRecruitStage();
   const { data: teamAccess } = useTeamAccess();
 
-  // Fetch reps data to get blocker info (iPad, onboarding, ramp phases)
+  // Fetch reps data to get blocker info AND user_id for summer lookup
   const { data: repsData } = useQuery({
     queryKey: ['reps-blockers'],
     queryFn: async () => {
       const { data } = await supabase
         .from('reps')
-        .select('id, ipad_assigned, onboarding_complete, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete');
+        .select('id, user_id, ipad_assigned, onboarding_complete, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete');
       return data || [];
     },
   });
@@ -73,6 +73,116 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
   const repsBlockerMap = new Map(
     repsData?.map(r => [r.id, r]) || []
   );
+
+  // Get user_ids for signed+ recruits to fetch summer data
+  const signedPlusUserIds = useMemo(() => {
+    return recruits
+      .filter(r => SIGNED_PLUS_STAGES.includes(r.stage as any))
+      .map(r => repsBlockerMap.get(r.id)?.user_id)
+      .filter((id): id is string => !!id);
+  }, [recruits, repsBlockerMap]);
+
+  // Fetch summer config for signed+ reps
+  const { data: summerConfigs } = useQuery({
+    queryKey: ['kanban-summer-config', signedPlusUserIds.join(',')],
+    queryFn: async () => {
+      if (!signedPlusUserIds.length) return [];
+      const { data } = await supabase
+        .from('season_config')
+        .select('user_id, personal_summer_start, personal_summer_end')
+        .in('user_id', signedPlusUserIds);
+      return data || [];
+    },
+    enabled: signedPlusUserIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Fetch daily entries for summer-active reps
+  const summerActiveUserIds = useMemo(() => {
+    if (!summerConfigs) return [];
+    const today = format(new Date(), 'yyyy-MM-dd');
+    return summerConfigs
+      .filter(c => c.personal_summer_start && c.personal_summer_start <= today)
+      .map(c => c.user_id);
+  }, [summerConfigs]);
+
+  const { data: summerEntries } = useQuery({
+    queryKey: ['kanban-summer-entries', summerActiveUserIds.join(',')],
+    queryFn: async () => {
+      if (!summerActiveUserIds.length) return [];
+      const { data } = await supabase
+        .from('daily_entries')
+        .select('user_id, fp_plus, doors_knocked, work_start_time, work_end_time, is_finalized')
+        .in('user_id', summerActiveUserIds)
+        .eq('is_finalized', true);
+      return data || [];
+    },
+    enabled: summerActiveUserIds.length > 0,
+    staleTime: 1000 * 60 * 2,
+  });
+
+  // Fetch goals for summer-active reps
+  const { data: summerGoals } = useQuery({
+    queryKey: ['kanban-summer-goals', summerActiveUserIds.join(',')],
+    queryFn: async () => {
+      if (!summerActiveUserIds.length) return [];
+      const { data } = await supabase
+        .from('rep_goals')
+        .select('user_id, will_do_fp_goal')
+        .in('user_id', summerActiveUserIds);
+      return data || [];
+    },
+    enabled: summerActiveUserIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Build summer active map (recruit.id -> summer data)
+  const summerActiveMap = useMemo(() => {
+    const map = new Map<string, { currentFp: number; paceStatus: 'ahead' | 'on-track' | 'behind' | 'critical'; knockingDays: number }>();
+    if (!summerConfigs || !summerEntries || !repsData) return map;
+    
+    const today = new Date();
+    const todayStr = format(today, 'yyyy-MM-dd');
+    
+    // Build userId -> recruit.id map
+    const userIdToRecruitId = new Map<string, string>();
+    repsData.forEach(r => {
+      if (r.user_id) userIdToRecruitId.set(r.user_id, r.id);
+    });
+    
+    summerActiveUserIds.forEach(userId => {
+      const config = summerConfigs.find(c => c.user_id === userId);
+      if (!config?.personal_summer_start) return;
+      
+      const recruitId = userIdToRecruitId.get(userId);
+      if (!recruitId) return;
+      
+      const entries = summerEntries.filter(e => e.user_id === userId);
+      const totalFp = entries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
+      const knockingDays = entries.filter(e => (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time).length;
+      
+      const goals = summerGoals?.find(g => g.user_id === userId);
+      const willDoGoal = Number(goals?.will_do_fp_goal) || 0;
+      
+      let paceStatus: 'ahead' | 'on-track' | 'behind' | 'critical' = 'on-track';
+      if (willDoGoal > 0) {
+        const summerStart = new Date(config.personal_summer_start + 'T12:00:00');
+        const totalDays = 126; // ~18 weeks
+        const elapsed = Math.max(1, Math.floor((today.getTime() - summerStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+        const expected = (willDoGoal / totalDays) * elapsed;
+        const pct = expected > 0 ? (totalFp / expected) * 100 : 100;
+        
+        if (pct >= 110) paceStatus = 'ahead';
+        else if (pct >= 90) paceStatus = 'on-track';
+        else if (pct >= 70) paceStatus = 'behind';
+        else paceStatus = 'critical';
+      }
+      
+      map.set(recruitId, { currentFp: totalFp, paceStatus, knockingDays });
+    });
+    
+    return map;
+  }, [summerConfigs, summerEntries, summerGoals, repsData, summerActiveUserIds]);
 
   // Determine if filters should be shown (MGMT+ or 20+ recruits)
   const accessLevel = teamAccess?.accessLevel || 'none';
