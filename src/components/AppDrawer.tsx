@@ -50,7 +50,7 @@ const DrawerItem = ({
   onClick,
 }: {
   to: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  icon: LucideIcon;
   label: string;
   locked?: boolean;
   badge?: number;
