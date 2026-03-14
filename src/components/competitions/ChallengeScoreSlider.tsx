@@ -41,31 +41,22 @@ export const ChallengeScoreSlider = ({
     
     return (
       <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-red-600 w-10 text-right">
-            {formatFP(redTotal)}
-          </span>
-          <div className={cn("flex-1 rounded-full bg-blue-500 overflow-hidden relative", heightClass)}>
-            <motion.div 
-              className="h-full bg-red-500"
-              initial={false}
-              animate={{ width: `${redPercent}%` }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-            />
-            {/* Center indicator */}
-            <motion.div 
-              className="absolute top-1/2 -translate-y-1/2 w-1 h-full bg-white/80 rounded-full shadow-sm"
-              initial={false}
-              animate={{ left: `calc(${redPercent}% - 2px)` }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-            />
-          </div>
-          <span className="text-xs font-semibold text-blue-600 w-10">
-            {formatFP(blueTotal)}
-          </span>
+        <div className={cn("w-full rounded-full bg-blue-500 overflow-hidden relative", heightClass)}>
+          <motion.div 
+            className="h-full bg-red-500"
+            initial={false}
+            animate={{ width: `${redPercent}%` }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          />
+          <motion.div 
+            className="absolute top-1/2 -translate-y-1/2 w-1 h-full bg-white/80 rounded-full shadow-sm"
+            initial={false}
+            animate={{ left: `calc(${redPercent}% - 2px)` }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          />
         </div>
         {showLabels && (
-          <div className="flex justify-between text-[10px] text-muted-foreground px-10">
+          <div className="flex justify-between text-[10px] text-muted-foreground">
             <span className="text-red-600">🔴 Red</span>
             <span className="text-blue-600">🔵 Blue</span>
           </div>
