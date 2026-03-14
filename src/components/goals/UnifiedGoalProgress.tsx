@@ -322,10 +322,10 @@ const FullMode = ({
               <span className="font-semibold tabular-nums text-foreground">
                 {formatFP(totalProgress)}
                 {current.live > 0 && (
-                  <span className="text-rose-500/80 font-normal"> (+{formatFP(current.live)} live)</span>
+                  <span className="text-emerald-500 font-normal"> (+{formatFP(current.live)} live)</span>
                 )}
                 {current.pending > 0 && (
-                  <span className="text-primary/60 font-normal"> (+{formatFP(current.pending)} pending)</span>
+                  <span className="text-warning font-normal"> (+{formatFP(current.pending)} pending)</span>
                 )}
               </span>
               <span className="text-muted-foreground">/ {formatFP(current.goal)} {data.metricLabel}</span>
