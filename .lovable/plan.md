@@ -1,50 +1,61 @@
 
 
-## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
+## Pre-Working State Motivation Improvements
 
-### The Problem
+### Current Issues
 
-When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
+1. **LeaderboardMiniRow fallback is flat** -- When no catchable competitor exists, it shows "Your season: 67 EFP / See where you stand" which is not motivating. It should always surface competitive context.
 
-### Root Cause
+2. **DailyMissionCard "This Week" is goal-only** -- Shows remaining weekly target but doesn't leverage week-over-week self-competition or historical comparison. It's a missed motivational opportunity.
 
-There are three things fighting each other:
+3. **MeVsMeMotivationCard is isolated** -- Good year-over-year data but sits as a separate card. Could be folded into the DailyMissionCard's weekly section for a tighter motivational loop.
 
-1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
+### Plan
 
-2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
+#### 1. Fix LeaderboardMiniRow fallback (make it always competitive)
 
-3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+When `useCompetitorNudge` returns no catchable competitor, improve the fallback hierarchy:
 
-### The Fix
+- **If user is leading**: Show "You're leading in X today -- stay on top!" 
+- **If someone is ahead but not catchable**: Show "X leads with Y doors today -- close the gap!"
+- **If no one is working yet**: Show "Be the first one out there today" or weekly rank context like "You're #3 this week in FP+"
+- Last resort: current season total (but frame it competitively, e.g., "#3 on the season with 67 EFP")
 
-#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+This means enhancing `useCompetitorNudge` to also return a "leading" state and a broader fallback from the leaderboard data it already fetches.
 
-The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
+#### 2. Enhance DailyMissionCard "This Week" with self-competition
 
-#### 2. Simplify `useKeyboardViewport` hook
+Below the existing "X FP+ over Y days" line, add a compact motivational nudge:
 
-- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
-- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
-- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
-- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
+- **If historical data exists (MeVsMe enabled)**: "Same week in 2025: X FP+ -- you're ahead/behind by Y"
+- **If no historical but has last week data**: "Last week by [today's day]: X FP+ -- you're ahead/behind by Y"  
+- **If neither**: Keep as-is (just the remaining goal)
 
-#### 3. Add `@capacitor/keyboard` plugin configuration
+This folds the `MeVsMeMotivationCard` and `useWeeklyComparison` context directly into the mission card as a single compact line, eliminating the need for a separate card.
 
-Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
+#### 3. Remove standalone MeVsMeMotivationCard from PreWorkingState
 
-### Files to Modify
+Since its data will now live inside the DailyMissionCard's "This Week" section, remove it from the card stack to reduce clutter.
 
-- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
-- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
-- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
-- **`package.json`** -- Add `@capacitor/keyboard` dependency
+### Files to Change
 
-### After Approval
+| File | Change |
+|------|--------|
+| `src/hooks/useCompetitorNudge.ts` | Add leading/rank fallback when no catchable competitor |
+| `src/components/track/LeaderboardMiniRow.tsx` | Use new fallback data for motivating copy |
+| `src/components/track/DailyMissionCard.tsx` | Add week-over-week and historical self-competition line in "This Week" section |
+| `src/components/track/PreWorkingState.tsx` | Remove `MeVsMeMotivationCard` import and render |
 
-After these code changes, you will need to:
-1. Git pull the updated code
-2. Run `npm install` to get the new keyboard plugin
-3. Run `npx cap sync` to sync the plugin to iOS
-4. Rebuild in Xcode and push to TestFlight
+### Motivational Copy Examples
+
+**LeaderboardMiniRow (new fallbacks):**
+- Leading: "You're #1 in presentations today -- keep it up!"
+- Behind broadly: "Jake has 42 doors already today"  
+- Weekly: "You're #3 this week with 4.2 FP+"
+- No data: "Be first on the board today"
+
+**DailyMissionCard "This Week" addition:**
+- Historical: "Same week 2025: 3.1 FP+ -- you're +1.2 ahead"
+- Week-over-week: "Mon-Wed last week: 2.8 FP+ -- you're at 3.1"
+- Both show as a single compact line with green/red indicator
 
