@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import {
   Drawer,
   DrawerContent,
@@ -5,7 +6,6 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Clock, 
   DollarSign, 
@@ -24,8 +24,9 @@ interface SalesLogDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   salesLog: Sale[];
-  /** Rep's timezone to display times in their local time */
   repTimezone?: string;
+  /** If set, auto-scroll to this sale when the drawer opens */
+  scrollToSaleId?: string | null;
 }
 
 const formatDuration = (minutes: number): string => {
@@ -40,14 +41,14 @@ interface SaleCardProps {
   sale: Sale;
   index: number;
   repTimezone?: string;
+  highlight?: boolean;
 }
 
-const SaleCard = ({ sale, index, repTimezone }: SaleCardProps) => {
+const SaleCard = ({ sale, index, repTimezone, highlight }: SaleCardProps) => {
   const saleAny = sale as any;
   const timeToSell = saleAny.time_to_sell_minutes;
   const wasNeverInstalled = sale.install_status === 'never_installed';
   
-  // Format time in rep's timezone
   const formatSaleTime = (timestamp: string): string => {
     try {
       const date = parseISO(timestamp);
@@ -60,10 +61,12 @@ const SaleCard = ({ sale, index, repTimezone }: SaleCardProps) => {
   
   return (
     <div className={cn(
-      "p-4 rounded-xl border",
+      "p-4 rounded-xl border transition-all duration-300",
       wasNeverInstalled 
         ? "bg-muted/30 border-muted opacity-60" 
-        : "bg-primary/5 border-primary/20"
+        : highlight
+          ? "bg-primary/10 border-primary/40 ring-2 ring-primary/20"
+          : "bg-primary/5 border-primary/20"
     )}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -95,7 +98,6 @@ const SaleCard = ({ sale, index, repTimezone }: SaleCardProps) => {
       </div>
       
       <div className="space-y-2">
-        {/* Timestamp - displayed in rep's local timezone */}
         {sale.timestamp && (
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -108,7 +110,6 @@ const SaleCard = ({ sale, index, repTimezone }: SaleCardProps) => {
           </div>
         )}
         
-        {/* Time to sell */}
         {timeToSell !== undefined && timeToSell > 0 && (
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -121,7 +122,6 @@ const SaleCard = ({ sale, index, repTimezone }: SaleCardProps) => {
           </div>
         )}
         
-        {/* Deal type */}
         {sale.deal_type && (
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -134,7 +134,6 @@ const SaleCard = ({ sale, index, repTimezone }: SaleCardProps) => {
           </div>
         )}
         
-        {/* Difficulty */}
         {sale.difficulty && (
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -155,7 +154,6 @@ const SaleCard = ({ sale, index, repTimezone }: SaleCardProps) => {
           </div>
         )}
         
-        {/* Money spent */}
         {sale.money_spent !== undefined && sale.money_spent > 0 && (
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -168,7 +166,6 @@ const SaleCard = ({ sale, index, repTimezone }: SaleCardProps) => {
           </div>
         )}
         
-        {/* Customer name */}
         {sale.customer_name && (
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -190,7 +187,10 @@ export const SalesLogDrawer = ({
   onOpenChange,
   salesLog,
   repTimezone,
+  scrollToSaleId,
 }: SalesLogDrawerProps) => {
+  const saleRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
   // Sort sales by timestamp (most recent first)
   const sortedSales = [...salesLog].sort((a, b) => {
     if (!a.timestamp || !b.timestamp) return 0;
@@ -199,6 +199,19 @@ export const SalesLogDrawer = ({
   
   const validSales = sortedSales.filter(s => s.install_status !== 'never_installed');
   const totalPRMR = validSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+
+  // Auto-scroll to the target sale when drawer opens
+  useEffect(() => {
+    if (open && scrollToSaleId) {
+      const timer = setTimeout(() => {
+        const el = saleRefs.current.get(scrollToSaleId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [open, scrollToSaleId]);
   
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -226,14 +239,24 @@ export const SalesLogDrawer = ({
                 No sales logged today
               </div>
             ) : (
-              sortedSales.map((sale, idx) => (
-                <SaleCard 
-                  key={sale.id || idx} 
-                  sale={sale} 
-                  index={idx} 
-                  repTimezone={repTimezone}
-                />
-              ))
+              sortedSales.map((sale, idx) => {
+                const saleKey = sale.id || `sale-${idx}`;
+                return (
+                  <div
+                    key={saleKey}
+                    ref={(el) => {
+                      if (el) saleRefs.current.set(saleKey, el);
+                    }}
+                  >
+                    <SaleCard 
+                      sale={sale} 
+                      index={idx} 
+                      repTimezone={repTimezone}
+                      highlight={scrollToSaleId === saleKey}
+                    />
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

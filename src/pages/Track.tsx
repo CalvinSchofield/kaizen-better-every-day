@@ -118,6 +118,8 @@ const Track = ({
   const [showSegmentDetail, setShowSegmentDetail] = useState(false);
   const [selectedHistoricalDate, setSelectedHistoricalDate] = useState(new Date());
   const [selectedSaleForDrawer, setSelectedSaleForDrawer] = useState<Sale | null>(null);
+  const [scrollToSaleId, setScrollToSaleId] = useState<string | null>(null);
+  const [showStats, setShowStats] = useState(false);
   const [selectedSegment, setSelectedSegment] = useState<RingSegment | null>(null);
   const [selectedSegmentSale, setSelectedSegmentSale] = useState<Sale | null>(null);
   
@@ -289,12 +291,87 @@ const Track = ({
                 setSelectedSegmentSale(matchedSale || null);
                 setShowSegmentDetail(true);
               }}
+              onSaleChipClick={(sale) => {
+                setScrollToSaleId(sale.id || null);
+                setShowSalesDrawer(true);
+              }}
             />
           )}
         </div>
 
+        {/* Compact Stats Sheet - right below visualization */}
+        <div className="px-4 mt-2">
+          <motion.button
+            className="w-full flex items-center justify-between py-2 px-1 active:scale-[0.99] transition-transform"
+            onClick={() => {
+              hapticLight();
+              setShowStats(!showStats);
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <div className="flex items-center gap-3 text-sm">
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">Doors</span>
+                <span className="font-semibold tabular-nums">{entry.doors_knocked || 0}</span>
+              </div>
+              <span className="text-border">•</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">Pitches</span>
+                <span className="font-semibold tabular-nums">{entry.pitches || 0}</span>
+              </div>
+              <span className="text-border">•</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">Trans</span>
+                <span className="font-semibold tabular-nums">{entry.transitions || 0}</span>
+              </div>
+            </div>
+            <motion.span
+              className="text-xs text-muted-foreground"
+              animate={{ rotate: showStats ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              ▾
+            </motion.span>
+          </motion.button>
+          
+          {showStats && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <FinalizedStatsGrid
+                entry={entry}
+                salesLog={salesLog}
+                onClosesClick={() => {
+                  if (salesLog.length > 0) {
+                    setScrollToSaleId(null);
+                    setShowSalesDrawer(true);
+                  }
+                }}
+                onFPClick={() => {
+                  if (salesLog.length > 0) {
+                    setScrollToSaleId(null);
+                    setShowSalesDrawer(true);
+                  }
+                }}
+                onPRMRClick={() => {
+                  if (salesLog.length > 0) {
+                    setScrollToSaleId(null);
+                    setShowSalesDrawer(true);
+                  }
+                }}
+              />
+            </motion.div>
+          )}
+        </div>
+
         {/* Contextual Card Stack */}
-        <div className="px-4 space-y-3">
+        <div className="px-4 space-y-3 mt-3">
           {/* Goal Result Card - daily goal progress */}
           <GoalResultCard fpToday={fp} prmrToday={prmr} />
 
@@ -317,18 +394,8 @@ const Track = ({
             counterTimestamps={counterTimestamps}
             dayOfWeek={new Date().getDay()}
           />
-
-          {/* Stats Grid */}
-          <FinalizedStatsGrid
-            entry={entry}
-            salesLog={salesLog}
-            onClosesClick={() => salesLog.length > 0 && setShowSalesDrawer(true)}
-            onFPClick={() => salesLog.length > 0 && setShowSalesDrawer(true)}
-            onPRMRClick={() => salesLog.length > 0 && setShowSalesDrawer(true)}
-          />
         </div>
 
-        {/* Activity Calendar Drawer */}
         {userId && (
           <ActivityCalendarDrawer
             open={showCalendar}
@@ -367,8 +434,12 @@ const Track = ({
         {/* Sales Log Drawer */}
         <SalesLogDrawer
           open={showSalesDrawer}
-          onOpenChange={setShowSalesDrawer}
+          onOpenChange={(open) => {
+            setShowSalesDrawer(open);
+            if (!open) setScrollToSaleId(null);
+          }}
           salesLog={salesLog}
+          scrollToSaleId={scrollToSaleId}
         />
 
         {/* Segment Detail Drawer - for clicking ring/timeline segments */}
