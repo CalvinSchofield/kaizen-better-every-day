@@ -123,7 +123,8 @@ export const GoalHeroRing = ({
 
   // Progress calculations
   const progress = fpGoal > 0 ? Math.min((currentProgress / fpGoal) * 100, 100) : 0;
-  const remaining = Math.max(fpGoal - currentProgress, 0);
+  const pendingPercent = fpGoal > 0 ? Math.min(((currentProgress + pendingPipeline) / fpGoal) * 100, 100) - progress : 0;
+  const remaining = Math.max(fpGoal - currentProgress - pendingPipeline, 0);
   const isComplete = currentProgress >= fpGoal && fpGoal > 0;
 
   // Today's pace calculation
@@ -137,6 +138,9 @@ export const GoalHeroRing = ({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
+  
+  // Pending arc: starts where main progress ends
+  const pendingDashoffset = circumference - ((progress + pendingPercent) / 100) * circumference;
   
   // Funded progress arc (if different from total)
   const showFunded = fundedProgress !== undefined && fundedProgress < currentProgress;
