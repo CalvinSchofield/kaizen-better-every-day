@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Bell, Check, CalendarDays, Ban, Trash2, AlertTriangle } from 'lucide-react';
+import { Bell, Check, CalendarDays, Trash2, AlertTriangle } from 'lucide-react';
 import { usePendingInstalls } from '@/hooks/usePendingInstalls';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
