@@ -108,10 +108,10 @@ export const ChallengeScoreSlider = ({
           />
         </div>
         <span className={cn(
-          "text-xs font-semibold w-8",
+          "text-xs font-semibold w-10",
           !isWinning && !isTied ? "text-destructive" : "text-muted-foreground"
         )}>
-          {Math.round(theirValue)}
+          {formatFP(theirValue)}
         </span>
       </div>
       {showLabels && (
