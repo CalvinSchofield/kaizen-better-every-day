@@ -245,6 +245,27 @@ export const GoalHeroRing = ({
             />
           )}
 
+          {/* Expected By Now tick mark */}
+          {showExpectedMarker && expectedPercent != null && expectedPercent > 0 && expectedPercent < 100 && (
+            <g 
+              style={{ 
+                transform: `rotate(${(expectedPercent / 100) * 360 - 90}deg)`,
+                transformOrigin: `${size / 2}px ${size / 2}px`
+              }}
+            >
+              <line
+                x1={size / 2}
+                y1={strokeWidth / 2 - 2}
+                x2={size / 2}
+                y2={strokeWidth + 4}
+                stroke="hsl(var(--foreground))"
+                strokeWidth={2}
+                strokeLinecap="round"
+                opacity={0.5}
+              />
+            </g>
+          )}
+
           {/* Gradient definition */}
           <defs>
             <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
