@@ -365,7 +365,7 @@ const FullMode = ({
                   <div className="w-2 h-2 rounded-sm" style={{
                     background: 'repeating-linear-gradient(45deg, hsl(var(--primary) / 0.3), hsl(var(--primary) / 0.3) 2px, hsl(var(--primary) / 0.15) 2px, hsl(var(--primary) / 0.15) 4px)',
                   }} />
-                  <span>Pipeline</span>
+                  <span>Pending</span>
                 </div>
               )}
               <div className="flex items-center gap-1.5">
