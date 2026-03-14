@@ -47,6 +47,12 @@ interface UnifiedGoalProgressProps {
   /** Render without internal card wrapper (when parent provides the card) */
   cardless?: boolean;
   
+  /** Hide the "Goal Progress" header row */
+  hideHeader?: boolean;
+  
+  /** Hide the Day option from timeframe toggle */
+  hideDay?: boolean;
+  
   className?: string;
 }
 
