@@ -124,10 +124,7 @@ export const usePendingInstalls = () => {
       if (updateError) throw updateError;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-installs'] });
-      queryClient.invalidateQueries({ queryKey: ['daily-entry'] });
-      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
-    },
+      invalidateAllSalesQueries(queryClient);
     onError: (error) => {
       console.error('Error updating sale:', error);
       toast.error('Failed to update install status');
