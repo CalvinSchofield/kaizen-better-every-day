@@ -222,9 +222,12 @@ export const MeVsMeCard = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: 0.1 }}
     >
-      <div className="flex items-center gap-2 mb-3">
-        <Calendar className="w-4 h-4 text-primary" />
-        <span className="font-semibold text-foreground">Me vs. Me</span>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-primary" />
+          <span className="font-semibold text-foreground">Me vs. Me</span>
+        </div>
+        <span className="text-[11px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">2026 vs 2025</span>
       </div>
 
       <div className="space-y-2">
