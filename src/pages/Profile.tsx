@@ -54,10 +54,6 @@ const Profile = () => {
   const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
   const { data: goalPace } = useDownlineGoalPace(isDownline ? userId : null);
 
-  if (!userId && currentUserId) {
-    return <Navigate to={`/profile/${currentUserId}`} replace />;
-  }
-
   // Set header content
   useEffect(() => {
     if (isOwnProfile) {
@@ -78,6 +74,10 @@ const Profile = () => {
       setCustomLeftContent(null);
     };
   }, [isOwnProfile]);
+
+  if (!userId && currentUserId) {
+    return <Navigate to={`/profile/${currentUserId}`} replace />;
+  }
 
   const formatDate = (dateStr: string) => {
     try {
