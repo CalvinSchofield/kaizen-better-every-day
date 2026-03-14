@@ -835,12 +835,7 @@ const Goals = () => {
           transition={{ duration: 0.4 }}
         >
             <GoalHeroRing
-            pendingPipeline={pendingSales.reduce((sum, sale) => {
-              if (efpModeEnabled) return sum + (Number(sale.prmr) || 0) / 85;
-              if (sale.type === 'fp') return sum + 1;
-              if (sale.type === 'upgrade') return sum + (Number(sale.prmr) || 0) / 85;
-              return sum;
-            }, 0)}
+            pendingPipeline={unifiedPaceData.season.pending}
             activeTier={activeTier}
             fpGoal={activeGoalData.goal}
             currentProgress={currentProgress}

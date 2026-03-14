@@ -253,12 +253,24 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
       if (entry.entry_date < periodStart || entry.entry_date > periodEnd) continue;
       
       if (entry.is_finalized) {
-        if (input.efpModeEnabled) {
-          actual += (entry.prmr || 0) * input.conversionFactor / (input.conversionFactor || 1);
-          // Simplified: use prmr / 85 for EFP
-          actual = 0; // Reset, recalculate properly
-        }
+        // Use column values for actual (these already exclude pending/never_installed)
         actual += input.efpModeEnabled ? (entry.prmr || 0) / 85 : (entry.fp_plus || 0);
+        
+        // Also scan finalized entries' sales_log for pending sales
+        const salesLog = entry.sales_log;
+        if (Array.isArray(salesLog)) {
+          for (const sale of salesLog) {
+            if (sale.install_status === 'pending') {
+              const salePrmr = Number(sale.prmr) || 0;
+              if (input.efpModeEnabled) {
+                pending += salePrmr / 85;
+              } else {
+                if (sale.type === 'fp') pending += 1;
+                else if (sale.type === 'upgrade') pending += salePrmr / 85;
+              }
+            }
+          }
+        }
       } else {
         // Unfinalized - calculate from sales_log
         const salesLog = entry.sales_log;
@@ -312,10 +324,10 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     };
   };
 
-  // Day - calculate today's pending from sales_log
+  // Day - calculate today's pending from sales_log (finalized or unfinalized)
   let todayPending = 0;
   const todayEntryData = input.entries.find(e => e.entry_date === todayStr);
-  if (todayEntryData && !todayEntryData.is_finalized && Array.isArray(todayEntryData.sales_log)) {
+  if (todayEntryData && Array.isArray(todayEntryData.sales_log)) {
     for (const sale of todayEntryData.sales_log) {
       if (sale.install_status === 'pending') {
         const salePrmr = Number(sale.prmr) || 0;
