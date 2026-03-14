@@ -83,90 +83,74 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   const effectiveRemainingDays = remainingDaysThisWeek;
 
   // Build self-competition nudge line
-  const getSelfCompetitionLine = (): { text: string; isAhead: boolean } | null => {
-    // Priority 1: Historical year-over-year (MeVsMe)
-    if (meVsMeEnabled && hasHistoricalData && historicalData) {
-      const d = historicalData.delta;
-      let deltaValue: number;
-      let label: string;
+  // Build a candidate nudge from a delta object
+  const buildNudge = (
+    delta: { fpPlus: number; prmr: number; presentations: number; doors: number },
+    suffix: string,
+  ): { text: string; isAhead: boolean; deltaValue: number } | null => {
+    const label = efpModeEnabled ? 'EFP' : 'FP+';
+    const primaryDelta = efpModeEnabled ? delta.prmr / 85 : delta.fpPlus;
 
-      if (efpModeEnabled) {
-        deltaValue = d.prmr / 85;
-        label = 'EFP';
-      } else {
-        deltaValue = d.fpPlus;
-        label = 'FP+';
-      }
-
-      if (Math.abs(deltaValue) >= 0.1) {
-        const formatted = Math.abs(Math.round(deltaValue * 10) / 10);
-        const isAhead = deltaValue > 0;
-        return {
-          text: isAhead
-            ? `+${formatted} ${label} vs same week ${comparisonYear}`
-            : `${formatted} ${label} behind same week ${comparisonYear}`,
-          isAhead,
-        };
-      }
-
-      // Fall back to other metrics from historical
-      if (d.presentations !== 0) {
-        const abs = Math.abs(d.presentations);
-        return {
-          text: d.presentations > 0
-            ? `+${abs} presentation${abs !== 1 ? 's' : ''} vs same week ${comparisonYear}`
-            : `${abs} presentation${abs !== 1 ? 's' : ''} behind same week ${comparisonYear}`,
-          isAhead: d.presentations > 0,
-        };
-      }
-      if (d.doors !== 0) {
-        const abs = Math.abs(d.doors);
-        return {
-          text: d.doors > 0
-            ? `+${abs} door${abs !== 1 ? 's' : ''} vs same week ${comparisonYear}`
-            : `${abs} door${abs !== 1 ? 's' : ''} behind same week ${comparisonYear}`,
-          isAhead: d.doors > 0,
-        };
-      }
+    if (Math.abs(primaryDelta) >= 0.1) {
+      const formatted = Math.abs(Math.round(primaryDelta * 10) / 10);
+      return {
+        text: primaryDelta > 0
+          ? `+${formatted} ${label} vs ${suffix}`
+          : `${formatted} ${label} behind ${suffix}`,
+        isAhead: primaryDelta > 0,
+        deltaValue: primaryDelta,
+      };
     }
-
-    // Priority 2: Week-over-week self-competition
-    if (weeklyData?.hasLastWeek) {
-      const d = weeklyData.delta;
-      let deltaValue: number;
-      let label: string;
-
-      if (efpModeEnabled) {
-        deltaValue = d.prmr / 85;
-        label = 'EFP';
-      } else {
-        deltaValue = d.fpPlus;
-        label = 'FP+';
-      }
-
-      if (Math.abs(deltaValue) >= 0.1) {
-        const formatted = Math.abs(Math.round(deltaValue * 10) / 10);
-        const isAhead = deltaValue > 0;
-        return {
-          text: isAhead
-            ? `+${formatted} ${label} vs last week`
-            : `${formatted} ${label} behind last week`,
-          isAhead,
-        };
-      }
-
-      if (d.doors !== 0) {
-        const abs = Math.abs(d.doors);
-        return {
-          text: d.doors > 0
-            ? `+${abs} door${abs !== 1 ? 's' : ''} vs last week`
-            : `${abs} door${abs !== 1 ? 's' : ''} behind last week`,
-          isAhead: d.doors > 0,
-        };
-      }
+    if (delta.presentations !== 0) {
+      const abs = Math.abs(delta.presentations);
+      return {
+        text: delta.presentations > 0
+          ? `+${abs} presentation${abs !== 1 ? 's' : ''} vs ${suffix}`
+          : `${abs} presentation${abs !== 1 ? 's' : ''} behind ${suffix}`,
+        isAhead: delta.presentations > 0,
+        deltaValue: delta.presentations,
+      };
     }
-
+    if (delta.doors !== 0) {
+      const abs = Math.abs(delta.doors);
+      return {
+        text: delta.doors > 0
+          ? `+${abs} door${abs !== 1 ? 's' : ''} vs ${suffix}`
+          : `${abs} door${abs !== 1 ? 's' : ''} behind ${suffix}`,
+        isAhead: delta.doors > 0,
+        deltaValue: delta.doors,
+      };
+    }
     return null;
+  };
+
+  const getSelfCompetitionLine = (): { text: string; isAhead: boolean } | null => {
+    const hasYoY = meVsMeEnabled && hasHistoricalData && historicalData;
+    const hasWoW = weeklyData?.hasLastWeek;
+
+    const yoyNudge = hasYoY ? buildNudge(historicalData!.delta, `same week ${comparisonYear}`) : null;
+    const wowNudge = hasWoW ? buildNudge(weeklyData!.delta, 'last week') : null;
+
+    // Only one available — use it
+    if (yoyNudge && !wowNudge) return yoyNudge;
+    if (wowNudge && !yoyNudge) return wowNudge;
+    if (!yoyNudge && !wowNudge) return null;
+
+    // Both available — coach picks the most motivating
+    const yoy = yoyNudge!;
+    const wow = wowNudge!;
+
+    // If one is ahead and the other behind → show the positive one (momentum!)
+    if (yoy.isAhead && !wow.isAhead) return yoy;
+    if (wow.isAhead && !yoy.isAhead) return wow;
+
+    // Both ahead → show the bigger win (celebrate the larger lead)
+    if (yoy.isAhead && wow.isAhead) {
+      return yoy.deltaValue >= wow.deltaValue ? yoy : wow;
+    }
+
+    // Both behind → show the smaller gap (more catchable, less demoralizing)
+    return Math.abs(yoy.deltaValue) <= Math.abs(wow.deltaValue) ? yoy : wow;
   };
 
   const selfComp = getSelfCompetitionLine();
