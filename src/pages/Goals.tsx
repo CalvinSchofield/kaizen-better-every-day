@@ -333,38 +333,17 @@ const Goals = () => {
   }), [unifiedPaceData]);
 
   const preseasonPaceStatus = useMemo(() => {
-    const knockingDays = workedDaysData?.knockingDays || 0;
-    if (knockingDays === 0) return undefined;
-    
-    const preseasonGoal = (goals?.preseason_fp_goal || 0) * conversionFactor;
-    if (preseasonGoal <= 0) return undefined;
-    
-    const cancelRate = goals?.cancel_rate || 0;
-    const fundedGoalNeeded = cancelRate > 0 && cancelRate < 1 
-      ? preseasonGoal / (1 - cancelRate) 
-      : preseasonGoal;
-    
-    const today = new Date();
-    const preseasonEnd = parseISO(PRESEASON_END);
-    const futurePlannedCount = plannedDays?.filter(d => {
-      const date = parseISO(d.planned_date);
-      return date > today && !isBefore(preseasonEnd, date);
-    }).length || 0;
-    
-    const totalDays = knockingDays + futurePlannedCount;
-    if (totalDays <= 0) return undefined;
-    
-    const dailyGoal = fundedGoalNeeded / totalDays;
-    const expectedFp = dailyGoal * knockingDays;
-    const paceVariance = currentProgress - expectedFp;
+    if (!unifiedPaceData.hasGoals || !unifiedPaceData.isPreseason) return undefined;
+    const elapsed = unifiedPaceData.season.plannedDaysElapsed;
+    if (elapsed === 0) return undefined;
     
     return {
-      knockingDays,
-      expectedFp,
-      actualFp: currentProgress,
-      paceVariance,
+      knockingDays: elapsed,
+      expectedFp: unifiedPaceData.season.expected,
+      actualFp: unifiedPaceData.currentProgress,
+      paceVariance: unifiedPaceData.season.paceDiff,
     };
-  }, [workedDaysData, goals, conversionFactor, plannedDays, currentProgress]);
+  }, [unifiedPaceData]);
 
   const tiers = useMemo(() => ({
     preseason: {
