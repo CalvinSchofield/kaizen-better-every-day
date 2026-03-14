@@ -426,7 +426,7 @@ const FullMode = ({
       {/* Timeframe Toggle */}
       {showTimeframeToggle && (
         <div className="flex items-center justify-center gap-1 p-1 bg-muted/40 rounded-full">
-          {(['D', 'W', 'M', 'Y'] as GoalTimeframe[]).map((tf) => (
+          {(['D', 'W', 'M', 'Y'] as GoalTimeframe[]).filter(tf => !hideDay || tf !== 'D').map((tf) => (
             <button
               key={tf}
               onClick={() => { hapticLight(); setTimeframe(tf); }}
