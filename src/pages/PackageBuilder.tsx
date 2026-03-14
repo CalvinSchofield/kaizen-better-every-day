@@ -1,9 +1,9 @@
-import { useState, useMemo, useCallback } from "react";
-import { ArrowLeft, RotateCcw } from "lucide-react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { hapticMedium } from "@/utils/haptics";
-import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
+import { useHeader } from "@/contexts/HeaderContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PackageTypeSelector } from "@/components/tools/package-builder/PackageTypeSelector";
