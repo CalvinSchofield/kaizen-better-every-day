@@ -354,6 +354,20 @@ export const QuickEditGoalsDrawer = ({
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Sync numbers link */}
+          {onSyncClick && (
+            <button
+              onClick={() => {
+                onOpenChange(false);
+                setTimeout(onSyncClick, 300);
+              }}
+              className="w-full mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors active:scale-95"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Sync numbers with Vivint
+            </button>
+          )}
         </div>
       </DrawerContent>
     </Drawer>
