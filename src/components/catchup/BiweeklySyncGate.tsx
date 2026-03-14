@@ -517,29 +517,40 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
           <div className="space-y-5">
             <div className="text-center">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Step {currentStepNumber} of {totalSteps}</p>
-              <h3 className="text-lg font-semibold">Days Worked</h3>
+              <h3 className="text-lg font-semibold">How many days have you knocked?</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                This helps us calculate your daily pace target
+                This is key to calculating your daily pace
               </p>
             </div>
 
+            <Card className="border-primary/20 bg-primary/5 rounded-2xl">
+              <CardContent className="pt-4">
+                <p className="text-sm text-muted-foreground">
+                  <strong>Why we ask:</strong> If you've sold {finalFp.toFixed(1)} FP+ in 10 days, your daily average is {finalFp > 0 ? (finalFp / 10).toFixed(1) : '?'}/day. 
+                  That tells us whether your goal pace is realistic and helps show if you're ahead or behind.
+                </p>
+              </CardContent>
+            </Card>
+
             <div className="space-y-3">
-              <ChoiceChip
-                selected={knockingChoice === 'tracked'}
-                label={`Use what I've tracked: ${trackedKnockingDays} days`}
-                sublabel="I know this is accurate"
-                onSelect={() => setKnockingChoice('tracked')}
-              />
+              {trackedKnockingDays > 0 && (
+                <ChoiceChip
+                  selected={knockingChoice === 'tracked'}
+                  label={`Use what I've tracked: ${trackedKnockingDays} days`}
+                  sublabel="I know this is accurate"
+                  onSelect={() => setKnockingChoice('tracked')}
+                />
+              )}
               <ChoiceChip
                 selected={knockingChoice === 'manual'}
-                label="Enter total days worked"
-                sublabel="I know the actual number"
+                label={trackedKnockingDays > 0 ? "Enter a different number" : "I know how many days"}
+                sublabel="Enter total days you've knocked doors this season"
                 onSelect={() => setKnockingChoice('manual')}
               />
               <ChoiceChip
                 selected={knockingChoice === 'unknown'}
                 label="I'm not sure"
-                sublabel="Calculate pace based on future days only"
+                sublabel="We'll calculate pace based on the days you track going forward"
                 onSelect={() => setKnockingChoice('unknown')}
                 variant="outline"
               />
@@ -554,12 +565,15 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
                 <Input
                   type="number"
                   inputMode="numeric"
-                  placeholder={`e.g., ${trackedKnockingDays}`}
+                  placeholder="e.g., 12"
                   value={knockingManual}
                   onChange={(e) => setKnockingManual(e.target.value)}
                   className="text-2xl h-14 text-center rounded-2xl"
                   autoFocus
                 />
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  Count every day you went out and knocked — even short days
+                </p>
               </motion.div>
             )}
 
@@ -568,10 +582,10 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
               >
-                <Card className="border-primary/20 bg-primary/5 rounded-2xl">
+                <Card className="rounded-2xl">
                   <CardContent className="pt-4">
                     <p className="text-sm text-muted-foreground">
-                      No problem — we'll calculate your pace based on the days you track going forward. The more days you log, the more accurate your pace gets.
+                      No worries — your daily pace will become more accurate as you track days going forward. You can always update this later from the Goals page.
                     </p>
                   </CardContent>
                 </Card>
