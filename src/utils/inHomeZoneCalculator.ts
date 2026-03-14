@@ -133,8 +133,9 @@ export function calculateInHomeZones(
     const hasPresentation = isSale || isPresentation;
     
     // PRIORITY 1: Use explicit time_to_sell_minutes for sales
-    if (isSale && indicator.timeToSellMinutes && indicator.timeToSellMinutes > 0) {
-      const duration = indicator.timeToSellMinutes;
+    const explicitDuration = isSale && indicator.timeToSellMinutes ? Number(indicator.timeToSellMinutes) : 0;
+    if (isSale && explicitDuration > 0) {
+      const duration = explicitDuration;
       const calculatedStart = new Date(indicator.timestamp.getTime() - duration * 60 * 1000);
       const clampedStart = calculatedStart < workStart ? workStart : calculatedStart;
       
