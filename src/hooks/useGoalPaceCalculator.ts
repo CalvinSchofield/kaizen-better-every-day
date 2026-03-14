@@ -357,18 +357,27 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     };
   };
 
-  // Day - calculate today's pending from sales_log (finalized or unfinalized)
+  // Day - calculate today's pending and funded from sales_log
   let todayPending = 0;
+  let todayFunded = 0;
   const todayEntryData = input.entries.find(e => e.entry_date === todayStr);
   if (todayEntryData && Array.isArray(todayEntryData.sales_log)) {
     for (const sale of todayEntryData.sales_log) {
+      if (sale.install_status === 'never_installed') continue;
+      const salePrmr = Number(sale.prmr) || 0;
       if (sale.install_status === 'pending') {
-        const salePrmr = Number(sale.prmr) || 0;
         if (input.efpModeEnabled) {
           todayPending += salePrmr / 85;
         } else {
           if (sale.type === 'fp') todayPending += 1;
           else if (sale.type === 'upgrade') todayPending += salePrmr / 85;
+        }
+      } else if (sale.install_status === 'installed' || sale.install_status === 'confirmed') {
+        if (input.efpModeEnabled) {
+          todayFunded += salePrmr / 85;
+        } else {
+          if (sale.type === 'fp') todayFunded += 1;
+          else if (sale.type === 'upgrade') todayFunded += salePrmr / 85;
         }
       }
     }
@@ -376,6 +385,7 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
 
   const day: TimeframeData = {
     actual: input.todayFP,
+    funded: todayFunded,
     live: input.todayLiveFP,
     pending: todayPending,
     expected: dailyNeeded,
