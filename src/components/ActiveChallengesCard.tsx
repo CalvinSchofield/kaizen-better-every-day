@@ -21,6 +21,7 @@ import { hapticLight } from "@/utils/haptics";
 import { supabase } from "@/integrations/supabase/client";
 import { getChallengeTypeBadge, getIncentiveTypeBadge, IncentiveTargetType } from "@/utils/competitionTypeConfig";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatFP } from "@/lib/formatters";
 
 const metricLabels: Record<string, string> = {
   fp_plus: 'FP+',
