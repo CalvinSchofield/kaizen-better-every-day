@@ -33,9 +33,8 @@ export const DailyFocusCard = ({ repData, heroMode = false }: DailyFocusCardProp
   const { toast } = useToast();
   const { entry } = useDailyEntry();
   const { goals, hasGoalsAccess, isLoading: goalsLoading } = useRepGoals();
-  const { plannedDays } = usePlannedDays();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
-  const { totalFP, totalPRMR, knockingDays } = usePreseasonFP();
+  const goalPaceData = useGoalPaceCalculator();
   const [isEditing, setIsEditing] = useState(false);
   const [useManualGoals, setUseManualGoals] = useState(false);
   const isRookie = repData?.year === "Rookie";
