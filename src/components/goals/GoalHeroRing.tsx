@@ -21,6 +21,7 @@ interface GoalHeroRingProps {
   weeksWorking: number;
   efpMode?: boolean;
   onTierChange: (tier: GoalTier) => void;
+  onEarningsClick?: () => void;
   tiers: {
     preseason: { goal: number; complete: boolean };
     mustDo: { goal: number; complete: boolean };
@@ -70,6 +71,7 @@ export const GoalHeroRing = ({
   weeksWorking,
   efpMode = false,
   onTierChange,
+  onEarningsClick,
   tiers,
   dailyGoal = 0,
   todayProgress = 0,
@@ -287,12 +289,14 @@ export const GoalHeroRing = ({
       </div>
 
       {/* Earnings Badge */}
-      <motion.div 
+      <motion.button
+        onClick={onEarningsClick}
         className={cn(
           "mt-4 px-5 py-2.5 rounded-2xl backdrop-blur-sm",
           "bg-gradient-to-r from-card/80 to-card/60",
           "border border-border/50",
           "shadow-lg",
+          "active:scale-95 transition-transform",
           config.glowColor
         )}
         initial={{ y: 10, opacity: 0 }}
@@ -307,7 +311,7 @@ export const GoalHeroRing = ({
           )}>
             <Icon className="h-4 w-4" />
           </div>
-          <div>
+          <div className="text-left">
             <p className="text-2xl font-bold tracking-tight">
               {formatCurrency(displayedPay)}
             </p>
@@ -316,7 +320,7 @@ export const GoalHeroRing = ({
             </p>
           </div>
         </div>
-      </motion.div>
+      </motion.button>
 
       
       {/* Show CTA to plan days when no days are planned */}

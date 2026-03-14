@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,8 +36,13 @@ const SUMMER_START = '2026-04-12';
 const EXTENSION_START = '2026-08-30';
 const SEASON_END = '2026-09-27';
 
-export const EarningsBreakdownCard = () => {
+export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean }) => {
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Open when triggered externally
+  useEffect(() => {
+    if (externalOpen) setIsOpen(true);
+  }, [externalOpen]);
   const [mode, setMode] = useState<EarningsMode>('current');
   const [modelFpGoal, setModelFpGoal] = useState<number | null>(null);
   const [isSpendingSheetOpen, setIsSpendingSheetOpen] = useState(false);

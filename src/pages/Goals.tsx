@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -99,6 +99,8 @@ const Goals = () => {
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
   const [showCancelRateDrawer, setShowCancelRateDrawer] = useState(false);
+  const [earningsOpenTrigger, setEarningsOpenTrigger] = useState(0);
+  const earningsRef = useRef<HTMLDivElement>(null);
   const { data: effectiveFPData } = useEffectiveFP({
     seasonType: 'preseason',
     seasonStartDate: PRESEASON_START,
@@ -866,6 +868,12 @@ const Goals = () => {
             isRookie={isRookie}
             weekInSummer={benchmarks?.weekInSummer}
             learningCurveMessage={enhancedPaceContext?.learningCurveMessage}
+            onEarningsClick={() => {
+              setEarningsOpenTrigger(prev => prev + 1);
+              setTimeout(() => {
+                earningsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 100);
+            }}
           />
         </motion.div>
 
@@ -899,8 +907,8 @@ const Goals = () => {
           />
         </div>
 
-        <div className="px-4 pb-4">
-          <EarningsBreakdownCard />
+        <div className="px-4 pb-4" ref={earningsRef}>
+          <EarningsBreakdownCard externalOpen={earningsOpenTrigger > 0 ? true : undefined} key={earningsOpenTrigger} />
         </div>
 
         <div className="px-4 pb-4">
