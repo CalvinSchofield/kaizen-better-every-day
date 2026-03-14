@@ -445,7 +445,8 @@ export function buildRingSegments(
   });
   
   // Minimum arc sizes for visibility
-  const MIN_PRESENTATION_DEGREES = 10; // Presentations/sales need to be clearly visible
+  const MIN_SALE_DEGREES = 14; // Sales must be clearly visible with $ icon
+  const MIN_PRESENTATION_DEGREES = 10; // Presentations need to be visible
   const TRANSITION_MARKER_DEGREES = 3; // Transitions are thin markers
   
   // Add in-home zones with proper type differentiation
