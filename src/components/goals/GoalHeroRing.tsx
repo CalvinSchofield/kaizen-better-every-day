@@ -159,9 +159,6 @@ export const GoalHeroRing = ({
   const showFunded = fundedProgress !== undefined && fundedProgress < currentProgress;
   const fundedPercent = showFunded && fpGoal > 0 ? Math.min((fundedProgress / fpGoal) * 100, 100) : 0;
   const fundedDashoffset = toDashOffset(fundedPercent);
-  
-  // Determine if funded arc needs a flat end (when live or unfunded extends beyond it)
-  const hasSegmentAfterFunded = showFunded || liveFP > 0;
 
   // Available tiers (only show tiers with goals > 0, hide preseason after user's summer starts)
   const availableTiers = useMemo(() => {
@@ -245,7 +242,7 @@ export const GoalHeroRing = ({
               fill="none"
               stroke={showFunded ? "hsl(var(--primary))" : isComplete ? "hsl(var(--success))" : "url(#progressGradient)"}
               strokeWidth={strokeWidth}
-              strokeLinecap={hasSegmentAfterFunded ? "butt" : "round"}
+              strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={totalDashoffset}
               className="transition-all duration-700 ease-out"
@@ -261,7 +258,7 @@ export const GoalHeroRing = ({
               fill="none"
               stroke="hsl(var(--success))"
               strokeWidth={strokeWidth}
-              strokeLinecap="butt"
+              strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={fundedDashoffset}
               className="transition-all duration-700 ease-out"
