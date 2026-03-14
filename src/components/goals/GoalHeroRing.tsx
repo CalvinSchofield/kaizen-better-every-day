@@ -55,6 +55,9 @@ interface GoalHeroRingProps {
   isRookie?: boolean;
   weekInSummer?: number;
   learningCurveMessage?: string;
+  // Expected progress marker
+  expectedPercent?: number;
+  showExpectedMarker?: boolean;
 }
 
 const tierConfig = GOAL_TIER_CONFIG;
