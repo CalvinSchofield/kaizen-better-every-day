@@ -29,6 +29,7 @@ interface QuickEditGoalsDrawerProps {
   personalSummerStart?: string | null;
   personalSummerEnd?: string | null;
   repId?: string;
+  onSyncClick?: () => void;
   onSave: (goals: {
     preseason_fp_goal: number;
     must_do_fp_goal: number;
