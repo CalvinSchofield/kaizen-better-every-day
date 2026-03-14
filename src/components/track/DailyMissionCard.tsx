@@ -1,10 +1,17 @@
 import { Card } from "@/components/ui/card";
-import { Target, TrendingUp, AlertTriangle } from "lucide-react";
+import { Target, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
 import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 import { useRepData } from "@/hooks/useRepData";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatFP } from "@/lib/formatters";
+import { useHistoricalComparison } from "@/hooks/useHistoricalComparison";
+import { useWeeklyComparison } from "@/hooks/useWeeklyComparison";
+import { useMeVsMe } from "@/hooks/useMeVsMe";
+import { useEfpMode } from "@/hooks/useEfpMode";
+import { getSeasonInfo } from "@/utils/seasonWeekUtils";
+import { startOfWeek } from "date-fns";
+import { useMemo } from "react";
 
 interface DailyMissionCardProps {
   className?: string;
@@ -14,8 +21,24 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   const navigate = useNavigate();
   const { repData } = useRepData();
   const data = useGoalPaceCalculator();
+  const { isEnabled: meVsMeEnabled } = useMeVsMe();
+  const { efpModeEnabled } = useEfpMode();
+  const { comparisonData: weeklyData } = useWeeklyComparison();
 
   const isRookie = repData?.year === 'Rookie';
+
+  // Historical comparison setup
+  const now = useMemo(() => new Date(), []);
+  const weekStart = useMemo(() => startOfWeek(now, { weekStartsOn: 0 }), [now]);
+  const seasonInfo = useMemo(() => getSeasonInfo(now), [now]);
+  const comparisonYear = seasonInfo ? seasonInfo.year - 1 : now.getFullYear() - 1;
+
+  const { comparisonData: historicalData, hasHistoricalData } = useHistoricalComparison({
+    startDate: weekStart,
+    endDate: now,
+    comparisonYear,
+    enabled: meVsMeEnabled && !!seasonInfo,
+  });
 
   // Handle no goals setup
   if (!data.isLoading && !data.hasGoals) {
@@ -56,11 +79,97 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   // Weekly context from unified data
   const weekData = data.week;
   const remainingDaysThisWeek = Math.max(0, weekData.plannedDaysTotal - weekData.plannedDaysElapsed);
-  // Add back today if it's a planned day and not yet finalized
   const todayIsPlanned = data.day.plannedDaysTotal > 0;
-  const effectiveRemainingDays = todayIsPlanned
-    ? remainingDaysThisWeek
-    : remainingDaysThisWeek;
+  const effectiveRemainingDays = remainingDaysThisWeek;
+
+  // Build self-competition nudge line
+  const getSelfCompetitionLine = (): { text: string; isAhead: boolean } | null => {
+    // Priority 1: Historical year-over-year (MeVsMe)
+    if (meVsMeEnabled && hasHistoricalData && historicalData) {
+      const d = historicalData.delta;
+      let deltaValue: number;
+      let label: string;
+
+      if (efpModeEnabled) {
+        deltaValue = d.prmr / 85;
+        label = 'EFP';
+      } else {
+        deltaValue = d.fpPlus;
+        label = 'FP+';
+      }
+
+      if (Math.abs(deltaValue) >= 0.1) {
+        const formatted = Math.abs(Math.round(deltaValue * 10) / 10);
+        const isAhead = deltaValue > 0;
+        return {
+          text: isAhead
+            ? `+${formatted} ${label} vs same week ${comparisonYear}`
+            : `${formatted} ${label} behind same week ${comparisonYear}`,
+          isAhead,
+        };
+      }
+
+      // Fall back to other metrics from historical
+      if (d.presentations !== 0) {
+        const abs = Math.abs(d.presentations);
+        return {
+          text: d.presentations > 0
+            ? `+${abs} presentation${abs !== 1 ? 's' : ''} vs same week ${comparisonYear}`
+            : `${abs} presentation${abs !== 1 ? 's' : ''} behind same week ${comparisonYear}`,
+          isAhead: d.presentations > 0,
+        };
+      }
+      if (d.doors !== 0) {
+        const abs = Math.abs(d.doors);
+        return {
+          text: d.doors > 0
+            ? `+${abs} door${abs !== 1 ? 's' : ''} vs same week ${comparisonYear}`
+            : `${abs} door${abs !== 1 ? 's' : ''} behind same week ${comparisonYear}`,
+          isAhead: d.doors > 0,
+        };
+      }
+    }
+
+    // Priority 2: Week-over-week self-competition
+    if (weeklyData?.hasLastWeek) {
+      const d = weeklyData.delta;
+      let deltaValue: number;
+      let label: string;
+
+      if (efpModeEnabled) {
+        deltaValue = d.prmr / 85;
+        label = 'EFP';
+      } else {
+        deltaValue = d.fpPlus;
+        label = 'FP+';
+      }
+
+      if (Math.abs(deltaValue) >= 0.1) {
+        const formatted = Math.abs(Math.round(deltaValue * 10) / 10);
+        const isAhead = deltaValue > 0;
+        return {
+          text: isAhead
+            ? `+${formatted} ${label} vs last week`
+            : `${formatted} ${label} behind last week`,
+          isAhead,
+        };
+      }
+
+      if (d.doors !== 0) {
+        const abs = Math.abs(d.doors);
+        return {
+          text: d.doors > 0
+            ? `+${abs} door${abs !== 1 ? 's' : ''} vs last week`
+            : `${abs} door${abs !== 1 ? 's' : ''} behind last week`,
+          isAhead: d.doors > 0,
+        };
+      }
+    }
+
+    return null;
+  };
+
+  const selfComp = getSelfCompetitionLine();
 
   return (
     <Card className={`p-4 border-border/50 overflow-hidden ${className}`}>
@@ -117,6 +226,20 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
               over {effectiveRemainingDays} day{effectiveRemainingDays !== 1 ? 's' : ''}
             </span>
           </div>
+
+          {/* Self-competition nudge */}
+          {selfComp && (
+            <div className="flex items-center gap-1.5 mt-2">
+              {selfComp.isAhead ? (
+                <TrendingUp className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+              ) : (
+                <TrendingDown className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
+              )}
+              <span className={`text-xs font-medium ${selfComp.isAhead ? 'text-green-500' : 'text-destructive'}`}>
+                {selfComp.text}
+              </span>
+            </div>
+          )}
         </div>
       )}
     </Card>
