@@ -907,8 +907,8 @@ const Goals = () => {
           />
         </div>
 
-        <div className="px-4 pb-4">
-          <EarningsBreakdownCard />
+        <div className="px-4 pb-4" ref={earningsRef}>
+          <EarningsBreakdownCard externalOpen={earningsOpenTrigger > 0 ? true : undefined} key={earningsOpenTrigger} />
         </div>
 
         <div className="px-4 pb-4">
