@@ -313,7 +313,7 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
               continue;
             }
             const salePrmr = Number(sale.prmr) || 0;
-            const isFundedSale = sale.install_status === 'installed' || sale.install_status === 'confirmed';
+            const isFundedSale = sale.install_status !== 'pending' && sale.install_status !== 'never_installed';
             if (input.efpModeEnabled) {
               live += salePrmr / 85;
               if (isFundedSale) liveFunded += salePrmr / 85;
