@@ -420,7 +420,7 @@ export const GoalHeroRing = ({
 
 
       {/* Funded vs Unfunded legend (+ pending when applicable) */}
-      {(showFunded || (pendingPipeline > 0 && !isComplete)) && (
+      {(showFunded || liveFP > 0 || (pendingPipeline > 0 && !isComplete)) && (
         <div className="flex flex-col items-center gap-2 mt-4">
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             {showFunded && (
@@ -434,6 +434,12 @@ export const GoalHeroRing = ({
                   {(currentProgress - (fundedProgress || 0)).toFixed(1)} unfunded
                 </span>
               </>
+            )}
+            {liveFP > 0 && !isComplete && (
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-success animate-pulse" />
+                {liveFP.toFixed(1)} live
+              </span>
             )}
             {pendingPipeline > 0 && !isComplete && (
               <span className="flex items-center gap-1.5">
