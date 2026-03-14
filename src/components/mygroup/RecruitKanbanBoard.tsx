@@ -329,26 +329,39 @@ export const RecruitKanbanBoard = ({ recruits, activities, summerActiveMap }: Re
           </div>
         </div>
         <div className="space-y-2 min-h-[200px]">
-          {stageRecruits.map((recruit) => (
+          {stageRecruits.map((recruit) => {
+            const summerData = summerActiveMap?.get(recruit.id);
+            const isSummerActive = !!summerData;
+            
+            return (
             <Card
               key={recruit.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className={cn(
+                "cursor-pointer hover:shadow-md transition-shadow",
+                isSummerActive && "border-l-4 border-l-emerald-500 bg-emerald-500/[0.03] dark:bg-emerald-500/[0.03]"
+              )}
               draggable
               onDragStart={(e) => handleDragStart(e, recruit)}
               onClick={() => handleRecruitClick(recruit)}
             >
               <CardContent className="p-3">
-                {/* Row 1: Name + Blocker icons */}
+                {/* Row 1: Name + Blocker icons or Summer badge */}
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium truncate flex-1">{recruit.name}</p>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    {getBlockers(recruit).map((blocker, idx) => (
-                      <span key={idx} className="text-amber-500">
-                        {blocker.icon === 'ipad' && <Tablet className="h-3.5 w-3.5" />}
-                        {blocker.icon === 'onboarding' && <BookOpen className="h-3.5 w-3.5" />}
-                        {blocker.icon === 'ramp' && <Target className="h-3.5 w-3.5" />}
-                      </span>
-                    ))}
+                    {isSummerActive ? (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                        ☀️ Active
+                      </Badge>
+                    ) : (
+                      getBlockers(recruit).map((blocker, idx) => (
+                        <span key={idx} className="text-amber-500">
+                          {blocker.icon === 'ipad' && <Tablet className="h-3.5 w-3.5" />}
+                          {blocker.icon === 'onboarding' && <BookOpen className="h-3.5 w-3.5" />}
+                          {blocker.icon === 'ramp' && <Target className="h-3.5 w-3.5" />}
+                        </span>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -382,70 +395,101 @@ export const RecruitKanbanBoard = ({ recruits, activities, summerActiveMap }: Re
                   )}
                 </div>
 
-                {/* Row 3: Badges - follow-up, days since contact, blitz countdown */}
+                {/* Row 3: Summer stats OR Preseason badges */}
                 <div className="flex items-center gap-1.5 flex-wrap mt-2">
-                  {/* Scheduled follow-up badge */}
-                  {(() => {
-                    const followUp = getScheduledFollowUp(recruit);
-                    if (!followUp) return null;
-                    return (
+                  {isSummerActive && summerData ? (
+                    <>
+                      {/* FP+ total */}
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold">
+                        {summerData.currentFp} FP+
+                      </Badge>
+                      {/* Pace badge */}
                       <Badge 
                         variant="outline" 
-                        className={`text-[10px] px-1.5 py-0 ${followUp.isToday 
-                          ? "bg-primary/10 text-primary border-primary/30" 
-                          : "bg-blue-500/10 text-blue-600 border-blue-500/30"
-                        }`}
+                        className={cn(
+                          "text-[10px] px-1.5 py-0",
+                          summerData.paceStatus === 'ahead' && "text-emerald-600 border-emerald-500/30",
+                          summerData.paceStatus === 'on-track' && "text-blue-600 border-blue-500/30",
+                          summerData.paceStatus === 'behind' && "text-amber-600 border-amber-500/30",
+                          summerData.paceStatus === 'critical' && "text-red-600 border-red-500/30",
+                        )}
                       >
-                        <Clock className="h-2.5 w-2.5 mr-0.5" />
-                        {followUp.isToday ? 'Today' : followUp.label}
+                        {summerData.paceStatus === 'ahead' ? '🔥 Ahead' : 
+                         summerData.paceStatus === 'on-track' ? '✅ On Track' :
+                         summerData.paceStatus === 'behind' ? '⚠️ Behind' : '🚨 At Risk'}
                       </Badge>
-                    );
-                  })()}
+                      {/* Knocking days */}
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+                        {summerData.knockingDays}d worked
+                      </Badge>
+                    </>
+                  ) : (
+                    <>
+                      {/* Scheduled follow-up badge */}
+                      {(() => {
+                        const followUp = getScheduledFollowUp(recruit);
+                        if (!followUp) return null;
+                        return (
+                          <Badge 
+                            variant="outline" 
+                            className={`text-[10px] px-1.5 py-0 ${followUp.isToday 
+                              ? "bg-primary/10 text-primary border-primary/30" 
+                              : "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                            }`}
+                          >
+                            <Clock className="h-2.5 w-2.5 mr-0.5" />
+                            {followUp.isToday ? 'Today' : followUp.label}
+                          </Badge>
+                        );
+                      })()}
 
-                  {/* Days since contact */}
-                  {(() => {
-                    const days = getDaysSinceContact(recruit);
-                    if (days === null) {
-                      return (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
-                          No contact
-                        </Badge>
-                      );
-                    }
-                    const isStale = days >= 7;
-                    return (
-                      <Badge 
-                        variant="outline" 
-                        className={`text-[10px] px-1.5 py-0 ${isStale ? 'text-amber-600 border-amber-500/30' : 'text-muted-foreground'}`}
-                      >
-                        {days}d ago
-                      </Badge>
-                    );
-                  })()}
+                      {/* Days since contact */}
+                      {(() => {
+                        const days = getDaysSinceContact(recruit);
+                        if (days === null) {
+                          return (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+                              No contact
+                            </Badge>
+                          );
+                        }
+                        const isStale = days >= 7;
+                        return (
+                          <Badge 
+                            variant="outline" 
+                            className={`text-[10px] px-1.5 py-0 ${isStale ? 'text-amber-600 border-amber-500/30' : 'text-muted-foreground'}`}
+                          >
+                            {days}d ago
+                          </Badge>
+                        );
+                      })()}
 
-                  {/* Blitz countdown */}
-                  {(() => {
-                    const blitz = getUpcomingBlitz(recruit);
-                    if (!blitz) return null;
-                    return (
-                      <Badge 
-                        variant="outline" 
-                        className={`text-[10px] px-1.5 py-0 ${
-                          blitz.isUrgent 
-                            ? 'bg-red-500/10 text-red-600 border-red-500/30' 
-                            : blitz.isWarning 
-                              ? 'bg-amber-500/10 text-amber-600 border-amber-500/30'
-                              : 'bg-green-500/10 text-green-600 border-green-500/30'
-                        }`}
-                      >
-                        🎯 {blitz.daysUntil}d
-                      </Badge>
-                    );
-                  })()}
+                      {/* Blitz countdown */}
+                      {(() => {
+                        const blitz = getUpcomingBlitz(recruit);
+                        if (!blitz) return null;
+                        return (
+                          <Badge 
+                            variant="outline" 
+                            className={`text-[10px] px-1.5 py-0 ${
+                              blitz.isUrgent 
+                                ? 'bg-red-500/10 text-red-600 border-red-500/30' 
+                                : blitz.isWarning 
+                                  ? 'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                                  : 'bg-green-500/10 text-green-600 border-green-500/30'
+                            }`}
+                          >
+                            🎯 {blitz.daysUntil}d
+                          </Badge>
+                        );
+                      })()}
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
