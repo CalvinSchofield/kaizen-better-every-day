@@ -133,7 +133,8 @@ export const GoalHeroRing = ({
   // Progress calculations - center display is based on funded progress
   const fundedDisplay = fundedProgress ?? currentProgress;
   const progress = fpGoal > 0 ? Math.min((currentProgress / fpGoal) * 100, 100) : 0;
-  const totalWithPendingProgress = currentProgress + pendingPipeline;
+  const livePercent = fpGoal > 0 ? Math.min(((currentProgress + liveFP) / fpGoal) * 100, 100) : 0;
+  const totalWithPendingProgress = currentProgress + liveFP + pendingPipeline;
   const totalWithPendingPercent = fpGoal > 0 ? Math.min((totalWithPendingProgress / fpGoal) * 100, 100) : 0;
   const remaining = Math.max(fpGoal - fundedDisplay, 0);
   const isComplete = fundedDisplay >= fpGoal && fpGoal > 0;
@@ -151,12 +152,16 @@ export const GoalHeroRing = ({
   const toDashOffset = (percent: number) => circumference - (percent / 100) * circumference;
 
   const totalWithPendingDashoffset = toDashOffset(totalWithPendingPercent);
+  const liveDashoffset = toDashOffset(livePercent);
   const totalDashoffset = toDashOffset(progress);
 
   // Funded progress arc (if different from total)
   const showFunded = fundedProgress !== undefined && fundedProgress < currentProgress;
   const fundedPercent = showFunded && fpGoal > 0 ? Math.min((fundedProgress / fpGoal) * 100, 100) : 0;
   const fundedDashoffset = toDashOffset(fundedPercent);
+  
+  // Determine if funded arc needs a flat end (when live or unfunded extends beyond it)
+  const hasSegmentAfterFunded = showFunded || liveFP > 0;
 
   // Available tiers (only show tiers with goals > 0, hide preseason after user's summer starts)
   const availableTiers = useMemo(() => {
