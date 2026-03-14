@@ -296,12 +296,13 @@ export const HorizontalActivityTimeline = ({
       {salesInfo.count > 0 && (
         <div className="flex flex-wrap justify-center gap-2">
           {salesLog.filter(s => s.install_status !== 'never_installed').map((sale, idx) => (
-            <motion.div
+            <motion.button
               key={idx}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: idx * 0.1 }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30 active:scale-95 transition-transform"
+              onClick={() => onSaleChipClick?.(sale)}
             >
               <DollarSign className="w-3.5 h-3.5 text-green-500" />
               <span className="text-sm font-semibold text-green-500">
@@ -312,7 +313,7 @@ export const HorizontalActivityTimeline = ({
                   {formatTimeInTimezone(parseISO(sale.timestamp), entry.timezone)} • {sale.type === 'upgrade' ? 'UPG' : 'FP'}
                 </span>
               )}
-            </motion.div>
+            </motion.button>
           ))}
         </div>
       )}
