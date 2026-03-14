@@ -51,7 +51,7 @@ export const PendingInstallsCard = ({ className }: PendingInstallsCardProps) => 
                 Scheduled Out — Awaiting Install
               </h4>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {pendingSales.length} sale{pendingSales.length !== 1 ? 's' : ''} · {formatFP(totalPendingFP)} {metricLabel} in pipeline
+                {pendingSales.length} sale{pendingSales.length !== 1 ? 's' : ''} · {formatFP(totalPendingFP)} {metricLabel} pending
               </p>
             </div>
           </div>
