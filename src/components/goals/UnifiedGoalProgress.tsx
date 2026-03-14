@@ -580,6 +580,7 @@ const CompactMode = ({
               expected={tf !== 'D' ? tfData.expected : 0}
               severity={data.severity}
               height="h-2"
+              showExpectedMarker={data.knockingDaysCompleted >= 6}
             />
             {/* Pace badge for non-day timeframes */}
             {tf !== 'D' && tfData.expected > 0 && (
