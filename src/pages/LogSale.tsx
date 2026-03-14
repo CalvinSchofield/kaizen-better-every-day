@@ -835,6 +835,6 @@ export default function LogSale() {
           setShowCalculator(false);
         }}
       />
-    </EdgeSwipeContainer>
+    </div>
   );
 }
