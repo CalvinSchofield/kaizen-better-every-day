@@ -70,7 +70,7 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
 
   const dailyGoal = Math.round(data.dailyNeeded * 10) / 10;
   const unitLabel = data.metricLabel;
-  const seasonLabel = data.tierLabel + ' pace';
+  const seasonLabel = 'to stay on track';
 
   // Check if pace is unrealistic
   const paceThreshold = isRookie ? 2 : 3;

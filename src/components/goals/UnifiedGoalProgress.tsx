@@ -578,12 +578,9 @@ const CompactMode = ({
               severity={data.severity}
               height="h-2"
             />
-            {/* Pace diff for non-day timeframes */}
+            {/* Pace badge for non-day timeframes */}
             {tf !== 'D' && tfData.expected > 0 && (
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="text-muted-foreground">
-                  Day {tfData.plannedDaysElapsed} of {tfData.plannedDaysTotal}
-                </span>
+              <div className="flex items-center justify-end">
                 <PaceBadge paceDiff={tfData.paceDiff} severity={data.severity} />
               </div>
             )}
@@ -593,16 +590,16 @@ const CompactMode = ({
 
       {/* Mission statement */}
       {showPaceContext && data.hasGoals && data.dailyNeeded > 0 && (
-        <div className="text-[11px] pt-1 border-t border-border/30 space-y-0.5">
+        <div className="flex items-center justify-between text-[11px] pt-2 border-t border-border/30">
           <div className="flex items-center gap-1">
             <Zap className="w-3 h-3 text-primary" />
             <span className={cn("font-semibold tabular-nums", severityConfig[data.severity].text)}>
-              {formatFP(data.dailyNeeded)} {data.metricLabel}/day to hit goal
+              {formatFP(data.dailyNeeded)}/day needed
             </span>
           </div>
-          <div className="text-muted-foreground">
-            Avg <span className="font-semibold text-foreground tabular-nums">{formatFP(data.userDailyAvg)}</span>/day so far
-          </div>
+          <span className="text-muted-foreground">
+            Avg <span className="font-semibold text-foreground tabular-nums">{formatFP(data.userDailyAvg)}</span>/day
+          </span>
         </div>
       )}
     </motion.div>
