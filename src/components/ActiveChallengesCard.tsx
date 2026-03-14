@@ -67,7 +67,7 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
               style={{ width: `${redPercent}%` }}
             />
           </div>
-          <span className="text-xs font-semibold text-blue-600 w-8">{Math.round(teamBTotal)}</span>
+          <span className="text-xs font-semibold text-blue-600 w-10">{formatFP(teamBTotal)}</span>
         </div>
         {challenge.stakes && (
           <p className="text-xs text-muted-foreground text-center">🎯 {challenge.stakes}</p>
