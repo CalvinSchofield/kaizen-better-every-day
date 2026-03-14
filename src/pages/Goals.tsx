@@ -83,6 +83,7 @@ const Goals = () => {
   const { entry: todayEntry } = useDailyEntry();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { incrementRolePlays } = useSyncedWeeklyLogs();
+  const { pendingSales } = usePendingInstalls();
   const queryClient = useQueryClient();
   const { toast: toastHook } = useToast();
   
