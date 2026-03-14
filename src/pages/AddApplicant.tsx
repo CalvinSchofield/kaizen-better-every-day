@@ -336,16 +336,7 @@ export default function AddApplicant() {
   }
 
   return (
-    <EdgeSwipeContainer>
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
-        <div className="flex items-center gap-3 p-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-lg font-semibold">Add Applicant</h1>
-        </div>
-      </div>
+    <div>
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="p-6 space-y-6 max-w-md mx-auto">
