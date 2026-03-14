@@ -440,7 +440,9 @@ export const CalendarView = ({
     fpCount: 0,
     fpPrmrTotal: 0,
     upgradeCount: 0,
-    upgradePrmrTotal: 0
+    upgradePrmrTotal: 0,
+    pendingFp: 0,
+    pendingPrmr: 0,
   }), [entries, viewMode, currentDate, weekStart, weekEnd]);
 
   return (
