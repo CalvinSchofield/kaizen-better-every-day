@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Check, TrendingUp, Clock } from "lucide-react";
+import { Check, TrendingUp } from "lucide-react";
 import { formatCurrency, calculateTakeHome } from "@/utils/payscaleCalculator";
 import { calculateUpfrontPay } from "@/utils/roiCalculations";
 import { cn } from "@/lib/utils";
