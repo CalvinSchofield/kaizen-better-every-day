@@ -21,6 +21,7 @@ interface GoalHeroRingProps {
   weeksWorking: number;
   efpMode?: boolean;
   onTierChange: (tier: GoalTier) => void;
+  onEarningsClick?: () => void;
   tiers: {
     preseason: { goal: number; complete: boolean };
     mustDo: { goal: number; complete: boolean };
