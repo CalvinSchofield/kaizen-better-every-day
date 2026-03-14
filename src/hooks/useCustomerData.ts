@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sale, normalizeSale } from '@/hooks/useDailyEntry';
 import { toast } from 'sonner';
+import { invalidateAllSalesQueries } from '@/utils/invalidateSalesQueries';
 
 export interface CustomerSale extends Sale {
   entry_date: string;
