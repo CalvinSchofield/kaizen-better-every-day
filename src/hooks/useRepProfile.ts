@@ -115,8 +115,7 @@ export const useRepProfile = (userId: string | null) => {
           .from('daily_entries')
           .select('entry_date, fp_plus, prmr, sales_log, doors_knocked, presentations, transitions, upgrade_prmr')
           .eq('user_id', userId)
-          .gte('entry_date', SEASON_START)
-          .eq('is_finalized', true),
+          .gte('entry_date', SEASON_START),
       ]);
 
       const rep = repResult.data;

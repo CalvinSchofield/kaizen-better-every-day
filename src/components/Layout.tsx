@@ -30,7 +30,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   const { repData } = useRepData();
   const { isKnockingMode } = useAppMode(repData);
   const { data: teamAccess } = useTeamAccess();
-  const { customTitle, customRightContent } = useHeader();
+  const { customTitle, customRightContent, customLeftContent } = useHeader();
   
   // Collapsed nav state
   const [isNavCollapsed, setIsNavCollapsed] = useState(false);
