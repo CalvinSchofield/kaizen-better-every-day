@@ -868,17 +868,7 @@ const Goals = () => {
             isRookie={isRookie}
             weekInSummer={benchmarks?.weekInSummer}
             learningCurveMessage={enhancedPaceContext?.learningCurveMessage}
-            expectedPercent={(() => {
-              const todayStr = format(new Date(), 'yyyy-MM-dd');
-              const isPreseasonTier = activeTier === 'preseason';
-              const rangeStart = isPreseasonTier ? PRESEASON_START : (seasonConfig?.personal_summer_start || GLOBAL_SUMMER_START);
-              const rangeEnd = isPreseasonTier ? PRESEASON_END : (seasonConfig?.personal_summer_end || SUMMER_END);
-              const tierPlannedDays = (plannedDays || []).filter(d => d.planned_date >= rangeStart && d.planned_date <= rangeEnd);
-              const elapsed = tierPlannedDays.filter(d => d.planned_date <= todayStr).length;
-              const total = tierPlannedDays.length;
-              return total > 0 ? (elapsed / total) * 100 : 0;
-            })()}
-            showExpectedMarker={(benchmarks?.knockingDaysCompleted ?? 0) >= 6}
+            showExpectedMarker={false}
             onEarningsClick={() => {
               setEarningsOpenTrigger(prev => prev + 1);
               setTimeout(() => {
