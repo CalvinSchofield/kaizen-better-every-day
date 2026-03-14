@@ -60,8 +60,8 @@ export const ChallengeScoreSlider = ({
               transition={{ duration: 0.3, ease: "easeOut" }}
             />
           </div>
-          <span className="text-xs font-semibold text-blue-600 w-8">
-            {Math.round(blueTotal)}
+          <span className="text-xs font-semibold text-blue-600 w-10">
+            {formatFP(blueTotal)}
           </span>
         </div>
         {showLabels && (
