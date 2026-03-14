@@ -3,6 +3,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePendingSalesQueue } from '@/hooks/usePendingSalesQueue';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateAllSalesQueries } from '@/utils/invalidateSalesQueries';
 
 interface PendingSalesAlertProps {
   userId: string | null;

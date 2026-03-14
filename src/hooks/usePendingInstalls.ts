@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sale } from './useDailyEntry';
 import { toast } from 'sonner';
+import { invalidateAllSalesQueries } from '@/utils/invalidateSalesQueries';
 
 interface PendingSale extends Sale {
   entryId: string;
