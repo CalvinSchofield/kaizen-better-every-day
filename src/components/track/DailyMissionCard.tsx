@@ -1,16 +1,10 @@
 import { Card } from "@/components/ui/card";
 import { Target, TrendingUp, AlertTriangle } from "lucide-react";
-import { useRepGoals } from "@/hooks/useRepGoals";
-import { usePlannedDays } from "@/hooks/usePlannedDays";
-import { usePreseasonFP } from "@/hooks/usePreseasonFP";
-import { useEfpMode } from "@/hooks/useEfpMode";
-import { useFocusTier } from "@/hooks/useFocusTier";
+import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 import { useRepData } from "@/hooks/useRepData";
-import { calculateSalesPace } from "@/utils/salesPaceCalculator";
-import { format, startOfWeek, endOfWeek, parseISO } from "date-fns";
-import { useMemo } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatFP } from "@/lib/formatters";
 
 interface DailyMissionCardProps {
   className?: string;
@@ -19,74 +13,12 @@ interface DailyMissionCardProps {
 export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   const navigate = useNavigate();
   const { repData } = useRepData();
-  const { goals, isLoading: goalsLoading, hasGoalsAccess } = useRepGoals();
-  const { plannedDays, isLoading: plannedDaysLoading } = usePlannedDays();
-  const { totalFP, totalPRMR, knockingDays, isLoading: preseasonLoading } = usePreseasonFP();
-  const { efpModeEnabled, calculateEfp } = useEfpMode();
-  const { isUserSummerStarted, focusTier, focusTierGoal } = useFocusTier();
+  const data = useGoalPaceCalculator();
 
-  // Wait for ALL dependent data before calculating
-  const isDataLoading = goalsLoading || plannedDaysLoading || preseasonLoading;
-
-  // Determine if user is a rookie or vet for pace thresholds
   const isRookie = repData?.year === 'Rookie';
 
-  // Calculate pace data
-  const paceData = useMemo(() => {
-    if (!goals?.setup_complete) return null;
-
-    // Determine which tier to use based on season
-    const activeTier = isUserSummerStarted ? focusTier : 'preseason';
-
-    return calculateSalesPace({
-      goals,
-      plannedDays: plannedDays || [],
-      knockingDays,
-      currentFpPlus: totalFP,
-      currentPrmr: totalPRMR,
-      efpModeEnabled,
-      calculateEfp,
-      activeTier,
-    });
-  }, [goals, plannedDays, knockingDays, totalFP, totalPRMR, efpModeEnabled, calculateEfp, isUserSummerStarted, focusTier]);
-
-  // Calculate this week's remaining need
-  const weeklyData = useMemo(() => {
-    if (!paceData) return null;
-
-    const today = new Date();
-    const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // Sunday
-    const weekEnd = endOfWeek(today, { weekStartsOn: 0 }); // Saturday
-
-    // Count remaining planned days this week (including today)
-    const todayStr = format(today, 'yyyy-MM-dd');
-    const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
-    
-    const remainingDaysThisWeek = plannedDays?.filter(d => {
-      return d.planned_date >= todayStr && d.planned_date <= weekEndStr;
-    }).length || 0;
-
-    // Calculate what's needed this week to stay on pace
-    const weeklyNeeded = paceData.remainingDailyNeeded * remainingDaysThisWeek;
-
-    // Get week's progress so far (days already worked this week)
-    const weekStartStr = format(weekStart, 'yyyy-MM-dd');
-    const daysWorkedThisWeek = plannedDays?.filter(d => {
-      return d.planned_date >= weekStartStr && d.planned_date < todayStr;
-    }).length || 0;
-    
-    // Estimate weekly progress (we'd need daily entries to be precise, using pace estimate)
-    const estimatedWeeklyProgress = daysWorkedThisWeek * paceData.dailyGoal;
-
-    return {
-      weeklyNeeded: Math.round(weeklyNeeded * 10) / 10,
-      remainingDaysThisWeek,
-      estimatedWeeklyProgress: Math.round(estimatedWeeklyProgress * 10) / 10,
-    };
-  }, [paceData, plannedDays]);
-
   // Handle no goals setup
-  if (!isDataLoading && (!goals?.setup_complete || !hasGoalsAccess)) {
+  if (!data.isLoading && !data.hasGoals) {
     return (
       <Card 
         className={`p-4 border-border/50 bg-card/50 ${className}`}
@@ -105,7 +37,7 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
     );
   }
 
-  if (isDataLoading || !paceData) {
+  if (data.isLoading) {
     return (
       <Card className={`p-4 border-border/50 ${className}`}>
         <Skeleton className="h-20 w-full" />
@@ -113,16 +45,22 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
     );
   }
 
-  // Use catch-up pace (remaining / remaining days) to match Goals page
-  const dailyGoal = Math.round(paceData.remainingDailyNeeded * 10) / 10;
-  const unitLabel = efpModeEnabled ? 'EFP' : 'FP+';
-  const seasonLabel = isUserSummerStarted 
-    ? focusTier === 'mustDo' ? 'Must Do' : focusTier === 'willDo' ? 'Will Do' : 'Could Do'
-    : 'Preseason';
+  const dailyGoal = Math.round(data.dailyNeeded * 10) / 10;
+  const unitLabel = data.metricLabel;
+  const seasonLabel = data.tierLabel + ' pace';
 
-  // Check if pace is unrealistic (≥2 for rookies, ≥3 for vets)
+  // Check if pace is unrealistic
   const paceThreshold = isRookie ? 2 : 3;
   const isPaceUnrealistic = dailyGoal >= paceThreshold;
+
+  // Weekly context from unified data
+  const weekData = data.week;
+  const remainingDaysThisWeek = Math.max(0, weekData.plannedDaysTotal - weekData.plannedDaysElapsed);
+  // Add back today if it's a planned day and not yet finalized
+  const todayIsPlanned = data.day.plannedDaysTotal > 0;
+  const effectiveRemainingDays = todayIsPlanned
+    ? remainingDaysThisWeek
+    : remainingDaysThisWeek;
 
   return (
     <Card className={`p-4 border-border/50 overflow-hidden ${className}`}>
@@ -134,10 +72,10 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
       {/* Daily goal - Hero display */}
       <div className="text-center mb-4">
         <div className="text-4xl font-bold text-foreground mb-1">
-          {dailyGoal} {unitLabel}
+          {formatFP(dailyGoal)} {unitLabel}
         </div>
         <p className="text-sm text-muted-foreground">
-          {seasonLabel} pace
+          {seasonLabel}
         </p>
       </div>
 
@@ -154,10 +92,7 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
                 Pace looks aggressive
               </p>
               <p className="text-xs text-muted-foreground">
-                {dailyGoal >= paceThreshold 
-                  ? `Selling ${dailyGoal}+ per day is tough. Consider planning more work days or adjusting your goal.`
-                  : `Consider planning more work days to make this pace more achievable.`
-                }
+                Selling {formatFP(dailyGoal)}+ per day is tough. Consider planning more work days or adjusting your goal.
               </p>
               <p className="text-xs text-primary font-medium mt-2">
                 Tap to adjust your plan →
@@ -168,7 +103,7 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
       )}
 
       {/* Weekly context */}
-      {weeklyData && weeklyData.remainingDaysThisWeek > 0 && (
+      {effectiveRemainingDays > 0 && (
         <div className="border-t border-border/30 pt-4">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
@@ -176,10 +111,10 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-lg font-semibold text-foreground">
-              {weeklyData.weeklyNeeded} {unitLabel}
+              {formatFP(weekData.remaining)} {unitLabel}
             </span>
             <span className="text-sm text-muted-foreground">
-              over {weeklyData.remainingDaysThisWeek} day{weeklyData.remainingDaysThisWeek !== 1 ? 's' : ''}
+              over {effectiveRemainingDays} day{effectiveRemainingDays !== 1 ? 's' : ''}
             </span>
           </div>
         </div>
