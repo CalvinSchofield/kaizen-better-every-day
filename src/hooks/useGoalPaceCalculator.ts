@@ -408,6 +408,7 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     month,
     season,
     hasGoals,
+    knockingDaysCompleted: input.knockingDaysCompleted,
   };
 }
 
