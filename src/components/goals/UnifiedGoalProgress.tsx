@@ -512,8 +512,9 @@ const CompactMode = ({
   data,
   compactTimeframes = ['D', 'Y'],
   showPaceContext = true,
+  cardless = false,
   className,
-}: Pick<UnifiedGoalProgressProps, 'data' | 'compactTimeframes' | 'showPaceContext' | 'className'>) => {
+}: Pick<UnifiedGoalProgressProps, 'data' | 'compactTimeframes' | 'showPaceContext' | 'cardless' | 'className'>) => {
   const getTimeframeData = (tf: GoalTimeframe): TimeframeData => {
     switch (tf) {
       case 'D': return data.day;
