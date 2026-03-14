@@ -305,6 +305,9 @@ const FullMode = ({
                 {current.live > 0 && (
                   <span className="text-rose-500/80 font-normal"> (+{formatFP(current.live)} live)</span>
                 )}
+                {current.pending > 0 && (
+                  <span className="text-primary/60 font-normal"> (+{formatFP(current.pending)} pipeline)</span>
+                )}
               </span>
               <span className="text-muted-foreground">/ {formatFP(current.goal)} {data.metricLabel}</span>
             </div>
