@@ -47,6 +47,12 @@ interface UnifiedGoalProgressProps {
   /** Render without internal card wrapper (when parent provides the card) */
   cardless?: boolean;
   
+  /** Hide the "Goal Progress" header row */
+  hideHeader?: boolean;
+  
+  /** Hide the Day option from timeframe toggle */
+  hideDay?: boolean;
+  
   className?: string;
 }
 
@@ -254,6 +260,8 @@ const FullMode = ({
   showPaceContext = true,
   showTimeframeToggle = true,
   initialTimeframe = 'D',
+  hideHeader = false,
+  hideDay = false,
   selectedDate,
   className,
 }: Omit<UnifiedGoalProgressProps, 'mode' | 'compactTimeframes'>) => {
@@ -292,25 +300,27 @@ const FullMode = ({
       transition={{ duration: 0.3 }}
     >
       {/* Header with tier selector */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-primary/10">
-            <Target className="w-4 h-4 text-primary" />
+      {!hideHeader && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-primary/10">
+              <Target className="w-4 h-4 text-primary" />
+            </div>
+            <h4 className="text-sm font-semibold text-foreground">Goal Progress</h4>
           </div>
-          <h4 className="text-sm font-semibold text-foreground">Goal Progress</h4>
-        </div>
 
-        {showTierSelector && (
-          <button
-            onClick={() => { hapticLight(); setShowTierDrawer(true); }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-muted/50 hover:bg-muted transition-colors"
-          >
-            <TierIcon className={cn("w-3 h-3", tierConfig.color)} />
-            <span className="text-xs font-medium text-foreground">{data.tierLabel}</span>
-            <ChevronDown className="w-3 h-3 text-muted-foreground" />
-          </button>
-        )}
-      </div>
+          {showTierSelector && (
+            <button
+              onClick={() => { hapticLight(); setShowTierDrawer(true); }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-muted/50 hover:bg-muted transition-colors"
+            >
+              <TierIcon className={cn("w-3 h-3", tierConfig.color)} />
+              <span className="text-xs font-medium text-foreground">{data.tierLabel}</span>
+              <ChevronDown className="w-3 h-3 text-muted-foreground" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Progress Card */}
       <div className="p-3 rounded-xl bg-muted/30 border border-border/30 space-y-3">
@@ -416,7 +426,7 @@ const FullMode = ({
       {/* Timeframe Toggle */}
       {showTimeframeToggle && (
         <div className="flex items-center justify-center gap-1 p-1 bg-muted/40 rounded-full">
-          {(['D', 'W', 'M', 'Y'] as GoalTimeframe[]).map((tf) => (
+          {(['D', 'W', 'M', 'Y'] as GoalTimeframe[]).filter(tf => !hideDay || tf !== 'D').map((tf) => (
             <button
               key={tf}
               onClick={() => { hapticLight(); setTimeframe(tf); }}
