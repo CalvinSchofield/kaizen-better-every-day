@@ -1,50 +1,42 @@
+## Plan: Add "Expected By Now" Marker to Goal Hero Ring
 
+### The Idea
 
-## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
+Add a small tick/notch on the ring showing where progress *should* be based on elapsed planned days vs total planned days — the same concept as the dashed expected marker on the progress bars elsewhere.
 
-### The Problem
+### Edge Cases You Raised (and how to handle them)
 
-When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
+Both scenarios you described share one problem: **the user has significant progress that wasn't tracked day-by-day in the app.** The expected marker uses `plannedDaysElapsed / totalPlannedDays` to determine where you "should" be. If you bulk-synced 50 EFP but only have 12 tracked knocking days, the marker would sit very low while your progress bar is high — making it look like you're wildly ahead when really you just imported data.
 
-### Root Cause
+**Solution: Only show the marker when** `seasonKnockingDaysComplete >= 12` (i.e., at least 12 actual tracked knocking days exist). This hides it for:
 
-There are three things fighting each other:
+- New users who just synced Vivint numbers
+- Users with bulk-imported preseason data and no app-tracked history
+- Anyone where the ratio would be meaningless
 
-1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
+Once they have enough tracked days, the marker becomes meaningful.
 
-2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
+### Implementation
 
-3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+**1. GoalHeroRing.tsx** — Add two new props and render a tick mark:
 
-### The Fix
+- `expectedPercent?: number` — where the marker sits on the ring (0-100)
+- `showExpectedMarker?: boolean` — controls visibility (false when data is insufficient)
+- Render as a small white/muted line segment on the ring arc at the calculated angle, with a subtle label
 
-#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+**2. Goals.tsx** — Wire up the data:
 
-The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
+- Calculate `expectedPercent` from `unifiedPaceData.season`: `(season.plannedDaysElapsed / season.plannedDaysTotal) * 100`
+- Set `showExpectedMarker` to `true` only when `knockingDaysCompleted >= 5`
 
-#### 2. Simplify `useKeyboardViewport` hook
+### Ring Marker Design
 
-- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
-- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
-- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
-- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
+- A small perpendicular tick mark (like a notch) on the ring track at the expected angle
+- Rendered as a short line using SVG `transform: rotate()` 
+- Muted color (semi-transparent foreground) so it doesn't compete with the progress arcs
+- Subtle "Expected" micro-label nearby only if there's room
 
-#### 3. Add `@capacitor/keyboard` plugin configuration
+### Files to Edit
 
-Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
-
-### Files to Modify
-
-- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
-- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
-- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
-- **`package.json`** -- Add `@capacitor/keyboard` dependency
-
-### After Approval
-
-After these code changes, you will need to:
-1. Git pull the updated code
-2. Run `npm install` to get the new keyboard plugin
-3. Run `npx cap sync` to sync the plugin to iOS
-4. Rebuild in Xcode and push to TestFlight
-
+- `src/components/goals/GoalHeroRing.tsx` — new props + SVG tick rendering
+- `src/pages/Goals.tsx` — calculate and pass the new props
