@@ -1,47 +1,50 @@
-## Plan: Data-Driven Coaching Tips from User's Sales Data
 
-### Problem
 
-The CoachingCard currently has limited tips (start time, end time, breaks, bulk entry). It needs more insights derived from the user's actual tracked data, and fixes for two specific issues:
+## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
 
-1. When late-hour data doesn't show a lift, still encourage working late (just don't claim false stats)
-2. When hourly earnings are < $25/hr, don't highlight the low hourly wage; instead frame it as "one sale in that time could earn you $X" based on their pay tier
+### The Problem
 
-### New Data-Driven Tips to Add
+When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
 
-**Pass today's counters + salesLog into CoachingCard** so it can generate insights from actual daily data:
+### Root Cause
 
-1. **Funnel bottleneck detection** — Compare today's conversion rates against the user's own season averages:
-  - "You pitched X times but got 0 transitions — your season avg is Y%. Focus on building curiosity tomorrow."
-  - "X presentations, 0 closes — your season close rate is Y%. Review your closing approach."
-  - Fetch season averages from `daily_entries` (doors, pitches, transitions, presentations, closes aggregated).
-2. **Doors-per-hour pace** — Using doors knocked and hours worked today vs their season average doors/hr:
-  - "You averaged X doors/hr today vs your season avg of Y. Picking up the pace = more at-bats."
-  - Or positive: "Great pace today! X doors/hr, above your Y avg."
-3. **Best sales hour insight** — Analyze `sales_log` timestamps across historical entries to find the user's personal best-performing hour:
-  - "Your sales tend to happen between 5-7 PM. Make sure you're in your rhythm by then tomorrow!"
-4. **Avg PRMR per sale insight** — If today's avg PRMR/sale is notably different from season avg:
-  - "Your avg deal today was $X PRMR vs your season avg of $Y. Nice upselling!" or suggest focusing on bigger packages.
-5. **Decision maker ratio** — If DMs/doors is low compared to season avg:
-  - "Only X% DM rate today (season avg: Y%). Try to qualify better and make sure to spend time with the right people."
+There are three things fighting each other:
 
-### Fixes
+1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
 
-**Late-hour tip when data doesn't support FP lift**: Currently the code skips the tip entirely if neither FP nor presentation lift is positive. Change to always show a motivational tip — just use generic encouragement ("More time on doors = more chances. Push to 7 PM tomorrow") instead of making a false data claim.
+2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
 
-**Break tip hourly earnings < $25**: Add a branch: if `hourlyEarnings < 25`, calculate what one sale would earn at their pay tier (`avgPrmrPerSale * tier.rate`) and show "One sale could earn you ~$X — that's worth an extra 30 mins knocking!" instead of showing the low hourly rate.
+3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
 
-### Implementation
+### The Fix
 
-**File: `src/pages/Track.tsx**`
+#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
 
-- Pass additional props to CoachingCard: `doors`, `pitches`, `transitions`, `presentations`, `closes`, `salesLog`, `fp`, `prmr`
+The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
 
-**File: `src/components/activity-ring/CoachingCard.tsx**`
+#### 2. Simplify `useKeyboardViewport` hook
 
-- Accept new props in interface
-- Add a new query `season-funnel-averages` fetching aggregated season data (doors, pitches, transitions, presentations, closes, fp_plus, prmr, sales_log counts) from `daily_entries`
-- Add a new query `best-sales-hour` analyzing `sales_log` timestamps across season entries
-- Generate ~5 new tip types from the data, prioritized so only the most relevant 3-4 show
-- Fix late-hour fallback to always encourage working late
-- Fix break tip to check `hourlyEarnings < 25` and use per-sale value instead
+- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
+- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
+- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
+- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
+
+#### 3. Add `@capacitor/keyboard` plugin configuration
+
+Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
+
+### Files to Modify
+
+- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
+- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
+- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
+- **`package.json`** -- Add `@capacitor/keyboard` dependency
+
+### After Approval
+
+After these code changes, you will need to:
+1. Git pull the updated code
+2. Run `npm install` to get the new keyboard plugin
+3. Run `npx cap sync` to sync the plugin to iOS
+4. Rebuild in Xcode and push to TestFlight
+

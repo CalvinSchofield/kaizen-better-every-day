@@ -393,6 +393,14 @@ const Track = ({
             breakPeriods={entry.break_periods}
             counterTimestamps={counterTimestamps}
             dayOfWeek={new Date().getDay()}
+            doors={entry.doors_knocked ?? 0}
+            pitches={entry.pitches ?? 0}
+            transitions={entry.transitions ?? 0}
+            presentations={entry.presentations ?? 0}
+            closes={entry.closes ?? 0}
+            salesLog={salesLog}
+            fp={fp}
+            prmr={prmr}
           />
         </div>
 
