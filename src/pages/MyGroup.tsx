@@ -344,9 +344,11 @@ const MyGroup = () => {
     
     return recruitsRepData
       .filter(rep => {
-        // Only include reps who have started their summer
+        // Only include reps at Signed+ stages who have started their summer
         const config = recruitsSummerConfigData.find(c => c.user_id === rep.user_id);
-        return config?.personal_summer_start && config.personal_summer_start <= today;
+        const recruit = allRecruits.find(r => r.id === rep.id);
+        const isActiveStage = recruit && SIGNED_PLUS_STAGES.includes(recruit.stage as any);
+        return isActiveStage && config?.personal_summer_start && config.personal_summer_start <= today;
       })
       .map(rep => {
         const goals = recruitsGoalsData.find(g => g.user_id === rep.user_id);
