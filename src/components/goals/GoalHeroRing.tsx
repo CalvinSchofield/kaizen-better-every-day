@@ -65,6 +65,7 @@ const tierConfig = GOAL_TIER_CONFIG;
 
 export const GoalHeroRing = ({
   pendingPipeline = 0,
+  liveFP = 0,
   activeTier,
   fpGoal,
   currentProgress,
