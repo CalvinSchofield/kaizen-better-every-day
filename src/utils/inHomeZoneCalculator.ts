@@ -456,10 +456,11 @@ export function buildRingSegments(
     
     // For sales and presentations, ensure minimum visible arc
     if (zone.hasPresentation) {
-      if (endAngle - startAngle < MIN_PRESENTATION_DEGREES) {
+      const minDeg = zone.hasSale ? MIN_SALE_DEGREES : MIN_PRESENTATION_DEGREES;
+      if (endAngle - startAngle < minDeg) {
         const midpoint = (startAngle + endAngle) / 2;
-        startAngle = Math.max(0, midpoint - MIN_PRESENTATION_DEGREES / 2);
-        endAngle = Math.min(360, midpoint + MIN_PRESENTATION_DEGREES / 2);
+        startAngle = Math.max(0, midpoint - minDeg / 2);
+        endAngle = Math.min(360, midpoint + minDeg / 2);
       }
       
       if (zone.hasSale) {
