@@ -72,12 +72,12 @@ export const usePreseasonFP = () => {
     queryFn: async () => {
       if (!userId) return { totalFP: 0, totalPRMR: 0, totalEFP: 0, knockingDays: 0, fundedFP: 0, fundedPRMR: 0, fundedEFP: 0 };
 
-      // Query all finalized entries before summer start date
+      // Query ALL entries (finalized AND unfinalized) before summer start date
+      // This ensures sales logged via the Customers page on non-today dates are counted
       const { data: entries, error } = await supabase
         .from('daily_entries')
-        .select('fp_plus, prmr, upgrade_prmr, sales_log, doors_knocked, work_start_time, work_end_time')
+        .select('fp_plus, prmr, upgrade_prmr, sales_log, doors_knocked, work_start_time, work_end_time, is_finalized')
         .eq('user_id', userId)
-        .eq('is_finalized', true)
         .lt('entry_date', GLOBAL_SUMMER_START);
 
       if (error) {
@@ -85,8 +85,9 @@ export const usePreseasonFP = () => {
         return { totalFP: 0, totalPRMR: 0, totalEFP: 0, knockingDays: 0, fundedFP: 0, fundedPRMR: 0, fundedEFP: 0 };
       }
 
-      // Count knocking days (4+ doors with start and end time)
+      // Count knocking days (4+ doors with start and end time) - only finalized for pace accuracy
       const knockingDays = entries?.filter(entry => 
+        entry.is_finalized &&
         (entry.doors_knocked || 0) >= 4 && 
         entry.work_start_time && 
         entry.work_end_time
@@ -128,12 +129,10 @@ export const usePreseasonFP = () => {
           
           fundedFP += fundedFpCount + (fundedUpgradePrmrTotal / 85);
           fundedPRMR += fundedTotalPrmr;
-        } else {
-          // Fallback to entry-level values for legacy entries without sales_log
-          // fp_plus already includes upgrade calculation (FP+ = FP count + upgrade_prmr/85)
+        } else if (entry.is_finalized) {
+          // Fallback to entry-level values for finalized legacy entries without sales_log
+          // Only use column values from finalized entries (unfinalized without sales_log = no data)
           totalFP += entry.fp_plus || 0;
-          // IMPORTANT: prmr field IS total PRMR (already includes upgrade_prmr)
-          // upgrade_prmr is tracked separately for breakdown purposes only, NOT additive
           totalPRMR += entry.prmr || 0;
           fundedFP += entry.fp_plus || 0;
           fundedPRMR += entry.prmr || 0;

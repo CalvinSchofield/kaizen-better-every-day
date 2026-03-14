@@ -333,13 +333,15 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
   // Season
   const season = calcTimeframe(seasonStartStr, seasonEndStr, input.isPreseason ? 'Preseason' : 'Season');
   // Override season with authoritative values
+  // currentProgress now includes ALL entries (finalized + unfinalized with sales_log)
+  // todayLiveFP is already included in currentProgress, so don't add it again
   season.goal = activeGoal;
   season.actual = input.currentProgress;
-  season.live = input.todayLiveFP;
+  season.live = 0; // Already included in currentProgress
   season.expected = dailyNeeded * seasonKnockingDaysComplete;
-  season.paceDiff = (input.currentProgress + input.todayLiveFP) - season.expected;
+  season.paceDiff = input.currentProgress - season.expected;
   season.isAhead = season.paceDiff >= 0;
-  season.remaining = Math.max(0, activeGoal - input.currentProgress - input.todayLiveFP);
+  season.remaining = Math.max(0, activeGoal - input.currentProgress);
   season.plannedDaysElapsed = seasonKnockingDaysComplete;
   season.plannedDaysTotal = totalSeasonDays;
 
