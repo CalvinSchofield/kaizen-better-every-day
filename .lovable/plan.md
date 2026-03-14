@@ -1,50 +1,50 @@
 
 
-## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
+## Pending Install Reminder Notifications + UI Placement
 
-### The Problem
+### 1. Push Notifications for Pending Installs
 
-When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
+Add pending install reminder logic to the existing `check-task-reminders` edge function (or create a dedicated `check-install-reminders` edge function). Two notification windows:
 
-### Root Cause
+**9 PM local, day BEFORE scheduled install:**
+- Title: `📦 Install tomorrow: $[PRMR] [FP/UP]`
+- Body: `Scheduled for [date]. Text the customer to confirm?`
+- Actions: `💬 Text Customer` (opens SMS with customer phone if available), `📋 View Sale`
+- URL: `/customers` (opens customer detail)
 
-There are three things fighting each other:
+**9 PM local, day OF scheduled install (or overdue):**
+- Title: `📦 Was this installed? $[PRMR] [FP/UP]`
+- Body: `Scheduled for today. Confirm, reschedule, or remove.`
+- Actions: `✅ Confirm` (deep link to confirm action), `📋 Update`
+- URL: `/customers?pendingInstall=[saleId]`
 
-1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
+**Implementation:**
+- File: `supabase/functions/check-task-reminders/index.ts` — add a `is9pm` window (hour === 21, minute < 15)
+- Query `daily_entries` for sales_log containing `install_status: 'pending'` with `scheduled_install_date` equal to tomorrow (day-before reminder) or today/past (overdue reminder)
+- Use existing `sendNotification` helper and dedup via `notification_logs` with types `install_reminder_eve` and `install_reminder_due`
+- Add customer name from the sale's `customerName` field in sales_log (already stored there)
 
-2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
+**Service worker updates:**
+- File: `public/sw-custom.js` — add `install_reminder_eve` and `install_reminder_due` notification types with appropriate actions
 
-3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+### 2. UI Placement for Pending Install Card
 
-### The Fix
+The `PendingInstallAlertCard` currently only lives on home pages. During knocking season, the home page is `KnockingModeHome` which does show it, but only after 7 PM. Better placements:
 
-#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+**A. Customers page** — Add `PendingInstallAlertCard` at the top of the Customers page (always visible, no time restriction). This is the most natural place since it's where reps manage their sales. Remove the 7 PM time gate for this placement.
 
-The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
+**B. Keep on KnockingModeHome** — Already there, keep as-is (with 7 PM gate).
 
-#### 2. Simplify `useKeyboardViewport` hook
+**File changes for UI:**
+- `src/pages/Customers.tsx` — import and render `PendingInstallAlertCard` at the top of the page content, before the search/filter bar
+- `src/components/PendingInstallAlertCard.tsx` — add optional `alwaysShow` prop to bypass the 7 PM check. Customers page passes `alwaysShow={true}`, home pages keep current behavior.
 
-- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
-- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
-- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
-- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
+### 3. Summary of File Changes
 
-#### 3. Add `@capacitor/keyboard` plugin configuration
-
-Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
-
-### Files to Modify
-
-- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
-- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
-- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
-- **`package.json`** -- Add `@capacitor/keyboard` dependency
-
-### After Approval
-
-After these code changes, you will need to:
-1. Git pull the updated code
-2. Run `npm install` to get the new keyboard plugin
-3. Run `npx cap sync` to sync the plugin to iOS
-4. Rebuild in Xcode and push to TestFlight
+| File | Change |
+|------|--------|
+| `supabase/functions/check-task-reminders/index.ts` | Add 9 PM window with install reminder logic |
+| `public/sw-custom.js` | Add `install_reminder_eve` and `install_reminder_due` action types |
+| `src/components/PendingInstallAlertCard.tsx` | Add `alwaysShow` prop to bypass time gate |
+| `src/pages/Customers.tsx` | Render `PendingInstallAlertCard alwaysShow` at top |
 
