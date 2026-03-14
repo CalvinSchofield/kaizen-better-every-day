@@ -295,7 +295,9 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                 </>
               ) : (
                 <>
-                  <DrawerItem to="/track" icon={Target} label="Track" onClick={() => setOpen(false)} />
+                  {!isKnockingMode && (
+                    <DrawerItem to="/track" icon={Target} label="Track" onClick={() => setOpen(false)} />
+                  )}
                   {isKnockingMode && (
                     <DrawerItem to="/calendar" icon={Calendar} label="Calendar" onClick={() => setOpen(false)} />
                   )}

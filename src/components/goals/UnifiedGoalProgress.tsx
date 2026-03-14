@@ -78,6 +78,7 @@ const severityConfig: Record<PaceSeverity, { text: string; bg: string; border: s
 
 const SegmentedBar = ({
   finalized,
+  funded = 0,
   live,
   pending = 0,
   goal,
@@ -87,6 +88,7 @@ const SegmentedBar = ({
   showExpectedMarker = true,
 }: {
   finalized: number;
+  funded?: number;
   live: number;
   pending?: number;
   goal: number;
@@ -97,39 +99,51 @@ const SegmentedBar = ({
 }) => {
   if (goal <= 0) return null;
 
-  const finalizedPct = Math.min(100, (finalized / goal) * 100);
-  const livePct = Math.min(100 - finalizedPct, (live / goal) * 100);
-  const pendingPct = Math.min(100 - finalizedPct - livePct, (pending / goal) * 100);
+  // Split finalized into funded (green) and unfunded (blue)
+  const fundedAmount = Math.min(funded, finalized);
+  const unfundedAmount = Math.max(0, finalized - fundedAmount);
+
+  const fundedPct = Math.min(100, (fundedAmount / goal) * 100);
+  const unfundedPct = Math.min(100 - fundedPct, (unfundedAmount / goal) * 100);
+  const livePct = Math.min(100 - fundedPct - unfundedPct, (live / goal) * 100);
+  const pendingPct = Math.min(100 - fundedPct - unfundedPct - livePct, (pending / goal) * 100);
   const expectedPct = Math.min(100, (expected / goal) * 100);
 
   return (
     <div className="relative">
       <div className={cn(height, "bg-muted/50 rounded-full overflow-hidden border border-border/30")}>
-        {/* Finalized */}
+        {/* Funded (green) */}
         <motion.div
-          className="h-full absolute left-0 top-0 rounded-l-full bg-amber-400"
+          className="h-full absolute left-0 top-0 rounded-l-full bg-emerald-500"
           initial={{ width: 0 }}
-          animate={{ width: `${finalizedPct}%` }}
+          animate={{ width: `${fundedPct}%` }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
         />
-        {/* Live */}
+        {/* Unfunded (blue) */}
+        {unfundedPct > 0 && (
+          <motion.div
+            className="h-full absolute top-0 bg-primary"
+            style={{ left: `${fundedPct}%` }}
+            initial={{ width: 0 }}
+            animate={{ width: `${unfundedPct}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut', delay: 0.1 }}
+          />
+        )}
+        {/* Live (green + pulse — same as funded but animated) */}
         {livePct > 0 && (
           <motion.div
-            className="h-full absolute top-0 bg-rose-400/80"
-            style={{ left: `${finalizedPct}%` }}
+            className="h-full absolute top-0 bg-emerald-500 animate-pulse"
+            style={{ left: `${fundedPct + unfundedPct}%` }}
             initial={{ width: 0 }}
             animate={{ width: `${livePct}%` }}
             transition={{ duration: 0.5, ease: 'easeOut', delay: 0.2 }}
           />
         )}
-        {/* Pending Pipeline */}
+        {/* Pending (warning/yellow) */}
         {pendingPct > 0 && (
           <motion.div
-            className="h-full absolute top-0 rounded-r-full"
-            style={{
-              left: `${finalizedPct + livePct}%`,
-              background: 'repeating-linear-gradient(45deg, hsl(var(--primary) / 0.3), hsl(var(--primary) / 0.3) 3px, hsl(var(--primary) / 0.15) 3px, hsl(var(--primary) / 0.15) 6px)',
-            }}
+            className="h-full absolute top-0 rounded-r-full bg-warning"
+            style={{ left: `${fundedPct + unfundedPct + livePct}%` }}
             initial={{ width: 0 }}
             animate={{ width: `${pendingPct}%` }}
             transition={{ duration: 0.5, ease: 'easeOut', delay: 0.3 }}
@@ -308,10 +322,10 @@ const FullMode = ({
               <span className="font-semibold tabular-nums text-foreground">
                 {formatFP(totalProgress)}
                 {current.live > 0 && (
-                  <span className="text-rose-500/80 font-normal"> (+{formatFP(current.live)} live)</span>
+                  <span className="text-emerald-500 font-normal"> (+{formatFP(current.live)} live)</span>
                 )}
                 {current.pending > 0 && (
-                  <span className="text-primary/60 font-normal"> (+{formatFP(current.pending)} pending)</span>
+                  <span className="text-warning font-normal"> (+{formatFP(current.pending)} pending)</span>
                 )}
               </span>
               <span className="text-muted-foreground">/ {formatFP(current.goal)} {data.metricLabel}</span>
@@ -321,6 +335,7 @@ const FullMode = ({
           {/* Segmented bar */}
           <SegmentedBar
             finalized={current.actual}
+            funded={current.funded}
             live={current.live}
             pending={current.pending}
             goal={current.goal}
@@ -354,23 +369,27 @@ const FullMode = ({
           )}
 
           {/* Legend */}
-          {(current.live > 0 || current.pending > 0) && (
+          {(current.live > 0 || current.pending > 0 || current.actual > 0) && (
             <div className="flex items-center gap-4 text-[10px] text-muted-foreground pt-1">
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-amber-400" />
-                <span>Logged</span>
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Funded</span>
               </div>
+              {(current.actual - Math.min(current.funded, current.actual)) > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-primary" />
+                  <span>Unfunded</span>
+                </div>
+              )}
               {current.live > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-rose-400/80" />
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>Live</span>
                 </div>
               )}
               {current.pending > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-sm" style={{
-                    background: 'repeating-linear-gradient(45deg, hsl(var(--primary) / 0.3), hsl(var(--primary) / 0.3) 2px, hsl(var(--primary) / 0.15) 2px, hsl(var(--primary) / 0.15) 4px)',
-                  }} />
+                  <div className="w-2 h-2 rounded-full bg-warning" />
                   <span>Pending</span>
                 </div>
               )}
@@ -567,8 +586,8 @@ const CompactMode = ({
               <div className="flex items-center gap-1.5">
                 <span className={cn("font-medium tabular-nums", goalHit && "text-emerald-600 dark:text-emerald-400")}>
                   {formatFP(totalProgress)}
-                  {tfData.live > 0 && <span className="text-rose-500/80 text-xs"> +{formatFP(tfData.live)}</span>}
-                  {tfData.pending > 0 && <span className="text-primary/60 text-xs"> +{formatFP(tfData.pending)} pending</span>}
+                  {tfData.live > 0 && <span className="text-emerald-500 text-xs"> +{formatFP(tfData.live)}</span>}
+                  {tfData.pending > 0 && <span className="text-warning text-xs"> +{formatFP(tfData.pending)} pending</span>}
                 </span>
                 <span className="text-muted-foreground">/ {formatFP(tfData.goal)} {data.metricLabel}</span>
                 {goalHit && <Check className="w-3.5 h-3.5 text-emerald-500" />}
@@ -576,6 +595,7 @@ const CompactMode = ({
             </div>
             <SegmentedBar
               finalized={tfData.actual}
+              funded={tfData.funded}
               live={tfData.live}
               pending={tfData.pending}
               goal={tfData.goal}

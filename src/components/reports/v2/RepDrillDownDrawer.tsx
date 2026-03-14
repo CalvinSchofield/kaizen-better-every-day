@@ -558,7 +558,7 @@ export const RepDrillDownDrawer = ({
                   const severity: PaceSeverity = dailyNeeded <= 0 ? 'green' : userDailyAvg <= 0 ? (dailyNeeded <= 2 ? 'green' : dailyNeeded <= 4 ? 'amber' : 'red') : dailyNeeded <= userDailyAvg ? 'green' : dailyNeeded <= userDailyAvg * 1.5 ? 'amber' : 'red';
                   
                   const mkTf = (actual: number, live: number, expected: number, goal: number, daysElapsed: number, daysTotal: number, label: string): TimeframeData => ({
-                    actual, live, pending: 0, expected, goal,
+                    actual, funded: actual, live, pending: 0, expected, goal,
                     remaining: Math.max(0, goal - actual - live),
                     plannedDaysElapsed: daysElapsed,
                     plannedDaysTotal: daysTotal,
