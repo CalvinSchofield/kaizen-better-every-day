@@ -124,9 +124,7 @@ export const PreWorkingState = ({
           <SeasonGoalsPreview />
         </motion.div>
 
-        <motion.div variants={itemVariants}>
-          <MeVsMeMotivationCard />
-        </motion.div>
+
 
         <motion.div variants={itemVariants}>
           <LeaderboardMiniRow />
