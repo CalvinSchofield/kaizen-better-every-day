@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 interface NotificationRequest {
-  type: 'challenge_invite' | 'challenge_accepted' | 'challenge_declined' | 'challenge_completed' | 'incentive_created' | 'incentive_completed';
+  type: 'challenge_invite' | 'challenge_started' | 'challenge_accepted' | 'challenge_declined' | 'challenge_completed' | 'incentive_created' | 'incentive_completed' | string;
   targetUserIds: string[];
   title: string;
   body: string;
@@ -39,21 +39,22 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch push subscriptions for target users
+    let webSuccessCount = 0;
+    let webFailCount = 0;
+    let apnsSuccessCount = 0;
+    let apnsFailCount = 0;
+
+    // ========== Web Push ==========
     const { data: subscriptions, error: subError } = await supabase
       .from('push_subscriptions')
       .select('*')
       .in('user_id', targetUserIds);
 
     if (subError) {
-      console.error('[send-challenge-notification] Error fetching subscriptions:', subError);
-      throw subError;
+      console.error('[send-challenge-notification] Error fetching web subscriptions:', subError);
     }
 
-    console.log(`[send-challenge-notification] Found ${subscriptions?.length || 0} subscriptions`);
-
-    let successCount = 0;
-    let failCount = 0;
+    console.log(`[send-challenge-notification] Found ${subscriptions?.length || 0} web push subscriptions`);
 
     for (const sub of subscriptions || []) {
       try {
@@ -66,7 +67,7 @@ Deno.serve(async (req) => {
         const notificationPayload: PushPayload = {
           title,
           body,
-          url: '/leaderboard',
+          url: '/compete',
           type,
         };
 
@@ -78,37 +79,97 @@ Deno.serve(async (req) => {
         );
 
         if (result.success) {
-          successCount++;
-          console.log(`[send-challenge-notification] Sent to user ${sub.user_id}`);
-
-          // Log the notification
-          await supabase.from('notification_logs').insert({
-            user_id: sub.user_id,
-            recipient_user_id: sub.user_id,
-            notification_type: `challenge_${type}`,
-            entry_date: new Date().toISOString().split('T')[0],
-            metadata: { title, body, type },
-          });
+          webSuccessCount++;
         } else {
-          failCount++;
-          console.error(`[send-challenge-notification] Failed for user ${sub.user_id}:`, result.error);
+          webFailCount++;
+          console.error(`[send-challenge-notification] Web push failed for user ${sub.user_id}:`, result.error);
           
-          // Delete invalid subscription
           if (result.error?.includes('410') || result.error?.includes('404')) {
             await supabase.from('push_subscriptions').delete().eq('id', sub.id);
-            console.log(`[send-challenge-notification] Deleted invalid subscription ${sub.id}`);
+            console.log(`[send-challenge-notification] Deleted invalid web subscription ${sub.id}`);
           }
         }
       } catch (err) {
-        failCount++;
-        console.error(`[send-challenge-notification] Error for user ${sub.user_id}:`, err);
+        webFailCount++;
+        console.error(`[send-challenge-notification] Web push error for user ${sub.user_id}:`, err);
       }
     }
 
-    console.log(`[send-challenge-notification] Complete: ${successCount} sent, ${failCount} failed`);
+    // ========== APNs Push (native iOS) ==========
+    const apnsConfigured = Deno.env.get('APNS_TEAM_ID') && Deno.env.get('APNS_KEY_ID') && Deno.env.get('APNS_PRIVATE_KEY');
+
+    if (apnsConfigured) {
+      const { data: deviceTokens, error: tokenError } = await supabase
+        .from('apns_device_tokens')
+        .select('*')
+        .in('user_id', targetUserIds);
+
+      if (tokenError) {
+        console.error('[send-challenge-notification] Error fetching APNs tokens:', tokenError);
+      }
+
+      console.log(`[send-challenge-notification] Found ${deviceTokens?.length || 0} APNs device tokens`);
+
+      for (const token of deviceTokens || []) {
+        try {
+          const apnsResponse = await fetch(`${supabaseUrl}/functions/v1/send-apns-notification`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${serviceRoleKey}`,
+            },
+            body: JSON.stringify({
+              deviceToken: token.device_token,
+              title,
+              body,
+              url: '/compete',
+              type,
+              sound: 'default',
+            }),
+          });
+
+          if (apnsResponse.ok) {
+            apnsSuccessCount++;
+            console.log(`[send-challenge-notification] APNs sent to user ${token.user_id}`);
+          } else {
+            apnsFailCount++;
+            const errText = await apnsResponse.text();
+            console.error(`[send-challenge-notification] APNs failed for user ${token.user_id}:`, errText);
+          }
+        } catch (err) {
+          apnsFailCount++;
+          console.error(`[send-challenge-notification] APNs error for user ${token.user_id}:`, err);
+        }
+      }
+    } else {
+      console.log('[send-challenge-notification] APNs not configured, skipping native push');
+    }
+
+    // ========== Log notifications ==========
+    const totalSent = webSuccessCount + apnsSuccessCount;
+    for (const userId of targetUserIds) {
+      try {
+        await supabase.from('notification_logs').insert({
+          user_id: userId,
+          recipient_user_id: userId,
+          notification_type: `challenge_${type}`,
+          entry_date: new Date().toISOString().split('T')[0],
+          metadata: { title, body, type, webSent: webSuccessCount > 0, apnsSent: apnsSuccessCount > 0 },
+        });
+      } catch (logErr) {
+        // Non-fatal
+      }
+    }
+
+    console.log(`[send-challenge-notification] Complete: Web ${webSuccessCount}/${webSuccessCount + webFailCount}, APNs ${apnsSuccessCount}/${apnsSuccessCount + apnsFailCount}`);
 
     return new Response(
-      JSON.stringify({ success: true, sent: successCount, failed: failCount }),
+      JSON.stringify({ 
+        success: true, 
+        web: { sent: webSuccessCount, failed: webFailCount },
+        apns: { sent: apnsSuccessCount, failed: apnsFailCount },
+        totalSent,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
