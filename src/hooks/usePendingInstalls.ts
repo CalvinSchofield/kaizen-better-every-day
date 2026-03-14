@@ -18,7 +18,7 @@ const getTodayDate = () => {
   return `${year}-${month}-${day}`;
 };
 
-export const usePendingInstalls = () => {
+export const usePendingInstalls = (options?: { includeAllPending?: boolean }) => {
   const queryClient = useQueryClient();
 
   const { data: pendingSales = [], isLoading } = useQuery({
