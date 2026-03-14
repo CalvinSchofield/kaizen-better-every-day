@@ -318,17 +318,6 @@ export const GoalHeroRing = ({
         </div>
       </motion.div>
 
-      {/* Remaining daily needed - only show when pace tracking is relevant AND we have planned days */}
-      {showPaceTracking && remainingDailyNeeded !== undefined && remainingDailyNeeded > 0 && remainingDailyNeeded !== Infinity && !isComplete && (
-        <motion.p 
-          className="mt-2 text-xs text-muted-foreground"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-        >
-          Need <span className="font-semibold text-foreground">{remainingDailyNeeded.toFixed(2)}</span> {metricLabel}/day
-        </motion.p>
-      )}
       
       {/* Show CTA to plan days when no days are planned */}
       {!hasAnyPlannedDays && !isComplete && fpGoal > 0 && (
