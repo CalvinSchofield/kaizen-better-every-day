@@ -490,18 +490,18 @@ export const GoalHeroRing = ({
             {showFunded && (
               <>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-success" />
                   {fundedProgress?.toFixed(1)} funded
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-primary/40" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-primary" />
                   {(currentProgress - (fundedProgress || 0)).toFixed(1)} unfunded
                 </span>
               </>
             )}
             {pendingPipeline > 0 && !isComplete && (
               <span className="flex items-center gap-1.5">
-                <Clock className="h-2.5 w-2.5 text-primary/60" />
+                <span className="w-2.5 h-2.5 rounded-full bg-warning" />
                 {pendingPipeline.toFixed(1)} pending
               </span>
             )}
