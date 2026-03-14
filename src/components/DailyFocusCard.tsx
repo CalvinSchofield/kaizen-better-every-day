@@ -122,22 +122,20 @@ export const DailyFocusCard = ({ repData, heroMode = false }: DailyFocusCardProp
       }
     }
 
-    if (!paceResult || knockingDays < 18) {
+    if (!goalPaceData.hasGoals || goalPaceData.season.plannedDaysElapsed < 18) {
       return "Keep building momentum — progress isn't always linear.";
     }
     
-    const currentAverage = knockingDays > 0 ? paceResult.currentProgress / knockingDays : 0;
-    
     const paceContext = calculatePaceContext(
-      knockingDays,
-      paceResult.remainingDailyNeeded,
-      currentAverage,
+      goalPaceData.season.plannedDaysElapsed,
+      goalPaceData.dailyNeeded,
+      goalPaceData.userDailyAvg,
       1,
       false
     );
     
     if (paceContext === 'building-momentum' || paceContext === 'on-track') {
-      return `You're on pace for your ${paceResult.isInPreseason ? 'preseason' : 'focus'} goal!`;
+      return `You're on pace for your ${goalPaceData.isPreseason ? 'preseason' : 'focus'} goal!`;
     } else if (paceContext === 'stretch') {
       return `Push for your best days — you've got this!`;
     } else if (paceContext === 'very-ambitious') {
@@ -145,7 +143,7 @@ export const DailyFocusCard = ({ repData, heroMode = false }: DailyFocusCardProp
     }
     
     return null;
-  }, [paceResult, knockingDays, smartGoals, useManualGoals, displayValue, fpGoal]);
+  }, [goalPaceData, smartGoals, useManualGoals, displayValue, fpGoal]);
 
   // Load activity goals from localStorage on mount
   useEffect(() => {
