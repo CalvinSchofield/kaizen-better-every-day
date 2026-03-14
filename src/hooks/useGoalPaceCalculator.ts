@@ -248,6 +248,7 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     // Actual production in this period (from entries)
     let actual = 0;
     let live = 0;
+    let pending = 0;
     for (const entry of input.entries) {
       if (entry.entry_date < periodStart || entry.entry_date > periodEnd) continue;
       
@@ -264,6 +265,17 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
         if (Array.isArray(salesLog)) {
           for (const sale of salesLog) {
             if (sale.install_status === 'never_installed') continue;
+            if (sale.install_status === 'pending') {
+              // Track pending pipeline separately
+              const salePrmr = Number(sale.prmr) || 0;
+              if (input.efpModeEnabled) {
+                pending += salePrmr / 85;
+              } else {
+                if (sale.type === 'fp') pending += 1;
+                else if (sale.type === 'upgrade') pending += salePrmr / 85;
+              }
+              continue;
+            }
             const salePrmr = Number(sale.prmr) || 0;
             if (input.efpModeEnabled) {
               live += salePrmr / 85;
