@@ -256,24 +256,34 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
       if (entry.entry_date < periodStart || entry.entry_date > periodEnd) continue;
       
       if (entry.is_finalized) {
-        // Use column values for actual (these already exclude pending/never_installed)
-        actual += input.efpModeEnabled ? (entry.prmr || 0) / 85 : (entry.fp_plus || 0);
+        // Start with column values
+        let entryActual = input.efpModeEnabled ? (entry.prmr || 0) / 85 : (entry.fp_plus || 0);
         
-        // Also scan finalized entries' sales_log for pending sales
+        // Scan finalized entries' sales_log for pending sales — these need to be
+        // subtracted from actual (columns include them) and tracked separately
         const salesLog = entry.sales_log;
         if (Array.isArray(salesLog)) {
           for (const sale of salesLog) {
             if (sale.install_status === 'pending') {
               const salePrmr = Number(sale.prmr) || 0;
               if (input.efpModeEnabled) {
-                pending += salePrmr / 85;
+                const pendingVal = salePrmr / 85;
+                pending += pendingVal;
+                entryActual -= pendingVal;
               } else {
-                if (sale.type === 'fp') pending += 1;
-                else if (sale.type === 'upgrade') pending += salePrmr / 85;
+                if (sale.type === 'fp') {
+                  pending += 1;
+                  entryActual -= 1;
+                } else if (sale.type === 'upgrade') {
+                  const pendingVal = salePrmr / 85;
+                  pending += pendingVal;
+                  entryActual -= pendingVal;
+                }
               }
             }
           }
         }
+        actual += Math.max(0, entryActual);
       } else {
         // Unfinalized - calculate from sales_log
         const salesLog = entry.sales_log;
