@@ -348,16 +348,26 @@ const FullMode = ({
           )}
 
           {/* Legend */}
-          {current.live > 0 && (
+          {(current.live > 0 || current.pending > 0) && (
             <div className="flex items-center gap-4 text-[10px] text-muted-foreground pt-1">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-amber-400" />
                 <span>Logged</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-rose-400/80" />
-                <span>Live</span>
-              </div>
+              {current.live > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-rose-400/80" />
+                  <span>Live</span>
+                </div>
+              )}
+              {current.pending > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-sm" style={{
+                    background: 'repeating-linear-gradient(45deg, hsl(var(--primary) / 0.3), hsl(var(--primary) / 0.3) 2px, hsl(var(--primary) / 0.15) 2px, hsl(var(--primary) / 0.15) 4px)',
+                  }} />
+                  <span>Pipeline</span>
+                </div>
+              )}
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-0 border-t-2 border-dashed border-muted-foreground/50" />
                 <span>Expected</span>
