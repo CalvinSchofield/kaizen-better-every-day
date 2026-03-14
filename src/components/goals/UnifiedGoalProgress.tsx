@@ -326,6 +326,7 @@ const FullMode = ({
             goal={current.goal}
             expected={current.expected}
             severity={data.severity}
+            showExpectedMarker={data.knockingDaysCompleted >= 6}
           />
 
           {/* Pace diff + days context */}
