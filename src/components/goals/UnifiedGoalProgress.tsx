@@ -335,6 +335,7 @@ const FullMode = ({
           {/* Segmented bar */}
           <SegmentedBar
             finalized={current.actual}
+            funded={current.funded}
             live={current.live}
             pending={current.pending}
             goal={current.goal}
