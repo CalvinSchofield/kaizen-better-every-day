@@ -38,6 +38,11 @@ const SEASON_END = '2026-09-27';
 
 export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean }) => {
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Open when triggered externally
+  useEffect(() => {
+    if (externalOpen) setIsOpen(true);
+  }, [externalOpen]);
   const [mode, setMode] = useState<EarningsMode>('current');
   const [modelFpGoal, setModelFpGoal] = useState<number | null>(null);
   const [isSpendingSheetOpen, setIsSpendingSheetOpen] = useState(false);
