@@ -684,20 +684,8 @@ export default function AddRecruit() {
   };
 
   return (
-    <EdgeSwipeContainer>
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
-        <div className="flex items-center gap-3 p-4">
-          <Button variant="ghost" size="icon" onClick={goBack}>
-            <ChevronLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-lg font-semibold flex-1 text-center">
-            {isLeader ? 'Add Recruit' : 'Suggest a Recruit'}
-          </h1>
-          <div className="w-10" />
-        </div>
-        {!showMySuggestions && <StepIndicator currentStep={step} totalSteps={totalSteps} />}
-      </div>
+    <div>
+      {!showMySuggestions && <StepIndicator currentStep={step} totalSteps={totalSteps} />}
 
       <div className="px-4 py-6 max-w-md mx-auto">
         {/* Toggle for reps only */}
