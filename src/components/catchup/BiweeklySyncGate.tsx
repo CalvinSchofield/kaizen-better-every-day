@@ -300,9 +300,24 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
               <button
                 onClick={handleHaventSoldYet}
                 disabled={isSavingZero}
-                className="text-sm text-muted-foreground underline underline-offset-4 active:scale-95 transition-transform disabled:opacity-50"
+                className={cn(
+                  "w-full p-4 rounded-2xl text-left transition-all active:scale-[0.97]",
+                  "bg-muted/50 border-2 border-border hover:border-muted-foreground/30"
+                )}
               >
-                {isSavingZero ? 'Saving...' : "I haven't sold yet"}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">I haven't sold anything yet</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      Skip the sync — start fresh from zero
+                    </p>
+                  </div>
+                  {isSavingZero ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground flex-shrink-0" />
+                  ) : (
+                    <ArrowRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                  )}
+                </div>
               </button>
             )}
           </div>
