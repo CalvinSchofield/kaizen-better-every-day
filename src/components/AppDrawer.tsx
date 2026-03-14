@@ -400,20 +400,22 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                       </div>
                     </Link>
 
-                    {/* Goals */}
-                    <Link
-                      to="/goals"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                    >
-                      <Target className="w-5 h-5 text-primary" />
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="font-semibold text-sm">Goals</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          Set your summer goals
-                        </span>
-                      </div>
-                    </Link>
+                    {/* Goals - only show for leaders (non-leaders have it in their nav bar) */}
+                    {isLeader && (
+                      <Link
+                        to="/goals"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                      >
+                        <Target className="w-5 h-5 text-primary" />
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className="font-semibold text-sm">Goals</span>
+                          <span className="text-xs text-muted-foreground truncate">
+                            Set your summer goals
+                          </span>
+                        </div>
+                      </Link>
+                    )}
 
                     {/* Team Reports link removed from knocking mode drawer - now in main nav */}
 
