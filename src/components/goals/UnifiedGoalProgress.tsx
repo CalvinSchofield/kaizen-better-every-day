@@ -567,6 +567,7 @@ const CompactMode = ({
             <SegmentedBar
               finalized={tfData.actual}
               live={tfData.live}
+              pending={tfData.pending}
               goal={tfData.goal}
               expected={tf !== 'D' ? tfData.expected : 0}
               severity={data.severity}
