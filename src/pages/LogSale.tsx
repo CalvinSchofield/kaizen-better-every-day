@@ -804,8 +804,8 @@ export default function LogSale() {
 
       {/* Fixed Bottom Action */}
       <div 
-        className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t px-4 py-4 space-y-2"
-        style={{ paddingBottom: 'calc(var(--effective-safe-area-bottom) + 1rem)' }}
+        className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t px-4 py-4 space-y-2 z-[60]"
+        style={{ paddingBottom: 'calc(var(--effective-safe-area-bottom) + 5.5rem)' }}
       >
         <Button
           onClick={handleSubmit}
