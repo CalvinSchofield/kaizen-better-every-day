@@ -14,8 +14,20 @@ interface CompetitorNudge {
   competitorValue: number;
 }
 
+interface NudgeFallback {
+  type: 'leading' | 'behind_broad' | 'weekly_rank' | 'no_activity';
+  message: string;
+  subtitle: string;
+}
+
+interface UseCompetitorNudgeResult {
+  competitor: CompetitorNudge | null;
+  fallback: NudgeFallback | null;
+  loading: boolean;
+}
+
 // Find a "catchable" competitor who is slightly ahead and still working
-export const useCompetitorNudge = () => {
+export const useCompetitorNudge = (): UseCompetitorNudgeResult => {
   const { data: todayLeaderboard, isLoading: todayLoading } = useTodayLeaderboard();
   const { data: weeklyLeaderboard, isLoading: weeklyLoading } = useWeeklyLeaderboard();
   
@@ -29,8 +41,8 @@ export const useCompetitorNudge = () => {
     staleTime: Infinity,
   });
 
-  const competitor = useMemo(() => {
-    if (!currentUserId || !todayLeaderboard) return null;
+  const result = useMemo((): { competitor: CompetitorNudge | null; fallback: NudgeFallback | null } => {
+    if (!currentUserId || !todayLeaderboard) return { competitor: null, fallback: null };
 
     const rankings = todayLeaderboard.rankings;
 
@@ -45,16 +57,14 @@ export const useCompetitorNudge = () => {
       const userEntry = ranking.find(r => r.userId === currentUserId);
       const userValue = userEntry?.value || 0;
 
-      // Find someone ahead by 1-maxGap who is working
       for (const entry of ranking) {
         if (entry.userId === currentUserId) continue;
-        if (!entry.isWorking) continue; // Must be actively working
+        if (!entry.isWorking) continue;
         
         const gap = entry.value - userValue;
-        // They're ahead by a small amount (catchable)
         if (gap > 0 && gap <= maxGap) {
           return {
-            name: entry.name.split(' ')[0], // First name only
+            name: entry.name.split(' ')[0],
             metric,
             metricLabel,
             timeframe,
@@ -67,8 +77,6 @@ export const useCompetitorNudge = () => {
       return null;
     };
 
-    // Priority order: presentations, pitches, FP+, PRMR, decision makers, doors
-    // Use different max gaps for different metrics
     const checks: Array<{
       ranking: Array<{ userId: string; name: string; value: number; isWorking?: boolean }>;
       metric: CompetitorNudge['metric'];
@@ -83,29 +91,101 @@ export const useCompetitorNudge = () => {
       { ranking: rankings.doors_knocked, metric: 'doors_knocked', label: 'door', maxGap: 3 },
     ];
 
-    // Try to find catchable competitor in today's data first
+    // Try to find catchable competitor
     for (const check of checks) {
-      const result = findCatchableInRanking(
-        check.ranking,
-        check.metric,
-        check.label,
-        'today',
-        check.maxGap
-      );
-      if (result) return result;
+      const found = findCatchableInRanking(check.ranking, check.metric, check.label, 'today', check.maxGap);
+      if (found) return { competitor: found, fallback: null };
     }
 
-    // If no daily catchable competitor, try weekly for presentations only
-    if (weeklyLeaderboard?.mostPresentations) {
-      // Weekly leaderboard structure is different - just check if someone is working
-      // For now, we prioritize daily comparisons
+    // No catchable competitor — build motivational fallback
+    // Check if user is leading in any metric today
+    const leadingMetrics: Array<{ metric: string; label: string; ranking: typeof rankings.doors_knocked }> = [
+      { metric: 'doors_knocked', label: 'doors', ranking: rankings.doors_knocked },
+      { metric: 'presentations', label: 'presentations', ranking: rankings.presentations },
+      { metric: 'fp_plus', label: 'FP+', ranking: rankings.fp_plus },
+      { metric: 'pitches', label: 'pitches', ranking: rankings.pitches },
+    ];
+
+    for (const { label, ranking } of leadingMetrics) {
+      if (ranking.length > 0 && ranking[0].userId === currentUserId) {
+        return {
+          competitor: null,
+          fallback: {
+            type: 'leading',
+            message: `You're #1 in ${label} today — keep it up!`,
+            subtitle: 'Defend your lead →',
+          },
+        };
+      }
     }
 
-    return null;
+    // Check if someone is ahead (but not catchable) — surface the leader
+    for (const { label, ranking } of leadingMetrics) {
+      if (ranking.length > 0 && ranking[0].userId !== currentUserId) {
+        const leader = ranking[0];
+        const firstName = leader.name.split(' ')[0];
+        return {
+          competitor: null,
+          fallback: {
+            type: 'behind_broad',
+            message: `${firstName} has ${leader.value} ${label} today`,
+            subtitle: 'Get out there and close the gap →',
+          },
+        };
+      }
+    }
+
+    // No daily activity at all — try weekly context
+    if (weeklyLeaderboard) {
+      const weeklyChecks = [
+        { entry: weeklyLeaderboard.mostFP, label: 'FP+' },
+        { entry: weeklyLeaderboard.mostPresentations, label: 'presentations' },
+        { entry: weeklyLeaderboard.mostDoors, label: 'doors' },
+      ];
+
+      for (const { entry, label } of weeklyChecks) {
+        if (entry && entry.userId === currentUserId) {
+          return {
+            competitor: null,
+            fallback: {
+              type: 'weekly_rank',
+              message: `You're leading ${label} this week with ${Math.round(entry.value * 10) / 10}`,
+              subtitle: 'Keep the momentum →',
+            },
+          };
+        }
+      }
+
+      // Someone else is leading weekly
+      for (const { entry, label } of weeklyChecks) {
+        if (entry && entry.userId !== currentUserId) {
+          const firstName = entry.name.split(' ')[0];
+          return {
+            competitor: null,
+            fallback: {
+              type: 'weekly_rank',
+              message: `${firstName} leads ${label} this week with ${Math.round(entry.value * 10) / 10}`,
+              subtitle: 'See where you stand →',
+            },
+          };
+        }
+      }
+    }
+
+    // Absolute fallback — no one is working
+    return {
+      competitor: null,
+      fallback: {
+        type: 'no_activity',
+        message: 'Be the first one out there today',
+        subtitle: 'Set the pace for everyone →',
+      },
+    };
   }, [currentUserId, todayLeaderboard, weeklyLeaderboard]);
 
   return {
-    competitor,
+    competitor: result.competitor,
+    fallback: result.fallback,
     loading: todayLoading || weeklyLoading,
   };
 };

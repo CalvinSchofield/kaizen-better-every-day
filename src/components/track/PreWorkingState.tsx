@@ -8,7 +8,6 @@ import { CompetitionsPreview } from "./CompetitionsPreview";
 
 import { WeatherStrip } from "./WeatherStrip";
 import { LeaderboardMiniRow } from "./LeaderboardMiniRow";
-import { MeVsMeMotivationCard } from "@/components/MeVsMeMotivationCard";
 import { hapticMedium } from "@/utils/haptics";
 import { getCleanFirstName } from "@/utils/nameUtils";
 import { format } from "date-fns";
