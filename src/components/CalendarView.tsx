@@ -298,28 +298,61 @@ export const CalendarView = ({
 
     // For unfinalized entries, calculate FP+/PRMR from sales_log (live data)
     // For finalized entries, use the stored column values
+    // IMPORTANT: Pending sales are tracked separately so the teaser matches calendar display
     if (entry.is_finalized) {
-      // Finalized: use stored values
-      totals.fpPlus += entry.fp_plus || 0;
-      totals.prmr += entry.prmr || 0;
-      totals.upgradePrmr += entry.upgrade_prmr || 0;
+      // Finalized: check sales_log for pending amounts to subtract
+      const salesLog = entry.sales_log || [];
+      if (Array.isArray(salesLog)) {
+        let pendingFp = 0;
+        let pendingPrmr = 0;
+        for (const sale of salesLog) {
+          if (sale.install_status === 'pending') {
+            const salePrmr = Number(sale.prmr) || 0;
+            pendingPrmr += salePrmr;
+            if (sale.type === 'fp') {
+              pendingFp += 1;
+            } else if (sale.type === 'upgrade') {
+              pendingFp += salePrmr / 85;
+            }
+          }
+        }
+        totals.fpPlus += (entry.fp_plus || 0) - pendingFp;
+        totals.prmr += (entry.prmr || 0) - pendingPrmr;
+        totals.upgradePrmr += (entry.upgrade_prmr || 0);
+        totals.pendingFp += pendingFp;
+        totals.pendingPrmr += pendingPrmr;
+      } else {
+        // No sales_log, use stored values as-is (legacy entries)
+        totals.fpPlus += entry.fp_plus || 0;
+        totals.prmr += entry.prmr || 0;
+        totals.upgradePrmr += entry.upgrade_prmr || 0;
+      }
       totals.daysWorked += 1;
     } else {
       // Unfinalized: calculate from sales_log for accurate live data
       const salesLog = entry.sales_log || [];
       if (Array.isArray(salesLog)) {
         for (const sale of salesLog) {
-          // Skip cancelled/never installed sales
           if (sale.install_status === 'never_installed') continue;
           
           const salePrmr = Number(sale.prmr) || 0;
-          totals.prmr += salePrmr;
           
-          if (sale.type === 'fp') {
-            totals.fpPlus += 1;
-          } else if (sale.type === 'upgrade') {
-            totals.fpPlus += salePrmr / 85;
-            totals.upgradePrmr += salePrmr;
+          if (sale.install_status === 'pending') {
+            // Track pending separately
+            totals.pendingPrmr += salePrmr;
+            if (sale.type === 'fp') {
+              totals.pendingFp += 1;
+            } else if (sale.type === 'upgrade') {
+              totals.pendingFp += salePrmr / 85;
+            }
+          } else {
+            totals.prmr += salePrmr;
+            if (sale.type === 'fp') {
+              totals.fpPlus += 1;
+            } else if (sale.type === 'upgrade') {
+              totals.fpPlus += salePrmr / 85;
+              totals.upgradePrmr += salePrmr;
+            }
           }
         }
       }
@@ -337,14 +370,13 @@ export const CalendarView = ({
     totals.presentations += entry.presentations || 0;
     totals.closes += entry.closes || 0;
 
-    // Parse sales_log to get FP count and PRMR breakdown (only funded sales)
-    const salesLog = entry.sales_log || [];
-    const fundedSales = Array.isArray(salesLog) 
-      ? salesLog.filter((sale: any) => sale.install_status !== 'cancelled' && sale.install_status !== 'never_installed')
+    // Parse sales_log to get FP count and PRMR breakdown (only funded, non-pending sales)
+    const salesLogForBreakdown = entry.sales_log || [];
+    const fundedSales = Array.isArray(salesLogForBreakdown) 
+      ? salesLogForBreakdown.filter((sale: any) => sale.install_status !== 'cancelled' && sale.install_status !== 'never_installed' && sale.install_status !== 'pending')
       : [];
     
     if (fundedSales.length > 0) {
-      // Use sales_log data
       fundedSales.forEach((sale: any) => {
         if (sale.type === 'fp') {
           totals.fpCount += 1;
