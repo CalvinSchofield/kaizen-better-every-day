@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Check, TrendingUp, Clock } from "lucide-react";
+import { Check, TrendingUp } from "lucide-react";
 import { formatCurrency, calculateTakeHome } from "@/utils/payscaleCalculator";
 import { calculateUpfrontPay } from "@/utils/roiCalculations";
 import { cn } from "@/lib/utils";
@@ -123,8 +123,9 @@ export const GoalHeroRing = ({
 
   // Progress calculations
   const progress = fpGoal > 0 ? Math.min((currentProgress / fpGoal) * 100, 100) : 0;
-  const pendingPercent = fpGoal > 0 ? Math.min(((currentProgress + pendingPipeline) / fpGoal) * 100, 100) - progress : 0;
-  const remaining = Math.max(fpGoal - currentProgress - pendingPipeline, 0);
+  const totalWithPendingProgress = currentProgress + pendingPipeline;
+  const totalWithPendingPercent = fpGoal > 0 ? Math.min((totalWithPendingProgress / fpGoal) * 100, 100) : 0;
+  const remaining = Math.max(fpGoal - totalWithPendingProgress, 0);
   const isComplete = currentProgress >= fpGoal && fpGoal > 0;
 
   // Today's pace calculation
@@ -137,15 +138,15 @@ export const GoalHeroRing = ({
   const strokeWidth = 14;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
-  
-  // Pending arc: starts where main progress ends
-  const pendingDashoffset = circumference - ((progress + pendingPercent) / 100) * circumference;
-  
+  const toDashOffset = (percent: number) => circumference - (percent / 100) * circumference;
+
+  const totalWithPendingDashoffset = toDashOffset(totalWithPendingPercent);
+  const totalDashoffset = toDashOffset(progress);
+
   // Funded progress arc (if different from total)
   const showFunded = fundedProgress !== undefined && fundedProgress < currentProgress;
   const fundedPercent = showFunded && fpGoal > 0 ? Math.min((fundedProgress / fpGoal) * 100, 100) : 0;
-  const fundedDashoffset = circumference - (fundedPercent / 100) * circumference;
+  const fundedDashoffset = toDashOffset(fundedPercent);
 
   // Available tiers (only show tiers with goals > 0, hide preseason after user's summer starts)
   const availableTiers = useMemo(() => {
@@ -188,14 +189,46 @@ export const GoalHeroRing = ({
             className="opacity-40"
           />
           
-          {/* Funded progress (solid green, base layer) */}
-          {showFunded && (
+          {/* Bottom layer: funded + unfunded + pending */}
+          {pendingPipeline > 0 && !isComplete && totalWithPendingPercent > 0 && (
             <circle
               cx={size / 2}
               cy={size / 2}
               r={radius}
               fill="none"
-              stroke="hsl(120 30% 45%)"
+              stroke="hsl(var(--warning))"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={totalWithPendingDashoffset}
+              className="transition-all duration-700 ease-out"
+            />
+          )}
+
+          {/* Middle layer: funded + unfunded */}
+          {progress > 0 && (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={showFunded ? "hsl(var(--primary))" : isComplete ? "hsl(var(--success))" : "url(#progressGradient)"}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={totalDashoffset}
+              className="transition-all duration-700 ease-out"
+            />
+          )}
+
+          {/* Top layer: funded only */}
+          {showFunded && fundedPercent > 0 && (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke="hsl(var(--success))"
               strokeWidth={strokeWidth}
               strokeLinecap="round"
               strokeDasharray={circumference}
@@ -203,101 +236,6 @@ export const GoalHeroRing = ({
               className="transition-all duration-700 ease-out"
             />
           )}
-          
-          {/* Unfunded segment - only the portion beyond funded */}
-          {showFunded && (() => {
-            const fundedArc = (fundedPercent / 100) * circumference;
-            const unfundedPct = progress - fundedPercent;
-            const unfundedArc = (unfundedPct / 100) * circumference;
-            const gap = circumference - fundedArc - unfundedArc;
-            if (unfundedArc <= 0) return null;
-            return (
-              <circle
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                fill="none"
-                stroke="hsl(var(--primary))"
-                strokeWidth={strokeWidth}
-                strokeLinecap="round"
-                strokeDasharray={`0 ${fundedArc} ${unfundedArc} ${gap}`}
-                strokeDashoffset={0}
-                opacity={0.5}
-                className="transition-all duration-700 ease-out"
-              />
-            );
-          })()}
-
-          {/* Main progress (only when NOT showing funded split) */}
-          {!showFunded && (
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              fill="none"
-              stroke={isComplete ? "hsl(120 50% 50%)" : "url(#progressGradient)"}
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              className="transition-all duration-700 ease-out"
-            />
-          )}
-          
-          {/* Pending progress arc - striped segment after main progress */}
-          {pendingPercent > 0 && !isComplete && (() => {
-            const mainArcLength = (progress / 100) * circumference;
-            const pendingArcLength = (pendingPercent / 100) * circumference;
-            const remainingGap = circumference - mainArcLength - pendingArcLength;
-            return (
-              <>
-                <defs>
-                  <mask id="pendingMask">
-                    {/* White = visible. Only show the pending segment */}
-                    <circle
-                      cx={size / 2}
-                      cy={size / 2}
-                      r={radius}
-                      fill="none"
-                      stroke="white"
-                      strokeWidth={strokeWidth}
-                      strokeLinecap="butt"
-                      strokeDasharray={`0 ${mainArcLength} ${pendingArcLength} ${remainingGap}`}
-                      strokeDashoffset={0}
-                    />
-                  </mask>
-                </defs>
-                {/* Striped pending arc, masked to only the pending segment */}
-                <g mask="url(#pendingMask)">
-                  {/* Solid base */}
-                  <circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    fill="none"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={strokeWidth}
-                    strokeDasharray={circumference}
-                    strokeDashoffset={0}
-                    opacity={0.3}
-                  />
-                  {/* Dashed overlay for texture */}
-                  <circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    fill="none"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={strokeWidth}
-                    strokeLinecap="butt"
-                    strokeDasharray="6 5"
-                    strokeDashoffset={0}
-                    opacity={0.6}
-                  />
-                </g>
-              </>
-            );
-          })()}
 
           {/* Gradient definition */}
           <defs>
@@ -552,18 +490,18 @@ export const GoalHeroRing = ({
             {showFunded && (
               <>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-success" />
                   {fundedProgress?.toFixed(1)} funded
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-primary/40" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-primary" />
                   {(currentProgress - (fundedProgress || 0)).toFixed(1)} unfunded
                 </span>
               </>
             )}
             {pendingPipeline > 0 && !isComplete && (
               <span className="flex items-center gap-1.5">
-                <Clock className="h-2.5 w-2.5 text-primary/60" />
+                <span className="w-2.5 h-2.5 rounded-full bg-warning" />
                 {pendingPipeline.toFixed(1)} pending
               </span>
             )}
