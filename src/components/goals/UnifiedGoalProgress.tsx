@@ -330,10 +330,7 @@ const FullMode = ({
             <span className="text-muted-foreground">{current.label}</span>
             <div className="flex items-center gap-1.5">
               <span className="font-semibold tabular-nums text-foreground">
-                {formatFP(current.actual)}
-                {current.live > 0 && (
-                  <span className="text-emerald-500 font-normal"> +{formatFP(current.live)} live</span>
-                )}
+                {formatFP(Math.min(current.funded, current.actual))}
                 {current.pending > 0 && (
                   <span className="text-warning font-normal"> +{formatFP(current.pending)} pending</span>
                 )}
