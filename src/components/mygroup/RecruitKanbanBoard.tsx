@@ -3,6 +3,7 @@ import { Recruit, RecruitActivity, useUpdateRecruitStage } from "@/hooks/useGrou
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tablet, BookOpen, Target, ChevronDown, ChevronUp, Clock, Users, Filter, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { RecruitDetailDrawer } from "./RecruitDetailDrawer";
 import { differenceInDays, parseISO, isAfter, isBefore, startOfToday, isSameDay, format } from "date-fns";
 import { toast } from "sonner";
