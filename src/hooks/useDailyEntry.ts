@@ -218,6 +218,9 @@ export const useDailyEntry = (date?: string) => {
     queryKey: ['daily-entry', entryDate],
     // PHASE 1: Instant hydration - show backup data immediately, never zeros
     initialData,
+    // CRITICAL: Mark backup as stale so we always fetch fresh server data immediately.
+    // This prevents a stale local backup from masking cross-device sales on /track.
+    initialDataUpdatedAt: initialData ? 0 : undefined,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
