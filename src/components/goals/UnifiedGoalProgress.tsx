@@ -76,6 +76,7 @@ const severityConfig: Record<PaceSeverity, { text: string; bg: string; border: s
 const SegmentedBar = ({
   finalized,
   live,
+  pending = 0,
   goal,
   expected,
   severity,
@@ -83,6 +84,7 @@ const SegmentedBar = ({
 }: {
   finalized: number;
   live: number;
+  pending?: number;
   goal: number;
   expected: number;
   severity: PaceSeverity;
@@ -92,6 +94,7 @@ const SegmentedBar = ({
 
   const finalizedPct = Math.min(100, (finalized / goal) * 100);
   const livePct = Math.min(100 - finalizedPct, (live / goal) * 100);
+  const pendingPct = Math.min(100 - finalizedPct - livePct, (pending / goal) * 100);
   const expectedPct = Math.min(100, (expected / goal) * 100);
 
   return (
@@ -112,6 +115,19 @@ const SegmentedBar = ({
             initial={{ width: 0 }}
             animate={{ width: `${livePct}%` }}
             transition={{ duration: 0.5, ease: 'easeOut', delay: 0.2 }}
+          />
+        )}
+        {/* Pending Pipeline */}
+        {pendingPct > 0 && (
+          <motion.div
+            className="h-full absolute top-0 rounded-r-full"
+            style={{
+              left: `${finalizedPct + livePct}%`,
+              background: 'repeating-linear-gradient(45deg, hsl(var(--primary) / 0.3), hsl(var(--primary) / 0.3) 3px, hsl(var(--primary) / 0.15) 3px, hsl(var(--primary) / 0.15) 6px)',
+            }}
+            initial={{ width: 0 }}
+            animate={{ width: `${pendingPct}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut', delay: 0.3 }}
           />
         )}
       </div>
