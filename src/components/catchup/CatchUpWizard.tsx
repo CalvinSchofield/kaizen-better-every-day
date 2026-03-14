@@ -251,7 +251,7 @@ export const CatchUpWizard = ({
             <div className="text-center mb-4">
               <h3 className="text-lg font-semibold">Confirm your numbers</h3>
               <p className="text-sm text-muted-foreground">
-                We'll use these as your verified {seasonType} baseline
+                We'll use these as your verified {seasonType} {isInitialSync ? 'baseline' : 'totals'}
               </p>
             </div>
             
@@ -271,17 +271,39 @@ export const CatchUpWizard = ({
                     <span className="text-xl font-semibold">{efpValue.toFixed(2)}</span>
                   </div>
                 </>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Knocking Days</span>
-                  <span className="text-xl font-semibold">{daysValue}</span>
-                </div>
-                {daysValue > 0 && (
-                  <div className="flex justify-between items-center pt-2 border-t">
-                    <span className="text-muted-foreground">Avg per Day</span>
-                    <span className="text-lg font-medium">
-                      {(fpValue / daysValue).toFixed(2)} {metricLabel}
-                    </span>
-                  </div>
+                {isInitialSync ? (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Knocking Days</span>
+                      <span className="text-xl font-semibold">{daysValue}</span>
+                    </div>
+                    {daysValue > 0 && (
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <span className="text-muted-foreground">Avg per Day</span>
+                        <span className="text-lg font-medium">
+                          {(fpValue / daysValue).toFixed(2)} {metricLabel}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <span className="text-muted-foreground">Days Tracked</span>
+                      <span className="text-xl font-semibold">{trackedKnockingDays}</span>
+                    </div>
+                    {trackedKnockingDays > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Your Pace</span>
+                        <span className="text-lg font-medium">
+                          {(fpValue / trackedKnockingDays).toFixed(2)} {metricLabel}/day
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground text-center">
+                      Days are tracked automatically from your daily entries
+                    </p>
+                  </>
                 )}
               </CardContent>
             </Card>
