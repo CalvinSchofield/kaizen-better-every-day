@@ -36,6 +36,7 @@ export type PaceSeverity = 'green' | 'amber' | 'red';
 export interface TimeframeData {
   actual: number;
   live: number;
+  pending: number;
   expected: number;
   goal: number;
   remaining: number;
