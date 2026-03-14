@@ -80,6 +80,9 @@ export interface GoalPaceData {
   // Loading state
   isLoading: boolean;
   hasGoals: boolean;
+
+  // Tracking depth — used for guardrails on expected markers
+  knockingDaysCompleted: number;
 }
 
 // =====================================================
