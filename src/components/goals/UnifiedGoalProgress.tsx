@@ -44,6 +44,9 @@ interface UnifiedGoalProgressProps {
   /** Custom selected date for day label */
   selectedDate?: Date;
   
+  /** Render without internal card wrapper (when parent provides the card) */
+  cardless?: boolean;
+  
   className?: string;
 }
 
