@@ -69,6 +69,20 @@ function getLocalDateString(timezone: string | null): string {
   }
 }
 
+function getTomorrowDateString(timezone: string | null): string {
+  const tz = timezone || "America/Chicago";
+  try {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: tz });
+    return formatter.format(tomorrow);
+  } catch {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split("T")[0];
+  }
+}
+
 async function sendNotification(
   supabase: ReturnType<typeof createClient>,
   userId: string,
