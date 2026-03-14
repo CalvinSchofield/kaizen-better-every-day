@@ -440,46 +440,50 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
 
             <Separator />
 
-            {/* Compete - Challenges & Incentives hub */}
-            {isPreBlitzRookie ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg">
-                <div className="relative">
-                  <Swords className="w-5 h-5 text-primary" />
-                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                    <Lock className="w-3 h-3 text-primary" />
+            {/* Compete - only show in drawer when NOT in knocking mode (it's in the nav bar during knocking) */}
+            {!isKnockingMode && (
+              <>
+                {isPreBlitzRookie ? (
+                  <div className="flex items-center gap-3 p-3 rounded-lg">
+                    <div className="relative">
+                      <Swords className="w-5 h-5 text-primary" />
+                      <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                        <Lock className="w-3 h-3 text-primary" />
+                      </div>
+                    </div>
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <span className="font-semibold text-sm">Compete</span>
+                      <span className="text-xs text-muted-foreground truncate">
+                        Unlocks on first blitz
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex flex-col flex-1 min-w-0">
-                  <span className="font-semibold text-sm">Compete</span>
-                  <span className="text-xs text-muted-foreground truncate">
-                    Unlocks on first blitz
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <Link
-                to="/compete"
-                onClick={() => { hapticLight(); setOpen(false); }}
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-              >
-                <Swords className="w-5 h-5 text-primary" />
-                <div className="flex flex-col flex-1 min-w-0">
-                  <span className="font-semibold text-sm flex items-center gap-2">
-                    Compete
-                    {pendingActionCount > 0 && (
-                      <Badge variant="destructive" className="h-4 min-w-4 flex items-center justify-center p-0 text-[10px]">
-                        {pendingActionCount}
-                      </Badge>
-                    )}
-                  </span>
-                  <span className="text-xs text-muted-foreground truncate">
-                    Challenges & incentives
-                  </span>
-                </div>
-              </Link>
-            )}
+                ) : (
+                  <Link
+                    to="/compete"
+                    onClick={() => { hapticLight(); setOpen(false); }}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                  >
+                    <Swords className="w-5 h-5 text-primary" />
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <span className="font-semibold text-sm flex items-center gap-2">
+                        Compete
+                        {pendingActionCount > 0 && (
+                          <Badge variant="destructive" className="h-4 min-w-4 flex items-center justify-center p-0 text-[10px]">
+                            {pendingActionCount}
+                          </Badge>
+                        )}
+                      </span>
+                      <span className="text-xs text-muted-foreground truncate">
+                        Challenges & incentives
+                      </span>
+                    </div>
+                  </Link>
+                )}
 
-            <Separator />
+                <Separator />
+              </>
+            )}
 
             {/* My Group - Available for everyone EXCEPT leaders when knocking mode is OFF (it's in tabs for them) */}
             {!(isLeader && !isKnockingMode && !isCalendarLocked) && (
