@@ -32,7 +32,7 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
   if (!data.hasGoals) return null;
 
   return (
-    <div className={className}>
+    <Card className={`border-border/50 overflow-hidden ${className}`}>
       <button
         onClick={() => { hapticLight(); setIsExpanded(!isExpanded); }}
         className="w-full text-left"
@@ -42,6 +42,7 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
           mode="compact"
           compactTimeframes={['Y']}
           showPaceContext={true}
+          cardless
         />
       </button>
 
@@ -54,12 +55,12 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
             transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
             className="overflow-hidden"
           >
-            <div className="pt-4 border-t border-border/30 mt-4">
+            <div className="px-4 pb-4 pt-2 border-t border-border/30">
               <FPCumulativeChart inline />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </Card>
   );
 };

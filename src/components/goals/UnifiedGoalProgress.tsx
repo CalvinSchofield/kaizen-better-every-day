@@ -44,6 +44,9 @@ interface UnifiedGoalProgressProps {
   /** Custom selected date for day label */
   selectedDate?: Date;
   
+  /** Render without internal card wrapper (when parent provides the card) */
+  cardless?: boolean;
+  
   className?: string;
 }
 
@@ -509,8 +512,9 @@ const CompactMode = ({
   data,
   compactTimeframes = ['D', 'Y'],
   showPaceContext = true,
+  cardless = false,
   className,
-}: Pick<UnifiedGoalProgressProps, 'data' | 'compactTimeframes' | 'showPaceContext' | 'className'>) => {
+}: Pick<UnifiedGoalProgressProps, 'data' | 'compactTimeframes' | 'showPaceContext' | 'cardless' | 'className'>) => {
   const getTimeframeData = (tf: GoalTimeframe): TimeframeData => {
     switch (tf) {
       case 'D': return data.day;
@@ -527,7 +531,7 @@ const CompactMode = ({
 
   return (
     <motion.div
-      className={cn("p-4 rounded-xl border bg-card space-y-3", className)}
+      className={cn(cardless ? "p-4 space-y-3" : "p-4 rounded-xl border bg-card space-y-3", className)}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
