@@ -40,20 +40,9 @@ export const CounterCard = ({
     }
   }, [isRapidMode]);
 
-  // Calculate stale status for timestamp chip
-  const getTimestampInfo = () => {
-    if (!lastTapTime) return null;
-    
-    const lastTap = new Date(lastTapTime);
-    const now = new Date();
-    const minutesSince = Math.floor((now.getTime() - lastTap.getTime()) / 60000);
-    const isStale = minutesSince > 30;
-    const formattedTime = format(lastTap, 'h:mm a');
-    
-    return { formattedTime, isStale, minutesSince };
-  };
-
-  const timestampInfo = getTimestampInfo();
+  const formattedLastTap = lastTapTime 
+    ? format(new Date(lastTapTime), 'h:mm a') 
+    : null;
 
   const detectRapidTapping = (): boolean => {
     const now = Date.now();
@@ -159,14 +148,9 @@ export const CounterCard = ({
       </div>
       
       {/* Timestamp chip */}
-      {timestampInfo && (
-        <div className={`mt-2 text-[10px] font-medium ${
-          timestampInfo.isStale 
-            ? 'text-amber-500' 
-            : 'text-muted-foreground/60'
-        }`}>
-          Last: {timestampInfo.formattedTime}
-          {timestampInfo.isStale && ' ⚠️'}
+      {formattedLastTap && (
+        <div className="mt-2 text-[10px] font-medium text-muted-foreground/60">
+          Last: {formattedLastTap}
         </div>
       )}
     </Card>
