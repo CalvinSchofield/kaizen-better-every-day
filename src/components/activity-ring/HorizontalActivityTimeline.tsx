@@ -37,6 +37,7 @@ interface HorizontalActivityTimelineProps {
   metricValue?: number;
   goalProgress?: number;
   onSegmentClick?: (segment: RingSegment, matchedSale?: Sale) => void;
+  onSaleChipClick?: (sale: Sale) => void;
 }
 
 // Same color scheme as the ring
