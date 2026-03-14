@@ -71,6 +71,16 @@ function getNotificationActions(type) {
         { action: 'view', title: '👋 Meet Them' },
         { action: 'dismiss', title: '👍 Got It' }
       ];
+    case 'install_reminder_eve':
+      return [
+        { action: 'text', title: '💬 Text Customer' },
+        { action: 'view', title: '📋 View Sale' }
+      ];
+    case 'install_reminder_due':
+      return [
+        { action: 'view', title: '✅ Confirm / Update' },
+        { action: 'dismiss', title: '⏳ Later' }
+      ];
     default:
       return [
         { action: 'open', title: '👀 View' },
@@ -186,6 +196,10 @@ self.addEventListener('notificationclick', (event) => {
     urlToOpen = '/goals';
   } else if (action === 'rsvp' || (action === 'view' && (notificationType === 'blitz_rsvp_first' || notificationType === 'blitz_rsvp_second'))) {
     urlToOpen = '/';
+  } else if (notificationType === 'install_reminder_eve' || notificationType === 'install_reminder_due') {
+    if (action === 'view' || !action) {
+      urlToOpen = notifData.url || '/customers';
+    }
   }
   
   event.waitUntil(

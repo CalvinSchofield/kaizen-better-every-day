@@ -69,6 +69,20 @@ function getLocalDateString(timezone: string | null): string {
   }
 }
 
+function getTomorrowDateString(timezone: string | null): string {
+  const tz = timezone || "America/Chicago";
+  try {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: tz });
+    return formatter.format(tomorrow);
+  } catch {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split("T")[0];
+  }
+}
+
 async function sendNotification(
   supabase: ReturnType<typeof createClient>,
   userId: string,
@@ -191,8 +205,9 @@ serve(async (req) => {
       // Only process during target windows (within 15 min of target hour)
       const is9am = localHour === 9 && localMinute < 15;
       const is6pm = localHour === 18 && localMinute < 15;
+      const is9pm = localHour === 21 && localMinute < 15;
 
-      if (!is9am && !is6pm) continue;
+      if (!is9am && !is6pm && !is9pm) continue;
 
       // Check if we already sent this type today to avoid duplicates
       const today = new Date().toISOString().split("T")[0];
@@ -333,49 +348,167 @@ serve(async (req) => {
           .eq("entry_date", today)
           .limit(1);
 
-        if (existingEvening && existingEvening.length > 0) continue;
+        if (!existingEvening || existingEvening.length === 0) {
+          const { data: incompleteTasks } = await supabase
+            .from("recruit_activities")
+            .select("id, next_action, next_action_due, recruit_id")
+            .eq("assigned_to_user_id", rep.user_id)
+            .eq("next_action_due", localDate)
+            .is("completed_at", null)
+            .neq("assignment_status", "completed");
 
-        const { data: incompleteTasks } = await supabase
-          .from("recruit_activities")
-          .select("id, next_action, next_action_due, recruit_id")
-          .eq("assigned_to_user_id", rep.user_id)
-          .eq("next_action_due", localDate)
-          .is("completed_at", null)
-          .neq("assignment_status", "completed");
+          if (incompleteTasks && incompleteTasks.length > 0) {
+            const recruitIds = [...new Set(incompleteTasks.map(t => t.recruit_id).filter(Boolean))];
+            const { data: recruits } = await supabase
+              .from("recruits")
+              .select("id, name, phone")
+              .in("id", recruitIds);
+            const recruitMap = new Map((recruits || []).map(r => [r.id, r]));
 
-        if (incompleteTasks && incompleteTasks.length > 0) {
-          const recruitIds = [...new Set(incompleteTasks.map(t => t.recruit_id).filter(Boolean))];
-          const { data: recruits } = await supabase
-            .from("recruits")
-            .select("id, name, phone")
-            .in("id", recruitIds);
-          const recruitMap = new Map((recruits || []).map(r => [r.id, r]));
+            const taskCount = incompleteTasks.length;
+            const firstTask = incompleteTasks[0];
+            const firstRecruit = firstTask.recruit_id ? recruitMap.get(firstTask.recruit_id) : null;
 
-          const taskCount = incompleteTasks.length;
-          const firstTask = incompleteTasks[0];
-          const firstRecruit = firstTask.recruit_id ? recruitMap.get(firstTask.recruit_id) : null;
+            if (taskCount === 1 && firstRecruit) {
+              const title = `🔔 Don't forget: ${firstTask.next_action || "Follow up"} with ${firstRecruit.name}`;
+              const body = `Still due today`;
+              const url = `/my-group?recruitId=${firstTask.recruit_id}&activityId=${firstTask.id}`;
 
-          if (taskCount === 1 && firstRecruit) {
-            const title = `🔔 Don't forget: ${firstTask.next_action || "Follow up"} with ${firstRecruit.name}`;
-            const body = `Still due today`;
-            const url = `/my-group?recruitId=${firstTask.recruit_id}&activityId=${firstTask.id}`;
+              const sent = await sendNotification(
+                supabase, rep.user_id, title, body, url,
+                "task_single_reminder",
+                { task_count: 1, date: localDate, recruit_id: firstTask.recruit_id },
+                { recruitPhone: firstRecruit.phone, recruitId: firstTask.recruit_id, activityId: firstTask.id }
+              );
+              totalSent += sent;
+            } else {
+              const title = `🔔 ${taskCount} tasks still due today`;
+              const body = `${firstRecruit?.name || "Tasks"} and ${taskCount - 1} more still need your attention`;
 
-            const sent = await sendNotification(
-              supabase, rep.user_id, title, body, url,
-              "task_single_reminder",
-              { task_count: 1, date: localDate, recruit_id: firstTask.recruit_id },
-              { recruitPhone: firstRecruit.phone, recruitId: firstTask.recruit_id, activityId: firstTask.id }
-            );
-            totalSent += sent;
-          } else {
-            const title = `🔔 ${taskCount} tasks still due today`;
-            const body = `${firstRecruit?.name || "Tasks"} and ${taskCount - 1} more still need your attention`;
+              const sent = await sendNotification(
+                supabase, rep.user_id, title, body,
+                "/my-group",
+                "task_evening_nudge",
+                { task_count: taskCount, date: localDate }
+              );
+              totalSent += sent;
+            }
+          }
+        }
+      }
+
+      if (is9pm) {
+        // ===== 9 PM: Pending install reminders =====
+        // Fetch all daily_entries for this user that have sales_log with pending installs
+        const { data: entries } = await supabase
+          .from("daily_entries")
+          .select("id, entry_date, sales_log")
+          .eq("user_id", rep.user_id)
+          .not("sales_log", "is", null);
+
+        if (!entries) continue;
+
+        const tomorrowDate = getTomorrowDateString(tz);
+
+        // Extract pending sales from all entries
+        interface PendingSale {
+          entryId: string;
+          entryDate: string;
+          saleId: string;
+          prmr: number;
+          type: string;
+          customerName: string;
+          customerPhone: string;
+          scheduledDate: string;
+        }
+
+        const pendingEve: PendingSale[] = [];
+        const pendingDue: PendingSale[] = [];
+
+        for (const entry of entries) {
+          const salesLog = entry.sales_log as Array<Record<string, unknown>> | null;
+          if (!salesLog || !Array.isArray(salesLog)) continue;
+
+          for (const sale of salesLog) {
+            if (sale.install_status !== "pending" || !sale.scheduled_install_date) continue;
+
+            const saleInfo: PendingSale = {
+              entryId: entry.id,
+              entryDate: entry.entry_date,
+              saleId: sale.id as string,
+              prmr: (sale.prmr as number) || 0,
+              type: (sale.type as string) || "fp",
+              customerName: (sale.customerName as string) || "",
+              customerPhone: (sale.customerPhone as string) || "",
+              scheduledDate: sale.scheduled_install_date as string,
+            };
+
+            if (saleInfo.scheduledDate === tomorrowDate) {
+              pendingEve.push(saleInfo);
+            } else if (saleInfo.scheduledDate <= localDate) {
+              pendingDue.push(saleInfo);
+            }
+          }
+        }
+
+        // === Day-before reminders (install_reminder_eve) ===
+        if (pendingEve.length > 0) {
+          const { data: existingEve } = await supabase
+            .from("notification_logs")
+            .select("id")
+            .eq("recipient_user_id", rep.user_id)
+            .eq("notification_type", "install_reminder_eve")
+            .eq("entry_date", today)
+            .limit(1);
+
+          if (!existingEve || existingEve.length === 0) {
+            const sale = pendingEve[0];
+            const typeLabel = sale.type === "fp" ? "FP" : "UP";
+            const title = pendingEve.length === 1
+              ? `📦 Install tomorrow: $${Math.round(sale.prmr)} ${typeLabel}`
+              : `📦 ${pendingEve.length} installs scheduled tomorrow`;
+            const body = pendingEve.length === 1
+              ? `${sale.customerName ? sale.customerName + " — s" : "S"}cheduled for ${tomorrowDate}. Text the customer to confirm?`
+              : `$${Math.round(pendingEve.reduce((s, p) => s + p.prmr, 0))} total PRMR. Text customers to confirm?`;
 
             const sent = await sendNotification(
               supabase, rep.user_id, title, body,
-              "/my-group",
-              "task_evening_nudge",
-              { task_count: taskCount, date: localDate }
+              "/customers",
+              "install_reminder_eve",
+              { count: pendingEve.length, date: tomorrowDate },
+              { recruitPhone: sale.customerPhone || null }
+            );
+            totalSent += sent;
+          }
+        }
+
+        // === Day-of / overdue reminders (install_reminder_due) ===
+        if (pendingDue.length > 0) {
+          const { data: existingDue } = await supabase
+            .from("notification_logs")
+            .select("id")
+            .eq("recipient_user_id", rep.user_id)
+            .eq("notification_type", "install_reminder_due")
+            .eq("entry_date", today)
+            .limit(1);
+
+          if (!existingDue || existingDue.length === 0) {
+            const sale = pendingDue[0];
+            const typeLabel = sale.type === "fp" ? "FP" : "UP";
+            const isToday = sale.scheduledDate === localDate;
+            const title = pendingDue.length === 1
+              ? `📦 Was this installed? $${Math.round(sale.prmr)} ${typeLabel}`
+              : `📦 ${pendingDue.length} pending installs need confirmation`;
+            const body = pendingDue.length === 1
+              ? `${sale.customerName ? sale.customerName + " — s" : "S"}cheduled for ${isToday ? "today" : sale.scheduledDate}. Confirm, reschedule, or remove.`
+              : `$${Math.round(pendingDue.reduce((s, p) => s + p.prmr, 0))} total PRMR. Update your install statuses.`;
+
+            const sent = await sendNotification(
+              supabase, rep.user_id, title, body,
+              `/customers?pendingInstall=${sale.saleId}`,
+              "install_reminder_due",
+              { count: pendingDue.length, date: localDate },
+              {}
             );
             totalSent += sent;
           }
