@@ -96,6 +96,8 @@ export const GoalHeroRing = ({
   isRookie = false,
   weekInSummer = 0,
   learningCurveMessage,
+  expectedPercent,
+  showExpectedMarker = false,
 }: GoalHeroRingProps) => {
   const config = tierConfig[activeTier];
   const Icon = config.icon;
