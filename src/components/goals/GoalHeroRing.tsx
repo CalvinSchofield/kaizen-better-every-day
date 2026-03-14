@@ -221,6 +221,23 @@ export const GoalHeroRing = ({
             )}
           />
           
+          
+          {/* Pending progress arc */}
+          {pendingPercent > 0 && !isComplete && (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke="hsl(var(--primary) / 0.35)"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={pendingDashoffset}
+              className="transition-all duration-700 ease-out"
+            />
+          )}
+
           {/* Gradient definition */}
           <defs>
             <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
