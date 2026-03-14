@@ -317,6 +317,7 @@ const FullMode = ({
           <SegmentedBar
             finalized={current.actual}
             live={current.live}
+            pending={current.pending}
             goal={current.goal}
             expected={current.expected}
             severity={data.severity}
