@@ -878,6 +878,61 @@ export const useNeedsAttention = (
       });
     }
 
+    // 7. Summer Setup - Signed+ reps missing summer dates or goals
+    const summerSetupRecruits: AttentionRecruit[] = [];
+    const todayStr = getTodayDateString();
+    
+    recruits.forEach(recruit => {
+      // Only Signed+ stages
+      if (!SIGNED_PLUS_STAGES.includes(recruit.stage as any)) return;
+      
+      const repData = repDataMap?.get(recruit.id);
+      const userId = repData?.user_id;
+      if (!userId) return;
+      
+      const summerConfig = repSummerConfigMap?.get(userId);
+      const goalsData = repGoalsMap?.get(userId);
+      
+      const hasSummerStart = !!summerConfig?.personal_summer_start;
+      const hasAnyGoal = (Number(goalsData?.must_do_fp_goal) || 0) > 0 || 
+                         (Number(goalsData?.will_do_fp_goal) || 0) > 0 || 
+                         (Number(goalsData?.could_do_fp_goal) || 0) > 0;
+      
+      // Skip if both summer dates and goals are configured
+      if (hasSummerStart && hasAnyGoal) return;
+      
+      const firstName = recruit.name?.split(' ')[0] || 'Rep';
+      const missing: string[] = [];
+      if (!hasSummerStart) missing.push('summer dates');
+      if (!hasAnyGoal) missing.push('goals');
+      
+      // Higher urgency if global summer has arguably started (April 12+)
+      const isGlobalSummerStarted = todayStr >= '2026-04-12';
+      
+      summerSetupRecruits.push({
+        recruit,
+        reason: `${firstName} needs ${missing.join(' & ')} configured`,
+        urgency: isGlobalSummerStarted ? 'high' : 'medium',
+        missingItems: missing,
+      });
+    });
+    
+    if (summerSetupRecruits.length > 0) {
+      categories.push({
+        id: 'summer-setup',
+        label: 'Needs Setup',
+        emoji: '⚙️',
+        count: summerSetupRecruits.length,
+        recruits: summerSetupRecruits.sort((a, b) => {
+          // Most missing items first
+          const aMissing = a.missingItems?.length || 0;
+          const bMissing = b.missingItems?.length || 0;
+          return bMissing - aMissing;
+        }),
+        priority: 85, // High priority - between hot leads and stale contacts
+      });
+    }
+
     // Sort categories by priority
     categories.sort((a, b) => b.priority - a.priority);
 
