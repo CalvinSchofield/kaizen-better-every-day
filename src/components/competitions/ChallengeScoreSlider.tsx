@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { formatFP } from "@/lib/formatters";
 
 interface ChallengeScoreSliderProps {
   /** For 1v1: My score */
@@ -41,8 +42,8 @@ export const ChallengeScoreSlider = ({
     return (
       <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-red-600 w-8 text-right">
-            {Math.round(redTotal)}
+          <span className="text-xs font-semibold text-red-600 w-10 text-right">
+            {formatFP(redTotal)}
           </span>
           <div className={cn("flex-1 rounded-full bg-blue-500 overflow-hidden relative", heightClass)}>
             <motion.div 
@@ -59,8 +60,8 @@ export const ChallengeScoreSlider = ({
               transition={{ duration: 0.3, ease: "easeOut" }}
             />
           </div>
-          <span className="text-xs font-semibold text-blue-600 w-8">
-            {Math.round(blueTotal)}
+          <span className="text-xs font-semibold text-blue-600 w-10">
+            {formatFP(blueTotal)}
           </span>
         </div>
         {showLabels && (
@@ -83,10 +84,10 @@ export const ChallengeScoreSlider = ({
     <div className="space-y-1">
       <div className="flex items-center gap-2">
         <span className={cn(
-          "text-xs font-semibold w-8 text-right",
+          "text-xs font-semibold w-10 text-right",
           isWinning ? "text-primary" : isTied ? "text-muted-foreground" : "text-muted-foreground"
         )}>
-          {Math.round(myValue)}
+          {formatFP(myValue)}
         </span>
         <div className={cn("flex-1 rounded-full bg-muted overflow-hidden relative", heightClass)}>
           <motion.div 
@@ -107,10 +108,10 @@ export const ChallengeScoreSlider = ({
           />
         </div>
         <span className={cn(
-          "text-xs font-semibold w-8",
+          "text-xs font-semibold w-10",
           !isWinning && !isTied ? "text-destructive" : "text-muted-foreground"
         )}>
-          {Math.round(theirValue)}
+          {formatFP(theirValue)}
         </span>
       </div>
       {showLabels && (
