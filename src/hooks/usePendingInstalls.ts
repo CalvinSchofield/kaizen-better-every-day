@@ -125,6 +125,7 @@ export const usePendingInstalls = () => {
     },
     onSuccess: () => {
       invalidateAllSalesQueries(queryClient);
+    },
     onError: (error) => {
       console.error('Error updating sale:', error);
       toast.error('Failed to update install status');
