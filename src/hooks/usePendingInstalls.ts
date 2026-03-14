@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sale } from './useDailyEntry';
 import { toast } from 'sonner';
+import { invalidateAllSalesQueries } from '@/utils/invalidateSalesQueries';
 
 interface PendingSale extends Sale {
   entryId: string;
@@ -124,9 +125,7 @@ export const usePendingInstalls = () => {
       if (updateError) throw updateError;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-installs'] });
-      queryClient.invalidateQueries({ queryKey: ['daily-entry'] });
-      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
+      invalidateAllSalesQueries(queryClient);
     },
     onError: (error) => {
       console.error('Error updating sale:', error);
@@ -216,12 +215,7 @@ export const usePendingInstalls = () => {
       if (updateError) throw updateError;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-installs'] });
-      queryClient.invalidateQueries({ queryKey: ['daily-entry'] });
-      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
-      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
-      queryClient.invalidateQueries({ queryKey: ['canceled-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
+      invalidateAllSalesQueries(queryClient);
       toast.success('Sale removed - never installed');
     },
     onError: (error) => {
