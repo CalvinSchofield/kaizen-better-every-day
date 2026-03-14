@@ -559,7 +559,7 @@ const CompactMode = ({
                 <span className={cn("font-medium tabular-nums", goalHit && "text-emerald-600 dark:text-emerald-400")}>
                   {formatFP(totalProgress)}
                   {tfData.live > 0 && <span className="text-rose-500/80 text-xs"> +{formatFP(tfData.live)}</span>}
-                  {tfData.pending > 0 && <span className="text-primary/60 text-xs"> +{formatFP(tfData.pending)} pipeline</span>}
+                  {tfData.pending > 0 && <span className="text-primary/60 text-xs"> +{formatFP(tfData.pending)} pending</span>}
                 </span>
                 <span className="text-muted-foreground">/ {formatFP(tfData.goal)} {data.metricLabel}</span>
                 {goalHit && <Check className="w-3.5 h-3.5 text-emerald-500" />}

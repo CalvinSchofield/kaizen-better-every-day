@@ -278,7 +278,7 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
           for (const sale of salesLog) {
             if (sale.install_status === 'never_installed') continue;
             if (sale.install_status === 'pending') {
-              // Track pending pipeline separately
+              // Track pending separately
               const salePrmr = Number(sale.prmr) || 0;
               if (input.efpModeEnabled) {
                 pending += salePrmr / 85;
