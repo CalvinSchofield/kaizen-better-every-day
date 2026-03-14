@@ -88,7 +88,7 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
     <div className="space-y-1.5">
       {/* Score slider */}
       <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold text-primary w-8 text-right">{Math.round(myValue)}</span>
+        <span className="text-xs font-semibold text-primary w-10 text-right">{formatFP(myValue)}</span>
         <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
           <div 
             className="h-full bg-primary transition-all duration-300"
