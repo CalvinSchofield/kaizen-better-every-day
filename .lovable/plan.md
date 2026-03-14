@@ -1,50 +1,47 @@
 
 
-## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
+## Plan: Streamlined Stat Line for Post-Save Track Page
 
-### The Problem
+### Problem
+The current collapsible stats area (Doors 29 · Pitches 10 · Trans 2 with a ▾ chevron expanding into a chunky 7-box grid) feels cluttered and redundant. Sales data is already accessible via the sale chips above. The user wants something clean, factual, and progressively disclosable.
 
-When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
+### Approach: Apple Health-Style Inline Stat Line
 
-### Root Cause
+World-class mobile apps (Apple Health, Strava, Oura) use a single **horizontal stat ribbon** — a compact, scannable row of key numbers that feels like metadata, not a dashboard. Deeper stats are accessed via a subtle "Details" tap, not an accordion full of boxes.
 
-There are three things fighting each other:
+**Collapsed state** — a single clean line showing the full funnel in one glance:
 
-1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
+```text
+29 doors · 10 pitches · 2 trans · 5 pres · 3 closes
+```
 
-2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
+Just numbers and labels, no boxes, no borders, no grid. Monospaced numbers, muted labels, all inline. This replaces the current 3-stat summary + chevron.
 
-3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+**Expanded state** — instead of the heavy `FinalizedStatsGrid` with its 7 bordered boxes, show a clean **two-column list** with conversion rates:
 
-### The Fix
+```text
+Doors          29
+ └ DM Rate     34%  (10/29)
+Pitches        10
+ └ Trans Rate  20%  (2/10)
+Presentations   5
+ └ Close Rate  60%  (3/5)
+FP+           2.34
+PRMR         $199
+```
 
-#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+This gives the "dig deeper" feel without overwhelming. The conversion percentages are coaching gold — they tell a story the raw numbers alone don't.
 
-The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
+### Implementation
 
-#### 2. Simplify `useKeyboardViewport` hook
+**File: `src/pages/Track.tsx`** (lines 302-371)
+- Replace the current `motion.button` + `FinalizedStatsGrid` expand block
+- New collapsed: single `<div>` with inline stats: `{doors} doors · {pitches} pitches · {trans} trans · {pres} pres · {closes} closes`
+- Tap chevron → expand to the detailed stat list with conversion rates
+- Remove the `FinalizedStatsGrid` import/usage from the finalized view (keep the component file for potential use elsewhere)
 
-- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
-- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
-- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
-- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
+**File: `src/components/activity-ring/FinalizedStatsGrid.tsx`**
+- No changes needed — we just stop using it here. It can remain for other contexts.
 
-#### 3. Add `@capacitor/keyboard` plugin configuration
-
-Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
-
-### Files to Modify
-
-- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
-- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
-- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
-- **`package.json`** -- Add `@capacitor/keyboard` dependency
-
-### After Approval
-
-After these code changes, you will need to:
-1. Git pull the updated code
-2. Run `npm install` to get the new keyboard plugin
-3. Run `npx cap sync` to sync the plugin to iOS
-4. Rebuild in Xcode and push to TestFlight
+**Changes are scoped to ~70 lines in Track.tsx** — replacing the stats section with a cleaner inline ribbon + expandable detail list.
 
