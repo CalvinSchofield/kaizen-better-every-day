@@ -148,7 +148,7 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
               showTierSelector={false}
               showPaceContext={false}
               showTimeframeToggle
-              initialTimeframe="W"
+              initialTimeframe="Y"
               hideHeader
               hideDay
               cardless
