@@ -412,30 +412,35 @@ export const useCreateChallenge = () => {
         } else {
           console.log('[useCreateChallenge] Challenge auto-started successfully');
         }
-      } else {
-        // Send push notifications to invited participants
-        const targetUserIds = input.participants.map(p => p.user_id);
-        if (targetUserIds.length > 0) {
-          try {
-            const { data: creatorRep } = await supabase
-              .from('reps')
-              .select('name')
-              .eq('user_id', user.id)
-              .single();
-            
-            const creatorName = creatorRep?.name || 'Someone';
-            
-            await supabase.functions.invoke('send-challenge-notification', {
-              body: {
-                type: 'challenge_invite',
-                targetUserIds,
-                title: '🎯 Challenge Invite!',
-                body: `${creatorName} challenged you to a ${input.type === '1v1' ? '1v1' : 'team'} battle on ${input.metric.replace('_', ' ').toUpperCase()}!`,
-              },
-            });
-          } catch (notifError) {
-            console.error('[useCreateChallenge] Notification error (non-fatal):', notifError);
-          }
+      }
+
+      // Always send push notifications to invited participants (both auto-started and pending)
+      const targetUserIds = input.participants.map(p => p.user_id);
+      if (targetUserIds.length > 0) {
+        try {
+          const { data: creatorRep } = await supabase
+            .from('reps')
+            .select('name')
+            .eq('user_id', user.id)
+            .single();
+          
+          const creatorName = creatorRep?.name || 'Someone';
+          const notifType = shouldAutoStart ? 'challenge_started' : 'challenge_invite';
+          const notifTitle = shouldAutoStart ? '⚔️ Challenge Started!' : '🎯 Challenge Invite!';
+          const notifBody = shouldAutoStart
+            ? `${creatorName} started a ${input.type === '1v1' ? '1v1' : 'team'} ${input.metric.replace('_', ' ').toUpperCase()} challenge with you!`
+            : `${creatorName} challenged you to a ${input.type === '1v1' ? '1v1' : 'team'} battle on ${input.metric.replace('_', ' ').toUpperCase()}!`;
+          
+          await supabase.functions.invoke('send-challenge-notification', {
+            body: {
+              type: notifType,
+              targetUserIds,
+              title: notifTitle,
+              body: notifBody,
+            },
+          });
+        } catch (notifError) {
+          console.error('[useCreateChallenge] Notification error (non-fatal):', notifError);
         }
       }
 
