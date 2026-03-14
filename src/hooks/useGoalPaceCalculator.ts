@@ -333,11 +333,11 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
   };
 
   // Day - derive explicit buckets from sales_log when available
+  const todayEntryData = input.entries.find(e => e.entry_date === todayStr);
   let todayActual = input.todayFP;
   let todayFunded = todayEntryData?.is_finalized ? input.todayFP : 0;
   let todayLive = input.todayLiveFP;
   let todayPending = 0;
-  const todayEntryData = input.entries.find(e => e.entry_date === todayStr);
 
   if (todayEntryData && Array.isArray(todayEntryData.sales_log) && todayEntryData.sales_log.length > 0) {
     todayActual = 0;
