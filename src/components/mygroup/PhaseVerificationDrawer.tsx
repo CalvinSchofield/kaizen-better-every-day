@@ -9,7 +9,7 @@ export const PHASE_ITEMS: Record<number, {
   leaderItems: { label: string; description: string }[];
 }> = {
   1: {
-    label: "Onboard & Get Ready",
+    label: "Pay & Goals",
     selfServiceItems: [
       { id: "how-pay-works", label: "Watched 'How You Get Paid'" },
       { id: "phase1-goals-why", label: "Reviewed Why" },
@@ -23,10 +23,9 @@ export const PHASE_ITEMS: Record<number, {
     ]
   },
   2: {
-    label: "Start Training",
+    label: "Product & Process",
     selfServiceItems: [
       { id: "phase2-product", label: "Studied product materials" },
-      { id: "phase2-quiz-passed", label: "Passed product knowledge quiz" },
       { id: "phase2-upgrades", label: "Reviewed Upgrades 101" },
       { id: "phase2-takeover", label: "Reviewed Takeover Door Approach" },
       { id: "phase2-pitches-sent-waiting", label: "Sent pitches, waiting on feedback" }
@@ -36,10 +35,9 @@ export const PHASE_ITEMS: Record<number, {
     ]
   },
   3: {
-    label: "Practice",
+    label: "iPad & Practice",
     selfServiceItems: [
       { id: "phase3-ipad-ready", label: "iPad setup reviewed" },
-      { id: "phase3-why-written", label: "Wrote their personal 'Why'" },
       { id: "phase3-practice-scheduled", label: "Scheduled/completed 1-on-1 practice" }
     ],
     leaderItems: [
@@ -47,11 +45,10 @@ export const PHASE_ITEMS: Record<number, {
     ]
   },
   4: {
-    label: "Saddle Up",
+    label: "Packing List",
     selfServiceItems: [
       { id: "phase4-packing-done", label: "Reviewed packing list" },
-      { id: "phase4-essentials-checked", label: "Self-reported equipment ready (iPad, Uniforms, ID)" },
-      { id: "phase4-playbook-ready", label: "Reviewed 'When It Gets Tough' playbook" }
+      { id: "phase4-essentials-checked", label: "Self-reported equipment ready (iPad, Uniforms, ID)" }
     ],
     leaderItems: [
       { label: "Final check-in", description: "Confirm they're ready for blitz" }
