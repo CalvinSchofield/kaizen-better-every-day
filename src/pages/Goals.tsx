@@ -852,9 +852,9 @@ const Goals = () => {
             efpMode={efpModeEnabled}
             onTierChange={handleTierSelect}
             tiers={tiers}
-            dailyGoal={paceData.dailyGoal}
+            dailyGoal={unifiedPaceData.dailyNeeded}
             todayProgress={todayProgress}
-            remainingDailyNeeded={paceData.remainingDailyNeeded}
+            remainingDailyNeeded={unifiedPaceData.dailyNeeded}
             isSummer={!isPreseason}
             isTodayPlanned={isTodayPlanned}
             hasAnyPlannedDays={hasAnyPlannedDays}
