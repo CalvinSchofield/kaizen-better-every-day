@@ -371,7 +371,8 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
           if (sale.type === 'fp') todayPending += 1;
           else if (sale.type === 'upgrade') todayPending += salePrmr / 85;
         }
-      } else if (sale.install_status === 'installed' || sale.install_status === 'confirmed') {
+      } else {
+        // Everything not pending/never_installed is funded
         if (input.efpModeEnabled) {
           todayFunded += salePrmr / 85;
         } else {
