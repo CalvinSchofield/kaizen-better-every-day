@@ -15,6 +15,7 @@ import { useRookieUnlockStatus } from '@/hooks/useRookieUnlockStatus';
 import { useAddSaleToEntry } from '@/hooks/useAddSaleToEntry';
 import { Sale } from '@/hooks/useDailyEntry';
 import { Card, CardContent } from '@/components/ui/card';
+import { PendingInstallAlertCard } from '@/components/PendingInstallAlertCard';
 import {
   DropdownMenu,
   DropdownMenuContent,
