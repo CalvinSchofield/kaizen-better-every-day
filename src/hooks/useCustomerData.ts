@@ -134,17 +134,7 @@ export const useCustomerData = (
       return { saleId, newStatus };
     },
     onSuccess: ({ newStatus }) => {
-      queryClient.invalidateQueries({ queryKey: ['customer-sales'] });
-      queryClient.invalidateQueries({ queryKey: ['daily-entry'] });
-      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
-      queryClient.invalidateQueries({ queryKey: ['pending-installs'] });
-      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'] });
-      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
-      queryClient.invalidateQueries({ queryKey: ['insights-data'] });
+      invalidateAllSalesQueries(queryClient);
       const statusLabel = newStatus === 'installed' ? 'Funded' 
         : newStatus === 'pending' ? 'Pending' 
         : newStatus === 'never_installed' ? 'Never Installed'
