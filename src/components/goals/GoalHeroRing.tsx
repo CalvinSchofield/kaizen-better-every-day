@@ -123,8 +123,9 @@ export const GoalHeroRing = ({
 
   // Progress calculations
   const progress = fpGoal > 0 ? Math.min((currentProgress / fpGoal) * 100, 100) : 0;
-  const pendingPercent = fpGoal > 0 ? Math.min(((currentProgress + pendingPipeline) / fpGoal) * 100, 100) - progress : 0;
-  const remaining = Math.max(fpGoal - currentProgress - pendingPipeline, 0);
+  const totalWithPendingProgress = currentProgress + pendingPipeline;
+  const totalWithPendingPercent = fpGoal > 0 ? Math.min((totalWithPendingProgress / fpGoal) * 100, 100) : 0;
+  const remaining = Math.max(fpGoal - totalWithPendingProgress, 0);
   const isComplete = currentProgress >= fpGoal && fpGoal > 0;
 
   // Today's pace calculation
@@ -137,15 +138,15 @@ export const GoalHeroRing = ({
   const strokeWidth = 14;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
-  
-  // Pending arc: starts where main progress ends
-  const pendingDashoffset = circumference - ((progress + pendingPercent) / 100) * circumference;
-  
+  const toDashOffset = (percent: number) => circumference - (percent / 100) * circumference;
+
+  const totalWithPendingDashoffset = toDashOffset(totalWithPendingPercent);
+  const totalDashoffset = toDashOffset(progress);
+
   // Funded progress arc (if different from total)
   const showFunded = fundedProgress !== undefined && fundedProgress < currentProgress;
   const fundedPercent = showFunded && fpGoal > 0 ? Math.min((fundedProgress / fpGoal) * 100, 100) : 0;
-  const fundedDashoffset = circumference - (fundedPercent / 100) * circumference;
+  const fundedDashoffset = toDashOffset(fundedPercent);
 
   // Available tiers (only show tiers with goals > 0, hide preseason after user's summer starts)
   const availableTiers = useMemo(() => {
