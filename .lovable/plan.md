@@ -1,66 +1,50 @@
 
 
-## Plan: Stage-filter summer recommendations, "Needs Setup" chip, and summer-active card styling
+## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
 
-### 1. Filter summer recommendations by stage
+### The Problem
 
-**File:** `src/pages/MyGroup.tsx` (lines 345-350)
+When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
 
-Add a stage filter to the `summerReps` builder so only reps at Signed, Shadow ✅, Sold 💲, or Sold (5+) 💰 are included. The `allRecruits` array already has `recruit.stage` — add a check:
+### Root Cause
 
-```typescript
-.filter(rep => {
-  const config = recruitsSummerConfigData.find(c => c.user_id === rep.user_id);
-  const recruit = allRecruits.find(r => r.id === rep.id);
-  const isActiveStage = recruit && ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'].includes(recruit.stage);
-  return isActiveStage && config?.personal_summer_start && config.personal_summer_start <= today;
-})
-```
+There are three things fighting each other:
 
-Uses `SIGNED_PLUS_STAGES` from `stageConstants.ts` for consistency.
+1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
 
-### 2. New "Needs Summer Setup" attention chip
+2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
 
-**File:** `src/hooks/useNeedsAttention.ts`
+3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
 
-Add a new category `summer-setup` that surfaces reps who are at Signed+ stages but are missing summer dates OR goals. Logic:
+### The Fix
 
-- Filter `recruits` where `stage ∈ SIGNED_PLUS_STAGES`
-- Cross-reference with `recruitsSummerConfigData` and `recruitsGoalsData` (these will need to be passed in or fetched)
-- Flag reps missing `personal_summer_start` OR missing all 3 goal tiers (must/will/could all = 0)
-- Badge: `⚙️ Needs Setup` with count
-- Urgency: `high` if summer has globally started (e.g., April 12+), `medium` otherwise
+#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
 
-**File:** `src/components/mygroup/NeedsAttentionChips.tsx`
+The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
 
-Add color entry for `summer-setup`:
-```typescript
-'summer-setup': 'bg-rose-500/10 text-rose-600 border-rose-500/30 hover:bg-rose-500/20',
-```
+#### 2. Simplify `useKeyboardViewport` hook
 
-This will require passing season config and goals data into `useNeedsAttention` — I'll add optional params to the hook.
+- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
+- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
+- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
+- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
 
-### 3. Visually distinct summer-active cards on the Kanban board
+#### 3. Add `@capacitor/keyboard` plugin configuration
 
-**File:** `src/components/mygroup/RecruitKanbanBoard.tsx`
+Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
 
-For reps whose summer has started (`personalSummerStart <= today` AND stage ∈ SIGNED_PLUS_STAGES), apply a distinct card treatment:
+### Files to Modify
 
-- **Subtle emerald left border** (4px) replacing the default card border — signals "summer active" at a glance
-- **Micro summer badge**: A tiny `☀️ Active` pill in emerald tones next to the name, replacing the blocker icons (which become irrelevant post-summer)
-- **FP+ progress snippet**: Show current FP+ below the name (e.g., "12.5 FP+") instead of the preseason contact/blitz badges — the data that matters shifts
-- **Card background**: Very subtle `bg-emerald-500/[0.03]` tint in dark mode, `bg-emerald-50/50` in light mode — breathtaking but not loud
+- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
+- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
+- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
+- **`package.json`** -- Add `@capacitor/keyboard` dependency
 
-The card conditionally renders different Row 3 content:
-- **Preseason cards**: Days since contact, blitz countdown, follow-up badges (current behavior)
-- **Summer cards**: FP+ total, pace badge (on-track/behind), knocking days count
+### After Approval
 
-This requires passing `recruitsSummerConfigData` into the Kanban component.
-
-### Technical details
-
-- Stage filtering uses the existing `SIGNED_PLUS_STAGES` constant from `stageConstants.ts`
-- Summer config data flows from the existing `useTeamSummerConfig` hook already called in `MyGroup.tsx`
-- The Kanban card conditionally renders based on a simple `isSummerActive` boolean computed per-recruit
-- No database changes needed — all data already exists
+After these code changes, you will need to:
+1. Git pull the updated code
+2. Run `npm install` to get the new keyboard plugin
+3. Run `npx cap sync` to sync the plugin to iOS
+4. Rebuild in Xcode and push to TestFlight
 

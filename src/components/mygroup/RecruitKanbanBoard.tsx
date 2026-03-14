@@ -3,6 +3,7 @@ import { Recruit, RecruitActivity, useUpdateRecruitStage } from "@/hooks/useGrou
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tablet, BookOpen, Target, ChevronDown, ChevronUp, Clock, Users, Filter, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { RecruitDetailDrawer } from "./RecruitDetailDrawer";
 import { differenceInDays, parseISO, isAfter, isBefore, startOfToday, isSameDay, format } from "date-fns";
 import { toast } from "sonner";
@@ -57,21 +58,131 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
   const updateStageMutation = useUpdateRecruitStage();
   const { data: teamAccess } = useTeamAccess();
 
-  // Fetch reps data to get blocker info (iPad, onboarding, ramp phases)
+  // Fetch reps data to get blocker info AND user_id for summer lookup
   const { data: repsData } = useQuery({
     queryKey: ['reps-blockers'],
     queryFn: async () => {
       const { data } = await supabase
         .from('reps')
-        .select('id, ipad_assigned, onboarding_complete, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete');
+        .select('id, user_id, ipad_assigned, onboarding_complete, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete');
       return data || [];
     },
   });
 
   // Create a map for quick lookup by id
-  const repsBlockerMap = new Map(
+  const repsBlockerMap = useMemo(() => new Map(
     repsData?.map(r => [r.id, r]) || []
-  );
+  ), [repsData]);
+
+  // Get user_ids for signed+ recruits to fetch summer data
+  const signedPlusUserIds = useMemo(() => {
+    return recruits
+      .filter(r => SIGNED_PLUS_STAGES.includes(r.stage as any))
+      .map(r => repsBlockerMap.get(r.id)?.user_id)
+      .filter((id): id is string => !!id);
+  }, [recruits, repsBlockerMap]);
+
+  // Fetch summer config for signed+ reps
+  const { data: summerConfigs } = useQuery({
+    queryKey: ['kanban-summer-config', signedPlusUserIds.join(',')],
+    queryFn: async () => {
+      if (!signedPlusUserIds.length) return [];
+      const { data } = await supabase
+        .from('season_config')
+        .select('user_id, personal_summer_start, personal_summer_end')
+        .in('user_id', signedPlusUserIds);
+      return data || [];
+    },
+    enabled: signedPlusUserIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Fetch daily entries for summer-active reps
+  const summerActiveUserIds = useMemo(() => {
+    if (!summerConfigs) return [];
+    const today = format(new Date(), 'yyyy-MM-dd');
+    return summerConfigs
+      .filter(c => c.personal_summer_start && c.personal_summer_start <= today)
+      .map(c => c.user_id);
+  }, [summerConfigs]);
+
+  const { data: summerEntries } = useQuery({
+    queryKey: ['kanban-summer-entries', summerActiveUserIds.join(',')],
+    queryFn: async () => {
+      if (!summerActiveUserIds.length) return [];
+      const { data } = await supabase
+        .from('daily_entries')
+        .select('user_id, fp_plus, doors_knocked, work_start_time, work_end_time, is_finalized')
+        .in('user_id', summerActiveUserIds)
+        .eq('is_finalized', true);
+      return data || [];
+    },
+    enabled: summerActiveUserIds.length > 0,
+    staleTime: 1000 * 60 * 2,
+  });
+
+  // Fetch goals for summer-active reps
+  const { data: summerGoals } = useQuery({
+    queryKey: ['kanban-summer-goals', summerActiveUserIds.join(',')],
+    queryFn: async () => {
+      if (!summerActiveUserIds.length) return [];
+      const { data } = await supabase
+        .from('rep_goals')
+        .select('user_id, will_do_fp_goal')
+        .in('user_id', summerActiveUserIds);
+      return data || [];
+    },
+    enabled: summerActiveUserIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Build summer active map (recruit.id -> summer data)
+  const summerActiveMap = useMemo(() => {
+    const map = new Map<string, { currentFp: number; paceStatus: 'ahead' | 'on-track' | 'behind' | 'critical'; knockingDays: number }>();
+    if (!summerConfigs || !summerEntries || !repsData) return map;
+    
+    const today = new Date();
+    const todayStr = format(today, 'yyyy-MM-dd');
+    
+    // Build userId -> recruit.id map
+    const userIdToRecruitId = new Map<string, string>();
+    repsData.forEach(r => {
+      if (r.user_id) userIdToRecruitId.set(r.user_id, r.id);
+    });
+    
+    summerActiveUserIds.forEach(userId => {
+      const config = summerConfigs.find(c => c.user_id === userId);
+      if (!config?.personal_summer_start) return;
+      
+      const recruitId = userIdToRecruitId.get(userId);
+      if (!recruitId) return;
+      
+      const entries = summerEntries.filter(e => e.user_id === userId);
+      const totalFp = entries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
+      const knockingDays = entries.filter(e => (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time).length;
+      
+      const goals = summerGoals?.find(g => g.user_id === userId);
+      const willDoGoal = Number(goals?.will_do_fp_goal) || 0;
+      
+      let paceStatus: 'ahead' | 'on-track' | 'behind' | 'critical' = 'on-track';
+      if (willDoGoal > 0) {
+        const summerStart = new Date(config.personal_summer_start + 'T12:00:00');
+        const totalDays = 126; // ~18 weeks
+        const elapsed = Math.max(1, Math.floor((today.getTime() - summerStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+        const expected = (willDoGoal / totalDays) * elapsed;
+        const pct = expected > 0 ? (totalFp / expected) * 100 : 100;
+        
+        if (pct >= 110) paceStatus = 'ahead';
+        else if (pct >= 90) paceStatus = 'on-track';
+        else if (pct >= 70) paceStatus = 'behind';
+        else paceStatus = 'critical';
+      }
+      
+      map.set(recruitId, { currentFp: totalFp, paceStatus, knockingDays });
+    });
+    
+    return map;
+  }, [summerConfigs, summerEntries, summerGoals, repsData, summerActiveUserIds]);
 
   // Determine if filters should be shown (MGMT+ or 20+ recruits)
   const accessLevel = teamAccess?.accessLevel || 'none';
@@ -320,26 +431,39 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
           </div>
         </div>
         <div className="space-y-2 min-h-[200px]">
-          {stageRecruits.map((recruit) => (
+          {stageRecruits.map((recruit) => {
+            const summerData = summerActiveMap?.get(recruit.id);
+            const isSummerActive = !!summerData;
+            
+            return (
             <Card
               key={recruit.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className={cn(
+                "cursor-pointer hover:shadow-md transition-shadow",
+                isSummerActive && "border-l-4 border-l-emerald-500 bg-emerald-500/[0.03] dark:bg-emerald-500/[0.03]"
+              )}
               draggable
               onDragStart={(e) => handleDragStart(e, recruit)}
               onClick={() => handleRecruitClick(recruit)}
             >
               <CardContent className="p-3">
-                {/* Row 1: Name + Blocker icons */}
+                {/* Row 1: Name + Blocker icons or Summer badge */}
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium truncate flex-1">{recruit.name}</p>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    {getBlockers(recruit).map((blocker, idx) => (
-                      <span key={idx} className="text-amber-500">
-                        {blocker.icon === 'ipad' && <Tablet className="h-3.5 w-3.5" />}
-                        {blocker.icon === 'onboarding' && <BookOpen className="h-3.5 w-3.5" />}
-                        {blocker.icon === 'ramp' && <Target className="h-3.5 w-3.5" />}
-                      </span>
-                    ))}
+                    {isSummerActive ? (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                        ☀️ Active
+                      </Badge>
+                    ) : (
+                      getBlockers(recruit).map((blocker, idx) => (
+                        <span key={idx} className="text-amber-500">
+                          {blocker.icon === 'ipad' && <Tablet className="h-3.5 w-3.5" />}
+                          {blocker.icon === 'onboarding' && <BookOpen className="h-3.5 w-3.5" />}
+                          {blocker.icon === 'ramp' && <Target className="h-3.5 w-3.5" />}
+                        </span>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -373,70 +497,101 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
                   )}
                 </div>
 
-                {/* Row 3: Badges - follow-up, days since contact, blitz countdown */}
+                {/* Row 3: Summer stats OR Preseason badges */}
                 <div className="flex items-center gap-1.5 flex-wrap mt-2">
-                  {/* Scheduled follow-up badge */}
-                  {(() => {
-                    const followUp = getScheduledFollowUp(recruit);
-                    if (!followUp) return null;
-                    return (
+                  {isSummerActive && summerData ? (
+                    <>
+                      {/* FP+ total */}
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold">
+                        {summerData.currentFp} FP+
+                      </Badge>
+                      {/* Pace badge */}
                       <Badge 
                         variant="outline" 
-                        className={`text-[10px] px-1.5 py-0 ${followUp.isToday 
-                          ? "bg-primary/10 text-primary border-primary/30" 
-                          : "bg-blue-500/10 text-blue-600 border-blue-500/30"
-                        }`}
+                        className={cn(
+                          "text-[10px] px-1.5 py-0",
+                          summerData.paceStatus === 'ahead' && "text-emerald-600 border-emerald-500/30",
+                          summerData.paceStatus === 'on-track' && "text-blue-600 border-blue-500/30",
+                          summerData.paceStatus === 'behind' && "text-amber-600 border-amber-500/30",
+                          summerData.paceStatus === 'critical' && "text-red-600 border-red-500/30",
+                        )}
                       >
-                        <Clock className="h-2.5 w-2.5 mr-0.5" />
-                        {followUp.isToday ? 'Today' : followUp.label}
+                        {summerData.paceStatus === 'ahead' ? '🔥 Ahead' : 
+                         summerData.paceStatus === 'on-track' ? '✅ On Track' :
+                         summerData.paceStatus === 'behind' ? '⚠️ Behind' : '🚨 At Risk'}
                       </Badge>
-                    );
-                  })()}
+                      {/* Knocking days */}
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+                        {summerData.knockingDays}d worked
+                      </Badge>
+                    </>
+                  ) : (
+                    <>
+                      {/* Scheduled follow-up badge */}
+                      {(() => {
+                        const followUp = getScheduledFollowUp(recruit);
+                        if (!followUp) return null;
+                        return (
+                          <Badge 
+                            variant="outline" 
+                            className={`text-[10px] px-1.5 py-0 ${followUp.isToday 
+                              ? "bg-primary/10 text-primary border-primary/30" 
+                              : "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                            }`}
+                          >
+                            <Clock className="h-2.5 w-2.5 mr-0.5" />
+                            {followUp.isToday ? 'Today' : followUp.label}
+                          </Badge>
+                        );
+                      })()}
 
-                  {/* Days since contact */}
-                  {(() => {
-                    const days = getDaysSinceContact(recruit);
-                    if (days === null) {
-                      return (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
-                          No contact
-                        </Badge>
-                      );
-                    }
-                    const isStale = days >= 7;
-                    return (
-                      <Badge 
-                        variant="outline" 
-                        className={`text-[10px] px-1.5 py-0 ${isStale ? 'text-amber-600 border-amber-500/30' : 'text-muted-foreground'}`}
-                      >
-                        {days}d ago
-                      </Badge>
-                    );
-                  })()}
+                      {/* Days since contact */}
+                      {(() => {
+                        const days = getDaysSinceContact(recruit);
+                        if (days === null) {
+                          return (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+                              No contact
+                            </Badge>
+                          );
+                        }
+                        const isStale = days >= 7;
+                        return (
+                          <Badge 
+                            variant="outline" 
+                            className={`text-[10px] px-1.5 py-0 ${isStale ? 'text-amber-600 border-amber-500/30' : 'text-muted-foreground'}`}
+                          >
+                            {days}d ago
+                          </Badge>
+                        );
+                      })()}
 
-                  {/* Blitz countdown */}
-                  {(() => {
-                    const blitz = getUpcomingBlitz(recruit);
-                    if (!blitz) return null;
-                    return (
-                      <Badge 
-                        variant="outline" 
-                        className={`text-[10px] px-1.5 py-0 ${
-                          blitz.isUrgent 
-                            ? 'bg-red-500/10 text-red-600 border-red-500/30' 
-                            : blitz.isWarning 
-                              ? 'bg-amber-500/10 text-amber-600 border-amber-500/30'
-                              : 'bg-green-500/10 text-green-600 border-green-500/30'
-                        }`}
-                      >
-                        🎯 {blitz.daysUntil}d
-                      </Badge>
-                    );
-                  })()}
+                      {/* Blitz countdown */}
+                      {(() => {
+                        const blitz = getUpcomingBlitz(recruit);
+                        if (!blitz) return null;
+                        return (
+                          <Badge 
+                            variant="outline" 
+                            className={`text-[10px] px-1.5 py-0 ${
+                              blitz.isUrgent 
+                                ? 'bg-red-500/10 text-red-600 border-red-500/30' 
+                                : blitz.isWarning 
+                                  ? 'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                                  : 'bg-green-500/10 text-green-600 border-green-500/30'
+                            }`}
+                          >
+                            🎯 {blitz.daysUntil}d
+                          </Badge>
+                        );
+                      })()}
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
