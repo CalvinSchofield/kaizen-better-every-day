@@ -193,10 +193,10 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
         
         {/* Scrollable content area */}
         <div className="flex-1 overflow-y-auto -mx-6 px-6">
-          <div className="flex flex-col gap-3 py-4">
+          <div className="flex flex-col gap-1 py-4">
             {/* Knocking Mode Toggle */}
             {canAccessKnockingToggle && (
-              <>
+              <div className="mb-2">
                 <div className="flex items-center justify-between p-3 rounded-lg bg-card">
                   <div className="flex flex-col gap-1">
                     <Label htmlFor="knocking-mode" className="text-sm font-semibold cursor-pointer">
@@ -213,224 +213,120 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                     disabled={isToggling}
                   />
                 </div>
-                <Separator />
-              </>
+              </div>
             )}
 
-            {/* Dynamic Menu Items based on user type and knocking mode */}
-            {/* PRE-BLITZ ROOKIES: Show Track (locked), Calendar (locked), Insights (locked) */}
+            {/* ── YOUR DATA ── */}
+            <div className="px-3 pt-3 pb-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Your Data</span>
+            </div>
+
+            {/* PRE-BLITZ ROOKIES: locked items */}
             {isCalendarLocked && (
               <>
-                <Link
-                  to="/track"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                >
+                <Link to="/track" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
                   <div className="relative">
                     <Wrench className="w-5 h-5 text-primary" />
-                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                      <Lock className="w-3 h-3 text-primary" />
-                    </div>
+                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full"><Lock className="w-3 h-3 text-primary" /></div>
                   </div>
                   <div className="flex flex-col flex-1 min-w-0">
                     <span className="font-semibold text-sm">Track</span>
-                    <span className="text-xs text-muted-foreground truncate">
-                      Unlocks on first blitz
-                    </span>
+                    <span className="text-xs text-muted-foreground truncate">Unlocks on first blitz</span>
                   </div>
                 </Link>
 
-                <Link
-                  to="/calendar"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                >
+                <Link to="/calendar" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
                   <div className="relative">
                     <Calendar className="w-5 h-5 text-primary" />
-                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                      <Lock className="w-3 h-3 text-primary" />
-                    </div>
+                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full"><Lock className="w-3 h-3 text-primary" /></div>
                   </div>
                   <div className="flex flex-col flex-1 min-w-0">
                     <span className="font-semibold text-sm">Your Sales Calendar</span>
-                    <span className="text-xs text-muted-foreground truncate">
-                      Unlocks on first blitz
-                    </span>
+                    <span className="text-xs text-muted-foreground truncate">Unlocks on first blitz</span>
                   </div>
                 </Link>
 
-                <Link
-                  to="/insights"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                >
+                <Link to="/insights" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
                   <div className="relative">
                     <BarChart3 className="w-5 h-5 text-primary" />
-                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                      <Lock className="w-3 h-3 text-primary" />
-                    </div>
+                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full"><Lock className="w-3 h-3 text-primary" /></div>
                   </div>
                   <div className="flex flex-col flex-1 min-w-0">
                     <span className="font-semibold text-sm">Insights</span>
-                    <span className="text-xs text-muted-foreground truncate">
-                      Unlocks on first blitz
-                    </span>
+                    <span className="text-xs text-muted-foreground truncate">Unlocks on first blitz</span>
                   </div>
                 </Link>
               </>
             )}
 
-            {/* POST-BLITZ ROOKIES & VETS/SOPHS */}
+            {/* POST-BLITZ / VETS / SOPHS */}
             {!isCalendarLocked && (
               <>
-                {/* KNOCKING MODE OFF: Show Track, Calendar, Insights, Reports (if leader), Training (for leaders since it's not in tabs) */}
+                {/* PRESEASON MODE */}
                 {!isKnockingMode && (
                   <>
-                    <Link
-                      to="/track"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                    >
+                    <Link to="/track" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
                       <Target className="w-5 h-5 text-primary" />
                       <div className="flex flex-col flex-1 min-w-0">
                         <span className="font-semibold text-sm">Track</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          Log your activity
-                        </span>
+                        <span className="text-xs text-muted-foreground truncate">Log your activity</span>
                       </div>
                     </Link>
 
-                    {/* Calendar removed - it's in the nav bar during preseason */}
-
-                    <Link
-                      to="/insights"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                    >
+                    <Link to="/insights" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
                       <BarChart3 className="w-5 h-5 text-primary" />
                       <div className="flex flex-col flex-1 min-w-0">
                         <span className="font-semibold text-sm">Insights</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          Track performance
-                        </span>
+                        <span className="text-xs text-muted-foreground truncate">Track performance</span>
                       </div>
                     </Link>
 
-                    {/* Leaderboard - accessible in preseason via drawer */}
-                    <Link
-                      to="/leaderboard"
-                      onClick={() => { hapticLight(); setOpen(false); }}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                    >
-                      <Trophy className="w-5 h-5 text-primary" />
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="font-semibold text-sm">Leaderboard</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          See top performers
-                        </span>
-                      </div>
-                    </Link>
-
-                    {/* Team Reports - Leaders only, hidden in preseason since it's now in the nav in knocking mode */}
-                    {isLeader && !isKnockingMode && (
-                      <Link
-                        to="/reports-v2"
-                        onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                      >
-                        <Users className="w-5 h-5 text-primary" />
-                        <div className="flex flex-col flex-1 min-w-0">
-                          <span className="font-semibold text-sm">Reports</span>
-                          <span className="text-xs text-muted-foreground truncate">
-                            View team performance
-                          </span>
-                        </div>
-                      </Link>
-                    )}
-
-                    {/* Training - Show for leaders in knocking mode OFF since it's not in tabs */}
                     {isLeader && (
-                      <Link
-                        to="/training"
-                        onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                      >
+                      <Link to="/training" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
                         <BookOpen className="w-5 h-5 text-primary" />
                         <div className="flex flex-col flex-1 min-w-0">
                           <span className="font-semibold text-sm">Training</span>
-                          <span className="text-xs text-muted-foreground truncate">
-                            Review resources
-                          </span>
+                          <span className="text-xs text-muted-foreground truncate">Review resources</span>
                         </div>
                       </Link>
                     )}
                   </>
                 )}
 
-                {/* KNOCKING MODE ON */}
+                {/* KNOCKING MODE */}
                 {isKnockingMode && (
                   <>
-                    {/* Calendar - accessible in knocking mode via drawer */}
-                    <Link
-                      to="/calendar"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                    >
+                    <Link to="/calendar" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
                       <Calendar className="w-5 h-5 text-primary" />
                       <div className="flex flex-col flex-1 min-w-0">
                         <span className="font-semibold text-sm">Calendar</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          View daily performance
-                        </span>
+                        <span className="text-xs text-muted-foreground truncate">View daily performance</span>
                       </div>
                     </Link>
 
-                    {/* Insights - moved from nav bar to menu for all users */}
-                    <Link
-                      to="/insights"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                    >
+                    <Link to="/insights" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
                       <BarChart3 className="w-5 h-5 text-primary" />
                       <div className="flex flex-col flex-1 min-w-0">
                         <span className="font-semibold text-sm">Insights</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          Track performance
-                        </span>
+                        <span className="text-xs text-muted-foreground truncate">Track performance</span>
                       </div>
                     </Link>
 
-                    {/* Goals - only show for leaders (non-leaders have it in their nav bar) */}
                     {isLeader && (
-                      <Link
-                        to="/goals"
-                        onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                      >
+                      <Link to="/goals" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
                         <Target className="w-5 h-5 text-primary" />
                         <div className="flex flex-col flex-1 min-w-0">
                           <span className="font-semibold text-sm">Goals</span>
-                          <span className="text-xs text-muted-foreground truncate">
-                            Set your summer goals
-                          </span>
+                          <span className="text-xs text-muted-foreground truncate">Set your summer goals</span>
                         </div>
                       </Link>
                     )}
 
-                    {/* Team Reports link removed from knocking mode drawer - now in main nav */}
-
-                    {/* Training - available for everyone */}
-                    <Link
-                      to="/training"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                    >
+                    <Link to="/training" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
                       <BookOpen className="w-5 h-5 text-primary" />
                       <div className="flex flex-col flex-1 min-w-0">
                         <span className="font-semibold text-sm">Training</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          Review resources
-                        </span>
+                        <span className="text-xs text-muted-foreground truncate">Review resources</span>
                       </div>
                     </Link>
                   </>
@@ -438,32 +334,38 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
               </>
             )}
 
-            <Separator />
+            {/* ── TEAM ── */}
+            <div className="px-3 pt-4 pb-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Team</span>
+            </div>
 
-            {/* Compete - only show in drawer when NOT in knocking mode (it's in the nav bar during knocking) */}
+            {/* Leaderboard - only in drawer during preseason (it's in nav bar during knocking) */}
+            {!isKnockingMode && !isCalendarLocked && (
+              <Link to="/leaderboard" onClick={() => { hapticLight(); setOpen(false); }} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
+                <Trophy className="w-5 h-5 text-primary" />
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="font-semibold text-sm">Leaderboard</span>
+                  <span className="text-xs text-muted-foreground truncate">See top performers</span>
+                </div>
+              </Link>
+            )}
+
+            {/* Compete - only in drawer during preseason */}
             {!isKnockingMode && (
               <>
                 {isPreBlitzRookie ? (
                   <div className="flex items-center gap-3 p-3 rounded-lg">
                     <div className="relative">
                       <Swords className="w-5 h-5 text-primary" />
-                      <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                        <Lock className="w-3 h-3 text-primary" />
-                      </div>
+                      <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full"><Lock className="w-3 h-3 text-primary" /></div>
                     </div>
                     <div className="flex flex-col flex-1 min-w-0">
                       <span className="font-semibold text-sm">Compete</span>
-                      <span className="text-xs text-muted-foreground truncate">
-                        Unlocks on first blitz
-                      </span>
+                      <span className="text-xs text-muted-foreground truncate">Unlocks on first blitz</span>
                     </div>
                   </div>
                 ) : (
-                  <Link
-                    to="/compete"
-                    onClick={() => { hapticLight(); setOpen(false); }}
-                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                  >
+                  <Link to="/compete" onClick={() => { hapticLight(); setOpen(false); }} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
                     <Swords className="w-5 h-5 text-primary" />
                     <div className="flex flex-col flex-1 min-w-0">
                       <span className="font-semibold text-sm flex items-center gap-2">
@@ -474,30 +376,31 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                           </Badge>
                         )}
                       </span>
-                      <span className="text-xs text-muted-foreground truncate">
-                        Challenges & incentives
-                      </span>
+                      <span className="text-xs text-muted-foreground truncate">Challenges & incentives</span>
                     </div>
                   </Link>
                 )}
-
-                <Separator />
               </>
             )}
 
-            {/* My Group - Available for everyone EXCEPT leaders when knocking mode is OFF (it's in tabs for them) */}
+            {/* Reports - leaders only, preseason drawer */}
+            {isLeader && !isKnockingMode && !isCalendarLocked && (
+              <Link to="/reports-v2" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
+                <Users className="w-5 h-5 text-primary" />
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="font-semibold text-sm">Reports</span>
+                  <span className="text-xs text-muted-foreground truncate">View team performance</span>
+                </div>
+              </Link>
+            )}
+
+            {/* My Group */}
             {!(isLeader && !isKnockingMode && !isCalendarLocked) && (
-              <Link
-                to="/my-group"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-              >
+              <Link to="/my-group" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
                 <UserPlus className="w-5 h-5 text-primary" />
                 <div className="flex flex-col flex-1 min-w-0">
                   <span className="font-semibold text-sm">My Group</span>
-                  <span className="text-xs text-muted-foreground truncate">
-                    {isLeader ? "Manage recruits" : "Suggest recruits"}
-                  </span>
+                  <span className="text-xs text-muted-foreground truncate">{isLeader ? "Manage recruits" : "Suggest recruits"}</span>
                 </div>
               </Link>
             )}
@@ -507,68 +410,36 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
               <div className="flex items-center gap-3 p-3 rounded-lg">
                 <div className="relative">
                   <Contact className="w-5 h-5 text-primary" />
-                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                    <Lock className="w-3 h-3 text-primary" />
-                  </div>
+                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full"><Lock className="w-3 h-3 text-primary" /></div>
                 </div>
                 <div className="flex flex-col flex-1 min-w-0">
                   <span className="font-semibold text-sm">Customers</span>
-                  <span className="text-xs text-muted-foreground truncate">
-                    Unlocks on first blitz
-                  </span>
+                  <span className="text-xs text-muted-foreground truncate">Unlocks on first blitz</span>
                 </div>
               </div>
             ) : (
-              <Link
-                to="/customers"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-              >
+              <Link to="/customers" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
                 <Contact className="w-5 h-5 text-primary" />
                 <div className="flex flex-col flex-1 min-w-0">
                   <span className="font-semibold text-sm">Customers</span>
-                  <span className="text-xs text-muted-foreground truncate">
-                    View & contact logged sales
-                  </span>
+                  <span className="text-xs text-muted-foreground truncate">View & contact logged sales</span>
                 </div>
               </Link>
             )}
 
-            <Separator />
-            <a
-              href="https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-            >
-              <MessageSquare className="w-5 h-5 text-primary" />
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="font-semibold text-sm">AI Assistant</span>
-                <span className="text-xs text-muted-foreground truncate">
-                  {isKnockingMode ? "Sales & objections help" : "Onboarding & training help"}
-                </span>
-              </div>
-            </a>
+            {/* ── ACCOUNT ── */}
+            <div className="px-3 pt-4 pb-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Account</span>
+            </div>
 
-
-            <Separator />
-
-            {/* Personalize - Combined profile and settings */}
-            <Link
-              to="/settings"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-            >
+            <Link to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
               <Settings className="w-5 h-5 text-primary" />
               <div className="flex flex-col flex-1 min-w-0">
-                <span className="font-semibold text-sm">Personalize</span>
-                <span className="text-xs text-muted-foreground truncate">
-                  Profile & preferences
-                </span>
+                <span className="font-semibold text-sm">Settings</span>
+                <span className="text-xs text-muted-foreground truncate">Profile & preferences</span>
               </div>
             </Link>
 
-            {/* Refresh Data - User accessible cache refresh */}
             <button
               onClick={handleRefreshData}
               disabled={isRefreshing}
@@ -576,12 +447,8 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             >
               <RefreshCw className={`w-5 h-5 text-primary ${isRefreshing ? 'animate-spin' : ''}`} />
               <div className="flex flex-col flex-1 min-w-0">
-                <span className="font-semibold text-sm">
-                  {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
-                </span>
-                <span className="text-xs text-muted-foreground truncate">
-                  Fix loading issues
-                </span>
+                <span className="font-semibold text-sm">{isRefreshing ? 'Refreshing...' : 'Refresh Data'}</span>
+                <span className="text-xs text-muted-foreground truncate">Fix loading issues</span>
               </div>
             </button>
 
