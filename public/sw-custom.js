@@ -71,6 +71,16 @@ function getNotificationActions(type) {
         { action: 'view', title: '👋 Meet Them' },
         { action: 'dismiss', title: '👍 Got It' }
       ];
+    case 'install_reminder_eve':
+      return [
+        { action: 'text', title: '💬 Text Customer' },
+        { action: 'view', title: '📋 View Sale' }
+      ];
+    case 'install_reminder_due':
+      return [
+        { action: 'view', title: '✅ Confirm / Update' },
+        { action: 'dismiss', title: '⏳ Later' }
+      ];
     default:
       return [
         { action: 'open', title: '👀 View' },
