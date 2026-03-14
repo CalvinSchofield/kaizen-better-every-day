@@ -504,7 +504,8 @@ export function useGoalPaceCalculator(): GoalPaceData {
     const salesLog = todayEntry.sales_log as any[] | null;
     if (Array.isArray(salesLog)) {
       for (const sale of salesLog) {
-        if (sale.install_status === 'never_installed') continue;
+    if (sale.install_status === 'never_installed') continue;
+        if (sale.install_status === 'pending') continue;
         if (efpModeEnabled) {
           liveFP += (Number(sale.prmr) || 0) / 85;
         } else {
