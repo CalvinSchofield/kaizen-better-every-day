@@ -268,7 +268,7 @@ export const GoalHeroRing = ({
               ) : (
                 <>
                   <span className="text-4xl font-bold tracking-tight">
-                    {currentProgress.toFixed(1)}
+                    {fundedDisplay.toFixed(1)}
                   </span>
                   <span className="text-sm text-muted-foreground">
                     of {fpGoal.toFixed(0)} {metricLabel}
@@ -279,19 +279,6 @@ export const GoalHeroRing = ({
                       {remaining.toFixed(1)} to go
                     </span>
                   </div>
-                  {/* Today's pace indicator - only show when pace tracking is relevant */}
-                  {showPaceTracking && dailyGoal > 0 && (
-                    <div className={cn(
-                      "mt-2 px-2 py-0.5 rounded-full text-[10px] font-medium",
-                      isTodayAhead && "bg-emerald-500/10 text-emerald-600",
-                      isTodayBehind && "bg-amber-500/10 text-amber-600",
-                      !isTodayAhead && !isTodayBehind && "bg-blue-500/10 text-blue-600"
-                    )}>
-                      {isTodayAhead && `+${todayPaceDiff.toFixed(1)} ahead today`}
-                      {isTodayBehind && `${Math.abs(todayPaceDiff).toFixed(1)} behind today`}
-                      {!isTodayAhead && !isTodayBehind && "On pace today"}
-                    </div>
-                  )}
                 </>
               )}
             </motion.div>
