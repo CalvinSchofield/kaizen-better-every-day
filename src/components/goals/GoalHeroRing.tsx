@@ -11,6 +11,7 @@ export type GoalTier = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
 
 interface GoalHeroRingProps {
   pendingPipeline?: number;
+  liveFP?: number;
   activeTier: GoalTier;
   fpGoal: number;
   currentProgress: number;
