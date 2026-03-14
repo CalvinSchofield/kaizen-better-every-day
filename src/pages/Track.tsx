@@ -398,9 +398,9 @@ const Track = ({
             transitions={entry.transitions ?? 0}
             presentations={entry.presentations ?? 0}
             closes={entry.closes ?? 0}
-            salesLog={entry.sales_log as any[] ?? []}
-            fp={liveFP}
-            prmr={livePRMR}
+            salesLog={salesLog}
+            fp={fp}
+            prmr={prmr}
           />
         </div>
 
