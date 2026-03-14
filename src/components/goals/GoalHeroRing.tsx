@@ -10,6 +10,7 @@ import { GOAL_TIER_CONFIG } from "@/config/goalTiers";
 export type GoalTier = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
 
 interface GoalHeroRingProps {
+  pendingPipeline?: number;
   activeTier: GoalTier;
   fpGoal: number;
   currentProgress: number;
