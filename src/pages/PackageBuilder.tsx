@@ -503,7 +503,6 @@ const PackageBuilder = () => {
           />
         )}
       </div>
-    </EdgeSwipeContainer>
   );
 };
 
