@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Calendar, MapPin, Edit2, Trash2, Home, Wifi, Key } from "lucide-react";
+import { Plus, Calendar, MapPin, Edit2, Trash2, Home, Wifi, Key } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,10 +8,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useHeader } from "@/contexts/HeaderContext";
 import BlitzFormDrawer from "@/components/admin/BlitzFormDrawer";
 import DeleteBlitzDialog from "@/components/admin/DeleteBlitzDialog";
 import { formatBlitzDateRange } from "@/utils/blitzDateUtils";
-import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
 
 interface Accommodation {
   id: string;
@@ -36,6 +36,7 @@ interface Blitz {
 export default function AdminBlitzes() {
   const navigate = useNavigate();
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
+  const { setCustomRightContent } = useHeader();
   const [blitzes, setBlitzes] = useState<Blitz[]>([]);
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -46,6 +47,17 @@ export default function AdminBlitzes() {
   const isLeader = teamAccess?.accessLevel === 'area_director' || 
                    teamAccess?.accessLevel === 'mgmt_group_lead' || 
                    teamAccess?.accessLevel === 'team_lead';
+
+  // Set "New Blitz" button in header
+  useEffect(() => {
+    setCustomRightContent(
+      <Button onClick={() => setDrawerOpen(true)} size="sm">
+        <Plus className="h-4 w-4 mr-1" />
+        New
+      </Button>
+    );
+    return () => setCustomRightContent(null);
+  }, [setCustomRightContent]);
 
   useEffect(() => {
     if (!accessLoading && !isLeader) {
@@ -68,7 +80,6 @@ export default function AdminBlitzes() {
 
       if (blitzesError) throw blitzesError;
 
-      // Fetch accommodations for all blitzes
       const blitzIds = (blitzesData || []).map((b) => b.id);
       const { data: accommodationsData, error: accError } = await supabase
         .from("blitz_accommodations")
@@ -78,137 +89,75 @@ export default function AdminBlitzes() {
 
       if (accError) throw accError;
 
-      // Group accommodations by blitz
       const accByBlitz: Record<string, Accommodation[]> = {};
       (accommodationsData || []).forEach((acc) => {
-        if (!accByBlitz[acc.blitz_id]) {
-          accByBlitz[acc.blitz_id] = [];
-        }
+        if (!accByBlitz[acc.blitz_id]) accByBlitz[acc.blitz_id] = [];
         accByBlitz[acc.blitz_id].push(acc);
       });
 
-      const blitzesWithAcc: Blitz[] = (blitzesData || []).map((b) => ({
+      setBlitzes((blitzesData || []).map((b) => ({
         ...b,
         accommodations: accByBlitz[b.id] || [],
-      }));
-
-      setBlitzes(blitzesWithAcc);
+      })));
     } catch (error: any) {
       console.error("Error fetching blitzes:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load blitzes",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to load blitzes", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isLeader) {
-      fetchBlitzes();
-    }
+    if (isLeader) fetchBlitzes();
   }, [isLeader]);
 
-  const handleEdit = (blitz: Blitz) => {
-    setEditingBlitz(blitz);
-    setDrawerOpen(true);
-  };
-
-  const handleDelete = (blitz: Blitz) => {
-    setDeletingBlitz(blitz);
-    setDeleteDialogOpen(true);
-  };
+  const handleEdit = (blitz: Blitz) => { setEditingBlitz(blitz); setDrawerOpen(true); };
+  const handleDelete = (blitz: Blitz) => { setDeletingBlitz(blitz); setDeleteDialogOpen(true); };
 
   const handleConfirmDelete = async () => {
     if (!deletingBlitz) return;
-
     try {
-      const { error } = await supabase
-        .from("blitzes")
-        .delete()
-        .eq("id", deletingBlitz.id);
-
+      const { error } = await supabase.from("blitzes").delete().eq("id", deletingBlitz.id);
       if (error) throw error;
-
       toast({ title: "Blitz deleted successfully" });
       fetchBlitzes();
     } catch (error: any) {
       console.error("Error deleting blitz:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete blitz",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to delete blitz", variant: "destructive" });
     } finally {
       setDeleteDialogOpen(false);
       setDeletingBlitz(null);
     }
   };
 
-  const handleDrawerClose = () => {
-    setDrawerOpen(false);
-    setEditingBlitz(null);
-  };
-
-  const handleSaveSuccess = () => {
-    handleDrawerClose();
-    fetchBlitzes();
-  };
+  const handleDrawerClose = () => { setDrawerOpen(false); setEditingBlitz(null); };
+  const handleSaveSuccess = () => { handleDrawerClose(); fetchBlitzes(); };
 
   if (accessLoading) {
     return (
-      <div className="min-h-screen bg-background p-4">
-        <Skeleton className="h-8 w-48 mb-6" />
+      <div className="p-4">
         <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-32 w-full" />
-          ))}
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-32 w-full" />)}
         </div>
       </div>
     );
   }
 
-  if (!isLeader) {
-    return null;
-  }
+  if (!isLeader) return null;
 
   const now = new Date();
   const upcomingBlitzes = blitzes.filter((b) => new Date(b.end_date || b.date) >= now);
   const pastBlitzes = blitzes.filter((b) => new Date(b.end_date || b.date) < now);
 
   return (
-    <EdgeSwipeContainer>
-      {/* Header */}
-      <div 
-        className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b"
-        style={{ paddingTop: 'var(--effective-safe-area-top)' }}
-      >
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="text-xl font-bold">Manage Blitzes</h1>
-          </div>
-          <Button onClick={() => setDrawerOpen(true)} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            New Blitz
-          </Button>
-        </div>
-      </div>
-
+    <div>
       <div className="p-4 space-y-6">
         {loading ? (
           <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-32 w-full rounded-xl" />
-            ))}
+            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}
           </div>
         ) : (
           <>
-            {/* Upcoming Blitzes */}
             <section>
               <h2 className="text-lg font-semibold mb-3 text-foreground">
                 Upcoming Blitzes ({upcomingBlitzes.length})
@@ -222,18 +171,12 @@ export default function AdminBlitzes() {
               ) : (
                 <div className="space-y-3">
                   {upcomingBlitzes.map((blitz) => (
-                    <BlitzCard
-                      key={blitz.id}
-                      blitz={blitz}
-                      onEdit={() => handleEdit(blitz)}
-                      onDelete={() => handleDelete(blitz)}
-                    />
+                    <BlitzCard key={blitz.id} blitz={blitz} onEdit={() => handleEdit(blitz)} onDelete={() => handleDelete(blitz)} />
                   ))}
                 </div>
               )}
             </section>
 
-            {/* Past Blitzes */}
             {pastBlitzes.length > 0 && (
               <section>
                 <h2 className="text-lg font-semibold mb-3 text-muted-foreground">
@@ -241,13 +184,7 @@ export default function AdminBlitzes() {
                 </h2>
                 <div className="space-y-3 opacity-70">
                   {pastBlitzes.slice(0, 5).map((blitz) => (
-                    <BlitzCard
-                      key={blitz.id}
-                      blitz={blitz}
-                      onEdit={() => handleEdit(blitz)}
-                      onDelete={() => handleDelete(blitz)}
-                      isPast
-                    />
+                    <BlitzCard key={blitz.id} blitz={blitz} onEdit={() => handleEdit(blitz)} onDelete={() => handleDelete(blitz)} isPast />
                   ))}
                 </div>
               </section>
@@ -256,20 +193,9 @@ export default function AdminBlitzes() {
         )}
       </div>
 
-      <BlitzFormDrawer
-        open={drawerOpen}
-        onClose={handleDrawerClose}
-        blitz={editingBlitz}
-        onSuccess={handleSaveSuccess}
-      />
-
-      <DeleteBlitzDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        blitzName={deletingBlitz?.name || ""}
-        onConfirm={handleConfirmDelete}
-      />
-    </EdgeSwipeContainer>
+      <BlitzFormDrawer open={drawerOpen} onClose={handleDrawerClose} blitz={editingBlitz} onSuccess={handleSaveSuccess} />
+      <DeleteBlitzDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} blitzName={deletingBlitz?.name || ""} onConfirm={handleConfirmDelete} />
+    </div>
   );
 }
 
@@ -301,36 +227,18 @@ function BlitzCard({ blitz, onEdit, onDelete, isPast }: BlitzCardProps) {
             )}
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={onEdit}>
-              <Edit2 className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive hover:text-destructive">
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <Button variant="ghost" size="icon" onClick={onEdit}><Edit2 className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
           </div>
         </div>
 
-        {/* Accommodations Preview */}
         {blitz.accommodations.length > 0 && (
           <div className="mt-3 pt-3 border-t space-y-2">
             {blitz.accommodations.map((acc) => (
               <div key={acc.id} className="flex items-center gap-2 text-xs">
-                <Badge variant="outline" className="shrink-0">
-                  <Home className="h-3 w-3 mr-1" />
-                  {acc.name}
-                </Badge>
-                {acc.wifi_password && (
-                  <span className="text-muted-foreground flex items-center gap-1">
-                    <Wifi className="h-3 w-3" />
-                    {acc.wifi_password}
-                  </span>
-                )}
-                {acc.door_code && (
-                  <span className="text-muted-foreground flex items-center gap-1">
-                    <Key className="h-3 w-3" />
-                    {acc.door_code}
-                  </span>
-                )}
+                <Badge variant="outline" className="shrink-0"><Home className="h-3 w-3 mr-1" />{acc.name}</Badge>
+                {acc.wifi_password && <span className="text-muted-foreground flex items-center gap-1"><Wifi className="h-3 w-3" />{acc.wifi_password}</span>}
+                {acc.door_code && <span className="text-muted-foreground flex items-center gap-1"><Key className="h-3 w-3" />{acc.door_code}</span>}
               </div>
             ))}
           </div>

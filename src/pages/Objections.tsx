@@ -156,23 +156,9 @@ const Objections = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <div 
-        className="sticky top-0 z-50 bg-card border-b border-border"
-        style={{ paddingTop: 'var(--effective-safe-area-top)' }}
-      >
+      {/* Search */}
+      <div className="sticky top-0 z-30 bg-card border-b border-border">
         <div className="max-w-lg mx-auto px-4 py-4">
-          <div className="flex items-center gap-3 mb-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/tools")}
-              className="rounded-full"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <h1 className="text-2xl font-bold">Common Objections</h1>
-          </div>
 
           {/* Search */}
           <div className="relative">

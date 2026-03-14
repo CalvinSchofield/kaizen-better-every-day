@@ -1,12 +1,14 @@
 import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Settings, Camera, ArrowLeft, Lock, Trophy, Flame, Target, Footprints, Presentation, ArrowRightLeft, Award } from "lucide-react";
+import { Settings, Camera, Lock, Trophy, Flame, Target, Footprints, Presentation, ArrowRightLeft, Award } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
 import { ProfilePhotoDrawer } from "@/components/ProfilePhotoDrawer";
 import { ProfileSwiper } from "@/components/profile/ProfileSwiper";
 import { ProfileContactBar } from "@/components/profile/ProfileContactBar";
+import { useHeader } from "@/contexts/HeaderContext";
 
 import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
@@ -14,7 +16,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useDownlineGoalPace } from "@/hooks/useDownlineGoalPace";
 import { getInitials } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format, parseISO } from "date-fns";
 
 const formatRelativeTime = (isoString: string | null): string | null => {
@@ -43,6 +45,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const { userId: currentUserId } = useCurrentUserId();
   const [photoDrawerOpen, setPhotoDrawerOpen] = useState(false);
+  const { setCustomRightContent } = useHeader();
 
   if (!userId && currentUserId) {
     return <Navigate to={`/profile/${currentUserId}`} replace />;
@@ -54,6 +57,18 @@ const Profile = () => {
   const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
   const { data: goalPace } = useDownlineGoalPace(isDownline ? userId : null);
 
+  // Set header right content for own profile (settings icon)
+  useEffect(() => {
+    if (isOwnProfile) {
+      setCustomRightContent(
+        <Button variant="ghost" size="icon" onClick={() => navigate("/settings")} className="h-10 w-10">
+          <Settings className="h-5 w-5" />
+        </Button>
+      );
+    }
+    return () => setCustomRightContent(null);
+  }, [isOwnProfile]);
+
   const formatDate = (dateStr: string) => {
     try {
       return format(parseISO(dateStr), "MMM d");
@@ -64,8 +79,7 @@ const Profile = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <div className="pt-safe" />
+      <div className="flex flex-col">
         <Skeleton className="w-full aspect-[4/3]" />
         <div className="flex-1 flex flex-col items-center px-6 pt-6 gap-4">
           <Skeleton className="h-6 w-40" />
@@ -82,7 +96,7 @@ const Profile = () => {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <p className="text-muted-foreground">Profile not found.</p>
       </div>
     );
@@ -94,32 +108,10 @@ const Profile = () => {
   const lastActive = formatRelativeTime(profile.lastActiveAt);
 
   return (
-    <div className="min-h-screen bg-background overflow-y-auto pb-28">
-      {/* Hero cover photo — bleeds under status bar / Dynamic Island */}
-      <div className="relative w-full aspect-[3/4] max-h-[70vh] overflow-hidden bg-muted">
-        {/* Back + settings buttons — floated well below Dynamic Island */}
-        <div className="absolute top-0 left-0 right-0 z-20 pt-safe">
-          <div className="flex items-center justify-between px-5 pt-3">
-            <button
-              onClick={() => { hapticLight(); navigate(-1); }}
-              className="h-10 w-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
-            >
-              <ArrowLeft className="h-5 w-5 text-white" />
-            </button>
-            {isOwnProfile ? (
-              <button
-                onClick={() => { hapticLight(); navigate("/settings"); }}
-                className="h-10 w-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
-              >
-                <Settings className="h-5 w-5 text-white" />
-              </button>
-            ) : (
-              <div className="w-10" />
-            )}
-          </div>
-        </div>
-
-        {/* Photo — fills entire hero area */}
+    <div className="bg-background overflow-y-auto pb-8">
+      {/* Hero cover photo */}
+      <div className="relative w-full aspect-[3/4] max-h-[65vh] overflow-hidden bg-muted">
+        {/* Photo */}
         {profile.profilePhotoUrl ? (
           <img
             src={profile.profilePhotoUrl}
@@ -137,10 +129,7 @@ const Profile = () => {
           </div>
         )}
 
-        {/* Top fade — blends into Dynamic Island / status bar area */}
-        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/70 via-black/30 to-transparent z-[5]" />
-
-        {/* Bottom gradient — generous fade for name readability */}
+        {/* Bottom gradient for name readability */}
         <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-background via-background/60 to-transparent" />
 
         {/* Overlaid name + meta */}
@@ -151,12 +140,12 @@ const Profile = () => {
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
             {firstName && (
-              <h1 className="leading-[1.1]">
+              <h2 className="leading-[1.1]">
                 <span className="block text-2xl font-medium tracking-wide text-foreground">{firstName}</span>
                 {lastName && (
                   <span className="block text-4xl font-black tracking-tight text-foreground">{lastName}</span>
                 )}
-              </h1>
+              </h2>
             )}
             <div className="flex items-center gap-2 mt-2">
               <YearBadge year={profile.year} fullLabel />
@@ -197,7 +186,6 @@ const Profile = () => {
       </div>
 
       {/* Stats bar */}
-      {/* Stats bar — tighter to hero, no gap */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -213,8 +201,6 @@ const Profile = () => {
           </div>
         </div>
       </motion.div>
-
-      {/* Contact drawers still need to render — handled inside ProfileContactBar */}
 
       {/* Momentum Sparkline / Goal Pace Swiper */}
       <ProfileSwiper
@@ -238,7 +224,6 @@ const Profile = () => {
             <TabsTrigger value="badges" className="text-xs font-semibold">Badges</TabsTrigger>
           </TabsList>
 
-          {/* Stats Tab */}
           <TabsContent value="stats" className="mt-4">
             <div className="bg-card border border-border rounded-2xl p-4 space-y-4">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Season Activity</h3>
@@ -276,7 +261,6 @@ const Profile = () => {
               </p>
             </div>
           </TabsContent>
-
         </Tabs>
       </motion.div>
 

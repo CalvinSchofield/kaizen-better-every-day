@@ -109,29 +109,10 @@ export default function RecruitingContent() {
   };
 
   return (
-    <EdgeSwipeContainer>
-      {/* Header */}
-      <div 
-        className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border"
-        style={{ paddingTop: 'var(--effective-safe-area-top)' }}
-      >
-        <div className="flex items-center gap-3 p-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(-1)}
-            className="rounded-full"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Recruiting Content</h1>
-            <p className="text-sm text-muted-foreground">Tap to copy and share</p>
-          </div>
-        </div>
-
-        {/* Category Pills */}
-        <div className="flex gap-2 px-4 pb-4 overflow-x-auto scrollbar-hide">
+    <div>
+      {/* Category Pills */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide">
           {categories.map((category) => (
             <button
               key={category}
@@ -268,6 +249,6 @@ export default function RecruitingContent() {
           </motion.div>
         )}
       </AnimatePresence>
-    </EdgeSwipeContainer>
+    </div>
   );
 }

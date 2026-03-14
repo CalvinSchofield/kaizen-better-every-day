@@ -1,77 +1,50 @@
 
 
-# Wrap All Pages in Layout for Consistent Navigation
+## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
 
-## Problem
-13 pages currently lack the global `<Layout>` wrapper, meaning they have no bottom nav bar, no hamburger menu, and no drawer access. Users get "stuck" on these pages with only a back button. Profile is the worst offender with floating buttons that feel disconnected.
+### The Problem
 
-## Pages to Wrap
+When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
 
-| Page | Current Header | Approach |
-|------|---------------|----------|
-| **Profile** | Floating back + settings buttons over hero photo | Wrap in Layout, remove floating buttons, move hero below header |
-| **LogSale** | Custom sticky header with Cancel button | Wrap in Layout, remove custom header, use `useHeader` for title |
-| **RampToBlitz** | EdgeSwipeContainer + back button (already uses `useHeader`) | Wrap in Layout in App.tsx, remove custom back button + EdgeSwipeContainer, already sets title via `useHeader` |
-| **AboutTeam** | Floating back button | Wrap in Layout, remove floating button |
-| **AddApplicant** | EdgeSwipeContainer + back + title | Wrap in Layout, remove custom header, use `useHeader` |
-| **AddRecruit** | EdgeSwipeContainer + back + title | Wrap in Layout, remove custom header, use `useHeader` |
-| **RecruitingContent** | EdgeSwipeContainer + back + title | Wrap in Layout, remove custom header, use `useHeader` |
-| **AdminBlitzes** | EdgeSwipeContainer + back + title + "New Blitz" button | Wrap in Layout, remove custom header, use `useHeader` for title, move "New Blitz" to `headerRightContent` |
-| **Competitors** | Custom sticky header + search | Wrap in Layout, remove back button header, keep search below |
-| **Contacts** | Custom header | Wrap in Layout, remove custom header |
-| **Objections** | Custom sticky header | Wrap in Layout, remove custom header |
-| **UpgradeCheatSheet** | Custom sticky header | Wrap in Layout, remove custom header |
-| **PackageBuilder** | Custom header | Wrap in Layout, remove custom header |
-| **ProductKnowledge** | EdgeSwipeContainer + custom header | Wrap in Layout, remove custom header |
+### Root Cause
 
-## Implementation Details
+There are three things fighting each other:
 
-### 1. Layout Changes
-- **`getPageTitle()`**: Add cases for all new routes (`/profile` -> "Profile", `/log-sale` -> "Log Sale", `/ramp-to-blitz` -> "Ramp to Blitz", `/about-team` -> "About Team", `/add-applicant` -> "Add Applicant", `/add-recruit` -> "Add Recruit", `/recruiting-content` -> "Recruiting", `/admin/blitzes` -> "Manage Blitzes", `/tools/competitors` -> "Competitors", `/tools/contacts` -> "Contacts", `/tools/objections` -> "Objections", `/tools/upgrades` -> "Upgrades", `/tools/package-builder` -> "Package Builder", `/tools/product-knowledge` -> "Product Knowledge")
-- **Fix "Personalize"** -> "Settings" in `getPageTitle()` (line 303)
-- **Handle `/profile/:userId`**: Use `startsWith` matching for dynamic routes
+1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
 
-### 2. App.tsx Route Changes
-Wrap all 13 unwrapped routes in `<Layout>`:
-```tsx
-<Route path="/profile/:userId" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
-```
+2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
 
-### 3. Per-Page Cleanup (remove custom headers)
-Each page gets its custom header removed (the sticky div with back button + title). The page content starts directly. Pages using `EdgeSwipeContainer` just for the back gesture can keep it but lose the custom header.
+3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
 
-**Profile** (biggest change):
-- Remove the floating back/settings buttons (lines 100-119)
-- Remove the top gradient fade (line 141) since header handles the top
-- Remove `pt-safe` padding since Layout handles safe area
-- Add camera button for own profile in `headerRightContent` via `useHeader`
-- Settings icon for own profile moves to `customRightContent` via `useHeader`
-- Hero photo keeps its visual design but no longer bleeds under status bar
+### The Fix
 
-**LogSale**:
-- Remove the sticky header with Cancel/title (lines 394-412)
-- Use `useHeader` to set title to "Log Sale" or "Edit Sale"
-- Add Cancel button as `customRightContent`
+#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
 
-**AdminBlitzes**:
-- Move "New Blitz" button to `headerRightContent` via `useHeader`
+The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
 
-### 4. Files Changed
-- `src/components/Layout.tsx` — expand `getPageTitle()`, fix "Personalize" -> "Settings"
-- `src/App.tsx` — wrap 13 routes in `<Layout>`
-- `src/pages/Profile.tsx` — remove floating buttons, adjust hero layout
-- `src/pages/LogSale.tsx` — remove custom header, use `useHeader`
-- `src/pages/RampToBlitz.tsx` — remove back button, already uses `useHeader`
-- `src/pages/AboutTeam.tsx` — remove floating back button
-- `src/pages/AddApplicant.tsx` — remove custom header, use `useHeader`
-- `src/pages/AddRecruit.tsx` — remove custom header, use `useHeader`
-- `src/pages/RecruitingContent.tsx` — remove custom header, use `useHeader`
-- `src/pages/AdminBlitzes.tsx` — remove custom header, use `useHeader`
-- `src/pages/Competitors.tsx` — remove back button header
-- `src/pages/Objections.tsx` — remove custom header
-- `src/pages/UpgradeCheatSheet.tsx` — remove custom header
-- `src/pages/PackageBuilder.tsx` — remove custom header
-- `src/pages/ProductKnowledge.tsx` — remove custom header
+#### 2. Simplify `useKeyboardViewport` hook
 
-~16 files total. This is a large but mechanical change — each page follows the same pattern: wrap in Layout, delete custom header, optionally use `useHeader` for dynamic titles or right-side actions.
+- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
+- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
+- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
+- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
+
+#### 3. Add `@capacitor/keyboard` plugin configuration
+
+Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
+
+### Files to Modify
+
+- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
+- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
+- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
+- **`package.json`** -- Add `@capacitor/keyboard` dependency
+
+### After Approval
+
+After these code changes, you will need to:
+1. Git pull the updated code
+2. Run `npm install` to get the new keyboard plugin
+3. Run `npx cap sync` to sync the plugin to iOS
+4. Rebuild in Xcode and push to TestFlight
 

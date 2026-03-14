@@ -304,32 +304,13 @@ const Contacts = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <div 
-        className="sticky top-0 z-50 bg-card border-b border-border"
-        style={{ paddingTop: 'var(--effective-safe-area-top)' }}
-      >
+      {/* Search & AI */}
+      <div className="sticky top-0 z-30 bg-card border-b border-border">
         <div className="max-w-lg mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate("/tools")}
-                className="rounded-full"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <h1 className="text-2xl font-bold">Useful Contacts</h1>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleDownloadAll}
-              className="flex flex-col h-auto py-2 px-3 gap-1"
-            >
+          <div className="flex justify-end mb-3">
+            <Button variant="ghost" size="sm" onClick={handleDownloadAll} className="gap-1.5">
               <Download className="w-4 h-4" />
-              <span className="text-[10px]">Download</span>
+              Download All
             </Button>
           </div>
 

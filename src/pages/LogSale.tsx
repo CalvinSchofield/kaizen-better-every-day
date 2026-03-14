@@ -19,6 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
+import { useHeader } from "@/contexts/HeaderContext";
 
 // Helper to calculate minutes between two timestamps
 const getMinutesBetween = (start: string, end: string): number => {
@@ -389,28 +390,24 @@ export default function LogSale() {
 
   const isEditing = !!editingSale;
 
-  return (
-    <EdgeSwipeContainer className="min-h-screen bg-background flex flex-col">
-      {/* Fixed Header */}
-      <div 
-        className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-3"
-        style={{ paddingTop: 'calc(var(--effective-safe-area-top) + 0.75rem)' }}
-      >
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={handleCancel} className="gap-2">
-            <X className="w-4 h-4" />
-            Cancel
-          </Button>
-          <div className="text-center">
-            <h1 className="text-lg font-bold">{isEditing ? "Edit Sale" : "Nice! 🎉"}</h1>
-            {!isEditing && (
-              <p className="text-xs text-muted-foreground">Log this sale's details</p>
-            )}
-          </div>
-          <div className="w-20" /> {/* Spacer for centering */}
-        </div>
-      </div>
+  const { setCustomTitle, setCustomRightContent } = useHeader();
 
+  // Set header title and cancel button
+  useEffect(() => {
+    setCustomTitle(isEditing ? "Edit Sale" : "Log Sale");
+    setCustomRightContent(
+      <Button variant="ghost" size="sm" onClick={() => {
+        navigate(returnPath, { state: { saleCancelled: true }, replace: true });
+      }} className="gap-1">
+        <X className="w-4 h-4" />
+        Cancel
+      </Button>
+    );
+    return () => { setCustomTitle(null); setCustomRightContent(null); };
+  }, [isEditing]);
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Scrollable Content */}
       <div className="flex-1 px-4 py-4 pb-32 space-y-5 overflow-y-auto">
         {/* Sale Type Toggle */}

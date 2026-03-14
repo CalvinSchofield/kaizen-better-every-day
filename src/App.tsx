@@ -54,34 +54,28 @@ import { queryPersister } from "./lib/queryPersister";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 15 * 60 * 1000, // 15 minutes - data stays fresh longer
-      gcTime: 60 * 60 * 1000, // 60 minutes - keep in cache longer
+      staleTime: 15 * 60 * 1000,
+      gcTime: 60 * 60 * 1000,
       retry: 1,
-      refetchOnWindowFocus: false, // Don't refetch just because tab was focused
-      refetchOnMount: false, // Don't refetch on component mount if data exists
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
       refetchOnReconnect: true,
-      networkMode: 'offlineFirst', // Prefer cache when offline
+      networkMode: 'offlineFirst',
     },
   },
 });
 
 const App = () => {
-  // Apply safe area fallback for iOS PWA mode when env() fails
   useSafeAreaFallback();
-  
-  // Handle iOS keyboard viewport issues
   useKeyboardViewport();
-
-  // Service worker registration is handled in main.tsx
-
 
   return (
     <PersistQueryClientProvider 
       client={queryClient} 
       persistOptions={{ 
         persister: queryPersister,
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        buster: 'v3', // Bump this to invalidate all cached data - 2026.01.14
+        maxAge: 24 * 60 * 60 * 1000,
+        buster: 'v3',
       }}
     >
       <HydrationGate>
@@ -94,271 +88,51 @@ const App = () => {
             <ChallengeWinListener />
             <BrowserRouter>
               <ScrollToTop />
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/setup" element={<ProtectedRoute><SetupFlow /></ProtectedRoute>} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Home />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/training"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Training />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tools"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Tools />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tools/competitors"
-              element={
-                <ProtectedRoute>
-                  <Competitors />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tools/contacts"
-              element={
-                <ProtectedRoute>
-                  <Contacts />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tools/objections"
-              element={
-                <ProtectedRoute>
-                  <Objections />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tools/product-knowledge"
-              element={
-                <ProtectedRoute>
-                  <ProductKnowledge />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/product-knowledge"
-              element={
-                <ProtectedRoute>
-                  <ProductKnowledge />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tools/upgrades"
-              element={
-                <ProtectedRoute>
-                  <UpgradeCheatSheet />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tools/package-builder"
-              element={
-                <ProtectedRoute>
-                  <PackageBuilder />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/track"
-              element={
-                <ProtectedRoute>
-                  <TrackWithLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/calendar"
-              element={
-                <ProtectedRoute>
-                  <CalendarWithLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/insights"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Insights />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/leaderboard"
-              element={
-                <ProtectedRoute>
-                  <Leaderboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/compete"
-              element={
-                <ProtectedRoute>
-                  <Compete />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/team-reports"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <TeamReports />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Settings />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/goals"
-              element={
-                <ProtectedRoute>
-                  <Goals />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/my-group"
-              element={
-                <ProtectedRoute>
-                  <MyGroup />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/customers"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Customers />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/ramp-to-blitz"
-              element={
-                <ProtectedRoute>
-                  <RampToBlitz />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile/:userId"
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/blitzes"
-              element={
-                <ProtectedRoute>
-                  <AdminBlitzes />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/recruiting-content"
-              element={
-                <ProtectedRoute>
-              <RecruitingContent />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/about-team"
-          element={
-            <ProtectedRoute>
-              <AboutTeam />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/add-applicant"
-          element={
-            <ProtectedRoute>
-              <AddApplicant />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/add-recruit"
-          element={
-            <ProtectedRoute>
-              <AddRecruit />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/reports-v2"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <ReportsV2 />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/log-sale"
-          element={
-            <ProtectedRoute>
-              <LogSale />
-            </ProtectedRoute>
-          }
-        />
-        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+              <Routes>
+                {/* Auth routes - no Layout */}
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/setup" element={<ProtectedRoute><SetupFlow /></ProtectedRoute>} />
+
+                {/* Pages that manage their own Layout internally */}
+                <Route path="/track" element={<ProtectedRoute><TrackWithLayout /></ProtectedRoute>} />
+                <Route path="/calendar" element={<ProtectedRoute><CalendarWithLayout /></ProtectedRoute>} />
+                <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+                <Route path="/compete" element={<ProtectedRoute><Compete /></ProtectedRoute>} />
+                <Route path="/goals" element={<ProtectedRoute><Goals /></ProtectedRoute>} />
+                <Route path="/my-group" element={<ProtectedRoute><MyGroup /></ProtectedRoute>} />
+
+                {/* All other pages wrapped in Layout for consistent nav */}
+                <Route path="/" element={<ProtectedRoute><Layout><Home /></Layout></ProtectedRoute>} />
+                <Route path="/training" element={<ProtectedRoute><Layout><Training /></Layout></ProtectedRoute>} />
+                <Route path="/tools" element={<ProtectedRoute><Layout><Tools /></Layout></ProtectedRoute>} />
+                <Route path="/tools/competitors" element={<ProtectedRoute><Layout><Competitors /></Layout></ProtectedRoute>} />
+                <Route path="/tools/contacts" element={<ProtectedRoute><Layout><Contacts /></Layout></ProtectedRoute>} />
+                <Route path="/tools/objections" element={<ProtectedRoute><Layout><Objections /></Layout></ProtectedRoute>} />
+                <Route path="/tools/product-knowledge" element={<ProtectedRoute><Layout><ProductKnowledge /></Layout></ProtectedRoute>} />
+                <Route path="/product-knowledge" element={<ProtectedRoute><Layout><ProductKnowledge /></Layout></ProtectedRoute>} />
+                <Route path="/tools/upgrades" element={<ProtectedRoute><Layout><UpgradeCheatSheet /></Layout></ProtectedRoute>} />
+                <Route path="/tools/package-builder" element={<ProtectedRoute><Layout><PackageBuilder /></Layout></ProtectedRoute>} />
+                <Route path="/insights" element={<ProtectedRoute><Layout><Insights /></Layout></ProtectedRoute>} />
+                <Route path="/team-reports" element={<ProtectedRoute><Layout><TeamReports /></Layout></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
+                <Route path="/customers" element={<ProtectedRoute><Layout><Customers /></Layout></ProtectedRoute>} />
+                <Route path="/ramp-to-blitz" element={<ProtectedRoute><Layout><RampToBlitz /></Layout></ProtectedRoute>} />
+                <Route path="/profile/:userId" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
+                <Route path="/admin/blitzes" element={<ProtectedRoute><Layout><AdminBlitzes /></Layout></ProtectedRoute>} />
+                <Route path="/recruiting-content" element={<ProtectedRoute><Layout><RecruitingContent /></Layout></ProtectedRoute>} />
+                <Route path="/about-team" element={<ProtectedRoute><Layout><AboutTeam /></Layout></ProtectedRoute>} />
+                <Route path="/add-applicant" element={<ProtectedRoute><Layout><AddApplicant /></Layout></ProtectedRoute>} />
+                <Route path="/add-recruit" element={<ProtectedRoute><Layout><AddRecruit /></Layout></ProtectedRoute>} />
+                <Route path="/reports-v2" element={<ProtectedRoute><Layout><ReportsV2 /></Layout></ProtectedRoute>} />
+                <Route path="/log-sale" element={<ProtectedRoute><Layout><LogSale /></Layout></ProtectedRoute>} />
+
+                {/* Catch-all */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
           </TooltipProvider>
         </HeaderProvider>
       </HydrationGate>

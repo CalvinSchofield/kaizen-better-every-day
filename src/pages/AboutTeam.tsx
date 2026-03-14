@@ -1,7 +1,3 @@
-import { useEffect } from "react";
-import { ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { HeroSection } from "@/components/about/HeroSection";
 import { QuickStatsBar } from "@/components/about/QuickStatsBar";
 import { SuccessStoriesCarousel } from "@/components/about/SuccessStoriesCarousel";
@@ -13,28 +9,12 @@ import { CompanyCredibility } from "@/components/about/CompanyCredibility";
 import { LeaderSection } from "@/components/about/LeaderSection";
 import { FinalCTA } from "@/components/about/FinalCTA";
 import { useAboutTeamPrefetch } from "@/hooks/useAboutTeamPrefetch";
-import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
 
 const AboutTeam = () => {
-  const navigate = useNavigate();
-  
-  // Prefetch all images on mount for snappy loading
   useAboutTeamPrefetch(true);
   
   return (
-    <EdgeSwipeContainer>
-      {/* Fixed back button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => navigate(-1)}
-        className="fixed top-4 left-4 z-50 w-10 h-10 rounded-full bg-black/30 backdrop-blur-md text-white hover:bg-black/50 border border-white/10"
-        style={{ marginTop: 'var(--effective-safe-area-top, 0px)' }}
-      >
-        <ArrowLeft className="w-5 h-5" />
-      </Button>
-      
-      {/* Page sections */}
+    <div>
       <HeroSection />
       <QuickStatsBar />
       <SuccessStoriesCarousel />
@@ -45,7 +25,7 @@ const AboutTeam = () => {
       <CompanyCredibility />
       <LeaderSection />
       <FinalCTA />
-    </EdgeSwipeContainer>
+    </div>
   );
 };
 

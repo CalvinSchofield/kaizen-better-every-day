@@ -170,30 +170,9 @@ export default function UpgradeCheatSheet() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Sticky Header */}
-      <div 
-        className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border/50"
-        style={{ paddingTop: 'var(--effective-safe-area-top)' }}
-      >
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/tools")}
-              className="shrink-0"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-lg font-semibold">Upgrade Cheat Sheet</h1>
-              <p className="text-xs text-muted-foreground">Know the pain points. Close more upgrades.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Category Tabs */}
-        <div className="px-4 pb-3 overflow-x-auto scrollbar-hide">
+      {/* Category Tabs */}
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border/50">
+        <div className="px-4 py-3 overflow-x-auto scrollbar-hide">
           <div className="flex gap-2">
             {CATEGORIES.map((cat) => (
               <button
