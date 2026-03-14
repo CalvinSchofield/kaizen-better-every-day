@@ -28,6 +28,75 @@ import { clearPersistedCache, clearCachedLayoutState } from "@/lib/queryPersiste
 import { hapticSelection, hapticLight } from "@/utils/haptics";
 import { getInitials } from "@/utils/nameUtils";
 
+// ── Reusable sub-components ──
+
+const DrawerSection = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div>
+    <span className="block px-1 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+      {label}
+    </span>
+    <div className="bg-muted/30 rounded-xl overflow-hidden divide-y divide-border/40">
+      {children}
+    </div>
+  </div>
+);
+
+const DrawerItem = ({
+  to,
+  icon: Icon,
+  label,
+  locked,
+  badge,
+  onClick,
+}: {
+  to: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  label: string;
+  locked?: boolean;
+  badge?: number;
+  onClick?: () => void;
+}) => {
+  const content = (
+    <>
+      <div className="relative flex-shrink-0">
+        <Icon className="w-[18px] h-[18px] text-muted-foreground" strokeWidth={1.8} />
+        {locked && (
+          <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+            <Lock className="w-2.5 h-2.5 text-muted-foreground" />
+          </div>
+        )}
+      </div>
+      <span className="text-[13px] font-medium flex items-center gap-2">
+        {label}
+        {typeof badge === "number" && badge > 0 && (
+          <Badge variant="destructive" className="h-4 min-w-4 flex items-center justify-center p-0 text-[10px]">
+            {badge}
+          </Badge>
+        )}
+      </span>
+      {locked && (
+        <span className="ml-auto text-[10px] text-muted-foreground/60">Locked</span>
+      )}
+    </>
+  );
+
+  if (locked) {
+    return (
+      <div className="flex items-center gap-3 px-3 py-2.5 opacity-50">{content}</div>
+    );
+  }
+
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className="flex items-center gap-3 px-3 py-2.5 active:bg-accent/50 transition-colors"
+    >
+      {content}
+    </Link>
+  );
+};
+
 interface AppDrawerProps {
   trigger: React.ReactNode;
   firstName?: string;
