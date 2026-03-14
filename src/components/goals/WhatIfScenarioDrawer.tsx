@@ -257,9 +257,9 @@ export const WhatIfScenarioDrawer = ({
         ? remainingToFund / (1 - activeCancelRate)
         : remainingToFund;
       const dailyNeeded = effectiveSummerDays > 0 ? summerSellNeeded / effectiveSummerDays : 0;
-      // Round daily first, then derive weekly from rounded daily
-      const roundedDaily = Math.round(dailyNeeded * 10) / 10;
-      const roundedWeekly = Math.round(roundedDaily * 6 * 10) / 10;
+      // Use 2 decimal places for precision so small cancel rate changes are visible
+      const roundedDaily = Math.round(dailyNeeded * 100) / 100;
+      const roundedWeekly = Math.round(roundedDaily * 6 * 100) / 100;
 
       return {
         label: tier.label,
@@ -458,13 +458,13 @@ export const WhatIfScenarioDrawer = ({
                   <div className="flex items-baseline gap-4">
                     <div>
                     <span className={cn("text-2xl font-bold tabular-nums", colors.text)}>
-                        {tier.dailyNeeded}
+                        {tier.dailyNeeded.toFixed(2)}
                       </span>
                       <span className="text-xs text-muted-foreground ml-1">/day</span>
                     </div>
                     <div>
                       <span className={cn("text-lg font-semibold tabular-nums", colors.text)}>
-                        {tier.weeklyNeeded}
+                        {tier.weeklyNeeded.toFixed(2)}
                       </span>
                       <span className="text-xs text-muted-foreground ml-1">/week</span>
                     </div>
