@@ -306,7 +306,7 @@ const FullMode = ({
                   <span className="text-rose-500/80 font-normal"> (+{formatFP(current.live)} live)</span>
                 )}
                 {current.pending > 0 && (
-                  <span className="text-primary/60 font-normal"> (+{formatFP(current.pending)} pipeline)</span>
+                  <span className="text-primary/60 font-normal"> (+{formatFP(current.pending)} pending)</span>
                 )}
               </span>
               <span className="text-muted-foreground">/ {formatFP(current.goal)} {data.metricLabel}</span>
@@ -365,7 +365,7 @@ const FullMode = ({
                   <div className="w-2 h-2 rounded-sm" style={{
                     background: 'repeating-linear-gradient(45deg, hsl(var(--primary) / 0.3), hsl(var(--primary) / 0.3) 2px, hsl(var(--primary) / 0.15) 2px, hsl(var(--primary) / 0.15) 4px)',
                   }} />
-                  <span>Pipeline</span>
+                  <span>Pending</span>
                 </div>
               )}
               <div className="flex items-center gap-1.5">
@@ -559,7 +559,7 @@ const CompactMode = ({
                 <span className={cn("font-medium tabular-nums", goalHit && "text-emerald-600 dark:text-emerald-400")}>
                   {formatFP(totalProgress)}
                   {tfData.live > 0 && <span className="text-rose-500/80 text-xs"> +{formatFP(tfData.live)}</span>}
-                  {tfData.pending > 0 && <span className="text-primary/60 text-xs"> +{formatFP(tfData.pending)} pipeline</span>}
+                  {tfData.pending > 0 && <span className="text-primary/60 text-xs"> +{formatFP(tfData.pending)} pending</span>}
                 </span>
                 <span className="text-muted-foreground">/ {formatFP(tfData.goal)} {data.metricLabel}</span>
                 {goalHit && <Check className="w-3.5 h-3.5 text-emerald-500" />}

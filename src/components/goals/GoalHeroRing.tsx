@@ -463,33 +463,28 @@ export const GoalHeroRing = ({
         </motion.div>
       )}
 
-      {/* Pending pipeline badge */}
-      {pendingPipeline > 0 && !isComplete && (
-        <motion.div
-          className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20"
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-        >
-          <Clock className="h-3 w-3 text-primary/60" />
-          <span className="text-xs text-primary/80 font-medium">
-            {pendingPipeline.toFixed(1)} {metricLabel} in pipeline
-          </span>
-        </motion.div>
-      )}
-
-      {/* Funded vs Unfunded legend */}
-      {showFunded && (
+      {/* Funded vs Unfunded legend (+ pending when applicable) */}
+      {(showFunded || (pendingPipeline > 0 && !isComplete)) && (
         <div className="flex flex-col items-center gap-2 mt-4">
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              {fundedProgress?.toFixed(1)} funded
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-primary/40" />
-              {(currentProgress - (fundedProgress || 0)).toFixed(1)} unfunded
-            </span>
+            {showFunded && (
+              <>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  {fundedProgress?.toFixed(1)} funded
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-primary/40" />
+                  {(currentProgress - (fundedProgress || 0)).toFixed(1)} unfunded
+                </span>
+              </>
+            )}
+            {pendingPipeline > 0 && !isComplete && (
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-2.5 w-2.5 text-primary/60" />
+                {pendingPipeline.toFixed(1)} pending
+              </span>
+            )}
           </div>
         </div>
       )}
