@@ -80,6 +80,9 @@ export interface GoalPaceData {
   // Loading state
   isLoading: boolean;
   hasGoals: boolean;
+
+  // Tracking depth — used for guardrails on expected markers
+  knockingDaysCompleted: number;
 }
 
 // =====================================================
@@ -405,6 +408,7 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     month,
     season,
     hasGoals,
+    knockingDaysCompleted: input.knockingDaysCompleted,
   };
 }
 
@@ -603,6 +607,7 @@ export function useGoalPaceCalculator(): GoalPaceData {
       onTierChange: setFocusTier,
       isLoading,
       hasGoals: false,
+      knockingDaysCompleted: knockingDays,
     };
   }
 

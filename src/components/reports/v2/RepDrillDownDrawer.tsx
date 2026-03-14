@@ -590,6 +590,7 @@ export const RepDrillDownDrawer = ({
                     allTiers: (goalData.availableTiers || []).map(t => ({ key: t.key, label: t.label, goal: t.goal, funded: t.goal, complete: false })),
                     isLoading: false,
                     hasGoals: true,
+                    knockingDaysCompleted: goalData.seasonDaysElapsed || 0,
                   } as GoalPaceData;
                 })()}
                 mode="full"

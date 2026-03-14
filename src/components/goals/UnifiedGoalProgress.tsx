@@ -84,6 +84,7 @@ const SegmentedBar = ({
   expected,
   severity,
   height = 'h-3',
+  showExpectedMarker = true,
 }: {
   finalized: number;
   live: number;
@@ -92,6 +93,7 @@ const SegmentedBar = ({
   expected: number;
   severity: PaceSeverity;
   height?: string;
+  showExpectedMarker?: boolean;
 }) => {
   if (goal <= 0) return null;
 
@@ -135,7 +137,7 @@ const SegmentedBar = ({
         )}
       </div>
       {/* Expected marker */}
-      {expected > 0 && expectedPct > 0 && expectedPct < 100 && (
+      {showExpectedMarker && expected > 0 && expectedPct > 0 && expectedPct < 100 && (
         <div
           className="absolute top-0 w-0.5 border-l-2 border-dashed border-muted-foreground/50"
           style={{ left: `${expectedPct}%`, height: '100%' }}
@@ -324,10 +326,11 @@ const FullMode = ({
             goal={current.goal}
             expected={current.expected}
             severity={data.severity}
+            showExpectedMarker={data.knockingDaysCompleted >= 6}
           />
 
           {/* Pace diff + days context */}
-          {timeframe !== 'D' && current.expected > 0 && (
+          {timeframe !== 'D' && current.expected > 0 && data.knockingDaysCompleted >= 6 && (
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">
                 {current.plannedDaysElapsed} of {current.plannedDaysTotal} work days
@@ -371,10 +374,12 @@ const FullMode = ({
                   <span>Pending</span>
                 </div>
               )}
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-0 border-t-2 border-dashed border-muted-foreground/50" />
-                <span>Expected</span>
-              </div>
+              {data.knockingDaysCompleted >= 6 && (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-0 border-t-2 border-dashed border-muted-foreground/50" />
+                  <span>Expected</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -577,9 +582,10 @@ const CompactMode = ({
               expected={tf !== 'D' ? tfData.expected : 0}
               severity={data.severity}
               height="h-2"
+              showExpectedMarker={data.knockingDaysCompleted >= 6}
             />
             {/* Pace badge for non-day timeframes */}
-            {tf !== 'D' && tfData.expected > 0 && (
+            {tf !== 'D' && tfData.expected > 0 && data.knockingDaysCompleted >= 6 && (
               <div className="flex items-center justify-end">
                 <PaceBadge paceDiff={tfData.paceDiff} severity={data.severity} />
               </div>

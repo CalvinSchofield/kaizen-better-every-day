@@ -871,7 +871,7 @@ const Goals = () => {
             expectedPercent={unifiedPaceData.season.plannedDaysTotal > 0 
               ? (unifiedPaceData.season.plannedDaysElapsed / unifiedPaceData.season.plannedDaysTotal) * 100 
               : 0}
-            showExpectedMarker={(benchmarks?.knockingDaysCompleted ?? 0) >= 12}
+            showExpectedMarker={(benchmarks?.knockingDaysCompleted ?? 0) >= 6}
             onEarningsClick={() => {
               setEarningsOpenTrigger(prev => prev + 1);
               setTimeout(() => {
