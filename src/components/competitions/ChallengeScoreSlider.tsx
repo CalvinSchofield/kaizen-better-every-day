@@ -42,8 +42,8 @@ export const ChallengeScoreSlider = ({
     return (
       <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-red-600 w-8 text-right">
-            {Math.round(redTotal)}
+          <span className="text-xs font-semibold text-red-600 w-10 text-right">
+            {formatFP(redTotal)}
           </span>
           <div className={cn("flex-1 rounded-full bg-blue-500 overflow-hidden relative", heightClass)}>
             <motion.div 
