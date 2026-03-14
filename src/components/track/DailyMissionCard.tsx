@@ -226,20 +226,22 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
               over {effectiveRemainingDays} day{effectiveRemainingDays !== 1 ? 's' : ''}
             </span>
           </div>
+        </div>
+      )}
 
-          {/* Self-competition nudge */}
-          {selfComp && (
-            <div className="flex items-center gap-1.5 mt-2">
-              {selfComp.isAhead ? (
-                <TrendingUp className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-              ) : (
-                <TrendingDown className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
-              )}
-              <span className={`text-xs font-medium ${selfComp.isAhead ? 'text-green-500' : 'text-destructive'}`}>
-                {selfComp.text}
-              </span>
-            </div>
-          )}
+      {/* Self-competition nudge - always show when available */}
+      {selfComp && (
+        <div className={`${effectiveRemainingDays > 0 ? 'mt-2' : 'border-t border-border/30 pt-4'}`}>
+          <div className="flex items-center gap-1.5">
+            {selfComp.isAhead ? (
+              <TrendingUp className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+            ) : (
+              <TrendingDown className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
+            )}
+            <span className={`text-xs font-medium ${selfComp.isAhead ? 'text-green-500' : 'text-destructive'}`}>
+              {selfComp.text}
+            </span>
+          </div>
         </div>
       )}
     </Card>
