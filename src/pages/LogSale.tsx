@@ -19,6 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { EdgeSwipeContainer } from "@/components/EdgeSwipeContainer";
+import { useHeader } from "@/contexts/HeaderContext";
 
 // Helper to calculate minutes between two timestamps
 const getMinutesBetween = (start: string, end: string): number => {
