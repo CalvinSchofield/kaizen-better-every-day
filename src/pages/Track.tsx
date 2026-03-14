@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import { formatFP, formatPRMR } from "@/lib/formatters";
 import { motion } from "framer-motion";
 import { Lock, BarChart3, Loader2, Calendar } from "lucide-react";
 import { useRepData } from "@/hooks/useRepData";
