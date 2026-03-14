@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { invalidateAllSalesQueries } from '@/utils/invalidateSalesQueries';
 
 /**
  * Centralized realtime subscription for sales data changes.
@@ -21,40 +22,7 @@ export const useSalesRealtime = () => {
           table: 'daily_entries',
         },
         () => {
-          // CRITICAL: Invalidate ALL sales-dependent queries with refetchType: 'all'
-          // This ensures even unmounted queries get invalidated
-          // MUST match the keys in useSaleUpdate.ts for consistency
-          const salesKeys = [
-            'daily-entry', // CRITICAL for multi-device Track sync
-            'all-daily-entries',
-            'daily-entries',
-            'activity-summary',
-            'cumulative-fp',
-            'insights-data',
-            'customer-sales', // For Customers page
-            // Goal pace calculator queries
-            'today-entry-unified',
-            'all-entries-unified',
-            // Competitions - CRITICAL: Challenge/incentive progress must sync with sales changes
-            'my-active-incentives',
-            'incentive-progress',
-            'my-active-challenges',
-            'challenge-progress', // CRITICAL: Must match leaderboard updates
-            // Goals
-            'rep-goals',
-            // Leaderboards - ALL variants
-            'today-leaderboard',
-            'yesterday-leaderboard',
-            'weekly-leaderboard',
-            'monthly-leaderboard',
-            'season-leaderboard',
-            'ytd-leaderboard',
-            'expanded-leaderboard',
-          ];
-
-          salesKeys.forEach((key) => {
-            queryClient.invalidateQueries({ queryKey: [key], refetchType: 'all' });
-          });
+          invalidateAllSalesQueries(queryClient);
         }
       )
       .subscribe();

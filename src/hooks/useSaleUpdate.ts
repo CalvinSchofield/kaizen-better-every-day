@@ -3,31 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Sale } from './useDailyEntry';
 import { toast } from 'sonner';
 import { hapticSuccess, hapticWarning } from '@/utils/haptics';
-
-// Helper to clear localStorage caches for sales-dependent hooks
-// This ensures instant-loading hooks show accurate data after mutations
-const clearSalesDependentCaches = () => {
-  try {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (!key) continue;
-      
-      // Clear sales-dependent caches including goals (earnings projections depend on sales)
-      if (key.startsWith('preseason-fp-cache-') ||
-          key.startsWith('ytd-prmr-cache-') ||
-          key.startsWith('cumulative-fp-cache-') ||
-          key.startsWith('rep-goals-cache-') ||
-          key.startsWith('goals-knocking-days-cache-') ||
-          key.startsWith('goals-season-config-cache-')) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-  } catch {
-    // Ignore storage errors
-  }
-};
+import { invalidateAllSalesQueries, clearSalesLocalStorageCaches } from '@/utils/invalidateSalesQueries';
 
 interface UpdateSaleParams {
   entryId: string;
@@ -109,41 +85,26 @@ export const useSaleUpdate = () => {
     },
     // OPTIMISTIC UPDATE - Instant UI feedback
     onMutate: async ({ entryDate, saleId, updates }) => {
-      // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['daily-entry', entryDate] });
-
-      // Snapshot current data for rollback
       const previousEntry = queryClient.getQueryData(['daily-entry', entryDate]);
 
-      // Optimistically update the cache
       queryClient.setQueryData(['daily-entry', entryDate], (old: any) => {
         if (!old) return old;
-        
         const salesLog = (old.sales_log || []) as Sale[];
         const updatedSalesLog = salesLog.map(s => 
           s.id === saleId ? { ...s, ...updates } : s
         );
-        
         const totals = recalculateTotals(updatedSalesLog);
-        
-        return {
-          ...old,
-          sales_log: updatedSalesLog,
-          ...totals,
-        };
+        return { ...old, sales_log: updatedSalesLog, ...totals };
       });
 
-      // Return context for rollback
       return { previousEntry, entryDate };
     },
     onError: (error, variables, context) => {
       console.error('Error updating sale:', error);
-      
-      // Rollback on error
       if (context?.previousEntry) {
         queryClient.setQueryData(['daily-entry', context.entryDate], context.previousEntry);
       }
-      
       hapticWarning();
       toast.error('Failed to update sale', {
         action: {
@@ -155,52 +116,8 @@ export const useSaleUpdate = () => {
     onSuccess: ({ entryDate }) => {
       hapticSuccess();
       toast.success('Sale updated');
-      
-      // Clear localStorage caches for instant-loading hooks
-      // This ensures the next visit shows accurate data
-      clearSalesDependentCaches();
-      
-      // CRITICAL: Invalidate ALL sales-dependent queries with refetchType: 'all'
-      // This ensures challenges, incentives, and leaderboards all update when PRMR changes
-      const salesDependentKeys = [
-        'daily-entry',
-        'all-daily-entries',
-        'daily-entries',
-        'preseason-fp-total',
-        'ytd-prmr-total',
-        'cumulative-fp',
-        'canceled-stats',
-        'activity-summary',
-        'insights-data',
-        'customer-sales',
-        // Goal pace calculator queries
-        'today-entry-unified',
-        'all-entries-unified',
-        // Leaderboards
-        'today-leaderboard',
-        'yesterday-leaderboard',
-        'weekly-leaderboard',
-        'monthly-leaderboard',
-        'season-leaderboard',
-        'ytd-leaderboard',
-        'expanded-leaderboard',
-        // Competitions - CRITICAL for PRMR updates
-        'my-active-incentives',
-        'incentive-progress',
-        'my-active-challenges',
-        'challenge-progress',
-        // Goals
-        'rep-goals',
-      ];
-      
-      // Invalidate all sales-dependent queries with refetchType: 'all'
-      // This ensures even inactive/unmounted queries get invalidated
-      salesDependentKeys.forEach(key => {
-        queryClient.invalidateQueries({ queryKey: [key], refetchType: 'all' });
-      });
-      
-      // Also invalidate the specific entry date
-      queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate], refetchType: 'all' });
+      clearSalesLocalStorageCaches();
+      invalidateAllSalesQueries(queryClient, entryDate);
     },
   });
 
@@ -210,7 +127,6 @@ export const useSaleUpdate = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Fetch current entry
       const { data: entry, error: fetchError } = await supabase
         .from('daily_entries')
         .select('sales_log, closes, fp_plus, prmr, upgrade_prmr')
@@ -222,14 +138,11 @@ export const useSaleUpdate = () => {
 
       const salesLog = (entry.sales_log as unknown as Sale[]) || [];
       const saleToDelete = salesLog.find(s => s.id === saleId);
-      
       if (!saleToDelete) throw new Error('Sale not found');
 
-      // Remove the sale from sales_log
       const updatedSalesLog = salesLog.filter(s => s.id !== saleId);
       const totals = recalculateTotals(updatedSalesLog);
 
-      // Update entry with new sales_log and recalculated totals
       const { error: updateError } = await supabase
         .from('daily_entries')
         .update({
@@ -242,40 +155,25 @@ export const useSaleUpdate = () => {
 
       return { entryDate, deletedSale: saleToDelete };
     },
-    // OPTIMISTIC UPDATE - Instant UI feedback
     onMutate: async ({ entryDate, saleId }) => {
-      // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['daily-entry', entryDate] });
-
-      // Snapshot current data for rollback
       const previousEntry = queryClient.getQueryData(['daily-entry', entryDate]);
 
-      // Optimistically update the cache
       queryClient.setQueryData(['daily-entry', entryDate], (old: any) => {
         if (!old) return old;
-        
         const salesLog = (old.sales_log || []) as Sale[];
         const updatedSalesLog = salesLog.filter(s => s.id !== saleId);
         const totals = recalculateTotals(updatedSalesLog);
-        
-        return {
-          ...old,
-          sales_log: updatedSalesLog,
-          ...totals,
-        };
+        return { ...old, sales_log: updatedSalesLog, ...totals };
       });
 
-      // Return context for rollback
       return { previousEntry, entryDate };
     },
     onError: (error, variables, context) => {
       console.error('Error deleting sale:', error);
-      
-      // Rollback on error
       if (context?.previousEntry) {
         queryClient.setQueryData(['daily-entry', context.entryDate], context.previousEntry);
       }
-      
       hapticWarning();
       toast.error('Failed to remove sale', {
         action: {
@@ -287,52 +185,8 @@ export const useSaleUpdate = () => {
     onSuccess: ({ entryDate }) => {
       hapticSuccess();
       toast.success('Sale removed');
-      
-      // Clear localStorage caches for instant-loading hooks
-      // This ensures the next visit shows accurate data
-      clearSalesDependentCaches();
-      
-      // CRITICAL: Invalidate ALL sales-dependent queries with refetchType: 'all'
-      // This ensures challenges, incentives, and leaderboards all update when sales are deleted
-      const salesDependentKeys = [
-        'daily-entry',
-        'all-daily-entries',
-        'daily-entries',
-        'preseason-fp-total',
-        'ytd-prmr-total',
-        'cumulative-fp',
-        'canceled-stats',
-        'activity-summary',
-        'insights-data',
-        'customer-sales',
-        'pending-installs',
-        // Goal pace calculator queries
-        'today-entry-unified',
-        'all-entries-unified',
-        // Leaderboards
-        'today-leaderboard',
-        'yesterday-leaderboard',
-        'weekly-leaderboard',
-        'monthly-leaderboard',
-        'season-leaderboard',
-        'ytd-leaderboard',
-        'expanded-leaderboard',
-        // Competitions - CRITICAL for PRMR updates
-        'my-active-incentives',
-        'incentive-progress',
-        'my-active-challenges',
-        'challenge-progress',
-        // Goals
-        'rep-goals',
-      ];
-      
-      // Invalidate all sales-dependent queries with refetchType: 'all'
-      salesDependentKeys.forEach(key => {
-        queryClient.invalidateQueries({ queryKey: [key], refetchType: 'all' });
-      });
-      
-      // Also invalidate the specific entry date
-      queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate], refetchType: 'all' });
+      clearSalesLocalStorageCaches();
+      invalidateAllSalesQueries(queryClient, entryDate);
     },
   });
 

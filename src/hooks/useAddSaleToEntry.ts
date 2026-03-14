@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sale } from '@/hooks/useDailyEntry';
 import { toast } from 'sonner';
+import { invalidateAllSalesQueries } from '@/utils/invalidateSalesQueries';
 
 interface AddSaleParams {
   entryDate: string;  // YYYY-MM-DD
@@ -89,27 +90,7 @@ export const useAddSaleToEntry = () => {
       return { entryDate, sale: newSale };
     },
     onSuccess: ({ entryDate }) => {
-      // Invalidate all relevant caches with broad invalidation
-      queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['daily-entry'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['customer-sales'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['pending-installs'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['cumulative-fp'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['insights-data'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['my-active-incentives'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['incentive-progress'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['challenge-progress'], refetchType: 'all' });
-      // Goal pace calculator queries
-      queryClient.invalidateQueries({ queryKey: ['today-entry-unified'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['all-entries-unified'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['rep-goals'], refetchType: 'all' });
-      
+      invalidateAllSalesQueries(queryClient, entryDate);
       toast.success('Sale added successfully! 🎉');
     },
     onError: (error) => {
