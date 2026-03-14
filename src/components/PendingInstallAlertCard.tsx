@@ -10,7 +10,7 @@ import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 export const PendingInstallAlertCard = () => {
-  const { pendingSales, isLoading, confirmInstall, rescheduleSale, markUnfunded, removeSale, isUpdating } = usePendingInstalls();
+  const { pendingSales, isLoading, confirmInstall, rescheduleSale, removeSale, isUpdating } = usePendingInstalls();
   const [rescheduleOpenFor, setRescheduleOpenFor] = useState<string | null>(null);
   const [confirmRemoveFor, setConfirmRemoveFor] = useState<string | null>(null);
 
