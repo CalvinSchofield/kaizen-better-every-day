@@ -58,7 +58,9 @@ const Profile = () => {
   const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
   const { data: goalPace } = useDownlineGoalPace(isDownline ? userId : null);
 
-  // Set header right content for own profile (settings icon)
+  const { setCustomRightContent, setCustomLeftContent } = useHeader();
+
+  // Set header content
   useEffect(() => {
     if (isOwnProfile) {
       setCustomRightContent(
@@ -66,8 +68,17 @@ const Profile = () => {
           <Settings className="h-5 w-5" />
         </Button>
       );
+    } else {
+      setCustomLeftContent(
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-10 w-10">
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+      );
     }
-    return () => setCustomRightContent(null);
+    return () => {
+      setCustomRightContent(null);
+      setCustomLeftContent(null);
+    };
   }, [isOwnProfile]);
 
   const formatDate = (dateStr: string) => {
