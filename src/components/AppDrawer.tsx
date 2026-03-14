@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, Target, Trophy, UserPlus, Contact, Sparkles, Swords, RefreshCw } from "lucide-react";
+import { Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, Target, Trophy, UserPlus, Contact, Sparkles, Swords, RefreshCw, type LucideIcon } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -27,6 +27,75 @@ import { useQueryClient } from "@tanstack/react-query";
 import { clearPersistedCache, clearCachedLayoutState } from "@/lib/queryPersister";
 import { hapticSelection, hapticLight } from "@/utils/haptics";
 import { getInitials } from "@/utils/nameUtils";
+
+// ── Reusable sub-components ──
+
+const DrawerSection = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div>
+    <span className="block px-1 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+      {label}
+    </span>
+    <div className="bg-muted/30 rounded-xl overflow-hidden divide-y divide-border/40">
+      {children}
+    </div>
+  </div>
+);
+
+const DrawerItem = ({
+  to,
+  icon: Icon,
+  label,
+  locked,
+  badge,
+  onClick,
+}: {
+  to: string;
+  icon: LucideIcon;
+  label: string;
+  locked?: boolean;
+  badge?: number;
+  onClick?: () => void;
+}) => {
+  const content = (
+    <>
+      <div className="relative flex-shrink-0">
+        <Icon className="w-[18px] h-[18px] text-muted-foreground" strokeWidth={1.8} />
+        {locked && (
+          <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+            <Lock className="w-2.5 h-2.5 text-muted-foreground" />
+          </div>
+        )}
+      </div>
+      <span className="text-[13px] font-medium flex items-center gap-2">
+        {label}
+        {typeof badge === "number" && badge > 0 && (
+          <Badge variant="destructive" className="h-4 min-w-4 flex items-center justify-center p-0 text-[10px]">
+            {badge}
+          </Badge>
+        )}
+      </span>
+      {locked && (
+        <span className="ml-auto text-[10px] text-muted-foreground/60">Locked</span>
+      )}
+    </>
+  );
+
+  if (locked) {
+    return (
+      <div className="flex items-center gap-3 px-3 py-2.5 opacity-50">{content}</div>
+    );
+  }
+
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className="flex items-center gap-3 px-3 py-2.5 active:bg-accent/50 transition-colors"
+    >
+      {content}
+    </Link>
+  );
+};
 
 interface AppDrawerProps {
   trigger: React.ReactNode;
@@ -193,16 +262,16 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
         
         {/* Scrollable content area */}
         <div className="flex-1 overflow-y-auto -mx-6 px-6">
-          <div className="flex flex-col gap-1 py-4">
+          <div className="flex flex-col gap-4 py-4">
             {/* Knocking Mode Toggle */}
             {canAccessKnockingToggle && (
-              <div className="mb-2">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-card">
-                  <div className="flex flex-col gap-1">
+              <div className="bg-muted/30 rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-0.5">
                     <Label htmlFor="knocking-mode" className="text-sm font-semibold cursor-pointer">
                       🚪 Knocking Mode
                     </Label>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground">
                       {isKnockingMode ? "Active" : "Preseason"}
                     </p>
                   </div>
@@ -216,258 +285,111 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
               </div>
             )}
 
-            {/* ── YOUR DATA ── */}
-            <div className="px-3 pt-3 pb-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Your Data</span>
-            </div>
+            {/* ── PERFORMANCE ── */}
+            <DrawerSection label="Performance">
+              {isCalendarLocked ? (
+                <>
+                  <DrawerItem to="/track" icon={Target} label="Track" locked onClick={() => setOpen(false)} />
+                  <DrawerItem to="/calendar" icon={Calendar} label="Calendar" locked onClick={() => setOpen(false)} />
+                  <DrawerItem to="/insights" icon={BarChart3} label="Insights" locked onClick={() => setOpen(false)} />
+                </>
+              ) : (
+                <>
+                  <DrawerItem to="/track" icon={Target} label="Track" onClick={() => setOpen(false)} />
+                  {isKnockingMode && (
+                    <DrawerItem to="/calendar" icon={Calendar} label="Calendar" onClick={() => setOpen(false)} />
+                  )}
+                  <DrawerItem to="/insights" icon={BarChart3} label="Insights" onClick={() => setOpen(false)} />
+                </>
+              )}
+            </DrawerSection>
 
-            {/* PRE-BLITZ ROOKIES: locked items */}
-            {isCalendarLocked && (
-              <>
-                <Link to="/track" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                  <div className="relative">
-                    <Wrench className="w-5 h-5 text-primary" />
-                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full"><Lock className="w-3 h-3 text-primary" /></div>
-                  </div>
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <span className="font-semibold text-sm">Track</span>
-                    <span className="text-xs text-muted-foreground truncate">Unlocks on first blitz</span>
-                  </div>
-                </Link>
-
-                <Link to="/calendar" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                  <div className="relative">
-                    <Calendar className="w-5 h-5 text-primary" />
-                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full"><Lock className="w-3 h-3 text-primary" /></div>
-                  </div>
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <span className="font-semibold text-sm">Your Sales Calendar</span>
-                    <span className="text-xs text-muted-foreground truncate">Unlocks on first blitz</span>
-                  </div>
-                </Link>
-
-                <Link to="/insights" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                  <div className="relative">
-                    <BarChart3 className="w-5 h-5 text-primary" />
-                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full"><Lock className="w-3 h-3 text-primary" /></div>
-                  </div>
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <span className="font-semibold text-sm">Insights</span>
-                    <span className="text-xs text-muted-foreground truncate">Unlocks on first blitz</span>
-                  </div>
-                </Link>
-              </>
-            )}
-
-            {/* POST-BLITZ / VETS / SOPHS */}
-            {!isCalendarLocked && (
-              <>
-                {/* PRESEASON MODE */}
-                {!isKnockingMode && (
-                  <>
-                    <Link to="/track" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                      <Target className="w-5 h-5 text-primary" />
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="font-semibold text-sm">Track</span>
-                        <span className="text-xs text-muted-foreground truncate">Log your activity</span>
-                      </div>
-                    </Link>
-
-                    <Link to="/insights" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                      <BarChart3 className="w-5 h-5 text-primary" />
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="font-semibold text-sm">Insights</span>
-                        <span className="text-xs text-muted-foreground truncate">Track performance</span>
-                      </div>
-                    </Link>
-
-                    {isLeader && (
-                      <Link to="/training" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                        <BookOpen className="w-5 h-5 text-primary" />
-                        <div className="flex flex-col flex-1 min-w-0">
-                          <span className="font-semibold text-sm">Training</span>
-                          <span className="text-xs text-muted-foreground truncate">Review resources</span>
-                        </div>
-                      </Link>
-                    )}
-                  </>
-                )}
-
-                {/* KNOCKING MODE */}
-                {isKnockingMode && (
-                  <>
-                    <Link to="/calendar" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                      <Calendar className="w-5 h-5 text-primary" />
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="font-semibold text-sm">Calendar</span>
-                        <span className="text-xs text-muted-foreground truncate">View daily performance</span>
-                      </div>
-                    </Link>
-
-                    <Link to="/insights" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                      <BarChart3 className="w-5 h-5 text-primary" />
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="font-semibold text-sm">Insights</span>
-                        <span className="text-xs text-muted-foreground truncate">Track performance</span>
-                      </div>
-                    </Link>
-
-                    {isLeader && (
-                      <Link to="/goals" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                        <Target className="w-5 h-5 text-primary" />
-                        <div className="flex flex-col flex-1 min-w-0">
-                          <span className="font-semibold text-sm">Goals</span>
-                          <span className="text-xs text-muted-foreground truncate">Set your summer goals</span>
-                        </div>
-                      </Link>
-                    )}
-
-                    <Link to="/training" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                      <BookOpen className="w-5 h-5 text-primary" />
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="font-semibold text-sm">Training</span>
-                        <span className="text-xs text-muted-foreground truncate">Review resources</span>
-                      </div>
-                    </Link>
-                  </>
-                )}
-              </>
-            )}
+            {/* ── GROWTH ── */}
+            <DrawerSection label="Growth">
+              <DrawerItem to="/training" icon={BookOpen} label="Training" onClick={() => setOpen(false)} />
+              <DrawerItem to="/goals" icon={Target} label="Goals" onClick={() => setOpen(false)} />
+            </DrawerSection>
 
             {/* ── TEAM ── */}
-            <div className="px-3 pt-4 pb-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Team</span>
-            </div>
+            {(() => {
+              const teamItems: React.ReactNode[] = [];
+              
+              // Leaderboard - in drawer during preseason only (nav bar during knocking)
+              if (!isKnockingMode && !isCalendarLocked) {
+                teamItems.push(
+                  <DrawerItem key="lb" to="/leaderboard" icon={Trophy} label="Leaderboard" onClick={() => { hapticLight(); setOpen(false); }} />
+                );
+              }
+              
+              // Compete
+              if (!isKnockingMode) {
+                teamItems.push(
+                  <DrawerItem
+                    key="compete"
+                    to="/compete"
+                    icon={Swords}
+                    label="Compete"
+                    locked={isPreBlitzRookie}
+                    badge={!isPreBlitzRookie && pendingActionCount > 0 ? pendingActionCount : undefined}
+                    onClick={() => { hapticLight(); setOpen(false); }}
+                  />
+                );
+              }
+              
+              // Reports - leaders only, preseason
+              if (isLeader && !isKnockingMode && !isCalendarLocked) {
+                teamItems.push(
+                  <DrawerItem key="reports" to="/reports-v2" icon={Users} label="Reports" onClick={() => setOpen(false)} />
+                );
+              }
+              
+              // My Group
+              if (!(isLeader && !isKnockingMode && !isCalendarLocked)) {
+                teamItems.push(
+                  <DrawerItem key="group" to="/my-group" icon={UserPlus} label="My Group" onClick={() => setOpen(false)} />
+                );
+              }
+              
+              return teamItems.length > 0 ? (
+                <DrawerSection label="Team">{teamItems}</DrawerSection>
+              ) : null;
+            })()}
 
-            {/* Leaderboard - only in drawer during preseason (it's in nav bar during knocking) */}
-            {!isKnockingMode && !isCalendarLocked && (
-              <Link to="/leaderboard" onClick={() => { hapticLight(); setOpen(false); }} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                <Trophy className="w-5 h-5 text-primary" />
-                <div className="flex flex-col flex-1 min-w-0">
-                  <span className="font-semibold text-sm">Leaderboard</span>
-                  <span className="text-xs text-muted-foreground truncate">See top performers</span>
-                </div>
-              </Link>
-            )}
-
-            {/* Compete - only in drawer during preseason */}
-            {!isKnockingMode && (
-              <>
-                {isPreBlitzRookie ? (
-                  <div className="flex items-center gap-3 p-3 rounded-lg">
-                    <div className="relative">
-                      <Swords className="w-5 h-5 text-primary" />
-                      <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full"><Lock className="w-3 h-3 text-primary" /></div>
-                    </div>
-                    <div className="flex flex-col flex-1 min-w-0">
-                      <span className="font-semibold text-sm">Compete</span>
-                      <span className="text-xs text-muted-foreground truncate">Unlocks on first blitz</span>
-                    </div>
-                  </div>
-                ) : (
-                  <Link to="/compete" onClick={() => { hapticLight(); setOpen(false); }} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                    <Swords className="w-5 h-5 text-primary" />
-                    <div className="flex flex-col flex-1 min-w-0">
-                      <span className="font-semibold text-sm flex items-center gap-2">
-                        Compete
-                        {pendingActionCount > 0 && (
-                          <Badge variant="destructive" className="h-4 min-w-4 flex items-center justify-center p-0 text-[10px]">
-                            {pendingActionCount}
-                          </Badge>
-                        )}
-                      </span>
-                      <span className="text-xs text-muted-foreground truncate">Challenges & incentives</span>
-                    </div>
-                  </Link>
-                )}
-              </>
-            )}
-
-            {/* Reports - leaders only, preseason drawer */}
-            {isLeader && !isKnockingMode && !isCalendarLocked && (
-              <Link to="/reports-v2" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                <Users className="w-5 h-5 text-primary" />
-                <div className="flex flex-col flex-1 min-w-0">
-                  <span className="font-semibold text-sm">Reports</span>
-                  <span className="text-xs text-muted-foreground truncate">View team performance</span>
-                </div>
-              </Link>
-            )}
-
-            {/* My Group */}
-            {!(isLeader && !isKnockingMode && !isCalendarLocked) && (
-              <Link to="/my-group" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                <UserPlus className="w-5 h-5 text-primary" />
-                <div className="flex flex-col flex-1 min-w-0">
-                  <span className="font-semibold text-sm">My Group</span>
-                  <span className="text-xs text-muted-foreground truncate">{isLeader ? "Manage recruits" : "Suggest recruits"}</span>
-                </div>
-              </Link>
-            )}
-
-            {/* Customers */}
-            {isPreBlitzRookie ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg">
-                <div className="relative">
-                  <Contact className="w-5 h-5 text-primary" />
-                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full"><Lock className="w-3 h-3 text-primary" /></div>
-                </div>
-                <div className="flex flex-col flex-1 min-w-0">
-                  <span className="font-semibold text-sm">Customers</span>
-                  <span className="text-xs text-muted-foreground truncate">Unlocks on first blitz</span>
-                </div>
-              </div>
-            ) : (
-              <Link to="/customers" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-                <Contact className="w-5 h-5 text-primary" />
-                <div className="flex flex-col flex-1 min-w-0">
-                  <span className="font-semibold text-sm">Customers</span>
-                  <span className="text-xs text-muted-foreground truncate">View & contact logged sales</span>
-                </div>
-              </Link>
-            )}
+            {/* ── CLIENTS ── */}
+            <DrawerSection label="Clients">
+              <DrawerItem
+                to="/customers"
+                icon={Contact}
+                label="Customers"
+                locked={isPreBlitzRookie}
+                onClick={() => setOpen(false)}
+              />
+            </DrawerSection>
 
             {/* ── ACCOUNT ── */}
-            <div className="px-3 pt-4 pb-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Account</span>
-            </div>
-
-            <Link to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors">
-              <Settings className="w-5 h-5 text-primary" />
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="font-semibold text-sm">Settings</span>
-                <span className="text-xs text-muted-foreground truncate">Profile & preferences</span>
-              </div>
-            </Link>
-
-            <button
-              onClick={handleRefreshData}
-              disabled={isRefreshing}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors w-full text-left disabled:opacity-50"
-            >
-              <RefreshCw className={`w-5 h-5 text-primary ${isRefreshing ? 'animate-spin' : ''}`} />
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="font-semibold text-sm">{isRefreshing ? 'Refreshing...' : 'Refresh Data'}</span>
-                <span className="text-xs text-muted-foreground truncate">Fix loading issues</span>
-              </div>
-            </button>
+            <DrawerSection label="Account">
+              <DrawerItem to="/settings" icon={Settings} label="Settings" onClick={() => setOpen(false)} />
+              <button
+                onClick={handleRefreshData}
+                disabled={isRefreshing}
+                className="flex items-center gap-3 px-3 py-2.5 w-full text-left disabled:opacity-50 active:bg-accent/50 transition-colors"
+              >
+                <RefreshCw className={`w-[18px] h-[18px] text-muted-foreground ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="text-[13px] font-medium">{isRefreshing ? 'Refreshing…' : 'Refresh Data'}</span>
+              </button>
+            </DrawerSection>
 
           </div>
         </div>
 
         {/* Logout - Fixed at bottom */}
-        <div className="pt-3 border-t">
+        <div className="pt-3 border-t border-border/50">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-destructive/10 transition-colors text-destructive w-full"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-destructive/10 transition-colors text-destructive w-full"
           >
-            <LogOut className="w-5 h-5" />
-            <div className="flex flex-col flex-1 min-w-0">
-              <span className="font-semibold text-sm">Logout</span>
-              <span className="text-xs text-muted-foreground truncate">
-                Sign out
-              </span>
-            </div>
+            <LogOut className="w-[18px] h-[18px]" />
+            <span className="text-[13px] font-medium">Logout</span>
           </button>
         </div>
       </SheetContent>
