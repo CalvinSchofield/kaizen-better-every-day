@@ -592,8 +592,7 @@ const CompactMode = ({
               <span className="text-muted-foreground">{tfLabels[tf]}</span>
               <div className="flex items-center gap-1.5">
                 <span className={cn("font-medium tabular-nums", goalHit && "text-emerald-600 dark:text-emerald-400")}>
-                  {formatFP(totalProgress)}
-                  {tfData.live > 0 && <span className="text-emerald-500 text-xs"> +{formatFP(tfData.live)}</span>}
+                  {formatFP(Math.min(tfData.funded, tfData.actual + tfData.live))}
                   {tfData.pending > 0 && <span className="text-warning text-xs"> +{formatFP(tfData.pending)} pending</span>}
                 </span>
                 <span className="text-muted-foreground">/ {formatFP(tfData.goal)} {data.metricLabel}</span>
