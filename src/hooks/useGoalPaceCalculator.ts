@@ -300,6 +300,7 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     return {
       actual,
       live,
+      pending,
       expected,
       goal,
       remaining: Math.max(0, goal - totalProgress),
