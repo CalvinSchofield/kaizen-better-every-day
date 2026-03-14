@@ -205,8 +205,9 @@ serve(async (req) => {
       // Only process during target windows (within 15 min of target hour)
       const is9am = localHour === 9 && localMinute < 15;
       const is6pm = localHour === 18 && localMinute < 15;
+      const is9pm = localHour === 21 && localMinute < 15;
 
-      if (!is9am && !is6pm) continue;
+      if (!is9am && !is6pm && !is9pm) continue;
 
       // Check if we already sent this type today to avoid duplicates
       const today = new Date().toISOString().split("T")[0];
