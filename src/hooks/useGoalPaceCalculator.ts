@@ -343,6 +343,7 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
 
     return {
       actual,
+      funded,
       live,
       pending,
       expected,
