@@ -85,8 +85,9 @@ export const usePreseasonFP = () => {
         return { totalFP: 0, totalPRMR: 0, totalEFP: 0, knockingDays: 0, fundedFP: 0, fundedPRMR: 0, fundedEFP: 0 };
       }
 
-      // Count knocking days (4+ doors with start and end time)
+      // Count knocking days (4+ doors with start and end time) - only finalized for pace accuracy
       const knockingDays = entries?.filter(entry => 
+        entry.is_finalized &&
         (entry.doors_knocked || 0) >= 4 && 
         entry.work_start_time && 
         entry.work_end_time
