@@ -260,6 +260,8 @@ const FullMode = ({
   showPaceContext = true,
   showTimeframeToggle = true,
   initialTimeframe = 'D',
+  hideHeader = false,
+  hideDay = false,
   selectedDate,
   className,
 }: Omit<UnifiedGoalProgressProps, 'mode' | 'compactTimeframes'>) => {
