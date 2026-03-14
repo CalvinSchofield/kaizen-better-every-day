@@ -46,19 +46,17 @@ const Profile = () => {
   const navigate = useNavigate();
   const { userId: currentUserId } = useCurrentUserId();
   const [photoDrawerOpen, setPhotoDrawerOpen] = useState(false);
-  const { setCustomRightContent } = useHeader();
-
-  if (!userId && currentUserId) {
-    return <Navigate to={`/profile/${currentUserId}`} replace />;
-  }
-
-  const { data: profile, isLoading } = useRepProfile(userId || null);
+  const { setCustomRightContent, setCustomLeftContent } = useHeader();
   const isOwnProfile = currentUserId === userId;
+
+  const { data: profile, isLoading } = useRepProfile(userId || currentUserId || null);
   const { data: teamAccess } = useTeamAccess();
   const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
   const { data: goalPace } = useDownlineGoalPace(isDownline ? userId : null);
 
-  const { setCustomRightContent, setCustomLeftContent } = useHeader();
+  if (!userId && currentUserId) {
+    return <Navigate to={`/profile/${currentUserId}`} replace />;
+  }
 
   // Set header content
   useEffect(() => {
