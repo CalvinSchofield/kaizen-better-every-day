@@ -24,6 +24,7 @@ import { CancelRateDrawer } from "@/components/goals/CancelRateDrawer";
 import { EarningsBreakdownCard } from "@/components/goals/EarningsBreakdownCard";
 import { PreseasonCommitmentsCard } from "@/components/goals/PreseasonCommitmentsCard";
 import { useSyncedWeeklyLogs } from "@/hooks/useSyncedWeeklyLogs";
+import { usePendingInstalls } from "@/hooks/usePendingInstalls";
 
 import { CatchUpWizard } from "@/components/catchup/CatchUpWizard";
 import { SyncDiscrepancyIndicator } from "@/components/catchup/SyncDiscrepancyIndicator";
