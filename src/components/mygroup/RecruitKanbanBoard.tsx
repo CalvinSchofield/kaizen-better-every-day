@@ -55,7 +55,7 @@ interface RecruitKanbanBoardProps {
   summerActiveMap?: Map<string, SummerActiveData>;
 }
 
-export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardProps) => {
+export const RecruitKanbanBoard = ({ recruits, activities, summerActiveMap }: RecruitKanbanBoardProps) => {
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showSecondary, setShowSecondary] = useState(false);
