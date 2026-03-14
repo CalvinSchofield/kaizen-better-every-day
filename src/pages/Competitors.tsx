@@ -118,21 +118,9 @@ export default function Competitors() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <div 
-        className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border/50"
-        style={{ paddingTop: 'var(--effective-safe-area-top)' }}
-      >
+      {/* Search & Filters */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50">
         <div className="px-4 py-3">
-          <div className="flex items-center gap-3 mb-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/tools")} className="shrink-0">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-lg font-semibold">Competitor Cheat Sheet</h1>
-              <p className="text-xs text-muted-foreground">Know what you're up against</p>
-            </div>
-          </div>
 
           {/* Search/AI Input */}
           <div className="relative mb-3">

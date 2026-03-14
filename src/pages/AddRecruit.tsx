@@ -714,6 +714,6 @@ export default function AddRecruit() {
           </motion.div>
         </AnimatePresence>
       </div>
-    </EdgeSwipeContainer>
+    </div>
   );
 }

@@ -344,49 +344,25 @@ const PackageBuilder = () => {
   const isUpgrade = packageType === 'upgrade';
   const packageLabel = packageType === 'premium' ? 'Premium Kit' : packageType === 'non-premium' ? 'Non-Premium Kit' : packageType === 'upgrade' ? 'Upgrade' : 'Package Builder';
 
-  // Handle swipe back - different behavior based on current page
-  const handleSwipeBack = useCallback(() => {
-    if (packageType) {
-      handleBack();
+  const { setCustomTitle, setCustomRightContent } = useHeader();
+
+  // Set dynamic header title and reset button
+  useEffect(() => {
+    setCustomTitle(packageType ? packageLabel : null);
+    if (isConfigurable || isUpgrade) {
+      setCustomRightContent(
+        <Button variant="ghost" size="icon" onClick={handleReset} className="rounded-full">
+          <RotateCcw className="w-5 h-5" />
+        </Button>
+      );
     } else {
-      navigate('/tools');
+      setCustomRightContent(null);
     }
-  }, [packageType, handleBack, navigate]);
+    return () => { setCustomTitle(null); setCustomRightContent(null); };
+  }, [packageType, isConfigurable, isUpgrade]);
 
   return (
-    <EdgeSwipeContainer onBack={handleSwipeBack}>
       <div className="min-h-screen bg-background">
-        {/* Header */}
-        <div 
-          className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border"
-          style={{ paddingTop: 'var(--effective-safe-area-top)' }}
-        >
-          <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={packageType ? handleBack : () => navigate('/tools')}
-            className="rounded-full"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="font-semibold">
-            {packageType ? packageLabel : 'Package Builder'}
-          </h1>
-          {(isConfigurable || isUpgrade) ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleReset}
-              className="rounded-full"
-            >
-              <RotateCcw className="w-5 h-5" />
-            </Button>
-          ) : (
-            <div className="w-10" /> // Spacer for centering
-          )}
-        </div>
-      </div>
 
       <AnimatePresence mode="wait">
         {!packageType ? (

@@ -249,6 +249,6 @@ export default function RecruitingContent() {
           </motion.div>
         )}
       </AnimatePresence>
-    </EdgeSwipeContainer>
+    </div>
   );
 }

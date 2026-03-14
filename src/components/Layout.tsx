@@ -286,36 +286,38 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
 
   // Get page title based on current route
   const getPageTitle = () => {
-    switch (location.pathname) {
-      case "/":
-        return "Kaizen";
-      case "/training":
-        return "Training";
-      case "/tools":
-        return "Tools";
-      case "/track":
-        return "Track";
-      case "/calendar":
-        return "Calendar";
-      case "/insights":
-        return "Insights";
-      case "/settings":
-        return "Personalize";
+    const path = location.pathname;
+    if (path.startsWith("/profile")) return "Profile";
+    switch (path) {
+      case "/": return "Kaizen";
+      case "/training": return "Training";
+      case "/tools": return "Tools";
+      case "/track": return "Track";
+      case "/calendar": return "Calendar";
+      case "/insights": return "Insights";
+      case "/settings": return "Settings";
       case "/team-reports":
-      case "/reports-v2":
-        return "Reports";
-      case "/goals":
-        return "Goals";
-      case "/my-group":
-        return "My Group";
-      case "/customers":
-        return "Customers";
-      case "/leaderboard":
-        return "Leaderboard";
-      case "/compete":
-        return "Compete";
-      default:
-        return "Kaizen";
+      case "/reports-v2": return "Reports";
+      case "/goals": return "Goals";
+      case "/my-group": return "My Group";
+      case "/customers": return "Customers";
+      case "/leaderboard": return "Leaderboard";
+      case "/compete": return "Compete";
+      case "/log-sale": return "Log Sale";
+      case "/ramp-to-blitz": return "Ramp to Blitz";
+      case "/about-team": return "About Team";
+      case "/add-applicant": return "Add Applicant";
+      case "/add-recruit": return "Add Recruit";
+      case "/recruiting-content": return "Recruiting";
+      case "/admin/blitzes": return "Manage Blitzes";
+      case "/tools/competitors": return "Competitors";
+      case "/tools/contacts": return "Contacts";
+      case "/tools/objections": return "Objections";
+      case "/tools/upgrades": return "Upgrades";
+      case "/tools/package-builder": return "Package Builder";
+      case "/tools/product-knowledge":
+      case "/product-knowledge": return "Product Knowledge";
+      default: return "Kaizen";
     }
   };
 

@@ -208,37 +208,35 @@ const RampToBlitz = () => {
         />
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border/50 pb-[env(safe-area-inset-bottom)]">
-        <div className="max-w-lg mx-auto px-4 py-3 flex justify-between items-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setActivePhase(prev => Math.max(1, prev - 1) as PhaseId)}
-            disabled={activePhase === 1}
-            className="gap-1"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Previous
-          </Button>
-          
-          <span className="text-sm text-muted-foreground font-medium">
-            Phase {activePhase} of 4
-          </span>
+      {/* Phase Navigation */}
+      <div className="max-w-lg mx-auto px-4 py-3 flex justify-between items-center border-t border-border/50">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setActivePhase(prev => Math.max(1, prev - 1) as PhaseId)}
+          disabled={activePhase === 1}
+          className="gap-1"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Previous
+        </Button>
+        
+        <span className="text-sm text-muted-foreground font-medium">
+          Phase {activePhase} of 4
+        </span>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setActivePhase(prev => Math.min(4, prev + 1) as PhaseId)}
-            disabled={activePhase === 4 || phases[activePhase]?.isLocked}
-            className="gap-1"
-          >
-            Next
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setActivePhase(prev => Math.min(4, prev + 1) as PhaseId)}
+          disabled={activePhase === 4 || phases[activePhase]?.isLocked}
+          className="gap-1"
+        >
+          Next
+          <ChevronRight className="w-4 h-4" />
+        </Button>
       </div>
-    </EdgeSwipeContainer>
+    </div>
   );
 };
 

@@ -471,6 +471,6 @@ export default function AddApplicant() {
           )}
         </Button>
       </form>
-    </EdgeSwipeContainer>
+    </div>
   );
 }
