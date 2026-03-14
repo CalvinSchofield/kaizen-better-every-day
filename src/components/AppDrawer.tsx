@@ -300,19 +300,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                       </div>
                     </Link>
 
-                    <Link
-                      to="/calendar"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                    >
-                      <Calendar className="w-5 h-5 text-primary" />
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="font-semibold text-sm">Calendar</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          View knocking metrics
-                        </span>
-                      </div>
-                    </Link>
+                    {/* Calendar removed - it's in the nav bar during preseason */}
 
                     <Link
                       to="/insights"
