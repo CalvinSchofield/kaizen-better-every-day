@@ -607,6 +607,7 @@ export function useGoalPaceCalculator(): GoalPaceData {
       onTierChange: setFocusTier,
       isLoading,
       hasGoals: false,
+      knockingDaysCompleted: knockingDays,
     };
   }
 

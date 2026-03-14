@@ -84,6 +84,7 @@ const SegmentedBar = ({
   expected,
   severity,
   height = 'h-3',
+  showExpectedMarker = true,
 }: {
   finalized: number;
   live: number;
@@ -92,6 +93,7 @@ const SegmentedBar = ({
   expected: number;
   severity: PaceSeverity;
   height?: string;
+  showExpectedMarker?: boolean;
 }) => {
   if (goal <= 0) return null;
 
