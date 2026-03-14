@@ -60,7 +60,7 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
       <div className="space-y-1.5">
         {/* Score slider */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-red-600 w-8 text-right">{Math.round(teamATotal)}</span>
+          <span className="text-xs font-semibold text-red-600 w-10 text-right">{formatFP(teamATotal)}</span>
           <div className="flex-1 h-2 rounded-full bg-blue-500 overflow-hidden">
             <div 
               className="h-full bg-red-500 transition-all duration-300"
