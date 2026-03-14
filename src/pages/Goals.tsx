@@ -86,6 +86,7 @@ const Goals = () => {
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { incrementRolePlays } = useSyncedWeeklyLogs();
   const { pendingSales } = usePendingInstalls();
+  const unifiedPaceData = useGoalPaceCalculator();
   const queryClient = useQueryClient();
   const { toast: toastHook } = useToast();
   
