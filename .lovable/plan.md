@@ -1,50 +1,63 @@
+## Current Scheduled-Out Logic & Proposed Changes
 
+### How It Works Today
 
-## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
+**Where scheduled-out (pending) sales COUNT:**
+
+- **Leaderboards**: Counted on the day they were sold (via `calculateFromSalesLog` which only skips `never_installed`). This is correct per your preference.
+- **Goals page** (`usePreseasonFP`): Counted immediately — pending sales are included in `totalFP`/`totalPRMR` alongside installed sales. Only `never_installed` is excluded. **This is what you want changed.**
+- **Customer page**: Shows all sales regardless of status, with status badges.
+
+**Where they DON'T count:**
+
+- `never_installed` sales are excluded everywhere.
+- `cancelled` sales are excluded from "funded" totals but still count toward goal progress.
 
 ### The Problem
 
-When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
+Right now, a sale marked as `pending` (scheduled out) counts toward your Goals progress immediately. You're saying that's wrong — a scheduled-out sale is more likely to become a "never installed" than to actually fund. It should only count toward goals once confirmed as `installed`.
 
-### Root Cause
+### Proposed Changes
 
-There are three things fighting each other:
+**1. Update `calculateFromSalesLog` to skip `pending` sales**
+File: `src/utils/salesLogCalculations.ts`
 
-1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
+Currently only skips `never_installed`. Will also skip `pending` so that scheduled-out sales don't inflate live counters used by goals/pace.
 
-2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
+**2. Update `usePreseasonFP` to exclude `pending` from goal totals**
+File: `src/hooks/usePreseasonFP.ts`
 
-3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+The `allSales` filter (line 110) currently only excludes `never_installed`. Will also exclude `pending` from `totalFP`/`totalPRMR` (the goal progress numbers). Pending sales will still appear in `fundedFP`/`fundedPRMR`... actually no — funded should also exclude pending. Both `totalFP` and `fundedFP` will exclude `pending`.
 
-### The Fix
+**3. Leaderboards remain unchanged**
+The leaderboard edge functions use `fp_plus`/`prmr` columns from `daily_entries`, which are set at save time and include pending sales. This keeps scheduled-out sales showing on the leaderboard the day they were sold — exactly what you want.
 
-#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+**4. Confirm/Resolve flow (already exists)**
+The `PendingInstallAlertCard` already provides the UI for resolving pending sales. It appears on the Home page after 7 PM when there are overdue pending installs. The actions available are:
 
-The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
+- **Installed** → marks as `installed` with `install_confirmed_at` timestamp
+- **Reschedule** → picks a new date, keeps status as `pending`
+- **Installed but Cancelled** → marks as `cancelled` (funded but customer cancelled) !!!! THIS AE NEED TO REMOVE!!!!! It's confusing. We shouldn't be able to mark as installed but canceled from this UI
+- **Never Installed** → removes the sale entirely from the sales log
 
-#### 2. Simplify `useKeyboardViewport` hook
+Users can also update status from the **Customer detail sheet** (`SaleDetailSheet`) at any time.
 
-- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
-- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
-- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
-- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
+**5. Notifications gap**
+There is currently **no push notification** for pending install reminders. The `PendingInstallAlertCard` only shows as a UI card on the home screen after 7 PM — it won't ping you if you don't open the app. Adding a push notification for overdue pending installs would be a separate task.
 
-#### 3. Add `@capacitor/keyboard` plugin configuration
+### Summary of File Changes
 
-Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
 
-### Files to Modify
+| File                                     | Change                                            |
+| ---------------------------------------- | ------------------------------------------------- |
+| `src/utils/salesLogCalculations.ts`      | Skip `pending` in addition to `never_installed`   |
+| `src/hooks/usePreseasonFP.ts`            | Exclude `pending` sales from goal progress totals |
+| `src/utils/salesLogCalculations.test.ts` | Update tests to reflect new logic                 |
 
-- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
-- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
-- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
-- **`package.json`** -- Add `@capacitor/keyboard` dependency
 
-### After Approval
+### What This Means in Practice
 
-After these code changes, you will need to:
-1. Git pull the updated code
-2. Run `npm install` to get the new keyboard plugin
-3. Run `npx cap sync` to sync the plugin to iOS
-4. Rebuild in Xcode and push to TestFlight
-
+- You sell a deal and schedule it out → it shows on the **leaderboard** that day, but does **not** count toward your **Goals** progress
+- When the install date arrives, you get the `PendingInstallAlertCard` prompting you to confirm
+- Once you tap "Installed" → it now counts toward Goals progress
+- If you tap "Never Installed" → it's removed from everything
