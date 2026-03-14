@@ -21,11 +21,16 @@ interface CatchUpWizardProps {
   onOpenChange: (open: boolean) => void;
   seasonType: 'preseason' | 'summer';
   onComplete?: () => void;
+  /** Only true on first-ever sync (post-setup). Controls whether knocking days step is shown. */
+  isInitialSync?: boolean;
+  /** Tracked knocking days from daily entries (used on non-initial syncs for confirm screen). */
+  trackedKnockingDays?: number;
 }
 
 type Step = 'welcome' | 'fp' | 'prmr' | 'days' | 'confirm';
 
-const STEPS: Step[] = ['welcome', 'fp', 'prmr', 'days', 'confirm'];
+const ALL_STEPS: Step[] = ['welcome', 'fp', 'prmr', 'days', 'confirm'];
+const RETURNING_STEPS: Step[] = ['welcome', 'fp', 'prmr', 'confirm'];
 
 const SEASON_YEAR = 2025;
 
