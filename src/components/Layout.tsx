@@ -30,7 +30,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   const { repData } = useRepData();
   const { isKnockingMode } = useAppMode(repData);
   const { data: teamAccess } = useTeamAccess();
-  const { customTitle, customRightContent } = useHeader();
+  const { customTitle, customRightContent, customLeftContent } = useHeader();
   
   // Collapsed nav state
   const [isNavCollapsed, setIsNavCollapsed] = useState(false);
@@ -337,15 +337,19 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         }}
       >
         <div className="flex items-center h-10 gap-2">
-          {/* Left side - menu button */}
-          <AppDrawer
-            trigger={
-              <Button variant="ghost" size="icon" className={`h-10 w-10 flex-shrink-0 ${isHomePage ? "text-primary-foreground hover:bg-primary-foreground/10" : ""}`}>
-                <Menu className="h-6 w-6" />
-              </Button>
-            }
-            firstName={firstName}
-          />
+          {/* Left side - custom or menu button */}
+          {customLeftContent ? (
+            customLeftContent
+          ) : (
+            <AppDrawer
+              trigger={
+                <Button variant="ghost" size="icon" className={`h-10 w-10 flex-shrink-0 ${isHomePage ? "text-primary-foreground hover:bg-primary-foreground/10" : ""}`}>
+                  <Menu className="h-6 w-6" />
+                </Button>
+              }
+              firstName={firstName}
+            />
+          )}
           
           {/* Center - Page title */}
           <div className="flex-1 flex justify-center">

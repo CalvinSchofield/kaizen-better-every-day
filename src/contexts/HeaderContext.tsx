@@ -5,6 +5,8 @@ interface HeaderContextType {
   setCustomTitle: (title: string | null) => void;
   customRightContent: ReactNode | null;
   setCustomRightContent: (content: ReactNode | null) => void;
+  customLeftContent: ReactNode | null;
+  setCustomLeftContent: (content: ReactNode | null) => void;
 }
 
 const HeaderContext = createContext<HeaderContextType | null>(null);
@@ -12,9 +14,10 @@ const HeaderContext = createContext<HeaderContextType | null>(null);
 export const HeaderProvider = ({ children }: { children: ReactNode }) => {
   const [customTitle, setCustomTitle] = useState<string | null>(null);
   const [customRightContent, setCustomRightContent] = useState<ReactNode | null>(null);
+  const [customLeftContent, setCustomLeftContent] = useState<ReactNode | null>(null);
 
   return (
-    <HeaderContext.Provider value={{ customTitle, setCustomTitle, customRightContent, setCustomRightContent }}>
+    <HeaderContext.Provider value={{ customTitle, setCustomTitle, customRightContent, setCustomRightContent, customLeftContent, setCustomLeftContent }}>
       {children}
     </HeaderContext.Provider>
   );

@@ -18,6 +18,7 @@ import { getInitials } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
 import { useState, useEffect } from "react";
 import { format, parseISO } from "date-fns";
+import { ChevronLeft } from "lucide-react";
 
 const formatRelativeTime = (isoString: string | null): string | null => {
   if (!isoString) return null;
@@ -45,19 +46,15 @@ const Profile = () => {
   const navigate = useNavigate();
   const { userId: currentUserId } = useCurrentUserId();
   const [photoDrawerOpen, setPhotoDrawerOpen] = useState(false);
-  const { setCustomRightContent } = useHeader();
-
-  if (!userId && currentUserId) {
-    return <Navigate to={`/profile/${currentUserId}`} replace />;
-  }
-
-  const { data: profile, isLoading } = useRepProfile(userId || null);
+  const { setCustomRightContent, setCustomLeftContent } = useHeader();
   const isOwnProfile = currentUserId === userId;
+
+  const { data: profile, isLoading } = useRepProfile(userId || currentUserId || null);
   const { data: teamAccess } = useTeamAccess();
   const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
   const { data: goalPace } = useDownlineGoalPace(isDownline ? userId : null);
 
-  // Set header right content for own profile (settings icon)
+  // Set header content
   useEffect(() => {
     if (isOwnProfile) {
       setCustomRightContent(
@@ -65,9 +62,22 @@ const Profile = () => {
           <Settings className="h-5 w-5" />
         </Button>
       );
+    } else {
+      setCustomLeftContent(
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-10 w-10">
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+      );
     }
-    return () => setCustomRightContent(null);
+    return () => {
+      setCustomRightContent(null);
+      setCustomLeftContent(null);
+    };
   }, [isOwnProfile]);
+
+  if (!userId && currentUserId) {
+    return <Navigate to={`/profile/${currentUserId}`} replace />;
+  }
 
   const formatDate = (dateStr: string) => {
     try {
