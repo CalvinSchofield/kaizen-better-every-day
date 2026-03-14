@@ -578,12 +578,9 @@ const CompactMode = ({
               severity={data.severity}
               height="h-2"
             />
-            {/* Pace diff for non-day timeframes */}
+            {/* Pace badge for non-day timeframes */}
             {tf !== 'D' && tfData.expected > 0 && (
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="text-muted-foreground">
-                  Day {tfData.plannedDaysElapsed} of {tfData.plannedDaysTotal}
-                </span>
+              <div className="flex items-center justify-end">
                 <PaceBadge paceDiff={tfData.paceDiff} severity={data.severity} />
               </div>
             )}
