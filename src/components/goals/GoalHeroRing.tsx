@@ -155,6 +155,11 @@ export const GoalHeroRing = ({
   const liveDashoffset = toDashOffset(livePercent);
   const totalDashoffset = toDashOffset(progress);
 
+  // Funded progress arc (if different from total)
+  const showFunded = fundedProgress !== undefined && fundedProgress < currentProgress;
+  const fundedPercent = showFunded && fpGoal > 0 ? Math.min((fundedProgress / fpGoal) * 100, 100) : 0;
+  const fundedDashoffset = toDashOffset(fundedPercent);
+
   // Available tiers (only show tiers with goals > 0, hide preseason after user's summer starts)
   const availableTiers = useMemo(() => {
     return (['preseason', 'mustDo', 'willDo', 'couldDo'] as GoalTier[]).filter(
