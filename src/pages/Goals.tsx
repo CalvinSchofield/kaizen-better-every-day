@@ -99,6 +99,8 @@ const Goals = () => {
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
   const [showCancelRateDrawer, setShowCancelRateDrawer] = useState(false);
+  const [earningsOpenTrigger, setEarningsOpenTrigger] = useState(0);
+  const earningsRef = React.useRef<HTMLDivElement>(null);
   const { data: effectiveFPData } = useEffectiveFP({
     seasonType: 'preseason',
     seasonStartDate: PRESEASON_START,
