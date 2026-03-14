@@ -250,7 +250,8 @@ export const GoalHeroRing = ({
             <g 
               style={{ 
                 transform: `rotate(${(expectedPercent / 100) * 360 - 90}deg)`,
-                transformOrigin: `${size / 2}px ${size / 2}px`
+                transformOrigin: `${size / 2}px ${size / 2}px`,
+                transition: 'transform 0.5s ease-out',
               }}
             >
               <line
