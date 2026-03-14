@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { formatFP } from "@/lib/formatters";
 
 interface ChallengeScoreSliderProps {
   /** For 1v1: My score */
