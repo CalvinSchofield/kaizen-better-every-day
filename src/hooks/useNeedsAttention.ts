@@ -3,7 +3,7 @@ import { Recruit, RecruitActivity } from "./useGroupRecruits";
 import { parseISO } from "date-fns";
 import { getCommitmentPaceStatus, PaceStatus } from "@/utils/paceCalculator";
 import { getDaysUntilBlitz, getDaysSinceDate, getTodayDateString } from "@/utils/blitzDateUtils";
-import { STAGES, STAGE_CADENCE, EXIT_STAGES } from "@/utils/stageConstants";
+import { STAGES, STAGE_CADENCE, EXIT_STAGES, SIGNED_PLUS_STAGES } from "@/utils/stageConstants";
 
 export interface AttentionCategory {
   id: string;

@@ -25,6 +25,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   'work-ethic': 'bg-slate-500/10 text-slate-600 border-slate-500/30 hover:bg-slate-500/20',
   'needs-1on1': 'bg-purple-500/10 text-purple-600 border-purple-500/30 hover:bg-purple-500/20',
   'plateau': 'bg-gray-500/10 text-gray-600 border-gray-500/30 hover:bg-gray-500/20',
+  'summer-setup': 'bg-rose-500/10 text-rose-600 border-rose-500/30 hover:bg-rose-500/20',
 };
 
 export const NeedsAttentionChips = ({ 
