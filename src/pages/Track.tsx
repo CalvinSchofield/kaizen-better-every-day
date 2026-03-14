@@ -434,8 +434,12 @@ const Track = ({
         {/* Sales Log Drawer */}
         <SalesLogDrawer
           open={showSalesDrawer}
-          onOpenChange={setShowSalesDrawer}
+          onOpenChange={(open) => {
+            setShowSalesDrawer(open);
+            if (!open) setScrollToSaleId(null);
+          }}
           salesLog={salesLog}
+          scrollToSaleId={scrollToSaleId}
         />
 
         {/* Segment Detail Drawer - for clicking ring/timeline segments */}
