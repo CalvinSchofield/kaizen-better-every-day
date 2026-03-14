@@ -370,7 +370,32 @@ const Track = ({
           )}
         </div>
 
-        {/* Activity Calendar Drawer */}
+        {/* Contextual Card Stack */}
+        <div className="px-4 space-y-3 mt-3">
+          {/* Goal Result Card - daily goal progress */}
+          <GoalResultCard fpToday={fp} prmrToday={prmr} />
+
+          {/* Me vs Me Card - historical comparison */}
+          <MeVsMeCard
+            currentFP={fp}
+            currentPRMR={prmr}
+            currentDoors={entry.doors_knocked || 0}
+            entryDate={'entry_date' in entry ? entry.entry_date : undefined}
+          />
+
+          {/* Active Competitions */}
+          <CompetitionsCard />
+
+          {/* Coaching Insights - tips for tomorrow */}
+          <CoachingCard
+            workStartTime={entry.work_start_time}
+            workEndTime={entry.work_end_time}
+            breakPeriods={entry.break_periods}
+            counterTimestamps={counterTimestamps}
+            dayOfWeek={new Date().getDay()}
+          />
+        </div>
+
         {userId && (
           <ActivityCalendarDrawer
             open={showCalendar}
