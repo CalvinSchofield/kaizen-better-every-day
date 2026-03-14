@@ -67,6 +67,7 @@ export const QuickEditGoalsDrawer = ({
   personalSummerStart,
   personalSummerEnd,
   repId,
+  onSyncClick,
   onSave,
 }: QuickEditGoalsDrawerProps) => {
   const [values, setValues] = useState(currentGoals);
