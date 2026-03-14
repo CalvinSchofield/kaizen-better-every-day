@@ -622,7 +622,7 @@ export function useGoalPaceCalculator(): GoalPaceData {
 
   // Default empty data
   const emptyTimeframe: TimeframeData = {
-    actual: 0, live: 0, pending: 0, expected: 0, goal: 0, remaining: 0,
+    actual: 0, funded: 0, live: 0, pending: 0, expected: 0, goal: 0, remaining: 0,
     plannedDaysElapsed: 0, plannedDaysTotal: 0, paceDiff: 0, isAhead: true, label: '',
   };
 
