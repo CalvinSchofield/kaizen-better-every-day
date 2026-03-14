@@ -18,6 +18,7 @@ import { getInitials } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
 import { useState, useEffect } from "react";
 import { format, parseISO } from "date-fns";
+import { ChevronLeft } from "lucide-react";
 
 const formatRelativeTime = (isoString: string | null): string | null => {
   if (!isoString) return null;
