@@ -324,10 +324,10 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     };
   };
 
-  // Day - calculate today's pending from sales_log
+  // Day - calculate today's pending from sales_log (finalized or unfinalized)
   let todayPending = 0;
   const todayEntryData = input.entries.find(e => e.entry_date === todayStr);
-  if (todayEntryData && !todayEntryData.is_finalized && Array.isArray(todayEntryData.sales_log)) {
+  if (todayEntryData && Array.isArray(todayEntryData.sales_log)) {
     for (const sale of todayEntryData.sales_log) {
       if (sale.install_status === 'pending') {
         const salePrmr = Number(sale.prmr) || 0;
