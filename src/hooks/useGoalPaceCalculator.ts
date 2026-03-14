@@ -251,8 +251,10 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
 
     // Actual production in this period (from entries)
     let actual = 0;
+    let funded = 0;
     let live = 0;
     let pending = 0;
+    let liveFunded = 0;
     for (const entry of input.entries) {
       if (entry.entry_date < periodStart || entry.entry_date > periodEnd) continue;
       
