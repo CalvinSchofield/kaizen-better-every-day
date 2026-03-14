@@ -7,12 +7,10 @@ import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useRepGoals } from "@/hooks/useRepGoals";
-import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useEfpMode } from "@/hooks/useEfpMode";
-import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useFocusTier, FocusTier } from "@/hooks/useFocusTier";
 import { useSmartActivityGoals } from "@/hooks/useSmartActivityGoals";
-import { calculateSalesPace } from "@/utils/salesPaceCalculator";
+import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getLearningCurvePrincipleMessage, calculatePaceContext } from "@/utils/learningCurveData";
@@ -35,9 +33,8 @@ export const DailyFocusCard = ({ repData, heroMode = false }: DailyFocusCardProp
   const { toast } = useToast();
   const { entry } = useDailyEntry();
   const { goals, hasGoalsAccess, isLoading: goalsLoading } = useRepGoals();
-  const { plannedDays } = usePlannedDays();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
-  const { totalFP, totalPRMR, knockingDays } = usePreseasonFP();
+  const goalPaceData = useGoalPaceCalculator();
   const [isEditing, setIsEditing] = useState(false);
   const [useManualGoals, setUseManualGoals] = useState(false);
   const isRookie = repData?.year === "Rookie";
@@ -96,30 +93,8 @@ export const DailyFocusCard = ({ repData, heroMode = false }: DailyFocusCardProp
   const [transitionsInput, setTransitionsInput] = useState("3");
   const [presentationsInput, setPresentationsInput] = useState("2");
 
-  // Calculate daily FP+ goal from pace calculator (read-only, derived from Goals setup)
-  const { calculatedDailyFpGoal, paceResult } = useMemo(() => {
-    if (!goals?.setup_complete || !plannedDays) return { calculatedDailyFpGoal: null, paceResult: null };
-    
-    const result = calculateSalesPace({
-      goals,
-      plannedDays,
-      knockingDays,
-      currentFpPlus: totalFP,
-      currentPrmr: totalPRMR,
-      efpModeEnabled,
-      calculateEfp,
-    });
-    
-    if (!result) return { calculatedDailyFpGoal: null, paceResult: null };
-    
-    return {
-      calculatedDailyFpGoal: Math.round(result.dailyGoal * 10) / 10,
-      paceResult: result
-    };
-  }, [goals, plannedDays, knockingDays, totalFP, totalPRMR, efpModeEnabled, calculateEfp]);
-
-  // The daily goal to use - preseason uses calculatedDailyFpGoal, summer uses pace from focus tier
-  const fpGoal = calculatedDailyFpGoal ?? 1;
+  // Daily FP+ goal from unified pace calculator
+  const fpGoal = goalPaceData.hasGoals ? Math.round(goalPaceData.dailyNeeded * 10) / 10 : 1;
 
   // Smart activity goals based on conversion rates
   const smartGoals = useSmartActivityGoals({
@@ -147,22 +122,20 @@ export const DailyFocusCard = ({ repData, heroMode = false }: DailyFocusCardProp
       }
     }
 
-    if (!paceResult || knockingDays < 18) {
+    if (!goalPaceData.hasGoals || goalPaceData.season.plannedDaysElapsed < 18) {
       return "Keep building momentum — progress isn't always linear.";
     }
     
-    const currentAverage = knockingDays > 0 ? paceResult.currentProgress / knockingDays : 0;
-    
     const paceContext = calculatePaceContext(
-      knockingDays,
-      paceResult.remainingDailyNeeded,
-      currentAverage,
+      goalPaceData.season.plannedDaysElapsed,
+      goalPaceData.dailyNeeded,
+      goalPaceData.userDailyAvg,
       1,
       false
     );
     
     if (paceContext === 'building-momentum' || paceContext === 'on-track') {
-      return `You're on pace for your ${paceResult.isInPreseason ? 'preseason' : 'focus'} goal!`;
+      return `You're on pace for your ${goalPaceData.isPreseason ? 'preseason' : 'focus'} goal!`;
     } else if (paceContext === 'stretch') {
       return `Push for your best days — you've got this!`;
     } else if (paceContext === 'very-ambitious') {
@@ -170,7 +143,7 @@ export const DailyFocusCard = ({ repData, heroMode = false }: DailyFocusCardProp
     }
     
     return null;
-  }, [paceResult, knockingDays, smartGoals, useManualGoals, displayValue, fpGoal]);
+  }, [goalPaceData, smartGoals, useManualGoals, displayValue, fpGoal]);
 
   // Load activity goals from localStorage on mount
   useEffect(() => {

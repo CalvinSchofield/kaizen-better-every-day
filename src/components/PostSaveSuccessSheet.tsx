@@ -9,12 +9,12 @@ import { useEfpMode } from "@/hooks/useEfpMode";
 import { useFocusTier, FocusTier } from "@/hooks/useFocusTier";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useRepData } from "@/hooks/useRepData";
+import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getSeasonInfo } from "@/utils/seasonWeekUtils";
 import { getLearningCurvePrincipleMessage, calculatePaceContext } from "@/utils/learningCurveData";
-import { calculateSalesPace } from "@/utils/salesPaceCalculator";
 import { format, differenceInDays } from "date-fns";
 import confetti from "canvas-confetti";
 import { useMyActiveChallenges } from "@/hooks/useChallenges";
@@ -52,6 +52,7 @@ export const PostSaveSuccessSheet = ({
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { knockingDays, totalFP, totalPRMR } = usePreseasonFP();
   const { repData } = useRepData();
+  const goalPaceData = useGoalPaceCalculator();
   
   // Get current season info and comparison year
   const seasonInfo = useMemo(() => getSeasonInfo(new Date()), []);
@@ -161,31 +162,10 @@ export const PostSaveSuccessSheet = ({
     couldDo: 'Could Do',
   };
   
-  // Calculate daily goal using centralized pace calculator
-  // This properly filters planned days by season (preseason vs summer)
-  const dailyGoal = useMemo(() => {
-    if (!goals?.setup_complete || !plannedDays) return null;
-    
-    // Use the centralized calculator which correctly handles:
-    // 1. Filtering planned days by season (preseason ends April 11)
-    // 2. Cancel rate buffer
-    // 3. EFP conversion
-    const result = calculateSalesPace({
-      goals,
-      plannedDays,
-      knockingDays,
-      currentFpPlus: totalFP,
-      currentPrmr: totalPRMR,
-      efpModeEnabled,
-      calculateEfp,
-      activeTier: isUserSummerStarted ? focusTier : 'preseason',
-      personalSummerStart: seasonConfig?.personal_summer_start || undefined,
-    });
-    
-    if (!result) return null;
-    
-    return Math.max(Math.round(result.dailyGoal * 10) / 10, 0.5);
-  }, [goals, plannedDays, knockingDays, totalFP, totalPRMR, efpModeEnabled, calculateEfp, isUserSummerStarted, focusTier, seasonConfig?.personal_summer_start]);
+  // Use unified pace calculator for daily goal
+  const dailyGoal = goalPaceData.hasGoals
+    ? Math.max(Math.round(goalPaceData.dailyNeeded * 10) / 10, 0.5)
+    : null;
 
   const goalMet = dailyGoal !== null && displayFpValue >= dailyGoal;
   const progressPercent = dailyGoal ? Math.min(100, (displayFpValue / dailyGoal) * 100) : 0;
