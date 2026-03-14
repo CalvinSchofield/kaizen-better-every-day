@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, Target, Trophy, UserPlus, Contact, Sparkles, Swords, RefreshCw } from "lucide-react";
+import { Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, Target, Trophy, UserPlus, Contact, Sparkles, Swords, RefreshCw, type LucideIcon } from "lucide-react";
 import {
   Sheet,
   SheetContent,
