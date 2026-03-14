@@ -94,6 +94,9 @@ export interface RepGoalsData {
   monday_night_lights_progress: number | null;
   blitzes_goal: number | null;
   blitzes_progress: number | null;
+  must_do_fp_goal: number | null;
+  will_do_fp_goal: number | null;
+  could_do_fp_goal: number | null;
 }
 
 export interface RepSummerConfigData {
