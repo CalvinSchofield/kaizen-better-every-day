@@ -19,6 +19,7 @@ import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
 import { QuickEditGoalsDrawer } from "@/components/goals/QuickEditGoalsDrawer";
 import { CalendarPlanningPreview } from "@/components/goals/CalendarPlanningPreview";
 import { CanceledStatsCard } from "@/components/goals/CanceledStatsCard";
+import { PendingInstallsCard } from "@/components/goals/PendingInstallsCard";
 import { CancelRateDrawer } from "@/components/goals/CancelRateDrawer";
 import { EarningsBreakdownCard } from "@/components/goals/EarningsBreakdownCard";
 import { PreseasonCommitmentsCard } from "@/components/goals/PreseasonCommitmentsCard";
