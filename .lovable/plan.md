@@ -1,50 +1,42 @@
 
 
-## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
+# Consistent Goal Progress Colors + Drawer Fix
 
-### The Problem
+## 1. Hide Track from Drawer in Knocking Mode
+**File: `src/components/AppDrawer.tsx`** — Line 298
 
-When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
+Track is already in the bottom nav bar during knocking mode. Wrap it in `{!isKnockingMode && ...}` so it only appears in the drawer during preseason.
 
-### Root Cause
+## 2. Add `funded` to TimeframeData
+**File: `src/hooks/useGoalPaceCalculator.ts`**
 
-There are three things fighting each other:
+- Add `funded: number` to `TimeframeData` interface (line 36)
+- In `calcTimeframe()`, when iterating entries with `sales_log`, track funded separately: sales where `install_status` is NOT `pending`, `cancelled`, or `never_installed` count as funded; the remainder of actual is unfunded
+- For the day timeframe, similarly split `todayFP` into funded vs unfunded using the sales_log
+- Carry `funded` through `emptyTimeframe` default
 
-1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
+## 3. Match Bar Colors to Ring
+**File: `src/components/goals/UnifiedGoalProgress.tsx`**
 
-2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
+Ring uses: Green (funded) → Blue (unfunded) → Yellow (pending)
 
-3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+New SegmentedBar segments (4 layers, left to right):
 
-### The Fix
+| Segment | Color | CSS |
+|---------|-------|-----|
+| Funded | Green | `bg-emerald-500` |
+| Unfunded | Blue | `bg-primary` |
+| Live | Green + pulse | `bg-emerald-500 animate-pulse` (same as funded, breathing animation) |
+| Pending | Yellow | `bg-warning` |
 
-#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+- Accept `funded` prop in SegmentedBar, compute `unfunded = finalized - funded`
+- Render 4 segments: funded (green) → unfunded (blue) → live (green + pulse) → pending (yellow)
+- Update legend dots to match: green dot "Funded", blue dot "Unfunded", green pulsing dot "Live", yellow dot "Pending"
+- Update inline text colors: `(+X live)` uses emerald instead of rose, `(+X pending)` uses warning instead of primary/60
+- Same changes in both FullMode and CompactMode
 
-The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
-
-#### 2. Simplify `useKeyboardViewport` hook
-
-- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
-- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
-- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
-- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
-
-#### 3. Add `@capacitor/keyboard` plugin configuration
-
-Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
-
-### Files to Modify
-
-- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
-- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
-- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
-- **`package.json`** -- Add `@capacitor/keyboard` dependency
-
-### After Approval
-
-After these code changes, you will need to:
-1. Git pull the updated code
-2. Run `npm install` to get the new keyboard plugin
-3. Run `npx cap sync` to sync the plugin to iOS
-4. Rebuild in Xcode and push to TestFlight
+### Files Changed
+1. `src/components/AppDrawer.tsx` — hide Track in knocking mode
+2. `src/hooks/useGoalPaceCalculator.ts` — add `funded` to TimeframeData
+3. `src/components/goals/UnifiedGoalProgress.tsx` — 4-segment bar with ring-matched colors
 
