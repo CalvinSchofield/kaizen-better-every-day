@@ -309,7 +309,9 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             {/* ── GROWTH ── */}
             <DrawerSection label="Growth">
               <DrawerItem to="/training" icon={BookOpen} label="Training" onClick={() => setOpen(false)} />
-              <DrawerItem to="/goals" icon={Target} label="Goals" onClick={() => setOpen(false)} />
+              {!(isLeader && !isKnockingMode) && (
+                <DrawerItem to="/goals" icon={Target} label="Goals" onClick={() => setOpen(false)} />
+              )}
             </DrawerSection>
 
             {/* ── TEAM ── */}
