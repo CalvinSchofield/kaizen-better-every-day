@@ -868,6 +868,12 @@ const Goals = () => {
             isRookie={isRookie}
             weekInSummer={benchmarks?.weekInSummer}
             learningCurveMessage={enhancedPaceContext?.learningCurveMessage}
+            onEarningsClick={() => {
+              setEarningsOpenTrigger(prev => prev + 1);
+              setTimeout(() => {
+                earningsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 100);
+            }}
           />
         </motion.div>
 
