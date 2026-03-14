@@ -93,30 +93,8 @@ export const DailyFocusCard = ({ repData, heroMode = false }: DailyFocusCardProp
   const [transitionsInput, setTransitionsInput] = useState("3");
   const [presentationsInput, setPresentationsInput] = useState("2");
 
-  // Calculate daily FP+ goal from pace calculator (read-only, derived from Goals setup)
-  const { calculatedDailyFpGoal, paceResult } = useMemo(() => {
-    if (!goals?.setup_complete || !plannedDays) return { calculatedDailyFpGoal: null, paceResult: null };
-    
-    const result = calculateSalesPace({
-      goals,
-      plannedDays,
-      knockingDays,
-      currentFpPlus: totalFP,
-      currentPrmr: totalPRMR,
-      efpModeEnabled,
-      calculateEfp,
-    });
-    
-    if (!result) return { calculatedDailyFpGoal: null, paceResult: null };
-    
-    return {
-      calculatedDailyFpGoal: Math.round(result.dailyGoal * 10) / 10,
-      paceResult: result
-    };
-  }, [goals, plannedDays, knockingDays, totalFP, totalPRMR, efpModeEnabled, calculateEfp]);
-
-  // The daily goal to use - preseason uses calculatedDailyFpGoal, summer uses pace from focus tier
-  const fpGoal = calculatedDailyFpGoal ?? 1;
+  // Daily FP+ goal from unified pace calculator
+  const fpGoal = goalPaceData.hasGoals ? Math.round(goalPaceData.dailyNeeded * 10) / 10 : 1;
 
   // Smart activity goals based on conversion rates
   const smartGoals = useSmartActivityGoals({
