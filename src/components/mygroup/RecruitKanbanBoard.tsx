@@ -70,9 +70,9 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
   });
 
   // Create a map for quick lookup by id
-  const repsBlockerMap = new Map(
+  const repsBlockerMap = useMemo(() => new Map(
     repsData?.map(r => [r.id, r]) || []
-  );
+  ), [repsData]);
 
   // Get user_ids for signed+ recruits to fetch summer data
   const signedPlusUserIds = useMemo(() => {
