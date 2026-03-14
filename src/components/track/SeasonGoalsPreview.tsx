@@ -146,8 +146,11 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
               data={data}
               mode="full"
               showTierSelector={false}
-              showPaceContext
+              showPaceContext={false}
               showTimeframeToggle
+              initialTimeframe="W"
+              hideHeader
+              hideDay
               cardless
               className="-mt-2"
             />
