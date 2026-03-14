@@ -48,11 +48,9 @@ export const usePendingInstalls = (options?: { includeAllPending?: boolean }) =>
       data?.forEach(entry => {
         const salesLog = (entry.sales_log as unknown as Sale[]) || [];
         salesLog.forEach(sale => {
-          // Check if sale is pending and scheduled for today or earlier
           if (
             sale.install_status === 'pending' &&
-            sale.scheduled_install_date &&
-            sale.scheduled_install_date <= todayDate
+            (options?.includeAllPending || (sale.scheduled_install_date && sale.scheduled_install_date <= todayDate))
           ) {
             pending.push({
               ...sale,
