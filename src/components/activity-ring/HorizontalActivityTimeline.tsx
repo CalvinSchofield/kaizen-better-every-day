@@ -94,6 +94,7 @@ export const HorizontalActivityTimeline = ({
   metricValue,
   goalProgress = 0,
   onSegmentClick,
+  onSaleChipClick,
 }: HorizontalActivityTimelineProps) => {
 
   const { hoursWorked, workStart, workEnd, totalWorkMinutes, isLive } = useMemo(() => {
