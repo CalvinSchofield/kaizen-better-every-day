@@ -953,6 +953,10 @@ const Goals = () => {
           <CanceledStatsCard />
         </div>
 
+        <div className="px-4 pb-4">
+          <PendingInstallsCard />
+        </div>
+
         {/* Cancel Rate Drawer */}
         <CancelRateDrawer
           open={showCancelRateDrawer}
