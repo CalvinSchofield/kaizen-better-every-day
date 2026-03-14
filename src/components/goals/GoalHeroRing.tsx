@@ -121,12 +121,13 @@ export const GoalHeroRing = ({
   const displayedPay = isPreseasonTier ? preseasonUpfrontPay : Math.max(0, result.takeHomePay);
   const displayedRate = isPreseasonTier ? 4 : result.rate;
 
-  // Progress calculations
+  // Progress calculations - center display is based on funded progress
+  const fundedDisplay = fundedProgress ?? currentProgress;
   const progress = fpGoal > 0 ? Math.min((currentProgress / fpGoal) * 100, 100) : 0;
   const totalWithPendingProgress = currentProgress + pendingPipeline;
   const totalWithPendingPercent = fpGoal > 0 ? Math.min((totalWithPendingProgress / fpGoal) * 100, 100) : 0;
-  const remaining = Math.max(fpGoal - totalWithPendingProgress, 0);
-  const isComplete = currentProgress >= fpGoal && fpGoal > 0;
+  const remaining = Math.max(fpGoal - fundedDisplay, 0);
+  const isComplete = fundedDisplay >= fpGoal && fpGoal > 0;
 
   // Today's pace calculation
   const todayPaceDiff = dailyGoal > 0 ? todayProgress - dailyGoal : 0;
