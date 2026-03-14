@@ -18,11 +18,11 @@ const getTodayDate = () => {
   return `${year}-${month}-${day}`;
 };
 
-export const usePendingInstalls = () => {
+export const usePendingInstalls = (options?: { includeAllPending?: boolean }) => {
   const queryClient = useQueryClient();
 
   const { data: pendingSales = [], isLoading } = useQuery({
-    queryKey: ['pending-installs'],
+    queryKey: ['pending-installs', options?.includeAllPending ? 'all' : 'due'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
@@ -48,11 +48,9 @@ export const usePendingInstalls = () => {
       data?.forEach(entry => {
         const salesLog = (entry.sales_log as unknown as Sale[]) || [];
         salesLog.forEach(sale => {
-          // Check if sale is pending and scheduled for today or earlier
           if (
             sale.install_status === 'pending' &&
-            sale.scheduled_install_date &&
-            sale.scheduled_install_date <= todayDate
+            (options?.includeAllPending || (sale.scheduled_install_date && sale.scheduled_install_date <= todayDate))
           ) {
             pending.push({
               ...sale,

@@ -11,7 +11,7 @@ interface PendingInstallsCardProps {
 }
 
 export const PendingInstallsCard = ({ className }: PendingInstallsCardProps) => {
-  const { pendingSales, isLoading } = usePendingInstalls();
+  const { pendingSales, isLoading } = usePendingInstalls({ includeAllPending: true });
   const { efpModeEnabled } = useEfpMode();
   const navigate = useNavigate();
 
