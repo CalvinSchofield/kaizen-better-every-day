@@ -3,7 +3,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Lock, Check, CalendarIcon } from 'lucide-react';
+import { Lock, Check, CalendarIcon, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { hapticLight, hapticSuccess } from '@/utils/haptics';
@@ -29,6 +29,7 @@ interface QuickEditGoalsDrawerProps {
   personalSummerStart?: string | null;
   personalSummerEnd?: string | null;
   repId?: string;
+  onSyncClick?: () => void;
   onSave: (goals: {
     preseason_fp_goal: number;
     must_do_fp_goal: number;
@@ -66,6 +67,7 @@ export const QuickEditGoalsDrawer = ({
   personalSummerStart,
   personalSummerEnd,
   repId,
+  onSyncClick,
   onSave,
 }: QuickEditGoalsDrawerProps) => {
   const [values, setValues] = useState(currentGoals);
@@ -352,6 +354,20 @@ export const QuickEditGoalsDrawer = ({
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Sync numbers link */}
+          {onSyncClick && (
+            <button
+              onClick={() => {
+                onOpenChange(false);
+                setTimeout(onSyncClick, 300);
+              }}
+              className="w-full mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors active:scale-95"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Sync numbers with Vivint
+            </button>
+          )}
         </div>
       </DrawerContent>
     </Drawer>
