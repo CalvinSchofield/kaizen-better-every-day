@@ -106,8 +106,8 @@ export const usePreseasonFP = () => {
         
         // If entry has sales_log, calculate from all sales (excluding never_installed)
         if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
-          // ALL sales count toward goals EXCEPT never_installed (those never hit the books)
-          const allSales = salesLog.filter(s => s.install_status !== 'never_installed');
+          // ALL sales count toward goals EXCEPT never_installed and pending (scheduled out)
+          const allSales = salesLog.filter(s => s.install_status !== 'never_installed' && s.install_status !== 'pending');
           const fpSales = allSales.filter(s => s.type === 'fp');
           const upgradeSales = allSales.filter(s => s.type === 'upgrade');
           
