@@ -196,6 +196,10 @@ self.addEventListener('notificationclick', (event) => {
     urlToOpen = '/goals';
   } else if (action === 'rsvp' || (action === 'view' && (notificationType === 'blitz_rsvp_first' || notificationType === 'blitz_rsvp_second'))) {
     urlToOpen = '/';
+  } else if (notificationType === 'install_reminder_eve' || notificationType === 'install_reminder_due') {
+    if (action === 'view' || !action) {
+      urlToOpen = notifData.url || '/customers';
+    }
   }
   
   event.waitUntil(

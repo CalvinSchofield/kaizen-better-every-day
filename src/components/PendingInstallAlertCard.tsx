@@ -9,14 +9,18 @@ import { usePendingInstalls } from '@/hooks/usePendingInstalls';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-export const PendingInstallAlertCard = () => {
+interface PendingInstallAlertCardProps {
+  alwaysShow?: boolean;
+}
+
+export const PendingInstallAlertCard = ({ alwaysShow = false }: PendingInstallAlertCardProps) => {
   const { pendingSales, isLoading, confirmInstall, rescheduleSale, removeSale, isUpdating } = usePendingInstalls();
   const [rescheduleOpenFor, setRescheduleOpenFor] = useState<string | null>(null);
   const [confirmRemoveFor, setConfirmRemoveFor] = useState<string | null>(null);
 
-  // Only show after 7 PM local time
+  // Only show after 7 PM local time unless alwaysShow
   const localHour = new Date().getHours();
-  if (localHour < 19) return null;
+  if (!alwaysShow && localHour < 19) return null;
 
   // Don't show if no pending sales or still loading
   if (isLoading || pendingSales.length === 0) return null;
