@@ -585,7 +585,7 @@ const CompactMode = ({
               showExpectedMarker={data.knockingDaysCompleted >= 6}
             />
             {/* Pace badge for non-day timeframes */}
-            {tf !== 'D' && tfData.expected > 0 && (
+            {tf !== 'D' && tfData.expected > 0 && data.knockingDaysCompleted >= 6 && (
               <div className="flex items-center justify-end">
                 <PaceBadge paceDiff={tfData.paceDiff} severity={data.severity} />
               </div>
