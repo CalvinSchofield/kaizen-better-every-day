@@ -21,11 +21,16 @@ interface CatchUpWizardProps {
   onOpenChange: (open: boolean) => void;
   seasonType: 'preseason' | 'summer';
   onComplete?: () => void;
+  /** Only true on first-ever sync (post-setup). Controls whether knocking days step is shown. */
+  isInitialSync?: boolean;
+  /** Tracked knocking days from daily entries (used on non-initial syncs for confirm screen). */
+  trackedKnockingDays?: number;
 }
 
 type Step = 'welcome' | 'fp' | 'prmr' | 'days' | 'confirm';
 
-const STEPS: Step[] = ['welcome', 'fp', 'prmr', 'days', 'confirm'];
+const ALL_STEPS: Step[] = ['welcome', 'fp', 'prmr', 'days', 'confirm'];
+const RETURNING_STEPS: Step[] = ['welcome', 'fp', 'prmr', 'confirm'];
 
 const SEASON_YEAR = 2025;
 
@@ -36,8 +41,12 @@ export const CatchUpWizard = ({
   open, 
   onOpenChange, 
   seasonType,
-  onComplete 
+  onComplete,
+  isInitialSync = false,
+  trackedKnockingDays = 0,
 }: CatchUpWizardProps) => {
+  const STEPS = isInitialSync ? ALL_STEPS : RETURNING_STEPS;
+  
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [fpPlus, setFpPlus] = useState<string>('');
   const [prmr, setPrmr] = useState<string>('');
@@ -55,7 +64,7 @@ export const CatchUpWizard = ({
 
   const fpValue = parseFloat(fpPlus) || 0;
   const prmrValue = autoCalcPrmr ? fpValue * 85 : (parseFloat(prmr) || 0);
-  const daysValue = parseInt(knockingDays) || 0;
+  const daysValue = isInitialSync ? (parseInt(knockingDays) || 0) : trackedKnockingDays;
   const efpValue = calculateEfp(prmrValue);
 
   const handleNext = () => {
@@ -79,7 +88,8 @@ export const CatchUpWizard = ({
         season_type: seasonType,
         fp_plus: fpValue,
         prmr: prmrValue,
-        knocking_days: daysValue,
+        // Only update knocking_days on initial sync; afterwards the app tracks automatically
+        knocking_days: isInitialSync ? daysValue : null,
         verified_by: 'self',
       });
       
@@ -242,7 +252,7 @@ export const CatchUpWizard = ({
             <div className="text-center mb-4">
               <h3 className="text-lg font-semibold">Confirm your numbers</h3>
               <p className="text-sm text-muted-foreground">
-                We'll use these as your verified {seasonType} baseline
+                We'll use these as your verified {seasonType} {isInitialSync ? 'baseline' : 'totals'}
               </p>
             </div>
             
@@ -262,17 +272,39 @@ export const CatchUpWizard = ({
                     <span className="text-xl font-semibold">{efpValue.toFixed(2)}</span>
                   </div>
                 </>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Knocking Days</span>
-                  <span className="text-xl font-semibold">{daysValue}</span>
-                </div>
-                {daysValue > 0 && (
-                  <div className="flex justify-between items-center pt-2 border-t">
-                    <span className="text-muted-foreground">Avg per Day</span>
-                    <span className="text-lg font-medium">
-                      {(fpValue / daysValue).toFixed(2)} {metricLabel}
-                    </span>
-                  </div>
+                {isInitialSync ? (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Knocking Days</span>
+                      <span className="text-xl font-semibold">{daysValue}</span>
+                    </div>
+                    {daysValue > 0 && (
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <span className="text-muted-foreground">Avg per Day</span>
+                        <span className="text-lg font-medium">
+                          {(fpValue / daysValue).toFixed(2)} {metricLabel}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <span className="text-muted-foreground">Days Tracked</span>
+                      <span className="text-xl font-semibold">{trackedKnockingDays}</span>
+                    </div>
+                    {trackedKnockingDays > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Your Pace</span>
+                        <span className="text-lg font-medium">
+                          {(fpValue / trackedKnockingDays).toFixed(2)} {metricLabel}/day
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground text-center">
+                      Days are tracked automatically from your daily entries
+                    </p>
+                  </>
                 )}
               </CardContent>
             </Card>

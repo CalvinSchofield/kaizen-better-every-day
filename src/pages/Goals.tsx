@@ -1056,6 +1056,8 @@ const Goals = () => {
           open={showCatchUpWizard} 
           onOpenChange={(open) => setShowCatchUpWizard(open)}
           seasonType="preseason"
+          isInitialSync={false}
+          trackedKnockingDays={workedDaysData?.knockingDays || 0}
         />
 
         {/* Commit/Uncommit Confirmations */}
