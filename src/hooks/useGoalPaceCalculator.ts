@@ -261,32 +261,41 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
       if (entry.is_finalized) {
         // Start with column values
         let entryActual = input.efpModeEnabled ? (entry.prmr || 0) / 85 : (entry.fp_plus || 0);
+        let entryFunded = entryActual; // Start assuming all funded
         
-        // Scan finalized entries' sales_log for pending sales — these need to be
-        // subtracted from actual (columns include them) and tracked separately
+        // Scan finalized entries' sales_log for pending and unfunded sales
         const salesLog = entry.sales_log;
         if (Array.isArray(salesLog)) {
+          // Reset funded calculation — we'll compute from sales_log directly
+          let logFunded = 0;
+          let logPending = 0;
           for (const sale of salesLog) {
+            if (sale.install_status === 'never_installed') continue;
+            const salePrmr = Number(sale.prmr) || 0;
             if (sale.install_status === 'pending') {
-              const salePrmr = Number(sale.prmr) || 0;
               if (input.efpModeEnabled) {
-                const pendingVal = salePrmr / 85;
-                pending += pendingVal;
-                entryActual -= pendingVal;
+                logPending += salePrmr / 85;
               } else {
-                if (sale.type === 'fp') {
-                  pending += 1;
-                  entryActual -= 1;
-                } else if (sale.type === 'upgrade') {
-                  const pendingVal = salePrmr / 85;
-                  pending += pendingVal;
-                  entryActual -= pendingVal;
-                }
+                if (sale.type === 'fp') logPending += 1;
+                else if (sale.type === 'upgrade') logPending += salePrmr / 85;
+              }
+            } else if (sale.install_status === 'installed' || sale.install_status === 'confirmed') {
+              // Funded = confirmed installs
+              if (input.efpModeEnabled) {
+                logFunded += salePrmr / 85;
+              } else {
+                if (sale.type === 'fp') logFunded += 1;
+                else if (sale.type === 'upgrade') logFunded += salePrmr / 85;
               }
             }
+            // else: sold but not yet confirmed = unfunded (part of actual but not funded)
           }
+          pending += logPending;
+          entryActual -= logPending; // Remove pending from actual
+          entryFunded = logFunded;
         }
         actual += Math.max(0, entryActual);
+        funded += entryFunded;
       } else {
         // Unfinalized - calculate from sales_log
         const salesLog = entry.sales_log;
@@ -305,11 +314,18 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
               continue;
             }
             const salePrmr = Number(sale.prmr) || 0;
+            const isFundedSale = sale.install_status === 'installed' || sale.install_status === 'confirmed';
             if (input.efpModeEnabled) {
               live += salePrmr / 85;
+              if (isFundedSale) liveFunded += salePrmr / 85;
             } else {
-              if (sale.type === 'fp') live += 1;
-              else if (sale.type === 'upgrade') live += salePrmr / 85;
+              if (sale.type === 'fp') {
+                live += 1;
+                if (isFundedSale) liveFunded += 1;
+              } else if (sale.type === 'upgrade') {
+                live += salePrmr / 85;
+                if (isFundedSale) liveFunded += salePrmr / 85;
+              }
             }
           }
         }
