@@ -330,7 +330,7 @@ const FullMode = ({
           />
 
           {/* Pace diff + days context */}
-          {timeframe !== 'D' && current.expected > 0 && (
+          {timeframe !== 'D' && current.expected > 0 && data.knockingDaysCompleted >= 6 && (
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">
                 {current.plannedDaysElapsed} of {current.plannedDaysTotal} work days
