@@ -868,6 +868,10 @@ const Goals = () => {
             isRookie={isRookie}
             weekInSummer={benchmarks?.weekInSummer}
             learningCurveMessage={enhancedPaceContext?.learningCurveMessage}
+            expectedPercent={unifiedPaceData.season.plannedDaysTotal > 0 
+              ? (unifiedPaceData.season.plannedDaysElapsed / unifiedPaceData.season.plannedDaysTotal) * 100 
+              : 0}
+            showExpectedMarker={(benchmarks?.knockingDaysCompleted ?? 0) >= 12}
             onEarningsClick={() => {
               setEarningsOpenTrigger(prev => prev + 1);
               setTimeout(() => {
