@@ -244,60 +244,57 @@ export const GoalHeroRing = ({
             />
           )}
           
-          {/* Pending progress arc - distinct segment after main progress */}
+          {/* Pending progress arc - striped segment after main progress */}
           {pendingPercent > 0 && !isComplete && (() => {
             const mainArcLength = (progress / 100) * circumference;
             const pendingArcLength = (pendingPercent / 100) * circumference;
             const remainingGap = circumference - mainArcLength - pendingArcLength;
-            // Create a dashed pattern within the pending segment
-            const dashSize = 4;
-            const gapSize = 4;
             return (
               <>
-                {/* Solid background for the pending segment */}
-                <circle
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={radius}
-                  fill="none"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={strokeWidth}
-                  strokeLinecap="butt"
-                  strokeDasharray={`0 ${mainArcLength} ${pendingArcLength} ${remainingGap}`}
-                  strokeDashoffset={0}
-                  opacity={0.25}
-                  className="transition-all duration-700 ease-out"
-                />
-                {/* Dashed overlay for visual distinction */}
-                <circle
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={radius}
-                  fill="none"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={strokeWidth}
-                  strokeLinecap="butt"
-                  strokeDasharray={`${dashSize} ${gapSize}`}
-                  strokeDashoffset={-mainArcLength}
-                  opacity={0.5}
-                  className="transition-all duration-700 ease-out"
-                  style={{
-                    clipPath: `inset(0)`, // keeps it within bounds
-                  }}
-                />
-                {/* Mask: cover everything outside the pending segment */}
-                <circle
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={radius}
-                  fill="none"
-                  stroke="hsl(var(--background))"
-                  strokeWidth={strokeWidth + 1}
-                  strokeLinecap="butt"
-                  strokeDasharray={`${mainArcLength} ${pendingArcLength} ${remainingGap}`}
-                  strokeDashoffset={0}
-                  className="transition-all duration-700 ease-out"
-                />
+                <defs>
+                  <mask id="pendingMask">
+                    {/* White = visible. Only show the pending segment */}
+                    <circle
+                      cx={size / 2}
+                      cy={size / 2}
+                      r={radius}
+                      fill="none"
+                      stroke="white"
+                      strokeWidth={strokeWidth}
+                      strokeLinecap="butt"
+                      strokeDasharray={`0 ${mainArcLength} ${pendingArcLength} ${remainingGap}`}
+                      strokeDashoffset={0}
+                    />
+                  </mask>
+                </defs>
+                {/* Striped pending arc, masked to only the pending segment */}
+                <g mask="url(#pendingMask)">
+                  {/* Solid base */}
+                  <circle
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={radius}
+                    fill="none"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={strokeWidth}
+                    strokeDasharray={circumference}
+                    strokeDashoffset={0}
+                    opacity={0.3}
+                  />
+                  {/* Dashed overlay for texture */}
+                  <circle
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={radius}
+                    fill="none"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={strokeWidth}
+                    strokeLinecap="butt"
+                    strokeDasharray="6 5"
+                    strokeDashoffset={0}
+                    opacity={0.6}
+                  />
+                </g>
               </>
             );
           })()}
