@@ -222,21 +222,27 @@ export const GoalHeroRing = ({
           />
           
           
-          {/* Pending progress arc */}
-          {pendingPercent > 0 && !isComplete && (
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              fill="none"
-              stroke="hsl(var(--primary) / 0.35)"
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={pendingDashoffset}
-              className="transition-all duration-700 ease-out"
-            />
-          )}
+          {/* Pending progress arc - draws only the pending segment after main progress */}
+          {pendingPercent > 0 && !isComplete && (() => {
+            const mainArcLength = (progress / 100) * circumference;
+            const pendingArcLength = (pendingPercent / 100) * circumference;
+            const remainingGap = circumference - mainArcLength - pendingArcLength;
+            return (
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                fill="none"
+                stroke="hsl(var(--primary))"
+                strokeWidth={strokeWidth}
+                strokeLinecap="butt"
+                strokeDasharray={`0 ${mainArcLength} ${pendingArcLength} ${remainingGap}`}
+                strokeDashoffset={0}
+                opacity={0.4}
+                className="transition-all duration-700 ease-out"
+              />
+            );
+          })()}
 
           {/* Gradient definition */}
           <defs>
