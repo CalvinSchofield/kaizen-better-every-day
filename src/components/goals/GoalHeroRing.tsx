@@ -247,15 +247,9 @@ export const GoalHeroRing = ({
 
           {/* Expected By Now tick mark */}
           {showExpectedMarker && expectedPercent != null && expectedPercent > 0 && expectedPercent < 100 && (
-            <motion.g 
-              key={`expected-${activeTier}`}
-              initial={{ opacity: 0 }}
-              animate={{ 
-                opacity: 1,
-                rotate: (expectedPercent / 100) * 360 - 90,
-              }}
-              transition={{ duration: 0.7, ease: "easeOut" }}
+            <g 
               style={{ 
+                transform: `rotate(${(expectedPercent / 100) * 360 - 90}deg)`,
                 transformOrigin: `${size / 2}px ${size / 2}px`
               }}
             >
@@ -269,7 +263,7 @@ export const GoalHeroRing = ({
                 strokeLinecap="round"
                 opacity={0.5}
               />
-            </motion.g>
+            </g>
           )}
 
           {/* Gradient definition */}
