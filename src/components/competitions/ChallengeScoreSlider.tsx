@@ -84,10 +84,10 @@ export const ChallengeScoreSlider = ({
     <div className="space-y-1">
       <div className="flex items-center gap-2">
         <span className={cn(
-          "text-xs font-semibold w-8 text-right",
+          "text-xs font-semibold w-10 text-right",
           isWinning ? "text-primary" : isTied ? "text-muted-foreground" : "text-muted-foreground"
         )}>
-          {Math.round(myValue)}
+          {formatFP(myValue)}
         </span>
         <div className={cn("flex-1 rounded-full bg-muted overflow-hidden relative", heightClass)}>
           <motion.div 
