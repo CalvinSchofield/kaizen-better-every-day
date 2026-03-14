@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { TrendingUp, TrendingDown, Sparkles, BarChart3, ChevronRight, History } from "lucide-react";
+import { TrendingUp, TrendingDown, Sparkles, BarChart3, ChevronRight, History, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { SeasonType } from "@/utils/seasonWeekUtils";
@@ -31,6 +31,8 @@ interface CalendarSummaryTeaserProps {
     doorsKnocked: number;
     closes: number;
     daysWorked: number;
+    pendingFp?: number;
+    pendingPrmr?: number;
   };
   prevPeriodTotals: {
     fpPlus: number;
@@ -61,6 +63,10 @@ export const CalendarSummaryTeaser = ({
   const navigate = useNavigate();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
 
+  const pendingFp = viewTotals.pendingFp || 0;
+  const pendingPrmr = viewTotals.pendingPrmr || 0;
+  const hasPending = pendingFp > 0 || pendingPrmr > 0;
+
   // Calculate period-over-period change
   const fpChange = viewTotals.fpPlus - prevPeriodTotals.fpPlus;
   const isImproving = fpChange >= 0;
@@ -73,7 +79,6 @@ export const CalendarSummaryTeaser = ({
     const insights: { text: string; priority: number }[] = [];
 
     // Find best day in period
-    const periodStart = viewMode === "week" ? weekStart : new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
     const periodEntries = entries.filter(e => {
       const [year, month, day] = e.entry_date.split('-').map(Number);
       const entryDate = new Date(year, month - 1, day);
@@ -84,7 +89,6 @@ export const CalendarSummaryTeaser = ({
     }).filter(e => e.is_finalized && ((e.fp_plus || 0) > 0 || (e.prmr || 0) > 0));
 
     if (periodEntries.length > 0) {
-      // Sort by EFP (prmr/85) if efpModeEnabled, otherwise FP+
       const bestDay = periodEntries.reduce((best, entry) => {
         if (efpModeEnabled) {
           const entryEfp = (entry.prmr || 0) / 85;
@@ -94,7 +98,6 @@ export const CalendarSummaryTeaser = ({
         return (entry.fp_plus || 0) > (best.fp_plus || 0) ? entry : best;
       });
       
-      // Compare using EFP or FP+ based on mode
       const avgValue = efpModeEnabled 
         ? calculateEfp(viewTotals.prmr) / viewTotals.daysWorked
         : viewTotals.fpPlus / viewTotals.daysWorked;
@@ -146,7 +149,6 @@ export const CalendarSummaryTeaser = ({
 
   // Navigate to insights with date range
   const handleNavigateToInsights = () => {
-    // Pass actual start and end dates so Insights can match to preset or use custom
     const startDate = viewMode === "week" 
       ? format(weekStart, 'yyyy-MM-dd')
       : format(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), 'yyyy-MM-dd');
@@ -157,11 +159,16 @@ export const CalendarSummaryTeaser = ({
     navigate(`/insights?start=${startDate}&end=${endDate}`);
   };
 
-  // Primary metric value
+  // Primary metric value (excluding pending)
   const primaryValue = efpModeEnabled 
     ? calculateEfp(viewTotals.prmr).toFixed(1)
     : viewTotals.fpPlus % 1 === 0 ? viewTotals.fpPlus.toString() : viewTotals.fpPlus.toFixed(1);
   const primaryLabel = efpModeEnabled ? "EFP" : "FP+";
+
+  // Pending metric value
+  const pendingValue = efpModeEnabled
+    ? calculateEfp(pendingPrmr).toFixed(1)
+    : pendingFp % 1 === 0 ? pendingFp.toString() : pendingFp.toFixed(1);
 
   // Secondary metric
   const secondaryValue = efpModeEnabled
@@ -214,6 +221,16 @@ export const CalendarSummaryTeaser = ({
             </div>
           )}
         </div>
+
+        {/* Pending Production Badge */}
+        {hasPending && (
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-warning">
+            <Clock className="h-3 w-3" />
+            <span className="font-medium">
+              +{pendingValue} {primaryLabel} pending install
+            </span>
+          </div>
+        )}
 
         {/* Comparison Badge */}
         {hasPrevData && (
