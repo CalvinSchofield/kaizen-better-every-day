@@ -97,7 +97,7 @@ describe('calculateFromSalesLog', () => {
     it('includes sales with other install statuses', () => {
       const salesLog = [
         { type: 'fp', prmr: 50, install_status: 'installed' },
-        { type: 'fp', prmr: 75, install_status: 'pending' },
+        { type: 'fp', prmr: 75, install_status: 'cancelled' },
         { type: 'fp', prmr: 25, install_status: null },
       ];
       expect(calculateFromSalesLog(salesLog)).toEqual({ fp: 3, prmr: 150 });
@@ -109,6 +109,42 @@ describe('calculateFromSalesLog', () => {
         { type: 'upgrade', prmr: 85, install_status: 'never_installed' },
       ];
       expect(calculateFromSalesLog(salesLog)).toEqual({ fp: 0, prmr: 0 });
+    });
+  });
+
+  describe('pending (scheduled out) status', () => {
+    it('excludes sales with pending status', () => {
+      const salesLog = [
+        { type: 'fp', prmr: 50 },
+        { type: 'fp', prmr: 100, install_status: 'pending' },
+        { type: 'fp', prmr: 75 },
+      ];
+      expect(calculateFromSalesLog(salesLog)).toEqual({ fp: 2, prmr: 125 });
+    });
+
+    it('excludes pending upgrade sales', () => {
+      const salesLog = [
+        { type: 'upgrade', prmr: 85, install_status: 'pending' },
+        { type: 'upgrade', prmr: 170 },
+      ];
+      expect(calculateFromSalesLog(salesLog)).toEqual({ fp: 2, prmr: 170 });
+    });
+
+    it('returns zeros when all sales are pending', () => {
+      const salesLog = [
+        { type: 'fp', prmr: 50, install_status: 'pending' },
+        { type: 'upgrade', prmr: 85, install_status: 'pending' },
+      ];
+      expect(calculateFromSalesLog(salesLog)).toEqual({ fp: 0, prmr: 0 });
+    });
+
+    it('excludes both pending and never_installed but keeps installed', () => {
+      const salesLog = [
+        { type: 'fp', prmr: 50, install_status: 'installed' },
+        { type: 'fp', prmr: 75, install_status: 'pending' },
+        { type: 'fp', prmr: 100, install_status: 'never_installed' },
+      ];
+      expect(calculateFromSalesLog(salesLog)).toEqual({ fp: 1, prmr: 50 });
     });
   });
 
@@ -156,11 +192,12 @@ describe('calculateFromSalesLog', () => {
         { type: 'upgrade', prmr: 35, install_status: 'installed', customer_name: 'Bob' },
         { type: 'fp', prmr: 55, install_status: 'never_installed', customer_name: 'Alice' },
       ];
-      // FP: 1 + 1 + (35/85) = 2.41...
-      // PRMR: 45 + 65 + 35 = 145 (Alice excluded)
+      // Jane (pending) and Alice (never_installed) excluded
+      // FP: 1 + (35/85) = 1.41...
+      // PRMR: 45 + 35 = 80
       const result = calculateFromSalesLog(salesLog);
-      expect(result.fp).toBeCloseTo(2.41, 1);
-      expect(result.prmr).toBe(145);
+      expect(result.fp).toBeCloseTo(1.41, 1);
+      expect(result.prmr).toBe(80);
     });
 
     it('matches Kobe scenario from bug report ($35 PRMR fp sale)', () => {

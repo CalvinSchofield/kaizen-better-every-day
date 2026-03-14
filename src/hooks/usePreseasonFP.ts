@@ -106,8 +106,8 @@ export const usePreseasonFP = () => {
         
         // If entry has sales_log, calculate from all sales (excluding never_installed)
         if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
-          // ALL sales count toward goals EXCEPT never_installed (those never hit the books)
-          const allSales = salesLog.filter(s => s.install_status !== 'never_installed');
+          // ALL sales count toward goals EXCEPT never_installed and pending (scheduled out)
+          const allSales = salesLog.filter(s => s.install_status !== 'never_installed' && s.install_status !== 'pending');
           const fpSales = allSales.filter(s => s.type === 'fp');
           const upgradeSales = allSales.filter(s => s.type === 'upgrade');
           
@@ -118,8 +118,8 @@ export const usePreseasonFP = () => {
           totalFP += fpCount + (upgradePrmrTotal / 85);
           totalPRMR += totalSalesPrmr;
           
-          // Only FUNDED sales count toward actual income (exclude cancelled AND never_installed)
-          const fundedSales = salesLog.filter(s => s.install_status !== 'cancelled' && s.install_status !== 'never_installed');
+          // Only FUNDED sales count toward actual income (exclude cancelled, never_installed, AND pending)
+          const fundedSales = salesLog.filter(s => s.install_status !== 'cancelled' && s.install_status !== 'never_installed' && s.install_status !== 'pending');
           const fundedFpSales = fundedSales.filter(s => s.type === 'fp');
           const fundedUpgradeSales = fundedSales.filter(s => s.type === 'upgrade');
           

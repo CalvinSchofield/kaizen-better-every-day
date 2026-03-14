@@ -4,13 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Bell, Check, CalendarDays, Ban, Trash2, AlertTriangle } from 'lucide-react';
+import { Bell, Check, CalendarDays, Trash2, AlertTriangle } from 'lucide-react';
 import { usePendingInstalls } from '@/hooks/usePendingInstalls';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 export const PendingInstallAlertCard = () => {
-  const { pendingSales, isLoading, confirmInstall, rescheduleSale, markUnfunded, removeSale, isUpdating } = usePendingInstalls();
+  const { pendingSales, isLoading, confirmInstall, rescheduleSale, removeSale, isUpdating } = usePendingInstalls();
   const [rescheduleOpenFor, setRescheduleOpenFor] = useState<string | null>(null);
   const [confirmRemoveFor, setConfirmRemoveFor] = useState<string | null>(null);
 
@@ -148,16 +148,6 @@ export const PendingInstallAlertCard = () => {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="flex-1 h-7 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
-                        onClick={() => markUnfunded(sale.entryId, sale.id)}
-                        disabled={isUpdating}
-                      >
-                        <Ban className="h-3 w-3 mr-1" />
-                        Installed but Cancelled
-                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"
