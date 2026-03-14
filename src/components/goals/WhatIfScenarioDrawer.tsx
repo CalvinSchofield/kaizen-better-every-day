@@ -464,7 +464,7 @@ export const WhatIfScenarioDrawer = ({
                     </div>
                     <div>
                       <span className={cn("text-lg font-semibold tabular-nums", colors.text)}>
-                        {tier.weeklyNeeded}
+                        {tier.weeklyNeeded.toFixed(2)}
                       </span>
                       <span className="text-xs text-muted-foreground ml-1">/week</span>
                     </div>
