@@ -42,21 +42,12 @@ const SECONDARY_STAGES = [
 type YearFilter = 'Rookie' | 'Sophomore' | 'Vet';
 type LineageFilter = 'direct' | 'downline';
 
-interface SummerActiveData {
-  userId: string;
-  notionPageId: string;
-  currentFp: number;
-  paceStatus: 'ahead' | 'on-track' | 'behind' | 'critical';
-  knockingDays: number;
-}
-
 interface RecruitKanbanBoardProps {
   recruits: Recruit[];
   activities: RecruitActivity[];
-  summerActiveMap?: Map<string, SummerActiveData>;
 }
 
-export const RecruitKanbanBoard = ({ recruits, activities, summerActiveMap }: RecruitKanbanBoardProps) => {
+export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardProps) => {
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showSecondary, setShowSecondary] = useState(false);
