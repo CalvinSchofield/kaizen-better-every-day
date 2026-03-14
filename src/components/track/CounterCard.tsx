@@ -148,14 +148,9 @@ export const CounterCard = ({
       </div>
       
       {/* Timestamp chip */}
-      {timestampInfo && (
-        <div className={`mt-2 text-[10px] font-medium ${
-          timestampInfo.isStale 
-            ? 'text-amber-500' 
-            : 'text-muted-foreground/60'
-        }`}>
-          Last: {timestampInfo.formattedTime}
-          {timestampInfo.isStale && ' ⚠️'}
+      {formattedLastTap && (
+        <div className="mt-2 text-[10px] font-medium text-muted-foreground/60">
+          Last: {formattedLastTap}
         </div>
       )}
     </Card>
