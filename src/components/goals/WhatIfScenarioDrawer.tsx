@@ -458,7 +458,7 @@ export const WhatIfScenarioDrawer = ({
                   <div className="flex items-baseline gap-4">
                     <div>
                     <span className={cn("text-2xl font-bold tabular-nums", colors.text)}>
-                        {tier.dailyNeeded}
+                        {tier.dailyNeeded.toFixed(2)}
                       </span>
                       <span className="text-xs text-muted-foreground ml-1">/day</span>
                     </div>
