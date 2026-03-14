@@ -279,8 +279,8 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
                 if (sale.type === 'fp') logPending += 1;
                 else if (sale.type === 'upgrade') logPending += salePrmr / 85;
               }
-            } else if (sale.install_status === 'installed' || sale.install_status === 'confirmed') {
-              // Funded = confirmed installs
+            } else {
+              // Everything not pending/never_installed is funded (installed, confirmed, null, or any other status)
               if (input.efpModeEnabled) {
                 logFunded += salePrmr / 85;
               } else {
@@ -288,7 +288,6 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
                 else if (sale.type === 'upgrade') logFunded += salePrmr / 85;
               }
             }
-            // else: sold but not yet confirmed = unfunded (part of actual but not funded)
           }
           pending += logPending;
           entryActual -= logPending; // Remove pending from actual
@@ -314,7 +313,7 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
               continue;
             }
             const salePrmr = Number(sale.prmr) || 0;
-            const isFundedSale = sale.install_status === 'installed' || sale.install_status === 'confirmed';
+            const isFundedSale = sale.install_status !== 'pending' && sale.install_status !== 'never_installed';
             if (input.efpModeEnabled) {
               live += salePrmr / 85;
               if (isFundedSale) liveFunded += salePrmr / 85;
@@ -372,7 +371,8 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
           if (sale.type === 'fp') todayPending += 1;
           else if (sale.type === 'upgrade') todayPending += salePrmr / 85;
         }
-      } else if (sale.install_status === 'installed' || sale.install_status === 'confirmed') {
+      } else {
+        // Everything not pending/never_installed is funded
         if (input.efpModeEnabled) {
           todayFunded += salePrmr / 85;
         } else {
