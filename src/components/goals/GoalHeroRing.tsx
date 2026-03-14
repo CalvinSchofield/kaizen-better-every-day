@@ -121,12 +121,13 @@ export const GoalHeroRing = ({
   const displayedPay = isPreseasonTier ? preseasonUpfrontPay : Math.max(0, result.takeHomePay);
   const displayedRate = isPreseasonTier ? 4 : result.rate;
 
-  // Progress calculations
+  // Progress calculations - center display is based on funded progress
+  const fundedDisplay = fundedProgress ?? currentProgress;
   const progress = fpGoal > 0 ? Math.min((currentProgress / fpGoal) * 100, 100) : 0;
   const totalWithPendingProgress = currentProgress + pendingPipeline;
   const totalWithPendingPercent = fpGoal > 0 ? Math.min((totalWithPendingProgress / fpGoal) * 100, 100) : 0;
-  const remaining = Math.max(fpGoal - totalWithPendingProgress, 0);
-  const isComplete = currentProgress >= fpGoal && fpGoal > 0;
+  const remaining = Math.max(fpGoal - fundedDisplay, 0);
+  const isComplete = fundedDisplay >= fpGoal && fpGoal > 0;
 
   // Today's pace calculation
   const todayPaceDiff = dailyGoal > 0 ? todayProgress - dailyGoal : 0;
@@ -267,7 +268,7 @@ export const GoalHeroRing = ({
               ) : (
                 <>
                   <span className="text-4xl font-bold tracking-tight">
-                    {currentProgress.toFixed(1)}
+                    {fundedDisplay.toFixed(1)}
                   </span>
                   <span className="text-sm text-muted-foreground">
                     of {fpGoal.toFixed(0)} {metricLabel}
@@ -278,19 +279,6 @@ export const GoalHeroRing = ({
                       {remaining.toFixed(1)} to go
                     </span>
                   </div>
-                  {/* Today's pace indicator - only show when pace tracking is relevant */}
-                  {showPaceTracking && dailyGoal > 0 && (
-                    <div className={cn(
-                      "mt-2 px-2 py-0.5 rounded-full text-[10px] font-medium",
-                      isTodayAhead && "bg-emerald-500/10 text-emerald-600",
-                      isTodayBehind && "bg-amber-500/10 text-amber-600",
-                      !isTodayAhead && !isTodayBehind && "bg-blue-500/10 text-blue-600"
-                    )}>
-                      {isTodayAhead && `+${todayPaceDiff.toFixed(1)} ahead today`}
-                      {isTodayBehind && `${Math.abs(todayPaceDiff).toFixed(1)} behind today`}
-                      {!isTodayAhead && !isTodayBehind && "On pace today"}
-                    </div>
-                  )}
                 </>
               )}
             </motion.div>
@@ -330,17 +318,6 @@ export const GoalHeroRing = ({
         </div>
       </motion.div>
 
-      {/* Remaining daily needed - only show when pace tracking is relevant AND we have planned days */}
-      {showPaceTracking && remainingDailyNeeded !== undefined && remainingDailyNeeded > 0 && remainingDailyNeeded !== Infinity && !isComplete && (
-        <motion.p 
-          className="mt-2 text-xs text-muted-foreground"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-        >
-          Need <span className="font-semibold text-foreground">{remainingDailyNeeded.toFixed(2)}</span> {metricLabel}/day
-        </motion.p>
-      )}
       
       {/* Show CTA to plan days when no days are planned */}
       {!hasAnyPlannedDays && !isComplete && fpGoal > 0 && (
