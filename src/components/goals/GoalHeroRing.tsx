@@ -11,6 +11,7 @@ export type GoalTier = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
 
 interface GoalHeroRingProps {
   pendingPipeline?: number;
+  liveFP?: number;
   activeTier: GoalTier;
   fpGoal: number;
   currentProgress: number;
@@ -64,6 +65,7 @@ const tierConfig = GOAL_TIER_CONFIG;
 
 export const GoalHeroRing = ({
   pendingPipeline = 0,
+  liveFP = 0,
   activeTier,
   fpGoal,
   currentProgress,
@@ -131,7 +133,8 @@ export const GoalHeroRing = ({
   // Progress calculations - center display is based on funded progress
   const fundedDisplay = fundedProgress ?? currentProgress;
   const progress = fpGoal > 0 ? Math.min((currentProgress / fpGoal) * 100, 100) : 0;
-  const totalWithPendingProgress = currentProgress + pendingPipeline;
+  const livePercent = fpGoal > 0 ? Math.min(((currentProgress + liveFP) / fpGoal) * 100, 100) : 0;
+  const totalWithPendingProgress = currentProgress + liveFP + pendingPipeline;
   const totalWithPendingPercent = fpGoal > 0 ? Math.min((totalWithPendingProgress / fpGoal) * 100, 100) : 0;
   const remaining = Math.max(fpGoal - fundedDisplay, 0);
   const isComplete = fundedDisplay >= fpGoal && fpGoal > 0;
@@ -149,12 +152,16 @@ export const GoalHeroRing = ({
   const toDashOffset = (percent: number) => circumference - (percent / 100) * circumference;
 
   const totalWithPendingDashoffset = toDashOffset(totalWithPendingPercent);
+  const liveDashoffset = toDashOffset(livePercent);
   const totalDashoffset = toDashOffset(progress);
 
   // Funded progress arc (if different from total)
   const showFunded = fundedProgress !== undefined && fundedProgress < currentProgress;
   const fundedPercent = showFunded && fpGoal > 0 ? Math.min((fundedProgress / fpGoal) * 100, 100) : 0;
   const fundedDashoffset = toDashOffset(fundedPercent);
+  
+  // Determine if funded arc needs a flat end (when live or unfunded extends beyond it)
+  const hasSegmentAfterFunded = showFunded || liveFP > 0;
 
   // Available tiers (only show tiers with goals > 0, hide preseason after user's summer starts)
   const availableTiers = useMemo(() => {
@@ -197,7 +204,7 @@ export const GoalHeroRing = ({
             className="opacity-40"
           />
           
-          {/* Bottom layer: funded + unfunded + pending */}
+          {/* Bottom layer: pending (yellow) */}
           {pendingPipeline > 0 && !isComplete && totalWithPendingPercent > 0 && (
             <circle
               cx={size / 2}
@@ -213,24 +220,8 @@ export const GoalHeroRing = ({
             />
           )}
 
-          {/* Middle layer: funded + unfunded */}
-          {progress > 0 && (
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              fill="none"
-              stroke={showFunded ? "hsl(var(--primary))" : isComplete ? "hsl(var(--success))" : "url(#progressGradient)"}
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={totalDashoffset}
-              className="transition-all duration-700 ease-out"
-            />
-          )}
-
-          {/* Top layer: funded only */}
-          {showFunded && fundedPercent > 0 && (
+          {/* Live layer: green with pulse (between unfunded and pending) */}
+          {liveFP > 0 && !isComplete && livePercent > 0 && (
             <circle
               cx={size / 2}
               cy={size / 2}
@@ -239,6 +230,38 @@ export const GoalHeroRing = ({
               stroke="hsl(var(--success))"
               strokeWidth={strokeWidth}
               strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={liveDashoffset}
+              className="transition-all duration-700 ease-out animate-pulse"
+            />
+          )}
+
+          {/* Middle layer: funded + unfunded (blue) */}
+          {progress > 0 && (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={showFunded ? "hsl(var(--primary))" : isComplete ? "hsl(var(--success))" : "url(#progressGradient)"}
+              strokeWidth={strokeWidth}
+              strokeLinecap={hasSegmentAfterFunded ? "butt" : "round"}
+              strokeDasharray={circumference}
+              strokeDashoffset={totalDashoffset}
+              className="transition-all duration-700 ease-out"
+            />
+          )}
+
+          {/* Top layer: funded only (green) — flat end so next segment is flush */}
+          {showFunded && fundedPercent > 0 && (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke="hsl(var(--success))"
+              strokeWidth={strokeWidth}
+              strokeLinecap="butt"
               strokeDasharray={circumference}
               strokeDashoffset={fundedDashoffset}
               className="transition-all duration-700 ease-out"
@@ -397,7 +420,7 @@ export const GoalHeroRing = ({
 
 
       {/* Funded vs Unfunded legend (+ pending when applicable) */}
-      {(showFunded || (pendingPipeline > 0 && !isComplete)) && (
+      {(showFunded || liveFP > 0 || (pendingPipeline > 0 && !isComplete)) && (
         <div className="flex flex-col items-center gap-2 mt-4">
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             {showFunded && (
@@ -411,6 +434,12 @@ export const GoalHeroRing = ({
                   {(currentProgress - (fundedProgress || 0)).toFixed(1)} unfunded
                 </span>
               </>
+            )}
+            {liveFP > 0 && !isComplete && (
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-success animate-pulse" />
+                {liveFP.toFixed(1)} live
+              </span>
             )}
             {pendingPipeline > 0 && !isComplete && (
               <span className="flex items-center gap-1.5">

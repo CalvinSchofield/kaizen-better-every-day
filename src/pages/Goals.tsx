@@ -838,6 +838,7 @@ const Goals = () => {
         >
             <GoalHeroRing
             pendingPipeline={unifiedPaceData.season.pending}
+            liveFP={unifiedPaceData.day.live}
             activeTier={activeTier}
             fpGoal={activeGoalData.goal}
             currentProgress={currentProgress}
