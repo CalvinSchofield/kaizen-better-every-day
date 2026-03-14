@@ -166,11 +166,13 @@ export const HorizontalActivityTimeline = ({
         
         try {
           const saleAny = sale as any;
+          const rawTTS = saleAny.time_to_sell_minutes;
+          const parsedTTS = rawTTS != null ? Number(rawTTS) : undefined;
           allEvents.push({ 
             timestamp: parseISO(sale.timestamp), 
             type: 'sale',
             prmr: sale.prmr,
-            timeToSellMinutes: saleAny.time_to_sell_minutes,
+            timeToSellMinutes: parsedTTS && parsedTTS > 0 ? parsedTTS : undefined,
             timeToSellSource: saleAny.time_to_sell_source,
           });
         } catch {

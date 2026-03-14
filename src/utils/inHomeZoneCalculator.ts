@@ -133,8 +133,9 @@ export function calculateInHomeZones(
     const hasPresentation = isSale || isPresentation;
     
     // PRIORITY 1: Use explicit time_to_sell_minutes for sales
-    if (isSale && indicator.timeToSellMinutes && indicator.timeToSellMinutes > 0) {
-      const duration = indicator.timeToSellMinutes;
+    const explicitDuration = isSale && indicator.timeToSellMinutes ? Number(indicator.timeToSellMinutes) : 0;
+    if (isSale && explicitDuration > 0) {
+      const duration = explicitDuration;
       const calculatedStart = new Date(indicator.timestamp.getTime() - duration * 60 * 1000);
       const clampedStart = calculatedStart < workStart ? workStart : calculatedStart;
       
@@ -151,20 +152,73 @@ export function calculateInHomeZones(
     }
     
     // PRIORITY 2 & 3: Find matching door knock
-    let bestDoorIdx = -1;
-    let bestTimeDiff = Infinity;
+    // Strategy: find the LAST unused door before the indicator that doesn't have
+    // intervening in-home indicators or other door knocks between it and this indicator.
+    const MAX_ZONE_DURATION_MS = 90 * 60 * 1000; // 90 min cap for timestamp-based zones
     
+    let bestDoorIdx = -1;
+    
+    // Collect all unused doors before this indicator, sorted by time (closest first)
+    const candidateDoors: { idx: number; timeDiff: number }[] = [];
     for (let i = 0; i < doorEvents.length; i++) {
       if (usedDoorIndices.has(i)) continue;
-      
-      const doorTime = doorEvents[i].timestamp.getTime();
-      const indicatorTime = indicator.timestamp.getTime();
-      const timeDiff = indicatorTime - doorTime;
-      
-      if (timeDiff > 0 && timeDiff < 2 * 60 * 60 * 1000 && timeDiff < bestTimeDiff) {
-        bestDoorIdx = i;
-        bestTimeDiff = timeDiff;
+      const timeDiff = indicator.timestamp.getTime() - doorEvents[i].timestamp.getTime();
+      if (timeDiff > 0 && timeDiff < 2 * 60 * 60 * 1000) {
+        candidateDoors.push({ idx: i, timeDiff });
       }
+    }
+    // Sort closest first (smallest timeDiff)
+    candidateDoors.sort((a, b) => a.timeDiff - b.timeDiff);
+    
+    // Pick the closest door, but verify no intervening doors or in-home indicators exist
+    for (const candidate of candidateDoors) {
+      const candidateDoor = doorEvents[candidate.idx];
+      const candidateTime = candidateDoor.timestamp.getTime();
+      const indicatorTime = indicator.timestamp.getTime();
+      
+      // Check for intervening door knocks (unused ones between candidate and indicator)
+      const hasInterveningDoors = doorEvents.some((d, dIdx) => {
+        if (dIdx === candidate.idx) return false;
+        const dTime = d.timestamp.getTime();
+        return dTime > candidateTime && dTime < indicatorTime;
+      });
+      
+      if (hasInterveningDoors) {
+        // There are doors knocked between this candidate and the indicator.
+        // This means the rep went back to knocking — skip to the next (closer) candidate.
+        // But actually the closest candidate IS the right one if there are no
+        // intervening doors between IT and the indicator. Let's find the last door
+        // before the indicator with no other doors between them.
+        
+        // Find the last door knocked before the indicator (any door, used or unused)
+        const lastDoorBeforeIndicator = doorEvents
+          .filter(d => d.timestamp.getTime() < indicatorTime)
+          .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+        
+        if (lastDoorBeforeIndicator) {
+          // Find its index in doorEvents
+          const lastDoorIdx = doorEvents.findIndex(d => d === lastDoorBeforeIndicator);
+          if (lastDoorIdx >= 0 && !usedDoorIndices.has(lastDoorIdx)) {
+            bestDoorIdx = lastDoorIdx;
+          }
+        }
+        break;
+      }
+      
+      // Check for intervening in-home indicators between candidate door and this indicator
+      const hasInterveningIndicators = inHomeIndicators.some(other => {
+        if (other === indicator) return false;
+        const otherTime = other.timestamp.getTime();
+        return otherTime > candidateTime && otherTime < indicatorTime;
+      });
+      
+      if (hasInterveningIndicators) {
+        // This door belongs to an earlier interaction, skip
+        continue;
+      }
+      
+      bestDoorIdx = candidate.idx;
+      break;
     }
     
     if (bestDoorIdx >= 0) {
@@ -173,6 +227,27 @@ export function calculateInHomeZones(
       const isBatchLogged = timeDiff < BATCH_THRESHOLD_MS;
       
       if (!isBatchLogged) {
+        // Check duration cap
+        if (timeDiff > MAX_ZONE_DURATION_MS) {
+          // Too long — use default duration anchored backward from indicator
+          const defaultDuration = getDefaultDuration(indicator.type);
+          const syntheticStart = new Date(indicator.timestamp.getTime() - defaultDuration * 60 * 1000);
+          const clampedStart = syntheticStart < workStart ? workStart : syntheticStart;
+          
+          zones.push({
+            doorTime: clampedStart,
+            endTime: indicator.timestamp,
+            duration: defaultDuration,
+            endType: getEndType(indicator, true),
+            hasSale: isSale,
+            hasPresentation,
+            source: 'estimated',
+          });
+          // Still mark the door as used so it doesn't get reused
+          usedDoorIndices.add(bestDoorIdx);
+          continue;
+        }
+        
         usedDoorIndices.add(bestDoorIdx);
         const duration = timeDiff / (1000 * 60);
         

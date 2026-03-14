@@ -1,38 +1,50 @@
-## Plan: Fix Sale Duration Override & Presentation Splitting
 
-### Problem 1: Sale Duration Being Ignored
 
-The user logged a 30-minute sale at 12:52 PM, but the ring shows ~50 minutes (from the nearest door knock to the sale time). The explicit `time_to_sell_minutes` path should place the green zone from 12:22→12:52, but it's falling through to the timestamp-based fallback.
+## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
 
-**Root cause**: When `time_to_sell_minutes` is stored as a string in the JSON (e.g., `"30"` instead of `30`), the `Number()` coercion happens implicitly but there may be edge cases. More critically, the event-building code in `HorizontalActivityTimeline.tsx` passes `saleAny.time_to_sell_minutes` directly — if the sale was saved without CRM detailed mode, or the value is `0`/`undefined`, it silently falls through to Priority 2 (door-to-sale timestamp gap).
+### The Problem
 
-**Fix** in `src/utils/inHomeZoneCalculator.ts` and `src/components/activity-ring/HorizontalActivityTimeline.tsx`:
+When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
 
-- Add explicit `Number()` coercion when building events: `timeToSellMinutes: Number(sale.time_to_sell_minutes) || undefined`
-- Add a debug-friendly log in Priority 1 path for verification
-- The explicit path already correctly places the zone BEFORE the timestamp (subtracting duration), so the core math is right — it's just not being reached
+### Root Cause
 
-### Problem 2: Two Presentations Lumped Into One
+There are three things fighting each other:
 
-Two separate homeowner interactions near end of day are shown as one ~2hr presentation because the algorithm finds the earliest unused door knock and spans all the way to the presentation timestamp.
+1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
 
-**Root cause**: In `calculateInHomeZones`, Priority 2 finds the nearest unused door BEFORE the presentation, regardless of how far back it is. If doors were knocked BETWEEN two presentations, those intervening doors should signal separate interactions.
+2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
 
-**Fix** in `src/utils/inHomeZoneCalculator.ts`:
+3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
 
-- When matching a door to a presentation/close via Priority 2 (timestamp-based), check for **intervening in-home indicators** (other presentations, transitions, sales) between the matched door and the current indicator. If found, skip that door — it belongs to the earlier indicator.
-- Additionally, cap maximum zone duration for timestamp-based zones. A presentation rarely lasts >90 minutes. If the door-to-indicator gap exceeds 90 min, either:
-  - Look for a closer door (even if used)
-  - Or use estimated default duration (30 min for presentations) anchored backward from the indicator timestamp
-- Also check for intervening **door knocks** between the matched door and the presentation. If there are N doors knocked between the matched door and the presentation event, it means the rep went back to knocking and then entered a new home — the zone should start from the last door before the presentation, not the first.
+### The Fix
 
-### Implementation Details
+#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
 
-**File: `src/components/activity-ring/HorizontalActivityTimeline.tsx**`
+The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
 
-- Ensure `timeToSellMinutes` is properly coerced: `Number(sale.time_to_sell_minutes) || undefined`
+#### 2. Simplify `useKeyboardViewport` hook
 
-**File: `src/utils/inHomeZoneCalculator.ts**` — `calculateInHomeZones()`:
+- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
+- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
+- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
+- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
 
-1. **Explicit duration enforcement**: Add `Number()` coercion on `indicator.timeToSellMinutes` before the check
-2. **Intervening activity check**: After finding `bestDoorIdx`, verify no other door knocks exist between that door's timestamp and the current indicator's timestamp. If intervening doors exist, use the LAST door before the indicator instead (it's the one that actually led to this interaction
+#### 3. Add `@capacitor/keyboard` plugin configuration
+
+Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
+
+### Files to Modify
+
+- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
+- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
+- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
+- **`package.json`** -- Add `@capacitor/keyboard` dependency
+
+### After Approval
+
+After these code changes, you will need to:
+1. Git pull the updated code
+2. Run `npm install` to get the new keyboard plugin
+3. Run `npx cap sync` to sync the plugin to iOS
+4. Rebuild in Xcode and push to TestFlight
+
