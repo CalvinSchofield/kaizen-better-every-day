@@ -416,6 +416,62 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
   season.plannedDaysElapsed = seasonKnockingDaysComplete;
   season.plannedDaysTotal = totalSeasonDays;
 
+  // Compute per-season daily paces for calendar display
+  // These are independent of whether user is currently in preseason or summer
+  const preseasonGoalBuffered = applyBuffer(input.preseasonGoal * input.conversionFactor);
+  const summerFocusGoalRaw = (() => {
+    switch (input.focusTier) {
+      case 'mustDo': return input.mustDoGoal;
+      case 'couldDo': return input.couldDoGoal;
+      default: return input.willDoGoal;
+    }
+  })();
+  const summerGoalBuffered = applyBuffer(summerFocusGoalRaw * input.conversionFactor);
+
+  const preseasonStartStr = '2025-09-28';
+  const preseasonEndStr = PRESEASON_END;
+  const summerStartStr = input.personalSummerStart || '2026-04-12';
+  const summerEndStr = input.personalSummerEnd || SUMMER_END;
+
+  // Preseason planned days & knocking days
+  const preseasonPlannedTotal = input.allPlannedDays.filter(d => d >= preseasonStartStr && d <= preseasonEndStr).length;
+  const preseasonKnockingDone = input.entries.filter(e =>
+    e.is_finalized && e.entry_date >= preseasonStartStr && e.entry_date <= preseasonEndStr && isKnockingDay(e)
+  ).length;
+  const preseasonFuturePlanned = input.allPlannedDays.filter(d => d > todayStr && d >= preseasonStartStr && d <= preseasonEndStr).length;
+  const preseasonTodayInRange = todayStr >= preseasonStartStr && todayStr <= preseasonEndStr;
+  const preseasonRemainingDays = Math.max(0, preseasonKnockingDone + preseasonFuturePlanned + (preseasonTodayInRange && includeTodayInRemaining ? 1 : 0) - preseasonKnockingDone);
+  
+  // Preseason progress
+  let preseasonProgress = 0;
+  for (const entry of input.entries) {
+    if (entry.entry_date < preseasonStartStr || entry.entry_date > preseasonEndStr) continue;
+    if (!entry.is_finalized) continue;
+    preseasonProgress += input.efpModeEnabled ? (entry.prmr || 0) / 85 : (entry.fp_plus || 0);
+  }
+  const preseasonDailyPace = preseasonRemainingDays > 0 
+    ? Math.max(0, preseasonGoalBuffered - preseasonProgress) / preseasonRemainingDays 
+    : 0;
+
+  // Summer planned days & knocking days
+  const summerFuturePlanned = input.allPlannedDays.filter(d => d > todayStr && d >= summerStartStr && d <= summerEndStr).length;
+  const summerKnockingDone = input.entries.filter(e =>
+    e.is_finalized && e.entry_date >= summerStartStr && e.entry_date <= summerEndStr && isKnockingDay(e)
+  ).length;
+  const summerTodayInRange = todayStr >= summerStartStr && todayStr <= summerEndStr;
+  const summerRemainingDays = Math.max(0, summerKnockingDone + summerFuturePlanned + (summerTodayInRange && includeTodayInRemaining ? 1 : 0) - summerKnockingDone);
+  
+  // Summer progress
+  let summerProgress = 0;
+  for (const entry of input.entries) {
+    if (entry.entry_date < summerStartStr || entry.entry_date > summerEndStr) continue;
+    if (!entry.is_finalized) continue;
+    summerProgress += input.efpModeEnabled ? (entry.prmr || 0) / 85 : (entry.fp_plus || 0);
+  }
+  const summerDailyPace = summerRemainingDays > 0
+    ? Math.max(0, summerGoalBuffered - summerProgress) / summerRemainingDays
+    : 0;
+
   return {
     activeGoal,
     tierLabel,
@@ -424,6 +480,8 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     metricLabel: input.metricLabel,
     dailyNeeded,
     weeklyNeeded,
+    preseasonDailyPace,
+    summerDailyPace,
     severity,
     userDailyAvg,
     currentProgress: input.currentProgress,
@@ -436,7 +494,6 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     knockingDaysCompleted: input.knockingDaysCompleted,
   };
 }
-
 // =====================================================
 // HOOK: For current user's own goal pace
 // =====================================================
