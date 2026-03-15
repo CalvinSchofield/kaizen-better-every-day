@@ -60,6 +60,10 @@ export interface GoalPaceData {
   dailyNeeded: number;
   weeklyNeeded: number;
 
+  // Per-season daily paces (for calendar display across season boundaries)
+  preseasonDailyPace: number;
+  summerDailyPace: number;
+
   // Severity
   severity: PaceSeverity;
   userDailyAvg: number;
