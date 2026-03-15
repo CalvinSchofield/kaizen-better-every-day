@@ -119,8 +119,14 @@ export const CalendarView = ({
     hasHistoricalData: hasMeVsMeData,
     isEnabled: meVsMeEnabled 
   } = useCalendarHistorical(currentDate, viewMode, entries);
-  // dailyGoal is now passed as a prop from the unified calculator
-
+  // Get date-aware daily goal: preseason pace for pre-summer dates, summer pace for summer dates
+  const getDailyGoalForDate = (dateStr: string): number | null => {
+    if (preseasonDailyPace != null && summerDailyPace != null && personalSummerStart) {
+      const summerStartStr = format(personalSummerStart, 'yyyy-MM-dd');
+      return dateStr < summerStartStr ? preseasonDailyPace : summerDailyPace;
+    }
+    return dailyGoal;
+  };
 
 
   // useDailyEntry for delete mutation only
