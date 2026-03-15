@@ -39,6 +39,8 @@ interface CalendarViewProps {
   viewMode?: "week" | "month";
   onViewModeChange?: (mode: "week" | "month") => void;
   dailyGoal?: number | null;
+  preseasonDailyPace?: number | null;
+  summerDailyPace?: number | null;
 }
 
 export const CalendarView = ({
@@ -49,6 +51,8 @@ export const CalendarView = ({
   viewMode: controlledViewMode,
   onViewModeChange,
   dailyGoal = null,
+  preseasonDailyPace = null,
+  summerDailyPace = null,
 }: CalendarViewProps) => {
   // Use unified dailyGoal prop from useGoalPaceCalculator (single source of truth)
   const queryClient = useQueryClient();
@@ -115,8 +119,14 @@ export const CalendarView = ({
     hasHistoricalData: hasMeVsMeData,
     isEnabled: meVsMeEnabled 
   } = useCalendarHistorical(currentDate, viewMode, entries);
-  // dailyGoal is now passed as a prop from the unified calculator
-
+  // Get date-aware daily goal: preseason pace for pre-summer dates, summer pace for summer dates
+  const getDailyGoalForDate = (dateStr: string): number | null => {
+    if (preseasonDailyPace != null && summerDailyPace != null && personalSummerStart) {
+      const summerStartStr = format(personalSummerStart, 'yyyy-MM-dd');
+      return dateStr < summerStartStr ? preseasonDailyPace : summerDailyPace;
+    }
+    return dailyGoal;
+  };
 
 
   // useDailyEntry for delete mutation only
@@ -580,11 +590,14 @@ export const CalendarView = ({
                   </div>
                 )}
                 {/* Planned day goal indicator - top right corner */}
-                {isPlanned && !hasEntry && dailyGoal ? (
-                  <div className="absolute top-1 right-1.5 text-[8px] text-muted-foreground/60 font-medium">
-                    {formatValue(dailyGoal)}
-                  </div>
-                ) : null}
+                {(() => {
+                  const cellGoal = getDailyGoalForDate(dateStr);
+                  return isPlanned && !hasEntry && cellGoal ? (
+                    <div className="absolute top-1 right-1.5 text-[8px] text-muted-foreground/60 font-medium">
+                      {formatValue(cellGoal)}
+                    </div>
+                  ) : null;
+                })()}
                 <div className={`text-sm font-semibold ${isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isPlanned && !hasEntry ? 'text-accent-foreground' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'}`}>
                   {format(day, 'd')}
                 </div>
@@ -650,11 +663,14 @@ export const CalendarView = ({
                   </div>
                 )}
                 {/* Planned day goal indicator - top right corner */}
-                {isPlanned && !hasEntry && dailyGoal ? (
-                  <div className="absolute top-1 right-1.5 text-[10px] text-muted-foreground/60 font-medium">
-                    {formatValue(dailyGoal)}
-                  </div>
-                ) : null}
+                {(() => {
+                  const cellGoal = getDailyGoalForDate(dateStr);
+                  return isPlanned && !hasEntry && cellGoal ? (
+                    <div className="absolute top-1 right-1.5 text-[10px] text-muted-foreground/60 font-medium">
+                      {formatValue(cellGoal)}
+                    </div>
+                  ) : null;
+                })()}
                 <div className={`text-lg font-semibold ${isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isPlanned && !hasEntry ? 'text-accent-foreground' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'}`}>
                   {format(day, 'd')}
                 </div>
