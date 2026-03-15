@@ -468,8 +468,13 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     if (!entry.is_finalized) continue;
     summerProgress += input.efpModeEnabled ? (entry.prmr || 0) / 85 : (entry.fp_plus || 0);
   }
+  // Forecast preseason total and subtract from summer goal (matching What If drawer logic)
+  const forecastedPreseason = preseasonProgress + (preseasonDailyPace * preseasonRemainingDays);
+  const netPreseason = forecastedPreseason * (1 - input.cancelRate);
+  const remainingToFund = Math.max(0, summerGoalBuffered - netPreseason - summerProgress);
+  const summerSellNeeded = input.cancelRate < 1 ? remainingToFund / (1 - input.cancelRate) : remainingToFund;
   const summerDailyPace = summerRemainingDays > 0
-    ? Math.max(0, summerGoalBuffered - summerProgress) / summerRemainingDays
+    ? Math.max(0, summerSellNeeded) / summerRemainingDays
     : 0;
 
   return {
