@@ -140,6 +140,8 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
         viewMode={viewMode}
         onViewModeChange={onViewModeChange}
         dailyGoal={goalPaceData.hasGoals ? goalPaceData.dailyNeeded : null}
+        preseasonDailyPace={goalPaceData.hasGoals ? goalPaceData.preseasonDailyPace : null}
+        summerDailyPace={goalPaceData.hasGoals ? goalPaceData.summerDailyPace : null}
       />
       
     </>

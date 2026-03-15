@@ -39,6 +39,8 @@ interface CalendarViewProps {
   viewMode?: "week" | "month";
   onViewModeChange?: (mode: "week" | "month") => void;
   dailyGoal?: number | null;
+  preseasonDailyPace?: number | null;
+  summerDailyPace?: number | null;
 }
 
 export const CalendarView = ({
@@ -49,6 +51,8 @@ export const CalendarView = ({
   viewMode: controlledViewMode,
   onViewModeChange,
   dailyGoal = null,
+  preseasonDailyPace = null,
+  summerDailyPace = null,
 }: CalendarViewProps) => {
   // Use unified dailyGoal prop from useGoalPaceCalculator (single source of truth)
   const queryClient = useQueryClient();
