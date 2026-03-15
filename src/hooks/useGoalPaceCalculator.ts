@@ -677,6 +677,8 @@ export function useGoalPaceCalculator(): GoalPaceData {
       metricLabel: efpModeEnabled ? 'EFP' : 'FP+',
       dailyNeeded: 0,
       weeklyNeeded: 0,
+      preseasonDailyPace: 0,
+      summerDailyPace: 0,
       severity: 'green',
       userDailyAvg: 0,
       currentProgress: 0,
