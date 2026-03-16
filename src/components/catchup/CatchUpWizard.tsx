@@ -53,6 +53,7 @@ export const CatchUpWizard = ({
   const [fpPlus, setFpPlus] = useState<string>('');
   const [prmr, setPrmr] = useState<string>('');
   const [knockingDays, setKnockingDays] = useState<string>('');
+  const [spendingBaseline, setSpendingBaseline] = useState<string>('');
   const [autoCalcPrmr, setAutoCalcPrmr] = useState(false);
   
   const { upsertTotalsAsync, isUpserting } = useOfficialTotals();
