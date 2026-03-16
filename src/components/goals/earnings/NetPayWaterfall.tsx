@@ -115,11 +115,29 @@ export const NetPayWaterfall = ({
                       <button 
                         onClick={(e) => { 
                           e.stopPropagation(); 
-                          item.editable && onEditSpendingRate();
+                          if (item.editable) {
+                            // If baseline exists, edit baseline; otherwise edit spending rate
+                            if (baselineSpent > 0 && onEditBaseline) {
+                              onEditBaseline();
+                            } else {
+                              onEditSpendingRate();
+                            }
+                          }
                         }}
                         className="text-[10px] text-muted-foreground text-left hover:text-foreground transition-colors"
                       >
                         {item.sublabel}
+                      </button>
+                    )}
+                    {item.editable && baselineSpent === 0 && onEditBaseline && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditBaseline();
+                        }}
+                        className="text-[10px] text-primary hover:underline text-left"
+                      >
+                        + Add baseline
                       </button>
                     )}
                   </div>

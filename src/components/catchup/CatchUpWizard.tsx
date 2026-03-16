@@ -382,6 +382,8 @@ export const CatchUpWizard = ({
         return prmrValue > 0 || prmr === '0' || autoCalcPrmr;
       case 'days':
         return daysValue > 0 || knockingDays === '0';
+      case 'spending':
+        return true; // Always can proceed (skip or enter value)
       case 'confirm':
         return true;
       default:
