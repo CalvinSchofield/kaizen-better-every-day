@@ -345,7 +345,7 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
       efpModeEnabled,
       isSummerStarted,
     };
-  }, [salesData, fundedPRMR, totalFP, goals, efpModeEnabled, seasonConfig, plannedDays, preseasonKnockingDays]);
+  }, [salesData, fundedPRMR, totalFP, goals, efpModeEnabled, seasonConfig, plannedDays, preseasonKnockingDays, baselineSpent]);
   
   const handleSaveSpendingRate = useCallback((rate: number) => {
     updateGoals({ custom_spending_rate: rate });
