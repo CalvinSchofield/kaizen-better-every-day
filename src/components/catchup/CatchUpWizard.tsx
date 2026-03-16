@@ -118,6 +118,7 @@ export const CatchUpWizard = ({
       setFpPlus('');
       setPrmr('');
       setKnockingDays('');
+      setSpendingBaseline('');
     } catch (error) {
       console.error('Failed to save official totals:', error);
     }
