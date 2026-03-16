@@ -17,6 +17,7 @@ import { EarningsHeroHeader, EarningsMode } from './earnings/EarningsHeroHeader'
 import { PayTimelineChart } from './earnings/PayTimelineChart';
 import { NetPayWaterfall } from './earnings/NetPayWaterfall';
 import { SpendingRateSheet } from './earnings/SpendingRateSheet';
+import { SpendingBaselineSheet } from './earnings/SpendingBaselineSheet';
 import { PaceProjectionSection } from './earnings/PaceProjectionSection';
 import { TierUpgradeCard } from './earnings/TierUpgradeCard';
 import { EarningsInsight } from './earnings/EarningsInsight';
