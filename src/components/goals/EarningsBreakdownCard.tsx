@@ -8,6 +8,7 @@ import { useRepGoals } from '@/hooks/useRepGoals';
 import { useRepData } from '@/hooks/useRepData';
 import { usePreseasonFP } from '@/hooks/usePreseasonFP';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
+import { useOfficialTotals } from '@/hooks/useOfficialTotals';
 import { getTier, getRentCost, formatCurrency } from '@/utils/payscaleCalculator';
 import { hapticLight } from '@/utils/haptics';
 
@@ -16,6 +17,7 @@ import { EarningsHeroHeader, EarningsMode } from './earnings/EarningsHeroHeader'
 import { PayTimelineChart } from './earnings/PayTimelineChart';
 import { NetPayWaterfall } from './earnings/NetPayWaterfall';
 import { SpendingRateSheet } from './earnings/SpendingRateSheet';
+import { SpendingBaselineSheet } from './earnings/SpendingBaselineSheet';
 import { PaceProjectionSection } from './earnings/PaceProjectionSection';
 import { TierUpgradeCard } from './earnings/TierUpgradeCard';
 import { EarningsInsight } from './earnings/EarningsInsight';
@@ -46,11 +48,18 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
   const [mode, setMode] = useState<EarningsMode>('current');
   const [modelFpGoal, setModelFpGoal] = useState<number | null>(null);
   const [isSpendingSheetOpen, setIsSpendingSheetOpen] = useState(false);
+  const [isBaselineSheetOpen, setIsBaselineSheetOpen] = useState(false);
   
   const { goals, updateGoals } = useRepGoals();
   const { repData } = useRepData();
   const { totalFP, fundedPRMR, knockingDays: preseasonKnockingDays } = usePreseasonFP();
   const { plannedDays } = usePlannedDays();
+  const { getTotals, upsertTotals, isUpserting: isBaselineSaving } = useOfficialTotals();
+  
+  // Get baseline_spent from official totals (summer first, fallback to preseason)
+  const summerTotals = getTotals('summer');
+  const preseasonTotals = getTotals('preseason');
+  const baselineSpent = summerTotals?.baseline_spent ?? preseasonTotals?.baseline_spent ?? 0;
   
   const efpModeEnabled = repData?.efp_mode_enabled ?? false;
   
@@ -159,7 +168,7 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
     const totalPrmr = salesData?.totalPrmr || fundedPRMR || 0;
     const preseasonSummerPrmr = salesData?.preseasonSummerPrmr || totalPrmr;
     const extensionPrmr = salesData?.extensionPrmr || 0;
-    const totalSpent = salesData?.totalSpent || 0;
+    const totalSpent = (salesData?.totalSpent || 0) + baselineSpent;
     const dealsCount = salesData?.dealsCount || 0;
     const dealsWithSpending = salesData?.dealsWithSpending || 0;
     const totalKnockingDays = salesData?.totalKnockingDays || preseasonKnockingDays || 0;
@@ -336,7 +345,7 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
       efpModeEnabled,
       isSummerStarted,
     };
-  }, [salesData, fundedPRMR, totalFP, goals, efpModeEnabled, seasonConfig, plannedDays, preseasonKnockingDays]);
+  }, [salesData, fundedPRMR, totalFP, goals, efpModeEnabled, seasonConfig, plannedDays, preseasonKnockingDays, baselineSpent]);
   
   const handleSaveSpendingRate = useCallback((rate: number) => {
     updateGoals({ custom_spending_rate: rate });
@@ -353,6 +362,22 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
   const handleResetPace = useCallback(() => {
     updateGoals({ custom_fp_pace: null });
   }, [updateGoals]);
+  
+  const handleSaveBaseline = useCallback((amount: number | null) => {
+    const currentTotals = summerTotals || preseasonTotals;
+    if (currentTotals) {
+      upsertTotals({
+        season_year: 2025,
+        season_type: currentTotals.season_type as 'preseason' | 'summer',
+        fp_plus: currentTotals.fp_plus ?? 0,
+        prmr: currentTotals.prmr ?? 0,
+        knocking_days: currentTotals.knocking_days,
+        baseline_spent: amount ?? 0,
+        verified_by: 'self',
+      });
+    }
+    setIsBaselineSheetOpen(false);
+  }, [summerTotals, preseasonTotals, upsertTotals]);
 
   const handleToggleOpen = useCallback(() => {
     hapticLight();
@@ -514,6 +539,8 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
                             hasCustomRate={metrics.hasCustomRate}
                             dataAccuracy={metrics.dataAccuracy}
                             onEditSpendingRate={() => setIsSpendingSheetOpen(true)}
+                            baselineSpent={baselineSpent}
+                            onEditBaseline={() => setIsBaselineSheetOpen(true)}
                           />
                           
                           {/* Summary Stats */}
@@ -569,6 +596,20 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
         projectedFp={metrics.projectedTotalFp}
         onSave={handleSaveSpendingRate}
         onReset={handleResetSpendingRate}
+      />
+      
+      {/* Spending Baseline Bottom Sheet */}
+      <SpendingBaselineSheet
+        open={isBaselineSheetOpen}
+        onOpenChange={setIsBaselineSheetOpen}
+        trackedSpending={salesData?.totalSpent || 0}
+        currentBaseline={baselineSpent || null}
+        dealsCount={salesData?.dealsCount || 0}
+        onSave={handleSaveBaseline}
+        efpModeEnabled={metrics.efpModeEnabled}
+        totalFp={metrics.currentFp}
+        totalPrmr={metrics.totalPrmr}
+        isSaving={isBaselineSaving}
       />
     </>
   );

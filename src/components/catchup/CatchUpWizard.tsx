@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, ChevronLeft, ChevronRight, ExternalLink, HelpCircle, Loader2, X, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,10 +27,12 @@ interface CatchUpWizardProps {
   trackedKnockingDays?: number;
 }
 
-type Step = 'welcome' | 'fp' | 'prmr' | 'days' | 'confirm';
+type Step = 'welcome' | 'fp' | 'prmr' | 'days' | 'spending' | 'confirm';
 
-const ALL_STEPS: Step[] = ['welcome', 'fp', 'prmr', 'days', 'confirm'];
+const ALL_STEPS: Step[] = ['welcome', 'fp', 'prmr', 'days', 'spending', 'confirm'];
 const RETURNING_STEPS: Step[] = ['welcome', 'fp', 'prmr', 'confirm'];
+
+const SOURCE_EARNINGS_URL = 'https://curator.vivint.com/dashboard/source-accountdetailsearnings';
 
 const SEASON_YEAR = 2025;
 
@@ -45,12 +47,11 @@ export const CatchUpWizard = ({
   isInitialSync = false,
   trackedKnockingDays = 0,
 }: CatchUpWizardProps) => {
-  const STEPS = isInitialSync ? ALL_STEPS : RETURNING_STEPS;
-  
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [fpPlus, setFpPlus] = useState<string>('');
   const [prmr, setPrmr] = useState<string>('');
   const [knockingDays, setKnockingDays] = useState<string>('');
+  const [spendingBaseline, setSpendingBaseline] = useState<string>('');
   const [autoCalcPrmr, setAutoCalcPrmr] = useState(false);
   
   const { upsertTotalsAsync, isUpserting } = useOfficialTotals();
@@ -58,14 +59,24 @@ export const CatchUpWizard = ({
   // Always show FP+ in sync flow — Vivint's official numbers are in FP+
   const metricLabel = 'FP+';
 
-  const stepIndex = STEPS.indexOf(currentStep);
-  const isFirstStep = stepIndex === 0;
-  const isLastStep = stepIndex === STEPS.length - 1;
-
   const fpValue = parseFloat(fpPlus) || 0;
   const prmrValue = autoCalcPrmr ? fpValue * 85 : (parseFloat(prmr) || 0);
   const daysValue = isInitialSync ? (parseInt(knockingDays) || 0) : trackedKnockingDays;
+  const spendingValue = parseFloat(spendingBaseline) || 0;
   const efpValue = calculateEfp(prmrValue);
+
+  // Build steps: for initial sync, include spending step only if user has sold (fpValue > 0)
+  const STEPS = useMemo(() => {
+    if (!isInitialSync) return RETURNING_STEPS;
+    if (fpValue <= 0 && fpPlus !== '0') {
+      return ALL_STEPS.filter(s => s !== 'spending');
+    }
+    return ALL_STEPS;
+  }, [isInitialSync, fpValue, fpPlus]);
+
+  const stepIndex = STEPS.indexOf(currentStep);
+  const isFirstStep = stepIndex === 0;
+  const isLastStep = stepIndex === STEPS.length - 1;
 
   const handleNext = () => {
     const nextIndex = stepIndex + 1;
@@ -90,6 +101,7 @@ export const CatchUpWizard = ({
         prmr: prmrValue,
         // Only update knocking_days on initial sync; afterwards the app tracks automatically
         knocking_days: isInitialSync ? daysValue : null,
+        baseline_spent: spendingValue > 0 ? spendingValue : 0,
         verified_by: 'self',
       });
       
@@ -104,6 +116,7 @@ export const CatchUpWizard = ({
       setFpPlus('');
       setPrmr('');
       setKnockingDays('');
+      setSpendingBaseline('');
     } catch (error) {
       console.error('Failed to save official totals:', error);
     }
@@ -246,6 +259,50 @@ export const CatchUpWizard = ({
           </div>
         );
 
+      case 'spending':
+        return (
+          <div className="space-y-4">
+            <div className="text-center mb-6">
+              <h3 className="text-lg font-semibold">Any pre-tracking spending?</h3>
+              <p className="text-sm text-muted-foreground">
+                Buyouts, promos, or free months from before you started logging costs per deal
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="spending-input">Pre-Tracking Spending</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                <Input
+                  id="spending-input"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="e.g., 465"
+                  value={spendingBaseline}
+                  onChange={(e) => setSpendingBaseline(e.target.value)}
+                  className="text-2xl h-14 text-center pl-8"
+                  autoFocus
+                />
+              </div>
+            </div>
+            
+            <button
+              className="flex items-center gap-2 text-sm text-primary hover:underline w-full"
+              onClick={() => window.open(SOURCE_EARNINGS_URL, '_blank')}
+            >
+              <ExternalLink className="h-4 w-4" />
+              Where do I find this? Check buyouts on Source
+            </button>
+
+            <Button
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={handleNext}
+            >
+              Skip — I don't have any
+            </Button>
+          </div>
+        );
+
       case 'confirm':
         return (
           <div className="space-y-6">
@@ -323,6 +380,8 @@ export const CatchUpWizard = ({
         return prmrValue > 0 || prmr === '0' || autoCalcPrmr;
       case 'days':
         return daysValue > 0 || knockingDays === '0';
+      case 'spending':
+        return true; // Always can proceed (skip or enter value)
       case 'confirm':
         return true;
       default:

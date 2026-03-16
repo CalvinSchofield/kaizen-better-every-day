@@ -15,6 +15,8 @@ interface NetPayWaterfallProps {
   hasCustomRate: boolean;
   dataAccuracy: number;
   onEditSpendingRate: () => void;
+  baselineSpent?: number;
+  onEditBaseline?: () => void;
 }
 
 export const NetPayWaterfall = ({
@@ -31,6 +33,8 @@ export const NetPayWaterfall = ({
   hasCustomRate,
   dataAccuracy,
   onEditSpendingRate,
+  baselineSpent = 0,
+  onEditBaseline,
 }: NetPayWaterfallProps) => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -59,9 +63,11 @@ export const NetPayWaterfall = ({
     {
       icon: Receipt,
       label: `Spending ${isProjected ? '(Est.)' : ''}`,
-      sublabel: hasCustomRate 
-        ? `Custom: $${spendingRate.toFixed(0)}/${efpModeEnabled ? 'EFP' : 'FP+'}` 
-        : `${Math.round(dataAccuracy)}% tracked`,
+      sublabel: baselineSpent > 0
+        ? `Incl. $${baselineSpent.toLocaleString()} baseline`
+        : hasCustomRate 
+          ? `Custom: $${spendingRate.toFixed(0)}/${efpModeEnabled ? 'EFP' : 'FP+'}` 
+          : `${Math.round(dataAccuracy)}% tracked`,
       value: -spending,
       color: 'text-destructive',
       delay: 0.3,
@@ -109,11 +115,29 @@ export const NetPayWaterfall = ({
                       <button 
                         onClick={(e) => { 
                           e.stopPropagation(); 
-                          item.editable && onEditSpendingRate();
+                          if (item.editable) {
+                            // If baseline exists, edit baseline; otherwise edit spending rate
+                            if (baselineSpent > 0 && onEditBaseline) {
+                              onEditBaseline();
+                            } else {
+                              onEditSpendingRate();
+                            }
+                          }
                         }}
                         className="text-[10px] text-muted-foreground text-left hover:text-foreground transition-colors"
                       >
                         {item.sublabel}
+                      </button>
+                    )}
+                    {item.editable && baselineSpent === 0 && onEditBaseline && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditBaseline();
+                        }}
+                        className="text-[10px] text-primary hover:underline text-left"
+                      >
+                        + Add baseline
                       </button>
                     )}
                   </div>
