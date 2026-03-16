@@ -15,6 +15,8 @@ interface NetPayWaterfallProps {
   hasCustomRate: boolean;
   dataAccuracy: number;
   onEditSpendingRate: () => void;
+  baselineSpent?: number;
+  onEditBaseline?: () => void;
 }
 
 export const NetPayWaterfall = ({
