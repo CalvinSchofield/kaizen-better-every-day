@@ -47,7 +47,16 @@ export const CatchUpWizard = ({
   isInitialSync = false,
   trackedKnockingDays = 0,
 }: CatchUpWizardProps) => {
-  const STEPS = isInitialSync ? ALL_STEPS : RETURNING_STEPS;
+  // Build steps: for initial sync, include spending step only if user has sold (fpValue > 0)
+  // We dynamically compute this so that once they enter FP on the 'fp' step, spending becomes available
+  const STEPS = useMemo(() => {
+    if (!isInitialSync) return RETURNING_STEPS;
+    // Filter out 'spending' if no sales yet
+    if (fpValue <= 0 && fpPlus !== '0') {
+      return ALL_STEPS.filter(s => s !== 'spending');
+    }
+    return ALL_STEPS;
+  }, [isInitialSync, fpValue, fpPlus]);
   
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [fpPlus, setFpPlus] = useState<string>('');
