@@ -362,6 +362,22 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
   const handleResetPace = useCallback(() => {
     updateGoals({ custom_fp_pace: null });
   }, [updateGoals]);
+  
+  const handleSaveBaseline = useCallback((amount: number | null) => {
+    const currentTotals = summerTotals || preseasonTotals;
+    if (currentTotals) {
+      upsertTotals({
+        season_year: 2025,
+        season_type: currentTotals.season_type as 'preseason' | 'summer',
+        fp_plus: currentTotals.fp_plus ?? 0,
+        prmr: currentTotals.prmr ?? 0,
+        knocking_days: currentTotals.knocking_days,
+        baseline_spent: amount ?? 0,
+        verified_by: 'self',
+      });
+    }
+    setIsBaselineSheetOpen(false);
+  }, [summerTotals, preseasonTotals, upsertTotals]);
 
   const handleToggleOpen = useCallback(() => {
     hapticLight();
