@@ -539,6 +539,8 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
                             hasCustomRate={metrics.hasCustomRate}
                             dataAccuracy={metrics.dataAccuracy}
                             onEditSpendingRate={() => setIsSpendingSheetOpen(true)}
+                            baselineSpent={baselineSpent}
+                            onEditBaseline={() => setIsBaselineSheetOpen(true)}
                           />
                           
                           {/* Summary Stats */}
