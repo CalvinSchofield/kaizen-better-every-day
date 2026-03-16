@@ -103,6 +103,7 @@ export const CatchUpWizard = ({
         prmr: prmrValue,
         // Only update knocking_days on initial sync; afterwards the app tracks automatically
         knocking_days: isInitialSync ? daysValue : null,
+        baseline_spent: spendingValue > 0 ? spendingValue : 0,
         verified_by: 'self',
       });
       
