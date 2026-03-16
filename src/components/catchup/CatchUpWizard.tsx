@@ -47,17 +47,6 @@ export const CatchUpWizard = ({
   isInitialSync = false,
   trackedKnockingDays = 0,
 }: CatchUpWizardProps) => {
-  // Build steps: for initial sync, include spending step only if user has sold (fpValue > 0)
-  // We dynamically compute this so that once they enter FP on the 'fp' step, spending becomes available
-  const STEPS = useMemo(() => {
-    if (!isInitialSync) return RETURNING_STEPS;
-    // Filter out 'spending' if no sales yet
-    if (fpValue <= 0 && fpPlus !== '0') {
-      return ALL_STEPS.filter(s => s !== 'spending');
-    }
-    return ALL_STEPS;
-  }, [isInitialSync, fpValue, fpPlus]);
-  
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [fpPlus, setFpPlus] = useState<string>('');
   const [prmr, setPrmr] = useState<string>('');
@@ -70,15 +59,24 @@ export const CatchUpWizard = ({
   // Always show FP+ in sync flow — Vivint's official numbers are in FP+
   const metricLabel = 'FP+';
 
-  const stepIndex = STEPS.indexOf(currentStep);
-  const isFirstStep = stepIndex === 0;
-  const isLastStep = stepIndex === STEPS.length - 1;
-
   const fpValue = parseFloat(fpPlus) || 0;
   const prmrValue = autoCalcPrmr ? fpValue * 85 : (parseFloat(prmr) || 0);
   const daysValue = isInitialSync ? (parseInt(knockingDays) || 0) : trackedKnockingDays;
   const spendingValue = parseFloat(spendingBaseline) || 0;
   const efpValue = calculateEfp(prmrValue);
+
+  // Build steps: for initial sync, include spending step only if user has sold (fpValue > 0)
+  const STEPS = useMemo(() => {
+    if (!isInitialSync) return RETURNING_STEPS;
+    if (fpValue <= 0 && fpPlus !== '0') {
+      return ALL_STEPS.filter(s => s !== 'spending');
+    }
+    return ALL_STEPS;
+  }, [isInitialSync, fpValue, fpPlus]);
+
+  const stepIndex = STEPS.indexOf(currentStep);
+  const isFirstStep = stepIndex === 0;
+  const isLastStep = stepIndex === STEPS.length - 1;
 
   const handleNext = () => {
     const nextIndex = stepIndex + 1;
