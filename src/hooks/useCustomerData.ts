@@ -206,6 +206,7 @@ export const useCustomerData = (
       return { saleId };
     },
     onSuccess: () => {
+      clearSalesLocalStorageCaches();
       invalidateAllSalesQueries(queryClient);
       toast.success('Sale updated');
     },
