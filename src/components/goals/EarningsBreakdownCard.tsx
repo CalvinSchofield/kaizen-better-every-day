@@ -54,6 +54,7 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
   const { repData } = useRepData();
   const { totalFP, fundedPRMR, knockingDays: preseasonKnockingDays } = usePreseasonFP();
   const { plannedDays } = usePlannedDays();
+  const { getTotals, upsertTotals, isUpserting: isBaselineSaving } = useOfficialTotals();
   
   const efpModeEnabled = repData?.efp_mode_enabled ?? false;
   
