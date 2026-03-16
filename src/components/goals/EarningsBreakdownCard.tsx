@@ -597,6 +597,20 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
         onSave={handleSaveSpendingRate}
         onReset={handleResetSpendingRate}
       />
+      
+      {/* Spending Baseline Bottom Sheet */}
+      <SpendingBaselineSheet
+        open={isBaselineSheetOpen}
+        onOpenChange={setIsBaselineSheetOpen}
+        trackedSpending={salesData?.totalSpent || 0}
+        currentBaseline={baselineSpent || null}
+        dealsCount={salesData?.dealsCount || 0}
+        onSave={handleSaveBaseline}
+        efpModeEnabled={metrics.efpModeEnabled}
+        totalFp={metrics.currentFp}
+        totalPrmr={metrics.totalPrmr}
+        isSaving={isBaselineSaving}
+      />
     </>
   );
 };
