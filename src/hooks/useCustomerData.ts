@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sale, normalizeSale } from '@/hooks/useDailyEntry';
 import { toast } from 'sonner';
-import { invalidateAllSalesQueries } from '@/utils/invalidateSalesQueries';
+import { invalidateAllSalesQueries, clearSalesLocalStorageCaches } from '@/utils/invalidateSalesQueries';
 
 export interface CustomerSale extends Sale {
   entry_date: string;
@@ -135,6 +135,7 @@ export const useCustomerData = (
       return { saleId, newStatus };
     },
     onSuccess: ({ newStatus }) => {
+      clearSalesLocalStorageCaches();
       invalidateAllSalesQueries(queryClient);
       const statusLabel = newStatus === 'installed' ? 'Funded' 
         : newStatus === 'pending' ? 'Pending' 
@@ -205,6 +206,7 @@ export const useCustomerData = (
       return { saleId };
     },
     onSuccess: () => {
+      clearSalesLocalStorageCaches();
       invalidateAllSalesQueries(queryClient);
       toast.success('Sale updated');
     },
