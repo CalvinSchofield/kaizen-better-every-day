@@ -431,8 +431,8 @@ export function RecapDealBreakdownSlide({ dealBreakdown }: RecapDealBreakdownSli
                     <Coins className="w-4 h-4 text-orange-400" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-muted-foreground">Avg Cost</p>
-                    <p className="text-lg font-bold">${avgSpentPerDeal.toFixed(0)}</p>
+                    <p className="text-[10px] text-muted-foreground">Avg Cost / EFP</p>
+                    <p className="text-lg font-bold">${totalPrmr > 0 ? (totalMoneySpent / (totalPrmr / 85)).toFixed(0) : '0'}</p>
                   </div>
                 </div>
                 {avgPrmrPerDeal !== undefined && avgPrmrPerDeal > 0 && (
