@@ -77,6 +77,7 @@ export const CatchUpWizard = ({
   const fpValue = parseFloat(fpPlus) || 0;
   const prmrValue = autoCalcPrmr ? fpValue * 85 : (parseFloat(prmr) || 0);
   const daysValue = isInitialSync ? (parseInt(knockingDays) || 0) : trackedKnockingDays;
+  const spendingValue = parseFloat(spendingBaseline) || 0;
   const efpValue = calculateEfp(prmrValue);
 
   const handleNext = () => {
