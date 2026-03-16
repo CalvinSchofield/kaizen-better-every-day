@@ -48,6 +48,7 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
   const [mode, setMode] = useState<EarningsMode>('current');
   const [modelFpGoal, setModelFpGoal] = useState<number | null>(null);
   const [isSpendingSheetOpen, setIsSpendingSheetOpen] = useState(false);
+  const [isBaselineSheetOpen, setIsBaselineSheetOpen] = useState(false);
   
   const { goals, updateGoals } = useRepGoals();
   const { repData } = useRepData();
