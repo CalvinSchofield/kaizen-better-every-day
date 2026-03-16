@@ -27,10 +27,12 @@ interface CatchUpWizardProps {
   trackedKnockingDays?: number;
 }
 
-type Step = 'welcome' | 'fp' | 'prmr' | 'days' | 'confirm';
+type Step = 'welcome' | 'fp' | 'prmr' | 'days' | 'spending' | 'confirm';
 
-const ALL_STEPS: Step[] = ['welcome', 'fp', 'prmr', 'days', 'confirm'];
+const ALL_STEPS: Step[] = ['welcome', 'fp', 'prmr', 'days', 'spending', 'confirm'];
 const RETURNING_STEPS: Step[] = ['welcome', 'fp', 'prmr', 'confirm'];
+
+const SOURCE_EARNINGS_URL = 'https://curator.vivint.com/dashboard/source-accountdetailsearnings';
 
 const SEASON_YEAR = 2025;
 
