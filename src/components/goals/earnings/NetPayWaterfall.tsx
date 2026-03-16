@@ -33,6 +33,8 @@ export const NetPayWaterfall = ({
   hasCustomRate,
   dataAccuracy,
   onEditSpendingRate,
+  baselineSpent = 0,
+  onEditBaseline,
 }: NetPayWaterfallProps) => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
