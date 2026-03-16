@@ -194,9 +194,18 @@ export const CalendarPlanningPreview = ({
       ? Math.max(0, summerGoal - forecastedPreseasonTotal) / futureSummerPlannedAll
       : dailyNeeded;
 
+    // Days left = future planned days (after today)
+    const futurePlanned = isPreseasonTier
+      ? futurePreseasonPlanned
+      : (plannedDays?.filter(d => {
+          const date = parseISO(d.planned_date);
+          return date > today && !isBefore(date, summerStart);
+        }).length || 0);
+
     return {
       totalPlanned,
       knockingDays,
+      daysLeft: futurePlanned,
       dailyNeeded: Math.round(dailyNeeded * 10) / 10,
       weeklyNeeded,
       forecastedPreseasonTotal: Math.round(forecastedPreseasonTotal * 10) / 10,
@@ -259,7 +268,7 @@ export const CalendarPlanningPreview = ({
                       }
                     </div>
                     <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
-                      {stats.totalPlanned} {activeTier === 'preseason' ? 'preseason' : 'summer'} days planned · {stats.knockingDays} worked
+                      {stats.daysLeft} {activeTier === 'preseason' ? 'preseason' : 'summer'} days left
                     </div>
                   </>
                 )}
