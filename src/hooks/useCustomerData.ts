@@ -135,6 +135,7 @@ export const useCustomerData = (
       return { saleId, newStatus };
     },
     onSuccess: ({ newStatus }) => {
+      clearSalesLocalStorageCaches();
       invalidateAllSalesQueries(queryClient);
       const statusLabel = newStatus === 'installed' ? 'Funded' 
         : newStatus === 'pending' ? 'Pending' 
