@@ -268,7 +268,7 @@ export const CalendarPlanningPreview = ({
                       }
                     </div>
                     <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
-                      {stats.totalPlanned} {activeTier === 'preseason' ? 'preseason' : 'summer'} days planned · {stats.knockingDays} worked
+                      {stats.daysLeft} {activeTier === 'preseason' ? 'preseason' : 'summer'} days left
                     </div>
                   </>
                 )}
