@@ -63,9 +63,11 @@ export const NetPayWaterfall = ({
     {
       icon: Receipt,
       label: `Spending ${isProjected ? '(Est.)' : ''}`,
-      sublabel: hasCustomRate 
-        ? `Custom: $${spendingRate.toFixed(0)}/${efpModeEnabled ? 'EFP' : 'FP+'}` 
-        : `${Math.round(dataAccuracy)}% tracked`,
+      sublabel: baselineSpent > 0
+        ? `Incl. $${baselineSpent.toLocaleString()} baseline`
+        : hasCustomRate 
+          ? `Custom: $${spendingRate.toFixed(0)}/${efpModeEnabled ? 'EFP' : 'FP+'}` 
+          : `${Math.round(dataAccuracy)}% tracked`,
       value: -spending,
       color: 'text-destructive',
       delay: 0.3,
