@@ -56,6 +56,11 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
   const { plannedDays } = usePlannedDays();
   const { getTotals, upsertTotals, isUpserting: isBaselineSaving } = useOfficialTotals();
   
+  // Get baseline_spent from official totals (summer first, fallback to preseason)
+  const summerTotals = getTotals('summer');
+  const preseasonTotals = getTotals('preseason');
+  const baselineSpent = summerTotals?.baseline_spent ?? preseasonTotals?.baseline_spent ?? 0;
+  
   const efpModeEnabled = repData?.efp_mode_enabled ?? false;
   
   // Fetch user's season config
