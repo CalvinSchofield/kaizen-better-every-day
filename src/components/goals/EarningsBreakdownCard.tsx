@@ -8,6 +8,7 @@ import { useRepGoals } from '@/hooks/useRepGoals';
 import { useRepData } from '@/hooks/useRepData';
 import { usePreseasonFP } from '@/hooks/usePreseasonFP';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
+import { useOfficialTotals } from '@/hooks/useOfficialTotals';
 import { getTier, getRentCost, formatCurrency } from '@/utils/payscaleCalculator';
 import { hapticLight } from '@/utils/haptics';
 
