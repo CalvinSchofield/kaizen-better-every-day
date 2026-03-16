@@ -261,6 +261,50 @@ export const CatchUpWizard = ({
           </div>
         );
 
+      case 'spending':
+        return (
+          <div className="space-y-4">
+            <div className="text-center mb-6">
+              <h3 className="text-lg font-semibold">Any pre-tracking spending?</h3>
+              <p className="text-sm text-muted-foreground">
+                Buyouts, promos, or free months from before you started logging costs per deal
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="spending-input">Pre-Tracking Spending</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                <Input
+                  id="spending-input"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="e.g., 465"
+                  value={spendingBaseline}
+                  onChange={(e) => setSpendingBaseline(e.target.value)}
+                  className="text-2xl h-14 text-center pl-8"
+                  autoFocus
+                />
+              </div>
+            </div>
+            
+            <button
+              className="flex items-center gap-2 text-sm text-primary hover:underline w-full"
+              onClick={() => window.open(SOURCE_EARNINGS_URL, '_blank')}
+            >
+              <ExternalLink className="h-4 w-4" />
+              Where do I find this? Check buyouts on Source
+            </button>
+
+            <Button
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={handleNext}
+            >
+              Skip — I don't have any
+            </Button>
+          </div>
+        );
+
       case 'confirm':
         return (
           <div className="space-y-6">
