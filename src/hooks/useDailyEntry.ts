@@ -103,8 +103,6 @@ const getInitialDataFromBackup = (entryDate: string): DailyEntry | undefined => 
   const hasActivity = getActivityTotal(backup) > 0;
   if (!hasActivity) return undefined;
   
-  console.log('[useDailyEntry] Using localStorage backup as initialData for instant hydration');
-  
   return {
     id: '',
     user_id: userId,
