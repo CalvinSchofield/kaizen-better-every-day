@@ -2,16 +2,19 @@ import { useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Geolocation } from '@capacitor/geolocation';
+import { useNativePushNotifications } from '@/hooks/useNativePushNotifications';
 
 /**
  * Lightweight initializer that:
- * - Triggers APNs registration (token is handled by useNativePushNotifications)
+ * - Mounts useNativePushNotifications to set up foreground push listeners
+ * - Triggers APNs registration (token is handled by the hook)
  * - Requests location permissions
- *
- * Does NOT set up its own 'registration' listener – that's consolidated
- * in useNativePushNotifications to avoid duplicate/racing listeners.
  */
 export function PushNotificationInitializer() {
+  // This hook sets up all push listeners including pushNotificationReceived
+  // which triggers the InAppNotificationBanner for foreground notifications
+  useNativePushNotifications();
+
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
@@ -23,7 +26,6 @@ export function PushNotificationInitializer() {
           await PushNotifications.register();
           console.log('[PushInit] register() called (permission already granted)');
         }
-        // If not granted yet, the hook or Settings UI will request later.
       } catch (err) {
         console.error('[PushInit] Push init error:', err);
       }
