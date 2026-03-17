@@ -4,6 +4,7 @@ import { tiebreakerCompare, YearRank } from "@/utils/leaderboardTiebreaker";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 import { isRepActive } from "@/utils/repStatusUtils";
 import { getCleanName } from "@/utils/nameUtils";
+
 interface RankingEntry {
   userId: string;
   name: string;
@@ -12,6 +13,7 @@ interface RankingEntry {
   isWorking?: boolean;
   profilePhotoUrl?: string | null;
   year?: YearRank;
+  tiebreaker?: number;
 }
 
 interface TodayLeaderboard {
@@ -27,30 +29,41 @@ interface TodayLeaderboard {
   };
 }
 
-// Get "today" date string for a given timezone
+const getLocalDateString = (date = new Date()): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+// Get "today" date string for a given timezone in stable YYYY-MM-DD format
 const getTodayInTimezone = (timezone: string | null): string => {
+  const fallback = getLocalDateString();
+
   try {
-    const tz = timezone || 'America/Los_Angeles'; // Default to Pacific
-    const now = new Date();
-    // Format the current time in the target timezone to get local date
-    const formatter = new Intl.DateTimeFormat('en-CA', { 
+    const tz = timezone || "America/Los_Angeles";
+    const parts = new Intl.DateTimeFormat("en-US", {
       timeZone: tz,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-    return formatter.format(now); // Returns YYYY-MM-DD format
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+
+    const year = parts.find((p) => p.type === "year")?.value;
+    const month = parts.find((p) => p.type === "month")?.value;
+    const day = parts.find((p) => p.type === "day")?.value;
+
+    if (!year || !month || !day) return fallback;
+    return `${year}-${month}-${day}`;
   } catch {
-    // Fallback to local date if timezone is invalid
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return fallback;
   }
 };
 
 export const useTodayLeaderboard = (filterByYear?: string) => {
-  // Get today's date for cache key (so cache invalidates at midnight)
-  const todayDateKey = new Date().toISOString().split('T')[0];
-  
+  // Cache key rolls on local midnight to keep live query fresh per day
+  const todayDateKey = getLocalDateString();
+
   return useQuery({
     queryKey: ["today-leaderboard", todayDateKey, filterByYear],
     queryFn: async () => {
@@ -63,123 +76,138 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
 
       const repsMap = new Map(
         repsData
-          ?.filter(r => isRepActive(r.stage))
-          .map(r => [r.user_id, { 
-            name: r.name, 
-            year: r.year,
-            timezone: r.timezone,
-            profilePhotoUrl: r.profile_photo_url
-          }]) || []
+          ?.filter((r) => isRepActive(r.stage))
+          .map((r) => [
+            r.user_id,
+            {
+              name: r.name,
+              year: r.year,
+              timezone: r.timezone,
+              profilePhotoUrl: r.profile_photo_url,
+            },
+          ]) || []
       );
 
       // Fetch entries from the last 2 days to handle timezone edge cases
-      // (entry_date stored as YYYY-MM-DD may be "today" or "yesterday" depending on viewer's timezone)
       const twoDaysAgo = new Date();
       twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-      const twoDaysAgoStr = twoDaysAgo.toISOString().split('T')[0];
-      
+      const twoDaysAgoStr = twoDaysAgo.toISOString().split("T")[0];
+
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, is_finalized, sales_log")
+        .select(
+          "user_id, entry_date, timezone, updated_at, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, is_finalized, sales_log"
+        )
         .gte("entry_date", twoDaysAgoStr);
 
       if (error) throw error;
 
-      // Filter entries to only include those where entry_date matches "today" in rep's timezone
-      const todayEntries = entries?.filter(entry => {
-        const repInfo = repsMap.get(entry.user_id);
-        if (!repInfo) return false;
-        
-        const repToday = getTodayInTimezone(repInfo.timezone);
-        return entry.entry_date === repToday;
-      }) || [];
-      
-      // PROTECTION LAYER: Deduplicate by user - if someone has both finalized and unfinalized for today,
-      // prioritize finalized. Sort so finalized entries appear first, then take first per user.
+      // Filter entries to only include those where entry_date matches "today" in the entry/rep timezone
+      const todayEntries =
+        entries?.filter((entry) => {
+          const repInfo = repsMap.get(entry.user_id);
+          if (!repInfo) return false;
+
+          const effectiveTimezone = entry.timezone || repInfo.timezone;
+          const repToday = getTodayInTimezone(effectiveTimezone);
+          return entry.entry_date === repToday;
+        }) || [];
+
+      // Deduplicate by user. Prefer finalized rows if both exist, then latest updated row.
       const seenUsers = new Set<string>();
       const dedupedEntries = todayEntries
         .sort((a, b) => {
-          // Finalized first
           if (a.is_finalized && !b.is_finalized) return -1;
           if (!a.is_finalized && b.is_finalized) return 1;
-          return 0;
+
+          const aUpdatedAt = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+          const bUpdatedAt = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+          return bUpdatedAt - aUpdatedAt;
         })
-        .filter(entry => {
+        .filter((entry) => {
           if (seenUsers.has(entry.user_id)) return false;
           seenUsers.add(entry.user_id);
           return true;
         });
 
-      const filteredEntries = filterByYear 
-        ? dedupedEntries.filter(e => repsMap.get(e.user_id)?.year === filterByYear)
+      const filteredEntries = filterByYear
+        ? dedupedEntries.filter((e) => repsMap.get(e.user_id)?.year === filterByYear)
         : dedupedEntries;
 
-      // Create rankings arrays for each metric with tiebreaking
+      const hasLiveActivity = (entry: (typeof filteredEntries)[number], computedValue = 0): boolean => {
+        const salesLog = entry.sales_log as any[] | null;
+        const hasSalesLog = !!(salesLog && salesLog.length > 0);
+
+        return (
+          !entry.is_finalized &&
+          ((entry.doors_knocked ?? 0) > 0 ||
+            (entry.decision_makers ?? 0) > 0 ||
+            (entry.pitches ?? 0) > 0 ||
+            (entry.transitions ?? 0) > 0 ||
+            (entry.presentations ?? 0) > 0 ||
+            (entry.fp_plus ?? 0) > 0 ||
+            (entry.prmr ?? 0) > 0 ||
+            computedValue > 0 ||
+            hasSalesLog)
+        );
+      };
+
       // Activity order: doors → decision_makers → pitches → transitions → presentations
       const createRanking = (
-        field: keyof typeof filteredEntries[0], 
+        field: keyof typeof filteredEntries[0],
         tiebreakerField?: keyof typeof filteredEntries[0]
       ): RankingEntry[] => {
         return filteredEntries
-          .map(entry => {
+          .map((entry) => {
             const repInfo = repsMap.get(entry.user_id);
             if (!repInfo) return null;
+
             const value = Number(entry[field]) || 0;
             if (value === 0) return null;
+
             const cleanName = getCleanName(repInfo.name);
-            // User is "working" if entry is unfinalized and has activity
-            const isWorking = !entry.is_finalized && (
-              (entry.doors_knocked ?? 0) > 0 ||
-              (entry.decision_makers ?? 0) > 0 ||
-              (entry.pitches ?? 0) > 0 ||
-              (entry.transitions ?? 0) > 0 ||
-              (entry.presentations ?? 0) > 0 ||
-              (entry.fp_plus ?? 0) > 0
-            );
-            const tiebreaker = tiebreakerField ? (Number(entry[tiebreakerField]) || 0) : 0;
-            return { 
-              userId: entry.user_id, 
-              name: cleanName, 
-              value, 
-              isWorking, 
+            const tiebreaker = tiebreakerField ? Number(entry[tiebreakerField]) || 0 : 0;
+
+            return {
+              userId: entry.user_id,
+              name: cleanName,
+              value,
+              isWorking: hasLiveActivity(entry),
               profilePhotoUrl: repInfo.profilePhotoUrl,
               year: repInfo.year as YearRank,
-              tiebreaker
+              tiebreaker,
             };
           })
           .filter((e): e is NonNullable<typeof e> => e !== null)
-          .sort((a, b) => tiebreakerCompare(a.value, b.value, a.tiebreaker ?? 0, b.tiebreaker ?? 0, a.year, b.year));
+          .sort((a, b) =>
+            tiebreakerCompare(a.value, b.value, a.tiebreaker ?? 0, b.tiebreaker ?? 0, a.year, b.year)
+          );
       };
 
-      // Create FP+ ranking - use sales_log for unfinalized, columns for finalized
-      // Include PRMR as tiebreaker, then year
+      // Create FP+ ranking - use sales_log when present
       const createFpRanking = (): RankingEntry[] => {
-        // First, build a map of user_id to their PRMR for tiebreaker
         const prmrByUser = new Map<string, number>();
-        filteredEntries.forEach(entry => {
-          // Always prioritize sales_log if it has entries (regardless of finalization)
+        filteredEntries.forEach((entry) => {
           const salesLog = entry.sales_log as any[];
           const hasSalesLog = salesLog && salesLog.length > 0;
-          let prmrValue: number;
-          if (hasSalesLog) {
-            const fromLog = calculateFromSalesLog(salesLog);
-            prmrValue = fromLog.prmr;
-          } else {
-            prmrValue = Number(entry.prmr) || 0;
-          }
+
+          const prmrValue = hasSalesLog
+            ? calculateFromSalesLog(salesLog).prmr
+            : Number(entry.prmr) || 0;
+
           prmrByUser.set(entry.user_id, prmrValue);
         });
 
         return filteredEntries
-          .map(entry => {
+          .map((entry) => {
             const repInfo = repsMap.get(entry.user_id);
             if (!repInfo) return null;
-            
-            // Always prioritize sales_log if it has entries (regardless of finalization)
+
             const salesLog = entry.sales_log as any[];
             const hasSalesLog = salesLog && salesLog.length > 0;
             let value: number;
             let pendingValue = 0;
+
             if (hasSalesLog) {
               const fromLog = calculateFromSalesLog(salesLog);
               value = fromLog.fp;
@@ -187,62 +215,50 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             } else {
               value = Number(entry.fp_plus) || 0;
             }
-            
+
             if (value === 0) return null;
+
             const cleanName = getCleanName(repInfo.name);
-            const isWorking = !entry.is_finalized && (
-              (entry.doors_knocked ?? 0) > 0 ||
-              (entry.decision_makers ?? 0) > 0 ||
-              (entry.pitches ?? 0) > 0 ||
-              (entry.transitions ?? 0) > 0 ||
-              (entry.presentations ?? 0) > 0 ||
-              value > 0
-            );
             const prmrTiebreaker = prmrByUser.get(entry.user_id) || 0;
-            return { 
-              userId: entry.user_id, 
-              name: cleanName, 
-              value, 
+
+            return {
+              userId: entry.user_id,
+              name: cleanName,
+              value,
               pendingValue: pendingValue > 0 ? pendingValue : undefined,
-              isWorking, 
+              isWorking: hasLiveActivity(entry, value),
               profilePhotoUrl: repInfo.profilePhotoUrl,
               year: repInfo.year as YearRank,
-              tiebreaker: prmrTiebreaker
+              tiebreaker: prmrTiebreaker,
             };
           })
           .filter((e): e is NonNullable<typeof e> => e !== null)
-          .sort((a, b) => tiebreakerCompare(a.value, b.value, a.tiebreaker ?? 0, b.tiebreaker ?? 0, a.year, b.year));
+          .sort((a, b) =>
+            tiebreakerCompare(a.value, b.value, a.tiebreaker ?? 0, b.tiebreaker ?? 0, a.year, b.year)
+          );
       };
 
-      // Create PRMR ranking - use sales_log for unfinalized, columns for finalized
-      // FP+ as tiebreaker, then year
+      // Create PRMR ranking - use sales_log when present
       const createPrmrRanking = (): RankingEntry[] => {
-        // Build FP+ map for tiebreaker
         const fpByUser = new Map<string, number>();
-        filteredEntries.forEach(entry => {
-          // Always prioritize sales_log if it has entries
+        filteredEntries.forEach((entry) => {
           const salesLog = entry.sales_log as any[];
           const hasSalesLog = salesLog && salesLog.length > 0;
-          let fpValue: number;
-          if (hasSalesLog) {
-            const fromLog = calculateFromSalesLog(salesLog);
-            fpValue = fromLog.fp;
-          } else {
-            fpValue = Number(entry.fp_plus) || 0;
-          }
+
+          const fpValue = hasSalesLog ? calculateFromSalesLog(salesLog).fp : Number(entry.fp_plus) || 0;
           fpByUser.set(entry.user_id, fpValue);
         });
 
         return filteredEntries
-          .map(entry => {
+          .map((entry) => {
             const repInfo = repsMap.get(entry.user_id);
             if (!repInfo) return null;
-            
-            // Always prioritize sales_log if it has entries
+
             const salesLog = entry.sales_log as any[];
             const hasSalesLog = salesLog && salesLog.length > 0;
             let value: number;
             let pendingValue = 0;
+
             if (hasSalesLog) {
               const fromLog = calculateFromSalesLog(salesLog);
               value = fromLog.prmr;
@@ -250,43 +266,48 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             } else {
               value = Number(entry.prmr) || 0;
             }
-            
+
             if (value === 0) return null;
-            const cleanName = repInfo.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
-            const isWorking = !entry.is_finalized && (
-              (entry.doors_knocked ?? 0) > 0 || (entry.fp_plus ?? 0) > 0 || value > 0
-            );
+
+            const cleanName = getCleanName(repInfo.name);
             const fpTiebreaker = fpByUser.get(entry.user_id) || 0;
-            return { 
-              userId: entry.user_id, name: cleanName, value, 
+
+            return {
+              userId: entry.user_id,
+              name: cleanName,
+              value,
               pendingValue: pendingValue > 0 ? pendingValue : undefined,
-              isWorking, 
+              isWorking: hasLiveActivity(entry, value),
               profilePhotoUrl: repInfo.profilePhotoUrl,
               year: repInfo.year as YearRank,
-              tiebreaker: fpTiebreaker
+              tiebreaker: fpTiebreaker,
             };
           })
           .filter((e): e is NonNullable<typeof e> => e !== null)
-          .sort((a, b) => tiebreakerCompare(a.value, b.value, a.tiebreaker ?? 0, b.tiebreaker ?? 0, a.year, b.year));
+          .sort((a, b) =>
+            tiebreakerCompare(a.value, b.value, a.tiebreaker ?? 0, b.tiebreaker ?? 0, a.year, b.year)
+          );
       };
 
       const leaderboard: TodayLeaderboard = {
         rankings: {
           fp_plus: createFpRanking(),
           prmr: createPrmrRanking(),
-          presentations: createRanking('presentations', 'transitions'),
-          transitions: createRanking('transitions', 'presentations'),
-          pitches: createRanking('pitches', 'transitions'),
-          doors_knocked: createRanking('doors_knocked', 'decision_makers'),
-          decision_makers: createRanking('decision_makers', 'pitches'),
-          closes: createRanking('closes', 'presentations'),
+          presentations: createRanking("presentations", "transitions"),
+          transitions: createRanking("transitions", "presentations"),
+          pitches: createRanking("pitches", "transitions"),
+          doors_knocked: createRanking("doors_knocked", "decision_makers"),
+          decision_makers: createRanking("decision_makers", "pitches"),
+          closes: createRanking("closes", "presentations"),
         },
       };
 
       return leaderboard;
     },
-    staleTime: 15000, // 15 seconds for live feel
-    refetchInterval: 30000, // Auto-refetch every 30s
-    refetchOnWindowFocus: 'always',
+    staleTime: 5000,
+    refetchInterval: 10000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: "always",
   });
 };
