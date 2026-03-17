@@ -854,6 +854,13 @@ const Blitzes = () => {
           }}
         />
       )}
+
+      {/* Blitz Detail Drawer */}
+      <BlitzDetailDrawer
+        open={!!detailDrawerBlitz}
+        onOpenChange={(open) => { if (!open) setDetailDrawerBlitz(null); }}
+        blitz={detailDrawerBlitz}
+      />
     </div>
   );
 };
