@@ -129,10 +129,11 @@ serve(async (req) => {
     let failCount = 0;
 
     const payload = {
-      title: 'Access Request',
-      body: `${userName} is requesting access to Kaizen`,
+      title: `👋 ${userName} just signed up!`,
+      body: `${userName} is requesting access to Kaizen. Check their onboarding progress and approve.`,
       url: `/my-group?action=approve&email=${encodeURIComponent(userEmail)}`,
       tag: `access-request-${userEmail}`,
+      type: 'access_request',
     };
 
     for (const sub of subscriptions || []) {

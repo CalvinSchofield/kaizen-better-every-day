@@ -235,7 +235,7 @@ serve(async (req) => {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${supabaseServiceKey}`,
                   },
-                  body: JSON.stringify({ targetUserId: leaderId, title, body, url, type: "leader_coaching_nudge" }),
+                  body: JSON.stringify({ targetUserId: leaderId, title, body, url, type: "leader_coaching_nudge", repUserId: rep.user_id, phone: repDetails?.phone || null }),
                 });
                 if (resp.ok) sent = true;
                 else await resp.text();

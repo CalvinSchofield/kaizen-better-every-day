@@ -138,9 +138,10 @@ serve(async (req) => {
       }
 
       const message = PHASE_MESSAGES[stuckPhase];
+      const firstName = recruit.name.split(' ')[0];
       const payload = {
-        title: message.title,
-        body: message.body,
+        title: message.title(firstName),
+        body: message.body(firstName),
         url: '/ramp-to-blitz',
         tag: `ramp-nudge-${userId}-${today}`,
       };

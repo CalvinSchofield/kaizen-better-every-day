@@ -332,20 +332,33 @@ serve(async (req) => {
         continue;
       }
       
-      // Compose notification based on type
+      // Compose notification based on type — include today's stats for context
       let title: string;
       let body: string;
       let url: string;
+
+      const doors = (entry as any).doors_knocked || 0;
+      const pitches = (entry as any).pitches || 0;
+      const closes = (entry as any).closes || 0;
+      const statsSummary = closes > 0
+        ? `${doors} doors, ${pitches} pitches, ${closes} close${closes !== 1 ? 's' : ''}`
+        : doors > 0
+          ? `${doors} doors, ${pitches} pitch${pitches !== 1 ? 'es' : ''} so far`
+          : '';
       
       if (isAfter9pm) {
-        // Save day reminder - rich notification with actions
+        // Save day reminder with stats
         title = '🌙 Time to Save Your Day!';
-        body = `Great work today! Save your progress to lock in your numbers and celebrate your wins.`;
+        body = statsSummary
+          ? `Great work today — ${statsSummary}! Save your progress to lock in your numbers.`
+          : `Save your progress to lock in your numbers and celebrate your wins.`;
         url = '/track?prompt=save';
       } else {
-        // Motivational reminder during working hours
+        // Motivational reminder with stats context
         title = '💪 Keep the Momentum Going!';
-        body = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+        body = statsSummary
+          ? `You've hit ${statsSummary} today. ${MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]}`
+          : MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
         url = '/track';
       }
       
