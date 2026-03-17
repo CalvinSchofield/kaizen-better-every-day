@@ -27,6 +27,7 @@ export interface BlitzDetailData {
     prmr: number;
     installStatus: string;
     customerName?: string;
+    soldAtLocal?: string; // e.g. "7:11 PM" in the rep's local tz
   }>;
   // Daily breakdown
   dailyEntries: Array<{
