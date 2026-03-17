@@ -1,35 +1,19 @@
-# Notification System – Implementation Plan
+# What Happens to `/blitzes` Once Summer Starts?
 
-## Completed
+## The Problem
 
-### Phase 1: Core Notification Pipeline
-- 21 notification types (web push + APNs)
-- Timezone-aware cron-based nudges
-- Deduplication via notification_logs
-- In-app foreground banner (InAppNotificationBanner.tsx)
+Once summer begins, the Blitzes page has zero value. Blitzes are a preseason concept. The page is already removed from the bottom nav in knocking mode (summer), so it becomes an orphaned route that users can only reach by accident.
 
-### Phase 2: iOS Rich Notifications (Press & Hold)
-- **Swift files created** in `ios-notification-setup/`:
-  - `NotificationCategories.swift` — 23 categories with contextual actions
-  - `NotificationResponseHandler.swift` — Handles all action responses including inline replies, call/text, snooze, RSVP
-  - `README.md` — Step-by-step setup guide
-- **`handle-notification-reply` edge function** — Receives inline replies from iOS, saves as comments, triggers comment notifications
-- **APNs payload enriched** — Now passes `activityId`, `recruitId`, `recruitName`, `phone`, `challengeId`, `repUserId` through to iOS `userInfo`
+## Recommendation: Retire the Route, Don't Repurpose It
 
-### User Notes on Specific Notifications
-- **task_past_due**: Actions = View Tasks, Reschedule (navigate to tasks page)
-- **preseason_accountability**: Just a reminder of commitments, not a logging action
-- **access_request**: Should track onboarding flow progression (3 levels up upline), not just signup
-- **install_reminder_eve**: "View Sale" opens to that customer in CRM
-- **install_reminder_due**: "Installed" confirms, "Update" for canceled/rescheduled
-- **personal_record**: Need to determine what view/page to show
-- **leader_coaching**: Call/Text the struggling rep + need a coaching view/page
-- **challenge_progress**: "View" opens that specific challenge
+Rather than trying to shoehorn summer content into a "Blitzes" URL, the cleaner approach is:
 
-## TODO
-- [ ] Enrich all notification callers to pass `activityId`, `recruitId`, `phone`, etc. to APNs
-- [ ] Build coaching view page for leader_coaching deep link
-- [ ] Build personal record celebration view
-- [ ] Build task reschedule flow for task_past_due
-- [ ] Add install status update flow for install_reminder_due
-- [ ] Onboarding progression notifications (3 levels up approval flow)
+1. **Redirect `/blitzes` to the appropriate summer home** once the user's `personal_summer_start` has passed. If knocking mode is active, redirect to `/leaderboard` (the first summer nav tab). This way any stale bookmarks or deep links gracefully land somewhere useful.
+2. **No new page needed** — the summer nav already covers every surface area:
+  - **Leaderboard** — competition and rankings
+  - **Tools** — door-to-door resources
+  - **Reports / Compete** — performance and challenges
+  - **Track** — daily activity (action button)
+  - **Goals** — targets and pacing
+3. **Move the "Summer Countdown" hero** that currently lives on the Blitzes page into the **Goals page** or **Home page** during the transition period (the days between last blitz ending and summer actually starting). That way the countdown and "edit summer dates" feature remain accessible from a page users actually visit.
+
