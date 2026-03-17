@@ -1104,9 +1104,12 @@ export default function Settings() {
                         try {
                           // If there's no APNs token stored, calling the APNs sender will return non-2xx.
                           // So we check first and skip APNs when there's no token yet.
+                          const { data: { session } } = await supabase.auth.getSession();
+                          const currentUserId = session?.user?.id;
                           const { count, error: countErr } = await supabase
                             .from('apns_device_tokens')
-                            .select('id', { count: 'exact', head: true });
+                            .select('id', { count: 'exact', head: true })
+                            .eq('user_id', currentUserId ?? '');
 
                           if (countErr) throw countErr;
 
