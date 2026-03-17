@@ -328,9 +328,9 @@ export const RepDrillDownDrawer = ({
 
   // Ring always shows daily goal progress
   
-  // Calculate work start/end for segment drawer
+  // Calculate work start/end for segment drawer — use "now" for live entries without work_end_time
   const workStart = dayActivity?.workStartTime ? parseISO(dayActivity.workStartTime) : null;
-  const workEnd = dayActivity?.workEndTime ? parseISO(dayActivity.workEndTime) : null;
+  const workEnd = dayActivity?.workEndTime ? parseISO(dayActivity.workEndTime) : (workStart ? new Date() : null);
   const totalWorkMinutes = workStart && workEnd 
     ? (workEnd.getTime() - workStart.getTime()) / (1000 * 60) 
     : 0;

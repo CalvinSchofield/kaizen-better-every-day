@@ -484,10 +484,10 @@ const Track = ({
           segment={selectedSegment}
           sale={selectedSegmentSale}
           workStart={entry.work_start_time ? parseISO(entry.work_start_time) : null}
-          workEnd={entry.work_end_time ? parseISO(entry.work_end_time) : null}
+          workEnd={entry.work_end_time ? parseISO(entry.work_end_time) : (entry.work_start_time ? new Date() : null)}
           totalWorkMinutes={
-            entry.work_start_time && entry.work_end_time 
-              ? differenceInMinutes(parseISO(entry.work_end_time), parseISO(entry.work_start_time))
+            entry.work_start_time 
+              ? differenceInMinutes(entry.work_end_time ? parseISO(entry.work_end_time) : new Date(), parseISO(entry.work_start_time))
               : 0
           }
         />
