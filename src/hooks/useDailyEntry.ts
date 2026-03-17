@@ -310,6 +310,14 @@ export const useDailyEntry = (date?: string) => {
     gcTime: 5 * 60 * 1000, // 5 minutes
     // Don't refetch on window focus during active session
     refetchOnWindowFocus: false,
+    // Retry on auth errors - session may recover
+    retry: (failureCount, error) => {
+      if (error?.message === 'AUTH_SESSION_EXPIRED') {
+        return failureCount < 3; // Try 3 times with session refresh
+      }
+      return failureCount < 2;
+    },
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
   // Update counter mutation (auto-save) with offline support
