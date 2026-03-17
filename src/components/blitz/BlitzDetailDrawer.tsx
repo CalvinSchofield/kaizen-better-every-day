@@ -142,7 +142,9 @@ export function BlitzDetailDrawer({ open, onOpenChange, blitz }: BlitzDetailDraw
                             {sale.customerName || (sale.type === 'fp' ? 'New Customer' : 'Upgrade')}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {format(new Date(sale.date + 'T12:00:00'), 'MMM d')} · {sale.type.toUpperCase()}
+                            {format(new Date(sale.date + 'T12:00:00'), 'MMM d')}
+                            {sale.soldAtLocal && ` · ${sale.soldAtLocal}`}
+                            {' · '}{sale.type.toUpperCase()}
                             {sale.installStatus === 'pending' && ' · Pending'}
                           </p>
                         </div>

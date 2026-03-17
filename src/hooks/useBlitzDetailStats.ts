@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+import { formatInTimeZone } from "date-fns-tz";
 
 export interface BlitzDetailData {
   // Overview
@@ -27,6 +28,7 @@ export interface BlitzDetailData {
     prmr: number;
     installStatus: string;
     customerName?: string;
+    soldAtLocal?: string; // e.g. "7:11 PM" in the rep's local tz
   }>;
   // Daily breakdown
   dailyEntries: Array<{
@@ -48,7 +50,7 @@ export function useBlitzDetailStats(startDate: string | null, endDate: string | 
 
       const { data: entries, error } = await supabase
         .from('daily_entries')
-        .select('entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, work_start_time, work_end_time, break_periods, sales_log')
+        .select('entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, work_start_time, work_end_time, break_periods, sales_log, timezone')
         .eq('user_id', userId)
         .gte('entry_date', startDate)
         .lte('entry_date', endDate);
@@ -94,6 +96,13 @@ export function useBlitzDetailStats(startDate: string | null, endDate: string | 
           totalPrmr += calc.prmr;
           for (const sale of salesLog as any[]) {
             if (sale?.install_status === 'never_installed') continue;
+            let soldAtLocal: string | undefined;
+            if (sale.timestamp) {
+              try {
+                const tz = (e as any).timezone || 'America/New_York';
+                soldAtLocal = formatInTimeZone(new Date(sale.timestamp), tz, 'h:mm a');
+              } catch { /* ignore bad timestamps */ }
+            }
             allSales.push({
               id: sale.id || crypto.randomUUID(),
               date: e.entry_date,
@@ -101,6 +110,7 @@ export function useBlitzDetailStats(startDate: string | null, endDate: string | 
               prmr: Number(sale.prmr) || 0,
               installStatus: sale.install_status || 'installed',
               customerName: sale.customer_name || sale.name,
+              soldAtLocal,
             });
           }
         } else {
