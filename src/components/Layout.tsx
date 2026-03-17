@@ -291,6 +291,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
     if (path.startsWith("/profile")) return "Profile";
     switch (path) {
       case "/": return "Kaizen";
+      case "/blitzes": return "Blitzes";
       case "/training": return "Training";
       case "/tools": return "Tools";
       case "/track": return "Track";

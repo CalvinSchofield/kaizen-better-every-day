@@ -61,10 +61,10 @@ const Blitzes = () => {
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
 
   // Get next upcoming blitz from committed blitzes
-  const nextBlitz = repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)
+  const nextBlitz: { date: string; endDate?: string | null; location?: string | null; name: string; address1?: string | null; wifi1?: string | null; code1?: string | null; id: string } | null = repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)
     ? (() => {
         const today = parseDateAsLocal(getTodayDateString()) ?? new Date();
-        const upcomingBlitzes = repData.committed_blitzes
+        const upcomingBlitzes = (repData.committed_blitzes as any[])
           .filter((blitz: any) => {
             if (!blitz || typeof blitz !== 'object' || !blitz.date) return false;
             const blitzEndDate = parseDateAsLocal(blitz.endDate ?? blitz.date);
@@ -81,8 +81,8 @@ const Blitzes = () => {
       })()
     : null;
 
-  const committedBlitzes = (repData?.committed_blitzes as any[]) || [];
-  const hasPastBlitzes = committedBlitzes.some((blitz: any) => {
+  const committedBlitzesArr = (repData?.committed_blitzes as any[]) || [];
+  const hasPastBlitzes = committedBlitzesArr.some((blitz: any) => {
     const today = parseDateAsLocal(getTodayDateString()) ?? new Date();
     const endDate = parseDateAsLocal(blitz?.endDate);
     if (!endDate) return false;
