@@ -407,7 +407,7 @@ const Blitzes = () => {
 
         {/* Universal alerts */}
         <PendingInstallAlertCard />
-        <RecapCTACard />
+        
 
         {/* Monday Night Lights Alert */}
         {!isTeamLead && hasMnlEventToday && (() => {
