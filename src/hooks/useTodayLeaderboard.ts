@@ -285,7 +285,8 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
 
       return leaderboard;
     },
-    staleTime: 30000, // 30 seconds for real-time feel
-    refetchInterval: 60000, // Auto-refetch every minute
+    staleTime: 15000, // 15 seconds for live feel
+    refetchInterval: 30000, // Auto-refetch every 30s
+    refetchOnWindowFocus: 'always',
   });
 };
