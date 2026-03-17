@@ -367,7 +367,7 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
           const fromLog = calculateFromSalesLog(entrySalesLog);
           existing.fp += fromLog.fp;
           existing.prmr += fromLog.prmr;
-          existing.upgradeFp += fromLog.upgradeFp;
+          existing.upgradeFp += fromLog.upgradePrmr / 85;
         } else if (entry.is_finalized) {
           existing.fp += entry.fp_plus || 0;
           existing.prmr += entry.prmr || 0;
