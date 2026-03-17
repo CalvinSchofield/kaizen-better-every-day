@@ -69,6 +69,7 @@ const Leaderboard = () => {
   }, []);
 
   const filterByYear = scopeFilter === 'rookies' ? 'Rookie' : undefined;
+  const isWatchlistMode = scopeFilter === 'watchlist';
 
   const { data: expandedLeaderboard, isLoading } = useExpandedLeaderboard(
     timeFilter ?? 'live',
