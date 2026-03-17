@@ -14,6 +14,7 @@ import { useRepData } from '@/hooks/useRepData';
 import { useRookieUnlockStatus } from '@/hooks/useRookieUnlockStatus';
 import { useAddSaleToEntry } from '@/hooks/useAddSaleToEntry';
 import { Sale } from '@/hooks/useDailyEntry';
+import { useSalesRealtime } from '@/hooks/useSalesRealtime';
 import { Card, CardContent } from '@/components/ui/card';
 import { PendingInstallAlertCard } from '@/components/PendingInstallAlertCard';
 import {
@@ -57,6 +58,7 @@ const Customers = () => {
   const { repData } = useRepData();
   const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
   const { addSale, isAddingSale } = useAddSaleToEntry();
+  useSalesRealtime();
 
   if (isPreBlitzRookie) {
     return (
