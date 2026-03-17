@@ -12,6 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useRepData } from "@/hooks/useRepData";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
+import { useBlitzRecapStats } from "@/hooks/useBlitzRecapStats";
+import { BlitzRecapCard } from "@/components/BlitzRecapCard";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { formatBlitzDateRange as formatBlitzDateRangeUtil } from "@/utils/blitzDateUtils";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import { VetAlertCard } from "@/components/VetAlertCard";
@@ -48,7 +52,7 @@ const Blitzes = () => {
   const { repData, refetch } = useRepData();
   const { toast } = useToast();
   const { hasMnlEventToday } = useMondayNightLightsEvent();
-  const { allBlitzes, allBlitzesIncludingPast, loading: blitzesLoading } = useBlitzes();
+  const { allBlitzes, pastBlitzes: allPastBlitzes, allBlitzesIncludingPast, loading: blitzesLoading } = useBlitzes();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isTeamLead, setIsTeamLead] = useState(false);
   const [teamLoading, setTeamLoading] = useState(true);
@@ -86,6 +90,9 @@ const Blitzes = () => {
   const isLeader = teamAccessData?.accessLevel && teamAccessData.accessLevel !== 'none';
 
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
+
+  // Blitz recap stats for past committed blitzes
+  const { data: recapStats } = useBlitzRecapStats(repData?.committed_blitzes as any[] | null);
 
   // Get next upcoming blitz from committed blitzes
   const nextBlitz: { date: string; endDate?: string | null; location?: string | null; name: string; address1?: string | null; wifi1?: string | null; code1?: string | null; id: string; accommodations?: any[] } | null = repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)
@@ -187,10 +194,11 @@ const Blitzes = () => {
   }, [summerConfig?.personal_summer_start]);
 
   useEffect(() => {
-    if (summerStarted) {
+    // Leaders keep access to Blitzes year-round; only redirect non-leaders
+    if (summerStarted && !isLeader) {
       navigate('/leaderboard', { replace: true });
     }
-  }, [summerStarted, navigate]);
+  }, [summerStarted, isLeader, navigate]);
 
   const firstName = repData?.name?.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0] || '';
 
@@ -545,9 +553,9 @@ const Blitzes = () => {
 
                 {/* Preseason Blitz Recap */}
                 {pastBlitzCount > 0 && (
-                  <div className="px-4 py-3 rounded-xl bg-primary-foreground/10 border border-primary-foreground/10">
-                    <p className="text-xs font-medium text-primary-foreground/60 uppercase tracking-wider mb-2">Preseason Recap</p>
-                    <div className="flex items-baseline gap-1.5">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-primary-foreground/60 uppercase tracking-wider">Preseason Recap</p>
+                    <div className="flex items-baseline gap-1.5 mb-2">
                       <span className="text-2xl font-bold text-primary-foreground">{pastBlitzCount}</span>
                       <span className="text-sm text-primary-foreground/80">
                         {pastBlitzCount === 1 ? 'blitz attended' : 'blitzes attended'}
@@ -650,6 +658,46 @@ const Blitzes = () => {
                 }}
               />
             </div>
+          </motion.div>
+        )}
+
+        {/* ── Blitz Recap Cards ── */}
+        {recapStats && recapStats.length > 0 && !nextBlitz && (
+          <motion.div variants={itemVariants} className="space-y-2">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
+              Your Blitz Performance
+            </h2>
+            {recapStats.map((recap) => (
+              <BlitzRecapCard key={recap.id} recap={recap} />
+            ))}
+          </motion.div>
+        )}
+
+        {/* ── Past Blitzes List for Leaders ── */}
+        {isLeader && allPastBlitzes.length > 0 && (
+          <motion.div variants={itemVariants}>
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-semibold text-foreground">Past Blitzes</span>
+                  <Badge variant="secondary" className="text-xs">{allPastBlitzes.length}</Badge>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2 space-y-1.5">
+                {allPastBlitzes.map((blitz) => (
+                  <div key={blitz.id} className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-muted/30 border border-border/50">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{blitz.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {blitz.location ? `${blitz.location} · ` : ''}{formatBlitzDateRange(blitz.date, blitz.endDate)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
           </motion.div>
         )}
       </motion.div>

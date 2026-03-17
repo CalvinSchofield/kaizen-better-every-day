@@ -1,0 +1,58 @@
+import { MapPin, CalendarDays, Footprints, Flame, DollarSign } from "lucide-react";
+import { formatBlitzDateRange } from "@/utils/blitzDateUtils";
+import { formatFP, formatPRMR } from "@/lib/formatters";
+import type { BlitzRecapStat } from "@/hooks/useBlitzRecapStats";
+
+interface BlitzRecapCardProps {
+  recap: BlitzRecapStat;
+}
+
+export function BlitzRecapCard({ recap }: BlitzRecapCardProps) {
+  const hasStats = recap.daysWorked > 0 || recap.doors > 0 || recap.fpPlus > 0;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-foreground truncate">
+            {recap.name}
+          </h3>
+          {recap.location && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+              <span className="text-xs text-muted-foreground truncate">
+                {recap.location}
+              </span>
+            </div>
+          )}
+        </div>
+        <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+          {formatBlitzDateRange(recap.startDate, recap.endDate)}
+        </span>
+      </div>
+
+      {/* Stats */}
+      {hasStats ? (
+        <div className="grid grid-cols-4 gap-2 mt-3">
+          <StatPill icon={<CalendarDays className="w-3.5 h-3.5" />} value={`${recap.daysWorked}`} label="Days" />
+          <StatPill icon={<Footprints className="w-3.5 h-3.5" />} value={`${recap.doors}`} label="Doors" />
+          <StatPill icon={<Flame className="w-3.5 h-3.5" />} value={formatFP(recap.fpPlus)} label="FP+" />
+          <StatPill icon={<DollarSign className="w-3.5 h-3.5" />} value={formatPRMR(recap.prmr)} label="PRMR" />
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground mt-2 italic">No tracked stats for this blitz</p>
+      )}
+    </div>
+  );
+}
+
+function StatPill({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
+  return (
+    <div className="flex flex-col items-center gap-0.5 py-2 px-1 rounded-lg bg-muted/50">
+      <div className="text-muted-foreground">{icon}</div>
+      <span className="text-sm font-bold text-foreground">{value}</span>
+      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</span>
+    </div>
+  );
+}
