@@ -13,7 +13,7 @@ import { useHeader } from "@/contexts/HeaderContext";
 import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { useDownlineGoalPace } from "@/hooks/useDownlineGoalPace";
+import { useGoalPaceCalculatorForUser } from "@/hooks/useGoalPaceCalculatorForUser";
 import { getInitials } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
 import { useState, useEffect } from "react";
@@ -52,7 +52,7 @@ const Profile = () => {
   const { data: profile, isLoading } = useRepProfile(userId || currentUserId || null);
   const { data: teamAccess } = useTeamAccess();
   const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
-  const { data: goalPace } = useDownlineGoalPace(isDownline ? userId : null);
+  const downlineGoalPace = useGoalPaceCalculatorForUser(isDownline ? userId : null);
 
   // Set header content
   useEffect(() => {
@@ -216,7 +216,7 @@ const Profile = () => {
       <ProfileSwiper
         dailyFp={profile.dailyFpValues}
         isOwnProfile={isOwnProfile}
-        goalPace={isDownline ? (goalPace ?? null) : null}
+        goalPaceData={isDownline && downlineGoalPace.hasGoals ? downlineGoalPace : null}
         repName={profile.name}
       />
 

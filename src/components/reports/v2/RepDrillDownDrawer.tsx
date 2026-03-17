@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { EffortResult } from "@/utils/effortScore";
 import { UnifiedGoalProgress } from "@/components/goals/UnifiedGoalProgress";
 import type { GoalPaceData, TimeframeData, PaceSeverity } from "@/hooks/useGoalPaceCalculator";
+import { useGoalPaceCalculatorForUser } from "@/hooks/useGoalPaceCalculatorForUser";
 import { EffortCoachingCallouts } from "./EffortCoachingCallouts";
 import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
 import { useRepDayActivity } from "@/hooks/useRepDayActivity";
@@ -94,6 +95,9 @@ export const RepDrillDownDrawer = ({
   
   // Get userId for hooks - must be at top level
   const userId = isOpen && rep ? rep.userId : undefined;
+  
+  // Unified goal pace calculator for this rep
+  const downlineGoalPace = useGoalPaceCalculatorForUser(userId);
   
   // Fetch extended data (timeline + goals)
   const { data: extendedData, isLoading: isLoadingExtended } = useRepDrillDownData(userId);
@@ -547,59 +551,16 @@ export const RepDrillDownDrawer = ({
             <Separator />
 
             {/* Goal Progress Section with D/W/M/Y toggle */}
-            {extendedData?.goals ? (
+            {downlineGoalPace.hasGoals ? (
               <UnifiedGoalProgress
-                data={(() => {
-                  const metricLabel = goalData.metricLabel || 'FP+';
-                  const dailyNeeded = goalData.dailyGoal;
-                  const seasonGoal = goalData.seasonGoal;
-                  const seasonFP = goalData.seasonFP;
-                  const userDailyAvg = goalData.seasonDaysElapsed > 0 ? seasonFP / goalData.seasonDaysElapsed : 0;
-                  const severity: PaceSeverity = dailyNeeded <= 0 ? 'green' : userDailyAvg <= 0 ? (dailyNeeded <= 2 ? 'green' : dailyNeeded <= 4 ? 'amber' : 'red') : dailyNeeded <= userDailyAvg ? 'green' : dailyNeeded <= userDailyAvg * 1.5 ? 'amber' : 'red';
-                  
-                  const mkTf = (actual: number, live: number, expected: number, goal: number, daysElapsed: number, daysTotal: number, label: string): TimeframeData => ({
-                    actual, funded: actual, live, pending: 0, expected, goal,
-                    remaining: Math.max(0, goal - actual - live),
-                    plannedDaysElapsed: daysElapsed,
-                    plannedDaysTotal: daysTotal,
-                    paceDiff: (actual + live) - expected,
-                    isAhead: (actual + live) >= expected,
-                    label,
-                  });
-
-                  const tierLabel = goalData.isPreseason ? 'Preseason' : 
-                    goalData.focusTier === 'couldDo' ? 'Could Do' : 
-                    goalData.focusTier === 'willDo' ? 'Will Do' : 'Must Do';
-
-                  return {
-                    activeGoal: seasonGoal,
-                    tierLabel,
-                    focusTier: goalData.isPreseason ? 'preseason' : (goalData.focusTier || 'willDo'),
-                    isPreseason: goalData.isPreseason ?? true,
-                    metricLabel,
-                    dailyNeeded,
-                    weeklyNeeded: dailyNeeded * 6,
-                    severity,
-                    userDailyAvg,
-                    currentProgress: seasonFP,
-                    overallProgressPercent: seasonGoal > 0 ? Math.min(100, (seasonFP / seasonGoal) * 100) : 0,
-                    day: mkTf(goalData.todayFP, goalData.liveFP || 0, dailyNeeded, dailyNeeded, 1, 1, 'Today'),
-                    week: mkTf(goalData.weekFP, 0, goalData.weekExpected, goalData.weekGoal, goalData.weekElapsedPlannedDays || 0, goalData.weekPlannedDays || 6, 'This Week'),
-                    month: mkTf(goalData.monthFP, 0, goalData.monthExpected, goalData.monthGoal, goalData.monthElapsedPlannedDays || 0, goalData.monthPlannedDays || 20, 'This Month'),
-                    season: mkTf(seasonFP, 0, goalData.seasonExpected, seasonGoal, goalData.seasonDaysElapsed, goalData.seasonTotalDays, goalData.isPreseason ? 'Preseason' : 'Season'),
-                    allTiers: (goalData.availableTiers || []).map(t => ({ key: t.key, label: t.label, goal: t.goal, funded: t.goal, complete: false })),
-                    isLoading: false,
-                    hasGoals: true,
-                    knockingDaysCompleted: goalData.seasonDaysElapsed || 0,
-                  } as GoalPaceData;
-                })()}
+                data={downlineGoalPace}
                 mode="full"
-                showTierSelector={!goalData.isPreseason}
+                showTierSelector={!downlineGoalPace.isPreseason}
                 showPaceContext
                 showTimeframeToggle
                 selectedDate={selectedDate}
               />
-            ) : !isLoadingExtended && (
+            ) : !isLoadingExtended && !downlineGoalPace.isLoading && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
                 <Target className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">No goals configured</span>
