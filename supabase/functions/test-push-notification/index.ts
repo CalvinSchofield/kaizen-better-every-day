@@ -201,71 +201,35 @@ serve(async (req) => {
       }
     }
 
-    // === APNs ===
+    // === APNs === (delegate to send-apns-notification for full logging)
     if (apnsTokens.length) {
-      const teamId = Deno.env.get('APNS_TEAM_ID');
-      const keyId = Deno.env.get('APNS_KEY_ID');
-      const privateKey = Deno.env.get('APNS_PRIVATE_KEY');
-      const bundleId = Deno.env.get('APNS_BUNDLE_ID') || 'app.lovable.00427502ff944cc991616496e2600071';
+      console.log(`[APNs] Delegating to send-apns-notification for user ${rep.user_id}`);
+      try {
+        const { data: apnsResult, error: apnsError } = await supabase.functions.invoke('send-apns-notification', {
+          body: {
+            targetUserId: rep.user_id,
+            title: testPayload.title,
+            body: testPayload.body,
+            url: testPayload.url,
+            type: testPayload.type,
+          },
+        });
 
-      if (teamId && keyId && privateKey) {
-        // Build JWT
-        const header = { alg: 'ES256', kid: keyId };
-        const now = Math.floor(Date.now() / 1000);
-        const claims = { iss: teamId, iat: now };
-        const encodedHeader = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        const encodedClaims = btoa(JSON.stringify(claims)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        const unsignedToken = `${encodedHeader}.${encodedClaims}`;
-
-        const pemContents = privateKey
-          .replace(/\\n/g, '\n')
-          .replace(/-----BEGIN PRIVATE KEY-----/g, '')
-          .replace(/-----END PRIVATE KEY-----/g, '')
-          .replace(/\s/g, '');
-
-        const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
-        const cryptoKey = await crypto.subtle.importKey(
-          'pkcs8', binaryKey.buffer,
-          { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']
-        );
-        const signature = await crypto.subtle.sign(
-          { name: 'ECDSA', hash: 'SHA-256' }, cryptoKey,
-          new TextEncoder().encode(unsignedToken)
-        );
-        const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-          .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        const authToken = `${unsignedToken}.${signatureB64}`;
-
-        const productionRaw = (Deno.env.get('APNS_PRODUCTION') ?? '').trim().toLowerCase();
-        const isProduction = productionRaw === 'true' || productionRaw === '1';
-        const apnsHost = isProduction ? 'api.push.apple.com' : 'api.sandbox.push.apple.com';
-        const apnsPayload = buildApnsPayload(testPayload);
-
-        for (const { device_token } of apnsTokens) {
-          try {
-            const res = await fetch(`https://${apnsHost}/3/device/${device_token}`, {
-              method: 'POST',
-              headers: {
-                'authorization': `bearer ${authToken}`,
-                'apns-topic': bundleId,
-                'apns-push-type': 'alert',
-                'apns-priority': '10',
-                'apns-expiration': '0',
-                'content-type': 'application/json',
-              },
-              body: JSON.stringify(apnsPayload),
-            });
-            if (res.status === 200) apnsSent++;
-            else {
-              const errBody = await res.text();
-              errors.push(`apns ${res.status}: ${errBody}`);
-            }
-          } catch (e) {
-            errors.push(`apns: ${e instanceof Error ? e.message : 'unknown'}`);
+        console.log('[APNs] Response:', JSON.stringify(apnsResult));
+        if (apnsError) {
+          console.error('[APNs] Invoke error:', apnsError);
+          errors.push(`apns invoke: ${apnsError.message || apnsError}`);
+        } else if (apnsResult?.success) {
+          apnsSent = apnsTokens.length; // send-apns-notification handles all tokens
+        } else {
+          errors.push(`apns: ${apnsResult?.error || apnsResult?.message || 'unknown'}`);
+          if (apnsResult?.errors) {
+            errors.push(...apnsResult.errors);
           }
         }
-      } else {
-        errors.push('APNs keys not configured');
+      } catch (e) {
+        console.error('[APNs] Exception:', e);
+        errors.push(`apns: ${e instanceof Error ? e.message : 'unknown'}`);
       }
     }
 
