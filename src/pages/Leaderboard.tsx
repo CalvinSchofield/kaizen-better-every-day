@@ -35,6 +35,7 @@ const Leaderboard = () => {
   const [timeFilter, setTimeFilter] = useState<TimeFilter | null>(null);
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('all');
   const [customDateRange, setCustomDateRange] = useState<CustomDateRange | undefined>(undefined);
+  const [watchlistDrawerOpen, setWatchlistDrawerOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
   const [isUserInitialized, setIsUserInitialized] = useState(false);
