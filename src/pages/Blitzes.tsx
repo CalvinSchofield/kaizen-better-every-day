@@ -449,7 +449,9 @@ const Blitzes = () => {
           {!upcomingBlitzForRsvp && !nextBlitz && (() => {
             const hasRemainingBlitzes = allBlitzes.length > 0;
             const GLOBAL_SUMMER_START = '2026-04-12';
-            const summerStartDate = parseDateAsLocal(GLOBAL_SUMMER_START);
+            const hasPersonalDates = !!summerConfig?.personal_summer_start;
+            const effectiveSummerStart = summerConfig?.personal_summer_start || GLOBAL_SUMMER_START;
+            const summerStartDate = parseDateAsLocal(effectiveSummerStart);
             const daysUntilSummer = summerStartDate ? Math.ceil((summerStartDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
             const summerHasStarted = daysUntilSummer <= 0;
 
@@ -499,21 +501,33 @@ const Blitzes = () => {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-2xl">{summerHasStarted ? '☀️' : '🌅'}</span>
                   <h1 className="text-3xl font-bold text-primary-foreground tracking-tight">
-                    {summerHasStarted ? 'Summer Is Here' : 'Summer Starts Soon'}
+                    {summerHasStarted ? 'Summer Is Here' : hasPersonalDates ? 'Your Summer Starts Soon' : 'Summer Starts Soon'}
                   </h1>
                 </div>
 
                 {!summerHasStarted && daysUntilSummer > 0 && (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-foreground/15 backdrop-blur-sm mb-4">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-foreground/15 backdrop-blur-sm mb-3">
                     <span className="text-sm font-semibold text-primary-foreground">
                       {daysUntilSummer === 1 ? 'Tomorrow' : `${daysUntilSummer} days away`}
                     </span>
                   </div>
                 )}
 
+                {/* Summer date range + edit */}
+                <button
+                  onClick={() => setEditSummerDatesOpen(true)}
+                  className="flex items-center gap-2 mb-4 group"
+                >
+                  <span className="text-sm text-primary-foreground/70">
+                    {formatBlitzDate(effectiveSummerStart, 'MMM d')}
+                    {summerConfig?.personal_summer_end && ` – ${formatBlitzDate(summerConfig.personal_summer_end, 'MMM d')}`}
+                  </span>
+                  <Pencil className="w-3.5 h-3.5 text-primary-foreground/40 group-hover:text-primary-foreground/70 transition-colors" />
+                </button>
+
                 {/* Preseason Blitz Recap */}
                 {pastBlitzCount > 0 && (
-                  <div className="mt-3 px-4 py-3 rounded-xl bg-primary-foreground/10 border border-primary-foreground/10">
+                  <div className="px-4 py-3 rounded-xl bg-primary-foreground/10 border border-primary-foreground/10">
                     <p className="text-xs font-medium text-primary-foreground/60 uppercase tracking-wider mb-2">Preseason Recap</p>
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-2xl font-bold text-primary-foreground">{pastBlitzCount}</span>
