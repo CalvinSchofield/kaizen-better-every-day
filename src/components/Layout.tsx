@@ -215,7 +215,16 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
 
     // KNOCKING MODE OFF (Preseason)
     if (effectiveIsLeader) {
-      // Leaders: Blitzes, Tools, Calendar, Goals (action: My Group)
+      // Leaders: once summer starts, replace Blitzes with Reports (recruiting/coaching mode)
+      if (isInSummerPeriod) {
+        return [
+          { path: "/reports-v2", icon: BarChart3, label: "Reports" },
+          { path: "/tools", icon: Wrench, label: "Tools" },
+          { path: "/calendar", icon: Calendar, label: "Calendar" },
+          { path: "/goals", icon: Target, label: "Goals" },
+        ];
+      }
+      // Preseason: Blitzes, Tools, Calendar, Goals (action: My Group)
       return [
         { path: "/blitzes", icon: Flame, label: "Blitzes" },
         { path: "/tools", icon: Wrench, label: "Tools" },
