@@ -99,25 +99,6 @@ const Blitzes = () => {
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
 
   const committedBlitzesArr = (repData?.committed_blitzes as any[]) || [];
-  const processedBlitzIds = ((repData as any)?.processed_blitz_ids as string[]) || [];
-
-  const attendedIdSet = useMemo(() => {
-    const ids = new Set<string>(processedBlitzIds);
-
-    for (const blitz of committedBlitzesArr) {
-      if (typeof blitz === "string") {
-        ids.add(blitz);
-        continue;
-      }
-
-      if (blitz && typeof blitz === "object") {
-        if (typeof blitz.id === "string") ids.add(blitz.id);
-        if (typeof blitz.supabaseId === "string") ids.add(blitz.supabaseId);
-      }
-    }
-
-    return ids;
-  }, [committedBlitzesArr, processedBlitzIds]);
 
   const recapSourceBlitzes = useMemo(() => {
     const merged = [...committedBlitzesArr];
