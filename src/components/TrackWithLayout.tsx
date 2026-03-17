@@ -993,6 +993,17 @@ const TrackWithLayout = () => {
     try {
       await updateCounter(updates);
       setSyncStatus('synced');
+      // Fire-and-forget: notify recruiter about this sale
+      const currentUid = getCurrentUserId();
+      if (currentUid) {
+        const salePayload = {
+          sellerUserId: currentUid,
+          prmr: saleData.prmr || 0,
+          fpPlus: Math.round(fp * 100) / 100,
+        };
+        supabase.functions.invoke('notify-watchlist-sale', { body: salePayload }).catch(() => {});
+        supabase.functions.invoke('notify-recruiter-sale', { body: salePayload }).catch(() => {});
+      }
     } catch (error: any) {
       if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
         toast.info("Today's work is already saved. Start fresh tomorrow!");
