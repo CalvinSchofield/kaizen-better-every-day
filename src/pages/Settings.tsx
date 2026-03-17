@@ -24,6 +24,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { IntroWizard } from "@/components/IntroWizard";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
+import { NotificationSettings } from "@/components/NotificationSettings";
 import { MeVsMeSettings } from "@/components/MeVsMeSettings";
 import { useWeeklyReports } from "@/hooks/useWeeklyReports";
 import { TeamRecapStory } from "@/components/team-recap";

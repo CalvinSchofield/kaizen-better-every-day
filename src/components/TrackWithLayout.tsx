@@ -755,6 +755,16 @@ const TrackWithLayout = () => {
       fireConfetti({ variant: 'money', duration: 2500 });
     }
     
+    // Fire-and-forget: notify recruiter when rookie transitions
+    if (field === 'transitions' && isAdding) {
+      const uid = getCurrentUserId();
+      if (uid) {
+        supabase.functions.invoke('notify-recruiter-transition', {
+          body: { repUserId: uid },
+        }).catch(() => {});
+      }
+    }
+    
     // Set sync status to pending
     setSyncStatus('pending');
     
