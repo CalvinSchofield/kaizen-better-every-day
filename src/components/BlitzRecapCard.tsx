@@ -1,20 +1,26 @@
-import { MapPin, CalendarDays, Footprints, Flame, DollarSign } from "lucide-react";
+import { MapPin, CalendarDays, Footprints, Flame, DollarSign, ChevronRight } from "lucide-react";
 import { formatBlitzDateRange } from "@/utils/blitzDateUtils";
 import { formatFP, formatPRMR } from "@/lib/formatters";
 import type { BlitzRecapStat } from "@/hooks/useBlitzRecapStats";
 
 interface BlitzRecapCardProps {
   recap: BlitzRecapStat;
+  attended?: boolean;
+  onOpenDetails?: () => void;
 }
 
-export function BlitzRecapCard({ recap }: BlitzRecapCardProps) {
+export function BlitzRecapCard({ recap, attended = true, onOpenDetails }: BlitzRecapCardProps) {
   const hasStats = recap.daysWorked > 0 || recap.doors > 0 || recap.fpPlus > 0;
 
   return (
-    <div className="rounded-xl border border-primary/20 bg-primary/5 border-l-4 border-l-primary p-4">
+    <button
+      onClick={onOpenDetails}
+      disabled={!onOpenDetails}
+      className="w-full text-left rounded-xl border border-primary/20 bg-primary/5 border-l-4 border-l-primary p-4 transition-colors hover:bg-primary/8 active:bg-primary/10 disabled:hover:bg-primary/5"
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-foreground truncate">
             {recap.name}
           </h3>
@@ -27,9 +33,12 @@ export function BlitzRecapCard({ recap }: BlitzRecapCardProps) {
             </div>
           )}
         </div>
-        <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
-          {formatBlitzDateRange(recap.startDate, recap.endDate)}
-        </span>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {formatBlitzDateRange(recap.startDate, recap.endDate)}
+          </span>
+          {onOpenDetails && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+        </div>
       </div>
 
       {/* Stats */}
@@ -43,7 +52,7 @@ export function BlitzRecapCard({ recap }: BlitzRecapCardProps) {
       ) : (
         <p className="text-xs text-muted-foreground mt-2 italic">No tracked stats for this blitz</p>
       )}
-    </div>
+    </button>
   );
 }
 
