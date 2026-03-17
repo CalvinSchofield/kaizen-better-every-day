@@ -86,8 +86,9 @@ export const SegmentDetailDrawer = ({
   workEnd,
   totalWorkMinutes,
 }: SegmentDetailDrawerProps) => {
-  // Calculate derived values only when we have valid data
-  const hasValidData = segment && workStart && workEnd;
+  // For live/unfinalized entries, workEnd may be null — use "now" as a fallback
+  const effectiveWorkEnd = workEnd || new Date();
+  const hasValidData = segment && workStart;
   
   const startTime = hasValidData ? angleToTime(segment.startAngle, workStart, workEnd) : null;
   const endTime = hasValidData ? angleToTime(segment.endAngle, workStart, workEnd) : null;
