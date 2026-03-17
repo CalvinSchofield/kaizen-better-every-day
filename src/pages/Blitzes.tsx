@@ -40,6 +40,7 @@ interface TeamMember {
 }
 
 const Blitzes = () => {
+  const navigate = useNavigate();
   const { repData, refetch } = useRepData();
   const { toast } = useToast();
   const { hasMnlEventToday } = useMondayNightLightsEvent();
