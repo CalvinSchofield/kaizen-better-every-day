@@ -830,6 +830,17 @@ const Goals = () => {
           </div>
         </div>
 
+        {/* Summer countdown during transition period */}
+        {userId && repData && !isUserSummerStarted && (
+          <SummerCountdownHero
+            personalSummerStart={seasonConfig?.personal_summer_start || null}
+            personalSummerEnd={seasonConfig?.personal_summer_end || null}
+            userId={userId}
+            userName={repData.name || 'You'}
+            variant="goals-card"
+          />
+        )}
+
         <motion.div 
           id="goals-hero-ring"
           className="px-4 py-8"
