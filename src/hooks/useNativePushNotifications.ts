@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { App } from '@capacitor/app';
 import { supabase } from '@/integrations/supabase/client';
+import { emitInAppNotification } from '@/components/InAppNotificationBanner';
 
 type NativePushPermission = 'prompt' | 'granted' | 'denied';
 
