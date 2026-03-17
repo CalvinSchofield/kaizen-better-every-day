@@ -103,8 +103,6 @@ const getInitialDataFromBackup = (entryDate: string): DailyEntry | undefined => 
   const hasActivity = getActivityTotal(backup) > 0;
   if (!hasActivity) return undefined;
   
-  console.log('[useDailyEntry] Using localStorage backup as initialData for instant hydration');
-  
   return {
     id: '',
     user_id: userId,
@@ -266,40 +264,60 @@ export const useDailyEntry = (date?: string) => {
       const serverTotal = getActivityTotal(serverEntry);
       const backupTotal = getActivityTotal(backup);
       
-      // Only recover from backup if:
-      // 1. Backup exists and has more data than server
-      // 2. Entry is not finalized
-      // 3. This is a genuine recovery (offline scenario), not just a cache refresh
-      // 4. We haven't already shown a recovery toast this session for this date
-      const recoveryKey = `backup-recovery-shown-${entryDate}`;
-      const alreadyShownThisSession = sessionStorage.getItem(recoveryKey);
-      
-      if (backup && backupTotal > serverTotal && !serverEntry?.is_finalized && !alreadyShownThisSession) {
+      // Recover from backup if backup has more data than server and entry isn't finalized
+      if (backup && backupTotal > serverTotal && !serverEntry?.is_finalized) {
         console.log('[DailyEntry] Recovering from backup - backup has more data:', backupTotal, 'vs server:', serverTotal);
-        
-        // Mark that we've shown recovery for this date this session
-        sessionStorage.setItem(recoveryKey, 'true');
-        
-        // Only show toast if the difference is significant (at least 1 tap difference)
-        // AND we're coming back online (navigator.onLine was false or this is first load)
-        const significantDifference = backupTotal - serverTotal >= 1;
-        if (significantDifference && !navigator.onLine) {
-          toast.success('Data recovered from local backup', {
-            description: `Your ${backupTotal} taps were protected and restored.`,
-            duration: 5000,
-          });
-        }
         
         // PHASE 3: Use smart merge to take higher values
         const merged = smartMergeEntries(serverEntry, backup);
         
-        return {
+        const mergedEntry = {
           id: serverEntry?.id || '',
           user_id: activeUser.id,
           entry_date: entryDate,
           ...merged,
           is_finalized: false,
         } as DailyEntry;
+        
+        // AUTO-PUSH: Write merged values back to server so they don't keep diverging.
+        // This prevents the "Syncing..." loop where backup > server on every fetch.
+        const pushKey = `backup-push-${entryDate}`;
+        const alreadyPushed = sessionStorage.getItem(pushKey);
+        if (!alreadyPushed) {
+          sessionStorage.setItem(pushKey, 'true');
+          // Fire-and-forget push to server (don't await to avoid blocking the query)
+          Promise.resolve(
+            supabase.rpc('upsert_daily_entry_safe', {
+              p_user_id: activeUser.id,
+              p_entry_date: entryDate,
+              p_doors_knocked: mergedEntry.doors_knocked ?? null,
+              p_decision_makers: mergedEntry.decision_makers ?? null,
+              p_pitches: mergedEntry.pitches ?? null,
+              p_transitions: mergedEntry.transitions ?? null,
+              p_presentations: mergedEntry.presentations ?? null,
+              p_closes: mergedEntry.closes ?? null,
+              p_fp_plus: mergedEntry.fp_plus ?? null,
+              p_prmr: mergedEntry.prmr ?? null,
+              p_upgrade_prmr: mergedEntry.upgrade_prmr ?? null,
+              p_work_start_time: mergedEntry.work_start_time ?? null,
+              p_work_end_time: mergedEntry.work_end_time ?? null,
+              p_break_periods: mergedEntry.break_periods ? JSON.parse(JSON.stringify(mergedEntry.break_periods)) : null,
+              p_counter_timestamps: mergedEntry.counter_timestamps ? JSON.parse(JSON.stringify(mergedEntry.counter_timestamps)) : null,
+              p_custom_counters: mergedEntry.custom_counters ? JSON.parse(JSON.stringify(mergedEntry.custom_counters)) : null,
+              p_timezone: mergedEntry.timezone ?? null,
+              p_sales_log: mergedEntry.sales_log ? JSON.parse(JSON.stringify(mergedEntry.sales_log)) : null,
+              p_is_finalized: null,
+            })
+          ).then(() => {
+            console.log('[DailyEntry] Auto-pushed merged backup to server');
+          }).catch((err) => {
+            console.error('[DailyEntry] Failed to auto-push backup:', err);
+            // Clear push flag so it retries next fetch
+            sessionStorage.removeItem(pushKey);
+          });
+        }
+        
+        return mergedEntry;
       }
       
       return serverEntry;
