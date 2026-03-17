@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Settings, Camera, Lock, Trophy, Flame, Target, Footprints, Presentation, ArrowRightLeft, Award } from "lucide-react";
+import { Settings, Camera, Lock, Trophy, Flame, Target, Footprints, Presentation, ArrowRightLeft, Award, Eye, EyeOff } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useGoalPaceCalculatorForUser } from "@/hooks/useGoalPaceCalculatorForUser";
+import { useWatchlist } from "@/hooks/useWatchlist";
 import { getInitials } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
 import { useState, useEffect } from "react";
