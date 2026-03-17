@@ -7,14 +7,124 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Realistic test payloads for each notification type
+function getTestPayload(type: string): Record<string, unknown> {
+  const testRecruitId = '00000000-0000-0000-0000-000000000001';
+  const testActivityId = '00000000-0000-0000-0000-000000000002';
+
+  switch (type) {
+    case 'comment':
+      return {
+        title: '💬 New Comment',
+        body: 'Jake Miller commented: "Great progress on this recruit!"',
+        url: `/my-group?recruitId=${testRecruitId}&activityId=${testActivityId}&openComments=true`,
+        type: 'comment',
+        recruitId: testRecruitId,
+        activityId: testActivityId,
+      };
+    case 'mention':
+      return {
+        title: '🔔 You were mentioned',
+        body: 'Jake Miller mentioned you: "@Calvin can you follow up on this?"',
+        url: `/my-group?recruitId=${testRecruitId}&activityId=${testActivityId}&openComments=true`,
+        type: 'mention',
+        recruitId: testRecruitId,
+        activityId: testActivityId,
+      };
+    case 'task_assignment':
+      return {
+        title: '📋 New Task Assigned',
+        body: 'Follow up call with David Johnson — assigned by Jake Miller',
+        url: `/my-group?recruitId=${testRecruitId}`,
+        type: 'task_assignment',
+        recruitId: testRecruitId,
+        activityId: testActivityId,
+      };
+    case 'task_single_reminder':
+      return {
+        title: '⏰ Task Reminder',
+        body: 'Call David Johnson — follow up on shadow day',
+        url: `/my-group?recruitId=${testRecruitId}`,
+        type: 'task_single_reminder',
+        recruitId: testRecruitId,
+        recruitPhone: '8015551234',
+      };
+    case 'inactivity_save':
+      return {
+        title: '🌙 Save Your Day?',
+        body: "It's getting late — save your numbers before the day resets!",
+        url: '/track?prompt=save',
+        type: 'inactivity_save',
+      };
+    case 'blitz_rsvp_first':
+      return {
+        title: '🔥 Blitz Trip: Salt Lake City',
+        body: 'Jan 15–19 — Are you in? RSVP now!',
+        url: '/',
+        type: 'blitz_rsvp_first',
+      };
+    case 'reaction':
+      return {
+        title: '🔥 New Reaction',
+        body: 'Jake Miller reacted 🔥 to your activity',
+        url: `/my-group?recruitId=${testRecruitId}&activityId=${testActivityId}`,
+        type: 'reaction',
+        recruitId: testRecruitId,
+        activityId: testActivityId,
+      };
+    case 'install_reminder_eve':
+      return {
+        title: '📅 Install Tomorrow',
+        body: 'Smith family install is scheduled for tomorrow at 10am',
+        url: '/customers',
+        type: 'install_reminder_eve',
+        recruitPhone: '8015559876',
+      };
+    case 'access_request':
+      return {
+        title: '👋 New Rep Joined',
+        body: 'David Johnson just signed up and needs team access',
+        url: '/',
+        type: 'access_request',
+      };
+    default:
+      return {
+        title: '🧪 Test Notification',
+        body: 'This is a rich test notification with action buttons!',
+        url: '/track',
+        type: 'test_rich',
+      };
+  }
+}
+
+// Build APNs payload from test data
+function buildApnsPayload(data: Record<string, unknown>) {
+  return {
+    aps: {
+      alert: {
+        title: data.title as string,
+        body: data.body as string,
+      },
+      sound: 'default',
+      'mutable-content': 1,
+      category: (data.type as string) || 'default',
+    },
+    url: data.url || '/',
+    type: data.type || 'default',
+    recruitId: data.recruitId || null,
+    activityId: data.activityId || null,
+    recruitPhone: data.recruitPhone || null,
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { targetEmail } = await req.json();
-    
+    const { targetEmail, type } = await req.json();
+
     if (targetEmail !== 'calvinjschofield@gmail.com') {
       return new Response(
         JSON.stringify({ error: 'Test only allowed for calvinjschofield@gmail.com' }),
@@ -22,7 +132,8 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Testing rich push for ${targetEmail}`);
+    const testPayload = getTestPayload(type || 'test_rich');
+    console.log(`Testing "${type || 'test_rich'}" push for ${targetEmail}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -34,65 +145,143 @@ serve(async (req) => {
       .eq('email', targetEmail)
       .single();
 
-    if (!rep) {
+    if (!rep?.user_id) {
       return new Response(
         JSON.stringify({ error: 'User not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { data: subscriptions } = await supabase
-      .from('push_subscriptions')
-      .select('endpoint, p256dh, auth')
-      .eq('user_id', rep.user_id);
+    // Fetch both web push and APNs tokens in parallel
+    const [webSubsResult, apnsTokensResult] = await Promise.all([
+      supabase
+        .from('push_subscriptions')
+        .select('endpoint, p256dh, auth')
+        .eq('user_id', rep.user_id),
+      supabase
+        .from('apns_device_tokens')
+        .select('device_token')
+        .eq('user_id', rep.user_id),
+    ]);
 
-    if (!subscriptions?.length) {
+    const webSubs = webSubsResult.data || [];
+    const apnsTokens = apnsTokensResult.data || [];
+
+    if (!webSubs.length && !apnsTokens.length) {
       return new Response(
-        JSON.stringify({ error: 'No push subscription. Enable notifications first.' }),
+        JSON.stringify({ error: 'No push subscriptions found. Enable notifications first.' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Found ${subscriptions.length} subscription(s)`);
-    
-    const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
-    const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
-    
-    if (!vapidPublicKey || !vapidPrivateKey) {
-      return new Response(
-        JSON.stringify({ error: 'VAPID keys not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    console.log(`Found ${webSubs.length} web sub(s), ${apnsTokens.length} APNs token(s)`);
 
-    let sent = 0;
-    for (const sub of subscriptions) {
-      const result = await sendWebPush(
-        sub as PushSubscription,
-        { 
-          title: '🧪 Test Notification', 
-          body: 'This is a rich test notification with action buttons!', 
-          url: '/track', 
-          type: 'test_rich'  // Custom type for test
-        },
-        vapidPublicKey,
-        vapidPrivateKey
-      );
-      console.log(`Push result:`, result);
-      if (result.success) {
-        sent++;
+    let webSent = 0;
+    let apnsSent = 0;
+    const errors: string[] = [];
+
+    // === Web Push ===
+    if (webSubs.length) {
+      const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+      const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+
+      if (vapidPublicKey && vapidPrivateKey) {
+        for (const sub of webSubs) {
+          const result = await sendWebPush(
+            sub as PushSubscription,
+            testPayload as any,
+            vapidPublicKey,
+            vapidPrivateKey
+          );
+          if (result.success) webSent++;
+          else if (result.error) errors.push(`web: ${result.error}`);
+        }
+      } else {
+        errors.push('VAPID keys not configured');
       }
     }
 
-    const success = sent > 0;
+    // === APNs ===
+    if (apnsTokens.length) {
+      const teamId = Deno.env.get('APNS_TEAM_ID');
+      const keyId = Deno.env.get('APNS_KEY_ID');
+      const privateKey = Deno.env.get('APNS_PRIVATE_KEY');
+      const bundleId = Deno.env.get('APNS_BUNDLE_ID') || 'app.lovable.00427502ff944cc991616496e2600071';
+
+      if (teamId && keyId && privateKey) {
+        // Build JWT
+        const header = { alg: 'ES256', kid: keyId };
+        const now = Math.floor(Date.now() / 1000);
+        const claims = { iss: teamId, iat: now };
+        const encodedHeader = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const encodedClaims = btoa(JSON.stringify(claims)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const unsignedToken = `${encodedHeader}.${encodedClaims}`;
+
+        const pemContents = privateKey
+          .replace(/\\n/g, '\n')
+          .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+          .replace(/-----END PRIVATE KEY-----/g, '')
+          .replace(/\s/g, '');
+
+        const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+        const cryptoKey = await crypto.subtle.importKey(
+          'pkcs8', binaryKey.buffer,
+          { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']
+        );
+        const signature = await crypto.subtle.sign(
+          { name: 'ECDSA', hash: 'SHA-256' }, cryptoKey,
+          new TextEncoder().encode(unsignedToken)
+        );
+        const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+          .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const authToken = `${unsignedToken}.${signatureB64}`;
+
+        const productionRaw = (Deno.env.get('APNS_PRODUCTION') ?? '').trim().toLowerCase();
+        const isProduction = productionRaw === 'true' || productionRaw === '1';
+        const apnsHost = isProduction ? 'api.push.apple.com' : 'api.sandbox.push.apple.com';
+        const apnsPayload = buildApnsPayload(testPayload);
+
+        for (const { device_token } of apnsTokens) {
+          try {
+            const res = await fetch(`https://${apnsHost}/3/device/${device_token}`, {
+              method: 'POST',
+              headers: {
+                'authorization': `bearer ${authToken}`,
+                'apns-topic': bundleId,
+                'apns-push-type': 'alert',
+                'apns-priority': '10',
+                'apns-expiration': '0',
+                'content-type': 'application/json',
+              },
+              body: JSON.stringify(apnsPayload),
+            });
+            if (res.status === 200) apnsSent++;
+            else {
+              const errBody = await res.text();
+              errors.push(`apns ${res.status}: ${errBody}`);
+            }
+          } catch (e) {
+            errors.push(`apns: ${e instanceof Error ? e.message : 'unknown'}`);
+          }
+        }
+      } else {
+        errors.push('APNs keys not configured');
+      }
+    }
+
+    const totalSent = webSent + apnsSent;
     return new Response(
-      JSON.stringify({ success, message: `Sent ${sent}/${subscriptions.length}` }),
-      { 
-        status: success ? 200 : 502,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      JSON.stringify({
+        success: totalSent > 0,
+        type: type || 'test_rich',
+        message: `Web: ${webSent}/${webSubs.length}, APNs: ${apnsSent}/${apnsTokens.length}`,
+        errors: errors.length ? errors : undefined,
+      }),
+      {
+        status: totalSent > 0 ? 200 : 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-
   } catch (error) {
     console.error('Error:', error);
     return new Response(
