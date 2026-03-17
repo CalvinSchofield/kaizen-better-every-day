@@ -349,7 +349,7 @@ serve(async (req) => {
         url = '/track';
       }
       
-      // Send notification to all subscriptions
+      // Send notification to all web push subscriptions
       let sent = false;
       for (const subscription of subscriptions) {
         const success = await sendPushNotification(
@@ -360,6 +360,45 @@ serve(async (req) => {
           notificationType
         );
         if (success) sent = true;
+      }
+
+      // Also send APNs for native iOS
+      const { data: apnsTokens } = await supabase
+        .from('apns_device_tokens')
+        .select('device_token')
+        .eq('user_id', entry.user_id);
+
+      if (apnsTokens && apnsTokens.length > 0) {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const apnsConfigured = Deno.env.get('APNS_TEAM_ID') && Deno.env.get('APNS_KEY_ID') && Deno.env.get('APNS_PRIVATE_KEY');
+
+        if (apnsConfigured) {
+          try {
+            const apnsResponse = await fetch(`${supabaseUrl}/functions/v1/send-apns-notification`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({
+                targetUserId: entry.user_id,
+                title,
+                body,
+                url,
+                type: notificationType,
+              }),
+            });
+            if (apnsResponse.ok) {
+              sent = true;
+              console.log(`Sent APNs notification to user ${entry.user_id}`);
+            } else {
+              await apnsResponse.text();
+            }
+          } catch (e) {
+            console.error('APNs call failed:', e);
+          }
+        }
       }
       
       if (sent) {
