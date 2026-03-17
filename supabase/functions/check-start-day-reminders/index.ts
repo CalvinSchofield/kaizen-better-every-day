@@ -120,8 +120,38 @@ serve(async (req) => {
 
       if (existingLog && existingLog.length > 0) continue;
 
+      // Check if they have tasks due today for richer context
+      const { data: dueTasks } = await supabase
+        .from("recruit_activities")
+        .select("id, next_action, recruit_id")
+        .eq("assigned_to_user_id", rep.user_id)
+        .eq("next_action_due", localDate)
+        .is("completed_at", null)
+        .neq("assignment_status", "completed");
+
+      let taskContext = "";
+      if (dueTasks && dueTasks.length > 0) {
+        // Get recruit name for first task
+        const firstTask = dueTasks[0];
+        if (firstTask.recruit_id) {
+          const { data: recruit } = await supabase
+            .from("recruits")
+            .select("name")
+            .eq("id", firstTask.recruit_id)
+            .maybeSingle();
+          if (recruit?.name) {
+            taskContext = dueTasks.length === 1
+              ? ` You have a task due: ${firstTask.next_action || "Follow up"} with ${recruit.name}.`
+              : ` You have ${dueTasks.length} tasks due today, including ${firstTask.next_action || "follow up"} with ${recruit.name}.`;
+          }
+        }
+        if (!taskContext && dueTasks.length > 0) {
+          taskContext = ` You have ${dueTasks.length} task${dueTasks.length !== 1 ? "s" : ""} due today.`;
+        }
+      }
+
       const title = "🌞 Time to Start Your Day!";
-      const body = `You planned to work today — tap here to start tracking and make it count!`;
+      const body = `You planned to work today — tap here to start tracking and make it count!${taskContext}`;
       const url = "/track";
 
       let sent = false;

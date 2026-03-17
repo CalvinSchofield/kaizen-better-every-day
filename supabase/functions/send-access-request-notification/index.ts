@@ -129,10 +129,11 @@ serve(async (req) => {
     let failCount = 0;
 
     const payload = {
-      title: 'Access Request',
-      body: `${userName} is requesting access to Kaizen`,
+      title: `👋 ${userName} just signed up!`,
+      body: `${userName} is requesting access to Kaizen. Check their onboarding progress and approve.`,
       url: `/my-group?action=approve&email=${encodeURIComponent(userEmail)}`,
       tag: `access-request-${userEmail}`,
+      type: 'access_request',
     };
 
     for (const sub of subscriptions || []) {
@@ -150,28 +151,57 @@ serve(async (req) => {
 
         if (result.success) {
           successCount++;
-          console.log(`[send-access-request-notification] Sent to user ${sub.user_id}`);
-          
-          // Log the notification
-          await supabase.from('notification_logs').insert({
-            user_id: sub.user_id,
-            recipient_user_id: sub.user_id,
-            notification_type: 'access_request',
-            entry_date: new Date().toISOString().split('T')[0],
-            metadata: { 
-              requester_email: userEmail, 
-              requester_name: userName,
-              recruit_id: recruit?.id || null
-            }
-          });
         } else {
           failCount++;
-          console.error(`[send-access-request-notification] Failed for user ${sub.user_id}:`, result.error);
+          if (result.status === 410 || result.status === 404) {
+            await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+          }
         }
       } catch (err) {
         failCount++;
-        console.error(`[send-access-request-notification] Error sending to ${sub.user_id}:`, err);
       }
+    }
+
+    // Send APNs to upline leaders
+    const apnsConfigured = Deno.env.get('APNS_TEAM_ID') && Deno.env.get('APNS_KEY_ID') && Deno.env.get('APNS_PRIVATE_KEY');
+    if (apnsConfigured) {
+      for (const leaderId of uplineUserIds) {
+        try {
+          const resp = await fetch(`${supabaseUrl}/functions/v1/send-apns-notification`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              targetUserId: leaderId,
+              title: payload.title,
+              body: payload.body,
+              url: payload.url,
+              type: 'access_request',
+            }),
+          });
+          if (resp.ok) successCount++;
+          else await resp.text();
+        } catch (e) {
+          console.error('APNs call failed:', e);
+        }
+      }
+    }
+
+    // Log notifications
+    for (const leaderId of uplineUserIds) {
+      await supabase.from('notification_logs').insert({
+        user_id: leaderId,
+        recipient_user_id: leaderId,
+        notification_type: 'access_request',
+        entry_date: new Date().toISOString().split('T')[0],
+        metadata: { 
+          requester_email: userEmail, 
+          requester_name: userName,
+          recruit_id: recruit?.id || null
+        }
+      });
     }
 
     console.log(`[send-access-request-notification] Complete: ${successCount} sent, ${failCount} failed`);

@@ -7,23 +7,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Ramp phase messages
-const PHASE_MESSAGES: Record<string, { title: string; body: string }> = {
+// Ramp phase messages — {name} is replaced with recruit name
+const PHASE_MESSAGES: Record<string, { title: (name: string) => string; body: (name: string) => string }> = {
   phase_1: {
-    title: "Get Started! 🚀",
-    body: "Review how pay works and set your goals to unlock Product & Process"
+    title: (name) => `🚀 ${name}, get started!`,
+    body: (_) => "Review how pay works and set your goals to unlock Product & Process"
   },
   phase_2: {
-    title: "Keep the Momentum! 💪",
-    body: "Study the product and submit your pitch recordings to move forward"
+    title: (name) => `💪 ${name}, keep the momentum!`,
+    body: (_) => "Study the product and submit your pitch recordings to move forward"
   },
   phase_3: {
-    title: "Almost There! 🎯",
-    body: "Set up your iPad and do a 1-on-1 practice session to keep going!"
+    title: (name) => `🎯 ${name}, almost there!`,
+    body: (_) => "Set up your iPad and do a 1-on-1 practice session to keep going!"
   },
   phase_4: {
-    title: "Final Stretch! 🏁",
-    body: "Pack your bags and check your essentials — you're almost ready!"
+    title: (name) => `🏁 ${name}, final stretch!`,
+    body: (_) => "Pack your bags and check your essentials — you're almost ready!"
   }
 };
 
@@ -138,9 +138,10 @@ serve(async (req) => {
       }
 
       const message = PHASE_MESSAGES[stuckPhase];
+      const firstName = recruit.name.split(' ')[0];
       const payload = {
-        title: message.title,
-        body: message.body,
+        title: message.title(firstName),
+        body: message.body(firstName),
         url: '/ramp-to-blitz',
         tag: `ramp-nudge-${userId}-${today}`,
       };

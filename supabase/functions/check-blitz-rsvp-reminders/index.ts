@@ -166,12 +166,16 @@ serve(async (req) => {
           continue;
         }
 
-        // Compose notification
+        // Compose notification with formatted date
         const isFirstWindow = window === 'first';
-        const title = isFirstWindow ? '📍 Blitz Coming Up!' : '⏰ Confirm Your Blitz!';
+        const blitzDate = new Date(blitz.date + 'T12:00:00');
+        const formattedDate = blitzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const title = isFirstWindow
+          ? `📍 ${blitz.name} — ${formattedDate}!`
+          : `⏰ ${blitz.name} in 10 days!`;
         const body = isFirstWindow
-          ? `${blitz.name} is 3 weeks away${blitz.location ? ` in ${blitz.location}` : ''}! Are you in?`
-          : `${blitz.name} is in 10 days${blitz.location ? ` (${blitz.location})` : ''}! Confirm your attendance.`;
+          ? `${blitz.location ? `${blitz.location} — ` : ''}3 weeks away! Confirm you're in so your team can plan.`
+          : `${blitz.location ? `${blitz.location}, ` : ''}${formattedDate}. Confirm your attendance now.`;
 
         // Send to all subscriptions for this user
         let sent = false;

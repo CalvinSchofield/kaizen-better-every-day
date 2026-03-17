@@ -83,6 +83,27 @@ serve(async (req) => {
       "Invest in yourself! Log your training hours and prep activities.",
     ];
 
+    // Get rep names and goals for personalization
+    const { data: repGoals } = await supabase
+      .from("rep_goals")
+      .select("user_id, role_plays_goal, role_plays_progress, training_hours_goal, training_hours_progress, books_goal, books_progress, monday_night_lights_goal, monday_night_lights_progress")
+      .in("user_id", userIds);
+
+    const goalsByUser = new Map<string, typeof repGoals extends (infer T)[] | null ? T : never>();
+    for (const g of repGoals || []) {
+      goalsByUser.set(g.user_id, g);
+    }
+
+    const { data: repNames } = await supabase
+      .from("reps")
+      .select("user_id, name")
+      .in("user_id", userIds);
+
+    const nameByUser = new Map<string, string>();
+    for (const r of repNames || []) {
+      if (r.user_id) nameByUser.set(r.user_id, r.name);
+    }
+
     for (const subscription of subscriptions) {
       // Skip if user's summer has started (no longer preseason)
       const summerStart = summerStartByUser.get(subscription.user_id);
@@ -97,13 +118,37 @@ serve(async (req) => {
         continue;
       }
 
-      const message = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
+      // Build personalized body with actual progress
+      const goals = goalsByUser.get(subscription.user_id);
+      const repName = nameByUser.get(subscription.user_id) || "";
+      let body: string;
+
+      if (goals) {
+        const progressParts: string[] = [];
+        if (goals.role_plays_goal && goals.role_plays_goal > 0) {
+          progressParts.push(`${goals.role_plays_progress || 0}/${goals.role_plays_goal} role plays`);
+        }
+        if (goals.training_hours_goal && goals.training_hours_goal > 0) {
+          progressParts.push(`${Math.round(goals.training_hours_progress || 0)}/${goals.training_hours_goal}h training`);
+        }
+        if (goals.monday_night_lights_goal && goals.monday_night_lights_goal > 0) {
+          progressParts.push(`${goals.monday_night_lights_progress || 0}/${goals.monday_night_lights_goal} MNL`);
+        }
+
+        if (progressParts.length > 0) {
+          body = `Your progress: ${progressParts.join(", ")}. Keep building momentum!`;
+        } else {
+          body = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
+        }
+      } else {
+        body = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
+      }
 
       const result = await sendWebPush(
         { endpoint: subscription.endpoint, p256dh: subscription.p256dh, auth: subscription.auth },
         {
           title: '📊 Weekly Check-In',
-          body: message,
+          body,
           url: '/goals',
           type: 'preseason_accountability'
         },
