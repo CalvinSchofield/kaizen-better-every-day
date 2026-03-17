@@ -703,6 +703,20 @@ const Blitzes = () => {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Edit Summer Dates Drawer */}
+      {userId && repData && (
+        <EditSummerDatesDrawer
+          open={editSummerDatesOpen}
+          onOpenChange={setEditSummerDatesOpen}
+          person={{
+            userId,
+            name: repData.name || 'You',
+            personalSummerStart: summerConfig?.personal_summer_start || null,
+            personalSummerEnd: summerConfig?.personal_summer_end || null,
+          }}
+        />
+      )}
     </div>
   );
 };
