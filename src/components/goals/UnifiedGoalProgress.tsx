@@ -125,23 +125,23 @@ const SegmentedBar = ({
           animate={{ width: `${fundedPct}%` }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
         />
+        {/* Live (green + pulse — visually extends funded) */}
+        {livePct > 0 && (
+          <motion.div
+            className="h-full absolute top-0 bg-emerald-500 animate-pulse"
+            style={{ left: `${fundedPct}%` }}
+            initial={{ width: 0 }}
+            animate={{ width: `${livePct}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut', delay: 0.1 }}
+          />
+        )}
         {/* Unfunded (blue) */}
         {unfundedPct > 0 && (
           <motion.div
             className="h-full absolute top-0 bg-primary"
-            style={{ left: `${fundedPct}%` }}
+            style={{ left: `${fundedPct + livePct}%` }}
             initial={{ width: 0 }}
             animate={{ width: `${unfundedPct}%` }}
-            transition={{ duration: 0.5, ease: 'easeOut', delay: 0.1 }}
-          />
-        )}
-        {/* Live (green + pulse — same as funded but animated) */}
-        {livePct > 0 && (
-          <motion.div
-            className="h-full absolute top-0 bg-emerald-500 animate-pulse"
-            style={{ left: `${fundedPct + unfundedPct}%` }}
-            initial={{ width: 0 }}
-            animate={{ width: `${livePct}%` }}
             transition={{ duration: 0.5, ease: 'easeOut', delay: 0.2 }}
           />
         )}
@@ -149,7 +149,7 @@ const SegmentedBar = ({
         {pendingPct > 0 && (
           <motion.div
             className="h-full absolute top-0 rounded-r-full bg-warning"
-            style={{ left: `${fundedPct + unfundedPct + livePct}%` }}
+            style={{ left: `${fundedPct + livePct + unfundedPct}%` }}
             initial={{ width: 0 }}
             animate={{ width: `${pendingPct}%` }}
             transition={{ duration: 0.5, ease: 'easeOut', delay: 0.3 }}
