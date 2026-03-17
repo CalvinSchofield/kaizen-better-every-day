@@ -29,7 +29,7 @@ interface LayoutProps {
 const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicator, headerRightContent, isEntryFinalized, onViewRecap, hasWorkStarted }: LayoutProps) => {
   const location = useLocation();
   const { repData } = useRepData();
-  const { isKnockingMode } = useAppMode(repData);
+  const { isKnockingMode, isInSummerPeriod } = useAppMode(repData);
   const { data: teamAccess } = useTeamAccess();
   const { customTitle, customRightContent, customLeftContent } = useHeader();
   
