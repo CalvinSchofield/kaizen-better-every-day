@@ -67,6 +67,12 @@ const Blitzes = () => {
   const [showAlerts, setShowAlerts] = useState(false);
   const [showChallenges, setShowChallenges] = useState(false);
   const [editSummerDatesOpen, setEditSummerDatesOpen] = useState(false);
+  const [detailDrawerBlitz, setDetailDrawerBlitz] = useState<{
+    name: string;
+    location: string | null;
+    startDate: string;
+    endDate: string;
+  } | null>(null);
 
   const { userId } = useCurrentUserId();
   const queryClient = useQueryClient();
