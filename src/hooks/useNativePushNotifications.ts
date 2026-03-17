@@ -51,14 +51,13 @@ export function useNativePushNotifications() {
         return false;
       }
 
-      // Delete old tokens for this user, then insert
-      await supabase.from('apns_device_tokens').delete().eq('user_id', user.id);
+      // Upsert: delete other tokens for this user, then upsert current one
+      await supabase.from('apns_device_tokens').delete().eq('user_id', user.id).neq('device_token', token);
 
-      const { error } = await supabase.from('apns_device_tokens').insert({
-        user_id: user.id,
-        device_token: token,
-        platform: 'ios',
-      });
+      const { error } = await supabase.from('apns_device_tokens').upsert(
+        { user_id: user.id, device_token: token, platform: 'ios', updated_at: new Date().toISOString() },
+        { onConflict: 'device_token' }
+      );
 
       if (error) {
         console.error('[NativePush] Token store error:', error);
