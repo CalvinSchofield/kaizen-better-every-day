@@ -143,7 +143,11 @@ serve(async (req) => {
   }
 
   try {
-    const { targetUserId, targetEmail, title, body, url, type } = await req.json();
+    const { 
+      targetUserId, targetEmail, title, body, url, type,
+      // Rich notification custom data (passed through to iOS userInfo)
+      activityId, recruitId, recruitName, phone, challengeId, repUserId
+    } = await req.json();
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -208,7 +212,7 @@ serve(async (req) => {
     const authToken = await getAPNsAuthToken();
     console.log('[APNs] Auth token obtained, building payload...');
 
-    // Build payload
+    // Build payload with custom data for rich notification actions
     const payload: APNsPayload = {
       aps: {
         alert: {
@@ -220,7 +224,14 @@ serve(async (req) => {
         category: type || 'default'
       },
       url: url || '/',
-      type: type || 'default'
+      type: type || 'default',
+      // Pass through custom data for iOS rich action handlers
+      ...(activityId && { activityId }),
+      ...(recruitId && { recruitId }),
+      ...(recruitName && { recruitName }),
+      ...(phone && { phone }),
+      ...(challengeId && { challengeId }),
+      ...(repUserId && { repUserId }),
     };
 
     // Send to all device tokens
