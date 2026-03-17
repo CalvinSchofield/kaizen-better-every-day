@@ -382,24 +382,24 @@ const FullMode = ({
             <div className="flex items-center gap-4 text-[10px] text-muted-foreground pt-1">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span>Funded</span>
+                <span>{formatFP(Math.min(current.funded, current.actual))} funded</span>
               </div>
-              {(current.actual - Math.min(current.funded, current.actual)) > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-primary" />
-                  <span>Unfunded</span>
-                </div>
-              )}
               {current.live > 0 && (
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Live</span>
+                  <span>{formatFP(current.live)} live</span>
+                </div>
+              )}
+              {(current.actual - Math.min(current.funded, current.actual)) > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-primary" />
+                  <span>{formatFP(current.actual - Math.min(current.funded, current.actual))} unfunded</span>
                 </div>
               )}
               {current.pending > 0 && (
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-warning" />
-                  <span>Pending</span>
+                  <span>{formatFP(current.pending)} pending</span>
                 </div>
               )}
               {data.knockingDaysCompleted >= 6 && (
