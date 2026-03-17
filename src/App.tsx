@@ -87,10 +87,9 @@ const App = () => {
             <Sonner />
             <OfflineIndicator />
             <NativeAppPromo />
-            <BrowserRouter>
-              <InAppNotificationBanner />
             <ChallengeWinListener />
             <BrowserRouter>
+              <InAppNotificationBanner />
               <ScrollToTop />
               <Routes>
                 {/* Auth routes - no Layout */}
