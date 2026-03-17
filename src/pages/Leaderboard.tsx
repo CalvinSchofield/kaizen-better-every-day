@@ -147,6 +147,11 @@ const Leaderboard = () => {
             <div className="h-32 bg-muted rounded-xl" />
             <div className="h-24 bg-muted rounded-xl" />
           </div>
+        ) : watchlistEmpty ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <p className="text-lg font-medium">Your watchlist is empty</p>
+            <p className="text-sm mt-1">Visit someone's profile and tap 👁 to start watching</p>
+          </div>
         ) : hasNoData ? (
           <div className="text-center py-12 text-muted-foreground">
             <p className="text-lg font-medium">
@@ -163,11 +168,11 @@ const Leaderboard = () => {
             {isLive ? (
               todayLeaderboard && (
                 <UnifiedRaceSection
-                  rankings={todayLeaderboard.rankings}
+                  rankings={filterRankings(todayLeaderboard.rankings) as typeof todayLeaderboard.rankings}
                   currentUserId={currentUserId}
                   isLive={true}
                   isFetching={todayFetching}
-                  title="Live Race"
+                  title={isWatchlistMode ? "Watchlist Race" : "Live Race"}
                 />
               )
             ) : (
