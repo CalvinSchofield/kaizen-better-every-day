@@ -243,7 +243,7 @@ export const useDailyEntry = (date?: string) => {
       const { data, error } = await supabase
         .from('daily_entries')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', activeUser.id)
         .eq('entry_date', entryDate)
         .maybeSingle();
 
