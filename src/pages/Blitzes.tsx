@@ -194,10 +194,11 @@ const Blitzes = () => {
   }, [summerConfig?.personal_summer_start]);
 
   useEffect(() => {
-    if (summerStarted) {
+    // Leaders keep access to Blitzes year-round; only redirect non-leaders
+    if (summerStarted && !isLeader) {
       navigate('/leaderboard', { replace: true });
     }
-  }, [summerStarted, navigate]);
+  }, [summerStarted, isLeader, navigate]);
 
   const firstName = repData?.name?.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0] || '';
 
