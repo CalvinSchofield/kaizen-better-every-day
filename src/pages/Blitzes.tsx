@@ -464,6 +464,7 @@ const Blitzes = () => {
           {/* No committed blitz — Summer countdown OR pick-a-blitz CTA */}
           {!upcomingBlitzForRsvp && !nextBlitz && (() => {
             const hasRemainingBlitzes = allBlitzes.length > 0;
+            const hasAnyCommittedBlitzes = committedBlitzesArr.length > 0;
             const GLOBAL_SUMMER_START = '2026-04-12';
             const hasPersonalDates = !!summerConfig?.personal_summer_start;
             const effectiveSummerStart = summerConfig?.personal_summer_start || GLOBAL_SUMMER_START;
@@ -478,8 +479,9 @@ const Blitzes = () => {
               return endDate.getTime() < today.getTime();
             }).length;
 
-            // If there are still blitzes to pick from, show the original CTA
-            if (hasRemainingBlitzes) {
+            // If rep has no committed blitzes at all, show summer countdown (skip blitz cards)
+            // If there are blitzes to pick AND the rep has committed before, show the pick CTA
+            if (hasRemainingBlitzes && hasAnyCommittedBlitzes) {
               return (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
