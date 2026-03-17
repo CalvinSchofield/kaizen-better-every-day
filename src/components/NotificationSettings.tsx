@@ -133,6 +133,18 @@ export function NotificationSettings() {
     togglePreference({ type, enabled });
   };
 
+  if (pushLoading) {
+    return (
+      <div className="flex items-center gap-3 px-1 py-3">
+        <span className="text-xl">🔔</span>
+        <div>
+          <Label className="text-base font-semibold">Push Notifications</Label>
+          <p className="text-sm text-muted-foreground">Checking notification support…</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isSupported) {
     return (
       <div className="space-y-1">
