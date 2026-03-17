@@ -1,93 +1,96 @@
-## Push Notification Fix – Complete
+# Notification System Audit & Recommendations
 
-### What was changed (code side)
+## Current Notification Inventory
 
-1. **`src/hooks/useNativePushNotifications.ts`** – Rewritten as single source of truth:
-   - Listeners set up once (ref guard)
-   - Token stored with retry: if no session at callback time, token is parked and retried on auth state change or app resume
-   - Per-user token queries (no global counts)
-   - Debug state includes explicit phases: `init → permission_checked → register_called → token_received → token_saved`
-   - App resume listener re-registers with APNs
+### A. Event-Triggered (Real-time, fired from client actions)
 
-2. **`src/components/PushNotificationInitializer.tsx`** – Stripped to thin bootstrapper:
-   - Only calls `PushNotifications.register()` if permission already granted
-   - No duplicate listeners (all handled by the hook)
 
-3. **`src/hooks/useUnifiedPushNotifications.ts`** – Exposes `refreshStoredTokenFlag`
+| #   | Function                            | Trigger                                                             | Web Push | APNs              | Status                   |
+| --- | ----------------------------------- | ------------------------------------------------------------------- | -------- | ----------------- | ------------------------ |
+| 1   | `send-comment-notification`         | Someone comments on your recruit activity                           | Yes      | Yes               | Working                  |
+| 2   | `send-mention-notification`         | Someone @mentions you in a comment                                  | Yes      | **No** (has TODO) | Partial — APNs not wired |
+| 3   | `send-reaction-notification`        | Someone reacts to your recruit activity                             | Yes      | Yes               | Working                  |
+| 4   | `send-challenge-notification`       | Challenge invite/accept/decline/complete, incentive create/complete | Yes      | Yes               | Working                  |
+| 5   | `send-task-assignment-notification` | A task is assigned to you by a leader                               | Yes      | Yes               | Working                  |
+| 6   | `send-access-request-notification`  | New rep requests access (notifies upline leaders 3 layers up)       | Yes      | Unknown           | Working                  |
 
-4. **`src/pages/Settings.tsx`** – All APNs token queries now filter by current user. Debug panel shows phase + Xcode capability warning.
 
-5. **`supabase/functions/test-push-notification/index.ts`** – Returns `success: false` + 502 when 0 notifications sent.
+         ***lets also add a notifciation to the upline (3 layers up) when a rep marks a onboarding task as completed and is waiting on approval to move to the next step
 
----
+### B. Scheduled/Cron (should run on a timer)
 
-### What YOU need to do (step by step)
 
-#### Step 1: Open Terminal
-Open the Terminal app on your Mac. Navigate to your project folder:
-```bash
-cd ~/path-to-your-project
-```
-(Replace with your actual folder path. If you're not sure, right-click the folder in Finder → "Copy as Pathname", then type `cd ` and paste.)
+| #   | Function                            | Purpose                                                                                                        | Cron Job Exists? | Status                            |
+| --- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------- | --------------------------------- |
+| 7   | `check-inactivity-notifications`    | 60-min idle motivational nudge + 9pm "save your day" reminder (IF they are working and have tracked doors etc) | **No cron job**  | Only runs manually from Dev Tools |
+| 8   | `check-task-reminders`              | 9am digest, 6pm nudge, 9pm install reminders                                                                   | **No cron job**  | Only runs manually                |
+| 9   | `check-blitz-rsvp-reminders`        | 21-day and 10-day blitz RSVP asks                                                                              | **No cron job**  | Only runs manually                |
+| 10  | `check-ramp-progress-notifications` | Nudges rookies stuck on ramp phases                                                                            | **No cron job**  | Only runs manually                |
+| 11  | `check-preseason-accountability`    | Weekly preseason commitment reminder (****remind the rookie of their preseason commitments once a week)        | **No cron job**  | Only runs manually                |
+| 12  | `auto-finalize-entries`             | Auto-saves day at midnight                                                                                     | **Yes** (hourly) | Working                           |
 
-#### Step 2: Pull & build
-```bash
-git pull
-npm install
-npm run build
-npx cap sync ios
-```
 
-#### Step 3: Open in Xcode
-```bash
-npx cap open ios
-```
+### C. Known Issues
 
-#### Step 4: Xcode — Add Push Capability (CRITICAL)
-1. In the left sidebar, click the blue **App** project icon (top of the file tree)
-2. Select the **App** target (under TARGETS)
-3. Click **Signing & Capabilities** tab
-4. Click **+ Capability** (top left)
-5. Search for **Push Notifications** → double-click to add it
-6. Click **+ Capability** again → search **Background Modes** → add it
-7. Check ✅ **Remote notifications**
-
-#### Step 5: Verify AppDelegate
-Open `ios/App/App/AppDelegate.swift`. You need these methods. If they're missing, add them inside the `AppDelegate` class:
-
-```swift
-func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
-}
-
-func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-    NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
-}
-```
-
-#### Step 6: Build & deploy
-1. In Xcode: **Product → Clean Build Folder** (Shift+Cmd+K)
-2. Select your physical iPhone as the run target (top bar)
-3. **Product → Build** (Cmd+B)
-4. To push to TestFlight: **Product → Archive**, then **Distribute App → App Store Connect**
-
-#### Step 7: Test on device
-1. Install the new TestFlight build
-2. Open the app, log in
-3. Go to **Settings → Developer Tools**
-4. Tap **Re-register & Self-Test Push**
-5. You should see:
-   - Phase: `token_saved`
-   - APNs token in DB: Yes
-   - Test notification arrives on your phone
-
-If Phase stays at `register_called` and no token appears → the Xcode capability (Step 4) is likely missing.
+1. **No cron jobs for 5 scheduled functions** — `check-inactivity-notifications`, `check-task-reminders`, `check-blitz-rsvp-reminders`, `check-ramp-progress-notifications`, and `check-preseason-accountability` all exist but have no `pg_cron` schedule. They only fire when you manually trigger them from Developer Tools.
+2. `**send-mention-notification` missing APNs** — Has a TODO comment: "Add APNs sending for native iOS when ready". Mentions won't reach TestFlight users.
+3. `**check-inactivity-notifications` is web-push only** — Doesn't call `send-apns-notification`, so native app users never get idle nudges.
 
 ---
 
-### PWA Push (after TestFlight works)
-1. On your iPhone, open Safari → go to `https://kaizen-better-every-day.lovable.app`
-2. Tap Share → **Add to Home Screen**
-3. Open the app from your Home Screen (must be the Home Screen version, not Safari)
-4. Go to Settings → enable notifications
-5. Test with the notification button
+## Recommended New Notifications
+
+Based on the daily tracking workflow and what reps actually do in the app:
+
+### High Impact
+
+
+| Notification                       | When                                                                                                                                                                                                                     | Why                                                                            | &nbsp;                                 |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ | -------------------------------------- |
+| **"Start Your Day" morning nudge** | noon local on PLANNED work days if `work_start_time` is null                                                                                                                                                             | Reps plan days but forget to start tracking. A nudge gets them going.          | &nbsp;                                 |
+| &nbsp;                             | &nbsp;                                                                                                                                                                                                                   | &nbsp;                                                                         | &nbsp;                                 |
+| **Personal record celebration**    | Immediately when `check-personal-records` detects a new PR (notify upline 3 layers up if it is a FP+/PRMR record too, otherwise just the rep if its an inputs record)                                                    | "New PR! You knocked 47 doors today — your best ever!" Massive morale booster. | &nbsp;                                 |
+| **Leader coaching nudge**          | Mornings (9am) on days when a rep in their direct downline hasn't sold in 2+ days (knocked but not sold -- no FP+ or PRMR logged). Also notify 2 layers up (ex. my recruit hasn't sold in 2 days, notify me and my boss) | &nbsp;                                                                         | Keeps leaders engaged with their team. |
+
+
+### Medium Impact
+
+
+| Notification                       | When                                                                                                            | Why                                                                        |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **Sale pending install follow-up** | Already partially built in `check-task-reminders` (9pm install reminders). Could add a day-of morning reminder. | Installs that don't happen = lost revenue.                                 |
+| &nbsp;                             | &nbsp;                                                                                                          | &nbsp;                                                                     |
+| **Challenge progress update**      | Daily at 6pm during active challenges                                                                           | "You're 2 closes behind [opponent]. 3 days left!" Drives competitive fire. |
+
+
+### Lower Priority
+
+
+| Notification | When   | Why    |
+| ------------ | ------ | ------ |
+| &nbsp;       | &nbsp; | &nbsp; |
+| &nbsp;       | &nbsp; | &nbsp; |
+
+
+---
+
+## Implementation Plan
+
+### Phase 1: Fix what's broken (critical)
+
+1. **Create cron jobs** for the 5 scheduled functions that are missing them (`check-inactivity-notifications` every 15 min, `check-task-reminders` every 15 min, `check-blitz-rsvp-reminders` daily, `check-ramp-progress-notifications` daily, `check-preseason-accountability` weekly).
+2. **Wire APNs into `send-mention-notification**` — replace the TODO with actual `send-apns-notification` call (same pattern as `send-reaction-notification`).
+3. **Add APNs to `check-inactivity-notifications**` — currently web-push only.
+
+### Phase 2: New high-value notifications
+
+4. **"Start Your Day" nudge** — New edge function `check-start-day-reminders`, runs every 15 min. Checks `planned_work_days` for today + whether `daily_entries` has a `work_start_time`. Sends at noon local.
+5. **Personal record celebration** — Hook into existing `check-personal-records` function to send a push when a new PR is detected.
+6. **Challenge progress updates** — New edge function `check-challenge-progress`, runs daily at 6pm local. Compares participants' current metrics and sends competitive nudges.
+
+### Technical Notes
+
+- All new scheduled functions need both `pg_cron` entries AND the function code.
+- All new notifications must send to both web push (`push_subscriptions`) and APNs (`apns_device_tokens` via `send-apns-notification`).
+- All notifications must log to `notification_logs` with deduplication checks.
+- Timezone-awareness is critical — use the pattern from `check-task-reminders` with `getLocalHour()`.
