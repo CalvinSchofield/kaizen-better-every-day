@@ -99,64 +99,31 @@ const Blitzes = () => {
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
 
   const committedBlitzesArr = (repData?.committed_blitzes as any[]) || [];
-  const processedBlitzIds = ((repData as any)?.processed_blitz_ids as string[]) || [];
 
-  const attendedIdSet = useMemo(() => {
-    const ids = new Set<string>(processedBlitzIds);
-
-    for (const blitz of committedBlitzesArr) {
-      if (typeof blitz === "string") {
-        ids.add(blitz);
-        continue;
-      }
-
-      if (blitz && typeof blitz === "object") {
-        if (typeof blitz.id === "string") ids.add(blitz.id);
-        if (typeof blitz.supabaseId === "string") ids.add(blitz.supabaseId);
-      }
-    }
-
-    return ids;
-  }, [committedBlitzesArr, processedBlitzIds]);
-
+  // Feed ALL past blitzes into recap stats to determine attendance from actual work data
   const recapSourceBlitzes = useMemo(() => {
-    const merged = [...committedBlitzesArr];
+    return allPastBlitzes.map(blitz => ({
+      id: blitz.id,
+      supabaseId: blitz.supabaseId ?? null,
+      name: blitz.name,
+      location: blitz.location,
+      date: blitz.date,
+      endDate: blitz.endDate ?? blitz.date,
+    }));
+  }, [allPastBlitzes]);
 
-    for (const blitz of allPastBlitzes) {
-      const blitzSupabaseId = blitz.supabaseId ?? null;
-      const isAttended = attendedIdSet.has(blitz.id) || (blitzSupabaseId ? attendedIdSet.has(blitzSupabaseId) : false);
-      if (!isAttended) continue;
+  const { data: recapStats } = useBlitzRecapStats(recapSourceBlitzes);
 
-      const exists = merged.some((existing: any) => {
-        if (!existing || typeof existing !== "object") return false;
-        const existingId = typeof existing.id === "string" ? existing.id : null;
-        const existingSupabaseId = typeof existing.supabaseId === "string" ? existing.supabaseId : null;
-
-        return (
-          existingId === blitz.id ||
-          (blitzSupabaseId && existingId === blitzSupabaseId) ||
-          existingSupabaseId === blitz.id ||
-          (blitzSupabaseId && existingSupabaseId === blitzSupabaseId)
-        );
-      });
-
-      if (!exists) {
-        merged.push({
-          id: blitz.id,
-          supabaseId: blitzSupabaseId,
-          name: blitz.name,
-          location: blitz.location,
-          date: blitz.date,
-          endDate: blitz.endDate ?? blitz.date,
-        });
+  // Attendance = had at least one work day during the blitz window
+  const attendedIdSet = useMemo(() => {
+    const ids = new Set<string>();
+    if (recapStats) {
+      for (const r of recapStats) {
+        if (r.daysWorked > 0) ids.add(r.id);
       }
     }
-
-    return merged;
-  }, [committedBlitzesArr, allPastBlitzes, attendedIdSet]);
-
-  // Blitz recap stats for attended blitzes (committed + processed fallback)
-  const { data: recapStats } = useBlitzRecapStats(recapSourceBlitzes);
+    return ids;
+  }, [recapStats]);
 
   // Get next upcoming blitz from committed blitzes
   const nextBlitz: { date: string; endDate?: string | null; location?: string | null; name: string; address1?: string | null; wifi1?: string | null; code1?: string | null; id: string; accommodations?: any[] } | null = repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)
@@ -179,10 +146,7 @@ const Blitzes = () => {
       })()
     : null;
 
-  const hasPastBlitzes = allPastBlitzes.some((blitz) => {
-    const blitzSupabaseId = blitz.supabaseId ?? null;
-    return attendedIdSet.has(blitz.id) || (blitzSupabaseId ? attendedIdSet.has(blitzSupabaseId) : false);
-  });
+  const hasPastBlitzes = attendedIdSet.size > 0;
 
   const daysUntilBlitz = nextBlitz ? getDaysUntilBlitz(nextBlitz.date) : null;
 
