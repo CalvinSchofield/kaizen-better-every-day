@@ -1,24 +1,34 @@
-# Notification System – Implementation Complete
 
-## What was done
 
-### Phase 1: Fixes
+## Problem
 
-1. **Cron jobs** — All 5 scheduled functions already had active cron jobs (confirmed via `cron.job` table). No action needed.
-2. **APNs wired into `send-mention-notification`** — Replaced the TODO with actual `send-apns-notification` calls. Mentions now reach TestFlight/native iOS users.
-3. **APNs added to `check-inactivity-notifications`** — Idle nudges and "save your day" reminders now send to both web push and native iOS.
-4. **APNs added to `check-personal-records`** — Personal record notifications now reach native iOS users. Also added **self-notification** to the rep who broke the record (previously only notified upline).
-5. **APNs added to `check-preseason-accountability`** and **`check-ramp-progress-notifications`** — These still only send web push. TODO for a future pass.
+The `test-push-notification` edge function finds your APNs token but produces **zero logs** after that point — no APNs response, no error. The function has inline APNs code with no logging around the crypto operations or the fetch call, so when something fails (likely the ECDSA signing or the APNs HTTP/2 request), it silently crashes.
 
-### Phase 2: New Notifications
+## Root Cause
 
-6. **"Start Your Day" nudge** (`check-start-day-reminders`) — New edge function that sends a push at **noon local** on planned work days if the rep hasn't started tracking. Cron: every 15 min.
-7. **Leader coaching nudge** (`check-leader-coaching-nudge`) — New edge function that sends 9am local push to team leads + mgmt group leads when a rep has knocked doors 2+ days without a sale. Cron: every 15 min.
-8. **Challenge progress updates** (`check-challenge-progress`) — New edge function that sends 6pm local push during active challenges with competitive standings. Cron: every 15 min.
-9. **Onboarding task completion notification** (`send-onboarding-completion-notification`) — New edge function called from `update-rookie-status` when a rep self-reports completion or a ramp phase is verified. Notifies upline 3 layers up.
+The `test-push-notification` function **duplicates** the APNs sending logic from `send-apns-notification` but strips out all the debug logging. It also doesn't catch/log errors from `crypto.subtle.importKey`, `crypto.subtle.sign`, or the `fetch()` to APNs.
 
-### All new notifications support:
-- Web push (push_subscriptions)
-- APNs (apns_device_tokens via send-apns-notification)
-- Deduplication via notification_logs
-- Timezone awareness via getLocalHour()
+## Fix
+
+**Refactor `test-push-notification` to call `send-apns-notification`** instead of duplicating the APNs logic. This:
+1. Reuses the battle-tested, well-logged APNs code
+2. Adds visibility into exactly where the failure occurs
+3. Eliminates duplicate crypto code that can drift
+
+### Changes
+
+**1. `supabase/functions/test-push-notification/index.ts`**
+- Remove the inline APNs JWT + send logic (lines 205-266)
+- Instead, call `send-apns-notification` via `supabase.functions.invoke()` for each APNs token
+- Add `console.log` for the APNs response so we can see what's happening
+- Keep the web push path as-is
+
+**2. Add logging fallback** — If we can't call the other function (circular dependency concerns), instead add the same verbose logging that `send-apns-notification` has:
+  - Log before/after `importKey`
+  - Log before/after `sign`
+  - Log the APNs host being used
+  - Log the full APNs response status + body
+  - Wrap in try/catch with error logging
+
+The simplest approach: just add `console.log` statements around the existing crypto and fetch calls in the test function, matching what `send-apns-notification` already does. This way we'll see exactly where it fails on the next test.
+
