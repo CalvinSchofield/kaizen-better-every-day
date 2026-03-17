@@ -61,6 +61,26 @@ const Blitzes = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showChallenges, setShowChallenges] = useState(false);
+  const [editSummerDatesOpen, setEditSummerDatesOpen] = useState(false);
+
+  const { userId } = useCurrentUserId();
+  const queryClient = useQueryClient();
+
+  // Fetch user's personal summer dates
+  const { data: summerConfig } = useQuery({
+    queryKey: ['blitz-page-summer-config', userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('season_config')
+        .select('personal_summer_start, personal_summer_end')
+        .eq('user_id', userId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5,
+  });
 
   const { data: teamAccessData } = useTeamAccess();
   const isLeader = teamAccessData?.accessLevel && teamAccessData.accessLevel !== 'none';
