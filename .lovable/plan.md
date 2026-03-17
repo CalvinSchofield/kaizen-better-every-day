@@ -1,35 +1,55 @@
-# Notification System – Implementation Plan
 
-## Completed
 
-### Phase 1: Core Notification Pipeline
-- 21 notification types (web push + APNs)
-- Timezone-aware cron-based nudges
-- Deduplication via notification_logs
-- In-app foreground banner (InAppNotificationBanner.tsx)
+## Fix In-App Notifications and Unify All Toasts to Top (iOS-Native Style)
 
-### Phase 2: iOS Rich Notifications (Press & Hold)
-- **Swift files created** in `ios-notification-setup/`:
-  - `NotificationCategories.swift` — 23 categories with contextual actions
-  - `NotificationResponseHandler.swift` — Handles all action responses including inline replies, call/text, snooze, RSVP
-  - `README.md` — Step-by-step setup guide
-- **`handle-notification-reply` edge function** — Receives inline replies from iOS, saves as comments, triggers comment notifications
-- **APNs payload enriched** — Now passes `activityId`, `recruitId`, `recruitName`, `phone`, `challengeId`, `repUserId` through to iOS `userInfo`
+### Problem Summary
 
-### User Notes on Specific Notifications
-- **task_past_due**: Actions = View Tasks, Reschedule (navigate to tasks page)
-- **preseason_accountability**: Just a reminder of commitments, not a logging action
-- **access_request**: Should track onboarding flow progression (3 levels up upline), not just signup
-- **install_reminder_eve**: "View Sale" opens to that customer in CRM
-- **install_reminder_due**: "Installed" confirms, "Update" for canceled/rescheduled
-- **personal_record**: Need to determine what view/page to show
-- **leader_coaching**: Call/Text the struggling rep + need a coaching view/page
-- **challenge_progress**: "View" opens that specific challenge
+Three issues:
 
-## TODO
-- [ ] Enrich all notification callers to pass `activityId`, `recruitId`, `phone`, etc. to APNs
-- [ ] Build coaching view page for leader_coaching deep link
-- [ ] Build personal record celebration view
-- [ ] Build task reschedule flow for task_past_due
-- [ ] Add install status update flow for install_reminder_due
-- [ ] Onboarding progression notifications (3 levels up approval flow)
+1. **In-app notification banner never fires** because `useNativePushNotifications()` hook is never called by any mounted component. The `PushNotificationInitializer` component only calls `PushNotifications.register()` directly -- it never invokes the hook that sets up the `pushNotificationReceived` foreground listener.
+
+2. **Sonner toasts appear at bottom-center**, covering the calendar/reminder additions on My Group and other pages.
+
+3. **No toast respects the Dynamic Island safe area**, so anything at the top gets clipped under it.
+
+### Plan
+
+#### 1. Mount `useNativePushNotifications` in `PushNotificationInitializer`
+
+The fix is simple: call `useNativePushNotifications()` inside `PushNotificationInitializer.tsx` so the foreground `pushNotificationReceived` listener is set up app-wide. This is the only missing piece -- the `emitInAppNotification` call and the `InAppNotificationBanner` component are already wired correctly.
+
+#### 2. Move all Sonner toasts to top with safe-area spacing
+
+In `src/components/ui/sonner.tsx`:
+- Change `position` from `"bottom-center"` to `"top-center"`
+- Add `offset` style to push toasts below the Dynamic Island: `calc(var(--effective-safe-area-top, 0px) + 0.5rem)`
+- Style toasts to look more like native iOS notifications: rounded-2xl, backdrop blur, swipe-to-dismiss (Sonner supports swipe natively)
+- Set a higher z-index so they layer correctly with other UI
+
+#### 3. Move Radix toast viewport to top with safe-area spacing
+
+In `src/components/ui/toast.tsx`:
+- Update `ToastViewport` className from `top-0` to use safe-area offset
+- Add `style={{ top: 'calc(var(--effective-safe-area-top, 0px) + 0.5rem)' }}`
+- Ensure slide animations are `slide-in-from-top` on all breakpoints (currently bottom on sm+)
+
+#### 4. Ensure no z-index conflicts
+
+- In-app notification banner: z-[200] (keep)
+- Sonner/Radix toasts: z-[190] (bump up from z-[100])
+- This ensures push notification banners stack above regular toasts
+
+### Files to Edit
+
+- `src/components/PushNotificationInitializer.tsx` -- call `useNativePushNotifications()`
+- `src/components/ui/sonner.tsx` -- position top-center, safe-area offset
+- `src/components/ui/toast.tsx` -- viewport top with safe-area offset
+
+### Technical Details
+
+- Sonner's `position="top-center"` + `offset` prop handles the Dynamic Island gap
+- `useNativePushNotifications()` sets up all four Capacitor push listeners including the critical `pushNotificationReceived` that emits to the in-app banner
+- No database changes needed
+- The existing swipe-to-dismiss on `InAppNotificationBanner` (swipe up) is preserved
+- Sonner already has built-in swipe-to-dismiss support
+
