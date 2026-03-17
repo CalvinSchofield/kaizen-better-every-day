@@ -20,6 +20,7 @@ import confetti from "canvas-confetti";
 import { useMyActiveChallenges } from "@/hooks/useChallenges";
 import { useChallengeProgress } from "@/hooks/useChallengeProgress";
 import { getCleanFirstName } from "@/utils/nameUtils";
+import { WatchlistComparisonRow } from "@/components/track/WatchlistComparisonRow";
 
 interface PostSaveSuccessSheetProps {
   open: boolean;
