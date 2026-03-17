@@ -40,6 +40,7 @@ import Objections from "./pages/Objections";
 import RampToBlitz from "./pages/RampToBlitz";
 import UpgradeCheatSheet from "./pages/UpgradeCheatSheet";
 import PackageBuilder from "./pages/PackageBuilder";
+import Blitzes from "./pages/Blitzes";
 
 import ProductKnowledge from "./pages/ProductKnowledge";
 import AdminBlitzes from "./pages/AdminBlitzes";
