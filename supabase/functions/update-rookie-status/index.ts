@@ -200,6 +200,94 @@ Deno.serve(async (req) => {
     const updateSuccess = data && data.length > 0;
     if (updateSuccess) {
       console.log(`[update-rookie-status] Updated rep: ${data[0].name}`);
+
+      // Send onboarding completion notification to upline when a rep self-reports completion
+      if (hasSelfReportedUpdate && updateSuccess) {
+        const repName = data[0].name;
+        // Determine which step was completed
+        let stepDescription = '';
+        let phase = '';
+        if (selfReportedOnboarding === true) {
+          stepDescription = 'Onboarding Review';
+          phase = 'onboarding';
+        } else if (selfReportedTrainings === true) {
+          stepDescription = 'Required Trainings';
+          phase = 'trainings';
+        } else if (selfReportedSlack === true) {
+          stepDescription = 'Slack Setup';
+          phase = 'slack';
+        }
+
+        if (phase) {
+          // Get the rep's user_id
+          const { data: repData } = await supabase
+            .from('reps')
+            .select('user_id')
+            .eq('id', rookieId)
+            .maybeSingle();
+
+          if (repData?.user_id) {
+            try {
+              await fetch(`${supabaseUrl}/functions/v1/send-onboarding-completion-notification`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${supabaseServiceKey}`,
+                },
+                body: JSON.stringify({
+                  repUserId: repData.user_id,
+                  repName,
+                  phase,
+                  stepDescription,
+                }),
+              });
+              console.log(`[update-rookie-status] Sent onboarding completion notification for ${repName}`);
+            } catch (e) {
+              console.error('[update-rookie-status] Failed to send onboarding notification:', e);
+            }
+          }
+        }
+      }
+
+      // Also notify for ramp phase completions
+      if (hasRampPhaseUpdate && updateSuccess) {
+        const repName = data[0].name;
+        let phase = '';
+        let stepDescription = '';
+        if (rampPhase1Complete === true) { phase = 'phase_1'; stepDescription = 'Pay & Goals'; }
+        else if (rampPhase2Complete === true) { phase = 'phase_2'; stepDescription = 'Product & Process'; }
+        else if (rampPhase3Complete === true) { phase = 'phase_3'; stepDescription = 'Practice & iPad'; }
+        else if (rampPhase4Complete === true) { phase = 'phase_4'; stepDescription = 'Pack & Prepare'; }
+
+        if (phase) {
+          const { data: repData } = await supabase
+            .from('reps')
+            .select('user_id')
+            .eq('id', rookieId)
+            .maybeSingle();
+
+          if (repData?.user_id) {
+            try {
+              await fetch(`${supabaseUrl}/functions/v1/send-onboarding-completion-notification`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${supabaseServiceKey}`,
+                },
+                body: JSON.stringify({
+                  repUserId: repData.user_id,
+                  repName,
+                  phase,
+                  stepDescription,
+                }),
+              });
+              console.log(`[update-rookie-status] Sent ramp phase completion notification for ${repName}`);
+            } catch (e) {
+              console.error('[update-rookie-status] Failed to send ramp notification:', e);
+            }
+          }
+        }
+      }
     } else {
       console.warn(`[update-rookie-status] No rep found with id: ${rookieId}`);
     }
