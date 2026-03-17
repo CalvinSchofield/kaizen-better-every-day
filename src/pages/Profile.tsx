@@ -216,7 +216,7 @@ const Profile = () => {
       <ProfileSwiper
         dailyFp={profile.dailyFpValues}
         isOwnProfile={isOwnProfile}
-        goalPace={isDownline ? (goalPace ?? null) : null}
+        goalPaceData={isDownline && downlineGoalPace.hasGoals ? downlineGoalPace : null}
         repName={profile.name}
       />
 

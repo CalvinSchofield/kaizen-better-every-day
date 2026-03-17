@@ -1,25 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { MomentumSparkline } from "./MomentumSparkline";
-import { GoalPaceCard } from "./GoalPaceCard";
-import { DownlineGoalPace } from "@/hooks/useDownlineGoalPace";
+import { UnifiedGoalProgress } from "@/components/goals/UnifiedGoalProgress";
+import type { GoalPaceData } from "@/hooks/useGoalPaceCalculator";
 import { cn } from "@/lib/utils";
 
 interface ProfileSwiperProps {
   dailyFp: { date: string; fp: number; prmr: number }[];
   isOwnProfile: boolean;
-  goalPace: DownlineGoalPace | null;
+  goalPaceData: GoalPaceData | null;
   repName: string;
 }
 
-export const ProfileSwiper = ({ dailyFp, isOwnProfile, goalPace, repName }: ProfileSwiperProps) => {
-  const hasGoalPace = goalPace !== null;
+export const ProfileSwiper = ({ dailyFp, isOwnProfile, goalPaceData, repName }: ProfileSwiperProps) => {
+  const hasGoalData = goalPaceData !== null;
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: 'start',
     containScroll: 'trimSnaps',
-    active: hasGoalPace, // Only enable swiping if there's a second card
+    active: hasGoalData, // Only enable swiping if there's a second card
   });
 
   const onSelect = useCallback(() => {
@@ -33,8 +33,8 @@ export const ProfileSwiper = ({ dailyFp, isOwnProfile, goalPace, repName }: Prof
     return () => { emblaApi.off('select', onSelect); };
   }, [emblaApi, onSelect]);
 
-  // If no goal pace, just render the sparkline directly (no carousel)
-  if (!hasGoalPace) {
+  // If no goal data, just render the sparkline directly (no carousel)
+  if (!hasGoalData) {
     return (
       <MomentumSparkline
         dailyFp={dailyFp}
@@ -48,30 +48,38 @@ export const ProfileSwiper = ({ dailyFp, isOwnProfile, goalPace, repName }: Prof
       <div ref={emblaRef} className="overflow-hidden">
         <div className="flex">
           {/* Slide 1: Momentum */}
-          <div className="min-w-full snap-center">
+          <div className="min-w-full snap-center px-4">
             <MomentumSparkline
               dailyFp={dailyFp}
               isOwnProfile={isOwnProfile}
             />
           </div>
 
-          {/* Slide 2: Goal Pace */}
-          <GoalPaceCard pace={goalPace} repName={repName} />
+          {/* Slide 2: Goal Progress (UnifiedGoalProgress) */}
+          <div className="min-w-full snap-center px-4">
+            <UnifiedGoalProgress
+              data={goalPaceData}
+              mode="full"
+              showTierSelector={!goalPaceData.isPreseason}
+              showPaceContext
+              showTimeframeToggle
+            />
+          </div>
         </div>
       </div>
 
-      {/* Dot indicators */}
-      <div className="flex items-center justify-center gap-1.5 mt-2">
-        {[0, 1].map((idx) => (
+      {/* Dots */}
+      <div className="flex justify-center gap-1.5 mt-2">
+        {[0, 1].map(i => (
           <button
-            key={idx}
-            onClick={() => emblaApi?.scrollTo(idx)}
+            key={i}
             className={cn(
               "h-1.5 rounded-full transition-all duration-200",
-              idx === selectedIndex
+              selectedIndex === i
                 ? "w-4 bg-primary"
                 : "w-1.5 bg-muted-foreground/30"
             )}
+            onClick={() => emblaApi?.scrollTo(i)}
           />
         ))}
       </div>
