@@ -8,6 +8,7 @@ interface RankingEntry {
   userId: string;
   name: string;
   value: number;
+  pendingValue?: number;
   isWorking?: boolean;
   profilePhotoUrl?: string | null;
   year?: YearRank;
