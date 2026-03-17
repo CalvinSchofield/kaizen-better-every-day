@@ -15,8 +15,8 @@ function getTestPayload(type: string): Record<string, unknown> {
   switch (type) {
     case 'comment':
       return {
-        title: '💬 New Comment',
-        body: 'Jake Miller commented: "Great progress on this recruit!"',
+        title: '💬 New Comment on David Johnson',
+        body: 'Jake Miller: "Great progress on this recruit! Let\'s follow up tomorrow."',
         url: `/my-group?recruitId=${testRecruitId}&activityId=${testActivityId}&openComments=true`,
         type: 'comment',
         recruitId: testRecruitId,
@@ -24,8 +24,8 @@ function getTestPayload(type: string): Record<string, unknown> {
       };
     case 'mention':
       return {
-        title: '🔔 You were mentioned',
-        body: 'Jake Miller mentioned you: "@Calvin can you follow up on this?"',
+        title: '🔔 Mentioned on David Johnson',
+        body: 'Jake Miller: "@Calvin can you follow up with him about the shadow day?"',
         url: `/my-group?recruitId=${testRecruitId}&activityId=${testActivityId}&openComments=true`,
         type: 'mention',
         recruitId: testRecruitId,
@@ -33,8 +33,8 @@ function getTestPayload(type: string): Record<string, unknown> {
       };
     case 'task_assignment':
       return {
-        title: '📋 New Task Assigned',
-        body: 'Follow up call with David Johnson — assigned by Jake Miller',
+        title: '📋 Task: David Johnson',
+        body: 'Follow up call — assigned by Jake Miller. Due tomorrow.',
         url: `/my-group?recruitId=${testRecruitId}`,
         type: 'task_assignment',
         recruitId: testRecruitId,
@@ -42,8 +42,8 @@ function getTestPayload(type: string): Record<string, unknown> {
       };
     case 'task_single_reminder':
       return {
-        title: '⏰ Task Reminder',
-        body: 'Call David Johnson — follow up on shadow day',
+        title: '⏰ Reminder: Call David Johnson',
+        body: 'Follow up on shadow day — tap to call or text',
         url: `/my-group?recruitId=${testRecruitId}`,
         type: 'task_single_reminder',
         recruitId: testRecruitId,
@@ -65,8 +65,8 @@ function getTestPayload(type: string): Record<string, unknown> {
       };
     case 'reaction':
       return {
-        title: '🔥 New Reaction',
-        body: 'Jake Miller reacted 🔥 to your activity',
+        title: '🔥 Reaction on David Johnson',
+        body: 'Jake Miller reacted 🔥 to your call activity',
         url: `/my-group?recruitId=${testRecruitId}&activityId=${testActivityId}`,
         type: 'reaction',
         recruitId: testRecruitId,
@@ -74,16 +74,16 @@ function getTestPayload(type: string): Record<string, unknown> {
       };
     case 'install_reminder_eve':
       return {
-        title: '📅 Install Tomorrow',
-        body: 'Smith family install is scheduled for tomorrow at 10am',
+        title: '📅 Install Tomorrow: Smith Family',
+        body: 'Scheduled for 10am — tap to text the customer',
         url: '/customers',
         type: 'install_reminder_eve',
         recruitPhone: '8015559876',
       };
     case 'access_request':
       return {
-        title: '👋 New Rep Joined',
-        body: 'David Johnson just signed up and needs team access',
+        title: '👋 New Rep: David Johnson',
+        body: 'Just signed up and needs team access',
         url: '/',
         type: 'access_request',
       };
