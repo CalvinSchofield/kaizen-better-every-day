@@ -14,7 +14,7 @@ import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { useBlitzRecapStats } from "@/hooks/useBlitzRecapStats";
 import { BlitzRecapCard } from "@/components/BlitzRecapCard";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+
 import { formatBlitzDateRange as formatBlitzDateRangeUtil } from "@/utils/blitzDateUtils";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
@@ -517,32 +517,44 @@ const Blitzes = () => {
             }
 
             // No more blitzes — show summer countdown + preseason recap
+            // Aggregate stats from recap
+            const totalDoors = recapStats?.reduce((s, r) => s + r.doors, 0) || 0;
+            const totalFp = recapStats?.reduce((s, r) => s + r.fpPlus, 0) || 0;
+
             return (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-2"
               >
-                {/* Summer countdown headline */}
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-2xl">{summerHasStarted ? '☀️' : '🌅'}</span>
-                  <h1 className="text-3xl font-bold text-primary-foreground tracking-tight">
-                    {summerHasStarted ? 'Summer Is Here' : hasPersonalDates ? 'Your Summer Starts Soon' : 'Summer Starts Soon'}
-                  </h1>
-                </div>
-
-                {!summerHasStarted && daysUntilSummer > 0 && (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-foreground/15 backdrop-blur-sm mb-3">
-                    <span className="text-sm font-semibold text-primary-foreground">
-                      {daysUntilSummer === 1 ? 'Tomorrow' : `${daysUntilSummer} days away`}
-                    </span>
+                {/* Summer countdown headline — MASSIVE */}
+                {!summerHasStarted && daysUntilSummer > 0 ? (
+                  <>
+                    <p className="text-xs font-medium text-primary-foreground/50 uppercase tracking-wider mb-1">
+                      {hasPersonalDates ? 'Your summer starts in' : 'Summer starts in'}
+                    </p>
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="text-6xl font-extrabold text-primary-foreground tracking-tight leading-none">
+                        {daysUntilSummer}
+                      </span>
+                      <span className="text-xl font-semibold text-primary-foreground/70">
+                        {daysUntilSummer === 1 ? 'day' : 'days'}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-2xl">☀️</span>
+                    <h1 className="text-3xl font-bold text-primary-foreground tracking-tight">
+                      Summer Is Here
+                    </h1>
                   </div>
                 )}
 
                 {/* Summer date range + edit */}
                 <button
                   onClick={() => setEditSummerDatesOpen(true)}
-                  className="flex items-center gap-2 mb-4 group"
+                  className="flex items-center gap-2 mb-3 group"
                 >
                   <span className="text-sm text-primary-foreground/70">
                     {formatBlitzDate(effectiveSummerStart, 'MMM d')}
@@ -551,16 +563,15 @@ const Blitzes = () => {
                   <Pencil className="w-3.5 h-3.5 text-primary-foreground/40 group-hover:text-primary-foreground/70 transition-colors" />
                 </button>
 
-                {/* Preseason Blitz Recap */}
+                {/* Aggregate preseason stats line */}
                 {pastBlitzCount > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-primary-foreground/60 uppercase tracking-wider">Preseason Recap</p>
-                    <div className="flex items-baseline gap-1.5 mb-2">
-                      <span className="text-2xl font-bold text-primary-foreground">{pastBlitzCount}</span>
-                      <span className="text-sm text-primary-foreground/80">
-                        {pastBlitzCount === 1 ? 'blitz attended' : 'blitzes attended'}
-                      </span>
-                    </div>
+                  <div className="px-4 py-3 rounded-xl bg-primary-foreground/10 border border-primary-foreground/10">
+                    <p className="text-xs font-medium text-primary-foreground/50 uppercase tracking-wider mb-2">Preseason Recap</p>
+                    <p className="text-sm font-semibold text-primary-foreground">
+                      {pastBlitzCount} {pastBlitzCount === 1 ? 'blitz' : 'blitzes'}
+                      {totalDoors > 0 && <> · {totalDoors.toLocaleString()} doors</>}
+                      {totalFp > 0 && <> · {totalFp} FP+</>}
+                    </p>
                   </div>
                 )}
 
@@ -636,8 +647,8 @@ const Blitzes = () => {
           <ActiveChallengesCard hideCta={true} />
         </motion.div>
 
-        {/* ── Blitz Management — hide for reps with no committed blitzes ── */}
-        {committedBlitzesArr.length > 0 && (
+        {/* ── Blitz Management — visible for leaders with any active blitzes OR reps with commitments ── */}
+        {(committedBlitzesArr.length > 0 || (isLeader && allBlitzes.length > 0)) && (
           <motion.div variants={itemVariants}>
             <div data-blitz-card>
               <VetBlitzCard
@@ -661,43 +672,30 @@ const Blitzes = () => {
           </motion.div>
         )}
 
-        {/* ── Blitz Recap Cards ── */}
-        {recapStats && recapStats.length > 0 && !nextBlitz && (
+        {/* ── Unified Preseason Blitzes — attended with stats, others muted ── */}
+        {!nextBlitz && allPastBlitzes.length > 0 && (
           <motion.div variants={itemVariants} className="space-y-2">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
-              Your Blitz Performance
+              Preseason Blitzes
             </h2>
-            {recapStats.map((recap) => (
-              <BlitzRecapCard key={recap.id} recap={recap} />
-            ))}
-          </motion.div>
-        )}
-
-        {/* ── Past Blitzes List for Leaders ── */}
-        {isLeader && allPastBlitzes.length > 0 && (
-          <motion.div variants={itemVariants}>
-            <Collapsible>
-              <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm font-semibold text-foreground">Past Blitzes</span>
-                  <Badge variant="secondary" className="text-xs">{allPastBlitzes.length}</Badge>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90" />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2 space-y-1.5">
-                {allPastBlitzes.map((blitz) => (
-                  <div key={blitz.id} className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-muted/30 border border-border/50">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{blitz.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {blitz.location ? `${blitz.location} · ` : ''}{formatBlitzDateRange(blitz.date, blitz.endDate)}
-                      </p>
-                    </div>
+            {allPastBlitzes.map((blitz) => {
+              const recapMatch = recapStats?.find((r) => r.id === blitz.id);
+              if (recapMatch) {
+                // Attended — trophy card with stats
+                return <BlitzRecapCard key={blitz.id} recap={recapMatch} />;
+              }
+              // Not attended — muted context row
+              return (
+                <div key={blitz.id} className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-muted/20 border border-border/30">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-muted-foreground truncate">{blitz.name}</p>
+                    <p className="text-xs text-muted-foreground/70">
+                      {blitz.location ? `${blitz.location} · ` : ''}{formatBlitzDateRangeUtil(blitz.date, blitz.endDate)}
+                    </p>
                   </div>
-                ))}
-              </CollapsibleContent>
-            </Collapsible>
+                </div>
+              );
+            })}
           </motion.div>
         )}
       </motion.div>
