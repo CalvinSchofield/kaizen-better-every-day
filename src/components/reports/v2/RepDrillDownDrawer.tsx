@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { EffortResult } from "@/utils/effortScore";
 import { UnifiedGoalProgress } from "@/components/goals/UnifiedGoalProgress";
 import type { GoalPaceData, TimeframeData, PaceSeverity } from "@/hooks/useGoalPaceCalculator";
+import { useGoalPaceCalculatorForUser } from "@/hooks/useGoalPaceCalculatorForUser";
 import { EffortCoachingCallouts } from "./EffortCoachingCallouts";
 import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
 import { useRepDayActivity } from "@/hooks/useRepDayActivity";
