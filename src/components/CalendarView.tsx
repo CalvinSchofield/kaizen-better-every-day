@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Ban, CalendarDays, Sparkles, Pointer, Undo2, Lock, Plane, MapPin, Loader2, CalendarIcon, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Sparkles, Pointer, Undo2, Lock, Plane, MapPin, Loader2, CalendarIcon, Check } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
 import { CalendarDayDrawer } from "@/components/CalendarDayDrawer";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
