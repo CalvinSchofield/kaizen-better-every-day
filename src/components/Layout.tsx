@@ -277,8 +277,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   const actionButton = getActionButton();
   const firstName = repData?.name?.split(' ')[0];
   
-  // Determine if we're on the home page to match header color
-  const isHomePage = location.pathname === "/";
+  // Determine if we're on a page with colored header
+  const isHomePage = location.pathname === "/" || location.pathname === "/blitzes";
   
   // Get currently active tab for collapsed state
   const activeItem = [...navItems, actionButton].find((item) => item.path === location.pathname);
