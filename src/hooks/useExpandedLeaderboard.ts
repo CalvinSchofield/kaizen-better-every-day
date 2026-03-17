@@ -334,30 +334,7 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         timezone
       });
 
-      const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number; upgradeFp: number } => {
-        if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0, upgradeFp: 0 };
-        
-        let fp = 0;
-        let prmr = 0;
-        let upgradeFp = 0;
-        
-        for (const sale of salesLog) {
-          // Skip sales that were never installed - they don't count on leaderboard
-          if (sale.install_status === 'never_installed') continue;
-          
-          const salePrmr = Number(sale.prmr) || 0;
-          prmr += salePrmr;
-          
-          if (sale.type === 'fp') {
-            fp += 1;
-          } else if (sale.type === 'upgrade') {
-            fp += salePrmr / 85;
-            upgradeFp += salePrmr / 85;
-          }
-        }
-        
-        return { fp, prmr, upgradeFp };
-      };
+      // Use shared calculateFromSalesLog (imported from utils)
 
       // Check if a sale qualifies as FP+ (type='fp' OR upgrade with prmr >= 85)
       // Also exclude never_installed sales
