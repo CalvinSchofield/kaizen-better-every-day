@@ -52,7 +52,7 @@ const Profile = () => {
   const { data: profile, isLoading } = useRepProfile(userId || currentUserId || null);
   const { data: teamAccess } = useTeamAccess();
   const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
-  const { data: goalPace } = useDownlineGoalPace(isDownline ? userId : null);
+  const downlineGoalPace = useGoalPaceCalculatorForUser(isDownline ? userId : null);
 
   // Set header content
   useEffect(() => {
