@@ -223,7 +223,22 @@ export const useDailyEntry = (date?: string) => {
     initialDataUpdatedAt: initialData ? 0 : undefined,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!user) {
+        // CRITICAL: Don't silently return null - this causes PreWorkingState flash
+        // and prevents mutations from saving. Try to refresh the session first.
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        if (!refreshData?.user) {
+          // Truly not authenticated - throw to trigger retry, not return null
+          // which would overwrite active tracking state with empty defaults
+          console.error('[useDailyEntry] Auth session expired - could not refresh');
+          throw new Error('AUTH_SESSION_EXPIRED');
+        }
+        // Session refreshed successfully
+        console.log('[useDailyEntry] Auth session refreshed successfully');
+      }
+      
+      const activeUser = (await supabase.auth.getUser()).data.user;
+      if (!activeUser) throw new Error('AUTH_SESSION_EXPIRED');
 
       const { data, error } = await supabase
         .from('daily_entries')
