@@ -99,6 +99,16 @@ const Goals = () => {
   const [showCatchUpWizard, setShowCatchUpWizard] = useState(false);
   const [activeTier, setActiveTier] = useState<GoalTier>('preseason');
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
+  const location = useLocation();
+
+  // Open sync wizard if navigated with openSync state (e.g. from Blitzes page)
+  useEffect(() => {
+    if ((location.state as any)?.openSync) {
+      setShowCatchUpWizard(true);
+      // Clear the state so it doesn't re-trigger on re-renders
+      window.history.replaceState({}, '');
+    }
+  }, [location.state]);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
   const [showCancelRateDrawer, setShowCancelRateDrawer] = useState(false);
   const [earningsOpenTrigger, setEarningsOpenTrigger] = useState(0);
