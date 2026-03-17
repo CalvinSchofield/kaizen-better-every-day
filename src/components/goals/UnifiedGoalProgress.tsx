@@ -157,7 +157,7 @@ const SegmentedBar = ({
         )}
       </div>
       {/* Expected marker */}
-      {showExpectedMarker && expected > 0 && expectedPct > 0 && expectedPct < 100 && (
+      {showExpectedMarker && expected > 0 && expectedPct > 0 && (
         <div
           className="absolute top-[-2px] bottom-[-2px] w-[2px] bg-foreground/80 rounded-full"
           style={{ left: `${expectedPct}%` }}
