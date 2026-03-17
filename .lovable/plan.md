@@ -1,49 +1,35 @@
+# Notification System – Implementation Plan
 
+## Completed
 
-# Summer Nav Audit: Knocking vs Recruiting Duality
+### Phase 1: Core Notification Pipeline
+- 21 notification types (web push + APNs)
+- Timezone-aware cron-based nudges
+- Deduplication via notification_logs
+- In-app foreground banner (InAppNotificationBanner.tsx)
 
-## The Core Insight
+### Phase 2: iOS Rich Notifications (Press & Hold)
+- **Swift files created** in `ios-notification-setup/`:
+  - `NotificationCategories.swift` — 23 categories with contextual actions
+  - `NotificationResponseHandler.swift` — Handles all action responses including inline replies, call/text, snooze, RSVP
+  - `README.md` — Step-by-step setup guide
+- **`handle-notification-reply` edge function** — Receives inline replies from iOS, saves as comments, triggers comment notifications
+- **APNs payload enriched** — Now passes `activityId`, `recruitId`, `recruitName`, `phone`, `challengeId`, `repUserId` through to iOS `userInfo`
 
-You're right — this job is binary: **knocking** (selling) or **recruiting** (building your team). Every feature should orbit one of those two poles. The toggle is the mode switch between them.
+### User Notes on Specific Notifications
+- **task_past_due**: Actions = View Tasks, Reschedule (navigate to tasks page)
+- **preseason_accountability**: Just a reminder of commitments, not a logging action
+- **access_request**: Should track onboarding flow progression (3 levels up upline), not just signup
+- **install_reminder_eve**: "View Sale" opens to that customer in CRM
+- **install_reminder_due**: "Installed" confirms, "Update" for canceled/rescheduled
+- **personal_record**: Need to determine what view/page to show
+- **leader_coaching**: Call/Text the struggling rep + need a coaching view/page
+- **challenge_progress**: "View" opens that specific challenge
 
-## Current State (Leaders)
-
-| | Knocking ON | Knocking OFF |
-|---|---|---|
-| **FAB** | Track | My Group |
-| **Nav** | Leaderboard · Tools · Reports · Compete | **Blitzes** · Tools · Calendar · Goals |
-
-**Knocking ON** is solid — Track is the hub, Leaderboard/Compete are motivation, Reports is coaching, Tools is field support.
-
-**Knocking OFF** breaks once summer starts — Blitzes is dead weight. And Calendar/Goals are more knocking-adjacent than recruiting-adjacent.
-
-## Proposed Change
-
-When knocking mode is OFF **and the user's personal summer has started**, replace the Blitzes slot with **Reports** for leaders. This gives leaders their coaching dashboard front-and-center when they're in recruiting/team-building mode.
-
-**Summer leader nav (knocking OFF):** Reports · Tools · Calendar · Goals (FAB: My Group)
-
-This means the two modes for a summer leader become:
-- **Knocking ON:** Track (FAB) · Leaderboard · Tools · Reports · Compete → *"Go sell"*
-- **Knocking OFF:** My Group (FAB) · Reports · Tools · Calendar · Goals → *"Go build your team"*
-
-Reports appears in both because leaders always need team visibility — but the surrounding context shifts from competition/field to coaching/planning.
-
-## Does It Hold Up to the Duality Test?
-
-**Knocking mode** (selling): Track → log production. Leaderboard/Compete → stay motivated. Tools → field resources. Reports → see how team is doing on doors.
-
-**Recruiting mode** (building): My Group → manage pipeline. Reports → coach reps. Training → available in drawer. Goals → plan targets. Calendar → review schedule.
-
-The drawer stays the same — Insights, Training, Customers, Compete are all accessible from there. The nav bar surfaces what matters *right now* for whichever mode you're in.
-
-## Implementation
-
-**File:** `src/components/Layout.tsx` (~line 217-224)
-
-In the knocking-OFF leader branch, check if the user's `personal_summer_start` has passed. If so, show Reports instead of Blitzes.
-
-Requires reading `repData.personal_summer_start` (already available via `useRepData`) and comparing against today's date. One conditional change in `getNavItems()`.
-
-**File:** `src/components/AppDrawer.tsx` — no changes needed, drawer already has Reports for leaders.
-
+## TODO
+- [ ] Enrich all notification callers to pass `activityId`, `recruitId`, `phone`, etc. to APNs
+- [ ] Build coaching view page for leader_coaching deep link
+- [ ] Build personal record celebration view
+- [ ] Build task reschedule flow for task_past_due
+- [ ] Add install status update flow for install_reminder_due
+- [ ] Onboarding progression notifications (3 levels up approval flow)
