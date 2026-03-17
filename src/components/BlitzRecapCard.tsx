@@ -11,7 +11,7 @@ export function BlitzRecapCard({ recap }: BlitzRecapCardProps) {
   const hasStats = recap.daysWorked > 0 || recap.doors > 0 || recap.fpPlus > 0;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="rounded-xl border border-primary/20 bg-primary/5 border-l-4 border-l-primary p-4">
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0">
@@ -49,8 +49,8 @@ export function BlitzRecapCard({ recap }: BlitzRecapCardProps) {
 
 function StatPill({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
   return (
-    <div className="flex flex-col items-center gap-0.5 py-2 px-1 rounded-lg bg-muted/50">
-      <div className="text-muted-foreground">{icon}</div>
+    <div className="flex flex-col items-center gap-0.5 py-2 px-1 rounded-lg bg-primary/10">
+      <div className="text-primary">{icon}</div>
       <span className="text-sm font-bold text-foreground">{value}</span>
       <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</span>
     </div>
