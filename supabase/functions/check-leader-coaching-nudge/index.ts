@@ -208,7 +208,7 @@ serve(async (req) => {
             for (const sub of subs || []) {
               const result = await sendWebPush(
                 { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
-                { title, body, url, type: "leader_coaching_nudge" },
+                { title, body, url, type: "leader_coaching_nudge", repUserId: rep.user_id, phone: repDetails?.phone || null },
                 vapidPublicKey,
                 vapidPrivateKey
               );
