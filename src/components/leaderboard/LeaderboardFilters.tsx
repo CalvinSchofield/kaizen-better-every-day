@@ -149,6 +149,17 @@ export const LeaderboardFilters = ({
           >
             Rookies
           </button>
+          <button
+            onClick={() => onScopeFilterChange('watchlist')}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+              scopeFilter === 'watchlist'
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            👀 Watchlist
+          </button>
         </div>
       </div>
 
