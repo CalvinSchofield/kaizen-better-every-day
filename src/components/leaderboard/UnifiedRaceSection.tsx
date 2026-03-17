@@ -352,6 +352,11 @@ export const UnifiedRaceSection = ({ rankings, currentUserId, isLive = false, is
                     isCurrentUser && "text-primary font-semibold"
                   )}>
                     <span className="font-bold">{formatValue(entry.value)}</span>
+                    {entry.pendingValue != null && entry.pendingValue > 0 && (activeMetric === 'fp_plus' || activeMetric === 'prmr') && (
+                      <span className="text-warning text-[10px] ml-1 font-normal">
+                        ⏳
+                      </span>
+                    )}
                   </div>
                 </motion.div>
 

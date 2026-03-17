@@ -84,6 +84,7 @@ export interface RankedEntry {
   userId: string;
   name: string;
   value: number;
+  pendingValue?: number;
   profilePhotoUrl?: string | null;
   year?: YearRank;
 }
