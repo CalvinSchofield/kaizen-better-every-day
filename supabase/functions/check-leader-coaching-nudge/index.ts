@@ -134,7 +134,7 @@ serve(async (req) => {
         // Get their recent entries
         const { data: recentEntries } = await supabase
           .from("daily_entries")
-          .select("entry_date, doors_knocked, fp_plus, prmr, is_finalized")
+          .select("entry_date, doors_knocked, pitches, presentations, fp_plus, prmr, is_finalized")
           .eq("user_id", rep.user_id)
           .gte("entry_date", threeDaysAgoStr)
           .order("entry_date", { ascending: false });
@@ -159,8 +159,19 @@ serve(async (req) => {
 
         if (existingLog && existingLog.length > 0) continue;
 
+        // Calculate total stats across dry days for richer context
+        const totalDoors = knockedButNotSold.reduce((sum, e) => sum + (e.doors_knocked || 0), 0);
+        const totalPitches = knockedButNotSold.reduce((sum, e) => sum + (e.pitches || 0), 0);
+
+        // Get rep's phone for call/text actions
+        const { data: repDetails } = await supabase
+          .from("reps")
+          .select("phone")
+          .eq("user_id", rep.user_id)
+          .maybeSingle();
+
         const title = `🎯 ${rep.name} needs coaching`;
-        const body = `${rep.name} has knocked doors ${knockedButNotSold.length} days without a sale. Time for a coaching conversation!`;
+        const body = `${knockedButNotSold.length} days, ${totalDoors} doors, ${totalPitches} pitches — no sales. Give ${rep.name} a call!`;
         const url = `/my-group?highlight=${rep.user_id}`;
 
         // Build list of leaders to notify (2 layers up)
