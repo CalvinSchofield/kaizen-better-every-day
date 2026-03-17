@@ -1,24 +1,35 @@
-# Notification System – Implementation Complete
+# Notification System – Implementation Plan
 
-## What was done
+## Completed
 
-### Phase 1: Fixes
-
-1. **Cron jobs** — All 5 scheduled functions already had active cron jobs (confirmed via `cron.job` table). No action needed.
-2. **APNs wired into `send-mention-notification`** — Replaced the TODO with actual `send-apns-notification` calls. Mentions now reach TestFlight/native iOS users.
-3. **APNs added to `check-inactivity-notifications`** — Idle nudges and "save your day" reminders now send to both web push and native iOS.
-4. **APNs added to `check-personal-records`** — Personal record notifications now reach native iOS users. Also added **self-notification** to the rep who broke the record (previously only notified upline).
-5. **APNs added to `check-preseason-accountability`** and **`check-ramp-progress-notifications`** — These still only send web push. TODO for a future pass.
-
-### Phase 2: New Notifications
-
-6. **"Start Your Day" nudge** (`check-start-day-reminders`) — New edge function that sends a push at **noon local** on planned work days if the rep hasn't started tracking. Cron: every 15 min.
-7. **Leader coaching nudge** (`check-leader-coaching-nudge`) — New edge function that sends 9am local push to team leads + mgmt group leads when a rep has knocked doors 2+ days without a sale. Cron: every 15 min.
-8. **Challenge progress updates** (`check-challenge-progress`) — New edge function that sends 6pm local push during active challenges with competitive standings. Cron: every 15 min.
-9. **Onboarding task completion notification** (`send-onboarding-completion-notification`) — New edge function called from `update-rookie-status` when a rep self-reports completion or a ramp phase is verified. Notifies upline 3 layers up.
-
-### All new notifications support:
-- Web push (push_subscriptions)
-- APNs (apns_device_tokens via send-apns-notification)
+### Phase 1: Core Notification Pipeline
+- 21 notification types (web push + APNs)
+- Timezone-aware cron-based nudges
 - Deduplication via notification_logs
-- Timezone awareness via getLocalHour()
+- In-app foreground banner (InAppNotificationBanner.tsx)
+
+### Phase 2: iOS Rich Notifications (Press & Hold)
+- **Swift files created** in `ios-notification-setup/`:
+  - `NotificationCategories.swift` — 23 categories with contextual actions
+  - `NotificationResponseHandler.swift` — Handles all action responses including inline replies, call/text, snooze, RSVP
+  - `README.md` — Step-by-step setup guide
+- **`handle-notification-reply` edge function** — Receives inline replies from iOS, saves as comments, triggers comment notifications
+- **APNs payload enriched** — Now passes `activityId`, `recruitId`, `recruitName`, `phone`, `challengeId`, `repUserId` through to iOS `userInfo`
+
+### User Notes on Specific Notifications
+- **task_past_due**: Actions = View Tasks, Reschedule (navigate to tasks page)
+- **preseason_accountability**: Just a reminder of commitments, not a logging action
+- **access_request**: Should track onboarding flow progression (3 levels up upline), not just signup
+- **install_reminder_eve**: "View Sale" opens to that customer in CRM
+- **install_reminder_due**: "Installed" confirms, "Update" for canceled/rescheduled
+- **personal_record**: Need to determine what view/page to show
+- **leader_coaching**: Call/Text the struggling rep + need a coaching view/page
+- **challenge_progress**: "View" opens that specific challenge
+
+## TODO
+- [ ] Enrich all notification callers to pass `activityId`, `recruitId`, `phone`, etc. to APNs
+- [ ] Build coaching view page for leader_coaching deep link
+- [ ] Build personal record celebration view
+- [ ] Build task reschedule flow for task_past_due
+- [ ] Add install status update flow for install_reminder_due
+- [ ] Onboarding progression notifications (3 levels up approval flow)
