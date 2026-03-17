@@ -558,7 +558,7 @@ const Blitzes = () => {
 
                 {/* Vivint Sync CTA */}
                 <button
-                  onClick={() => navigate('/goals')}
+                  onClick={() => navigate('/goals', { state: { openSync: true } })}
                   className="group flex items-center gap-3 text-left w-full mt-4 px-4 py-3.5 rounded-xl bg-primary-foreground/15 hover:bg-primary-foreground/20 transition-all border border-primary-foreground/10"
                 >
                   <span className="text-xl flex-shrink-0">📊</span>
