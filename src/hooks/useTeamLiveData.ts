@@ -85,32 +85,6 @@ const calculateBreakMinutes = (breakPeriods: any): number => {
   return totalMinutes;
 };
 
-// Calculate FP+ and PRMR from sales_log for unfinalized entries
-const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number; upgradePrmr: number } => {
-  if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0, upgradePrmr: 0 };
-  
-  let fp = 0;
-  let prmr = 0;
-  let upgradePrmr = 0;
-  
-  for (const sale of salesLog) {
-    // Skip sales that were never installed
-    if (sale.install_status === 'never_installed') continue;
-    
-    const salePrmr = Number(sale.prmr) || 0;
-    prmr += salePrmr;
-    
-    if (sale.type === 'fp') {
-      fp += 1;
-    } else if (sale.type === 'upgrade') {
-      // Upgrade FP+ = PRMR / 85
-      fp += salePrmr / 85;
-      upgradePrmr += salePrmr;
-    }
-  }
-  
-  return { fp, prmr, upgradePrmr };
-};
 
 export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDataParams) => {
   return useQuery({
