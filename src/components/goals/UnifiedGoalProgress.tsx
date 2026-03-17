@@ -110,9 +110,9 @@ const SegmentedBar = ({
   const unfundedAmount = Math.max(0, finalized - fundedAmount);
 
   const fundedPct = Math.min(100, (fundedAmount / goal) * 100);
-  const unfundedPct = Math.min(100 - fundedPct, (unfundedAmount / goal) * 100);
-  const livePct = Math.min(100 - fundedPct - unfundedPct, (live / goal) * 100);
-  const pendingPct = Math.min(100 - fundedPct - unfundedPct - livePct, (pending / goal) * 100);
+  const livePct = Math.min(100 - fundedPct, (live / goal) * 100);
+  const unfundedPct = Math.min(100 - fundedPct - livePct, (unfundedAmount / goal) * 100);
+  const pendingPct = Math.min(100 - fundedPct - livePct - unfundedPct, (pending / goal) * 100);
   const expectedPct = Math.min(100, (expected / goal) * 100);
 
   return (
