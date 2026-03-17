@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { App } from '@capacitor/app';
 import { supabase } from '@/integrations/supabase/client';
+import { emitInAppNotification } from '@/components/InAppNotificationBanner';
 
 type NativePushPermission = 'prompt' | 'granted' | 'denied';
 
@@ -145,7 +146,18 @@ export function useNativePushNotifications() {
         });
 
         const receivedListener = await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-          console.log('[NativePush] Notification received:', notification);
+          console.log('[NativePush] Notification received in foreground:', notification);
+          // Show in-app banner since iOS suppresses system banners in foreground
+          const data = notification.data as any;
+          emitInAppNotification({
+            id: notification.id || `notif-${Date.now()}`,
+            title: notification.title || data?.title || 'Kaizen',
+            body: notification.body || data?.body || '',
+            url: data?.url,
+            type: data?.type,
+            recruitId: data?.recruitId,
+            activityId: data?.activityId,
+          });
         });
 
         const actionListener = await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {

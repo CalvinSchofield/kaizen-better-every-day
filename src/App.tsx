@@ -11,6 +11,7 @@ import { useKeyboardViewport } from "./hooks/useKeyboardViewport";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
 import OfflineIndicator from "./components/OfflineIndicator";
+import { InAppNotificationBanner } from "./components/InAppNotificationBanner";
 import { NativeAppPromo } from "./components/NativeAppPromo";
 import TrackWithLayout from "./components/TrackWithLayout";
 import SetupFlow from "./components/SetupFlow";
@@ -88,6 +89,7 @@ const App = () => {
             <NativeAppPromo />
             <ChallengeWinListener />
             <BrowserRouter>
+              <InAppNotificationBanner />
               <ScrollToTop />
               <Routes>
                 {/* Auth routes - no Layout */}
