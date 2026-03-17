@@ -174,7 +174,7 @@ export const CalendarPlanningPreview = ({
       const remainingForSummer = Math.max(0, fundedGoalNeeded - forecastedPreseasonTotal);
       const futureSummerPlanned = plannedDays?.filter(d => {
         const date = parseISO(d.planned_date);
-        return !isBefore(date, summerStart);
+        return !isBefore(date, summerStart) && !excluded.includes(d.planned_date);
       }).length || 0;
       dailyNeeded = futureSummerPlanned > 0 ? remainingForSummer / futureSummerPlanned : 0;
     }
