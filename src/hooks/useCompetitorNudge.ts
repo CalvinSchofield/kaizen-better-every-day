@@ -195,7 +195,7 @@ export const useCompetitorNudge = (): UseCompetitorNudgeResult => {
         subtitle: 'Set the pace for everyone →',
       },
     };
-  }, [currentUserId, todayLeaderboard, weeklyLeaderboard]);
+  }, [currentUserId, todayLeaderboard, weeklyLeaderboard, watchedSet]);
 
   return {
     competitor: result.competitor,
