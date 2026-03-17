@@ -123,12 +123,13 @@ export const CalendarPlanningPreview = ({
   const stats = useMemo(() => {
     const today = new Date();
     const preseasonEnd = parseISO(PRESEASON_END);
-    const summerStart = parseISO(GLOBAL_SUMMER_START);
+    const summerStart = parseISO(personalSummerStart);
+    const excluded = seasonConfig?.excluded_summer_days || [];
 
     const isPreseasonTier = activeTier === 'preseason';
 
     const preseasonPlanned = plannedDays?.filter(d => !isAfter(parseISO(d.planned_date), preseasonEnd)).length || 0;
-    const summerPlanned = plannedDays?.filter(d => !isBefore(parseISO(d.planned_date), summerStart)).length || 0;
+    const summerPlanned = plannedDays?.filter(d => !isBefore(parseISO(d.planned_date), summerStart) && !excluded.includes(d.planned_date)).length || 0;
     const totalPlanned = isPreseasonTier ? preseasonPlanned : summerPlanned;
 
     const activeGoal = isPreseasonTier
@@ -174,7 +175,7 @@ export const CalendarPlanningPreview = ({
       const remainingForSummer = Math.max(0, fundedGoalNeeded - forecastedPreseasonTotal);
       const futureSummerPlanned = plannedDays?.filter(d => {
         const date = parseISO(d.planned_date);
-        return !isBefore(date, summerStart);
+        return !isBefore(date, summerStart) && !excluded.includes(d.planned_date);
       }).length || 0;
       dailyNeeded = futureSummerPlanned > 0 ? remainingForSummer / futureSummerPlanned : 0;
     }
@@ -188,7 +189,7 @@ export const CalendarPlanningPreview = ({
     const summerGoal = activeGoal;
     const futureSummerPlannedAll = plannedDays?.filter(d => {
       const date = parseISO(d.planned_date);
-      return !isBefore(date, summerStart);
+      return !isBefore(date, summerStart) && !excluded.includes(d.planned_date);
     }).length || 0;
     const summerDailyPace = futureSummerPlannedAll > 0
       ? Math.max(0, summerGoal - forecastedPreseasonTotal) / futureSummerPlannedAll
@@ -199,7 +200,7 @@ export const CalendarPlanningPreview = ({
       ? futurePreseasonPlanned
       : (plannedDays?.filter(d => {
           const date = parseISO(d.planned_date);
-          return date > today && !isBefore(date, summerStart);
+          return date > today && !isBefore(date, summerStart) && !excluded.includes(d.planned_date);
         }).length || 0);
 
     return {
