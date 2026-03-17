@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useTodayLeaderboard } from "./useTodayLeaderboard";
 import { useWeeklyLeaderboard } from "./useWeeklyLeaderboard";
+import { useWatchlist } from "./useWatchlist";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
