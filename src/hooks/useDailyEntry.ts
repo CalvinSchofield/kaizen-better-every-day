@@ -460,6 +460,7 @@ export const useDailyEntry = (date?: string) => {
       work_start_time?: string;
       work_end_time?: string;
       sales_log?: Sale[];
+      daily_target?: number | null;
     }) => {
       // Wait for any pending counter updates to complete first
       await queryClient.refetchQueries({ queryKey: ['update-counter', data.saveDate] });
