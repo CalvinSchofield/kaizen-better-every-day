@@ -186,6 +186,24 @@ const Profile = () => {
           </button>
         ) : userId ? (
           <div className="absolute bottom-5 right-5 z-20 flex gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                hapticLight();
+                toggleWatchlist(userId);
+              }}
+              className={`h-10 w-10 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform border-2 border-white/20 ${
+                isWatching(userId)
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-black/40 text-white backdrop-blur-sm"
+              }`}
+            >
+              {isWatching(userId) ? (
+                <Eye className="h-4 w-4" />
+              ) : (
+                <EyeOff className="h-4 w-4" />
+              )}
+            </button>
             <ProfileContactBar
               name={profile.name}
               phone={profile.phone}
