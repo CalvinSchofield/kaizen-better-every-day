@@ -1264,9 +1264,15 @@ export default function Settings() {
 
                   <Separator />
 
-                  {/* Debug Tools */}
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">Debug Tools</h4>
+                   {/* Debug Tools */}
+                   <div className="space-y-2">
+                     <h4 className="text-sm font-medium text-muted-foreground">Debug Tools</h4>
+
+                     <Link to="/debug-notifications">
+                       <Button variant="outline" size="sm" className="w-full justify-start">
+                         🧪 Notification Tester
+                       </Button>
+                     </Link>
 
                     <Button
                       variant="outline"
