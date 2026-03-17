@@ -123,12 +123,13 @@ export const CalendarPlanningPreview = ({
   const stats = useMemo(() => {
     const today = new Date();
     const preseasonEnd = parseISO(PRESEASON_END);
-    const summerStart = parseISO(GLOBAL_SUMMER_START);
+    const summerStart = parseISO(personalSummerStart);
+    const excluded = seasonConfig?.excluded_summer_days || [];
 
     const isPreseasonTier = activeTier === 'preseason';
 
     const preseasonPlanned = plannedDays?.filter(d => !isAfter(parseISO(d.planned_date), preseasonEnd)).length || 0;
-    const summerPlanned = plannedDays?.filter(d => !isBefore(parseISO(d.planned_date), summerStart)).length || 0;
+    const summerPlanned = plannedDays?.filter(d => !isBefore(parseISO(d.planned_date), summerStart) && !excluded.includes(d.planned_date)).length || 0;
     const totalPlanned = isPreseasonTier ? preseasonPlanned : summerPlanned;
 
     const activeGoal = isPreseasonTier
