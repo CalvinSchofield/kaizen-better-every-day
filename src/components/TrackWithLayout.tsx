@@ -1230,6 +1230,15 @@ const TrackWithLayout = () => {
         onViewRecap={handleViewRecap}
         hasWorkStarted={!!entry.work_start_time}
       >
+        {/* Auth Health Warning - unmissable banner when session is expired */}
+        {!authHealthy && (
+          <div className="mx-4 mb-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg flex items-center gap-2">
+            <span className="text-destructive text-sm font-medium">
+              ⚠️ Session expired — your data may not be saving. Please close and reopen the app.
+            </span>
+          </div>
+        )}
+        
         {/* Pending Sales Alert */}
         <PendingSalesAlert userId={userId} />
         
