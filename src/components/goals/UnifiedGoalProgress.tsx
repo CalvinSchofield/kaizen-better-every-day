@@ -159,9 +159,11 @@ const SegmentedBar = ({
       {/* Expected marker */}
       {showExpectedMarker && expected > 0 && expectedPct > 0 && expectedPct < 100 && (
         <div
-          className="absolute top-0 w-0.5 border-l-2 border-dashed border-muted-foreground/50"
-          style={{ left: `${expectedPct}%`, height: '100%' }}
-        />
+          className="absolute top-[-2px] bottom-[-2px] w-[2px] bg-foreground/80 rounded-full"
+          style={{ left: `${expectedPct}%` }}
+        >
+          <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[3px] border-r-[3px] border-t-[4px] border-l-transparent border-r-transparent border-t-foreground/80" />
+        </div>
       )}
     </div>
   );
@@ -402,7 +404,7 @@ const FullMode = ({
               )}
               {data.knockingDaysCompleted >= 6 && (
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-0 border-t-2 border-dashed border-muted-foreground/50" />
+                  <div className="w-1.5 h-3 bg-foreground/80 rounded-sm" />
                   <span>Expected</span>
                 </div>
               )}
