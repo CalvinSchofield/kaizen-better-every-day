@@ -215,9 +215,9 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
 
     // KNOCKING MODE OFF (Preseason)
     if (effectiveIsLeader) {
-      // Leaders: Home, Tools, Calendar, Goals (action: My Group)
+      // Leaders: Blitzes, Tools, Calendar, Goals (action: My Group)
       return [
-        { path: "/", icon: Home, label: "Home" },
+        { path: "/blitzes", icon: Flame, label: "Blitzes" },
         { path: "/tools", icon: Wrench, label: "Tools" },
         { path: "/calendar", icon: Calendar, label: "Calendar" },
         { path: "/goals", icon: Target, label: "Goals" },
@@ -225,9 +225,9 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
     }
     
     if (isVetOrSoph || isPostBlitzRookieNav) {
-      // Non-leader Vets/Sophs/Post-blitz: Home, Tools, Calendar, Goals (action: Training)
+      // Non-leader Vets/Sophs/Post-blitz: Blitzes, Tools, Calendar, Goals (action: Training)
       return [
-        { path: "/", icon: Home, label: "Home" },
+        { path: "/blitzes", icon: Flame, label: "Blitzes" },
         { path: "/tools", icon: Wrench, label: "Tools" },
         { path: "/calendar", icon: Calendar, label: "Calendar" },
         { path: "/goals", icon: Target, label: "Goals" },
