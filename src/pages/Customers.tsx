@@ -58,6 +58,7 @@ const Customers = () => {
   const { repData } = useRepData();
   const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
   const { addSale, isAddingSale } = useAddSaleToEntry();
+  useSalesRealtime();
 
   if (isPreBlitzRookie) {
     return (

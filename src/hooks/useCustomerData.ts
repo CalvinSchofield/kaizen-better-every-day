@@ -62,7 +62,8 @@ export const useCustomerData = (
 
       return sales;
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000, // 30 seconds
+    refetchOnWindowFocus: 'always',
   });
 
   // Mutation to update a sale's funding status
