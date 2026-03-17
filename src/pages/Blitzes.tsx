@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Check, X, MapPin, Wifi, Key, Moon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ChevronRight, Check, X, MapPin, Wifi, Key, Moon, AlertTriangle, Swords, Users, CloudSun } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useRepData } from "@/hooks/useRepData";
@@ -10,13 +10,13 @@ import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import { VetAlertCard } from "@/components/VetAlertCard";
-
 import { LeaderRookieReviewCard } from "@/components/LeaderRookieReviewCard";
 import { ActiveChallengesCard } from "@/components/ActiveChallengesCard";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { getDaysUntilBlitz, getTodayDateString, parseDateAsLocal } from "@/utils/blitzDateUtils";
+import { getDaysUntilBlitz, getTodayDateString, parseDateAsLocal, formatBlitzDateRange } from "@/utils/blitzDateUtils";
 import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
 import confetti from "canvas-confetti";
+import { motion } from "framer-motion";
 import {
   Sheet,
   SheetContent,
@@ -53,15 +53,16 @@ const Blitzes = () => {
   const [weather, setWeather] = useState<Array<{ date: string; dayName: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [showChallenges, setShowChallenges] = useState(false);
 
   const { data: teamAccessData } = useTeamAccess();
   const isLeader = teamAccessData?.accessLevel && teamAccessData.accessLevel !== 'none';
 
-  // Auto-log blitz attendance for leaders
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
 
   // Get next upcoming blitz from committed blitzes
-  const nextBlitz: { date: string; endDate?: string | null; location?: string | null; name: string; address1?: string | null; wifi1?: string | null; code1?: string | null; id: string } | null = repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)
+  const nextBlitz: { date: string; endDate?: string | null; location?: string | null; name: string; address1?: string | null; wifi1?: string | null; code1?: string | null; id: string; accommodations?: any[] } | null = repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)
     ? (() => {
         const today = parseDateAsLocal(getTodayDateString()) ?? new Date();
         const upcomingBlitzes = (repData.committed_blitzes as any[])
@@ -139,7 +140,7 @@ const Blitzes = () => {
         }
       }
     } catch {
-      // Silent fail - team data is supplementary
+      // Silent fail
     } finally {
       setTeamLoading(false);
     }
@@ -266,215 +267,265 @@ const Blitzes = () => {
 
   if (!repData) return null;
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
-      {/* Hero Section */}
-      <div className="bg-primary text-primary-foreground p-6 pb-10 -mt-[1px]">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex-1 min-w-0 pr-4">
-              {(() => {
-                const hour = new Date().getHours();
-                let greeting = "Good evening";
-                if (hour < 12) greeting = "Good morning";
-                else if (hour < 18) greeting = "Good afternoon";
-                return (
-                  <h2 className="text-3xl font-bold tracking-tight">
-                    {greeting}, {firstName}
-                  </h2>
-                );
-              })()}
-            </div>
-          </div>
+  // Compute hero state
+  const today = parseDateAsLocal(getTodayDateString()) ?? new Date();
+  const blitzStart = nextBlitz ? parseDateAsLocal(nextBlitz.date) : null;
+  const blitzEnd = nextBlitz ? parseDateAsLocal(nextBlitz.endDate ?? nextBlitz.date) : null;
+  const isWithinBlitz = blitzStart && blitzEnd && today >= blitzStart && today <= blitzEnd;
+  const canShowWeather = daysUntilBlitz !== null && daysUntilBlitz >= 0 && daysUntilBlitz <= 8;
+  const locationName = nextBlitz?.location?.split(',')[0] || nextBlitz?.name || '';
 
-          {/* RSVP Card */}
+  // MNL check
+  const mnlInfo = (() => {
+    if (!hasMnlEventToday || isTeamLead) return null;
+    const now = new Date();
+    const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
+    const dayOfWeek = mstTime.getDay();
+    const hour = mstTime.getHours();
+    const minutes = mstTime.getMinutes();
+    const totalMinutes = hour * 60 + minutes;
+    if (dayOfWeek !== 1 || totalMinutes < 540 || totalMinutes > 1230) return null;
+    const mnlStartMinutes = 18 * 60;
+    const isWithinOneHourOfStart = totalMinutes >= mnlStartMinutes - 60;
+    const minutesUntilStart = mnlStartMinutes - totalMinutes;
+    const hoursUntil = Math.floor(minutesUntilStart / 60);
+    const minsUntil = minutesUntilStart % 60;
+    return {
+      statusText: isWithinOneHourOfStart ? "Happening Now!" : "Later Today",
+      countdown: isWithinOneHourOfStart ? null : (hoursUntil > 0 ? `${hoursUntil}h ${minsUntil}m` : `${minsUntil}m`),
+    };
+  })();
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
+  };
+  const itemVariants = {
+    hidden: { opacity: 0, y: 12 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* ── Immersive Hero ── */}
+      <div className="relative overflow-hidden">
+        {/* Background gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary-dark to-primary" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_hsl(var(--primary-light)/0.3)_0%,_transparent_60%)]" />
+        
+        <div className="relative px-5 pt-5 pb-8">
+          {/* Greeting */}
+          <p className="text-primary-foreground/70 text-sm font-medium mb-1">
+            {(() => {
+              const hour = new Date().getHours();
+              if (hour < 12) return "Good morning";
+              if (hour < 18) return "Good afternoon";
+              return "Good evening";
+            })()}, {firstName}
+          </p>
+
+          {/* RSVP takes over hero */}
           {upcomingBlitzForRsvp && (
-            <div className="px-6 py-4 rounded-lg bg-primary-foreground/10 mb-3">
-              <p className="text-primary-foreground/90 text-base font-medium mb-3">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mt-2"
+            >
+              <h1 className="text-3xl font-bold text-primary-foreground tracking-tight mb-1">
+                {upcomingBlitzForRsvp.location?.split(',')[0] || upcomingBlitzForRsvp.name}
+              </h1>
+              <p className="text-primary-foreground/80 text-base mb-5">
                 {isRsvpBlitzCommitted
-                  ? `📆 Still planning on ${upcomingBlitzForRsvp.location} in ${rsvpBlitzDaysUntil} days?`
-                  : `📆 ${upcomingBlitzForRsvp.location} in ${rsvpBlitzDaysUntil} days — you in?`}
+                  ? `Still planning on going in ${rsvpBlitzDaysUntil} days?`
+                  : `${rsvpBlitzDaysUntil} days away — you in?`}
               </p>
               <div className="flex gap-3">
-                <Button onClick={handleRsvpYes} className="flex-1 h-11 text-base bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground">
+                <Button
+                  onClick={handleRsvpYes}
+                  className="flex-1 h-12 text-base font-semibold rounded-xl bg-primary-foreground text-primary hover:bg-primary-foreground/90 shadow-lg"
+                >
                   <Check className="w-5 h-5 mr-2" />
-                  {isRsvpBlitzCommitted ? "Still in!" : "Yes"}
+                  {isRsvpBlitzCommitted ? "Still in!" : "I'm in"}
                 </Button>
-                <Button onClick={handleRsvpNo} variant="outline" className="flex-1 h-11 text-base bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground border-primary-foreground/30">
+                <Button
+                  onClick={handleRsvpNo}
+                  variant="outline"
+                  className="flex-1 h-12 text-base font-semibold rounded-xl bg-transparent border-2 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
+                >
                   <X className="w-5 h-5 mr-2" />
-                  {isRsvpBlitzCommitted ? "Can't make it" : "No"}
+                  Can't make it
                 </Button>
               </div>
-            </div>
+            </motion.div>
           )}
 
-          {/* Blitz CTA when no RSVP */}
-          {!upcomingBlitzForRsvp && !nextBlitz && (
-            <button
-              onClick={() => {
-                const blitzCard = document.querySelector('[data-blitz-card]');
-                if (blitzCard) blitzCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
-              className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mt-4"
+          {/* Next blitz hero (no RSVP) */}
+          {!upcomingBlitzForRsvp && nextBlitz && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-2"
             >
-              <span className="text-2xl flex-shrink-0">📆</span>
-              <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
-                {hasPastBlitzes ? "Pick a blitz trip and commit to making your next sale" : "Pick a blitz trip and commit to making your first sale"}
+              <h1 className="text-3xl font-bold text-primary-foreground tracking-tight mb-1">
+                {locationName}
+              </h1>
+              <p className="text-primary-foreground/70 text-sm mb-4">
+                {formatBlitzDateRange(nextBlitz.date, nextBlitz.endDate)}
               </p>
-              <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
-            </button>
-          )}
 
-          {!upcomingBlitzForRsvp && nextBlitz && (() => {
-            const today = parseDateAsLocal(getTodayDateString()) ?? new Date();
-            const diffDays = getDaysUntilBlitz(nextBlitz.date) ?? 0;
-            const blitzStart = parseDateAsLocal(nextBlitz.date);
-            const blitzEnd = parseDateAsLocal(nextBlitz.endDate ?? nextBlitz.date);
-            if (!blitzStart || !blitzEnd) return null;
-            const isWithinBlitz = today >= blitzStart && today <= blitzEnd;
-
-            let ctaText = "";
-            let ctaIcon = "";
-            const locationName = nextBlitz.location?.split(',')[0] || 'Your blitz';
-
-            if (diffDays < 0) { ctaText = `${locationName} this week — you got this!`; ctaIcon = "🔥"; }
-            else if (diffDays === 0) { ctaText = `${locationName} today — you got this!`; ctaIcon = "🔥"; }
-            else if (diffDays === 1) { ctaText = `${locationName} tomorrow — prep makes perfect`; ctaIcon = "⚡"; }
-            else if (diffDays <= 8) { ctaText = `${locationName} in ${diffDays} days — prep makes perfect`; ctaIcon = "⚡"; }
-            else { ctaText = `${locationName} in ${diffDays} days — stay sharp and keep training!`; ctaIcon = "🎯"; }
-
-            if (isWithinBlitz) {
-              const hasAirbnbData = nextBlitz.address1 || nextBlitz.wifi1 || nextBlitz.code1;
-              return (
-                <div className="flex flex-col gap-2 w-full px-6 py-3 rounded-lg bg-primary-foreground/10 mb-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
-                    <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">{ctaText}</p>
+              {/* Countdown + Weather pills */}
+              <div className="flex items-center gap-2 flex-wrap mb-4">
+                {daysUntilBlitz !== null && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-foreground/15 backdrop-blur-sm">
+                    <span className="text-lg">
+                      {isWithinBlitz ? '🔥' : daysUntilBlitz <= 1 ? '⚡' : '🎯'}
+                    </span>
+                    <span className="text-sm font-semibold text-primary-foreground">
+                      {isWithinBlitz ? 'Happening now' : daysUntilBlitz === 0 ? 'Today' : daysUntilBlitz === 1 ? 'Tomorrow' : `${daysUntilBlitz} days`}
+                    </span>
                   </div>
-                  {hasAirbnbData && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {nextBlitz.address1 && (
-                        <button onClick={() => openInMaps(nextBlitz.address1!)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-primary/30 bg-background/50 hover:bg-background/70 transition-all text-sm font-medium">
-                          <MapPin className="w-4 h-4" /><span>Map</span>
-                        </button>
-                      )}
-                      {nextBlitz.wifi1 && (
-                        <button onClick={() => copyToClipboard(nextBlitz.wifi1!, 'WiFi password copied!')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-primary/30 bg-background/50 hover:bg-background/70 transition-all text-sm font-medium">
-                          <Wifi className="w-4 h-4" /><span>Password</span>
-                        </button>
-                      )}
-                      {nextBlitz.code1 && (
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-primary/30 bg-background/50 text-sm font-medium">
-                          <Key className="w-4 h-4" /><span className="font-mono">{nextBlitz.code1}</span>
-                        </div>
-                      )}
+                )}
+                {canShowWeather && (
+                  <button
+                    onClick={() => setWeatherSheetOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-foreground/15 backdrop-blur-sm hover:bg-primary-foreground/25 transition-colors"
+                  >
+                    <CloudSun className="h-4 w-4 text-primary-foreground" />
+                    <span className="text-sm font-medium text-primary-foreground">Weather</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Quick actions when at blitz */}
+              {isWithinBlitz && (nextBlitz.address1 || nextBlitz.wifi1 || nextBlitz.code1) && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {nextBlitz.address1 && (
+                    <button onClick={() => openInMaps(nextBlitz.address1!)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary-foreground/15 hover:bg-primary-foreground/25 transition-all text-sm font-medium text-primary-foreground backdrop-blur-sm">
+                      <MapPin className="w-4 h-4" /><span>Map</span>
+                    </button>
+                  )}
+                  {nextBlitz.wifi1 && (
+                    <button onClick={() => copyToClipboard(nextBlitz.wifi1!, 'WiFi password copied!')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary-foreground/15 hover:bg-primary-foreground/25 transition-all text-sm font-medium text-primary-foreground backdrop-blur-sm">
+                      <Wifi className="w-4 h-4" /><span>WiFi</span>
+                    </button>
+                  )}
+                  {nextBlitz.code1 && (
+                    <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary-foreground/15 text-sm font-medium text-primary-foreground backdrop-blur-sm">
+                      <Key className="w-4 h-4" /><span className="font-mono">{nextBlitz.code1}</span>
                     </div>
                   )}
                 </div>
-              );
-            } else if (diffDays <= 8) {
-              return (
-                <button onClick={() => setWeatherSheetOpen(true)} className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mb-3">
-                  <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
-                  <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">{ctaText}</p>
-                  <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
-                </button>
-              );
-            }
-            return (
-              <div className="flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 transition-all mb-3">
-                <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
-                <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">{ctaText}</p>
-              </div>
-            );
-          })()}
+              )}
+            </motion.div>
+          )}
+
+          {/* No committed blitz — CTA */}
+          {!upcomingBlitzForRsvp && !nextBlitz && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-2"
+            >
+              <h1 className="text-3xl font-bold text-primary-foreground tracking-tight mb-2">
+                Your Blitzes
+              </h1>
+              <button
+                onClick={() => {
+                  const blitzCard = document.querySelector('[data-blitz-card]');
+                  if (blitzCard) blitzCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="group flex items-center gap-3 text-left w-full px-4 py-3.5 rounded-xl bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
+              >
+                <span className="text-2xl flex-shrink-0">📆</span>
+                <p className="text-primary-foreground/90 text-sm font-medium leading-snug flex-1">
+                  {hasPastBlitzes ? "Pick a blitz and commit to your next sale" : "Pick a blitz and make your first sale"}
+                </p>
+                <ChevronRight className="w-5 h-5 text-primary-foreground/50 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+              </button>
+            </motion.div>
+          )}
         </div>
       </div>
 
-      {/* Content Cards */}
-      <div className="max-w-4xl mx-auto px-4 -mt-4 pb-32 home-card-container">
-        {/* Leader-specific alerts */}
-        {isTeamLead && !teamLoading && (
-          <VetAlertCard
-            teamMembers={teamMembers}
-            allBlitzes={allBlitzes}
-            onTeamMemberUpdate={(id, updates) => {
-              setTeamMembers(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
-            }}
-          />
+      {/* ── Content ── */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="px-4 -mt-3 pb-32 space-y-3"
+      >
+        {/* Compact Alert Banners */}
+        {/* MNL Banner */}
+        {mnlInfo && (
+          <motion.div variants={itemVariants}>
+            <div className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-primary/30 bg-primary/5">
+              <Moon className="h-4 w-4 text-primary flex-shrink-0" />
+              <span className="flex-1 text-sm font-medium text-foreground">
+                Monday Night Lights — {mnlInfo.statusText}
+              </span>
+              {mnlInfo.countdown && (
+                <span className="text-xs font-semibold text-primary">{mnlInfo.countdown}</span>
+              )}
+            </div>
+          </motion.div>
         )}
-        <LeaderRookieReviewCard />
 
-        {/* Universal alerts */}
-        <PendingInstallAlertCard />
-        
+        {/* Leader alerts — compact banners that expand inline */}
+        {isTeamLead && !teamLoading && (
+          <motion.div variants={itemVariants}>
+            <VetAlertCard
+              teamMembers={teamMembers}
+              allBlitzes={allBlitzes}
+              onTeamMemberUpdate={(id, updates) => {
+                setTeamMembers(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+              }}
+            />
+          </motion.div>
+        )}
 
-        {/* Monday Night Lights Alert */}
-        {!isTeamLead && hasMnlEventToday && (() => {
-          const now = new Date();
-          const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
-          const dayOfWeek = mstTime.getDay();
-          const hour = mstTime.getHours();
-          const minutes = mstTime.getMinutes();
-          const totalMinutes = hour * 60 + minutes;
-          const shouldShow = dayOfWeek === 1 && totalMinutes >= 540 && totalMinutes <= 1230;
-          const mnlStartMinutes = 18 * 60;
-          const isWithinOneHourOfStart = totalMinutes >= mnlStartMinutes - 60;
-          const statusText = isWithinOneHourOfStart ? "Happening Now!" : "Later Today";
-          const minutesUntilStart = mnlStartMinutes - totalMinutes;
-          const hoursUntil = Math.floor(minutesUntilStart / 60);
-          const minsUntil = minutesUntilStart % 60;
-          const countdownText = hoursUntil > 0 ? `${hoursUntil}h ${minsUntil}m` : `${minsUntil}m`;
+        <motion.div variants={itemVariants}>
+          <LeaderRookieReviewCard />
+        </motion.div>
 
-          return shouldShow ? (
-            <Card className="home-card-spacing shadow-sm border-2 border-orange-500 bg-orange-50 dark:bg-orange-950/20">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Moon className="h-6 w-6 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-lg mb-2">Monday Night Lights — {statusText}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {isWithinOneHourOfStart ? "Watch Slack for the link!" : <>Starts in <strong>{countdownText}</strong> — watch Slack for the link!</>}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : null;
-        })()}
+        {/* Pending install alerts */}
+        <motion.div variants={itemVariants}>
+          <PendingInstallAlertCard />
+        </motion.div>
 
-        {/* Active Challenges */}
-        <ActiveChallengesCard hideCta={true} />
+        {/* Active Challenges — compact */}
+        <motion.div variants={itemVariants}>
+          <ActiveChallengesCard hideCta={true} />
+        </motion.div>
 
-        {/* Blitz Management Card */}
-        <div data-blitz-card>
-          <VetBlitzCard
-            repData={repData}
-            allBlitzes={allBlitzes}
-            teamMembers={teamMembers}
-            isTeamLead={isTeamLead}
-            isLoadingBlitzes={blitzesLoading}
-            isLoadingTeam={teamLoading}
-            accessLevel={teamAccessData?.accessLevel || 'none'}
-            mgmtGroups={teamAccessData?.mgmtGroups || []}
-            teams={teamAccessData?.teams || []}
-            onTeamMemberUpdate={(id, updates) => {
-              setTeamMembers(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
-            }}
-            onCommitmentChange={() => {
-              setTimeout(() => handleRefresh(), 3000);
-            }}
-          />
-        </div>
-      </div>
+        {/* ── Blitz Management ── */}
+        <motion.div variants={itemVariants}>
+          <div data-blitz-card>
+            <VetBlitzCard
+              repData={repData}
+              allBlitzes={allBlitzes}
+              teamMembers={teamMembers}
+              isTeamLead={isTeamLead}
+              isLoadingBlitzes={blitzesLoading}
+              isLoadingTeam={teamLoading}
+              accessLevel={teamAccessData?.accessLevel || 'none'}
+              mgmtGroups={teamAccessData?.mgmtGroups || []}
+              teams={teamAccessData?.teams || []}
+              onTeamMemberUpdate={(id, updates) => {
+                setTeamMembers(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+              }}
+              onCommitmentChange={() => {
+                setTimeout(() => handleRefresh(), 3000);
+              }}
+            />
+          </div>
+        </motion.div>
+      </motion.div>
 
       {/* Weather Sheet */}
       <Sheet open={weatherSheetOpen} onOpenChange={setWeatherSheetOpen}>
-        <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto">
+        <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-3xl">
           <SheetHeader>
-            <SheetTitle>Weather for {nextBlitz?.location}</SheetTitle>
+            <SheetTitle>Weather — {nextBlitz?.location}</SheetTitle>
             <SheetDescription>{nextBlitz?.name}</SheetDescription>
           </SheetHeader>
           {loadingWeather && (
@@ -484,7 +535,7 @@ const Blitzes = () => {
           )}
           {!loadingWeather && weather.length === 0 && (
             <div className="text-center text-sm text-muted-foreground py-8">
-              <p>Weather forecast unavailable for this location.</p>
+              <p>Weather forecast unavailable.</p>
               <p className="text-xs mt-2">Try refreshing or check back later.</p>
             </div>
           )}
@@ -505,30 +556,30 @@ const Blitzes = () => {
                       return "☀️";
                     };
                     return (
-                      <div key={day.date} className="flex-shrink-0 w-24 p-3 bg-muted/30 rounded-lg text-center border border-border">
-                        <p className="text-xs font-medium mb-2">{day.dayName}</p>
+                      <div key={day.date} className="flex-shrink-0 w-[72px] p-3 bg-muted/30 rounded-xl text-center border border-border">
+                        <p className="text-xs font-medium mb-2 text-muted-foreground">{day.dayName}</p>
                         <div className="text-2xl mb-2">{getWeatherIcon(day.weatherCode)}</div>
-                        <p className="text-sm font-semibold mb-1">{day.high}°</p>
+                        <p className="text-sm font-bold">{day.high}°</p>
                         <p className="text-xs text-muted-foreground">{day.low}°</p>
                       </div>
                     );
                   })}
                 </div>
               </div>
-              <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
+              <div className="mt-4 p-4 bg-muted/50 rounded-xl border border-border">
                 <p className="text-sm text-muted-foreground italic text-center">
                   {(() => {
                     const avgHigh = weather.reduce((sum, day) => sum + day.high, 0) / weather.length;
                     const avgLow = weather.reduce((sum, day) => sum + day.low, 0) / weather.length;
                     if (avgHigh > 85) return "Pack light and bring sunscreen — it's going to be hot out there!";
                     if (avgHigh < 60) return "Pack warm — it gets colder than you think when you're outside all day.";
-                    if (avgLow < 50) return "Days are nice but mornings are cold — bring layers you can adjust throughout the day.";
+                    if (avgLow < 50) return "Days are nice but mornings are cold — bring layers.";
                     return "Perfect knocking weather — prep your pitch and pack smart!";
                   })()}
                 </p>
               </div>
               <div className="mt-4">
-                <Button className="w-full" onClick={() => {
+                <Button className="w-full rounded-xl h-12" onClick={() => {
                   setWeatherSheetOpen(false);
                   window.open('https://www.notion.so/Packing-List-Blitz-Trips-63bbc6dd1afd4340a9c9ca5533c838b4', '_blank');
                 }}>
