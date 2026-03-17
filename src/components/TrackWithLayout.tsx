@@ -755,6 +755,16 @@ const TrackWithLayout = () => {
       fireConfetti({ variant: 'money', duration: 2500 });
     }
     
+    // Fire-and-forget: notify recruiter when rookie transitions
+    if (field === 'transitions' && isAdding) {
+      const uid = getCurrentUserId();
+      if (uid) {
+        supabase.functions.invoke('notify-recruiter-transition', {
+          body: { repUserId: uid },
+        }).catch(() => {});
+      }
+    }
+    
     // Set sync status to pending
     setSyncStatus('pending');
     
@@ -883,16 +893,16 @@ const TrackWithLayout = () => {
       // Try direct save FIRST (no queue)
       await updateCounter(updates);
       setSyncStatus('synced');
-      // Fire-and-forget: notify watchlist watchers about this sale
+      // Fire-and-forget: notify watchlist watchers and recruiter about this sale
       const currentUid = getCurrentUserId();
       if (currentUid) {
-        supabase.functions.invoke('notify-watchlist-sale', {
-          body: {
-            sellerUserId: currentUid,
-            prmr: saleData.prmr || 0,
-            fpPlus: Math.round(fp * 100) / 100,
-          },
-        }).catch(() => { /* non-fatal */ });
+        const salePayload = {
+          sellerUserId: currentUid,
+          prmr: saleData.prmr || 0,
+          fpPlus: Math.round(fp * 100) / 100,
+        };
+        supabase.functions.invoke('notify-watchlist-sale', { body: salePayload }).catch(() => {});
+        supabase.functions.invoke('notify-recruiter-sale', { body: salePayload }).catch(() => {});
       }
     } catch (error: any) {
       if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
@@ -983,6 +993,17 @@ const TrackWithLayout = () => {
     try {
       await updateCounter(updates);
       setSyncStatus('synced');
+      // Fire-and-forget: notify recruiter about this sale
+      const currentUid = getCurrentUserId();
+      if (currentUid) {
+        const salePayload = {
+          sellerUserId: currentUid,
+          prmr: saleData.prmr || 0,
+          fpPlus: Math.round(fp * 100) / 100,
+        };
+        supabase.functions.invoke('notify-watchlist-sale', { body: salePayload }).catch(() => {});
+        supabase.functions.invoke('notify-recruiter-sale', { body: salePayload }).catch(() => {});
+      }
     } catch (error: any) {
       if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
         toast.info("Today's work is already saved. Start fresh tomorrow!");

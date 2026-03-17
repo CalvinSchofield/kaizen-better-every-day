@@ -24,6 +24,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { IntroWizard } from "@/components/IntroWizard";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
+import { NotificationSettings } from "@/components/NotificationSettings";
 import { MeVsMeSettings } from "@/components/MeVsMeSettings";
 import { useWeeklyReports } from "@/hooks/useWeeklyReports";
 import { TeamRecapStory } from "@/components/team-recap";
@@ -981,93 +982,34 @@ export default function Settings() {
           <MeVsMeSettings isOpen={isMeVsMeOpen} onOpenChange={setIsMeVsMeOpen} />
         )}
 
-        {/* Notifications - Collapsible */}
-        {notificationsSupported && (
-          <Card>
-            <Collapsible open={isNotificationsOpen} onOpenChange={setIsNotificationsOpen}>
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
-                        <Bell className="h-4 w-4" />
-                        Notifications
-                      </CardTitle>
-                      {!isNotificationsOpen && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {isSubscribed ? "Enabled" : permission === 'denied' ? "Blocked" : "Disabled"}
-                        </p>
-                      )}
-                    </div>
-                    <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isNotificationsOpen && "rotate-180")} />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-4">
-                  {permission === 'denied' ? (
-                    <p className="text-sm text-muted-foreground">
-                      Notifications are blocked by your browser. Enable them in your browser settings to receive save reminders.
-                    </p>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-base">Save Reminders</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Get reminded to save your work if you've been idle after sunset
-                        </p>
-                      </div>
-                      <Switch
-                        checked={isSubscribed}
-                        onCheckedChange={handleToggleNotifications}
-                        disabled={isSavingNotifications || notificationsLoading}
-                      />
-                    </div>
-                  )}
-                  
-                  {/* Developer Test Button - only for Calvin */}
-                  {repData?.email?.toLowerCase() === 'calvinjschofield@gmail.com' && isSubscribed && (
-                    <div className="pt-3 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        disabled={isSendingTestPush}
-                        onClick={async () => {
-                          setIsSendingTestPush(true);
-                          try {
-                            const { error } = await supabase.functions.invoke('test-push-notification', {
-                              body: { targetEmail: 'calvinjschofield@gmail.com' }
-                            });
-                            if (error) throw error;
-                            toast({
-                              title: "Test notification sent",
-                              description: "Check your device for the rich notification!",
-                            });
-                          } catch (err: any) {
-                            console.error('Test push error:', err);
-                            toast({
-                              title: "Failed to send",
-                              description: err.message,
-                              variant: "destructive",
-                            });
-                          } finally {
-                            setIsSendingTestPush(false);
-                          }
-                        }}
-                      >
-                        {isSendingTestPush ? "Sending..." : "🧪 Test Rich Notification"}
-                      </Button>
-                      <p className="text-xs text-muted-foreground mt-2 text-center">
-                        Developer only - sends a test notification with action buttons
+        {/* Notifications */}
+        <Card>
+          <Collapsible open={isNotificationsOpen} onOpenChange={setIsNotificationsOpen}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="flex items-center gap-2">
+                      <Bell className="h-4 w-4" />
+                      Notifications
+                    </CardTitle>
+                    {!isNotificationsOpen && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {isSubscribed ? "Enabled" : permission === 'denied' ? "Blocked" : "Disabled"}
                       </p>
-                    </div>
-                  )}
-                </CardContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </Card>
-        )}
+                    )}
+                  </div>
+                  <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isNotificationsOpen && "rotate-180")} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent>
+                <NotificationSettings />
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
 
         {/* Developer Tools - Only visible for Calvin */}
         {repData?.email?.toLowerCase() === 'calvinjschofield@gmail.com' && (
