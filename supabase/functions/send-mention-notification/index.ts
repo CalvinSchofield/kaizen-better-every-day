@@ -130,10 +130,35 @@ serve(async (req) => {
         }
       }
 
-      // TODO: Add APNs sending for native iOS when ready
-      // For now, log that we have APNs tokens but can't send yet
+      // Send APNs notifications for native iOS
       if (apnsTokens && apnsTokens.length > 0) {
-        console.log(`[send-mention-notification] User ${mentionedUserId} has ${apnsTokens.length} APNs tokens (native push not yet implemented)`);
+        const apnsConfigured = Deno.env.get("APNS_TEAM_ID") && Deno.env.get("APNS_KEY_ID") && Deno.env.get("APNS_PRIVATE_KEY");
+        if (apnsConfigured) {
+          try {
+            const apnsResponse = await fetch(`${supabaseUrl}/functions/v1/send-apns-notification`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({
+                targetUserId: mentionedUserId,
+                title,
+                body,
+                url: deepLinkUrl,
+                type: "mention",
+              }),
+            });
+            if (apnsResponse.ok) {
+              successCount++;
+              console.log(`[send-mention-notification] Sent APNs to user ${mentionedUserId}`);
+            } else {
+              await apnsResponse.text();
+            }
+          } catch (e) {
+            console.error(`[send-mention-notification] APNs call failed for ${mentionedUserId}:`, e);
+          }
+        }
       }
     }
 

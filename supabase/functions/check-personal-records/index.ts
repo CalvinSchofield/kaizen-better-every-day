@@ -257,6 +257,82 @@ serve(async (req) => {
       }
     }
 
+    // Send APNs to all upline leaders
+    const apnsConfigured = Deno.env.get('APNS_TEAM_ID') && Deno.env.get('APNS_KEY_ID') && Deno.env.get('APNS_PRIVATE_KEY');
+    if (apnsConfigured) {
+      for (const leaderId of uplineUserIds) {
+        try {
+          const resp = await fetch(`${supabaseUrl}/functions/v1/send-apns-notification`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              targetUserId: leaderId,
+              title: 'Personal Best! 🏆',
+              body: notificationBody,
+              url: `/my-group?highlight=${userId}`,
+              type: 'personal_record',
+            }),
+          });
+          if (resp.ok) {
+            successCount++;
+            console.log(`[check-personal-records] Sent APNs to leader ${leaderId}`);
+          } else {
+            await resp.text();
+          }
+        } catch (e) {
+          console.error(`[check-personal-records] APNs call failed for ${leaderId}:`, e);
+        }
+      }
+    }
+
+    // Also send a self-notification to the rep who broke the record
+    const selfTitle = beatFp && beatPrmr
+      ? `🏆 NEW PERSONAL BEST! ${fpPlus} FP+ & $${Math.round(prmr)} PRMR`
+      : beatFp
+        ? `🏆 NEW PERSONAL BEST! ${fpPlus} FP+`
+        : `🏆 NEW PERSONAL BEST! $${Math.round(prmr)} PRMR`;
+    const selfBody = `You just beat your all-time record. Keep crushing it! 🔥`;
+
+    // Web push to self
+    const { data: selfSubs } = await supabase
+      .from('push_subscriptions')
+      .select('*')
+      .eq('user_id', userId);
+
+    for (const sub of selfSubs || []) {
+      try {
+        await sendWebPush(
+          { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
+          { title: selfTitle, body: selfBody, url: '/track', type: 'personal_record_self' },
+          vapidPublicKey,
+          vapidPrivateKey
+        );
+      } catch (_) { /* best effort */ }
+    }
+
+    // APNs to self
+    if (apnsConfigured) {
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/send-apns-notification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            targetUserId: userId,
+            title: selfTitle,
+            body: selfBody,
+            url: '/track',
+            type: 'personal_record_self',
+          }),
+        });
+      } catch (_) { /* best effort */ }
+    }
+
     console.log(`[check-personal-records] Sent ${successCount} notifications`);
 
     return new Response(
