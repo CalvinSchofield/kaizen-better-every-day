@@ -96,6 +96,13 @@ export function useBlitzDetailStats(startDate: string | null, endDate: string | 
           totalPrmr += calc.prmr;
           for (const sale of salesLog as any[]) {
             if (sale?.install_status === 'never_installed') continue;
+            let soldAtLocal: string | undefined;
+            if (sale.timestamp) {
+              try {
+                const tz = (e as any).timezone || 'America/New_York';
+                soldAtLocal = formatInTimeZone(new Date(sale.timestamp), tz, 'h:mm a');
+              } catch { /* ignore bad timestamps */ }
+            }
             allSales.push({
               id: sale.id || crypto.randomUUID(),
               date: e.entry_date,
@@ -103,6 +110,7 @@ export function useBlitzDetailStats(startDate: string | null, endDate: string | 
               prmr: Number(sale.prmr) || 0,
               installStatus: sale.install_status || 'installed',
               customerName: sale.customer_name || sale.name,
+              soldAtLocal,
             });
           }
         } else {
