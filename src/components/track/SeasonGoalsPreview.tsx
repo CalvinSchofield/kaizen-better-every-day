@@ -83,9 +83,9 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
             >
               <div className="flex items-baseline justify-between mb-1.5">
                 <span className="text-sm font-semibold tabular-nums text-foreground">
-                  {formatFP(totalProgress)}
-                  {season.live > 0 && <span className="text-emerald-500 text-xs font-normal"> +{formatFP(season.live)}</span>}
+                  {formatFP(season.funded)}
                   {season.pending > 0 && <span className="text-warning text-xs font-normal"> +{formatFP(season.pending)}</span>}
+                </span>
                 </span>
                 <span className="text-sm text-muted-foreground">
                   / {formatFP(season.goal)} {data.metricLabel}
