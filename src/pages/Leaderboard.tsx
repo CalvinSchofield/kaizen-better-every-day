@@ -141,7 +141,12 @@ const Leaderboard = () => {
             availablePresets={availablePresets}
             customDateRange={customDateRange}
             onTimeFilterChange={setTimeFilter}
-            onScopeFilterChange={setScopeFilter}
+            onScopeFilterChange={(filter) => {
+              setScopeFilter(filter);
+              if (filter === 'watchlist') {
+                setWatchlistDrawerOpen(true);
+              }
+            }}
             onCustomDateRangeChange={setCustomDateRange}
           />
         </div>
