@@ -204,7 +204,9 @@ serve(async (req) => {
     }
 
     // Get auth token
+    console.log('[APNs] Getting auth token...');
     const authToken = await getAPNsAuthToken();
+    console.log('[APNs] Auth token obtained, building payload...');
 
     // Build payload
     const payload: APNsPayload = {
