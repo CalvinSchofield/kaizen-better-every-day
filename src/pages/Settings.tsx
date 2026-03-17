@@ -1311,9 +1311,12 @@ export default function Settings() {
                           onClick={async () => {
                             setIsCheckingApnsToken(true);
                             try {
+                              const { data: { session: s } } = await supabase.auth.getSession();
+                              const uid = s?.user?.id;
                               const { count, error } = await supabase
                                 .from('apns_device_tokens')
-                                .select('id', { count: 'exact', head: true });
+                                .select('id', { count: 'exact', head: true })
+                                .eq('user_id', uid ?? '');
 
                               if (error) throw error;
 
