@@ -199,7 +199,7 @@ export const CalendarPlanningPreview = ({
       ? futurePreseasonPlanned
       : (plannedDays?.filter(d => {
           const date = parseISO(d.planned_date);
-          return date > today && !isBefore(date, summerStart);
+          return date > today && !isBefore(date, summerStart) && !excluded.includes(d.planned_date);
         }).length || 0);
 
     return {

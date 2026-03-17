@@ -310,7 +310,7 @@ export const SeasonHeatmap = ({
       {/* Header: season label + tier badge + pace */}
       <div className="flex items-center justify-between">
         <div className="text-xs font-medium text-muted-foreground">
-          Season 2025–26
+          2026 Season
         </div>
         {isCurrentlyPreseason && preseasonGoalHit ? (
           <div className={cn(
