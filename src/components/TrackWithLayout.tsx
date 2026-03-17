@@ -883,16 +883,16 @@ const TrackWithLayout = () => {
       // Try direct save FIRST (no queue)
       await updateCounter(updates);
       setSyncStatus('synced');
-      // Fire-and-forget: notify watchlist watchers about this sale
+      // Fire-and-forget: notify watchlist watchers and recruiter about this sale
       const currentUid = getCurrentUserId();
       if (currentUid) {
-        supabase.functions.invoke('notify-watchlist-sale', {
-          body: {
-            sellerUserId: currentUid,
-            prmr: saleData.prmr || 0,
-            fpPlus: Math.round(fp * 100) / 100,
-          },
-        }).catch(() => { /* non-fatal */ });
+        const salePayload = {
+          sellerUserId: currentUid,
+          prmr: saleData.prmr || 0,
+          fpPlus: Math.round(fp * 100) / 100,
+        };
+        supabase.functions.invoke('notify-watchlist-sale', { body: salePayload }).catch(() => {});
+        supabase.functions.invoke('notify-recruiter-sale', { body: salePayload }).catch(() => {});
       }
     } catch (error: any) {
       if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
