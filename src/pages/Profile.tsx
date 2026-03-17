@@ -49,6 +49,7 @@ const Profile = () => {
   const [photoDrawerOpen, setPhotoDrawerOpen] = useState(false);
   const { setCustomRightContent, setCustomLeftContent } = useHeader();
   const isOwnProfile = currentUserId === userId;
+  const { isWatching, toggleWatchlist } = useWatchlist();
 
   const { data: profile, isLoading } = useRepProfile(userId || currentUserId || null);
   const { data: teamAccess } = useTeamAccess();
