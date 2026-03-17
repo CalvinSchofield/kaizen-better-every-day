@@ -10,7 +10,6 @@ import { useNativePushNotifications } from './useNativePushNotifications';
 export function useUnifiedPushNotifications() {
   const isNative = Capacitor.isNativePlatform();
 
-  // Use native push for Capacitor apps, web push for browsers
   const webPush = usePushNotifications();
   const nativePush = useNativePushNotifications();
 
@@ -30,6 +29,7 @@ export function useUnifiedPushNotifications() {
       isNative: true,
       platform: 'native' as const,
       debug: nativePush.debug,
+      refreshStoredTokenFlag: nativePush.refreshStoredTokenFlag,
     };
   }
 
@@ -43,5 +43,6 @@ export function useUnifiedPushNotifications() {
     isNative: false,
     platform: 'web' as const,
     debug: undefined,
+    refreshStoredTokenFlag: undefined,
   };
 }
