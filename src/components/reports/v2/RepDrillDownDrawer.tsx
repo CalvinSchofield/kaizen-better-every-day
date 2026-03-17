@@ -96,6 +96,9 @@ export const RepDrillDownDrawer = ({
   // Get userId for hooks - must be at top level
   const userId = isOpen && rep ? rep.userId : undefined;
   
+  // Unified goal pace calculator for this rep
+  const downlineGoalPace = useGoalPaceCalculatorForUser(userId);
+  
   // Fetch extended data (timeline + goals)
   const { data: extendedData, isLoading: isLoadingExtended } = useRepDrillDownData(userId);
   
