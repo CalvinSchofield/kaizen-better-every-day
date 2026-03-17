@@ -1,50 +1,100 @@
 
+Goal: make iOS native (TestFlight) push registration reliable first, then ensure PWA push works on iPhone.
 
-## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
+What I found from the current code/backend
+- Native token table is empty (`apns_device_tokens` has 0 rows), so no iOS device has successfully stored a token yet.
+- Web subscriptions exist (`push_subscriptions` has rows), so web push pipeline is at least partially working.
+- Native registration logic is duplicated in two places:
+  - `src/components/PushNotificationInitializer.tsx`
+  - `src/hooks/useNativePushNotifications.ts`
+  This can cause drift/race and makes debugging harder.
+- Current debug checks in `Settings.tsx` count all APNs tokens globally (not per current user), which can mislead status.
+- Biggest likely blocker for “permission granted but no token”: iOS native project wiring/capabilities (AppDelegate forwarding + Push capability/provisioning), not just JS code.
 
-### The Problem
+Implementation plan (code changes)
+1) Consolidate native push registration into one source of truth
+- Keep one canonical native registration flow in `useNativePushNotifications`.
+- Refactor `PushNotificationInitializer.tsx` to call that shared flow (or remove duplicate listener/registration logic and only trigger a bootstrap call).
+- Ensure registration runs:
+  - after authenticated session is available
+  - when app returns to foreground (resume) to recover from missed callbacks.
 
-When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
+2) Make token storage resilient and user-specific
+- In `useNativePushNotifications.ts`:
+  - store token with robust upsert behavior (handle unique `device_token` collisions cleanly).
+  - if session missing at callback time, retry once shortly after instead of dropping token forever.
+  - improve debug state with explicit phases: permission_checked, register_called, token_received, token_saved.
+- In `Settings.tsx` and hook refresh checks:
+  - query `apns_device_tokens` filtered by current user only.
 
-### Root Cause
+3) Improve diagnostics so failure reason is obvious
+- In `Settings.tsx` developer section:
+  - add a single “Native Push Health Check” action that reports:
+    - authenticated user present?
+    - permission state
+    - registration callback received?
+    - registration error message (if any)
+    - token saved for this user?
+  - show “Likely iOS capability/provisioning issue” when register callback never arrives within timeout.
+- Update `test-push-notification` edge function to return failure if 0 notifications were actually sent (avoid false green checks).
 
-There are three things fighting each other:
+4) Keep PWA flow explicit and separate
+- In `Settings.tsx`, when platform is web:
+  - show clear requirements for iPhone web push:
+    - must use published URL (not preview/test shell)
+    - must open as Home Screen app on iOS
+    - must grant notifications via user action (toggle button).
+- Keep web push subscribe/unsubscribe as-is, but improve status messaging when service worker/permission prerequisites aren’t met.
 
-1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
+Technical details (files)
+- `src/hooks/useNativePushNotifications.ts`
+- `src/components/PushNotificationInitializer.tsx`
+- `src/pages/Settings.tsx`
+- `src/hooks/useUnifiedPushNotifications.ts` (if needed for status normalization)
+- `supabase/functions/test-push-notification/index.ts`
 
-2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
+No database schema changes required.
 
-3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+Noob-friendly runbook (TestFlight first)
+1) Pull latest code locally
+- Open Terminal in your project folder:
+```bash
+git pull
+npm install
+npm run build
+npx cap sync ios
+npx cap open ios
+```
 
-### The Fix
+2) In Xcode (must-do checks)
+- Select your app target → Signing & Capabilities:
+  - Team selected
+  - Bundle Identifier matches your Apple app identifier
+  - Add capability: Push Notifications
+  - Add capability: Background Modes → check “Remote notifications”
+- Open `ios/App/App/AppDelegate.swift` and verify push forwarding methods exist (Capacitor push requirement):
+  - `didRegisterForRemoteNotificationsWithDeviceToken`
+  - `didFailToRegisterForRemoteNotificationsWithError`
+  - both should post to Capacitor notification center names.
+- Product → Clean Build Folder, then build and archive.
+- Upload to TestFlight and install the new build on physical iPhone.
 
-#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+3) Device checks
+- iPhone Settings → Notifications → your app → Allow Notifications ON.
+- Open app, log in, go to Settings → Notifications/Developer Tools.
+- Run “Re-register & Self-Test Push” and confirm:
+  - Push Registered = Yes
+  - APNs token in DB = Yes
+  - test notification arrives.
 
-The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
+4) Then validate PWA push
+- On iPhone Safari, open published URL (`kaizen-better-every-day.lovable.app`).
+- Share → Add to Home Screen.
+- Open installed web app from Home Screen.
+- Enable notifications from in-app Settings toggle.
+- Send test web push and confirm delivery.
 
-#### 2. Simplify `useKeyboardViewport` hook
-
-- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
-- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
-- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
-- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
-
-#### 3. Add `@capacitor/keyboard` plugin configuration
-
-Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
-
-### Files to Modify
-
-- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
-- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
-- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
-- **`package.json`** -- Add `@capacitor/keyboard` dependency
-
-### After Approval
-
-After these code changes, you will need to:
-1. Git pull the updated code
-2. Run `npm install` to get the new keyboard plugin
-3. Run `npx cap sync` to sync the plugin to iOS
-4. Rebuild in Xcode and push to TestFlight
-
+Acceptance criteria
+- Native/TestFlight: token row exists for current user in `apns_device_tokens`, self-test APNs succeeds, notification received.
+- PWA: subscription row exists for current user in `push_subscriptions`, test web push succeeds and displays.
+- Status UI shows per-user truth (no global false positives).
