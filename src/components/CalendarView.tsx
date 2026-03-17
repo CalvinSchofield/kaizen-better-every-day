@@ -638,9 +638,10 @@ export const CalendarView = ({
             const isPlanned = isDatePlanned(dateStr);
             const hasEntry = entry && entry.is_finalized;
             
-            // Check for cancelled sales
-            const salesLog = entry?.sales_log || [];
-            const hasCancelledSale = Array.isArray(salesLog) && salesLog.some((s: any) => s.install_status === 'cancelled');
+            // Mission complete check
+            const dailyTarget = entry?.daily_target;
+            const production = efpModeEnabled ? calculateEfp(entry?.prmr || 0) : (entry?.fp_plus || 0);
+            const isMissionComplete = hasEntry && dailyTarget != null && dailyTarget > 0 && production >= dailyTarget;
             
             // Me vs Me historical data for this day
             const historicalDay = meVsMeEnabled && hasMeVsMeData ? historicalByDate.get(dateStr) : null;
@@ -657,10 +658,10 @@ export const CalendarView = ({
                   ${isKnocking && (!isSunday || sundayHasData) ? 'bg-primary/10' : isPlanned && !hasEntry ? 'bg-accent/30' : 'bg-card'}
                 `}
               >
-                {/* Cancelled sale indicator - top right corner */}
-                {hasEntry && hasCancelledSale && (
-                  <div className="absolute top-1 right-1.5 text-destructive">
-                    <Ban className="h-3.5 w-3.5" />
+                {/* Mission complete indicator - top right corner */}
+                {isMissionComplete && (
+                  <div className="absolute top-1 right-1.5 text-emerald-500">
+                    <Check className="h-3 w-3" strokeWidth={3} />
                   </div>
                 )}
                 {/* Planned day goal indicator - top right corner */}
