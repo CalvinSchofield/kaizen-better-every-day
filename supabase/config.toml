@@ -146,3 +146,6 @@ verify_jwt = false
 
 [functions.send-comment-notification]
 verify_jwt = false
+
+[functions.handle-notification-reply]
+verify_jwt = false
