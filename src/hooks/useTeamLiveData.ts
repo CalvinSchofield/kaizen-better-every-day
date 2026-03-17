@@ -243,15 +243,17 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
             let fpValue: number;
             let prmrValue: number;
             let upgradePrmrValue: number;
+            let pendingFpValue = 0;
+            let pendingPrmrValue = 0;
             
             if (hasSalesLog) {
-              // Use sales_log calculation (works for both finalized and unfinalized)
               const fromLog = calculateFromSalesLog(salesLog);
               fpValue = fromLog.fp;
               prmrValue = fromLog.prmr;
               upgradePrmrValue = fromLog.upgradePrmr;
+              pendingFpValue = fromLog.pendingFp;
+              pendingPrmrValue = fromLog.pendingPrmr;
             } else {
-              // Fall back to column values for entries without sales_log (pre-feature entries)
               fpValue = todayEntry.fp_plus || 0;
               prmrValue = todayEntry.prmr || 0;
               upgradePrmrValue = todayEntry.upgrade_prmr || 0;
