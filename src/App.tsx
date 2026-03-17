@@ -87,6 +87,8 @@ const App = () => {
             <Sonner />
             <OfflineIndicator />
             <NativeAppPromo />
+            <BrowserRouter>
+              <InAppNotificationBanner />
             <ChallengeWinListener />
             <BrowserRouter>
               <ScrollToTop />
