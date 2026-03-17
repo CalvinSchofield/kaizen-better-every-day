@@ -28,6 +28,8 @@ interface LiveRepData {
     fp: number;
     prmr: number;
     upgradePrmr?: number;
+    pendingFp?: number;
+    pendingPrmr?: number;
     isFinalized?: boolean;
   };
   // Historical averages for pace comparison
