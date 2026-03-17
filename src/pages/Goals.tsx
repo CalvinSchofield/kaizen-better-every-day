@@ -43,6 +43,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isBefore, parseISO, format } from "date-fns";
 import { parseDateAsLocal, formatBlitzDate } from "@/utils/blitzDateUtils";
+import { SummerCountdownHero } from "@/components/SummerCountdownHero";
 import { calculatePaceContext, getLearningCurvePrincipleMessage, calculateSuggestedStretchGoal } from "@/utils/learningCurveData";
 import { hasCompletedGoalsSetup } from "@/lib/goalsSetupCache";
 

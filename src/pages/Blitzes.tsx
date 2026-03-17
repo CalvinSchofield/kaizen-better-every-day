@@ -176,6 +176,22 @@ const Blitzes = () => {
     fetchTeamMembers();
   }, [fetchTeamMembers, refreshTrigger]);
 
+  // Redirect to leaderboard if summer has started
+  const summerStarted = useMemo(() => {
+    const effectiveStart = summerConfig?.personal_summer_start || '2026-04-12';
+    const startDate = parseDateAsLocal(effectiveStart);
+    if (!startDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today >= startDate;
+  }, [summerConfig?.personal_summer_start]);
+
+  useEffect(() => {
+    if (summerStarted) {
+      navigate('/leaderboard', { replace: true });
+    }
+  }, [summerStarted, navigate]);
+
   const firstName = repData?.name?.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0] || '';
 
   const copyToClipboard = async (text: string, successMessage: string) => {
