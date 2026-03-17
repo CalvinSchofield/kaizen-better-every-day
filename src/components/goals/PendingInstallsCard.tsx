@@ -37,7 +37,7 @@ export const PendingInstallsCard = ({ className }: PendingInstallsCardProps) => 
 
   return (
     <Card
-      className={`border-blue-500/30 bg-blue-500/5 cursor-pointer hover:bg-blue-500/10 transition-colors ${className}`}
+      className={`border-border/50 bg-card cursor-pointer hover:bg-accent/50 transition-colors ${className}`}
       onClick={() => navigate('/customers')}
     >
       <CardContent className="p-4">

@@ -38,7 +38,7 @@ export const CanceledStatsCard = ({ className }: CanceledStatsCardProps) => {
     : `${stats.canceledFpPlus.toFixed(1)} FP+ · $${stats.canceledPrmr.toLocaleString()}`;
 
   return (
-    <Card className={`border-amber-500/30 bg-amber-500/5 ${className}`}>
+    <Card className={`border-border/50 bg-card ${className}`}>
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger className="w-full">
           <CardContent className="p-4">

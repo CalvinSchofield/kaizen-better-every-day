@@ -106,17 +106,19 @@ export function SummerCountdownHero({
     );
   }
 
-  // Goals card variant
+  // Goals card variant — neutral card with subtle accent
   return (
     <>
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mx-4 mt-2 mb-4 p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20"
+        className="p-4 rounded-2xl bg-card border border-border/50"
       >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🌅</span>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-accent">
+              <span className="text-base">🌅</span>
+            </div>
             <div>
               <p className="text-sm font-semibold text-foreground">
                 {hasPersonalDates ? 'Your Summer Starts Soon' : 'Summer Starts Soon'}
@@ -131,7 +133,7 @@ export function SummerCountdownHero({
           </div>
           <button
             onClick={() => setEditOpen(true)}
-            className="p-2 rounded-lg hover:bg-muted/50 transition-colors"
+            className="p-2 rounded-xl hover:bg-accent transition-colors"
           >
             <Pencil className="w-4 h-4 text-muted-foreground" />
           </button>
