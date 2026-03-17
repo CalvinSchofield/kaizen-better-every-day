@@ -1,50 +1,93 @@
+## Push Notification Fix – Complete
 
+### What was changed (code side)
 
-## Fix: iOS Keyboard Pushing Content Up with Large Empty Gap
+1. **`src/hooks/useNativePushNotifications.ts`** – Rewritten as single source of truth:
+   - Listeners set up once (ref guard)
+   - Token stored with retry: if no session at callback time, token is parked and retried on auth state change or app resume
+   - Per-user token queries (no global counts)
+   - Debug state includes explicit phases: `init → permission_checked → register_called → token_received → token_saved`
+   - App resume listener re-registers with APNs
 
-### The Problem
+2. **`src/components/PushNotificationInitializer.tsx`** – Stripped to thin bootstrapper:
+   - Only calls `PushNotifications.register()` if permission already granted
+   - No duplicate listeners (all handled by the hook)
 
-When tapping into an input field in the Capacitor TestFlight app, the entire page content gets pushed way up -- the input field scrolls off the top of the screen, leaving a massive empty gap between the remaining visible content and the keyboard. Closing and reopening the keyboard 2-3 times eventually settles it.
+3. **`src/hooks/useUnifiedPushNotifications.ts`** – Exposes `refreshStoredTokenFlag`
 
-### Root Cause
+4. **`src/pages/Settings.tsx`** – All APNs token queries now filter by current user. Debug panel shows phase + Xcode capability warning.
 
-There are three things fighting each other:
+5. **`supabase/functions/test-push-notification/index.ts`** – Returns `success: false` + 502 when 0 notifications sent.
 
-1. **`html` and `body` are both `position: fixed; height: 100%; overflow: hidden`** (index.css lines 196-203). When the keyboard opens, WKWebView's visual viewport shrinks, but these fixed elements don't naturally adjust.
+---
 
-2. **The `useKeyboardViewport` hook forces `html`, `body`, and `#root` height to `--visual-viewport-height`** via the `.keyboard-open` CSS class (lines 231-247). This aggressively shrinks the entire layout container to the visible area above the keyboard, causing the massive content jump on the first open. On subsequent opens, the values are closer to correct so the jump is smaller.
+### What YOU need to do (step by step)
 
-3. **The hook's `focusin` handler calls `scrollIntoView` at 50ms**, and the resize handler calls `scrollIntoView` again at 100ms. These two programmatic scrolls race with WKWebView's own keyboard animation, causing erratic content positioning.
+#### Step 1: Open Terminal
+Open the Terminal app on your Mac. Navigate to your project folder:
+```bash
+cd ~/path-to-your-project
+```
+(Replace with your actual folder path. If you're not sure, right-click the folder in Finder → "Copy as Pathname", then type `cd ` and paste.)
 
-### The Fix
+#### Step 2: Pull & build
+```bash
+git pull
+npm install
+npm run build
+npx cap sync ios
+```
 
-#### 1. Remove the aggressive `.keyboard-open` CSS height constraints
+#### Step 3: Open in Xcode
+```bash
+npx cap open ios
+```
 
-The rules that force `html`, `body`, and `#root` to `--visual-viewport-height` are the primary cause of the content jump. Remove them entirely. The page layout should remain stable when the keyboard opens.
+#### Step 4: Xcode — Add Push Capability (CRITICAL)
+1. In the left sidebar, click the blue **App** project icon (top of the file tree)
+2. Select the **App** target (under TARGETS)
+3. Click **Signing & Capabilities** tab
+4. Click **+ Capability** (top left)
+5. Search for **Push Notifications** → double-click to add it
+6. Click **+ Capability** again → search **Background Modes** → add it
+7. Check ✅ **Remote notifications**
 
-#### 2. Simplify `useKeyboardViewport` hook
+#### Step 5: Verify AppDelegate
+Open `ios/App/App/AppDelegate.swift`. You need these methods. If they're missing, add them inside the `AppDelegate` class:
 
-- **Remove the `focusin` event handler** that calls `scrollIntoView` before the keyboard even opens
-- **Remove the `scrollIntoView` call inside the resize handler** -- let WKWebView handle scrolling to the focused input natively
-- **Keep only the CSS variable updates** (`--keyboard-height`) so components like bottom navigation can hide/adjust when the keyboard is open
-- **Add a settling delay** -- wait 300ms after detecting keyboard open before applying the CSS variable, to avoid reacting to intermediate viewport sizes during the keyboard animation
+```swift
+func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+}
 
-#### 3. Add `@capacitor/keyboard` plugin configuration
+func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+}
+```
 
-Add the plugin to `capacitor.config.ts` with `resize: "none"` so WKWebView does not resize the web view when the keyboard opens. This prevents the double-resize problem (native resize + JS resize fighting).
+#### Step 6: Build & deploy
+1. In Xcode: **Product → Clean Build Folder** (Shift+Cmd+K)
+2. Select your physical iPhone as the run target (top bar)
+3. **Product → Build** (Cmd+B)
+4. To push to TestFlight: **Product → Archive**, then **Distribute App → App Store Connect**
 
-### Files to Modify
+#### Step 7: Test on device
+1. Install the new TestFlight build
+2. Open the app, log in
+3. Go to **Settings → Developer Tools**
+4. Tap **Re-register & Self-Test Push**
+5. You should see:
+   - Phase: `token_saved`
+   - APNs token in DB: Yes
+   - Test notification arrives on your phone
 
-- **`src/index.css`** -- Remove the `.keyboard-open` height-forcing rules (lines 231-247)
-- **`src/hooks/useKeyboardViewport.ts`** -- Strip down to only set `--keyboard-height` CSS variable; remove all `scrollIntoView` calls and the `focusin` handler; add settling delay
-- **`capacitor.config.ts`** -- Add Keyboard plugin config with `resize: "none"`
-- **`package.json`** -- Add `@capacitor/keyboard` dependency
+If Phase stays at `register_called` and no token appears → the Xcode capability (Step 4) is likely missing.
 
-### After Approval
+---
 
-After these code changes, you will need to:
-1. Git pull the updated code
-2. Run `npm install` to get the new keyboard plugin
-3. Run `npx cap sync` to sync the plugin to iOS
-4. Rebuild in Xcode and push to TestFlight
-
+### PWA Push (after TestFlight works)
+1. On your iPhone, open Safari → go to `https://kaizen-better-every-day.lovable.app`
+2. Tap Share → **Add to Home Screen**
+3. Open the app from your Home Screen (must be the Home Screen version, not Safari)
+4. Go to Settings → enable notifications
+5. Test with the notification button
