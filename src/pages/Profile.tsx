@@ -13,7 +13,7 @@ import { useHeader } from "@/contexts/HeaderContext";
 import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { useDownlineGoalPace } from "@/hooks/useDownlineGoalPace";
+import { useGoalPaceCalculatorForUser } from "@/hooks/useGoalPaceCalculatorForUser";
 import { getInitials } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
 import { useState, useEffect } from "react";
