@@ -28,6 +28,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useConfetti } from "@/hooks/useConfetti";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
+import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 import { toast } from "sonner";
 import { hapticSuccess } from "@/utils/haptics";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
