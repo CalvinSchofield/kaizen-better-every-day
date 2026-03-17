@@ -49,7 +49,7 @@ export function useBlitzDetailStats(startDate: string | null, endDate: string | 
 
       const { data: entries, error } = await supabase
         .from('daily_entries')
-        .select('entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, work_start_time, work_end_time, break_periods, sales_log')
+        .select('entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, work_start_time, work_end_time, break_periods, sales_log, timezone')
         .eq('user_id', userId)
         .gte('entry_date', startDate)
         .lte('entry_date', endDate);
