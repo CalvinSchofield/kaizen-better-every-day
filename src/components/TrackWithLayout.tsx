@@ -1225,6 +1225,12 @@ const TrackWithLayout = () => {
         salesLog={entry.sales_log || []}
         closesCount={entry.closes || 0}
         onDeleteSale={handleDeleteSale}
+        onUpdateSaleStatus={(saleId, status) => {
+          const sale = (entry.sales_log || []).find(s => s.id === saleId);
+          if (sale) {
+            handleUpdateSale({ ...sale, install_status: status });
+          }
+        }}
         onDecrementOrphanedClose={async () => {
           // Decrement closes counter without deleting a sale
           // This handles the case where closes > sales_log.length
