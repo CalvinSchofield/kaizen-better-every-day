@@ -95,7 +95,17 @@ export const useCompetitorNudge = (): UseCompetitorNudgeResult => {
       { ranking: rankings.doors_knocked, metric: 'doors_knocked', label: 'door', maxGap: 3 },
     ];
 
-    // Try to find catchable competitor
+    // Try to find catchable competitor — prioritize watched users
+    // First pass: only watched users
+    if (watchedSet.size > 0) {
+      for (const check of checks) {
+        const watchedRanking = check.ranking.filter(r => watchedSet.has(r.userId));
+        const found = findCatchableInRanking(watchedRanking, check.metric, check.label, 'today', check.maxGap);
+        if (found) return { competitor: found, fallback: null };
+      }
+    }
+
+    // Second pass: all users
     for (const check of checks) {
       const found = findCatchableInRanking(check.ranking, check.metric, check.label, 'today', check.maxGap);
       if (found) return { competitor: found, fallback: null };
