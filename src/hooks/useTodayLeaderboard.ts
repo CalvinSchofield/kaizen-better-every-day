@@ -179,9 +179,11 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             const salesLog = entry.sales_log as any[];
             const hasSalesLog = salesLog && salesLog.length > 0;
             let value: number;
+            let pendingValue = 0;
             if (hasSalesLog) {
               const fromLog = calculateFromSalesLog(salesLog);
               value = fromLog.fp;
+              pendingValue = fromLog.pendingFp;
             } else {
               value = Number(entry.fp_plus) || 0;
             }
@@ -201,6 +203,7 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
               userId: entry.user_id, 
               name: cleanName, 
               value, 
+              pendingValue: pendingValue > 0 ? pendingValue : undefined,
               isWorking, 
               profilePhotoUrl: repInfo.profilePhotoUrl,
               year: repInfo.year as YearRank,
