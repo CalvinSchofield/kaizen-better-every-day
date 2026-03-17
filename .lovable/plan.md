@@ -1,35 +1,56 @@
-# Notification System – Implementation Plan
 
-## Completed
 
-### Phase 1: Core Notification Pipeline
-- 21 notification types (web push + APNs)
-- Timezone-aware cron-based nudges
-- Deduplication via notification_logs
-- In-app foreground banner (InAppNotificationBanner.tsx)
+# Restructure Home Page When Knocking Mode is OFF
 
-### Phase 2: iOS Rich Notifications (Press & Hold)
-- **Swift files created** in `ios-notification-setup/`:
-  - `NotificationCategories.swift` — 23 categories with contextual actions
-  - `NotificationResponseHandler.swift` — Handles all action responses including inline replies, call/text, snooze, RSVP
-  - `README.md` — Step-by-step setup guide
-- **`handle-notification-reply` edge function** — Receives inline replies from iOS, saves as comments, triggers comment notifications
-- **APNs payload enriched** — Now passes `activityId`, `recruitId`, `recruitName`, `phone`, `challengeId`, `repUserId` through to iOS `userInfo`
+## Summary
+Replace the current "Home" (`/`) with role-based redirects and a new dedicated **Blitzes** page. Pre-blitz Rookies keep their ramp journey as-is. Everyone else lands on a purpose-built page.
 
-### User Notes on Specific Notifications
-- **task_past_due**: Actions = View Tasks, Reschedule (navigate to tasks page)
-- **preseason_accountability**: Just a reminder of commitments, not a logging action
-- **access_request**: Should track onboarding flow progression (3 levels up upline), not just signup
-- **install_reminder_eve**: "View Sale" opens to that customer in CRM
-- **install_reminder_due**: "Installed" confirms, "Update" for canceled/rescheduled
-- **personal_record**: Need to determine what view/page to show
-- **leader_coaching**: Call/Text the struggling rep + need a coaching view/page
-- **challenge_progress**: "View" opens that specific challenge
+## Routing Changes (`Home.tsx`)
 
-## TODO
-- [ ] Enrich all notification callers to pass `activityId`, `recruitId`, `phone`, etc. to APNs
-- [ ] Build coaching view page for leader_coaching deep link
-- [ ] Build personal record celebration view
-- [ ] Build task reschedule flow for task_past_due
-- [ ] Add install status update flow for install_reminder_due
-- [ ] Onboarding progression notifications (3 levels up approval flow)
+When knocking mode is OFF:
+- **Leaders** (Vet/Soph with team access): `<Navigate to="/blitzes" replace />` -- My Group stays as the action button in nav (already working)
+- **Post-blitz Rookies & non-leader Vets/Sophs**: `<Navigate to="/blitzes" replace />`
+- **Pre-blitz Rookies**: Keep current ramp journey render (no change)
+
+## New `/blitzes` Page
+
+Create `src/pages/Blitzes.tsx` by extracting and consolidating blitz-related content from `VetHome.tsx` and `PostBlitzRookieHome.tsx`:
+
+- **Blitz RSVP / countdown** (the next-blitz hero card with days countdown, weather CTA)
+- **Blitz commitment list** (commit/uncommit to upcoming blitzes with confirmation drawers)
+- **Weather sheet** for upcoming blitz location
+- **Active challenges card** (`ActiveChallengesCard`)
+- **Pending install alerts** (`PendingInstallAlertCard`)
+- **Recap CTA** (`RecapCTACard`)
+- **Leader alerts** (`VetAlertCard`, `LeaderRookieReviewCard`) -- shown only for leaders
+
+Cut: `RecruitingFlowCarousel`, static 5-5-5, "Bring a Friend", `YourProgressCard` (available elsewhere), `LeaderboardCTA` (leaderboard is in nav)
+
+## Navigation Changes (`Layout.tsx`)
+
+When knocking mode is OFF:
+- **Leaders**: Replace `{ path: "/", icon: Home, label: "Home" }` with `{ path: "/blitzes", icon: Calendar, label: "Blitzes" }`. Action button stays `My Group`.
+- **Non-leader Vets/Sophs/Post-blitz Rookies**: Same -- replace Home with `{ path: "/blitzes", icon: Calendar, label: "Blitzes" }`. Action button stays `Training`.
+- **Pre-blitz Rookies**: Keep `{ path: "/", icon: Home, label: "Home" }` since their ramp journey still lives at `/`.
+- Update `getPageTitle()` to include `"/blitzes": "Blitzes"`.
+
+## App.tsx
+
+Add route: `<Route path="/blitzes" element={<ProtectedRoute><Layout><Blitzes /></Layout></ProtectedRoute>} />`
+
+## Cleanup
+
+After the Blitzes page is working:
+- Delete `src/components/VetHome.tsx` (~1009 lines)
+- Delete `src/components/PostBlitzRookieHome.tsx` (~1008 lines)
+- Remove imports from `Home.tsx` and the conditional renders for these components (lines 1026-1033)
+- Home.tsx shrinks to: loading state, no-rep-data state, intro wizard, knocking mode redirect, blitzes redirect, and the pre-blitz rookie ramp journey
+
+## Implementation Order
+
+1. Create `Blitzes.tsx` with consolidated blitz content
+2. Register `/blitzes` route in `App.tsx`
+3. Update `Layout.tsx` nav items to show "Blitzes" instead of "Home"
+4. Update `Home.tsx` to redirect leaders and post-blitz users to `/blitzes`
+5. Delete `VetHome.tsx` and `PostBlitzRookieHome.tsx`, clean up `Home.tsx` imports
+
