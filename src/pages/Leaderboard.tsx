@@ -9,6 +9,7 @@ import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
+import { useWatchlist } from "@/hooks/useWatchlist";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -38,7 +39,7 @@ const Leaderboard = () => {
   const [isUserInitialized, setIsUserInitialized] = useState(false);
 
   useSalesRealtime();
-
+  const { watchedUserIds } = useWatchlist();
   const { availablePresets, autoSelectedPreset, isLoading: presetsLoading } = useAvailableLeaderboardPresets();
 
   useEffect(() => {
@@ -68,6 +69,7 @@ const Leaderboard = () => {
   }, []);
 
   const filterByYear = scopeFilter === 'rookies' ? 'Rookie' : undefined;
+  const isWatchlistMode = scopeFilter === 'watchlist';
 
   const { data: expandedLeaderboard, isLoading } = useExpandedLeaderboard(
     timeFilter ?? 'live',
@@ -93,6 +95,21 @@ const Leaderboard = () => {
   const isLive = timeFilter === 'live';
   const currentDateRange = timeFilter ? getDateRange(timeFilter, timeFilter === 'custom' ? customDateRange : undefined) : undefined;
 
+  // Helper to filter any rankings object by watchlist user IDs
+  const filterRankingsByWatchlist = (rankings: any): any => {
+    if (!isWatchlistMode || watchedUserIds.length === 0) return rankings;
+    const allowedIds = new Set([...watchedUserIds, ...(currentUserId ? [currentUserId] : [])]);
+    const filtered: any = {};
+    for (const [key, entries] of Object.entries(rankings)) {
+      if (Array.isArray(entries)) {
+        filtered[key] = entries.filter((e: any) => allowedIds.has(e.userId));
+      } else {
+        filtered[key] = entries;
+      }
+    }
+    return filtered;
+  };
+
   const hasNoData = isLive
     ? !todayLeaderboard?.rankings || Object.values(todayLeaderboard.rankings).every(arr => arr.length === 0)
     : !expandedLeaderboard || (
@@ -100,6 +117,8 @@ const Leaderboard = () => {
         !expandedLeaderboard.activityLeaders.mostDoors &&
         !expandedLeaderboard.gritAwards.earliestDoor
       );
+
+  const watchlistEmpty = isWatchlistMode && watchedUserIds.length === 0;
 
   return (
     <Layout>
@@ -132,6 +151,11 @@ const Leaderboard = () => {
             <div className="h-32 bg-muted rounded-xl" />
             <div className="h-24 bg-muted rounded-xl" />
           </div>
+        ) : watchlistEmpty ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <p className="text-lg font-medium">Your watchlist is empty</p>
+            <p className="text-sm mt-1">Visit someone's profile and tap 👁 to start watching</p>
+          </div>
         ) : hasNoData ? (
           <div className="text-center py-12 text-muted-foreground">
             <p className="text-lg font-medium">
@@ -148,21 +172,21 @@ const Leaderboard = () => {
             {isLive ? (
               todayLeaderboard && (
                 <UnifiedRaceSection
-                  rankings={todayLeaderboard.rankings}
+                  rankings={filterRankingsByWatchlist(todayLeaderboard.rankings)}
                   currentUserId={currentUserId}
                   isLive={true}
                   isFetching={todayFetching}
-                  title="Live Race"
+                  title={isWatchlistMode ? "Watchlist Race" : "Live Race"}
                 />
               )
             ) : (
               expandedLeaderboard && (
                 <div data-tour="leaderboard-sales">
                   <UnifiedRaceSection
-                    rankings={expandedLeaderboard.rankings}
+                    rankings={filterRankingsByWatchlist(expandedLeaderboard.rankings)}
                     currentUserId={currentUserId}
                     isLive={false}
-                    title="Rankings"
+                    title={isWatchlistMode ? "Watchlist Rankings" : "Rankings"}
                   />
                 </div>
               )

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useTodayLeaderboard } from "./useTodayLeaderboard";
 import { useWeeklyLeaderboard } from "./useWeeklyLeaderboard";
+import { useWatchlist } from "./useWatchlist";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
@@ -30,6 +31,7 @@ interface UseCompetitorNudgeResult {
 export const useCompetitorNudge = (): UseCompetitorNudgeResult => {
   const { data: todayLeaderboard, isLoading: todayLoading } = useTodayLeaderboard();
   const { data: weeklyLeaderboard, isLoading: weeklyLoading } = useWeeklyLeaderboard();
+  const { watchedUserIds } = useWatchlist();
   
   // Get current user ID
   const { data: currentUserId } = useQuery({
@@ -40,6 +42,8 @@ export const useCompetitorNudge = (): UseCompetitorNudgeResult => {
     },
     staleTime: Infinity,
   });
+
+  const watchedSet = useMemo(() => new Set(watchedUserIds), [watchedUserIds]);
 
   const result = useMemo((): { competitor: CompetitorNudge | null; fallback: NudgeFallback | null } => {
     if (!currentUserId || !todayLeaderboard) return { competitor: null, fallback: null };
@@ -91,7 +95,17 @@ export const useCompetitorNudge = (): UseCompetitorNudgeResult => {
       { ranking: rankings.doors_knocked, metric: 'doors_knocked', label: 'door', maxGap: 3 },
     ];
 
-    // Try to find catchable competitor
+    // Try to find catchable competitor — prioritize watched users
+    // First pass: only watched users
+    if (watchedSet.size > 0) {
+      for (const check of checks) {
+        const watchedRanking = check.ranking.filter(r => watchedSet.has(r.userId));
+        const found = findCatchableInRanking(watchedRanking, check.metric, check.label, 'today', check.maxGap);
+        if (found) return { competitor: found, fallback: null };
+      }
+    }
+
+    // Second pass: all users
     for (const check of checks) {
       const found = findCatchableInRanking(check.ranking, check.metric, check.label, 'today', check.maxGap);
       if (found) return { competitor: found, fallback: null };
@@ -181,7 +195,7 @@ export const useCompetitorNudge = (): UseCompetitorNudgeResult => {
         subtitle: 'Set the pace for everyone →',
       },
     };
-  }, [currentUserId, todayLeaderboard, weeklyLeaderboard]);
+  }, [currentUserId, todayLeaderboard, weeklyLeaderboard, watchedSet]);
 
   return {
     competitor: result.competitor,

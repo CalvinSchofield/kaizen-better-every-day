@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Settings, Camera, Lock, Trophy, Flame, Target, Footprints, Presentation, ArrowRightLeft, Award } from "lucide-react";
+import { Settings, Camera, Lock, Trophy, Flame, Target, Footprints, Presentation, ArrowRightLeft, Award, Eye, EyeOff } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useGoalPaceCalculatorForUser } from "@/hooks/useGoalPaceCalculatorForUser";
+import { useWatchlist } from "@/hooks/useWatchlist";
 import { getInitials } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
 import { useState, useEffect } from "react";
@@ -48,6 +49,7 @@ const Profile = () => {
   const [photoDrawerOpen, setPhotoDrawerOpen] = useState(false);
   const { setCustomRightContent, setCustomLeftContent } = useHeader();
   const isOwnProfile = currentUserId === userId;
+  const { isWatching, toggleWatchlist } = useWatchlist();
 
   const { data: profile, isLoading } = useRepProfile(userId || currentUserId || null);
   const { data: teamAccess } = useTeamAccess();
@@ -184,6 +186,24 @@ const Profile = () => {
           </button>
         ) : userId ? (
           <div className="absolute bottom-5 right-5 z-20 flex gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                hapticLight();
+                toggleWatchlist(userId);
+              }}
+              className={`h-10 w-10 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform border-2 border-white/20 ${
+                isWatching(userId)
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-black/40 text-white backdrop-blur-sm"
+              }`}
+            >
+              {isWatching(userId) ? (
+                <Eye className="h-4 w-4" />
+              ) : (
+                <EyeOff className="h-4 w-4" />
+              )}
+            </button>
             <ProfileContactBar
               name={profile.name}
               phone={profile.phone}
