@@ -25,11 +25,6 @@ interface APNsPayload {
 }
 
 async function getAPNsAuthToken(): Promise<string> {
-  // For APNs, you need either:
-  // 1. A p8 key file (recommended for server-to-server)
-  // 2. A p12 certificate
-  
-  // This uses the JWT-based authentication with p8 key
   const teamId = Deno.env.get('APNS_TEAM_ID');
   const keyId = Deno.env.get('APNS_KEY_ID');
   const privateKey = Deno.env.get('APNS_PRIVATE_KEY');
@@ -38,47 +33,62 @@ async function getAPNsAuthToken(): Promise<string> {
     throw new Error('APNs credentials not configured. Need APNS_TEAM_ID, APNS_KEY_ID, APNS_PRIVATE_KEY');
   }
 
-  // Create JWT for APNs
-  const header = {
-    alg: 'ES256',
-    kid: keyId
-  };
+  console.log(`[APNs JWT] teamId=${teamId}, keyId=${keyId}, privateKey length=${privateKey.length}`);
 
+  const header = { alg: 'ES256', kid: keyId };
   const now = Math.floor(Date.now() / 1000);
-  const claims = {
-    iss: teamId,
-    iat: now
-  };
+  const claims = { iss: teamId, iat: now };
 
-  // Encode header and claims
   const encodedHeader = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const encodedClaims = btoa(JSON.stringify(claims)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  
   const unsignedToken = `${encodedHeader}.${encodedClaims}`;
 
-  // Import the private key and sign
-  const pemContents = privateKey
-    .replace('-----BEGIN PRIVATE KEY-----', '')
-    .replace('-----END PRIVATE KEY-----', '')
+  // Clean PEM: handle both literal \n and real newlines
+  let pemContents = privateKey
+    .replace(/\\n/g, '\n')
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '')
     .replace(/\s/g, '');
-  
-  const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
-  
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8',
-    binaryKey.buffer,
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    false,
-    ['sign']
-  );
 
-  const signature = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    cryptoKey,
-    new TextEncoder().encode(unsignedToken)
-  );
+  console.log(`[APNs JWT] PEM base64 length after cleaning: ${pemContents.length}`);
 
-  // Convert signature to base64url
+  let binaryKey: Uint8Array;
+  try {
+    binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+    console.log(`[APNs JWT] Binary key length: ${binaryKey.length} bytes`);
+  } catch (e) {
+    console.error('[APNs JWT] Failed to decode base64 PEM:', e);
+    throw new Error('Failed to decode APNS_PRIVATE_KEY base64');
+  }
+
+  let cryptoKey: CryptoKey;
+  try {
+    cryptoKey = await crypto.subtle.importKey(
+      'pkcs8',
+      binaryKey.buffer,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['sign']
+    );
+    console.log('[APNs JWT] Key imported successfully');
+  } catch (e) {
+    console.error('[APNs JWT] importKey failed:', e);
+    throw new Error(`Failed to import APNS private key: ${e instanceof Error ? e.message : e}`);
+  }
+
+  let signature: ArrayBuffer;
+  try {
+    signature = await crypto.subtle.sign(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      cryptoKey,
+      new TextEncoder().encode(unsignedToken)
+    );
+    console.log(`[APNs JWT] Signature created, ${signature.byteLength} bytes`);
+  } catch (e) {
+    console.error('[APNs JWT] sign failed:', e);
+    throw new Error(`Failed to sign JWT: ${e instanceof Error ? e.message : e}`);
+  }
+
   const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
@@ -194,7 +204,9 @@ serve(async (req) => {
     }
 
     // Get auth token
+    console.log('[APNs] Getting auth token...');
     const authToken = await getAPNsAuthToken();
+    console.log('[APNs] Auth token obtained, building payload...');
 
     // Build payload
     const payload: APNsPayload = {
