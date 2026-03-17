@@ -396,6 +396,9 @@ export const PostSaveSuccessSheet = ({
 
         {/* Active Challenges Progress */}
         <ChallengesProgressSection />
+
+        {/* Watchlist Comparison */}
+        <WatchlistComparisonRow userFpPlus={displayFpValue} />
         
         {/* Pace Insight - Show progress context */}
         {paceInsight && !goalMet && (
