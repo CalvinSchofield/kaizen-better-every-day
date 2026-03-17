@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronRight, Check, X, MapPin, Wifi, Key, Moon, AlertTriangle, Swords, Users, CloudSun } from "lucide-react";
@@ -39,6 +40,7 @@ interface TeamMember {
 }
 
 const Blitzes = () => {
+  const navigate = useNavigate();
   const { repData, refetch } = useRepData();
   const { toast } = useToast();
   const { hasMnlEventToday } = useMondayNightLightsEvent();
@@ -419,31 +421,104 @@ const Blitzes = () => {
             </motion.div>
           )}
 
-          {/* No committed blitz — CTA */}
-          {!upcomingBlitzForRsvp && !nextBlitz && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-2"
-            >
-              <h1 className="text-3xl font-bold text-primary-foreground tracking-tight mb-2">
-                Your Blitzes
-              </h1>
-              <button
-                onClick={() => {
-                  const blitzCard = document.querySelector('[data-blitz-card]');
-                  if (blitzCard) blitzCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
-                className="group flex items-center gap-3 text-left w-full px-4 py-3.5 rounded-xl bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
+          {/* No committed blitz — Summer countdown OR pick-a-blitz CTA */}
+          {!upcomingBlitzForRsvp && !nextBlitz && (() => {
+            const hasRemainingBlitzes = allBlitzes.length > 0;
+            const GLOBAL_SUMMER_START = '2026-04-12';
+            const summerStartDate = parseDateAsLocal(GLOBAL_SUMMER_START);
+            const daysUntilSummer = summerStartDate ? Math.ceil((summerStartDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+            const summerHasStarted = daysUntilSummer <= 0;
+
+            // Preseason recap stats
+            const pastBlitzCount = committedBlitzesArr.filter((blitz: any) => {
+              const endDate = parseDateAsLocal(blitz?.endDate);
+              if (!endDate) return false;
+              return endDate.getTime() < today.getTime();
+            }).length;
+
+            // If there are still blitzes to pick from, show the original CTA
+            if (hasRemainingBlitzes) {
+              return (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-2"
+                >
+                  <h1 className="text-3xl font-bold text-primary-foreground tracking-tight mb-2">
+                    Your Blitzes
+                  </h1>
+                  <button
+                    onClick={() => {
+                      const blitzCard = document.querySelector('[data-blitz-card]');
+                      if (blitzCard) blitzCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                    className="group flex items-center gap-3 text-left w-full px-4 py-3.5 rounded-xl bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
+                  >
+                    <span className="text-2xl flex-shrink-0">📆</span>
+                    <p className="text-primary-foreground/90 text-sm font-medium leading-snug flex-1">
+                      {hasPastBlitzes ? "Pick a blitz and commit to your next sale" : "Pick a blitz and make your first sale"}
+                    </p>
+                    <ChevronRight className="w-5 h-5 text-primary-foreground/50 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                  </button>
+                </motion.div>
+              );
+            }
+
+            // No more blitzes — show summer countdown + preseason recap
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-2"
               >
-                <span className="text-2xl flex-shrink-0">📆</span>
-                <p className="text-primary-foreground/90 text-sm font-medium leading-snug flex-1">
-                  {hasPastBlitzes ? "Pick a blitz and commit to your next sale" : "Pick a blitz and make your first sale"}
-                </p>
-                <ChevronRight className="w-5 h-5 text-primary-foreground/50 group-hover:translate-x-1 transition-transform flex-shrink-0" />
-              </button>
-            </motion.div>
-          )}
+                {/* Summer countdown headline */}
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-2xl">{summerHasStarted ? '☀️' : '🌅'}</span>
+                  <h1 className="text-3xl font-bold text-primary-foreground tracking-tight">
+                    {summerHasStarted ? 'Summer Is Here' : 'Summer Starts Soon'}
+                  </h1>
+                </div>
+
+                {!summerHasStarted && daysUntilSummer > 0 && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-foreground/15 backdrop-blur-sm mb-4">
+                    <span className="text-sm font-semibold text-primary-foreground">
+                      {daysUntilSummer === 1 ? 'Tomorrow' : `${daysUntilSummer} days away`}
+                    </span>
+                  </div>
+                )}
+
+                {/* Preseason Blitz Recap */}
+                {pastBlitzCount > 0 && (
+                  <div className="mt-3 px-4 py-3 rounded-xl bg-primary-foreground/10 border border-primary-foreground/10">
+                    <p className="text-xs font-medium text-primary-foreground/60 uppercase tracking-wider mb-2">Preseason Recap</p>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-2xl font-bold text-primary-foreground">{pastBlitzCount}</span>
+                      <span className="text-sm text-primary-foreground/80">
+                        {pastBlitzCount === 1 ? 'blitz attended' : 'blitzes attended'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Vivint Sync CTA */}
+                <button
+                  onClick={() => navigate('/goals')}
+                  className="group flex items-center gap-3 text-left w-full mt-4 px-4 py-3.5 rounded-xl bg-primary-foreground/15 hover:bg-primary-foreground/20 transition-all border border-primary-foreground/10"
+                >
+                  <span className="text-xl flex-shrink-0">📊</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-primary-foreground leading-snug">
+                      Sync your numbers with Vivint
+                    </p>
+                    <p className="text-xs text-primary-foreground/60 mt-0.5">
+                      Set your baseline before summer kicks off
+                    </p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-primary-foreground/50 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                </button>
+              </motion.div>
+            );
+          })()}
         </div>
       </div>
 
