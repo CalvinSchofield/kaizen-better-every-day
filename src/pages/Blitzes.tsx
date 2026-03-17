@@ -98,8 +98,65 @@ const Blitzes = () => {
 
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
 
-  // Blitz recap stats for past committed blitzes
-  const { data: recapStats } = useBlitzRecapStats(repData?.committed_blitzes as any[] | null);
+  const committedBlitzesArr = (repData?.committed_blitzes as any[]) || [];
+  const processedBlitzIds = ((repData as any)?.processed_blitz_ids as string[]) || [];
+
+  const attendedIdSet = useMemo(() => {
+    const ids = new Set<string>(processedBlitzIds);
+
+    for (const blitz of committedBlitzesArr) {
+      if (typeof blitz === "string") {
+        ids.add(blitz);
+        continue;
+      }
+
+      if (blitz && typeof blitz === "object") {
+        if (typeof blitz.id === "string") ids.add(blitz.id);
+        if (typeof blitz.supabaseId === "string") ids.add(blitz.supabaseId);
+      }
+    }
+
+    return ids;
+  }, [committedBlitzesArr, processedBlitzIds]);
+
+  const recapSourceBlitzes = useMemo(() => {
+    const merged = [...committedBlitzesArr];
+
+    for (const blitz of allPastBlitzes) {
+      const blitzSupabaseId = blitz.supabaseId ?? null;
+      const isAttended = attendedIdSet.has(blitz.id) || (blitzSupabaseId ? attendedIdSet.has(blitzSupabaseId) : false);
+      if (!isAttended) continue;
+
+      const exists = merged.some((existing: any) => {
+        if (!existing || typeof existing !== "object") return false;
+        const existingId = typeof existing.id === "string" ? existing.id : null;
+        const existingSupabaseId = typeof existing.supabaseId === "string" ? existing.supabaseId : null;
+
+        return (
+          existingId === blitz.id ||
+          (blitzSupabaseId && existingId === blitzSupabaseId) ||
+          existingSupabaseId === blitz.id ||
+          (blitzSupabaseId && existingSupabaseId === blitzSupabaseId)
+        );
+      });
+
+      if (!exists) {
+        merged.push({
+          id: blitz.id,
+          supabaseId: blitzSupabaseId,
+          name: blitz.name,
+          location: blitz.location,
+          date: blitz.date,
+          endDate: blitz.endDate ?? blitz.date,
+        });
+      }
+    }
+
+    return merged;
+  }, [committedBlitzesArr, allPastBlitzes, attendedIdSet]);
+
+  // Blitz recap stats for attended blitzes (committed + processed fallback)
+  const { data: recapStats } = useBlitzRecapStats(recapSourceBlitzes);
 
   // Get next upcoming blitz from committed blitzes
   const nextBlitz: { date: string; endDate?: string | null; location?: string | null; name: string; address1?: string | null; wifi1?: string | null; code1?: string | null; id: string; accommodations?: any[] } | null = repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)
@@ -122,12 +179,9 @@ const Blitzes = () => {
       })()
     : null;
 
-  const committedBlitzesArr = (repData?.committed_blitzes as any[]) || [];
-  const hasPastBlitzes = committedBlitzesArr.some((blitz: any) => {
-    const today = parseDateAsLocal(getTodayDateString()) ?? new Date();
-    const endDate = parseDateAsLocal(blitz?.endDate);
-    if (!endDate) return false;
-    return endDate.getTime() < today.getTime();
+  const hasPastBlitzes = allPastBlitzes.some((blitz) => {
+    const blitzSupabaseId = blitz.supabaseId ?? null;
+    return attendedIdSet.has(blitz.id) || (blitzSupabaseId ? attendedIdSet.has(blitzSupabaseId) : false);
   });
 
   const daysUntilBlitz = nextBlitz ? getDaysUntilBlitz(nextBlitz.date) : null;
@@ -681,26 +735,16 @@ const Blitzes = () => {
 
         {/* ── Unified Preseason Blitzes — always visible, attended = trophy, others muted ── */}
         {allPastBlitzes.length > 0 && (() => {
-          // Build attended ID set from committed_blitzes (legacy-safe: handle string IDs and objects)
-          const attendedIdSet = new Set<string>();
-          for (const b of committedBlitzesArr) {
-            if (typeof b === 'string') {
-              attendedIdSet.add(b);
-            } else if (b && typeof b === 'object') {
-              if (b.id) attendedIdSet.add(b.id);
-              if (b.supabaseId) attendedIdSet.add(b.supabaseId);
-            }
-          }
-
           // Merge and dedupe: allPastBlitzes is the canonical schedule list
           const mergedPast = allPastBlitzes.map(blitz => ({
             ...blitz,
             isAttended: attendedIdSet.has(blitz.id) || (blitz.supabaseId ? attendedIdSet.has(blitz.supabaseId) : false),
-            recapMatch: recapStats?.find(r => 
-              r.id === blitz.id || 
-              r.id === blitz.supabaseId || 
-              (blitz.supabaseId && r.id === blitz.supabaseId)
-            ),
+            recapMatch: recapStats?.find(r => {
+              const sameId = r.id === blitz.id || r.id === blitz.supabaseId;
+              const sameWindow = r.startDate === blitz.date && r.endDate === (blitz.endDate || blitz.date);
+              const sameName = r.name === blitz.name;
+              return sameId || (sameWindow && sameName);
+            }),
           }));
 
           // Sort: attended first (newest first), then unattended (newest first)
