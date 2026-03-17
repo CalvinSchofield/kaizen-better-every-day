@@ -14,6 +14,7 @@ import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { useBlitzRecapStats } from "@/hooks/useBlitzRecapStats";
 import { BlitzRecapCard } from "@/components/BlitzRecapCard";
+import { BlitzDetailDrawer } from "@/components/blitz/BlitzDetailDrawer";
 
 import { formatBlitzDateRange as formatBlitzDateRangeUtil } from "@/utils/blitzDateUtils";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
