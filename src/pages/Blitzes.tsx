@@ -679,32 +679,96 @@ const Blitzes = () => {
           </motion.div>
         )}
 
-        {/* ── Unified Preseason Blitzes — attended with stats, others muted ── */}
-        {!nextBlitz && allPastBlitzes.length > 0 && (
-          <motion.div variants={itemVariants} className="space-y-2">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
-              Preseason Blitzes
-            </h2>
-            {allPastBlitzes.map((blitz) => {
-              const recapMatch = recapStats?.find((r) => r.id === blitz.id);
-              if (recapMatch) {
-                // Attended — trophy card with stats
-                return <BlitzRecapCard key={blitz.id} recap={recapMatch} />;
-              }
-              // Not attended — muted context row
-              return (
-                <div key={blitz.id} className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-muted/20 border border-border/30">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-muted-foreground truncate">{blitz.name}</p>
-                    <p className="text-xs text-muted-foreground/70">
-                      {blitz.location ? `${blitz.location} · ` : ''}{formatBlitzDateRangeUtil(blitz.date, blitz.endDate)}
-                    </p>
+        {/* ── Unified Preseason Blitzes — always visible, attended = trophy, others muted ── */}
+        {allPastBlitzes.length > 0 && (() => {
+          // Build attended ID set from committed_blitzes (legacy-safe: handle string IDs and objects)
+          const attendedIdSet = new Set<string>();
+          for (const b of committedBlitzesArr) {
+            if (typeof b === 'string') {
+              attendedIdSet.add(b);
+            } else if (b && typeof b === 'object') {
+              if (b.id) attendedIdSet.add(b.id);
+              if (b.supabaseId) attendedIdSet.add(b.supabaseId);
+            }
+          }
+
+          // Merge and dedupe: allPastBlitzes is the canonical schedule list
+          const mergedPast = allPastBlitzes.map(blitz => ({
+            ...blitz,
+            isAttended: attendedIdSet.has(blitz.id) || (blitz.supabaseId ? attendedIdSet.has(blitz.supabaseId) : false),
+            recapMatch: recapStats?.find(r => 
+              r.id === blitz.id || 
+              r.id === blitz.supabaseId || 
+              (blitz.supabaseId && r.id === blitz.supabaseId)
+            ),
+          }));
+
+          // Sort: attended first (newest first), then unattended (newest first)
+          mergedPast.sort((a, b) => {
+            if (a.isAttended !== b.isAttended) return a.isAttended ? -1 : 1;
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+          });
+
+          return (
+            <motion.div variants={itemVariants} className="space-y-2">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                Preseason Blitzes
+              </h2>
+              {mergedPast.map((blitz) => {
+                if (blitz.isAttended && blitz.recapMatch) {
+                  // Attended — trophy card with stats + tap to open detail
+                  return (
+                    <BlitzRecapCard
+                      key={blitz.id}
+                      recap={blitz.recapMatch}
+                      attended
+                      onOpenDetails={() => setDetailDrawerBlitz({
+                        name: blitz.name,
+                        location: blitz.location || null,
+                        startDate: blitz.date,
+                        endDate: blitz.endDate || blitz.date,
+                      })}
+                    />
+                  );
+                }
+                if (blitz.isAttended) {
+                  // Attended but no recap stats yet — still show as attended with accent
+                  return (
+                    <button
+                      key={blitz.id}
+                      onClick={() => setDetailDrawerBlitz({
+                        name: blitz.name,
+                        location: blitz.location || null,
+                        startDate: blitz.date,
+                        endDate: blitz.endDate || blitz.date,
+                      })}
+                      className="w-full text-left flex items-center justify-between px-4 py-3 rounded-xl bg-primary/5 border border-primary/20 border-l-4 border-l-primary hover:bg-primary/8 active:bg-primary/10 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{blitz.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {blitz.location ? `${blitz.location} · ` : ''}{formatBlitzDateRangeUtil(blitz.date, blitz.endDate)}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    </button>
+                  );
+                }
+                // Not attended — muted context row
+                return (
+                  <div key={blitz.id} className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-muted/20 border border-border/30">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-muted-foreground truncate">{blitz.name}</p>
+                      <p className="text-xs text-muted-foreground/70">
+                        {blitz.location ? `${blitz.location} · ` : ''}{formatBlitzDateRangeUtil(blitz.date, blitz.endDate)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </motion.div>
-        )}
+                );
+              })}
+            </motion.div>
+          );
+        })()}
       </motion.div>
 
       {/* Weather Sheet */}
