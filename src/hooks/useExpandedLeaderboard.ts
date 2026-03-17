@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getLocalDateString } from "@/lib/utils";
+import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 import { isRepActive } from "@/utils/repStatusUtils";
 import { tiebreakerCompare, getYearPriority, YearRank } from "@/utils/leaderboardTiebreaker";
 export interface TimingEntry {
@@ -83,6 +84,7 @@ export interface RankedEntry {
   userId: string;
   name: string;
   value: number;
+  pendingValue?: number;
   profilePhotoUrl?: string | null;
   year?: YearRank;
 }
@@ -333,30 +335,7 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
         timezone
       });
 
-      const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number; upgradeFp: number } => {
-        if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0, upgradeFp: 0 };
-        
-        let fp = 0;
-        let prmr = 0;
-        let upgradeFp = 0;
-        
-        for (const sale of salesLog) {
-          // Skip sales that were never installed - they don't count on leaderboard
-          if (sale.install_status === 'never_installed') continue;
-          
-          const salePrmr = Number(sale.prmr) || 0;
-          prmr += salePrmr;
-          
-          if (sale.type === 'fp') {
-            fp += 1;
-          } else if (sale.type === 'upgrade') {
-            fp += salePrmr / 85;
-            upgradeFp += salePrmr / 85;
-          }
-        }
-        
-        return { fp, prmr, upgradeFp };
-      };
+      // Use shared calculateFromSalesLog (imported from utils)
 
       // Check if a sale qualifies as FP+ (type='fp' OR upgrade with prmr >= 85)
       // Also exclude never_installed sales
@@ -389,7 +368,7 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
           const fromLog = calculateFromSalesLog(entrySalesLog);
           existing.fp += fromLog.fp;
           existing.prmr += fromLog.prmr;
-          existing.upgradeFp += fromLog.upgradeFp;
+          existing.upgradeFp += fromLog.upgradePrmr / 85;
         } else if (entry.is_finalized) {
           existing.fp += entry.fp_plus || 0;
           existing.prmr += entry.prmr || 0;

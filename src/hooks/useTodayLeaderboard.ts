@@ -8,6 +8,7 @@ interface RankingEntry {
   userId: string;
   name: string;
   value: number;
+  pendingValue?: number;
   isWorking?: boolean;
   profilePhotoUrl?: string | null;
   year?: YearRank;
@@ -178,9 +179,11 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             const salesLog = entry.sales_log as any[];
             const hasSalesLog = salesLog && salesLog.length > 0;
             let value: number;
+            let pendingValue = 0;
             if (hasSalesLog) {
               const fromLog = calculateFromSalesLog(salesLog);
               value = fromLog.fp;
+              pendingValue = fromLog.pendingFp;
             } else {
               value = Number(entry.fp_plus) || 0;
             }
@@ -200,6 +203,7 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
               userId: entry.user_id, 
               name: cleanName, 
               value, 
+              pendingValue: pendingValue > 0 ? pendingValue : undefined,
               isWorking, 
               profilePhotoUrl: repInfo.profilePhotoUrl,
               year: repInfo.year as YearRank,
@@ -238,9 +242,11 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             const salesLog = entry.sales_log as any[];
             const hasSalesLog = salesLog && salesLog.length > 0;
             let value: number;
+            let pendingValue = 0;
             if (hasSalesLog) {
               const fromLog = calculateFromSalesLog(salesLog);
               value = fromLog.prmr;
+              pendingValue = fromLog.pendingPrmr;
             } else {
               value = Number(entry.prmr) || 0;
             }
@@ -252,7 +258,9 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             );
             const fpTiebreaker = fpByUser.get(entry.user_id) || 0;
             return { 
-              userId: entry.user_id, name: cleanName, value, isWorking, 
+              userId: entry.user_id, name: cleanName, value, 
+              pendingValue: pendingValue > 0 ? pendingValue : undefined,
+              isWorking, 
               profilePhotoUrl: repInfo.profilePhotoUrl,
               year: repInfo.year as YearRank,
               tiebreaker: fpTiebreaker

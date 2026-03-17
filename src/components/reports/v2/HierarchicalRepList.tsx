@@ -25,6 +25,8 @@ interface RepData {
   presentations: number;
   fp: number;
   prmr: number;
+  pendingFp?: number;
+  pendingPrmr?: number;
   isWorking?: boolean;
 }
 
@@ -279,6 +281,9 @@ export const HierarchicalRepList = ({
             <div className="flex flex-col items-end">
               <span className="font-bold text-green-600 dark:text-green-400">
                 {rep.fp.toFixed(1)} FP+
+                {rep.pendingFp != null && rep.pendingFp > 0 && (
+                  <span className="text-warning text-[10px] ml-0.5">⏳</span>
+                )}
               </span>
               <span className="text-[10px] text-muted-foreground">
                 ${rep.prmr.toLocaleString()}
