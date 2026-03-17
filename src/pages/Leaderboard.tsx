@@ -183,7 +183,7 @@ const Leaderboard = () => {
               expandedLeaderboard && (
                 <div data-tour="leaderboard-sales">
                   <UnifiedRaceSection
-                    rankings={filterRankings(expandedLeaderboard.rankings)}
+                    rankings={filterRankingsByWatchlist(expandedLeaderboard.rankings)}
                     currentUserId={currentUserId}
                     isLive={false}
                     title={isWatchlistMode ? "Watchlist Rankings" : "Rankings"}
