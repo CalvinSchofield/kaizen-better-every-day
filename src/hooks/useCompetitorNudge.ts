@@ -31,6 +31,7 @@ interface UseCompetitorNudgeResult {
 export const useCompetitorNudge = (): UseCompetitorNudgeResult => {
   const { data: todayLeaderboard, isLoading: todayLoading } = useTodayLeaderboard();
   const { data: weeklyLeaderboard, isLoading: weeklyLoading } = useWeeklyLeaderboard();
+  const { watchedUserIds } = useWatchlist();
   
   // Get current user ID
   const { data: currentUserId } = useQuery({
@@ -41,6 +42,8 @@ export const useCompetitorNudge = (): UseCompetitorNudgeResult => {
     },
     staleTime: Infinity,
   });
+
+  const watchedSet = useMemo(() => new Set(watchedUserIds), [watchedUserIds]);
 
   const result = useMemo((): { competitor: CompetitorNudge | null; fallback: NudgeFallback | null } => {
     if (!currentUserId || !todayLeaderboard) return { competitor: null, fallback: null };
