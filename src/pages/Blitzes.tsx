@@ -735,26 +735,16 @@ const Blitzes = () => {
 
         {/* ── Unified Preseason Blitzes — always visible, attended = trophy, others muted ── */}
         {allPastBlitzes.length > 0 && (() => {
-          // Build attended ID set from committed_blitzes (legacy-safe: handle string IDs and objects)
-          const attendedIdSet = new Set<string>();
-          for (const b of committedBlitzesArr) {
-            if (typeof b === 'string') {
-              attendedIdSet.add(b);
-            } else if (b && typeof b === 'object') {
-              if (b.id) attendedIdSet.add(b.id);
-              if (b.supabaseId) attendedIdSet.add(b.supabaseId);
-            }
-          }
-
           // Merge and dedupe: allPastBlitzes is the canonical schedule list
           const mergedPast = allPastBlitzes.map(blitz => ({
             ...blitz,
             isAttended: attendedIdSet.has(blitz.id) || (blitz.supabaseId ? attendedIdSet.has(blitz.supabaseId) : false),
-            recapMatch: recapStats?.find(r => 
-              r.id === blitz.id || 
-              r.id === blitz.supabaseId || 
-              (blitz.supabaseId && r.id === blitz.supabaseId)
-            ),
+            recapMatch: recapStats?.find(r => {
+              const sameId = r.id === blitz.id || r.id === blitz.supabaseId;
+              const sameWindow = r.startDate === blitz.date && r.endDate === (blitz.endDate || blitz.date);
+              const sameName = r.name === blitz.name;
+              return sameId || (sameWindow && sameName);
+            }),
           }));
 
           // Sort: attended first (newest first), then unattended (newest first)
