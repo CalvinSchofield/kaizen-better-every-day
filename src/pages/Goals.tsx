@@ -841,17 +841,6 @@ const Goals = () => {
           </div>
         </div>
 
-        {/* Summer countdown during transition period */}
-        {userId && repData && !isUserSummerStarted && (
-          <SummerCountdownHero
-            personalSummerStart={seasonConfig?.personal_summer_start || null}
-            personalSummerEnd={seasonConfig?.personal_summer_end || null}
-            userId={userId}
-            userName={repData.name || 'You'}
-            variant="goals-card"
-          />
-        )}
-
         <motion.div 
           id="goals-hero-ring"
           className="px-4 py-8"
@@ -906,7 +895,7 @@ const Goals = () => {
         {!isUserSummerStarted && isRookie && (
           <motion.div 
             id="goals-preseason-commitments"
-            className="px-4 pb-4"
+            className="px-4 pb-3"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
@@ -918,29 +907,37 @@ const Goals = () => {
           </motion.div>
         )}
 
-        <div 
-          id="goals-calendar-planning"
-          className="px-4 pb-4"
-        >
-          <CalendarPlanningPreview
-            goals={goals}
-            activeTier={activeTier}
-            knockingDays={workedDaysData?.knockingDays || 0}
-            currentProgress={currentProgress}
-            summerProgress={summerStatsData?.summerProgress}
-            summerKnockingDays={summerStatsData?.summerKnockingDays}
-          />
+        {/* Planning Section */}
+        <div className="px-4 space-y-3 pb-6">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium pl-1">Planning</p>
+          <div id="goals-calendar-planning">
+            <CalendarPlanningPreview
+              goals={goals}
+              activeTier={activeTier}
+              knockingDays={workedDaysData?.knockingDays || 0}
+              currentProgress={currentProgress}
+              summerProgress={summerStatsData?.summerProgress}
+              summerKnockingDays={summerStatsData?.summerKnockingDays}
+            />
+          </div>
+          {userId && repData && !isUserSummerStarted && (
+            <SummerCountdownHero
+              personalSummerStart={seasonConfig?.personal_summer_start || null}
+              personalSummerEnd={seasonConfig?.personal_summer_end || null}
+              userId={userId}
+              userName={repData.name || 'You'}
+              variant="goals-card"
+            />
+          )}
         </div>
 
-        <div className="px-4 pb-4" ref={earningsRef}>
-          <EarningsBreakdownCard externalOpen={earningsOpenTrigger > 0 ? true : undefined} key={earningsOpenTrigger} />
-        </div>
-
-        <div className="px-4 pb-4">
+        {/* Financials Section */}
+        <div className="px-4 space-y-3 pb-4">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium pl-1">Financials</p>
+          <div ref={earningsRef}>
+            <EarningsBreakdownCard externalOpen={earningsOpenTrigger > 0 ? true : undefined} key={earningsOpenTrigger} />
+          </div>
           <CanceledStatsCard />
-        </div>
-
-        <div className="px-4 pb-4">
           <PendingInstallsCard />
         </div>
 

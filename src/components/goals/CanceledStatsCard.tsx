@@ -23,7 +23,7 @@ export const CanceledStatsCard = ({ className }: CanceledStatsCardProps) => {
 
   if (isLoading) {
     return (
-      <Card className={`border-amber-500/30 bg-amber-500/5 ${className}`}>
+      <Card className={`border-border/50 bg-card ${className}`}>
         <CardContent className="p-4">
           <Skeleton className="h-5 w-32 mb-2" />
           <Skeleton className="h-6 w-48" />
@@ -38,7 +38,7 @@ export const CanceledStatsCard = ({ className }: CanceledStatsCardProps) => {
     : `${stats.canceledFpPlus.toFixed(1)} FP+ · $${stats.canceledPrmr.toLocaleString()}`;
 
   return (
-    <Card className={`border-amber-500/30 bg-amber-500/5 ${className}`}>
+    <Card className={`border-border/50 bg-card ${className}`}>
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger className="w-full">
           <CardContent className="p-4">
