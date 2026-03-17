@@ -95,6 +95,17 @@ const Leaderboard = () => {
   const isLive = timeFilter === 'live';
   const currentDateRange = timeFilter ? getDateRange(timeFilter, timeFilter === 'custom' ? customDateRange : undefined) : undefined;
 
+  // Helper to filter rankings by watchlist
+  const filterRankings = <T extends { userId: string }>(rankings: Record<string, T[]>): Record<string, T[]> => {
+    if (!isWatchlistMode || watchedUserIds.length === 0) return rankings;
+    const allowedIds = new Set([...watchedUserIds, ...(currentUserId ? [currentUserId] : [])]);
+    const filtered: Record<string, T[]> = {};
+    for (const [key, entries] of Object.entries(rankings)) {
+      filtered[key] = entries.filter(e => allowedIds.has(e.userId));
+    }
+    return filtered;
+  };
+
   const hasNoData = isLive
     ? !todayLeaderboard?.rankings || Object.values(todayLeaderboard.rankings).every(arr => arr.length === 0)
     : !expandedLeaderboard || (
@@ -102,6 +113,8 @@ const Leaderboard = () => {
         !expandedLeaderboard.activityLeaders.mostDoors &&
         !expandedLeaderboard.gritAwards.earliestDoor
       );
+
+  const watchlistEmpty = isWatchlistMode && watchedUserIds.length === 0;
 
   return (
     <Layout>
