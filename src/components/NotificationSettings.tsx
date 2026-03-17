@@ -133,7 +133,19 @@ export function NotificationSettings() {
     togglePreference({ type, enabled });
   };
 
-  if (!isSupported) return null;
+  if (!isSupported) {
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-3 px-1 py-2">
+          <span className="text-xl">🔔</span>
+          <div>
+            <Label className="text-base font-semibold">Push Notifications</Label>
+            <p className="text-sm text-muted-foreground">Not supported in this browser. Open the app on your device to manage notifications.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (permission === 'denied') {
     return (
