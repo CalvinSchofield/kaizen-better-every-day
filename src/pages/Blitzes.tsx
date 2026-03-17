@@ -660,6 +660,46 @@ const Blitzes = () => {
             </div>
           </motion.div>
         )}
+
+        {/* ── Blitz Recap Cards ── */}
+        {recapStats && recapStats.length > 0 && !nextBlitz && (
+          <motion.div variants={itemVariants} className="space-y-2">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
+              Your Blitz Performance
+            </h2>
+            {recapStats.map((recap) => (
+              <BlitzRecapCard key={recap.id} recap={recap} />
+            ))}
+          </motion.div>
+        )}
+
+        {/* ── Past Blitzes List for Leaders ── */}
+        {isLeader && allPastBlitzes.length > 0 && (
+          <motion.div variants={itemVariants}>
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-semibold text-foreground">Past Blitzes</span>
+                  <Badge variant="secondary" className="text-xs">{allPastBlitzes.length}</Badge>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2 space-y-1.5">
+                {allPastBlitzes.map((blitz) => (
+                  <div key={blitz.id} className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-muted/30 border border-border/50">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{blitz.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {blitz.location ? `${blitz.location} · ` : ''}{formatBlitzDateRange(blitz.date, blitz.endDate)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
+          </motion.div>
+        )}
       </motion.div>
 
       {/* Weather Sheet */}
