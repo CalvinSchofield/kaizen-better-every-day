@@ -223,12 +223,27 @@ export const useDailyEntry = (date?: string) => {
     initialDataUpdatedAt: initialData ? 0 : undefined,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!user) {
+        // CRITICAL: Don't silently return null - this causes PreWorkingState flash
+        // and prevents mutations from saving. Try to refresh the session first.
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        if (!refreshData?.user) {
+          // Truly not authenticated - throw to trigger retry, not return null
+          // which would overwrite active tracking state with empty defaults
+          console.error('[useDailyEntry] Auth session expired - could not refresh');
+          throw new Error('AUTH_SESSION_EXPIRED');
+        }
+        // Session refreshed successfully
+        console.log('[useDailyEntry] Auth session refreshed successfully');
+      }
+      
+      const activeUser = (await supabase.auth.getUser()).data.user;
+      if (!activeUser) throw new Error('AUTH_SESSION_EXPIRED');
 
       const { data, error } = await supabase
         .from('daily_entries')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', activeUser.id)
         .eq('entry_date', entryDate)
         .maybeSingle();
 
@@ -247,7 +262,7 @@ export const useDailyEntry = (date?: string) => {
       }
       
       // PHASE 3: Smart merge - backup recovery with HIGHER value wins
-      const backup = getBackupFromStorage(user.id, entryDate);
+      const backup = getBackupFromStorage(activeUser.id, entryDate);
       const serverTotal = getActivityTotal(serverEntry);
       const backupTotal = getActivityTotal(backup);
       
@@ -280,7 +295,7 @@ export const useDailyEntry = (date?: string) => {
         
         return {
           id: serverEntry?.id || '',
-          user_id: user.id,
+          user_id: activeUser.id,
           entry_date: entryDate,
           ...merged,
           is_finalized: false,
@@ -295,6 +310,14 @@ export const useDailyEntry = (date?: string) => {
     gcTime: 5 * 60 * 1000, // 5 minutes
     // Don't refetch on window focus during active session
     refetchOnWindowFocus: false,
+    // Retry on auth errors - session may recover
+    retry: (failureCount, error) => {
+      if (error?.message === 'AUTH_SESSION_EXPIRED') {
+        return failureCount < 3; // Try 3 times with session refresh
+      }
+      return failureCount < 2;
+    },
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
   // Update counter mutation (auto-save) with offline support

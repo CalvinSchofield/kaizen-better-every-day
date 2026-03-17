@@ -100,6 +100,48 @@ const TrackWithLayout = () => {
   // Confetti hook for celebrations
   const { fireConfetti } = useConfetti();
   
+  // AUTH HEALTH MONITOR: Periodically check auth session is alive
+  // Prevents silent data loss when session expires mid-tracking
+  const [authHealthy, setAuthHealthy] = useState(true);
+  useEffect(() => {
+    let mounted = true;
+    const checkAuth = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (mounted) {
+          if (!user) {
+            // Try to refresh before marking unhealthy
+            const { data: refreshData } = await supabase.auth.refreshSession();
+            setAuthHealthy(!!refreshData?.user);
+            if (!refreshData?.user) {
+              console.error('[TrackWithLayout] Auth session expired - data may not save!');
+            }
+          } else {
+            setAuthHealthy(true);
+          }
+        }
+      } catch {
+        if (mounted) setAuthHealthy(false);
+      }
+    };
+    
+    // Check immediately and every 60 seconds
+    checkAuth();
+    const interval = setInterval(checkAuth, 60_000);
+    
+    // Also check on visibility change (app resume)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') checkAuth();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+  
   // Local backup for data recovery
   const userId = getCurrentUserId();
   const { saveBackup, loadBackup, clearBackup, hasUnsavedBackup } = useTrackBackup(userId, getTodayDate());
@@ -1188,6 +1230,15 @@ const TrackWithLayout = () => {
         onViewRecap={handleViewRecap}
         hasWorkStarted={!!entry.work_start_time}
       >
+        {/* Auth Health Warning - unmissable banner when session is expired */}
+        {!authHealthy && (
+          <div className="mx-4 mb-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg flex items-center gap-2">
+            <span className="text-destructive text-sm font-medium">
+              ⚠️ Session expired — your data may not be saving. Please close and reopen the app.
+            </span>
+          </div>
+        )}
+        
         {/* Pending Sales Alert */}
         <PendingSalesAlert userId={userId} />
         
