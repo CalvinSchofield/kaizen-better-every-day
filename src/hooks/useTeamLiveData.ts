@@ -288,6 +288,8 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
                 fp: fpValue,
                 prmr: prmrValue,
                 upgradePrmr: upgradePrmrValue,
+                pendingFp: pendingFpValue > 0 ? pendingFpValue : undefined,
+                pendingPrmr: pendingPrmrValue > 0 ? pendingPrmrValue : undefined,
                 isFinalized: todayEntry.is_finalized || false,
               },
               avgPitchesPerHour,
