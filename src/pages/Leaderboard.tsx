@@ -4,6 +4,7 @@ import { LeaderboardHeroBanner } from "@/components/leaderboard/LeaderboardHeroB
 import { LeaderboardFilters, TimeFilter, ScopeFilter } from "@/components/leaderboard/LeaderboardFilters";
 import { UnifiedRaceSection } from "@/components/leaderboard/UnifiedRaceSection";
 import { LeaderboardSpotlightRow } from "@/components/leaderboard/LeaderboardSpotlightRow";
+import { WatchlistDrawer } from "@/components/leaderboard/WatchlistDrawer";
 import { useExpandedLeaderboard, CustomDateRange, getDateRange } from "@/hooks/useExpandedLeaderboard";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
