@@ -110,9 +110,9 @@ const SegmentedBar = ({
   const unfundedAmount = Math.max(0, finalized - fundedAmount);
 
   const fundedPct = Math.min(100, (fundedAmount / goal) * 100);
-  const unfundedPct = Math.min(100 - fundedPct, (unfundedAmount / goal) * 100);
-  const livePct = Math.min(100 - fundedPct - unfundedPct, (live / goal) * 100);
-  const pendingPct = Math.min(100 - fundedPct - unfundedPct - livePct, (pending / goal) * 100);
+  const livePct = Math.min(100 - fundedPct, (live / goal) * 100);
+  const unfundedPct = Math.min(100 - fundedPct - livePct, (unfundedAmount / goal) * 100);
+  const pendingPct = Math.min(100 - fundedPct - livePct - unfundedPct, (pending / goal) * 100);
   const expectedPct = Math.min(100, (expected / goal) * 100);
 
   return (
@@ -125,23 +125,23 @@ const SegmentedBar = ({
           animate={{ width: `${fundedPct}%` }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
         />
+        {/* Live (green + pulse — visually extends funded) */}
+        {livePct > 0 && (
+          <motion.div
+            className="h-full absolute top-0 bg-emerald-500 animate-pulse"
+            style={{ left: `${fundedPct}%` }}
+            initial={{ width: 0 }}
+            animate={{ width: `${livePct}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut', delay: 0.1 }}
+          />
+        )}
         {/* Unfunded (blue) */}
         {unfundedPct > 0 && (
           <motion.div
             className="h-full absolute top-0 bg-primary"
-            style={{ left: `${fundedPct}%` }}
+            style={{ left: `${fundedPct + livePct}%` }}
             initial={{ width: 0 }}
             animate={{ width: `${unfundedPct}%` }}
-            transition={{ duration: 0.5, ease: 'easeOut', delay: 0.1 }}
-          />
-        )}
-        {/* Live (green + pulse — same as funded but animated) */}
-        {livePct > 0 && (
-          <motion.div
-            className="h-full absolute top-0 bg-emerald-500 animate-pulse"
-            style={{ left: `${fundedPct + unfundedPct}%` }}
-            initial={{ width: 0 }}
-            animate={{ width: `${livePct}%` }}
             transition={{ duration: 0.5, ease: 'easeOut', delay: 0.2 }}
           />
         )}
@@ -149,7 +149,7 @@ const SegmentedBar = ({
         {pendingPct > 0 && (
           <motion.div
             className="h-full absolute top-0 rounded-r-full bg-warning"
-            style={{ left: `${fundedPct + unfundedPct + livePct}%` }}
+            style={{ left: `${fundedPct + livePct + unfundedPct}%` }}
             initial={{ width: 0 }}
             animate={{ width: `${pendingPct}%` }}
             transition={{ duration: 0.5, ease: 'easeOut', delay: 0.3 }}
@@ -382,24 +382,24 @@ const FullMode = ({
             <div className="flex items-center gap-4 text-[10px] text-muted-foreground pt-1">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span>Funded</span>
+                <span>{formatFP(Math.min(current.funded, current.actual))} funded</span>
               </div>
-              {(current.actual - Math.min(current.funded, current.actual)) > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-primary" />
-                  <span>Unfunded</span>
-                </div>
-              )}
               {current.live > 0 && (
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Live</span>
+                  <span>{formatFP(current.live)} live</span>
+                </div>
+              )}
+              {(current.actual - Math.min(current.funded, current.actual)) > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-primary" />
+                  <span>{formatFP(current.actual - Math.min(current.funded, current.actual))} unfunded</span>
                 </div>
               )}
               {current.pending > 0 && (
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-warning" />
-                  <span>Pending</span>
+                  <span>{formatFP(current.pending)} pending</span>
                 </div>
               )}
               {data.knockingDaysCompleted >= 6 && (
