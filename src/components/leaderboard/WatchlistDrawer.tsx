@@ -112,7 +112,7 @@ const WatchedPlayerCard = ({
         rank === 3 && "bg-amber-700 text-white",
         rank > 3 && "bg-muted text-muted-foreground"
       )}>
-        {rank === 1 ? <Trophy className="h-2.5 w-2.5" /> : rank}
+      {rank === 1 ? <Trophy className="h-2.5 w-2.5" /> : rank}
       </div>
 
       <div className="flex items-start gap-3">
@@ -143,7 +143,7 @@ const WatchedPlayerCard = ({
           {currentUser && (
             <div className={cn(
               "text-[11px] font-medium mt-0.5",
-              isAhead ? "text-destructive" : diff < 0 ? "text-success" : "text-muted-foreground"
+              isAhead ? "text-destructive" : diff < 0 ? "text-[hsl(var(--success))]" : "text-muted-foreground"
             )}>
               {diff === 0 
                 ? "Tied with you" 
