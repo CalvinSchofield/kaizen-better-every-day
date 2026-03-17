@@ -1984,6 +1984,27 @@ export type Database = {
           },
         ]
       }
+      watchlist: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+          watched_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+          watched_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+          watched_user_id?: string
+        }
+        Relationships: []
+      }
       weekly_reports: {
         Row: {
           approved_at: string | null
