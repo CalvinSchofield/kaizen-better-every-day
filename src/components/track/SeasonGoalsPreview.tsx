@@ -37,7 +37,6 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
   if (!data.hasGoals) return null;
 
   const season = data.season;
-  const totalProgress = season.actual + season.live;
   const fundedPct = season.goal > 0 ? Math.min(100, (season.funded / season.goal) * 100) : 0;
   const unfundedAmount = Math.max(0, season.actual - season.funded);
   const unfundedPct = season.goal > 0 ? Math.min(100, (unfundedAmount / season.goal) * 100) : 0;
