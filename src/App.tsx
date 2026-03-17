@@ -129,6 +129,7 @@ const App = () => {
                 <Route path="/add-recruit" element={<ProtectedRoute><Layout><AddRecruit /></Layout></ProtectedRoute>} />
                 <Route path="/reports-v2" element={<ProtectedRoute><Layout><ReportsV2 /></Layout></ProtectedRoute>} />
                 <Route path="/log-sale" element={<ProtectedRoute><Layout><LogSale /></Layout></ProtectedRoute>} />
+                <Route path="/debug-notifications" element={<ProtectedRoute><Layout><DebugNotifications /></Layout></ProtectedRoute>} />
 
                 {/* Catch-all */}
                 <Route path="*" element={<NotFound />} />
