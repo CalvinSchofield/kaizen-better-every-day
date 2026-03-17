@@ -18,7 +18,7 @@ import type { TimeframeType, CustomDateRange } from "@/hooks/useExpandedLeaderbo
 import { useState } from "react";
 
 export type TimeFilter = TimeframeType;
-export type ScopeFilter = 'all' | 'rookies';
+export type ScopeFilter = 'all' | 'rookies' | 'watchlist';
 
 interface LeaderboardFiltersProps {
   timeFilter: TimeFilter;
