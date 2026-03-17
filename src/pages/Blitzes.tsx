@@ -711,11 +711,8 @@ const Blitzes = () => {
             }),
           }));
 
-          // Sort: attended first (newest first), then unattended (newest first)
-          mergedPast.sort((a, b) => {
-            if (a.isAttended !== b.isAttended) return a.isAttended ? -1 : 1;
-            return new Date(b.date).getTime() - new Date(a.date).getTime();
-          });
+          // Sort chronologically, newest first
+          mergedPast.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
           return (
             <motion.div variants={itemVariants} className="space-y-2">
