@@ -517,32 +517,44 @@ const Blitzes = () => {
             }
 
             // No more blitzes — show summer countdown + preseason recap
+            // Aggregate stats from recap
+            const totalDoors = recapStats?.reduce((s, r) => s + r.doors, 0) || 0;
+            const totalFp = recapStats?.reduce((s, r) => s + r.fpPlus, 0) || 0;
+
             return (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-2"
               >
-                {/* Summer countdown headline */}
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-2xl">{summerHasStarted ? '☀️' : '🌅'}</span>
-                  <h1 className="text-3xl font-bold text-primary-foreground tracking-tight">
-                    {summerHasStarted ? 'Summer Is Here' : hasPersonalDates ? 'Your Summer Starts Soon' : 'Summer Starts Soon'}
-                  </h1>
-                </div>
-
-                {!summerHasStarted && daysUntilSummer > 0 && (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-foreground/15 backdrop-blur-sm mb-3">
-                    <span className="text-sm font-semibold text-primary-foreground">
-                      {daysUntilSummer === 1 ? 'Tomorrow' : `${daysUntilSummer} days away`}
-                    </span>
+                {/* Summer countdown headline — MASSIVE */}
+                {!summerHasStarted && daysUntilSummer > 0 ? (
+                  <>
+                    <p className="text-xs font-medium text-primary-foreground/50 uppercase tracking-wider mb-1">
+                      {hasPersonalDates ? 'Your summer starts in' : 'Summer starts in'}
+                    </p>
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="text-6xl font-extrabold text-primary-foreground tracking-tight leading-none">
+                        {daysUntilSummer}
+                      </span>
+                      <span className="text-xl font-semibold text-primary-foreground/70">
+                        {daysUntilSummer === 1 ? 'day' : 'days'}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-2xl">☀️</span>
+                    <h1 className="text-3xl font-bold text-primary-foreground tracking-tight">
+                      Summer Is Here
+                    </h1>
                   </div>
                 )}
 
                 {/* Summer date range + edit */}
                 <button
                   onClick={() => setEditSummerDatesOpen(true)}
-                  className="flex items-center gap-2 mb-4 group"
+                  className="flex items-center gap-2 mb-3 group"
                 >
                   <span className="text-sm text-primary-foreground/70">
                     {formatBlitzDate(effectiveSummerStart, 'MMM d')}
@@ -551,16 +563,15 @@ const Blitzes = () => {
                   <Pencil className="w-3.5 h-3.5 text-primary-foreground/40 group-hover:text-primary-foreground/70 transition-colors" />
                 </button>
 
-                {/* Preseason Blitz Recap */}
+                {/* Aggregate preseason stats line */}
                 {pastBlitzCount > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-primary-foreground/60 uppercase tracking-wider">Preseason Recap</p>
-                    <div className="flex items-baseline gap-1.5 mb-2">
-                      <span className="text-2xl font-bold text-primary-foreground">{pastBlitzCount}</span>
-                      <span className="text-sm text-primary-foreground/80">
-                        {pastBlitzCount === 1 ? 'blitz attended' : 'blitzes attended'}
-                      </span>
-                    </div>
+                  <div className="px-4 py-3 rounded-xl bg-primary-foreground/10 border border-primary-foreground/10">
+                    <p className="text-xs font-medium text-primary-foreground/50 uppercase tracking-wider mb-2">Preseason Recap</p>
+                    <p className="text-sm font-semibold text-primary-foreground">
+                      {pastBlitzCount} {pastBlitzCount === 1 ? 'blitz' : 'blitzes'}
+                      {totalDoors > 0 && <> · {totalDoors.toLocaleString()} doors</>}
+                      {totalFp > 0 && <> · {totalFp} FP+</>}
+                    </p>
                   </div>
                 )}
 
