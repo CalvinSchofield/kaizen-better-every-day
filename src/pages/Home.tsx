@@ -15,8 +15,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
-import { VetHome } from "@/components/VetHome";
-import { PostBlitzRookieHome } from "@/components/PostBlitzRookieHome";
+// VetHome and PostBlitzRookieHome removed - replaced by /blitzes page
 import { BlitzCountdown } from "@/components/BlitzCountdown";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { KnockingModeHome } from "@/components/KnockingModeHome";
