@@ -70,7 +70,15 @@ export default function LogSale() {
   const [prmr, setPrmr] = useState("");
   const [showHelperContent, setShowHelperContent] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    // Initialize from nav state or query param
+    const dateStr = navState?.selectedDate || qpDate;
+    if (dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    return new Date();
+  });
   const [selectedTime, setSelectedTime] = useState(() => {
     const now = new Date();
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
