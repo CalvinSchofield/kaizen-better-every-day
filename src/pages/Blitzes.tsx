@@ -628,28 +628,30 @@ const Blitzes = () => {
           <ActiveChallengesCard hideCta={true} />
         </motion.div>
 
-        {/* ── Blitz Management ── */}
-        <motion.div variants={itemVariants}>
-          <div data-blitz-card>
-            <VetBlitzCard
-              repData={repData}
-              allBlitzes={allBlitzes}
-              teamMembers={teamMembers}
-              isTeamLead={isTeamLead}
-              isLoadingBlitzes={blitzesLoading}
-              isLoadingTeam={teamLoading}
-              accessLevel={teamAccessData?.accessLevel || 'none'}
-              mgmtGroups={teamAccessData?.mgmtGroups || []}
-              teams={teamAccessData?.teams || []}
-              onTeamMemberUpdate={(id, updates) => {
-                setTeamMembers(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
-              }}
-              onCommitmentChange={() => {
-                setTimeout(() => handleRefresh(), 3000);
-              }}
-            />
-          </div>
-        </motion.div>
+        {/* ── Blitz Management — hide for reps with no committed blitzes ── */}
+        {committedBlitzesArr.length > 0 && (
+          <motion.div variants={itemVariants}>
+            <div data-blitz-card>
+              <VetBlitzCard
+                repData={repData}
+                allBlitzes={allBlitzes}
+                teamMembers={teamMembers}
+                isTeamLead={isTeamLead}
+                isLoadingBlitzes={blitzesLoading}
+                isLoadingTeam={teamLoading}
+                accessLevel={teamAccessData?.accessLevel || 'none'}
+                mgmtGroups={teamAccessData?.mgmtGroups || []}
+                teams={teamAccessData?.teams || []}
+                onTeamMemberUpdate={(id, updates) => {
+                  setTeamMembers(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+                }}
+                onCommitmentChange={() => {
+                  setTimeout(() => handleRefresh(), 3000);
+                }}
+              />
+            </div>
+          </motion.div>
+        )}
       </motion.div>
 
       {/* Weather Sheet */}
