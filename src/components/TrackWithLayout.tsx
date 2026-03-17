@@ -378,6 +378,7 @@ const TrackWithLayout = () => {
         work_start_time: entry.work_start_time,
         work_end_time: workEndTime,
         sales_log: salesLog,
+        daily_target: goalPaceData.hasGoals ? goalPaceData.dailyNeeded : null,
       };
       
       await finalizeEntry(saveData);
