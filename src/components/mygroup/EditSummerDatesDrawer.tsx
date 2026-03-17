@@ -61,6 +61,7 @@ export const EditSummerDatesDrawer = ({
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['team-summer-availability'] });
       queryClient.invalidateQueries({ queryKey: ['current-user-summer'] });
+      queryClient.invalidateQueries({ queryKey: ['blitz-page-summer-config'] });
       
       onOpenChange(false);
     } catch (err: any) {
