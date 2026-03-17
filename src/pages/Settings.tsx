@@ -120,6 +120,7 @@ export default function Settings() {
     isNative,
     platform,
     debug: pushDebug,
+    refreshStoredTokenFlag,
   } = useUnifiedPushNotifications();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
