@@ -10,7 +10,7 @@ import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import { VetAlertCard } from "@/components/VetAlertCard";
-import { RecapCTACard } from "@/components/recap/RecapCTACard";
+
 import { LeaderRookieReviewCard } from "@/components/LeaderRookieReviewCard";
 import { ActiveChallengesCard } from "@/components/ActiveChallengesCard";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
@@ -407,7 +407,7 @@ const Blitzes = () => {
 
         {/* Universal alerts */}
         <PendingInstallAlertCard />
-        <RecapCTACard />
+        
 
         {/* Monday Night Lights Alert */}
         {!isTeamLead && hasMnlEventToday && (() => {

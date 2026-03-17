@@ -6,6 +6,7 @@ import { DailyMissionCard } from "./DailyMissionCard";
 import { SeasonGoalsPreview } from "./SeasonGoalsPreview";
 import { CompetitionsPreview } from "./CompetitionsPreview";
 import { WatchlistPulseCard } from "./WatchlistPulseCard";
+import { RecapCTACard } from "@/components/recap/RecapCTACard";
 
 import { WeatherStrip } from "./WeatherStrip";
 import { LeaderboardMiniRow } from "./LeaderboardMiniRow";
@@ -129,6 +130,10 @@ export const PreWorkingState = ({
 
         <motion.div variants={itemVariants}>
           <LeaderboardMiniRow />
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <RecapCTACard />
         </motion.div>
 
         <motion.div variants={itemVariants}>
