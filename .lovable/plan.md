@@ -1,100 +1,93 @@
+## Push Notification Fix – Complete
 
-Goal: make iOS native (TestFlight) push registration reliable first, then ensure PWA push works on iPhone.
+### What was changed (code side)
 
-What I found from the current code/backend
-- Native token table is empty (`apns_device_tokens` has 0 rows), so no iOS device has successfully stored a token yet.
-- Web subscriptions exist (`push_subscriptions` has rows), so web push pipeline is at least partially working.
-- Native registration logic is duplicated in two places:
-  - `src/components/PushNotificationInitializer.tsx`
-  - `src/hooks/useNativePushNotifications.ts`
-  This can cause drift/race and makes debugging harder.
-- Current debug checks in `Settings.tsx` count all APNs tokens globally (not per current user), which can mislead status.
-- Biggest likely blocker for “permission granted but no token”: iOS native project wiring/capabilities (AppDelegate forwarding + Push capability/provisioning), not just JS code.
+1. **`src/hooks/useNativePushNotifications.ts`** – Rewritten as single source of truth:
+   - Listeners set up once (ref guard)
+   - Token stored with retry: if no session at callback time, token is parked and retried on auth state change or app resume
+   - Per-user token queries (no global counts)
+   - Debug state includes explicit phases: `init → permission_checked → register_called → token_received → token_saved`
+   - App resume listener re-registers with APNs
 
-Implementation plan (code changes)
-1) Consolidate native push registration into one source of truth
-- Keep one canonical native registration flow in `useNativePushNotifications`.
-- Refactor `PushNotificationInitializer.tsx` to call that shared flow (or remove duplicate listener/registration logic and only trigger a bootstrap call).
-- Ensure registration runs:
-  - after authenticated session is available
-  - when app returns to foreground (resume) to recover from missed callbacks.
+2. **`src/components/PushNotificationInitializer.tsx`** – Stripped to thin bootstrapper:
+   - Only calls `PushNotifications.register()` if permission already granted
+   - No duplicate listeners (all handled by the hook)
 
-2) Make token storage resilient and user-specific
-- In `useNativePushNotifications.ts`:
-  - store token with robust upsert behavior (handle unique `device_token` collisions cleanly).
-  - if session missing at callback time, retry once shortly after instead of dropping token forever.
-  - improve debug state with explicit phases: permission_checked, register_called, token_received, token_saved.
-- In `Settings.tsx` and hook refresh checks:
-  - query `apns_device_tokens` filtered by current user only.
+3. **`src/hooks/useUnifiedPushNotifications.ts`** – Exposes `refreshStoredTokenFlag`
 
-3) Improve diagnostics so failure reason is obvious
-- In `Settings.tsx` developer section:
-  - add a single “Native Push Health Check” action that reports:
-    - authenticated user present?
-    - permission state
-    - registration callback received?
-    - registration error message (if any)
-    - token saved for this user?
-  - show “Likely iOS capability/provisioning issue” when register callback never arrives within timeout.
-- Update `test-push-notification` edge function to return failure if 0 notifications were actually sent (avoid false green checks).
+4. **`src/pages/Settings.tsx`** – All APNs token queries now filter by current user. Debug panel shows phase + Xcode capability warning.
 
-4) Keep PWA flow explicit and separate
-- In `Settings.tsx`, when platform is web:
-  - show clear requirements for iPhone web push:
-    - must use published URL (not preview/test shell)
-    - must open as Home Screen app on iOS
-    - must grant notifications via user action (toggle button).
-- Keep web push subscribe/unsubscribe as-is, but improve status messaging when service worker/permission prerequisites aren’t met.
+5. **`supabase/functions/test-push-notification/index.ts`** – Returns `success: false` + 502 when 0 notifications sent.
 
-Technical details (files)
-- `src/hooks/useNativePushNotifications.ts`
-- `src/components/PushNotificationInitializer.tsx`
-- `src/pages/Settings.tsx`
-- `src/hooks/useUnifiedPushNotifications.ts` (if needed for status normalization)
-- `supabase/functions/test-push-notification/index.ts`
+---
 
-No database schema changes required.
+### What YOU need to do (step by step)
 
-Noob-friendly runbook (TestFlight first)
-1) Pull latest code locally
-- Open Terminal in your project folder:
+#### Step 1: Open Terminal
+Open the Terminal app on your Mac. Navigate to your project folder:
+```bash
+cd ~/path-to-your-project
+```
+(Replace with your actual folder path. If you're not sure, right-click the folder in Finder → "Copy as Pathname", then type `cd ` and paste.)
+
+#### Step 2: Pull & build
 ```bash
 git pull
 npm install
 npm run build
 npx cap sync ios
+```
+
+#### Step 3: Open in Xcode
+```bash
 npx cap open ios
 ```
 
-2) In Xcode (must-do checks)
-- Select your app target → Signing & Capabilities:
-  - Team selected
-  - Bundle Identifier matches your Apple app identifier
-  - Add capability: Push Notifications
-  - Add capability: Background Modes → check “Remote notifications”
-- Open `ios/App/App/AppDelegate.swift` and verify push forwarding methods exist (Capacitor push requirement):
-  - `didRegisterForRemoteNotificationsWithDeviceToken`
-  - `didFailToRegisterForRemoteNotificationsWithError`
-  - both should post to Capacitor notification center names.
-- Product → Clean Build Folder, then build and archive.
-- Upload to TestFlight and install the new build on physical iPhone.
+#### Step 4: Xcode — Add Push Capability (CRITICAL)
+1. In the left sidebar, click the blue **App** project icon (top of the file tree)
+2. Select the **App** target (under TARGETS)
+3. Click **Signing & Capabilities** tab
+4. Click **+ Capability** (top left)
+5. Search for **Push Notifications** → double-click to add it
+6. Click **+ Capability** again → search **Background Modes** → add it
+7. Check ✅ **Remote notifications**
 
-3) Device checks
-- iPhone Settings → Notifications → your app → Allow Notifications ON.
-- Open app, log in, go to Settings → Notifications/Developer Tools.
-- Run “Re-register & Self-Test Push” and confirm:
-  - Push Registered = Yes
-  - APNs token in DB = Yes
-  - test notification arrives.
+#### Step 5: Verify AppDelegate
+Open `ios/App/App/AppDelegate.swift`. You need these methods. If they're missing, add them inside the `AppDelegate` class:
 
-4) Then validate PWA push
-- On iPhone Safari, open published URL (`kaizen-better-every-day.lovable.app`).
-- Share → Add to Home Screen.
-- Open installed web app from Home Screen.
-- Enable notifications from in-app Settings toggle.
-- Send test web push and confirm delivery.
+```swift
+func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+}
 
-Acceptance criteria
-- Native/TestFlight: token row exists for current user in `apns_device_tokens`, self-test APNs succeeds, notification received.
-- PWA: subscription row exists for current user in `push_subscriptions`, test web push succeeds and displays.
-- Status UI shows per-user truth (no global false positives).
+func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+}
+```
+
+#### Step 6: Build & deploy
+1. In Xcode: **Product → Clean Build Folder** (Shift+Cmd+K)
+2. Select your physical iPhone as the run target (top bar)
+3. **Product → Build** (Cmd+B)
+4. To push to TestFlight: **Product → Archive**, then **Distribute App → App Store Connect**
+
+#### Step 7: Test on device
+1. Install the new TestFlight build
+2. Open the app, log in
+3. Go to **Settings → Developer Tools**
+4. Tap **Re-register & Self-Test Push**
+5. You should see:
+   - Phase: `token_saved`
+   - APNs token in DB: Yes
+   - Test notification arrives on your phone
+
+If Phase stays at `register_called` and no token appears → the Xcode capability (Step 4) is likely missing.
+
+---
+
+### PWA Push (after TestFlight works)
+1. On your iPhone, open Safari → go to `https://kaizen-better-every-day.lovable.app`
+2. Tap Share → **Add to Home Screen**
+3. Open the app from your Home Screen (must be the Home Screen version, not Safari)
+4. Go to Settings → enable notifications
+5. Test with the notification button

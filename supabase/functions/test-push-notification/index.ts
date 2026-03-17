@@ -84,9 +84,13 @@ serve(async (req) => {
       }
     }
 
+    const success = sent > 0;
     return new Response(
-      JSON.stringify({ success: true, message: `Sent ${sent}/${subscriptions.length}` }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success, message: `Sent ${sent}/${subscriptions.length}` }),
+      { 
+        status: success ? 200 : 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
 
   } catch (error) {

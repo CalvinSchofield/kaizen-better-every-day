@@ -120,6 +120,7 @@ export default function Settings() {
     isNative,
     platform,
     debug: pushDebug,
+    refreshStoredTokenFlag,
   } = useUnifiedPushNotifications();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
@@ -1103,9 +1104,12 @@ export default function Settings() {
                         try {
                           // If there's no APNs token stored, calling the APNs sender will return non-2xx.
                           // So we check first and skip APNs when there's no token yet.
+                          const { data: { session } } = await supabase.auth.getSession();
+                          const currentUserId = session?.user?.id;
                           const { count, error: countErr } = await supabase
                             .from('apns_device_tokens')
-                            .select('id', { count: 'exact', head: true });
+                            .select('id', { count: 'exact', head: true })
+                            .eq('user_id', currentUserId ?? '');
 
                           if (countErr) throw countErr;
 
@@ -1307,9 +1311,12 @@ export default function Settings() {
                           onClick={async () => {
                             setIsCheckingApnsToken(true);
                             try {
+                              const { data: { session: s } } = await supabase.auth.getSession();
+                              const uid = s?.user?.id;
                               const { count, error } = await supabase
                                 .from('apns_device_tokens')
-                                .select('id', { count: 'exact', head: true });
+                                .select('id', { count: 'exact', head: true })
+                                .eq('user_id', uid ?? '');
 
                               if (error) throw error;
 
@@ -1366,9 +1373,12 @@ export default function Settings() {
                               let tokenCount = 0;
 
                               while (Date.now() < deadline) {
+                                const { data: { session: pollSession } } = await supabase.auth.getSession();
+                                const pollUid = pollSession?.user?.id;
                                 const { count, error: countErr } = await supabase
                                   .from('apns_device_tokens')
-                                  .select('id', { count: 'exact', head: true });
+                                  .select('id', { count: 'exact', head: true })
+                                  .eq('user_id', pollUid ?? '');
 
                                 if (countErr) throw countErr;
 
@@ -1443,14 +1453,18 @@ export default function Settings() {
                       {platform === 'native' && (
                         <>
                           <p><strong>APNs token in DB:</strong> {apnsTokenCount === null ? 'Unknown' : apnsTokenCount > 0 ? 'Yes' : 'No'}</p>
+                          <p><strong>Phase:</strong> {pushDebug?.phase ?? '—'}</p>
                           {pushDebug?.lastTokenPrefix && (
                             <p><strong>Last token:</strong> {pushDebug.lastTokenPrefix}…</p>
                           )}
                           {pushDebug?.lastTokenStoreError && (
-                            <p><strong>Token store error:</strong> {pushDebug.lastTokenStoreError}</p>
+                            <p className="text-destructive"><strong>Token store error:</strong> {pushDebug.lastTokenStoreError}</p>
                           )}
                           {pushDebug?.lastRegistrationError && (
-                            <p><strong>Registration error:</strong> {pushDebug.lastRegistrationError}</p>
+                            <p className="text-destructive"><strong>Registration error:</strong> {pushDebug.lastRegistrationError}</p>
+                          )}
+                          {permission === 'granted' && !pushDebug?.lastTokenPrefix && !pushDebug?.lastRegistrationError && (
+                            <p className="text-yellow-600"><strong>⚠️ Likely iOS capability / provisioning issue.</strong> Verify Push Notifications capability is added in Xcode.</p>
                           )}
                         </>
                       )}
