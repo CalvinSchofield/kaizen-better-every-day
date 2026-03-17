@@ -295,7 +295,7 @@ export const useDailyEntry = (date?: string) => {
         
         return {
           id: serverEntry?.id || '',
-          user_id: user.id,
+          user_id: activeUser.id,
           entry_date: entryDate,
           ...merged,
           is_finalized: false,

@@ -88,18 +88,27 @@ export const smartMergeEntries = (
   for (const sale of primarySales) salesById.set(sale.id, sale);
   result.sales_log = Array.from(salesById.values());
   
-  // Take earliest work_start_time
-  if (primary?.work_start_time && backup?.work_start_time) {
-    result.work_start_time = primary.work_start_time < backup.work_start_time 
-      ? primary.work_start_time 
-      : backup.work_start_time;
+  // Take earliest work_start_time - CRITICAL: preserve from EITHER source
+  if (primary?.work_start_time || backup?.work_start_time) {
+    if (primary?.work_start_time && backup?.work_start_time) {
+      result.work_start_time = primary.work_start_time < backup.work_start_time 
+        ? primary.work_start_time 
+        : backup.work_start_time;
+    } else {
+      // One has it, other doesn't - preserve whichever has it
+      result.work_start_time = primary?.work_start_time || backup?.work_start_time;
+    }
   }
   
-  // Take latest work_end_time
-  if (primary?.work_end_time && backup?.work_end_time) {
-    result.work_end_time = primary.work_end_time > backup.work_end_time 
-      ? primary.work_end_time 
-      : backup.work_end_time;
+  // Take latest work_end_time - preserve from EITHER source
+  if (primary?.work_end_time || backup?.work_end_time) {
+    if (primary?.work_end_time && backup?.work_end_time) {
+      result.work_end_time = primary.work_end_time > backup.work_end_time 
+        ? primary.work_end_time 
+        : backup.work_end_time;
+    } else {
+      result.work_end_time = primary?.work_end_time || backup?.work_end_time;
+    }
   }
   
   return result;
