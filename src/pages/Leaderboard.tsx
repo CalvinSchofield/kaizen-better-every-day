@@ -39,7 +39,7 @@ const Leaderboard = () => {
   const [isUserInitialized, setIsUserInitialized] = useState(false);
 
   useSalesRealtime();
-
+  const { watchedUserIds } = useWatchlist();
   const { availablePresets, autoSelectedPreset, isLoading: presetsLoading } = useAvailableLeaderboardPresets();
 
   useEffect(() => {
