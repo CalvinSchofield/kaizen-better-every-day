@@ -86,7 +86,6 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
                   {formatFP(season.funded)}
                   {season.pending > 0 && <span className="text-warning text-xs font-normal"> +{formatFP(season.pending)}</span>}
                 </span>
-                </span>
                 <span className="text-sm text-muted-foreground">
                   / {formatFP(season.goal)} {data.metricLabel}
                 </span>
