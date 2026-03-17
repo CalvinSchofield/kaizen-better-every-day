@@ -87,8 +87,14 @@ export const CalendarDayDrawer = ({
   }, [entry?.work_start_time, entry?.work_end_time, entry?.break_periods, entry?.timezone]);
 
   const handleAddSale = () => {
-    // Navigate to log-sale page with date context
-    navigate(`/log-sale?date=${dateStr}&from=calendar`);
+    // Navigate to log-sale page with date context via state (not query params)
+    navigate('/log-sale', {
+      state: {
+        showDatePicker: true,
+        returnPath: '/calendar',
+        selectedDate: dateStr, // YYYY-MM-DD string for the selected calendar day
+      },
+    });
     onOpenChange(false);
   };
 

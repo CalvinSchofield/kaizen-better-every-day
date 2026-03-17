@@ -51,21 +51,34 @@ export default function LogSale() {
     counterTimestamps?: Record<string, string[]>;
     showDatePicker?: boolean;
     returnPath?: string;
+    selectedDate?: string; // YYYY-MM-DD from calendar
   } | null;
+
+  // Support query params as fallback (for backward compat / deep links)
+  const qpDate = searchParams.get('date');
+  const qpFrom = searchParams.get('from');
   
   const editingSale = navState?.editingSale;
   const showPrmrHelper = navState?.showPrmrHelper ?? false;
   const crmEnabled = navState?.crmEnabled ?? true;
   const crmDetailedEnabled = navState?.crmDetailedEnabled ?? true;
   const counterTimestamps = navState?.counterTimestamps;
-  const showDatePicker = navState?.showDatePicker ?? false;
-  const returnPath = navState?.returnPath ?? '/track';
+  const showDatePicker = navState?.showDatePicker ?? (qpFrom === 'calendar');
+  const returnPath = navState?.returnPath ?? (qpFrom === 'calendar' ? '/calendar' : '/track');
 
   const [saleType, setSaleType] = useState<'fp' | 'upgrade'>('fp');
   const [prmr, setPrmr] = useState("");
   const [showHelperContent, setShowHelperContent] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    // Initialize from nav state or query param
+    const dateStr = navState?.selectedDate || qpDate;
+    if (dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    return new Date();
+  });
   const [selectedTime, setSelectedTime] = useState(() => {
     const now = new Date();
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;

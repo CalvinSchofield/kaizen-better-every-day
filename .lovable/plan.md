@@ -1,32 +1,35 @@
+# Notification System – Implementation Plan
 
+## Completed
 
-# Fix: Calendar "Add Sale" Saves to Wrong Date
+### Phase 1: Core Notification Pipeline
+- 21 notification types (web push + APNs)
+- Timezone-aware cron-based nudges
+- Deduplication via notification_logs
+- In-app foreground banner (InAppNotificationBanner.tsx)
 
-## The Bug
-When a user taps a past day in the calendar drawer and hits "Add a Sale or Referral", the sale always gets added to **today** instead of the selected day.
+### Phase 2: iOS Rich Notifications (Press & Hold)
+- **Swift files created** in `ios-notification-setup/`:
+  - `NotificationCategories.swift` — 23 categories with contextual actions
+  - `NotificationResponseHandler.swift` — Handles all action responses including inline replies, call/text, snooze, RSVP
+  - `README.md` — Step-by-step setup guide
+- **`handle-notification-reply` edge function** — Receives inline replies from iOS, saves as comments, triggers comment notifications
+- **APNs payload enriched** — Now passes `activityId`, `recruitId`, `recruitName`, `phone`, `challengeId`, `repUserId` through to iOS `userInfo`
 
-**Root cause:** `CalendarDayDrawer` navigates using query params (`/log-sale?date=2025-03-16&from=calendar`), but `LogSale` only reads from `location.state`. Since state is empty:
-- `showDatePicker` = false (date picker hidden)
-- `returnPath` = `/track` (not calendar)
-- No `entryDate` is passed back on submit
-- `TrackWithLayout` receives the sale and adds it to today's entry
+### User Notes on Specific Notifications
+- **task_past_due**: Actions = View Tasks, Reschedule (navigate to tasks page)
+- **preseason_accountability**: Just a reminder of commitments, not a logging action
+- **access_request**: Should track onboarding flow progression (3 levels up upline), not just signup
+- **install_reminder_eve**: "View Sale" opens to that customer in CRM
+- **install_reminder_due**: "Installed" confirms, "Update" for canceled/rescheduled
+- **personal_record**: Need to determine what view/page to show
+- **leader_coaching**: Call/Text the struggling rep + need a coaching view/page
+- **challenge_progress**: "View" opens that specific challenge
 
-## The Fix
-
-### 1. CalendarDayDrawer — pass navigation state instead of query params
-Change `handleAddSale` to use `navigate('/log-sale', { state: { ... } })` with:
-- `showDatePicker: true` (show date picker, pre-filled to the selected day)
-- `returnPath: '/calendar'` (go back to calendar, not track)
-- The selected date pre-set
-
-### 2. LogSale — initialize `selectedDate` from query params as fallback
-Read the `date` search param and use it to initialize `selectedDate` if present. Also detect `from=calendar` to set `showDatePicker=true` and `returnPath='/calendar'` as fallbacks when no state is provided.
-
-### 3. Calendar page — handle returned sale data with `useAddSaleToEntry`
-When LogSale navigates back to `/calendar` with `saleLogged + entryDate + saleData`, the Calendar page needs to intercept that state and use `useAddSaleToEntry` to save the sale to the correct date's entry.
-
-## Files Changed
-- `src/components/CalendarDayDrawer.tsx` — pass state instead of query params
-- `src/pages/LogSale.tsx` — read query params as fallback for state
-- `src/pages/Calendar.tsx` — handle returned sale data and save to correct date
-
+## TODO
+- [ ] Enrich all notification callers to pass `activityId`, `recruitId`, `phone`, etc. to APNs
+- [ ] Build coaching view page for leader_coaching deep link
+- [ ] Build personal record celebration view
+- [ ] Build task reschedule flow for task_past_due
+- [ ] Add install status update flow for install_reminder_due
+- [ ] Onboarding progression notifications (3 levels up approval flow)

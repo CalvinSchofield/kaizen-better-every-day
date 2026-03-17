@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { CalendarView } from "@/components/CalendarView";
 import { useRepData } from "@/hooks/useRepData";
 import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
@@ -7,8 +9,8 @@ import { Calendar as CalendarIcon, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useNavigate } from "react-router-dom";
 import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
+import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
 
 interface CalendarProps {
   viewMode?: "week" | "month";
@@ -18,7 +20,29 @@ interface CalendarProps {
 const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
   const { repData, loading: loadingRepData, isInitializing } = useRepData();
   const navigate = useNavigate();
+  const location = useLocation();
   const goalPaceData = useGoalPaceCalculator();
+  const { addSale } = useAddSaleToEntry();
+
+  // Handle sale data returned from LogSale page
+  useEffect(() => {
+    const state = location.state as {
+      saleLogged?: boolean;
+      saleData?: any;
+      entryDate?: string;
+      timestamp?: string;
+    } | null;
+
+    if (state?.saleLogged && state?.saleData && state?.entryDate) {
+      addSale({
+        entryDate: state.entryDate,
+        sale: state.saleData,
+        saleTimestamp: state.timestamp,
+      });
+      // Clear location state so it doesn't re-trigger
+      navigate('/calendar', { replace: true, state: {} });
+    }
+  }, [location.state]);
 
   // Fetch all daily entries for the logged-in user
   const { data: entries = [] } = useQuery({
