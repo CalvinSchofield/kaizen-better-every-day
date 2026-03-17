@@ -25,6 +25,8 @@ interface RepData {
   presentations: number;
   fp: number;
   prmr: number;
+  pendingFp?: number;
+  pendingPrmr?: number;
   isWorking?: boolean;
 }
 
