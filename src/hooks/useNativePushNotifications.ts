@@ -1,11 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { App } from '@capacitor/app';
 import { supabase } from '@/integrations/supabase/client';
 
 type NativePushPermission = 'prompt' | 'granted' | 'denied';
 
+type NativePushPhase =
+  | 'init'
+  | 'permission_checked'
+  | 'register_called'
+  | 'token_received'
+  | 'token_saved'
+  | 'error';
+
 type NativePushDebug = {
+  phase: NativePushPhase;
   lastRegistrationError?: string;
   lastRegistrationErrorAt?: string;
   lastTokenPrefix?: string;
@@ -13,35 +23,81 @@ type NativePushDebug = {
   lastTokenStoreError?: string;
 };
 
+/** Pending token waiting for an authenticated session */
+let pendingToken: string | null = null;
+
 export function useNativePushNotifications() {
   const [isSupported, setIsSupported] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [permission, setPermission] = useState<NativePushPermission>('prompt');
   const [isLoading, setIsLoading] = useState(true);
-  const [debug, setDebug] = useState<NativePushDebug>({});
+  const [debug, setDebug] = useState<NativePushDebug>({ phase: 'init' });
+  const listenersSetUp = useRef(false);
 
-  // Check if we're running as a native app
   const isNative = Capacitor.isNativePlatform();
 
-  const refreshStoredTokenFlag = useCallback(async () => {
+  // ── Store token for the current user (upsert) ──────────────────────
+  const storeToken = useCallback(async (token: string): Promise<boolean> => {
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
 
       const user = session?.user;
-      if (!user) return;
+      if (!user) {
+        // Park the token and retry when a session appears
+        pendingToken = token;
+        console.warn('[NativePush] No session – token parked for retry');
+        setDebug(prev => ({ ...prev, lastTokenStoreError: 'No session – will retry' }));
+        return false;
+      }
 
-      const { data: tokens } = await supabase
-        .from('apns_device_tokens')
-        .select('id')
-        .limit(1);
+      // Delete old tokens for this user, then insert
+      await supabase.from('apns_device_tokens').delete().eq('user_id', user.id);
 
-      setIsRegistered(!!tokens?.length);
-    } catch (error) {
-      console.warn('[NativePush] Failed to refresh stored token flag:', error);
+      const { error } = await supabase.from('apns_device_tokens').insert({
+        user_id: user.id,
+        device_token: token,
+        platform: 'ios',
+      });
+
+      if (error) {
+        console.error('[NativePush] Token store error:', error);
+        setDebug(prev => ({ ...prev, phase: 'error', lastTokenStoreError: error.message }));
+        return false;
+      }
+
+      console.log('[NativePush] Token stored ✓');
+      pendingToken = null;
+      setIsRegistered(true);
+      setDebug(prev => ({ ...prev, phase: 'token_saved', lastTokenStoreError: undefined }));
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[NativePush] storeToken error:', msg);
+      setDebug(prev => ({ ...prev, phase: 'error', lastTokenStoreError: msg }));
+      return false;
     }
   }, []);
 
+  // ── Check if token exists for current user ─────────────────────────
+  const refreshStoredTokenFlag = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) return;
+
+      const { count } = await supabase
+        .from('apns_device_tokens')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      setIsRegistered((count ?? 0) > 0);
+    } catch (error) {
+      console.warn('[NativePush] refreshStoredTokenFlag error:', error);
+    }
+  }, []);
+
+  // ── Core: set up listeners + register ──────────────────────────────
   useEffect(() => {
     if (!isNative) {
       setIsSupported(false);
@@ -51,77 +107,39 @@ export function useNativePushNotifications() {
 
     setIsSupported(true);
 
+    // Only set up listeners once
+    if (listenersSetUp.current) {
+      setIsLoading(false);
+      return;
+    }
+    listenersSetUp.current = true;
+
     let isCancelled = false;
 
     const run = async () => {
       try {
-        // 1) Register listeners FIRST (prevents missing the registration event)
+        // ── Listeners ────────────────────────────────────────────
         const registrationListener = await PushNotifications.addListener('registration', async (token) => {
           const tokenPrefix = token.value?.slice(0, 12) || 'missing';
-          console.log('[NativePush] Registration success, token prefix:', tokenPrefix);
+          console.log('[NativePush] registration event, prefix:', tokenPrefix);
 
-          setDebug((prev) => ({
+          setDebug(prev => ({
             ...prev,
+            phase: 'token_received',
             lastTokenPrefix: tokenPrefix,
             lastTokenAt: new Date().toISOString(),
             lastTokenStoreError: undefined,
           }));
 
-          try {
-            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-            if (sessionError) throw sessionError;
-
-            const user = session?.user;
-            if (!user) {
-              const msg = 'No authenticated user session';
-              console.error('[NativePush]', msg);
-              setDebug((prev) => ({
-                ...prev,
-                lastTokenStoreError: msg,
-              }));
-              return;
-            }
-
-            // Delete any old tokens for this user first (device token may have changed)
-            await supabase
-              .from('apns_device_tokens')
-              .delete()
-              .eq('user_id', user.id);
-
-            // Insert the new token
-            const { error } = await supabase
-              .from('apns_device_tokens')
-              .insert({
-                user_id: user.id,
-                device_token: token.value,
-                platform: 'ios',
-              });
-
-            if (error) {
-              console.error('[NativePush] Error storing token:', error);
-              setDebug((prev) => ({
-                ...prev,
-                lastTokenStoreError: error.message,
-              }));
-              return;
-            }
-
-            console.log('[NativePush] Token stored successfully');
-            setIsRegistered(true);
-          } catch (err) {
-            console.error('[NativePush] Error in registration handler:', err);
-            setDebug((prev) => ({
-              ...prev,
-              lastTokenStoreError: err instanceof Error ? err.message : String(err),
-            }));
-          }
+          await storeToken(token.value);
         });
 
         const errorListener = await PushNotifications.addListener('registrationError', (error) => {
-          console.error('[NativePush] Registration error:', error);
           const message = (error as any)?.error || (error as any)?.message || JSON.stringify(error);
-          setDebug((prev) => ({
+          console.error('[NativePush] registrationError:', message);
+          setDebug(prev => ({
             ...prev,
+            phase: 'error',
             lastRegistrationError: message,
             lastRegistrationErrorAt: new Date().toISOString(),
           }));
@@ -133,117 +151,126 @@ export function useNativePushNotifications() {
 
         const actionListener = await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
           console.log('[NativePush] Action performed:', action);
-
           const data = action.notification.data as any;
-          if (data?.url) {
-            window.location.href = data.url;
-          }
+          if (data?.url) window.location.href = data.url;
         });
 
-        // 2) Permission + register
+        // ── Permission check + register ──────────────────────────
         const permStatus = await PushNotifications.checkPermissions();
-        console.log('[NativePush] Permission status:', permStatus.receive);
+        console.log('[NativePush] Permission:', permStatus.receive);
+        setDebug(prev => ({ ...prev, phase: 'permission_checked' }));
 
         if (permStatus.receive === 'granted') {
           setPermission('granted');
+          setDebug(prev => ({ ...prev, phase: 'register_called' }));
           await PushNotifications.register();
         } else if (permStatus.receive === 'denied') {
           setPermission('denied');
         } else {
-          console.log('[NativePush] Requesting permission...');
           const result = await PushNotifications.requestPermissions();
-          console.log('[NativePush] Permission result:', result.receive);
-
           if (result.receive === 'granted') {
             setPermission('granted');
+            setDebug(prev => ({ ...prev, phase: 'register_called' }));
             await PushNotifications.register();
           } else {
             setPermission('denied');
           }
         }
 
-        // 3) Confirm backend token state (helpful if token existed already)
         await refreshStoredTokenFlag();
 
-        if (!isCancelled) {
-          setIsLoading(false);
-        }
+        if (!isCancelled) setIsLoading(false);
+
+        // ── Resume listener: re-register when app comes back ─────
+        const resumeListener = await App.addListener('resume', async () => {
+          console.log('[NativePush] App resumed – re-registering');
+          try {
+            const perm = await PushNotifications.checkPermissions();
+            if (perm.receive === 'granted') {
+              await PushNotifications.register();
+            }
+            // Retry parked token
+            if (pendingToken) {
+              await storeToken(pendingToken);
+            }
+            await refreshStoredTokenFlag();
+          } catch (err) {
+            console.warn('[NativePush] Resume re-register error:', err);
+          }
+        });
 
         return () => {
           registrationListener.remove();
           errorListener.remove();
           receivedListener.remove();
           actionListener.remove();
+          resumeListener.remove();
         };
       } catch (error) {
-        console.error('[NativePush] Error initializing:', error);
-        if (!isCancelled) {
-          setIsLoading(false);
-        }
+        console.error('[NativePush] Init error:', error);
+        if (!isCancelled) setIsLoading(false);
       }
     };
 
     const cleanupPromise = run();
-
     return () => {
       isCancelled = true;
-      void cleanupPromise.then((cleanup) => cleanup?.());
+      void cleanupPromise.then(cleanup => cleanup?.());
     };
-  }, [isNative, refreshStoredTokenFlag]);
+  }, [isNative, storeToken, refreshStoredTokenFlag]);
 
+  // ── Retry parked token when auth state changes ─────────────────────
+  useEffect(() => {
+    if (!isNative) return;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && pendingToken) {
+        console.log('[NativePush] Auth event – retrying parked token');
+        await storeToken(pendingToken);
+      }
+      // Always refresh flag on sign-in
+      if (event === 'SIGNED_IN') {
+        await refreshStoredTokenFlag();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [isNative, storeToken, refreshStoredTokenFlag]);
+
+  // ── Public API ─────────────────────────────────────────────────────
   const register = useCallback(async (): Promise<boolean> => {
-    if (!isNative) {
-      console.log('[NativePush] Not a native platform');
-      return false;
-    }
-
+    if (!isNative) return false;
     try {
       const permResult = await PushNotifications.requestPermissions();
-      console.log('[NativePush] Permission result:', permResult.receive);
-
       if (permResult.receive !== 'granted') {
         setPermission('denied');
         return false;
       }
-
       setPermission('granted');
+      setDebug(prev => ({ ...prev, phase: 'register_called' }));
       await PushNotifications.register();
-      console.log('[NativePush] Registered with APNs');
-
+      // Token will arrive via listener → storeToken
       await refreshStoredTokenFlag();
       return true;
     } catch (error) {
-      console.error('[NativePush] Error registering:', error);
+      console.error('[NativePush] register() error:', error);
       return false;
     }
   }, [isNative, refreshStoredTokenFlag]);
 
   const unregister = useCallback(async (): Promise<boolean> => {
     if (!isNative) return false;
-
     try {
-      // Unregister from APNs so the next register produces a fresh token event
-      try {
-        await PushNotifications.unregister();
-      } catch (err) {
-        console.warn('[NativePush] Native unregister failed (continuing):', err);
+      try { await PushNotifications.unregister(); } catch {}
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await supabase.from('apns_device_tokens').delete().eq('user_id', session.user.id);
       }
-
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) throw sessionError;
-
-      const user = session?.user;
-      if (user) {
-        await supabase
-          .from('apns_device_tokens')
-          .delete()
-          .eq('user_id', user.id);
-      }
-
       setIsRegistered(false);
+      setDebug(prev => ({ ...prev, phase: 'init' }));
       return true;
     } catch (error) {
-      console.error('[NativePush] Error unregistering:', error);
+      console.error('[NativePush] unregister() error:', error);
       return false;
     }
   }, [isNative]);
@@ -257,6 +284,6 @@ export function useNativePushNotifications() {
     register,
     unregister,
     debug,
+    refreshStoredTokenFlag,
   };
 }
-
