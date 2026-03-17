@@ -1373,9 +1373,12 @@ export default function Settings() {
                               let tokenCount = 0;
 
                               while (Date.now() < deadline) {
+                                const { data: { session: pollSession } } = await supabase.auth.getSession();
+                                const pollUid = pollSession?.user?.id;
                                 const { count, error: countErr } = await supabase
                                   .from('apns_device_tokens')
-                                  .select('id', { count: 'exact', head: true });
+                                  .select('id', { count: 'exact', head: true })
+                                  .eq('user_id', pollUid ?? '');
 
                                 if (countErr) throw countErr;
 
