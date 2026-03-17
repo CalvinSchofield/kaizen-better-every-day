@@ -1,0 +1,1 @@
+UPDATE daily_entries SET doors_knocked = 10, decision_makers = 5, fp_plus = 2.02 WHERE user_id = '843dac61-139d-4511-a057-c3bf359a9c07' AND entry_date = '2026-03-17';
