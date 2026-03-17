@@ -1,35 +1,60 @@
-# Notification System – Implementation Plan
 
-## Completed
 
-### Phase 1: Core Notification Pipeline
-- 21 notification types (web push + APNs)
-- Timezone-aware cron-based nudges
-- Deduplication via notification_logs
-- In-app foreground banner (InAppNotificationBanner.tsx)
+# Redesign Blitzes Page: Complete, Beautiful, Functional
 
-### Phase 2: iOS Rich Notifications (Press & Hold)
-- **Swift files created** in `ios-notification-setup/`:
-  - `NotificationCategories.swift` — 23 categories with contextual actions
-  - `NotificationResponseHandler.swift` — Handles all action responses including inline replies, call/text, snooze, RSVP
-  - `README.md` — Step-by-step setup guide
-- **`handle-notification-reply` edge function** — Receives inline replies from iOS, saves as comments, triggers comment notifications
-- **APNs payload enriched** — Now passes `activityId`, `recruitId`, `recruitName`, `phone`, `challengeId`, `repUserId` through to iOS `userInfo`
+## Problems Identified
 
-### User Notes on Specific Notifications
-- **task_past_due**: Actions = View Tasks, Reschedule (navigate to tasks page)
-- **preseason_accountability**: Just a reminder of commitments, not a logging action
-- **access_request**: Should track onboarding flow progression (3 levels up upline), not just signup
-- **install_reminder_eve**: "View Sale" opens to that customer in CRM
-- **install_reminder_due**: "Installed" confirms, "Update" for canceled/rescheduled
-- **personal_record**: Need to determine what view/page to show
-- **leader_coaching**: Call/Text the struggling rep + need a coaching view/page
-- **challenge_progress**: "View" opens that specific challenge
+1. **VetBlitzCard (Blitz Management) hidden when leader has no committed blitzes** — Line 640 guards on `committedBlitzesArr.length > 0`. A leader who didn't personally attend blitzes loses access to team management tools (attendance tracking, inviting, commitments). Leaders need this card visible whenever there are active/future blitzes, regardless of personal commitment.
 
-## TODO
-- [ ] Enrich all notification callers to pass `activityId`, `recruitId`, `phone`, etc. to APNs
-- [ ] Build coaching view page for leader_coaching deep link
-- [ ] Build personal record celebration view
-- [ ] Build task reschedule flow for task_past_due
-- [ ] Add install status update flow for install_reminder_due
-- [ ] Onboarding progression notifications (3 levels up approval flow)
+2. **Recap cards only show for user's committed blitzes, not all past blitzes** — The recap section (line 665) only renders `recapStats` from the user's `committed_blitzes`. The "Past Blitzes" collapsible (line 677) shows all blitzes but with zero stats — just name/date. No visual distinction between attended vs not-attended.
+
+3. **Summer countdown is buried in a small pill** — When there are no more blitzes, the hero just says "Summer Starts Soon" with a tiny pill. It should feel like the main event.
+
+4. **Page feels abandoned** — No visual richness, no sense of accomplishment for the preseason work done.
+
+## Design Philosophy
+
+A world-class mobile app would treat this like **Strava's season recap** or **Spotify Wrapped** — the end of preseason is a moment of pride, not an empty page. The past blitzes you attended are trophies. The ones you didn't are context.
+
+## Implementation
+
+### 1. VetBlitzCard visibility for leaders (`src/pages/Blitzes.tsx` ~line 639-662)
+
+Change the guard from `committedBlitzesArr.length > 0` to show for leaders whenever there are any active/future blitzes (`allBlitzes.length > 0`):
+
+```
+{(committedBlitzesArr.length > 0 || (isLeader && allBlitzes.length > 0)) && (
+```
+
+This ensures leaders always see the management card for in-progress or upcoming blitzes even if they personally aren't committed.
+
+### 2. Merge "Past Blitzes" and "Recap" into one unified section (`src/pages/Blitzes.tsx` ~line 664-701)
+
+Replace the separate recap cards + plain past blitzes collapsible with a single "Preseason Blitzes" section that shows ALL past blitzes, but visually distinguishes attended ones:
+
+- **Attended blitzes** get the full `BlitzRecapCard` with stats (days, doors, FP+, PRMR) and a warm accent left-border (primary color) — these are trophies.
+- **Not attended blitzes** render as simple muted rows (name, location, date) — context only.
+- For leaders, show all past blitzes. For reps, show all past blitzes too (attended ones highlighted, others dimmed).
+
+This requires:
+- Passing `allPastBlitzes` alongside `recapStats` to create a merged list
+- Cross-referencing which blitzes the user committed to (by ID match)
+
+### 3. Elevate the Summer Countdown hero (`src/pages/Blitzes.tsx` ~line 519-585)
+
+When there are no more blitzes and summer hasn't started:
+- Make the countdown number **massive** (text-6xl) like a real countdown clock
+- Add a summary line: "X blitzes · Y doors · Z FP+" aggregating ALL attended blitz stats
+- Keep the Vivint sync CTA but move it below the recap section, not in the hero
+
+### 4. Enhance BlitzRecapCard with accent styling (`src/components/BlitzRecapCard.tsx`)
+
+- Add a left accent border (`border-l-4 border-primary`) to attended blitz cards
+- Warm stat pill backgrounds (`bg-primary/10` instead of `bg-muted/50`)
+- This makes attended blitzes visually pop as accomplishments
+
+### Files Changed
+
+- `src/pages/Blitzes.tsx` — Leader VetBlitzCard guard fix, unified past blitzes section, elevated summer countdown hero with aggregate stats
+- `src/components/BlitzRecapCard.tsx` — Accent border + warmer stat pill styling
+
