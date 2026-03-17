@@ -209,6 +209,11 @@ const Leaderboard = () => {
             />
           </div>
         )}
+        {/* Watchlist Drawer */}
+        <WatchlistDrawer
+          open={watchlistDrawerOpen}
+          onOpenChange={setWatchlistDrawerOpen}
+        />
       </div>
     </Layout>
   );
