@@ -286,27 +286,29 @@ export const useDailyEntry = (date?: string) => {
         if (!alreadyPushed) {
           sessionStorage.setItem(pushKey, 'true');
           // Fire-and-forget push to server (don't await to avoid blocking the query)
-          supabase.rpc('upsert_daily_entry_safe', {
-            p_user_id: activeUser.id,
-            p_entry_date: entryDate,
-            p_doors_knocked: mergedEntry.doors_knocked ?? null,
-            p_decision_makers: mergedEntry.decision_makers ?? null,
-            p_pitches: mergedEntry.pitches ?? null,
-            p_transitions: mergedEntry.transitions ?? null,
-            p_presentations: mergedEntry.presentations ?? null,
-            p_closes: mergedEntry.closes ?? null,
-            p_fp_plus: mergedEntry.fp_plus ?? null,
-            p_prmr: mergedEntry.prmr ?? null,
-            p_upgrade_prmr: mergedEntry.upgrade_prmr ?? null,
-            p_work_start_time: mergedEntry.work_start_time ?? null,
-            p_work_end_time: mergedEntry.work_end_time ?? null,
-            p_break_periods: mergedEntry.break_periods ? JSON.parse(JSON.stringify(mergedEntry.break_periods)) : null,
-            p_counter_timestamps: mergedEntry.counter_timestamps ? JSON.parse(JSON.stringify(mergedEntry.counter_timestamps)) : null,
-            p_custom_counters: mergedEntry.custom_counters ? JSON.parse(JSON.stringify(mergedEntry.custom_counters)) : null,
-            p_timezone: mergedEntry.timezone ?? null,
-            p_sales_log: mergedEntry.sales_log ? JSON.parse(JSON.stringify(mergedEntry.sales_log)) : null,
-            p_is_finalized: null,
-          }).then(() => {
+          Promise.resolve(
+            supabase.rpc('upsert_daily_entry_safe', {
+              p_user_id: activeUser.id,
+              p_entry_date: entryDate,
+              p_doors_knocked: mergedEntry.doors_knocked ?? null,
+              p_decision_makers: mergedEntry.decision_makers ?? null,
+              p_pitches: mergedEntry.pitches ?? null,
+              p_transitions: mergedEntry.transitions ?? null,
+              p_presentations: mergedEntry.presentations ?? null,
+              p_closes: mergedEntry.closes ?? null,
+              p_fp_plus: mergedEntry.fp_plus ?? null,
+              p_prmr: mergedEntry.prmr ?? null,
+              p_upgrade_prmr: mergedEntry.upgrade_prmr ?? null,
+              p_work_start_time: mergedEntry.work_start_time ?? null,
+              p_work_end_time: mergedEntry.work_end_time ?? null,
+              p_break_periods: mergedEntry.break_periods ? JSON.parse(JSON.stringify(mergedEntry.break_periods)) : null,
+              p_counter_timestamps: mergedEntry.counter_timestamps ? JSON.parse(JSON.stringify(mergedEntry.counter_timestamps)) : null,
+              p_custom_counters: mergedEntry.custom_counters ? JSON.parse(JSON.stringify(mergedEntry.custom_counters)) : null,
+              p_timezone: mergedEntry.timezone ?? null,
+              p_sales_log: mergedEntry.sales_log ? JSON.parse(JSON.stringify(mergedEntry.sales_log)) : null,
+              p_is_finalized: null,
+            })
+          ).then(() => {
             console.log('[DailyEntry] Auto-pushed merged backup to server');
           }).catch((err) => {
             console.error('[DailyEntry] Failed to auto-push backup:', err);
