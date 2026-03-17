@@ -91,6 +91,9 @@ const Blitzes = () => {
 
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
 
+  // Blitz recap stats for past committed blitzes
+  const { data: recapStats } = useBlitzRecapStats(repData?.committed_blitzes as any[] | null);
+
   // Get next upcoming blitz from committed blitzes
   const nextBlitz: { date: string; endDate?: string | null; location?: string | null; name: string; address1?: string | null; wifi1?: string | null; code1?: string | null; id: string; accommodations?: any[] } | null = repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)
     ? (() => {
