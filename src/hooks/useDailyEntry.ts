@@ -460,6 +460,7 @@ export const useDailyEntry = (date?: string) => {
       work_start_time?: string;
       work_end_time?: string;
       sales_log?: Sale[];
+      daily_target?: number | null;
     }) => {
       // Wait for any pending counter updates to complete first
       await queryClient.refetchQueries({ queryKey: ['update-counter', data.saveDate] });
@@ -492,6 +493,17 @@ export const useDailyEntry = (date?: string) => {
       });
 
       if (error) throw error;
+
+      // Snapshot the daily target at finalization time for "mission complete" tracking
+      if (data.daily_target != null && data.daily_target > 0) {
+        const entryId = typeof result === 'object' && result !== null ? (result as any).id : null;
+        if (entryId) {
+          await supabase
+            .from('daily_entries')
+            .update({ daily_target: data.daily_target } as any)
+            .eq('id', entryId);
+        }
+      }
       
       // Check for automatic stage progression if FP+ is logged
       if (data.fp_plus > 0) {

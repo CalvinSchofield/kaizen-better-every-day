@@ -28,6 +28,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useConfetti } from "@/hooks/useConfetti";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
+import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 import { toast } from "sonner";
 import { hapticSuccess } from "@/utils/haptics";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
@@ -63,6 +64,7 @@ const TrackWithLayout = () => {
   const navigate = useNavigate();
   const { repData } = useRepData();
   const { totalFP: preseasonFP } = usePreseasonFP();
+  const goalPaceData = useGoalPaceCalculator();
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry, isRefreshing, isFreshDataVerified, isOfflineWithBackup } = useDailyEntry();
   const { addSale: addSaleToEntry, isAddingSale } = useAddSaleToEntry();
   const { updateSale, deleteSale: deleteSaleFromEntry, isDeleting: isDeletingSale } = useSaleUpdate();
@@ -376,6 +378,7 @@ const TrackWithLayout = () => {
         work_start_time: entry.work_start_time,
         work_end_time: workEndTime,
         sales_log: salesLog,
+        daily_target: goalPaceData.hasGoals ? goalPaceData.dailyNeeded : null,
       };
       
       await finalizeEntry(saveData);

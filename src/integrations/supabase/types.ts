@@ -522,6 +522,7 @@ export type Database = {
           counter_timestamps: Json | null
           created_at: string | null
           custom_counters: Json | null
+          daily_target: number | null
           decision_makers: number | null
           doors_knocked: number | null
           entry_date: string
@@ -547,6 +548,7 @@ export type Database = {
           counter_timestamps?: Json | null
           created_at?: string | null
           custom_counters?: Json | null
+          daily_target?: number | null
           decision_makers?: number | null
           doors_knocked?: number | null
           entry_date: string
@@ -572,6 +574,7 @@ export type Database = {
           counter_timestamps?: Json | null
           created_at?: string | null
           custom_counters?: Json | null
+          daily_target?: number | null
           decision_makers?: number | null
           doors_knocked?: number | null
           entry_date?: string
