@@ -1,0 +1,1 @@
+ALTER TABLE public.daily_entries ADD COLUMN daily_target numeric;
