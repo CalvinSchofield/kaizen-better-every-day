@@ -188,7 +188,7 @@ export const CalendarPlanningPreview = ({
     const summerGoal = activeGoal;
     const futureSummerPlannedAll = plannedDays?.filter(d => {
       const date = parseISO(d.planned_date);
-      return !isBefore(date, summerStart);
+      return !isBefore(date, summerStart) && !excluded.includes(d.planned_date);
     }).length || 0;
     const summerDailyPace = futureSummerPlannedAll > 0
       ? Math.max(0, summerGoal - forecastedPreseasonTotal) / futureSummerPlannedAll
