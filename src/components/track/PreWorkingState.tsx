@@ -132,6 +132,10 @@ export const PreWorkingState = ({
         </motion.div>
 
         <motion.div variants={itemVariants}>
+          <WatchlistPulseCard />
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
           <CompetitionsPreview />
         </motion.div>
       </div>
