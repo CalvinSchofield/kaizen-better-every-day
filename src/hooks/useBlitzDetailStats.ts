@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+import { formatInTimeZone } from "date-fns-tz";
 
 export interface BlitzDetailData {
   // Overview
