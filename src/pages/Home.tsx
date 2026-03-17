@@ -1022,14 +1022,14 @@ const Home = () => {
     }
   }
   
-  // Check if user is a Vet or Sophomore - show VetHome instead
+  // Redirect Vets/Sophomores to Blitzes page
   if (repData.year === "Vet" || repData.year === "Sophomore") {
-    return <VetHome repData={repData} onSync={handleSync} isSyncing={isSyncing} syncSuccess={syncSuccess} />;
+    return <Navigate to="/blitzes" replace />;
   }
 
-  // Show PostBlitzRookieHome for unlocked rookies (attended blitz OR shadow ✅)
+  // Redirect unlocked rookies (attended blitz OR shadow ✅) to Blitzes page
   if (repData.year === "Rookie" && phase4Complete && isUnlocked) {
-    return <PostBlitzRookieHome repData={repData} onSync={handleSync} isSyncing={isSyncing} syncSuccess={syncSuccess} />;
+    return <Navigate to="/blitzes" replace />;
   }
   
   // Helper to check phase status - case-insensitive matching
