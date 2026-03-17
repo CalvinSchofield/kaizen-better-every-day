@@ -262,7 +262,7 @@ export const useDailyEntry = (date?: string) => {
       }
       
       // PHASE 3: Smart merge - backup recovery with HIGHER value wins
-      const backup = getBackupFromStorage(user.id, entryDate);
+      const backup = getBackupFromStorage(activeUser.id, entryDate);
       const serverTotal = getActivityTotal(serverEntry);
       const backupTotal = getActivityTotal(backup);
       
