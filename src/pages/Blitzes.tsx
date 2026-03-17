@@ -647,8 +647,8 @@ const Blitzes = () => {
           <ActiveChallengesCard hideCta={true} />
         </motion.div>
 
-        {/* ── Blitz Management — hide for reps with no committed blitzes ── */}
-        {committedBlitzesArr.length > 0 && (
+        {/* ── Blitz Management — visible for leaders with any active blitzes OR reps with commitments ── */}
+        {(committedBlitzesArr.length > 0 || (isLeader && allBlitzes.length > 0)) && (
           <motion.div variants={itemVariants}>
             <div data-blitz-card>
               <VetBlitzCard
