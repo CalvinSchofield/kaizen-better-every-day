@@ -37,7 +37,6 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
   if (!data.hasGoals) return null;
 
   const season = data.season;
-  const totalProgress = season.actual + season.live;
   const fundedPct = season.goal > 0 ? Math.min(100, (season.funded / season.goal) * 100) : 0;
   const unfundedAmount = Math.max(0, season.actual - season.funded);
   const unfundedPct = season.goal > 0 ? Math.min(100, (unfundedAmount / season.goal) * 100) : 0;
@@ -84,8 +83,7 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
             >
               <div className="flex items-baseline justify-between mb-1.5">
                 <span className="text-sm font-semibold tabular-nums text-foreground">
-                  {formatFP(totalProgress)}
-                  {season.live > 0 && <span className="text-emerald-500 text-xs font-normal"> +{formatFP(season.live)}</span>}
+                  {formatFP(season.funded)}
                   {season.pending > 0 && <span className="text-warning text-xs font-normal"> +{formatFP(season.pending)}</span>}
                 </span>
                 <span className="text-sm text-muted-foreground">
