@@ -553,9 +553,9 @@ const Blitzes = () => {
 
                 {/* Preseason Blitz Recap */}
                 {pastBlitzCount > 0 && (
-                  <div className="px-4 py-3 rounded-xl bg-primary-foreground/10 border border-primary-foreground/10">
-                    <p className="text-xs font-medium text-primary-foreground/60 uppercase tracking-wider mb-2">Preseason Recap</p>
-                    <div className="flex items-baseline gap-1.5">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-primary-foreground/60 uppercase tracking-wider">Preseason Recap</p>
+                    <div className="flex items-baseline gap-1.5 mb-2">
                       <span className="text-2xl font-bold text-primary-foreground">{pastBlitzCount}</span>
                       <span className="text-sm text-primary-foreground/80">
                         {pastBlitzCount === 1 ? 'blitz attended' : 'blitzes attended'}
