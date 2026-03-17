@@ -52,7 +52,7 @@ const Blitzes = () => {
   const { repData, refetch } = useRepData();
   const { toast } = useToast();
   const { hasMnlEventToday } = useMondayNightLightsEvent();
-  const { allBlitzes, allBlitzesIncludingPast, loading: blitzesLoading } = useBlitzes();
+  const { allBlitzes, pastBlitzes: allPastBlitzes, allBlitzesIncludingPast, loading: blitzesLoading } = useBlitzes();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isTeamLead, setIsTeamLead] = useState(false);
   const [teamLoading, setTeamLoading] = useState(true);
