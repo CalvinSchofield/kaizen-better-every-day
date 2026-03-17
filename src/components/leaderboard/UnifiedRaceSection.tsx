@@ -12,6 +12,7 @@ import type { ExpandedRankings, RankedEntry } from "@/hooks/useExpandedLeaderboa
 
 interface RankingEntryWithWorking extends RankedEntry {
   isWorking?: boolean;
+  pendingValue?: number;
 }
 
 type MetricKey = 'fp_plus' | 'prmr' | 'doors_knocked' | 'presentations' | 'decision_makers' | 'pitches' | 'transitions' | 'closes';
