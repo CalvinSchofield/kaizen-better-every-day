@@ -33,7 +33,7 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
         .select('entry_date, fp_plus, prmr, is_finalized, doors_knocked, sales_log')
         .eq('user_id', userId)
         .gte('entry_date', SEASON_START);
-      return (data || []) as DailyEntry[];
+      return (data || []) as ExtendedDailyEntry[];
     },
     staleTime: 5 * 60 * 1000,
   });
