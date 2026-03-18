@@ -1,35 +1,78 @@
-# Notification System – Implementation Plan
 
-## Completed
 
-### Phase 1: Core Notification Pipeline
-- 21 notification types (web push + APNs)
-- Timezone-aware cron-based nudges
-- Deduplication via notification_logs
-- In-app foreground banner (InAppNotificationBanner.tsx)
+## Custom Date Range Drawer Redesign
 
-### Phase 2: iOS Rich Notifications (Press & Hold)
-- **Swift files created** in `ios-notification-setup/`:
-  - `NotificationCategories.swift` — 23 categories with contextual actions
-  - `NotificationResponseHandler.swift` — Handles all action responses including inline replies, call/text, snooze, RSVP
-  - `README.md` — Step-by-step setup guide
-- **`handle-notification-reply` edge function** — Receives inline replies from iOS, saves as comments, triggers comment notifications
-- **APNs payload enriched** — Now passes `activityId`, `recruitId`, `recruitName`, `phone`, `challengeId`, `repUserId` through to iOS `userInfo`
+### Overview
+Redesign the date preset bar and custom date picker for both **Leaderboard** and **Reports** pages. The preset pills scroll horizontally except "Custom" which stays pinned to the right. The custom drawer becomes a world-class experience with quick-select shortcuts (seasons, weeks, months) and a Google Flights-style inline range calendar.
 
-### User Notes on Specific Notifications
-- **task_past_due**: Actions = View Tasks, Reschedule (navigate to tasks page)
-- **preseason_accountability**: Just a reminder of commitments, not a logging action
-- **access_request**: Should track onboarding flow progression (3 levels up upline), not just signup
-- **install_reminder_eve**: "View Sale" opens to that customer in CRM
-- **install_reminder_due**: "Installed" confirms, "Update" for canceled/rescheduled
-- **personal_record**: Need to determine what view/page to show
-- **leader_coaching**: Call/Text the struggling rep + need a coaching view/page
-- **challenge_progress**: "View" opens that specific challenge
+### Layout Change: Pinned Custom Button
 
-## TODO
-- [ ] Enrich all notification callers to pass `activityId`, `recruitId`, `phone`, etc. to APNs
-- [ ] Build coaching view page for leader_coaching deep link
-- [ ] Build personal record celebration view
-- [ ] Build task reschedule flow for task_past_due
-- [ ] Add install status update flow for install_reminder_due
-- [ ] Onboarding progression notifications (3 levels up approval flow)
+Both pages currently render all presets + Custom in one scrollable row. Change to:
+
+```text
+┌─────────────────────────────────────────────┐
+│ [Live] [Yesterday] [This Week] ... ←scroll→ │ [📅 Custom] │
+│         scrollable area                      │   pinned    │
+└─────────────────────────────────────────────┘
+```
+
+- Wrap the scrollable presets in a `flex` container with `overflow-x-auto` and `flex-1`
+- Custom button sits outside the scroll container with `flex-shrink-0`, separated by a subtle left-border/shadow fade
+
+### New Custom Date Range Drawer
+
+Replace the current clunky two-popover sheet with a single beautiful drawer containing:
+
+**1. Quick Select Section** - Horizontally scrollable chips organized in labeled rows:
+
+- **Seasons**: `Preseason` · `Summer` · `Extension` (computed from `seasonWeekUtils.ts` SEASON_DEFINITIONS for 2026)
+- **Weeks**: `Pre W1` · `Pre W2` · ... · `Sum W1` · `Sum W2` · ... · `Ext W1` · ... (scrollable, auto-scrolls to current week). Each chip sets the date range to that Sun-Sat week.
+- **Months**: `Oct '25` · `Nov '25` · ... · `Sep '26` (within the 2026 season)
+
+Tapping a chip immediately fills in the start/end dates and highlights on the calendar.
+
+**2. Date Range Header** - Shows selected `Mon, Apr 20` — `Thu, Apr 23` with left/right nudge arrows (like Google Flights). Tapping either date scrolls calendar to that month.
+
+**3. Inline Range Calendar** - Uses `react-day-picker` v8 `mode="range"` with `numberOfMonths={2}` on larger screens, `numberOfMonths={1}` on mobile. Shows range highlighting between selected dates. Disabled dates after today.
+
+**4. Action Bar** - `Reset` link + `Done` button (primary, disabled until valid range selected).
+
+### Season Definition Update
+
+Update `seasonWeekUtils.ts` SEASON_DEFINITIONS to properly define **extension** as a distinct season:
+- Summer 2026: Apr 12 — Aug 29 (day before extension start)  
+- Extension 2026: Aug 30 — summer end date (Sep 27, 2026)
+
+This is already defined in the file (`extension: new Date(2026, 7, 30)` = Aug 30). The seasons are already correctly structured. Just need to use them for the quick-select chips.
+
+### Files to Modify
+
+| File | Change |
+|---|---|
+| `src/components/reports/v2/CustomDateRangeDrawer.tsx` | **Create** — new world-class drawer with quick selects + range calendar |
+| `src/components/reports/v2/ReportsDateRangeSheet.tsx` | **Delete** or replace with import of new drawer |
+| `src/components/leaderboard/LeaderboardFilters.tsx` | Split layout: scrollable presets + pinned Custom. Replace inline Sheet with new shared drawer |
+| `src/pages/ReportsV2.tsx` | Split layout: scrollable presets + pinned Custom. Use new drawer component |
+| `src/utils/seasonWeekUtils.ts` | Add helper functions: `getSeasonDateRange()`, `getSeasonWeeks()`, `getSeasonMonths()` to generate quick-select options |
+
+### Shared Drawer Component Props
+
+```typescript
+interface CustomDateRangeDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  startDate?: Date;
+  endDate?: Date;
+  onApply: (start: Date, end: Date) => void;
+}
+```
+
+Both Leaderboard and Reports import and use the same drawer.
+
+### UX Details
+- Quick-select chips use warm amber/orange tint when selected (matches app theme)
+- Current week/month chip gets a subtle "now" dot indicator
+- Calendar range uses the app's primary color for the selected range fill
+- Smooth scroll-into-view for the current period in the weeks row
+- Drawer height: ~75% of viewport, scrollable content area
+
