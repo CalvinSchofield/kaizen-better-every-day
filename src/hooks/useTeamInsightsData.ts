@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, startOfDay, endOfDay, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { computeAllTimeGroupRecords, AllTimeGroupRecords } from "@/utils/teamRecordDetection";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 
 interface DailyEntry {
