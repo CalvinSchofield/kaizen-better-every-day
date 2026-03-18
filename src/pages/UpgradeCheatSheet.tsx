@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { UpgradePrmrCalculator } from "@/components/UpgradePrmrCalculatorV2";
+import { useToolsBackButton } from "@/hooks/useToolsBackButton";
 
 interface PainPoint {
   emoji: string;

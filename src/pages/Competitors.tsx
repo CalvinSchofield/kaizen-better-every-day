@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { COMPETITORS, CompetitorData } from "@/data/competitorData";
 import { CompetitorGuide } from "@/components/competitors/CompetitorGuide";
+import { useToolsBackButton } from "@/hooks/useToolsBackButton";
 
 const CATEGORIES = [
   { label: "All", value: "all" },

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useToolsBackButton } from "@/hooks/useToolsBackButton";
 
 interface Objection {
   id: string;
