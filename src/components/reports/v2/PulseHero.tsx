@@ -24,6 +24,7 @@ interface PulseHeroProps {
   isLoading?: boolean;
   onWorkingClick?: () => void;
   onAvgStartClick?: () => void;
+  onFpClick?: () => void;
 }
 
 interface StatTileProps {
