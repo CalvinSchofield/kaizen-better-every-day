@@ -387,7 +387,6 @@ export const useReportsV2Data = ({
         repsWithActivity: repsWithEffort.filter(r => r.doors > 0 || r.fp > 0).length,
       };
       
-      const baselineConversions = baselineQuery.data ? undefined : undefined; // Will be set after teamBaseline calc
       const constraint = detectPrimaryConstraint(teamMetrics);
       const skillBottleneck = analyzeFunnelBottleneck(teamMetrics);
       const impactPotential = calculateImpactPotential(teamMetrics, skillBottleneck);
