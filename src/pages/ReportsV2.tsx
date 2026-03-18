@@ -124,6 +124,7 @@ export const ReportsV2Page = () => {
     constraint, actions,
     effortSummary, skillBottleneck, impactPotential,
     teamGoalStatus, teamGoalStatusDetails,
+    enhancedGoalPace,
     teamBaseline,
     repsWithEffort, funnelData,
     dailyTrend, hourlyActivity,
