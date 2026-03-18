@@ -269,6 +269,7 @@ interface TeamInsightsData {
     date?: string;
     timezone?: string;
   }>;
+  allTimeGroupRecords?: AllTimeGroupRecords;
 }
 
 interface UseTeamInsightsDataParams {
