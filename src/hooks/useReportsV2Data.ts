@@ -898,6 +898,8 @@ export const useReportsV2Data = ({
           presentations: data.totalPresentations,
           closes: data.totalCloses,
         },
+        dailyTrend: data.dailyTrend || [],
+        hourlyActivity: data.hourlyActivity || { doors: {}, pitches: {}, transitions: {}, presentations: {}, closes: {} },
       };
     }
     
