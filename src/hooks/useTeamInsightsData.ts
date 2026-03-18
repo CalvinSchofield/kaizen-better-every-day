@@ -1629,6 +1629,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
         dailyTrendByMgmt,
         bestPeriods,
         workScheduleData,
+        allTimeGroupRecords,
       } as TeamInsightsData;
     },
     enabled: userIds.length > 0,
