@@ -779,7 +779,7 @@ export const RepDayActivityFlow = ({
         </div>
         <span className="text-muted-foreground/70">{events.length} events</span>
         <div className="flex items-center gap-1">
-          <span className="font-medium">{endTime ? formatTimeOnly(endTime) : 'Now'}</span>
+          <span className="font-medium">{endTime ? formatTimeOnly(endTime, repTimezone) : 'Now'}</span>
           {isFinalized ? (
             <Square className="w-2.5 h-2.5 text-muted-foreground" />
           ) : (
