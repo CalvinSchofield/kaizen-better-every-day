@@ -574,6 +574,12 @@ export const ReportsV2Page = () => {
         endDate={customEndDate}
         onApply={handleCustomApply}
       />
+
+      <RecordDetailsDrawer
+        open={showRecordDrawer}
+        onOpenChange={setShowRecordDrawer}
+        records={activeRecords}
+      />
     </div>
   );
 };
