@@ -17,11 +17,11 @@ export const SingleDayRaceTimeline = ({
   winnerId,
 }: SingleDayRaceTimelineProps) => {
   const config = metricConfig[metric];
-  const { moments, participantNames } = data;
+  const { moments, participantNames } = data || {};
   const [p1, p2] = participantIds;
 
   // Filter out "started" moments if they add no value (both started)
-  const visibleMoments = moments;
+  const visibleMoments = moments || [];
 
   if (visibleMoments.length === 0) {
     return (
