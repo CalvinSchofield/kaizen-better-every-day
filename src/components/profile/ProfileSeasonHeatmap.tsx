@@ -261,7 +261,6 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
             {paceStats.futurePlanned} planned days remaining · {paceStats.remaining.toFixed(1)} FP+ to go
           </div>
         )}
-      </div>
-    </motion.div>
+    </div>
   );
 };
