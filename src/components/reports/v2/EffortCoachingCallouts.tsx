@@ -138,13 +138,14 @@ export const EffortCoachingCallouts = ({
         earlyReason = `Ended at ${timeLabel} (${formatDurationNatural(earlyBy)} earlier than usual)`;
       }
     
-    if (isEarly) {
-      issues.push({
-        type: 'early_end',
-        icon: Clock,
-        message: earlyReason,
-        severity: 'warning',
-      });
+      if (isEarly) {
+        issues.push({
+          type: 'early_end',
+          icon: Clock,
+          message: earlyReason,
+          severity: 'warning',
+        });
+      }
     }
   }
 
