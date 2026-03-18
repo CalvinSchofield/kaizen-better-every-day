@@ -898,7 +898,7 @@ export const RepDayActivityFlow = ({
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] text-muted-foreground">Door Knocked</span>
-                    <span className="text-[11px] font-medium">{formatTimeOnly(convo.doorTime)}</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(convo.doorTime, repTimezone)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] text-muted-foreground">Last Activity</span>
