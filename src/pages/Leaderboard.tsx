@@ -58,23 +58,28 @@ const Leaderboard = () => {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-        const { data: repData } = await supabase
-          .from('reps')
-          .select('year')
-          .eq('user_id', user.id)
-          .single();
-        if (repData) {
-          setCurrentUserYear(repData.year);
-          setSmartFilter(prev => ({
-            ...prev,
-            yearFilters: repData.year === 'Rookie' ? ['Rookie'] : [],
-          }));
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setCurrentUserId(user.id);
+          const { data: repData } = await supabase
+            .from('reps')
+            .select('year')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          if (repData) {
+            setCurrentUserYear(repData.year);
+            setSmartFilter(prev => ({
+              ...prev,
+              yearFilters: repData.year === 'Rookie' ? ['Rookie'] : [],
+            }));
+          }
         }
+      } catch (err) {
+        console.error('[Leaderboard] Failed to fetch user/rep data:', err);
+      } finally {
+        setIsUserInitialized(true);
       }
-      setIsUserInitialized(true);
     };
     fetchUser();
   }, []);

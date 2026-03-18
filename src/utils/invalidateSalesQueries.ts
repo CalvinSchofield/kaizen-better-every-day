@@ -39,6 +39,10 @@ const SALES_DEPENDENT_KEYS = [
   'incentive-progress',
   'my-active-challenges',
   'challenge-progress',
+  // Team reports
+  'team-live-data',
+  'team-live-data-boundary',
+  'team-insights',
 ];
 
 /**

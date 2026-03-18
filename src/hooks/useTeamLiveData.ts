@@ -130,15 +130,22 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
       if (error) throw error;
 
       // Fetch team/MGMT group mapping from the team access cache
-      const cachedAccess = localStorage.getItem('team-access-cache');
+      // Search for the versioned cache key format used by useTeamAccess
       let accessibleReps: any[] = [];
-      if (cachedAccess) {
-        try {
-          const { data } = JSON.parse(cachedAccess);
-          accessibleReps = data?.accessibleReps || [];
-        } catch (e) {
-          console.error('Failed to parse team access cache:', e);
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.startsWith('team-access-cache:v4:')) {
+            const cached = localStorage.getItem(key);
+            if (cached) {
+              const { data } = JSON.parse(cached);
+              accessibleReps = data?.accessibleReps || [];
+              break;
+            }
+          }
         }
+      } catch (e) {
+        console.error('Failed to parse team access cache:', e);
       }
 
       const repInfoMap = new Map(accessibleReps.map((r: any) => [r.userId, r]));
