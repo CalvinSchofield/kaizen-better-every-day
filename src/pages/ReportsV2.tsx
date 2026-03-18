@@ -358,26 +358,34 @@ export const ReportsV2Page = () => {
       />
 
       {/* Date presets */}
-      <div className="flex gap-1 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
-        {presetConfig
-          .filter(p => availablePresets.includes(p.key))
-          .map((preset) => (
-              <Button
-                key={preset.key}
-                variant={effectivePreset === preset.key ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setDatePreset(preset.key)}
-                className="flex-shrink-0 gap-1.5"
-              >
-                {preset.label}
-                {preset.isLive && effectivePreset === 'today' && (
-                  <span className={cn(
-                    "h-2 w-2 rounded-full",
-                    isFetching ? "bg-primary-foreground animate-pulse" : "bg-green-500"
-                  )} />
-                )}
-              </Button>
-            ))}
+      <div className="flex items-center gap-0">
+        {/* Scrollable presets */}
+        <div className="flex-1 overflow-x-auto scrollbar-hide -ml-4 pl-4">
+          <div className="flex gap-1 min-w-max pr-2">
+            {presetConfig
+              .filter(p => availablePresets.includes(p.key))
+              .map((preset) => (
+                <Button
+                  key={preset.key}
+                  variant={effectivePreset === preset.key ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setDatePreset(preset.key)}
+                  className="flex-shrink-0 gap-1.5"
+                >
+                  {preset.label}
+                  {preset.isLive && effectivePreset === 'today' && (
+                    <span className={cn(
+                      "h-2 w-2 rounded-full",
+                      isFetching ? "bg-primary-foreground animate-pulse" : "bg-green-500"
+                    )} />
+                  )}
+                </Button>
+              ))}
+          </div>
+        </div>
+
+        {/* Pinned Custom button */}
+        <div className="flex-shrink-0 pl-2 border-l border-border/50 -mr-4 pr-4">
           <Button
             variant={effectivePreset === 'custom' ? 'default' : 'ghost'}
             size="sm"
@@ -391,6 +399,7 @@ export const ReportsV2Page = () => {
             }
           </Button>
         </div>
+      </div>
 
       {/* Layer 1: Pulse Hero */}
       <PulseHero
