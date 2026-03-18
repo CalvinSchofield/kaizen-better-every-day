@@ -462,7 +462,28 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
                 </Collapsible>
               )}
 
-              {/* Completed full leaderboard */}
+              {/* Race Recap Timeline + Stats */}
+              {recapData && (
+                <>
+                  <IncentiveRecapStats
+                    stats={recapData.stats}
+                    targetType={incentive.target_type}
+                    metric={incentive.metric}
+                    winnerName={incentive.winner_user_id
+                      ? getCleanName(incentive.eligible_reps?.find(r => r.user_id === incentive.winner_user_id)?.rep_name || '')
+                      : undefined
+                    }
+                  />
+                  <IncentiveRaceTimeline
+                    data={recapData}
+                    metric={incentive.metric}
+                    targetType={incentive.target_type}
+                    targetValue={incentive.target_value}
+                    winnerId={incentive.winner_user_id}
+                  />
+                </>
+              )}
+
               {completedLeaderboard.length > 0 && (
                 <div className="space-y-2">
                   <h3 className="font-semibold flex items-center gap-2 text-sm">
