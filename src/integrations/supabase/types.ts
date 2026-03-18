@@ -529,6 +529,7 @@ export type Database = {
           fp_plus: number | null
           id: string
           is_finalized: boolean | null
+          last_reset_at: string | null
           notes: string | null
           pitches: number | null
           presentations: number | null
@@ -555,6 +556,7 @@ export type Database = {
           fp_plus?: number | null
           id?: string
           is_finalized?: boolean | null
+          last_reset_at?: string | null
           notes?: string | null
           pitches?: number | null
           presentations?: number | null
@@ -581,6 +583,7 @@ export type Database = {
           fp_plus?: number | null
           id?: string
           is_finalized?: boolean | null
+          last_reset_at?: string | null
           notes?: string | null
           pitches?: number | null
           presentations?: number | null
