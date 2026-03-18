@@ -41,43 +41,48 @@ const generateInsights = (props: CoachingCalloutsProps): CoachingInsight[] => {
     gapMinutes = 0,
     isRookie = false,
     doorsPerHourTarget = isRookie ? 12 : 15,
+    timezone,
   } = props;
 
   const insights: CoachingInsight[] = [];
   
   // Time-based insights
   if (workStartTime) {
-    const startHour = new Date(workStartTime).getHours();
-    const startMinute = new Date(workStartTime).getMinutes();
-    const startInMinutes = startHour * 60 + startMinute;
-    
-    // Late start check (after 10:30 AM = 630 minutes)
-    if (startInMinutes > 630) {
-      const lateBy = startInMinutes - 630;
-      insights.push({
-        type: 'warning',
-        icon: 'time',
-        message: `Late start: ${new Date(workStartTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (${Math.round(lateBy)} min behind schedule)`,
-        priority: 1,
-      });
+    const startTime = getTimeInTimezone(workStartTime, timezone);
+    if (startTime) {
+      const startInMinutes = startTime.hours * 60 + startTime.minutes;
+      
+      // Late start check (after 10:30 AM = 630 minutes)
+      if (startInMinutes > 630) {
+        const lateBy = startInMinutes - 630;
+        const timeLabel = formatTimeInTz(workStartTime, timezone) || 'Unknown';
+        insights.push({
+          type: 'warning',
+          icon: 'time',
+          message: `Late start: ${timeLabel} (${Math.round(lateBy)} min behind schedule)`,
+          priority: 1,
+        });
+      }
     }
   }
   
   if (workEndTime) {
-    const endHour = new Date(workEndTime).getHours();
-    const endMinute = new Date(workEndTime).getMinutes();
-    const endInMinutes = endHour * 60 + endMinute;
+    const endTime = getTimeInTimezone(workEndTime, timezone);
+    if (endTime) {
+      const endInMinutes = endTime.hours * 60 + endTime.minutes;
     
-    // Early end check (before 7:00 PM = 1140 minutes)
-    if (endInMinutes < 1140 && endInMinutes > 600) { // Only if they worked during day hours
-      const earlyBy = 1140 - endInMinutes;
-      if (earlyBy > 30) { // Only flag if more than 30 min early
-        insights.push({
-          type: 'warning',
-          icon: 'time',
-          message: `Ended early: ${new Date(workEndTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (${Math.round(earlyBy)} min before target)`,
-          priority: 2,
-        });
+      // Early end check (before 7:00 PM = 1140 minutes)
+      if (endInMinutes < 1140 && endInMinutes > 600) { // Only if they worked during day hours
+        const earlyBy = 1140 - endInMinutes;
+        if (earlyBy > 30) { // Only flag if more than 30 min early
+          const timeLabel = formatTimeInTz(workEndTime, timezone) || 'Unknown';
+          insights.push({
+            type: 'warning',
+            icon: 'time',
+            message: `Ended early: ${timeLabel} (${Math.round(earlyBy)} min before target)`,
+            priority: 2,
+          });
+        }
       }
     }
   }

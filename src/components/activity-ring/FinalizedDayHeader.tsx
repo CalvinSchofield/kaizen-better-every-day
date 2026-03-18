@@ -59,8 +59,10 @@ export const FinalizedDayHeader = ({
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Clock className="w-3 h-3" />
                   <span className="tabular-nums">
-                    {formatTime(workStart)} – {formatTime(workEnd)}
+                    {formatTime(workStart, timezone)} – {formatTime(workEnd, timezone)}
                   </span>
+                </span>
+              )}
                 </span>
               )}
             </div>
