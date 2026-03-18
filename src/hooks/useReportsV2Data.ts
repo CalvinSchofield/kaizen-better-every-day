@@ -127,6 +127,26 @@ export interface ReportsV2Data {
     closes: number;
   };
   
+  // Chart data
+  dailyTrend: Array<{
+    date: string;
+    doors: number;
+    pitches: number;
+    transitions: number;
+    presentations: number;
+    fp: number;
+    efp: number;
+    prmr: number;
+    hoursWorked: number;
+  }>;
+  hourlyActivity: {
+    doors: Record<number, number>;
+    pitches: Record<number, number>;
+    transitions: Record<number, number>;
+    presentations: Record<number, number>;
+    closes: Record<number, number>;
+  };
+  
   // For drill-down
   getRepById: (userId: string) => RepWithEffort | undefined;
 }
