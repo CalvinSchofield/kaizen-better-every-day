@@ -165,17 +165,32 @@ export const ReportsV2Page = () => {
     { key: 'ytd', label: 'YTD' },
   ];
 
+  // Parse "h:mm AM/PM" formatted time string to minutes from midnight
+  const parseFormattedTime = (t: string): number | null => {
+    const match = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return null;
+    let h = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    const pm = match[3].toUpperCase() === 'PM';
+    if (pm && h < 12) h += 12;
+    if (!pm && h === 12) h = 0;
+    return h * 60 + m;
+  };
+
   // Compute avg start time from reps (must be before early returns)
   const avgStartTime = useMemo(() => {
     const starts = repsWithEffort
       .filter(r => r.workStartTime || r.avgStartTime)
       .map(r => {
-        const t = r.workStartTime || r.avgStartTime;
-        if (!t) return null;
-        try {
-          const d = new Date(t);
-          return d.getHours() * 60 + d.getMinutes();
-        } catch { return null; }
+        // workStartTime is ISO, avgStartTime is "h:mm AM/PM"
+        if (r.workStartTime) {
+          try {
+            const d = new Date(r.workStartTime);
+            if (!isNaN(d.getTime())) return d.getHours() * 60 + d.getMinutes();
+          } catch {}
+        }
+        if (r.avgStartTime) return parseFormattedTime(r.avgStartTime);
+        return null;
       })
       .filter((m): m is number => m !== null);
     
