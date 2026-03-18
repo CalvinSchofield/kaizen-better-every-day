@@ -56,6 +56,7 @@ export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: Incentiv
   const canCancel = isCreator && isActive && !incentive.winner_user_id;
   
   const { data: progressData } = useIncentiveProgress(isActive ? incentive : null);
+  const { data: recapData } = useIncentiveRecap(isCompleted ? incentive : null);
 
   const handleCancel = async () => {
     try {
