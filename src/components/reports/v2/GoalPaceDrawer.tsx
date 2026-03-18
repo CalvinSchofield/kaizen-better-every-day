@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, Flame } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Target, TrendingUp, AlertTriangle, XCircle, HelpCircle, Calendar, ChevronRight, MessageSquare } from "lucide-react";
@@ -9,6 +9,9 @@ import { getFirstName } from "@/components/mygroup/recruit-detail/utils";
 import { getInitials } from "@/utils/nameUtils";
 import { EnhancedGoalPaceResult } from "@/hooks/useReportsV2Data";
 import { GOAL_TIER_CONFIG, GoalTier } from "@/config/goalTiers";
+import { supabase } from "@/integrations/supabase/client";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import { toast } from "sonner";
 
 interface GoalPaceDrawerProps {
   open: boolean;
@@ -52,7 +55,7 @@ const FilterChip = ({ active, onClick, label, colorClass }: { active: boolean; o
   </button>
 );
 
-const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepClick?: (userId: string) => void }) => {
+const RepGoalCard = ({ rep, onRepClick, onSuggestReview }: { rep: EnhancedGoalPaceResult; onRepClick?: (userId: string) => void; onSuggestReview?: (userId: string) => void }) => {
   const statusConfig = STATUS_CONFIG[rep.status];
   const StatusIcon = statusConfig.icon;
   const tiers = TIER_ORDER.filter(t => rep.allGoals[t]);
@@ -61,6 +64,9 @@ const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepCl
   const pacePercent = rep.dailyNeeded > 0 ? Math.round((rep.userDailyAvg / rep.dailyNeeded) * 100) : (rep.userDailyAvg > 0 ? 999 : 0);
   const isAheadOfPace = rep.userDailyAvg >= rep.dailyNeeded;
   const isCriticallyBehind = pacePercent < 70 && rep.dailyNeeded > 0;
+
+  // Unrealistic pace: needed > 1.5x avg
+  const isUnrealisticPace = rep.dailyNeeded > 0 && rep.userDailyAvg > 0 && (rep.dailyNeeded / rep.userDailyAvg) > 1.5;
 
   return (
     <div
@@ -80,7 +86,12 @@ const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepCl
             </AvatarFallback>
           </Avatar>
           <div>
-            <span className="font-semibold text-sm">{getFirstName(rep.name)}</span>
+            <div className="flex items-center gap-1">
+              <span className="font-semibold text-sm">{getFirstName(rep.name)}</span>
+              {isUnrealisticPace && (
+                <Flame className="w-3.5 h-3.5 text-amber-500" />
+              )}
+            </div>
             {rep.focusTier && (
               <div className="flex items-center gap-1 mt-0.5">
                 <Badge variant="outline" className={cn("text-[8px] px-1 py-0", GOAL_TIER_CONFIG[rep.focusTier].color, GOAL_TIER_CONFIG[rep.focusTier].borderColor)}>
@@ -198,6 +209,20 @@ const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepCl
           Only {rep.futurePlannedDays} days planned — needs more
         </div>
       )}
+
+      {/* Suggest Goal Review button for unrealistic pace */}
+      {isUnrealisticPace && onSuggestReview && (
+        <button
+          className="mt-2 pt-2 border-t border-border/50 w-full flex items-center justify-center gap-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 active:opacity-70 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSuggestReview(rep.userId);
+          }}
+        >
+          <Flame className="w-3 h-3" />
+          Suggest Goal Review
+        </button>
+      )}
     </div>
   );
 };
@@ -205,10 +230,36 @@ const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepCl
 export const GoalPaceDrawer = ({ open, onOpenChange, enhancedGoalPace, onRepClick }: GoalPaceDrawerProps) => {
   const [filter, setFilter] = useState<FilterStatus>('all');
   const [sortBy, setSortBy] = useState<SortOption>('urgency');
+  const { userId: currentUserId } = useCurrentUserId();
 
   const cycleSortBy = () => {
     const idx = SORT_OPTIONS.findIndex(s => s.value === sortBy);
     setSortBy(SORT_OPTIONS[(idx + 1) % SORT_OPTIONS.length].value);
+  };
+
+  const handleSuggestReview = async (repUserId: string) => {
+    if (!currentUserId) return;
+    const { error } = await supabase
+      .from('rep_goals')
+      .update({
+        goal_review_requested_by: currentUserId,
+        goal_review_requested_at: new Date().toISOString(),
+      } as any)
+      .eq('user_id', repUserId);
+    
+    if (error) {
+      toast.error("Failed to send review request");
+      return;
+    }
+    
+    // Send push notification to the rep
+    try {
+      await supabase.functions.invoke('send-goal-review-notification', {
+        body: { repUserId, leaderUserId: currentUserId },
+      });
+    } catch { /* best effort */ }
+    
+    toast.success("Goal review suggested", { description: "The rep will see a prompt to review their goals." });
   };
 
   const counts = {
@@ -288,7 +339,7 @@ export const GoalPaceDrawer = ({ open, onOpenChange, enhancedGoalPace, onRepClic
           {withGoals.length > 0 && (
             <div className="space-y-3">
               {withGoals.map(rep => (
-                <RepGoalCard key={rep.userId} rep={rep} onRepClick={onRepClick} />
+                <RepGoalCard key={rep.userId} rep={rep} onRepClick={onRepClick} onSuggestReview={handleSuggestReview} />
               ))}
             </div>
           )}

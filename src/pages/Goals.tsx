@@ -797,9 +797,64 @@ const Goals = () => {
 
   const activeGoalData = tiers[activeTier];
 
+  // Check for leader-requested goal review
+  const goalReviewRequested = (goals as any)?.goal_review_requested_by && (goals as any)?.goal_review_requested_at;
+  const handleDismissReview = async () => {
+    if (!userId) return;
+    await supabase
+      .from('rep_goals')
+      .update({
+        goal_review_requested_by: null,
+        goal_review_requested_at: null,
+      } as any)
+      .eq('user_id', userId);
+    queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
+  };
+
   return (
     <Layout>
       <div className="pb-24">
+        {/* Leader-requested goal review banner */}
+        {goalReviewRequested && (
+          <motion.div
+            className="mx-4 mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="flex items-start gap-2">
+              <div className="p-1 rounded-full bg-amber-500/20 mt-0.5">
+                <SlidersHorizontal className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Goal review suggested</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Your leader suggested reviewing your goals and plan. Tap below to update.
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      handleDismissReview();
+                      setShowSetupWizard(true);
+                    }}
+                  >
+                    Review Goals
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-muted-foreground"
+                    onClick={handleDismissReview}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
         <div className="flex items-center justify-between p-4 pb-0">
           <div className="flex items-center gap-2">
             <button 

@@ -1578,6 +1578,8 @@ export type Database = {
           custom_payscale_fp: number | null
           custom_spending_rate: number | null
           focus_tier: string | null
+          goal_review_requested_at: string | null
+          goal_review_requested_by: string | null
           id: string
           last_training_date: string | null
           monday_night_lights_goal: number | null
@@ -1628,6 +1630,8 @@ export type Database = {
           custom_payscale_fp?: number | null
           custom_spending_rate?: number | null
           focus_tier?: string | null
+          goal_review_requested_at?: string | null
+          goal_review_requested_by?: string | null
           id?: string
           last_training_date?: string | null
           monday_night_lights_goal?: number | null
@@ -1678,6 +1682,8 @@ export type Database = {
           custom_payscale_fp?: number | null
           custom_spending_rate?: number | null
           focus_tier?: string | null
+          goal_review_requested_at?: string | null
+          goal_review_requested_by?: string | null
           id?: string
           last_training_date?: string | null
           monday_night_lights_goal?: number | null

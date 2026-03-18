@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Target, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import { Target, TrendingUp, TrendingDown } from "lucide-react";
 import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 import { useRepData } from "@/hooks/useRepData";
 import { useNavigate } from "react-router-dom";
@@ -72,13 +72,6 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   const unitLabel = data.metricLabel;
   const seasonLabel = 'to stay on track';
 
-  // Check if pace is unrealistic — use historical avg to avoid false positives
-  const baseThreshold = isRookie ? 3 : 4;
-  const historicalDailyAvg = data.userDailyAvg;
-  const dynamicThreshold = historicalDailyAvg > 0
-    ? Math.max(baseThreshold, historicalDailyAvg * 1.5)
-    : baseThreshold;
-  const isPaceUnrealistic = dailyGoal >= dynamicThreshold;
 
   // Weekly context from unified data
   const weekData = data.week;
@@ -176,28 +169,6 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
         </p>
       </div>
 
-      {/* Unrealistic pace warning */}
-      {isPaceUnrealistic && (
-        <div 
-          className="bg-warning/10 border border-warning/20 rounded-lg p-3 mb-4 cursor-pointer active:scale-[0.98] transition-transform"
-          onClick={() => navigate('/goals')}
-        >
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-warning-foreground mb-1">
-                Pace looks aggressive
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Selling {formatFP(dailyGoal)}+ per day is tough. Consider planning more work days or adjusting your goal.
-              </p>
-              <p className="text-xs text-primary font-medium mt-2">
-                Tap to adjust your plan →
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Weekly context */}
       {effectiveRemainingDays > 0 && (

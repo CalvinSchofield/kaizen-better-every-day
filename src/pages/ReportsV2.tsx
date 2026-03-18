@@ -21,6 +21,7 @@ import { TeamFilter } from "@/components/reports/v2/ReportsTeamFilter";
 import { WorkingRepsDrawer } from "@/components/reports/v2/WorkingRepsDrawer";
 import { GoalPaceDrawer } from "@/components/reports/v2/GoalPaceDrawer";
 import { GoalPaceSection } from "@/components/reports/v2/GoalPaceSection";
+import { GoalAttentionAlerts } from "@/components/reports/v2/GoalAttentionAlerts";
 import { RepTimesDrawer } from "@/components/reports/v2/RepTimesDrawer";
 import { DealAnalyticsDrawer } from "@/components/reports/v2/DealAnalyticsDrawer";
 import { SmartFilterDrawer, SmartFilterState, DEFAULT_FILTER_STATE, isFilterActive } from "@/components/filters/SmartFilterDrawer";
@@ -416,6 +417,14 @@ export const ReportsV2Page = () => {
         onOpenDrawer={() => setShowGoalPaceDrawer(true)}
         isLoading={isLoading}
       />
+
+      {/* Goal Attention Alerts — leader-facing unrealistic pace warnings */}
+      {!isLoading && (
+        <GoalAttentionAlerts
+          enhancedGoalPace={enhancedGoalPace}
+          onRepClick={handleRepClick}
+        />
+      )}
 
       {/* Layer 2: Effort vs Skill */}
       <EffortSkillDiagnosis
