@@ -55,7 +55,7 @@ const FilterChip = ({ active, onClick, label, colorClass }: { active: boolean; o
   </button>
 );
 
-const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepClick?: (userId: string) => void }) => {
+const RepGoalCard = ({ rep, onRepClick, onSuggestReview }: { rep: EnhancedGoalPaceResult; onRepClick?: (userId: string) => void; onSuggestReview?: (userId: string) => void }) => {
   const statusConfig = STATUS_CONFIG[rep.status];
   const StatusIcon = statusConfig.icon;
   const tiers = TIER_ORDER.filter(t => rep.allGoals[t]);
@@ -64,6 +64,9 @@ const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepCl
   const pacePercent = rep.dailyNeeded > 0 ? Math.round((rep.userDailyAvg / rep.dailyNeeded) * 100) : (rep.userDailyAvg > 0 ? 999 : 0);
   const isAheadOfPace = rep.userDailyAvg >= rep.dailyNeeded;
   const isCriticallyBehind = pacePercent < 70 && rep.dailyNeeded > 0;
+
+  // Unrealistic pace: needed > 1.5x avg
+  const isUnrealisticPace = rep.dailyNeeded > 0 && rep.userDailyAvg > 0 && (rep.dailyNeeded / rep.userDailyAvg) > 1.5;
 
   return (
     <div
@@ -83,7 +86,12 @@ const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepCl
             </AvatarFallback>
           </Avatar>
           <div>
-            <span className="font-semibold text-sm">{getFirstName(rep.name)}</span>
+            <div className="flex items-center gap-1">
+              <span className="font-semibold text-sm">{getFirstName(rep.name)}</span>
+              {isUnrealisticPace && (
+                <Flame className="w-3.5 h-3.5 text-amber-500" />
+              )}
+            </div>
             {rep.focusTier && (
               <div className="flex items-center gap-1 mt-0.5">
                 <Badge variant="outline" className={cn("text-[8px] px-1 py-0", GOAL_TIER_CONFIG[rep.focusTier].color, GOAL_TIER_CONFIG[rep.focusTier].borderColor)}>
@@ -200,6 +208,20 @@ const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepCl
           <Calendar className="w-3 h-3" />
           Only {rep.futurePlannedDays} days planned — needs more
         </div>
+      )}
+
+      {/* Suggest Goal Review button for unrealistic pace */}
+      {isUnrealisticPace && onSuggestReview && (
+        <button
+          className="mt-2 pt-2 border-t border-border/50 w-full flex items-center justify-center gap-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 active:opacity-70 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSuggestReview(rep.userId);
+          }}
+        >
+          <Flame className="w-3 h-3" />
+          Suggest Goal Review
+        </button>
       )}
     </div>
   );
