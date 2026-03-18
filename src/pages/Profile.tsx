@@ -8,6 +8,7 @@ import { YearBadge } from "@/components/leaderboard/YearBadge";
 import { ProfilePhotoDrawer } from "@/components/ProfilePhotoDrawer";
 import { ProfileSwiper } from "@/components/profile/ProfileSwiper";
 import { ProfileContactBar } from "@/components/profile/ProfileContactBar";
+import { ProfileSeasonHeatmap } from "@/components/profile/ProfileSeasonHeatmap";
 import { useHeader } from "@/contexts/HeaderContext";
 
 import { useRepProfile } from "@/hooks/useRepProfile";
@@ -257,6 +258,14 @@ const Profile = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* Season Heatmap */}
+      {userId && (
+        <ProfileSeasonHeatmap
+          userId={userId}
+          isOwnProfile={isOwnProfile}
+        />
+      )}
 
       {/* Momentum Sparkline / Goal Pace Swiper */}
       <ProfileSwiper
