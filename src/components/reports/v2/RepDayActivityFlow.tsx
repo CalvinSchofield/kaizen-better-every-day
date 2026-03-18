@@ -192,7 +192,7 @@ const getSaleFunnelPath = (
   const seenTypes = new Set<string>();
   
   // Add the door knock first
-  funnelEvents.push({ event: doorEvent, time: formatTimeOnly(doorEvent.timestamp) });
+  funnelEvents.push({ event: doorEvent, time: formatTimeOnly(doorEvent.timestamp, tz) });
   seenTypes.add('doors_knocked');
   
   // Collect events between door and sale (inclusive of sale)
