@@ -58,6 +58,28 @@ const Profile = () => {
   const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
   const downlineGoalPace = useGoalPaceCalculatorForUser(isDownline ? userId : null);
 
+  // Scroll-based header title: show rep name when scrolled past the name
+  useEffect(() => {
+    if (!nameRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHasScrolledPastName(!entry.isIntersecting);
+      },
+      { threshold: 0, rootMargin: "-60px 0px 0px 0px" }
+    );
+    observer.observe(nameRef.current);
+    return () => observer.disconnect();
+  }, [profile?.name]);
+
+  // Update header title based on scroll
+  useEffect(() => {
+    if (hasScrolledPastName && profile?.name) {
+      setCustomTitle(profile.name);
+    } else {
+      setCustomTitle(null);
+    }
+  }, [hasScrolledPastName, profile?.name, setCustomTitle]);
+
   // Set header content
   useEffect(() => {
     if (isOwnProfile) {
@@ -76,6 +98,7 @@ const Profile = () => {
     return () => {
       setCustomRightContent(null);
       setCustomLeftContent(null);
+      setCustomTitle(null);
     };
   }, [isOwnProfile]);
 
