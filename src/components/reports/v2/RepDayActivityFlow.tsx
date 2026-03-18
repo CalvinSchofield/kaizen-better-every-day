@@ -1007,7 +1007,7 @@ export const RepDayActivityFlow = ({
                   
                   {/* Time range */}
                   <div className="px-3 py-1.5 bg-muted/30 text-[11px] text-muted-foreground text-center">
-                    {formatTimeOnly(gap.startTime)} → {formatTimeOnly(gap.endTime)}
+                    {formatTimeOnly(gap.startTime, repTimezone)} → {formatTimeOnly(gap.endTime, repTimezone)}
                   </div>
                   
                   {/* Zoomed event sequence */}
