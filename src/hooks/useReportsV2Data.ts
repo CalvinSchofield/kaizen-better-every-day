@@ -194,7 +194,7 @@ export const useReportsV2Data = ({
       // Fetch 14-day entries for all reps
       const { data: entries, error: entriesError } = await supabase
         .from('daily_entries')
-        .select('user_id, entry_date, doors_knocked, fp_plus, prmr, work_start_time, work_end_time')
+        .select('user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, work_start_time, work_end_time, break_periods')
         .in('user_id', userIds)
         .gte('entry_date', fourteenDaysAgo)
         .lte('entry_date', yesterday);
@@ -577,6 +577,11 @@ export const useReportsV2Data = ({
               .map(e => ({
                 entry_date: e.entry_date,
                 doors_knocked: e.doors_knocked,
+                decision_makers: e.decision_makers,
+                pitches: e.pitches,
+                transitions: e.transitions,
+                presentations: e.presentations,
+                closes: e.closes,
                 fp_plus: e.fp_plus,
                 prmr: e.prmr,
                 work_start_time: e.work_start_time,

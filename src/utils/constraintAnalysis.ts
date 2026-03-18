@@ -1,18 +1,21 @@
 /**
  * Constraint Analysis System
  * 
- * Determines the PRIMARY constraint limiting team performance:
- * 1. Effort (doors knocked, start/end times)
- * 2. Skill (funnel conversion rates)
- * 3. Consistency (work patterns)
+ * Determines the PRIMARY constraint limiting team performance.
+ * 
+ * IMPORTANT: All benchmarks are derived from the team's own 14-day rolling
+ * baseline. Hardcoded "industry standards" are only used as a last resort
+ * when no baseline data exists yet.
  */
+
+import { BaselineConversions } from "@/utils/baselineCalculations";
 
 export interface FunnelStage {
   name: string;
   fromLabel: string;
   toLabel: string;
   rate: number;      // Actual conversion rate
-  benchmark: number; // Expected conversion rate
+  benchmark: number; // Team's own baseline conversion rate
 }
 
 export interface ConstraintResult {
@@ -25,14 +28,11 @@ export interface ConstraintResult {
 }
 
 export interface TeamMetrics {
-  // Effort metrics
   avgDoorsPerHour: number;
   doorsPerHourBenchmark: number;
   lateStartCount: number;
   earlyEndCount: number;
   totalReps: number;
-  
-  // Funnel metrics
   totalDoors: number;
   totalDMs: number;
   totalPitches: number;
@@ -40,90 +40,94 @@ export interface TeamMetrics {
   totalPresentations: number;
   totalCloses: number;
   totalFP: number;
-  
-  // Consistency metrics
   repsWithActivity: number;
   expectedReps?: number;
 }
 
-// Funnel benchmarks (industry standards for door-to-door)
-const FUNNEL_BENCHMARKS = {
-  doorsToDecisionMakers: 0.35,    // 35% of doors have DMs
-  decisionMakersToPitches: 0.60,  // 60% of DMs hear a pitch
-  pitchesToTransitions: 0.50,     // 50% of pitches get transitions
-  transitionsToPresentations: 0.65, // 65% of transitions become presentations
-  presentationsToCloses: 0.40,    // 40% of presentations close
+/**
+ * Fallback benchmarks — only used when no baseline history exists.
+ * Once a team has 3+ days of data, these are NEVER used.
+ */
+const FALLBACK_BENCHMARKS: BaselineConversions = {
+  doorsToDMs: 0.35,
+  dmsToPitches: 0.60,
+  pitchesToTransitions: 0.50,
+  transitionsToPres: 0.65,
+  presToCloses: 0.40,
+  doorsPerHour: 13,
+  avgStartMinutes: null,
+  avgHoursWorked: 0,
+  hasEnoughData: false,
 };
 
-const EFFORT_BENCHMARK_DOORS_PER_HOUR = 13; // Average benchmark
+/**
+ * Resolve which benchmarks to use — team's own baseline, or fallback
+ */
+const resolveBenchmarks = (baseline?: BaselineConversions): BaselineConversions => {
+  if (baseline && baseline.hasEnoughData) return baseline;
+  return FALLBACK_BENCHMARKS;
+};
 
 /**
- * Analyze funnel stages and find the biggest bottleneck
+ * Analyze funnel stages and find the biggest bottleneck vs the team's own baseline
  */
-export const analyzeFunnelBottleneck = (metrics: TeamMetrics): FunnelStage | null => {
+export const analyzeFunnelBottleneck = (
+  metrics: TeamMetrics,
+  baseline?: BaselineConversions,
+): FunnelStage | null => {
+  const bench = resolveBenchmarks(baseline);
   const stages: FunnelStage[] = [];
   
-  // Doors → DMs
   if (metrics.totalDoors > 0) {
-    const rate = metrics.totalDMs / metrics.totalDoors;
     stages.push({
       name: 'doors_to_dms',
       fromLabel: 'Doors',
       toLabel: 'Decision Makers',
-      rate,
-      benchmark: FUNNEL_BENCHMARKS.doorsToDecisionMakers,
+      rate: metrics.totalDMs / metrics.totalDoors,
+      benchmark: bench.doorsToDMs,
     });
   }
   
-  // DMs → Pitches
   if (metrics.totalDMs > 0) {
-    const rate = metrics.totalPitches / metrics.totalDMs;
     stages.push({
       name: 'dms_to_pitches',
       fromLabel: 'Decision Makers',
       toLabel: 'Pitches',
-      rate,
-      benchmark: FUNNEL_BENCHMARKS.decisionMakersToPitches,
+      rate: metrics.totalPitches / metrics.totalDMs,
+      benchmark: bench.dmsToPitches,
     });
   }
   
-  // Pitches → Transitions
   if (metrics.totalPitches > 0) {
-    const rate = metrics.totalTransitions / metrics.totalPitches;
     stages.push({
       name: 'pitches_to_transitions',
       fromLabel: 'Pitches',
       toLabel: 'Transitions',
-      rate,
-      benchmark: FUNNEL_BENCHMARKS.pitchesToTransitions,
+      rate: metrics.totalTransitions / metrics.totalPitches,
+      benchmark: bench.pitchesToTransitions,
     });
   }
   
-  // Transitions → Presentations
   if (metrics.totalTransitions > 0) {
-    const rate = metrics.totalPresentations / metrics.totalTransitions;
     stages.push({
       name: 'transitions_to_presentations',
       fromLabel: 'Transitions',
       toLabel: 'Presentations',
-      rate,
-      benchmark: FUNNEL_BENCHMARKS.transitionsToPresentations,
+      rate: metrics.totalPresentations / metrics.totalTransitions,
+      benchmark: bench.transitionsToPres,
     });
   }
   
-  // Presentations → Closes
   if (metrics.totalPresentations > 0) {
-    const rate = metrics.totalCloses / metrics.totalPresentations;
     stages.push({
       name: 'presentations_to_closes',
       fromLabel: 'Presentations',
       toLabel: 'Closes',
-      rate,
-      benchmark: FUNNEL_BENCHMARKS.presentationsToCloses,
+      rate: metrics.totalCloses / metrics.totalPresentations,
+      benchmark: bench.presToCloses,
     });
   }
   
-  // Find the stage with worst performance relative to benchmark
   let worstStage: FunnelStage | null = null;
   let worstGap = 0;
   
@@ -135,7 +139,7 @@ export const analyzeFunnelBottleneck = (metrics: TeamMetrics): FunnelStage | nul
     }
   }
   
-  // Only return if the gap is significant (>15% below benchmark)
+  // Only flag if gap is >15% below the team's own baseline
   if (worstStage && worstGap > 0.15) {
     return worstStage;
   }
@@ -146,21 +150,23 @@ export const analyzeFunnelBottleneck = (metrics: TeamMetrics): FunnelStage | nul
 /**
  * Detect the primary constraint limiting team performance
  */
-export const detectPrimaryConstraint = (metrics: TeamMetrics): ConstraintResult => {
-  const effortBenchmark = metrics.doorsPerHourBenchmark || EFFORT_BENCHMARK_DOORS_PER_HOUR;
+export const detectPrimaryConstraint = (
+  metrics: TeamMetrics,
+  baseline?: BaselineConversions,
+): ConstraintResult => {
+  const bench = resolveBenchmarks(baseline);
+  const effortBenchmark = bench.doorsPerHour > 0 ? bench.doorsPerHour : 13;
   
-  // Skip effort analysis if we don't have valid time tracking data
-  // (avgDoorsPerHour = 0 when no work_start_time/work_end_time data exists)
   const hasValidTimeData = metrics.avgDoorsPerHour > 0 || metrics.totalDoors === 0;
   
-  // 1. Check effort first (doors per hour) - only if we have valid time data
+  // 1. Check effort (doors per hour vs team's own baseline)
   if (hasValidTimeData && metrics.avgDoorsPerHour < effortBenchmark * 0.75) {
     const percentBelow = ((effortBenchmark - metrics.avgDoorsPerHour) / effortBenchmark * 100).toFixed(0);
     return {
       type: 'effort',
       severity: 'critical',
       message: 'Effort is the constraint',
-      details: `Team averaging ${metrics.avgDoorsPerHour.toFixed(1)} doors/hr (${percentBelow}% below ${effortBenchmark} benchmark)`,
+      details: `Team averaging ${metrics.avgDoorsPerHour.toFixed(1)} doors/hr (${percentBelow}% below baseline of ${effortBenchmark.toFixed(1)})`,
       actionLabel: 'Hold Accountable',
     };
   }
@@ -169,14 +175,14 @@ export const detectPrimaryConstraint = (metrics: TeamMetrics): ConstraintResult 
     return {
       type: 'effort',
       severity: 'warning',
-      message: 'Effort is slightly below standard',
-      details: `Team averaging ${metrics.avgDoorsPerHour.toFixed(1)} doors/hr (goal: ${effortBenchmark})`,
+      message: 'Effort is slightly below baseline',
+      details: `Team averaging ${metrics.avgDoorsPerHour.toFixed(1)} doors/hr (baseline: ${effortBenchmark.toFixed(1)})`,
       actionLabel: 'Coach Effort',
     };
   }
   
-  // 2. Check skill bottlenecks
-  const bottleneck = analyzeFunnelBottleneck(metrics);
+  // 2. Check skill bottlenecks vs team's own baseline
+  const bottleneck = analyzeFunnelBottleneck(metrics, baseline);
   if (bottleneck) {
     const actualPercent = (bottleneck.rate * 100).toFixed(0);
     const benchmarkPercent = (bottleneck.benchmark * 100).toFixed(0);
@@ -187,13 +193,13 @@ export const detectPrimaryConstraint = (metrics: TeamMetrics): ConstraintResult 
       type: 'skill',
       severity,
       message: `Skill gap: ${bottleneck.fromLabel} → ${bottleneck.toLabel}`,
-      details: `${actualPercent}% conversion (benchmark: ${benchmarkPercent}%)`,
+      details: `${actualPercent}% conversion (baseline: ${benchmarkPercent}%)`,
       actionLabel: 'Train',
       skillBottleneck: bottleneck,
     };
   }
   
-  // 3. Check consistency (late starts / early ends)
+  // 3. Check consistency
   const lateStartPercent = metrics.totalReps > 0 ? (metrics.lateStartCount / metrics.totalReps) * 100 : 0;
   const earlyEndPercent = metrics.totalReps > 0 ? (metrics.earlyEndCount / metrics.totalReps) * 100 : 0;
   
@@ -219,14 +225,14 @@ export const detectPrimaryConstraint = (metrics: TeamMetrics): ConstraintResult 
 };
 
 /**
- * Generate leader action recommendations based on analysis
+ * Generate leader action recommendations
  */
 export interface LeaderAction {
   type: 'coach' | 'train' | 'praise' | 'accountable';
   label: string;
   repNames?: string[];
   count?: number;
-  priority: number; // 1 = highest
+  priority: number;
 }
 
 export interface RepPerformanceData {
@@ -245,7 +251,6 @@ export const generateLeaderActions = (
 ): LeaderAction[] => {
   const actions: LeaderAction[] = [];
   
-  // Find reps needing accountability (low effort)
   const needsAccountability = reps.filter(r => r.effortCategory === 'needs_improvement');
   if (needsAccountability.length > 0) {
     actions.push({
@@ -257,7 +262,6 @@ export const generateLeaderActions = (
     });
   }
   
-  // Find reps to coach (standard effort but could improve)
   const needsCoaching = reps.filter(r => 
     r.effortCategory === 'standard' && 
     (r.hasLateStart || r.hasEarlyEnd || r.hasLowDoors)
@@ -272,7 +276,6 @@ export const generateLeaderActions = (
     });
   }
   
-  // Training recommendation based on skill bottleneck
   if (constraint.type === 'skill' && constraint.skillBottleneck) {
     actions.push({
       type: 'train',
@@ -281,7 +284,6 @@ export const generateLeaderActions = (
     });
   }
   
-  // Find top performers to praise
   const topPerformers = reps
     .filter(r => r.effortCategory === 'outstanding' && r.fp > 0)
     .sort((a, b) => b.fp - a.fp)
@@ -296,46 +298,45 @@ export const generateLeaderActions = (
     });
   }
   
-  // Sort by priority
   return actions.sort((a, b) => a.priority - b.priority);
 };
 
 /**
- * Calculate impact if underperforming reps matched median
+ * Calculate impact if underperforming reps matched the team's own baseline
  */
 export const calculateImpactPotential = (
   metrics: TeamMetrics,
-  bottleneck: FunnelStage | null
+  bottleneck: FunnelStage | null,
+  baseline?: BaselineConversions,
 ): string | null => {
   if (!bottleneck) return null;
+  const bench = resolveBenchmarks(baseline);
   
-  // Calculate additional closes if conversion matched benchmark
   const conversionGap = bottleneck.benchmark - bottleneck.rate;
   if (conversionGap <= 0) return null;
   
-  // Estimate additional outcomes based on funnel stage
   let additionalCloses = 0;
   
   switch (bottleneck.name) {
-    case 'pitches_to_transitions':
-      // More transitions → more presentations → more closes
+    case 'pitches_to_transitions': {
       const additionalTransitions = metrics.totalPitches * conversionGap;
-      additionalCloses = additionalTransitions * FUNNEL_BENCHMARKS.transitionsToPresentations * FUNNEL_BENCHMARKS.presentationsToCloses;
+      additionalCloses = additionalTransitions * bench.transitionsToPres * bench.presToCloses;
       break;
-    case 'transitions_to_presentations':
+    }
+    case 'transitions_to_presentations': {
       const additionalPresentations = metrics.totalTransitions * conversionGap;
-      additionalCloses = additionalPresentations * FUNNEL_BENCHMARKS.presentationsToCloses;
+      additionalCloses = additionalPresentations * bench.presToCloses;
       break;
+    }
     case 'presentations_to_closes':
       additionalCloses = metrics.totalPresentations * conversionGap;
       break;
     default:
-      // For earlier stages, calculate cascading impact
-      additionalCloses = metrics.totalDoors * conversionGap * 0.02; // Rough estimate
+      additionalCloses = metrics.totalDoors * conversionGap * 0.02;
   }
   
   if (additionalCloses >= 0.5) {
-    return `+${additionalCloses.toFixed(1)} FP/week if bottom half matched median`;
+    return `+${additionalCloses.toFixed(1)} FP if conversions matched baseline`;
   }
   
   return null;

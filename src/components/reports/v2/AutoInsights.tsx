@@ -59,13 +59,13 @@ export const AutoInsights = ({
     }
   }
 
-  // Skill bottleneck insight
+  // Skill bottleneck insight — uses baseline comparison, not hardcoded benchmark
   if (skillBottleneck && !insights.some(i => i.message.includes(skillBottleneck.fromLabel))) {
     const actualPct = (skillBottleneck.rate * 100).toFixed(0);
-    const benchPct = (skillBottleneck.benchmark * 100).toFixed(0);
+    const baselinePct = (skillBottleneck.benchmark * 100).toFixed(0);
     insights.push({
       icon: <Target className="w-4 h-4" />,
-      message: `${skillBottleneck.fromLabel} → ${skillBottleneck.toLabel} conversion is ${actualPct}% (benchmark: ${benchPct}%). Consider focused training on this stage.`,
+      message: `${skillBottleneck.fromLabel} → ${skillBottleneck.toLabel} conversion is ${actualPct}% (team baseline: ${baselinePct}%). Consider focused training on this stage.`,
       severity: 'warning',
     });
   }
@@ -83,7 +83,7 @@ export const AutoInsights = ({
   if (constraint.type === 'on_track' && totalFP > 0) {
     insights.push({
       icon: <Lightbulb className="w-4 h-4" />,
-      message: `Team is performing well — effort and skill metrics are within expected ranges. ${activeReps} reps producing ${totalFP.toFixed(1)} FP+.`,
+      message: `Team is performing well — effort and skill metrics are within baseline ranges. ${activeReps} reps producing ${totalFP.toFixed(1)} FP+.`,
       severity: 'info',
     });
   }

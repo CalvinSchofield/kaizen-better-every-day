@@ -359,6 +359,7 @@ export const ReportsV2Page = () => {
         skillBottleneck={skillBottleneck}
         funnelData={funnelData}
         totalReps={activeReps}
+        baselineConversions={teamBaseline?.conversions}
         isLoading={isLoading}
       />
 
@@ -371,6 +372,7 @@ export const ReportsV2Page = () => {
         presentations={funnelData.presentations}
         closes={funnelData.closes}
         fp={totalFP}
+        baselineConversions={teamBaseline?.conversions}
         isLoading={isLoading}
       />
 
