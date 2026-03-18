@@ -196,9 +196,9 @@ export const RepTimesDrawer = ({
                     <div
                       className={cn(
                         "absolute top-0.5 bottom-0.5 rounded-full transition-all",
-                        classification === 'early' && "bg-green-500/70",
-                        classification === 'late' && "bg-orange-500/70",
-                        classification === 'normal' && "bg-primary/60"
+                        classification === 'hustler' && "bg-green-500/70",
+                        classification === 'behind' && "bg-orange-500/70",
+                        classification === 'mixed' && "bg-primary/60"
                       )}
                       style={{
                         left: `${startPct}%`,
