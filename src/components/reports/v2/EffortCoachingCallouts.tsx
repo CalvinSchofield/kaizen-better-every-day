@@ -15,11 +15,12 @@ interface EffortCoachingCalloutsProps {
   workStartTime?: string | null;
   workEndTime?: string | null;
   breakMinutes?: number;
-  totalBreakMinutes?: number; // Total break time from break_periods
-  dayOfWeek?: number; // 0 = Sunday, 6 = Saturday
-  repAverageStartMinutes?: number; // Rep's average start time in minutes from midnight
-  repAverageEndMinutes?: number; // Rep's average end time in minutes from midnight
+  totalBreakMinutes?: number;
+  dayOfWeek?: number;
+  repAverageStartMinutes?: number;
+  repAverageEndMinutes?: number;
   className?: string;
+  timezone?: string | null;
 }
 
 // Format minutes into natural language (e.g., "2 hours" instead of "120 min")
