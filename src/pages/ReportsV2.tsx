@@ -160,6 +160,32 @@ export const ReportsV2Page = () => {
     { key: 'ytd', label: 'YTD' },
   ];
 
+  // Compute avg start time from reps (must be before early returns)
+  const avgStartTime = useMemo(() => {
+    const starts = repsWithEffort
+      .filter(r => r.workStartTime || r.avgStartTime)
+      .map(r => {
+        const t = r.workStartTime || r.avgStartTime;
+        if (!t) return null;
+        try {
+          const d = new Date(t);
+          return d.getHours() * 60 + d.getMinutes();
+        } catch { return null; }
+      })
+      .filter((m): m is number => m !== null);
+    
+    if (starts.length === 0) return undefined;
+    const avg = starts.reduce((a, b) => a + b, 0) / starts.length;
+    const h = Math.floor(avg / 60);
+    const m = Math.round(avg % 60);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+    return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
+  }, [repsWithEffort]);
+
+  // Total hours (must be before early returns)
+  const totalHours = useMemo(() => repsWithEffort.reduce((sum, r) => sum + r.hoursWorked, 0), [repsWithEffort]);
+
   // Loading state
   if (accessLoading || presetsLoading) {
     return (
@@ -214,32 +240,6 @@ export const ReportsV2Page = () => {
     atRisk: teamGoalStatus.atRisk.length,
     behind: teamGoalStatus.behind.length,
   } : null;
-
-  // Compute avg start time from reps
-  const avgStartTime = useMemo(() => {
-    const starts = repsWithEffort
-      .filter(r => r.workStartTime || r.avgStartTime)
-      .map(r => {
-        const t = r.workStartTime || r.avgStartTime;
-        if (!t) return null;
-        try {
-          const d = new Date(t);
-          return d.getHours() * 60 + d.getMinutes();
-        } catch { return null; }
-      })
-      .filter((m): m is number => m !== null);
-    
-    if (starts.length === 0) return undefined;
-    const avg = starts.reduce((a, b) => a + b, 0) / starts.length;
-    const h = Math.floor(avg / 60);
-    const m = Math.round(avg % 60);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
-    return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
-  }, [repsWithEffort]);
-
-  // Total hours
-  const totalHours = repsWithEffort.reduce((sum, r) => sum + r.hoursWorked, 0);
 
   return (
     <div className="p-4 space-y-5 pb-20">
