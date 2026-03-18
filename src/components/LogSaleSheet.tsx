@@ -644,33 +644,37 @@ export const LogSaleSheet = ({
             </div>
           </div>
 
-          {/* CRM Fields (Simple) */}
-          {crmEnabled && (
-            <div className="space-y-3 pt-2 border-t border-border">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer Info</p>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Name</Label>
-                  <Input
-                    placeholder="Customer name"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Phone</Label>
-                  <Input
-                    type="tel"
-                    inputMode="tel"
-                    placeholder="Phone number"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
+          {/* Customer Name & Phone (always required) */}
+          <div className="space-y-3 pt-2 border-t border-border">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer Info</p>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Name <span className="text-destructive">*</span></Label>
+                <Input
+                  placeholder="Customer name"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className={cn("h-10", !customerName.trim() && prmr && "border-destructive/50")}
+                />
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Phone <span className="text-destructive">*</span></Label>
+                <Input
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="Phone number"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  className={cn("h-10", !customerPhone.trim() && prmr && "border-destructive/50")}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Optional CRM Fields */}
+          {crmEnabled && (
+            <div className="space-y-3">
 
               <div className="space-y-1">
                 <Label className="text-xs">Account Number</Label>
