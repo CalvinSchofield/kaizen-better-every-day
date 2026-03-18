@@ -23,6 +23,7 @@ interface PulseHeroProps {
   periodLabel: string;
   isLoading?: boolean;
   onWorkingClick?: () => void;
+  onAvgStartClick?: () => void;
 }
 
 interface StatTileProps {
