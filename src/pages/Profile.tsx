@@ -259,6 +259,14 @@ const Profile = () => {
         </div>
       </motion.div>
 
+      {/* Season Heatmap */}
+      {userId && (
+        <ProfileSeasonHeatmap
+          userId={userId}
+          isOwnProfile={isOwnProfile}
+        />
+      )}
+
       {/* Momentum Sparkline / Goal Pace Swiper */}
       <ProfileSwiper
         dailyFp={profile.dailyFpValues}
