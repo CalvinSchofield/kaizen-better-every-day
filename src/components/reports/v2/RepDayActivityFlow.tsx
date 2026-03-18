@@ -943,7 +943,7 @@ export const RepDayActivityFlow = ({
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] text-muted-foreground">Started</span>
-                    <span className="text-[11px] font-medium">{formatTimeOnly(bp.startTime)}</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(bp.startTime, repTimezone)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] text-muted-foreground">Ended</span>
