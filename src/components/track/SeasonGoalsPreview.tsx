@@ -38,10 +38,10 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
 
   const season = data.season;
   const fundedPct = season.goal > 0 ? Math.min(100, (season.funded / season.goal) * 100) : 0;
+  const livePct = season.goal > 0 ? Math.min(100 - fundedPct, (season.live / season.goal) * 100) : 0;
   const unfundedAmount = Math.max(0, season.actual - season.funded);
-  const unfundedPct = season.goal > 0 ? Math.min(100, (unfundedAmount / season.goal) * 100) : 0;
-  const livePct = season.goal > 0 ? Math.min(100 - fundedPct - unfundedPct, (season.live / season.goal) * 100) : 0;
-  const pendingPct = season.goal > 0 ? Math.min(100 - fundedPct - unfundedPct - livePct, (season.pending / season.goal) * 100) : 0;
+  const unfundedPct = season.goal > 0 ? Math.min(100 - fundedPct - livePct, (unfundedAmount / season.goal) * 100) : 0;
+  const pendingPct = season.goal > 0 ? Math.min(100 - fundedPct - livePct - unfundedPct, (season.pending / season.goal) * 100) : 0;
 
   const tierKey = data.isPreseason ? 'preseason' : data.focusTier;
   const tierConfig = GOAL_TIER_CONFIG[tierKey as keyof typeof GOAL_TIER_CONFIG] || GOAL_TIER_CONFIG.willDo;
