@@ -20,6 +20,7 @@ interface RepData {
   workEndTime?: string;
   avgStartTime?: string;
   avgEndTime?: string;
+  timezone?: string;
   hoursWorked: number;
   doors: number;
   transitions: number;
