@@ -376,31 +376,36 @@ export const LogSaleSheet = ({
     }
   }, [open, editingSale]);
 
+  const isFormValid = () => {
+    const prmrValue = parseFloat(prmr) || 0;
+    return prmrValue > 0 && customerName.trim().length > 0 && customerPhone.trim().length > 0;
+  };
+
   const handleSubmit = () => {
+    if (!isFormValid()) return;
+    
     const prmrValue = parseFloat(prmr) || 0;
     
     const saleData: Omit<Sale, 'id' | 'timestamp'> = {
       type: saleType,
       prmr: prmrValue,
+      customer_name: customerName.trim(),
+      customer_phone: customerPhone.trim(),
     };
 
-    // Add CRM fields if enabled
-    if (crmEnabled) {
-      if (customerName.trim()) saleData.customer_name = customerName.trim();
-      if (customerPhone.trim()) saleData.customer_phone = customerPhone.trim();
-      if (accountNumber.trim()) saleData.customer_account_number = accountNumber.trim();
-      if (customerAddress.trim()) saleData.customer_address = customerAddress.trim();
-      if (customerLat !== null) saleData.customer_lat = customerLat;
-      if (customerLng !== null) saleData.customer_lng = customerLng;
+    // Add optional CRM fields
+    if (accountNumber.trim()) saleData.customer_account_number = accountNumber.trim();
+    if (customerAddress.trim()) saleData.customer_address = customerAddress.trim();
+    if (customerLat !== null) saleData.customer_lat = customerLat;
+    if (customerLng !== null) saleData.customer_lng = customerLng;
 
-      // Add detailed CRM fields if enabled
-      if (crmDetailedEnabled) {
-        saleData.time_to_sell_minutes = timeToSellMinutes;
-        saleData.time_to_sell_source = timeToSellSource;
-        saleData.deal_type = dealType;
-        if (moneySpent.trim()) saleData.money_spent = parseInt(moneySpent) || 0;
-        saleData.difficulty = difficulty;
-      }
+    // Add detailed CRM fields if enabled
+    if (crmDetailedEnabled) {
+      saleData.time_to_sell_minutes = timeToSellMinutes;
+      saleData.time_to_sell_source = timeToSellSource;
+      saleData.deal_type = dealType;
+      if (moneySpent.trim()) saleData.money_spent = parseInt(moneySpent) || 0;
+      saleData.difficulty = difficulty;
     }
     
     if (editingSale && onUpdateSale) {
