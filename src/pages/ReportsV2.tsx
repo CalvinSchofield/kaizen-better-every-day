@@ -205,6 +205,47 @@ export const ReportsV2Page = () => {
     return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
   }, [repsWithEffort]);
 
+  // Compute rep time data for the times drawer
+  const repTimeData = useMemo(() => {
+    return repsWithEffort.map(r => {
+      let startMins: number | null = null;
+      let endMins: number | null = null;
+      if (r.workStartTime) {
+        try {
+          const d = new Date(r.workStartTime);
+          if (!isNaN(d.getTime())) startMins = d.getHours() * 60 + d.getMinutes();
+        } catch {}
+      }
+      if (!startMins && r.avgStartTime) startMins = parseFormattedTime(r.avgStartTime);
+      if (r.workEndTime) {
+        try {
+          const d = new Date(r.workEndTime);
+          if (!isNaN(d.getTime())) endMins = d.getHours() * 60 + d.getMinutes();
+        } catch {}
+      }
+      if (!endMins && r.avgEndTime) endMins = parseFormattedTime(r.avgEndTime);
+      return {
+        userId: r.userId,
+        name: r.name,
+        avgStartMinutes: startMins,
+        avgEndMinutes: endMins,
+        hoursWorked: r.hoursWorked,
+      };
+    });
+  }, [repsWithEffort]);
+
+  const teamAvgStartMinutes = useMemo(() => {
+    const valid = repTimeData.filter(r => r.avgStartMinutes !== null);
+    if (valid.length === 0) return undefined;
+    return Math.round(valid.reduce((s, r) => s + r.avgStartMinutes!, 0) / valid.length);
+  }, [repTimeData]);
+
+  const teamAvgEndMinutes = useMemo(() => {
+    const valid = repTimeData.filter(r => r.avgEndMinutes !== null);
+    if (valid.length === 0) return undefined;
+    return Math.round(valid.reduce((s, r) => s + r.avgEndMinutes!, 0) / valid.length);
+  }, [repTimeData]);
+
   // Total hours (must be before early returns)
   const totalHours = useMemo(() => repsWithEffort.reduce((sum, r) => sum + r.hoursWorked, 0), [repsWithEffort]);
 
