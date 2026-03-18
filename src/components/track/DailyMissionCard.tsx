@@ -176,28 +176,6 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
         </p>
       </div>
 
-      {/* Unrealistic pace warning */}
-      {isPaceUnrealistic && (
-        <div 
-          className="bg-warning/10 border border-warning/20 rounded-lg p-3 mb-4 cursor-pointer active:scale-[0.98] transition-transform"
-          onClick={() => navigate('/goals')}
-        >
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-warning-foreground mb-1">
-                Pace looks aggressive
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Selling {formatFP(dailyGoal)}+ per day is tough. Consider planning more work days or adjusting your goal.
-              </p>
-              <p className="text-xs text-primary font-medium mt-2">
-                Tap to adjust your plan →
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Weekly context */}
       {effectiveRemainingDays > 0 && (

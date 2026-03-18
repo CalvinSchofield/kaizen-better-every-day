@@ -213,8 +213,8 @@ export function calculatePaceContext(
     return 'stretch';
   }
 
-  // Very ambitious - would require significant increase
-  return 'very-ambitious';
+  // Stretch territory - requires stepping up significantly
+  return 'stretch';
 }
 
 /**
