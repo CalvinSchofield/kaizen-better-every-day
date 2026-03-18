@@ -63,8 +63,6 @@ export const FinalizedDayHeader = ({
                   </span>
                 </span>
               )}
-                </span>
-              )}
             </div>
           </div>
         </div>
