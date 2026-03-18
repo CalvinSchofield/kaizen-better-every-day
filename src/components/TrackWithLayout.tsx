@@ -332,32 +332,31 @@ const TrackWithLayout = () => {
     }
   }, [entry, userId, saveBackup]);
 
-  // OFFLINE SUPPORT: Background sync when coming back online
+  // REMOVED: Duplicate online handler was here. The authoritative one lives in
+  // useDailyEntry.ts which checks server state + last_reset_at before pushing.
+  // Having two handlers caused race conditions and premature backup clearing.
+
+  // Sync status tracking: listen for online/offline changes for UI indicator only
   useEffect(() => {
-    const handleOnline = async () => {
-      // Check if we have unsaved backup data that needs syncing
-      const backup = loadBackup();
-      if (backup && hasUnsavedBackup(entry)) {
+    const handleOnline = () => {
+      if (syncStatus === 'offline') {
         setSyncStatus('pending');
-        toast.info('Syncing your offline data...', { icon: '🔄', duration: 2000 });
-        try {
-          await updateCounter(backup);
-          clearBackup();
-          setSyncStatus('synced');
-          toast.success('Offline data synced!', { duration: 3000 });
-        } catch {
-          setSyncStatus('error');
-          toast.error('Sync failed - will retry later');
-        }
-      } else if (syncStatus === 'offline') {
-        // Just came back online, update status
-        setSyncStatus('synced');
+        // Status will flip to 'synced' when useDailyEntry's handler completes
+        // and the next mutation succeeds
+        setTimeout(() => {
+          if (syncStatus === 'pending') setSyncStatus('synced');
+        }, 5000);
       }
     };
+    const handleOffline = () => setSyncStatus('offline');
     
     window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, [loadBackup, hasUnsavedBackup, entry, updateCounter, clearBackup, syncStatus]);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [syncStatus]);
 
   // Handle save button click - check if before sunset
   const handleSaveButtonClick = () => {
