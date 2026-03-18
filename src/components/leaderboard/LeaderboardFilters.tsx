@@ -22,11 +22,11 @@ export type ScopeFilter = 'all' | 'rookies' | 'watchlist';
 
 interface LeaderboardFiltersProps {
   timeFilter: TimeFilter;
-  scopeFilter: ScopeFilter;
+  scopeFilter?: ScopeFilter;
   availablePresets: TimeFilter[];
   customDateRange?: CustomDateRange;
   onTimeFilterChange: (filter: TimeFilter) => void;
-  onScopeFilterChange: (filter: ScopeFilter) => void;
+  onScopeFilterChange?: (filter: ScopeFilter) => void;
   onCustomDateRangeChange?: (range: CustomDateRange) => void;
 }
 
