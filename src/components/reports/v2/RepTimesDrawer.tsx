@@ -231,15 +231,15 @@ export const RepTimesDrawer = ({
           <div className="flex items-center gap-4 text-[10px] text-muted-foreground justify-center pt-2 border-t border-border/50">
             <div className="flex items-center gap-1">
               <div className="w-3 h-2 rounded-full bg-green-500/70" />
-              <span>Top 25%</span>
+              <span>Hustler</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-3 h-2 rounded-full bg-primary/60" />
-              <span>Middle</span>
+              <span>Mixed</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-3 h-2 rounded-full bg-orange-500/70" />
-              <span>Bottom 25%</span>
+              <span>Behind</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-px h-3 bg-muted-foreground/30" />
