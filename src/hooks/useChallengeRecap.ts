@@ -50,7 +50,7 @@ async function fetchRecapData(challenge: Challenge): Promise<ChallengeRecapData 
 
   const { data: entries } = await supabase
     .from('daily_entries')
-    .select(`user_id, entry_date, ${col}`)
+    .select('user_id, entry_date, fp_plus, prmr, transitions, doors_knocked')
     .in('user_id', userIds)
     .gte('entry_date', challenge.start_date)
     .lte('entry_date', challenge.end_date)
