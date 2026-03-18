@@ -198,9 +198,14 @@ Deno.serve(async (req) => {
             winner_user_id: (winnerId === 'group_success' || winnerId === 'anyone_who_success') ? null : winnerId,
           };
 
-          // For 'anyone_who' type, also store the array of winners
+          // For 'anyone_who' type, store the array of individual winners
           if (incentive.target_type === 'anyone_who') {
             updateData.winner_user_ids = winnerIds;
+          }
+
+          // For 'group_total' type, store all participants as winners when group succeeds
+          if (incentive.target_type === 'group_total' && winnerId === 'group_success') {
+            updateData.winner_user_ids = userIds;
           }
 
           const { error: updateError } = await supabase
