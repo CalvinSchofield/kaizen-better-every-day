@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, Flame } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Target, TrendingUp, AlertTriangle, XCircle, HelpCircle, Calendar, ChevronRight, MessageSquare } from "lucide-react";
@@ -9,6 +9,9 @@ import { getFirstName } from "@/components/mygroup/recruit-detail/utils";
 import { getInitials } from "@/utils/nameUtils";
 import { EnhancedGoalPaceResult } from "@/hooks/useReportsV2Data";
 import { GOAL_TIER_CONFIG, GoalTier } from "@/config/goalTiers";
+import { supabase } from "@/integrations/supabase/client";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import { toast } from "sonner";
 
 interface GoalPaceDrawerProps {
   open: boolean;
