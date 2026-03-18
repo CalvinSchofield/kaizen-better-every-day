@@ -36,7 +36,8 @@ export const RepWorkTimeline = ({
   avgDoorsPerDay = 0, 
   avgFPPerDay = 0,
   daysAboveAvg = 0,
-  className 
+  className,
+  timezone,
 }: RepWorkTimelineProps) => {
   // Generate last 14 days
   const last14Days = useMemo(() => {
