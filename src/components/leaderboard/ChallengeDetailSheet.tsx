@@ -22,17 +22,6 @@ import { ChallengeRecapStats } from "@/components/competitions/ChallengeRecapSta
 import { toast } from "sonner";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { useConfetti } from "@/hooks/useConfetti";
-import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { EditChallengeDrawer } from "./EditChallengeDrawer";
-import { ChallengeEditApprovalCard } from "./ChallengeEditApprovalCard";
-import { getInitials, getCleanName, getCleanFirstName } from "@/utils/nameUtils";
-import { metricConfig } from "@/utils/challengeMetricConfig";
-import { formatCompetitionDuration } from "@/utils/competitionDateUtils";
-import { toast } from "sonner";
-import { Haptics, ImpactStyle } from "@capacitor/haptics";
-import { useConfetti } from "@/hooks/useConfetti";
 
 interface ChallengeDetailSheetProps {
   challenge: Challenge;
