@@ -13,6 +13,8 @@ import {
   AlertsHighlights,
   RepArchetypes,
   AutoInsights,
+  ProductionTrendChart,
+  HourlyActivityChart,
 } from "@/components/reports/v2";
 import { ReportsDateRangeSheet } from "@/components/reports/v2/ReportsDateRangeSheet";
 import { ReportsTeamFilter, TeamFilter } from "@/components/reports/v2/ReportsTeamFilter";
