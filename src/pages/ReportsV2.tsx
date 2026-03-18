@@ -373,6 +373,7 @@ export const ReportsV2Page = () => {
         periodLabel={getPeriodLabel()}
         isLoading={isLoading}
         onWorkingClick={() => setShowWorkingDrawer(true)}
+        onAvgStartClick={() => setShowTimeDrawer(true)}
       />
 
       {/* Goal Pace Section */}
