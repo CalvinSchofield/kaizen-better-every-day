@@ -100,13 +100,14 @@ export const EffortCoachingCallouts = ({
         lateReason = `Started at ${timeLabel} (${formatDurationNatural(lateBy)} later than usual)`;
       }
     
-    if (isLate) {
-      issues.push({
-        type: 'late_start',
-        icon: Clock,
-        message: lateReason,
-        severity: 'warning',
-      });
+      if (isLate) {
+        issues.push({
+          type: 'late_start',
+          icon: Clock,
+          message: lateReason,
+          severity: 'warning',
+        });
+      }
     }
   }
 
