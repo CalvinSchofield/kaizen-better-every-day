@@ -81,11 +81,6 @@ export const RepTimesDrawer = ({
       .sort((a, b) => (a.avgStartMinutes ?? 999) - (b.avgStartMinutes ?? 999));
   }, [reps]);
 
-  // Collect all valid start minutes for percentile calculation
-  const allStartMinutes = useMemo(() => {
-    return sortedReps.map(r => r.avgStartMinutes!);
-  }, [sortedReps]);
-
   const timeMarkers = [
     { mins: 7 * 60, label: '7a' },
     { mins: 9 * 60, label: '9a' },
