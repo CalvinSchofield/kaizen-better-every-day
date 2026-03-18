@@ -105,16 +105,6 @@ const Tools = () => {
     <div className="min-h-screen bg-background">
       <div className="max-w-lg mx-auto px-4 py-6 space-y-8">
 
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">On the Doors</h1>
-          <p className="text-sm text-muted-foreground mt-1">Quick-access tools for selling</p>
-        </motion.div>
-
         {/* Sales Tools Grid */}
         <motion.div
           className="grid grid-cols-3 gap-3"
