@@ -1119,8 +1119,32 @@ const TrackWithLayout = () => {
       });
       await updateCounter(updates);
       setSyncStatus('synced');
-      // Schedule server verification to confirm sale landed
-      setTimeout(verifyServerSync, 2000);
+      
+      // CRITICAL: Verify sale actually landed on server — if not, retry via dedicated sale path
+      setTimeout(async () => {
+        try {
+          const uid = getCurrentUserId();
+          if (!uid) return;
+          const { data: serverRow } = await supabase
+            .from('daily_entries')
+            .select('sales_log')
+            .eq('user_id', uid)
+            .eq('entry_date', today)
+            .maybeSingle();
+          const serverSales = (serverRow?.sales_log as any[]) || [];
+          const saleOnServer = serverSales.some((s: any) => s.id === saleId);
+          if (!saleOnServer) {
+            console.warn('[handleLogSaleFromPage] Sale NOT found on server — retrying via addSaleToEntry');
+            await addSaleToEntry({ entryDate: today, sale: saleData, saleTimestamp });
+          } else {
+            console.log('[handleLogSaleFromPage] Sale confirmed on server ✅');
+          }
+          verifyServerSync();
+        } catch (e) {
+          console.error('[handleLogSaleFromPage] Post-sale verification failed:', e);
+        }
+      }, 3000);
+      
       console.log('[handleLogSaleFromPage] Sale mutation completed successfully');
       // Fire-and-forget: notify recruiter about this sale
       const currentUid = getCurrentUserId();
