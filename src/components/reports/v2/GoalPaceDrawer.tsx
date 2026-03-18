@@ -1,166 +1,174 @@
 import { useState } from "react";
-import { GOAL_TIER_CONFIG } from "@/config/goalTiers";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
-import { Target, TrendingUp, AlertTriangle, XCircle, HelpCircle, ChevronRight, Calendar } from "lucide-react";
+import { Target, TrendingUp, AlertTriangle, XCircle, HelpCircle, Calendar, ChevronRight, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatFP } from "@/lib/formatters";
 import { getFirstName } from "@/components/mygroup/recruit-detail/utils";
 import { getInitials } from "@/utils/nameUtils";
-import { GoalPaceResult } from "@/utils/goalPaceCalculations";
+import { EnhancedGoalPaceResult } from "@/hooks/useReportsV2Data";
+import { GOAL_TIER_CONFIG, GoalTier } from "@/config/goalTiers";
 
 interface GoalPaceDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  paceResults: GoalPaceResult[];
-  periodLabel: string;
-  isLiveView?: boolean;
+  enhancedGoalPace: EnhancedGoalPaceResult[];
   onRepClick?: (userId: string) => void;
 }
 
-type FilterStatus = 'all' | 'on_pace' | 'at_risk' | 'behind' | 'no_goals';
+type FilterStatus = 'all' | 'on_pace' | 'at_risk' | 'behind' | 'no_goals' | 'needs_planning';
 
 const STATUS_CONFIG = {
-  on_pace: {
-    label: 'On Pace',
-    icon: TrendingUp,
-    color: 'text-green-600 dark:text-green-400',
-    bgColor: 'bg-green-500/10',
-    borderColor: 'border-green-500/30',
-  },
-  at_risk: {
-    label: 'At Risk',
-    icon: AlertTriangle,
-    color: 'text-yellow-600 dark:text-yellow-400',
-    bgColor: 'bg-yellow-500/10',
-    borderColor: 'border-yellow-500/30',
-  },
-  behind: {
-    label: 'Behind',
-    icon: XCircle,
-    color: 'text-red-600 dark:text-red-400',
-    bgColor: 'bg-red-500/10',
-    borderColor: 'border-red-500/30',
-  },
-  no_goals: {
-    label: 'No Goals',
-    icon: HelpCircle,
-    color: 'text-muted-foreground',
-    bgColor: 'bg-muted/50',
-    borderColor: 'border-muted',
-  },
+  on_pace: { label: 'On Pace', icon: TrendingUp, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
+  at_risk: { label: 'At Risk', icon: AlertTriangle, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30' },
+  behind: { label: 'Behind', icon: XCircle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30' },
+  no_goals: { label: 'No Goals', icon: HelpCircle, color: 'text-muted-foreground', bg: 'bg-muted/50', border: 'border-muted' },
+  needs_planning: { label: 'Plan Days', icon: Calendar, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/30' },
 };
 
-const TIER_CONFIG = {
-  preseason: { label: 'Preseason', color: `${GOAL_TIER_CONFIG.preseason.borderColor} ${GOAL_TIER_CONFIG.preseason.color}` },
-  mustDo: { label: 'Must Do', color: `${GOAL_TIER_CONFIG.mustDo.borderColor} ${GOAL_TIER_CONFIG.mustDo.color}` },
-  willDo: { label: 'Will Do', color: `${GOAL_TIER_CONFIG.willDo.borderColor} ${GOAL_TIER_CONFIG.willDo.color}` },
-  couldDo: { label: 'Could Do', color: `${GOAL_TIER_CONFIG.couldDo.borderColor} ${GOAL_TIER_CONFIG.couldDo.color}` },
-};
+const TIER_ORDER: GoalTier[] = ['preseason', 'mustDo', 'willDo', 'couldDo'];
 
-export const GoalPaceDrawer = ({
-  open,
-  onOpenChange,
-  paceResults,
-  periodLabel,
-  isLiveView,
-  onRepClick,
-}: GoalPaceDrawerProps) => {
-  const [filter, setFilter] = useState<FilterStatus>('all');
-  
-  // Count by status
-  const counts = {
-    on_pace: paceResults.filter(r => r.status === 'on_pace').length,
-    at_risk: paceResults.filter(r => r.status === 'at_risk').length,
-    behind: paceResults.filter(r => r.status === 'behind').length,
-    no_goals: paceResults.filter(r => r.status === 'no_goals').length,
-  };
-  
-  // Filter results
-  const filteredResults = filter === 'all' 
-    ? paceResults
-    : paceResults.filter(r => r.status === filter);
-  
-  // Sort: behind first (most urgent), then at_risk, then on_pace, then no_goals
-  const sortedResults = [...filteredResults].sort((a, b) => {
-    const statusOrder = { behind: 0, at_risk: 1, on_pace: 2, no_goals: 3 };
-    const statusDiff = statusOrder[a.status] - statusOrder[b.status];
-    if (statusDiff !== 0) return statusDiff;
-    // Within same status, sort by percent (lowest first for urgency)
-    return a.percentOfExpected - b.percentOfExpected;
-  });
+const FilterChip = ({ active, onClick, label, colorClass }: { active: boolean; onClick: () => void; label: string; colorClass?: string }) => (
+  <button
+    onClick={onClick}
+    className={cn(
+      "flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+      active
+        ? cn("bg-primary text-primary-foreground", colorClass)
+        : "bg-muted/50 text-muted-foreground hover:bg-muted"
+    )}
+  >
+    {label}
+  </button>
+);
 
-  // Group by tier for display
-  const tierGroups = sortedResults.reduce((acc, result) => {
-    const tier = result.focusTier || 'no_goals';
-    if (!acc[tier]) acc[tier] = [];
-    acc[tier].push(result);
-    return acc;
-  }, {} as Record<string, GoalPaceResult[]>);
+const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepClick?: (userId: string) => void }) => {
+  const statusConfig = STATUS_CONFIG[rep.status];
+  const StatusIcon = statusConfig.icon;
+  const tiers = TIER_ORDER.filter(t => rep.allGoals[t]);
 
-  const RepCard = ({ result }: { result: GoalPaceResult }) => {
-    const config = STATUS_CONFIG[result.status];
-    const StatusIcon = config.icon;
-    const tierConfig = result.focusTier ? TIER_CONFIG[result.focusTier] : null;
-    const progressPercent = Math.min(100, result.percentOfExpected);
-    
-    return (
-      <div 
-        className={cn(
-          "p-3 rounded-lg border cursor-pointer",
-          "hover:bg-muted/30 active:scale-[0.98] transition-all",
-          config.bgColor, config.borderColor
-        )}
-        onClick={() => onRepClick?.(result.userId)}
-      >
-        <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9">
+  return (
+    <div
+      className={cn(
+        "p-3 rounded-xl border cursor-pointer transition-all active:scale-[0.98]",
+        statusConfig.bg, statusConfig.border,
+        rep.needsPlanning && "ring-1 ring-blue-500/40"
+      )}
+      onClick={() => onRepClick?.(rep.userId)}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Avatar className="h-8 w-8">
             <AvatarFallback className="text-xs bg-primary/10 text-primary">
-              {getInitials(result.name)}
+              {getInitials(rep.name)}
             </AvatarFallback>
           </Avatar>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-medium truncate">{getFirstName(result.name)}</span>
-              {tierConfig && (
-                <Badge 
-                  variant="outline" 
-                  className={cn("text-[10px] px-1.5 py-0", tierConfig.color)}
-                >
-                  {tierConfig.label}
+          <div>
+            <span className="font-semibold text-sm">{getFirstName(rep.name)}</span>
+            {rep.focusTier && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <Badge variant="outline" className={cn("text-[8px] px-1 py-0", GOAL_TIER_CONFIG[rep.focusTier].color, GOAL_TIER_CONFIG[rep.focusTier].borderColor)}>
+                  {GOAL_TIER_CONFIG[rep.focusTier].shortLabel} Focus
                 </Badge>
-              )}
-            </div>
-            
-            {result.activeGoal > 0 && (
-              <div className="mt-1.5">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className={config.color}>
-                    {formatFP(result.currentProgress)} / {formatFP(result.activeGoal)}
-                  </span>
-                  <span className={cn("font-medium", config.color)}>
-                    {Math.round(result.percentOfExpected)}%
-                  </span>
-                </div>
-                <Progress 
-                  value={progressPercent} 
-                  className="h-1.5"
-                />
               </div>
             )}
           </div>
-          
-          <div className="flex items-center gap-2">
-            <StatusIcon className={cn("w-4 h-4", config.color)} />
-            <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
-          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <StatusIcon className={cn("w-4 h-4", statusConfig.color)} />
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50" />
         </div>
       </div>
-    );
+
+      {/* Pace context */}
+      <div className="flex items-baseline gap-4 mb-3 px-1">
+        <div>
+          <span className="text-[10px] text-muted-foreground">Avg</span>
+          <div className="text-sm font-bold">{rep.userDailyAvg.toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal">/day</span></div>
+        </div>
+        <div>
+          <span className="text-[10px] text-muted-foreground">Need</span>
+          <div className={cn(
+            "text-sm font-bold",
+            rep.dailyNeeded > rep.userDailyAvg * 1.2 ? "text-red-600 dark:text-red-400" : "text-foreground"
+          )}>
+            {rep.dailyNeeded.toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal">/day</span>
+          </div>
+        </div>
+        <div>
+          <span className="text-[10px] text-muted-foreground">YTD</span>
+          <div className="text-sm font-bold">{rep.ytdFP.toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal"> FP+</span></div>
+        </div>
+      </div>
+
+      {/* Multi-tier progress bars */}
+      {tiers.length > 0 && (
+        <div className="space-y-1.5">
+          {tiers.map(tier => {
+            const tierData = rep.allGoals[tier]!;
+            const config = GOAL_TIER_CONFIG[tier];
+            const isFocus = tier === rep.focusTier;
+
+            return (
+              <div key={tier} className="flex items-center gap-2">
+                <span className={cn("text-[10px] w-14 text-right font-medium", isFocus ? config.color : "text-muted-foreground")}>
+                  {config.shortLabel}
+                </span>
+                <div className="flex-1 relative h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                  <div
+                    className={cn(
+                      "absolute inset-y-0 left-0 rounded-full transition-all",
+                      isFocus ? `bg-gradient-to-r ${config.gradient}` : "bg-muted-foreground/30"
+                    )}
+                    style={{ width: `${tierData.percent}%` }}
+                  />
+                </div>
+                <span className={cn("text-[10px] w-10 font-medium", isFocus ? config.color : "text-muted-foreground")}>
+                  {Math.round(tierData.percent)}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Planning warning */}
+      {rep.needsPlanning && (
+        <div className="mt-2 pt-2 border-t border-border/50 flex items-center gap-1.5 text-[10px] text-blue-600 dark:text-blue-400">
+          <Calendar className="w-3 h-3" />
+          Only {rep.futurePlannedDays} days planned — needs more
+        </div>
+      )}
+    </div>
+  );
+};
+
+export const GoalPaceDrawer = ({ open, onOpenChange, enhancedGoalPace, onRepClick }: GoalPaceDrawerProps) => {
+  const [filter, setFilter] = useState<FilterStatus>('all');
+
+  const counts = {
+    on_pace: enhancedGoalPace.filter(r => r.status === 'on_pace').length,
+    at_risk: enhancedGoalPace.filter(r => r.status === 'at_risk').length,
+    behind: enhancedGoalPace.filter(r => r.status === 'behind').length,
+    no_goals: enhancedGoalPace.filter(r => r.status === 'no_goals').length,
+    needs_planning: enhancedGoalPace.filter(r => r.needsPlanning).length,
   };
+
+  let filtered = enhancedGoalPace;
+  if (filter === 'needs_planning') {
+    filtered = enhancedGoalPace.filter(r => r.needsPlanning);
+  } else if (filter !== 'all') {
+    filtered = enhancedGoalPace.filter(r => r.status === filter);
+  }
+
+  const sorted = [...filtered].sort((a, b) => {
+    const order = { behind: 0, at_risk: 1, on_pace: 2, no_goals: 3 };
+    return order[a.status] - order[b.status];
+  });
+
+  const withGoals = sorted.filter(r => r.status !== 'no_goals');
+  const noGoalsReps = sorted.filter(r => r.status === 'no_goals');
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -168,103 +176,77 @@ export const GoalPaceDrawer = ({
         <DrawerHeader className="pb-2">
           <DrawerTitle className="flex items-center gap-2">
             <Target className="w-5 h-5" />
-            Goal Pace • {periodLabel}
+            Goal Pace
           </DrawerTitle>
         </DrawerHeader>
-        
+
         <div className="px-4 pb-6 overflow-y-auto space-y-4">
-          {/* Summary Stats */}
-          <div className="grid grid-cols-4 gap-2">
-            {(['on_pace', 'at_risk', 'behind', 'no_goals'] as const).map(status => {
-              const config = STATUS_CONFIG[status];
-              const StatusIcon = config.icon;
-              const isActive = filter === status;
-              
-              return (
-                <button
-                  key={status}
-                  onClick={() => setFilter(filter === status ? 'all' : status)}
-                  className={cn(
-                    "rounded-lg p-2.5 text-center transition-all",
-                    config.bgColor,
-                    isActive && "ring-2 ring-offset-2 ring-primary"
-                  )}
-                >
-                  <StatusIcon className={cn("w-4 h-4 mx-auto mb-1", config.color)} />
-                  <div className={cn("text-lg font-bold", config.color)}>
-                    {counts[status]}
-                  </div>
-                  <div className="text-[9px] text-muted-foreground truncate">
-                    {config.label}
-                  </div>
-                </button>
-              );
-            })}
+          {/* Filter chips */}
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-4 px-4">
+            <FilterChip active={filter === 'all'} onClick={() => setFilter('all')} label={`All (${enhancedGoalPace.length})`} />
+            {(['on_pace', 'at_risk', 'behind', 'no_goals', 'needs_planning'] as const)
+              .filter(s => counts[s] > 0)
+              .map(s => (
+                <FilterChip
+                  key={s}
+                  active={filter === s}
+                  onClick={() => setFilter(filter === s ? 'all' : s)}
+                  label={`${STATUS_CONFIG[s].label} (${counts[s]})`}
+                  colorClass={filter === s ? STATUS_CONFIG[s].bg : undefined}
+                />
+              ))}
           </div>
-          
-          {/* Filter indicator */}
-          {filter !== 'all' && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
-                Showing {STATUS_CONFIG[filter].label} only
-              </span>
-              <button 
-                onClick={() => setFilter('all')}
-                className="text-xs text-primary hover:underline"
-              >
-                Show all
-              </button>
+
+          {/* Rep Cards with Goals */}
+          {withGoals.length > 0 && (
+            <div className="space-y-3">
+              {withGoals.map(rep => (
+                <RepGoalCard key={rep.userId} rep={rep} onRepClick={onRepClick} />
+              ))}
             </div>
           )}
-          
-          {/* Rep List - grouped by tier when not filtered */}
-          <div className="space-y-4">
-            {filter === 'all' && Object.keys(tierGroups).length > 1 ? (
-              // Show grouped by tier
-              Object.entries(tierGroups).map(([tier, results]) => {
-                const tierConfig = tier !== 'no_goals' 
-                  ? TIER_CONFIG[tier as keyof typeof TIER_CONFIG] 
-                  : null;
-                
-                return (
-                  <div key={tier} className="space-y-2">
-                    {tierConfig && (
-                      <div className={cn(
-                        "flex items-center gap-2 text-sm font-medium border-l-2 pl-2",
-                        tierConfig.color
-                      )}>
-                        <Calendar className="w-3.5 h-3.5" />
-                        {tierConfig.label} Goal
-                        <Badge variant="outline" className="ml-auto text-[10px]">
-                          {results.length}
-                        </Badge>
-                      </div>
-                    )}
-                    {tier === 'no_goals' && (
-                      <div className="text-sm font-medium text-muted-foreground">
-                        No Goals Set ({results.length})
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      {results.map(result => (
-                        <RepCard key={result.userId} result={result} />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              // Show flat list
+
+          {/* No Goals Section */}
+          {noGoalsReps.length > 0 && (filter === 'all' || filter === 'no_goals') && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <HelpCircle className="w-4 h-4" />
+                No Goals Set ({noGoalsReps.length})
+              </div>
               <div className="space-y-2">
-                {sortedResults.map(result => (
-                  <RepCard key={result.userId} result={result} />
+                {noGoalsReps.map(rep => (
+                  <div
+                    key={rep.userId}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-all"
+                    onClick={() => onRepClick?.(rep.userId)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="text-[10px] bg-muted text-muted-foreground">
+                          {getInitials(rep.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium text-sm">{getFirstName(rep.name)}</span>
+                    </div>
+                    {rep.phone && (
+                      <button
+                        className="text-xs text-primary flex items-center gap-1 hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(`sms:${rep.phone}?body=${encodeURIComponent("Hey! Time to set your goals 🎯")}`);
+                        }}
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        Remind
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
-            )}
-          </div>
-          
-          {/* Empty State */}
-          {sortedResults.length === 0 && (
+            </div>
+          )}
+
+          {sorted.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <Target className="w-10 h-10 mx-auto mb-2 opacity-30" />
               <p>No reps match this filter</p>
