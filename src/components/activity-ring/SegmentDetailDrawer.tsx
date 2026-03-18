@@ -21,6 +21,7 @@ import {
 import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { Sale } from "@/hooks/useDailyEntry";
 import { format, parseISO, differenceInMinutes } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { formatPRMR } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
