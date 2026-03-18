@@ -577,6 +577,11 @@ export const useReportsV2Data = ({
               .map(e => ({
                 entry_date: e.entry_date,
                 doors_knocked: e.doors_knocked,
+                decision_makers: e.decision_makers,
+                pitches: e.pitches,
+                transitions: e.transitions,
+                presentations: e.presentations,
+                closes: e.closes,
                 fp_plus: e.fp_plus,
                 prmr: e.prmr,
                 work_start_time: e.work_start_time,
