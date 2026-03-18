@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Minus, Users, ChevronRight, Zap, Crown } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Users, ChevronRight, Zap, Crown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { TeamBaseline } from "@/utils/baselineCalculations";
