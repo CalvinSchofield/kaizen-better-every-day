@@ -736,7 +736,7 @@ export const RepDayActivityFlow = ({
                       ${sale.prmr || 0}
                     </div>
                     <div className="text-[10px] text-green-300/80">
-                      {formatTimeOnly(sale.timestamp)} • {sale.label === 'Upgrade' ? 'UPG' : 'FP'}
+                      {formatTimeOnly(sale.timestamp, repTimezone)} • {sale.label === 'Upgrade' ? 'UPG' : 'FP'}
                     </div>
                   </div>
                 </button>
