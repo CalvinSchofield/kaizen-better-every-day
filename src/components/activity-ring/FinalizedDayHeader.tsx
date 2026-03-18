@@ -24,6 +24,7 @@ export const FinalizedDayHeader = ({
   workStart,
   workEnd,
   entryDate,
+  timezone,
 }: FinalizedDayHeaderProps) => {
   const hasWorkTimes = workStart && workEnd;
   
