@@ -412,6 +412,8 @@ export const ReportsV2Page = () => {
         onWorkingClick={() => setShowWorkingDrawer(true)}
         onAvgStartClick={() => setShowTimeDrawer(true)}
         onFpClick={() => setShowDealDrawer(true)}
+        activeRecords={activeRecords}
+        onRecordBannerClick={() => setShowRecordDrawer(true)}
       />
 
       {/* Goal Pace Section */}
