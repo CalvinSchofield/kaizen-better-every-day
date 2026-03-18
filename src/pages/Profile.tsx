@@ -47,8 +47,10 @@ const Profile = () => {
   const navigate = useNavigate();
   const { userId: currentUserId } = useCurrentUserId();
   const [photoDrawerOpen, setPhotoDrawerOpen] = useState(false);
-  const { setCustomRightContent, setCustomLeftContent } = useHeader();
+  const { setCustomRightContent, setCustomLeftContent, setCustomTitle } = useHeader();
   const isOwnProfile = currentUserId === userId;
+  const [hasScrolledPastName, setHasScrolledPastName] = useState(false);
+  const nameRef = useRef<HTMLDivElement>(null);
   const { isWatching, toggleWatchlist } = useWatchlist();
 
   const { data: profile, isLoading } = useRepProfile(userId || currentUserId || null);
