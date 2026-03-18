@@ -139,7 +139,10 @@ const EVENT_CONFIG: Record<string, {
 
 // TRANSITION is the key signal that rep got INTO a home
 // Presentations are also important to track separately
-const formatTimeOnly = (date: Date): string => {
+const formatTimeOnly = (date: Date, tz?: string): string => {
+  if (tz) {
+    return formatInTimeZone(date, tz, 'h:mm a');
+  }
   return date.toLocaleTimeString('en-US', { 
     hour: 'numeric', 
     minute: '2-digit', 
