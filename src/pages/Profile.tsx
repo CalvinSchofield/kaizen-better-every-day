@@ -259,11 +259,11 @@ const Profile = () => {
         </div>
       </motion.div>
 
-      {/* Season Heatmap */}
-      {userId && (
+      {/* Season Heatmap — only visible to leaders viewing downline reps */}
+      {isDownline && userId && (
         <ProfileSeasonHeatmap
           userId={userId}
-          isOwnProfile={isOwnProfile}
+          isOwnProfile={false}
         />
       )}
 

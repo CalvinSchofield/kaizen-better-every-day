@@ -4,6 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { SeasonHeatmap, DailyEntry } from '@/components/goals/SeasonHeatmap';
+
+interface ExtendedDailyEntry extends DailyEntry {
+  doors_knocked?: number | null;
+  sales_log?: any;
+}
 import type { PlannedDay } from '@/hooks/usePlannedDays';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GoalTier } from '@/config/goalTiers';
@@ -28,7 +33,7 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
         .select('entry_date, fp_plus, prmr, is_finalized, doors_knocked, sales_log')
         .eq('user_id', userId)
         .gte('entry_date', SEASON_START);
-      return (data || []) as DailyEntry[];
+      return (data || []) as ExtendedDailyEntry[];
     },
     staleTime: 5 * 60 * 1000,
   });
