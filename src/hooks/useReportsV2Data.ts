@@ -1157,7 +1157,8 @@ export const useReportsV2Data = ({
       ? starts.reduce((a, b) => a + b, 0) / starts.length
       : undefined;
 
-    const totalHours = processedData.repsWithEffort.reduce<number>((sum, r) => sum + r.hoursWorked, 0);
+    let totalHours = 0;
+    processedData.repsWithEffort.forEach(r => { totalHours += r.hoursWorked; });
 
     // Determine preset from dateRange
     const today = new Date();
