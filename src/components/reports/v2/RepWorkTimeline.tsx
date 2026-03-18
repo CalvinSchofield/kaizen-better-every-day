@@ -28,6 +28,7 @@ interface RepWorkTimelineProps {
   avgFPPerDay?: number;
   daysAboveAvg?: number;
   className?: string;
+  timezone?: string | null;
 }
 
 export const RepWorkTimeline = ({ 
