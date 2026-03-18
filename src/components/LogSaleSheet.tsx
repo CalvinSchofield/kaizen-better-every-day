@@ -376,31 +376,36 @@ export const LogSaleSheet = ({
     }
   }, [open, editingSale]);
 
+  const isFormValid = () => {
+    const prmrValue = parseFloat(prmr) || 0;
+    return prmrValue > 0 && customerName.trim().length > 0 && customerPhone.trim().length > 0;
+  };
+
   const handleSubmit = () => {
+    if (!isFormValid()) return;
+    
     const prmrValue = parseFloat(prmr) || 0;
     
     const saleData: Omit<Sale, 'id' | 'timestamp'> = {
       type: saleType,
       prmr: prmrValue,
+      customer_name: customerName.trim(),
+      customer_phone: customerPhone.trim(),
     };
 
-    // Add CRM fields if enabled
-    if (crmEnabled) {
-      if (customerName.trim()) saleData.customer_name = customerName.trim();
-      if (customerPhone.trim()) saleData.customer_phone = customerPhone.trim();
-      if (accountNumber.trim()) saleData.customer_account_number = accountNumber.trim();
-      if (customerAddress.trim()) saleData.customer_address = customerAddress.trim();
-      if (customerLat !== null) saleData.customer_lat = customerLat;
-      if (customerLng !== null) saleData.customer_lng = customerLng;
+    // Add optional CRM fields
+    if (accountNumber.trim()) saleData.customer_account_number = accountNumber.trim();
+    if (customerAddress.trim()) saleData.customer_address = customerAddress.trim();
+    if (customerLat !== null) saleData.customer_lat = customerLat;
+    if (customerLng !== null) saleData.customer_lng = customerLng;
 
-      // Add detailed CRM fields if enabled
-      if (crmDetailedEnabled) {
-        saleData.time_to_sell_minutes = timeToSellMinutes;
-        saleData.time_to_sell_source = timeToSellSource;
-        saleData.deal_type = dealType;
-        if (moneySpent.trim()) saleData.money_spent = parseInt(moneySpent) || 0;
-        saleData.difficulty = difficulty;
-      }
+    // Add detailed CRM fields if enabled
+    if (crmDetailedEnabled) {
+      saleData.time_to_sell_minutes = timeToSellMinutes;
+      saleData.time_to_sell_source = timeToSellSource;
+      saleData.deal_type = dealType;
+      if (moneySpent.trim()) saleData.money_spent = parseInt(moneySpent) || 0;
+      saleData.difficulty = difficulty;
     }
     
     if (editingSale && onUpdateSale) {
@@ -639,33 +644,37 @@ export const LogSaleSheet = ({
             </div>
           </div>
 
-          {/* CRM Fields (Simple) */}
-          {crmEnabled && (
-            <div className="space-y-3 pt-2 border-t border-border">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer Info</p>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Name</Label>
-                  <Input
-                    placeholder="Customer name"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Phone</Label>
-                  <Input
-                    type="tel"
-                    inputMode="tel"
-                    placeholder="Phone number"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
+          {/* Customer Name & Phone (always required) */}
+          <div className="space-y-3 pt-2 border-t border-border">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer Info</p>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Name <span className="text-destructive">*</span></Label>
+                <Input
+                  placeholder="Customer name"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className={cn("h-10", !customerName.trim() && prmr && "border-destructive/50")}
+                />
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Phone <span className="text-destructive">*</span></Label>
+                <Input
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="Phone number"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  className={cn("h-10", !customerPhone.trim() && prmr && "border-destructive/50")}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Optional CRM Fields */}
+          {crmEnabled && (
+            <div className="space-y-3">
 
               <div className="space-y-1">
                 <Label className="text-xs">Account Number</Label>
@@ -894,7 +903,7 @@ export const LogSaleSheet = ({
             <Button
               onClick={handleSubmit}
               className="w-full h-12 text-base font-semibold"
-              disabled={!prmr || parseFloat(prmr) <= 0}
+              disabled={!isFormValid()}
             >
               {isEditing ? "Update Sale" : "Log Sale"}
             </Button>
