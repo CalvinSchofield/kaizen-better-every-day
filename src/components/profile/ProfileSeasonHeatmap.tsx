@@ -37,13 +37,13 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
   // Fetch planned days — own profile direct, others via edge function
   const { data: plannedDays, isLoading: plannedLoading } = useQuery({
     queryKey: ['profile-heatmap-planned', userId, isOwnProfile],
-    queryFn: async () => {
+    queryFn: async (): Promise<PlannedDay[]> => {
       if (isOwnProfile) {
         const { data } = await supabase
           .from('planned_work_days')
-          .select('planned_date')
+          .select('id, user_id, planned_date, created_at')
           .eq('user_id', userId);
-        return (data || []).map(d => ({ planned_date: d.planned_date }));
+        return (data || []) as PlannedDay[];
       }
       // For other users, use edge function
       const { data: { session } } = await supabase.auth.getSession();
@@ -53,16 +53,16 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (!data) return [];
-      const result: { planned_date: string }[] = [];
+      const result: PlannedDay[] = [];
       if (data.plannedDays && Array.isArray(data.plannedDays)) {
         for (const item of data.plannedDays) {
           if (item.user_id === userId && item.planned_date) {
-            result.push({ planned_date: item.planned_date });
+            result.push({ id: item.id || '', user_id: item.user_id, planned_date: item.planned_date, created_at: item.created_at || '' });
           }
         }
       }
       if (result.length === 0 && Array.isArray(data[userId])) {
-        return (data[userId] as string[]).map((d: string) => ({ planned_date: d }));
+        return (data[userId] as string[]).map((d: string) => ({ id: '', user_id: userId, planned_date: d, created_at: '' }));
       }
       return result;
     },
