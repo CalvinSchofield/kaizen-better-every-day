@@ -17,7 +17,7 @@ import { useGoalPaceCalculatorForUser } from "@/hooks/useGoalPaceCalculatorForUs
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { getInitials } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { format, parseISO } from "date-fns";
 import { ChevronLeft } from "lucide-react";
 
