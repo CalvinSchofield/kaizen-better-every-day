@@ -251,7 +251,7 @@ const getAdjacentEvent = (
     // For non-transitions or if no door found, just return the immediately preceding event
     const targetIdx = idx - 1;
     if (targetIdx < 0) return null;
-    return { event: events[targetIdx], time: formatTimeOnly(events[targetIdx].timestamp) };
+    return { event: events[targetIdx], time: formatTimeOnly(events[targetIdx].timestamp, tz) };
   }
   
   // For "after" direction, just get the next event
