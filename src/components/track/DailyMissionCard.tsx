@@ -72,7 +72,6 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   const unitLabel = data.metricLabel;
   const seasonLabel = 'to stay on track';
 
-  const unitLabel = data.metricLabel;
 
   // Weekly context from unified data
   const weekData = data.week;
