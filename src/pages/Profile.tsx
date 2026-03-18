@@ -172,6 +172,7 @@ const Profile = () => {
         {/* Overlaid name + meta */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 z-10">
           <motion.div
+            ref={nameRef}
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
