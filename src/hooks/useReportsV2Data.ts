@@ -171,6 +171,10 @@ export interface ReportsV2Data {
     closes: Record<number, number>;
   };
   
+  // Records
+  activeRecords: ActiveRecord[];
+  allTimeGroupRecords?: AllTimeGroupRecords;
+  
   // For drill-down
   getRepById: (userId: string) => RepWithEffort | undefined;
 }
