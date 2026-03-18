@@ -200,7 +200,7 @@ const getSaleFunnelPath = (
     const event = events[i];
     // Only include funnel-relevant events, dedupe by type
     if (funnelOrder.includes(event.type) && !seenTypes.has(event.type)) {
-      funnelEvents.push({ event, time: formatTimeOnly(event.timestamp) });
+      funnelEvents.push({ event, time: formatTimeOnly(event.timestamp, tz) });
       seenTypes.add(event.type);
     }
   }
