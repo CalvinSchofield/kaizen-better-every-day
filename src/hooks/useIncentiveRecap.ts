@@ -8,7 +8,7 @@ import { format, parseISO } from 'date-fns';
 
 export type MomentPriority = 'high' | 'medium' | 'low';
 
-function getMomentPriority(momentType: string, metric: IncentiveMetric): MomentPriority {
+export function getMomentPriority(momentType: string, metric: IncentiveMetric): MomentPriority {
   // Sales are always high priority
   if (momentType === 'sale') return 'high';
   // Started is always high

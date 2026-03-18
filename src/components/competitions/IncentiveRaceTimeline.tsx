@@ -37,19 +37,10 @@ export const IncentiveRaceTimeline = ({
 
   // For single-day incentives, show intra-day timeline
   if (isSingleDay && intraDayData && intraDayData.moments.length > 0) {
-    // Pick top 2 participants by score for the timeline display
-    const participantIds = Object.keys(participantNames);
-    const sortedByScore = [...participantIds].sort((a, b) => {
-      const lastMoment = intraDayData.moments[intraDayData.moments.length - 1];
-      return (lastMoment?.runningScore[b] || 0) - (lastMoment?.runningScore[a] || 0);
-    });
-    const topTwo = sortedByScore.slice(0, 2) as [string, string];
-
     return (
       <div className="space-y-3">
-        <SingleDayRaceTimeline
+        <IncentiveSingleDayTimeline
           data={intraDayData}
-          participantIds={topTwo}
           metric={metric}
           winnerId={winnerId}
         />
