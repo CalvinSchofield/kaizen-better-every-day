@@ -167,7 +167,8 @@ const CompetitionItem = ({ challenge, incentive, currentUserId, onTap }: Competi
       ? challenge.participants?.find(p => p.user_id !== currentUserId)
       : null;
     
-    const config = metricConfig[challenge.metric];
+    const config = metricConfig[challenge.metric as keyof typeof metricConfig];
+    if (!config) return null;
 
     // Get scores for 1v1
     const myValue = myParticipant?.final_value ?? 0;
