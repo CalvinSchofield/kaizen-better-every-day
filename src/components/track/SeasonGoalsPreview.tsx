@@ -91,34 +91,41 @@ export const SeasonGoalsPreview = ({ className }: SeasonGoalsPreviewProps) => {
                 </span>
               </div>
 
-              <div className="h-2 bg-muted/50 rounded-full overflow-hidden border border-border/30">
+              <div className="relative h-2 bg-muted/50 rounded-full overflow-hidden border border-border/30">
+                {/* Funded (green) */}
                 {fundedPct > 0 && (
                   <motion.div
-                    className="h-full float-left bg-emerald-500"
+                    className="h-full absolute left-0 top-0 rounded-l-full bg-emerald-500"
                     initial={{ width: 0 }}
                     animate={{ width: `${fundedPct}%` }}
                     transition={{ duration: 0.6, ease: 'easeOut' }}
                   />
                 )}
-                {unfundedPct > 0 && (
+                {/* Live (lighter green, extends funded) */}
+                {livePct > 0 && (
                   <motion.div
-                    className="h-full float-left bg-primary"
+                    className="h-full absolute top-0 bg-emerald-400"
+                    style={{ left: `${fundedPct}%` }}
                     initial={{ width: 0 }}
-                    animate={{ width: `${unfundedPct}%` }}
+                    animate={{ width: `${livePct}%` }}
                     transition={{ duration: 0.5, ease: 'easeOut', delay: 0.1 }}
                   />
                 )}
-                {livePct > 0 && (
+                {/* Unfunded (blue) */}
+                {unfundedPct > 0 && (
                   <motion.div
-                    className="h-full float-left bg-emerald-500 animate-pulse"
+                    className="h-full absolute top-0 bg-primary"
+                    style={{ left: `${fundedPct + livePct}%` }}
                     initial={{ width: 0 }}
-                    animate={{ width: `${livePct}%` }}
+                    animate={{ width: `${unfundedPct}%` }}
                     transition={{ duration: 0.5, ease: 'easeOut', delay: 0.2 }}
                   />
                 )}
+                {/* Pending (yellow) */}
                 {pendingPct > 0 && (
                   <motion.div
-                    className="h-full float-left bg-warning"
+                    className="h-full absolute top-0 rounded-r-full bg-warning"
+                    style={{ left: `${fundedPct + livePct + unfundedPct}%` }}
                     initial={{ width: 0 }}
                     animate={{ width: `${pendingPct}%` }}
                     transition={{ duration: 0.5, ease: 'easeOut', delay: 0.3 }}
