@@ -1102,9 +1102,9 @@ export const RepDayActivityFlow = ({
             
             // For sales, get the full funnel path that led to this sale
             // For transitions, get simple before/after context
-            const saleFunnelPath = isSale ? getSaleFunnelPath(events, idx) : null;
-            const eventBefore = isTransition ? getAdjacentEvent(events, idx, 'before', event.type) : null;
-            const eventAfter = isTransition ? getAdjacentEvent(events, idx, 'after', event.type) : null;
+            const saleFunnelPath = isSale ? getSaleFunnelPath(events, idx, repTimezone) : null;
+            const eventBefore = isTransition ? getAdjacentEvent(events, idx, 'before', event.type, repTimezone) : null;
+            const eventAfter = isTransition ? getAdjacentEvent(events, idx, 'after', event.type, repTimezone) : null;
             
             // Non-interactive markers for regular events
             if (!isHighlight) {
