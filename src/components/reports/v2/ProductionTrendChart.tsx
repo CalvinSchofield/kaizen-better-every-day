@@ -63,7 +63,7 @@ export const ProductionTrendChart = ({ data, isLoading }: ProductionTrendChartPr
       <h3 className="text-sm font-semibold text-muted-foreground">Production Trend</h3>
       
       <ResponsiveContainer width="100%" height={180}>
-        <AreaChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
           <defs>
             <linearGradient id="fpGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />

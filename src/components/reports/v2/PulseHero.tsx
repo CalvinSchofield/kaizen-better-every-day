@@ -164,22 +164,22 @@ export const PulseHero = ({
       </div>
 
       {/* Secondary metrics row */}
-      <div className="flex items-center justify-between bg-card rounded-xl border border-border/50 px-4 py-2.5">
-        <div className="flex items-center gap-4 text-sm">
-          <div>
+      <div className="bg-card rounded-xl border border-border/50 px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <div className="flex items-baseline gap-1">
             <span className="font-bold text-green-600 dark:text-green-400">${prmr.toLocaleString()}</span>
-            <span className="text-muted-foreground ml-1 text-xs">PRMR</span>
+            <span className="text-muted-foreground text-xs">PRMR</span>
           </div>
           {avgStartTime && (
-            <div>
+            <div className="flex items-baseline gap-1">
               <span className="font-medium">{avgStartTime}</span>
-              <span className="text-muted-foreground ml-1 text-xs">Avg Start</span>
+              <span className="text-muted-foreground text-xs">Avg Start</span>
             </div>
           )}
           {activeHours !== undefined && activeHours > 0 && (
-            <div>
+            <div className="flex items-baseline gap-1">
               <span className="font-medium">{activeHours.toFixed(1)}h</span>
-              <span className="text-muted-foreground ml-1 text-xs">Active</span>
+              <span className="text-muted-foreground text-xs">Active</span>
             </div>
           )}
         </div>
