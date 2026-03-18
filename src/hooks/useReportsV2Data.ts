@@ -942,6 +942,9 @@ export const useReportsV2Data = ({
         presentations: 0,
         closes: 0,
       },
+      dailyTrend: [],
+      hourlyActivity: { doors: {}, pitches: {}, transitions: {}, presentations: {}, closes: {} },
+    };
     };
   }, [isLiveView, liveQuery.data, insightsQuery.data, baselineQuery.data, goalsQuery.data, effortThresholds]);
 
