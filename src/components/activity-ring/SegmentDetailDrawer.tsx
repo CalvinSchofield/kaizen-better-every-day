@@ -33,6 +33,7 @@ interface SegmentDetailDrawerProps {
   workStart: Date | null;
   workEnd: Date | null;
   totalWorkMinutes: number;
+  repTimezone?: string;
 }
 
 // Convert angle back to time
