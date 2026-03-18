@@ -125,10 +125,10 @@ const SegmentedBar = ({
           animate={{ width: `${fundedPct}%` }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
         />
-        {/* Live (green + pulse — visually extends funded) */}
+        {/* Live (lighter green — visually extends funded without ugly opacity pulse) */}
         {livePct > 0 && (
           <motion.div
-            className="h-full absolute top-0 bg-emerald-500 animate-pulse"
+            className="h-full absolute top-0 bg-emerald-400"
             style={{ left: `${fundedPct}%` }}
             initial={{ width: 0 }}
             animate={{ width: `${livePct}%` }}
@@ -386,7 +386,7 @@ const FullMode = ({
               </div>
               {current.live > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
                   <span>{formatFP(current.live)} live</span>
                 </div>
               )}
