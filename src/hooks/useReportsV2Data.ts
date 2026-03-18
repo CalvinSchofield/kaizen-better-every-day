@@ -945,7 +945,6 @@ export const useReportsV2Data = ({
       dailyTrend: [],
       hourlyActivity: { doors: {}, pitches: {}, transitions: {}, presentations: {}, closes: {} },
     };
-    };
   }, [isLiveView, liveQuery.data, insightsQuery.data, baselineQuery.data, goalsQuery.data, effortThresholds]);
 
   // Helper to get rep by ID
