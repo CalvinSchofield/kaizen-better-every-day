@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Target, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import { Target, TrendingUp, TrendingDown } from "lucide-react";
 import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 import { useRepData } from "@/hooks/useRepData";
 import { useNavigate } from "react-router-dom";
