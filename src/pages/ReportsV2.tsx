@@ -164,6 +164,7 @@ export const ReportsV2Page = () => {
     teamBaseline,
     repsWithEffort, funnelData,
     dailyTrend, hourlyActivity,
+    activeRecords,
     getRepById,
   } = useReportsV2Data({
     userIds: filteredUserIds,
