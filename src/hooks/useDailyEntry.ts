@@ -667,6 +667,20 @@ export const useDailyEntry = (date?: string) => {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['daily-entry', entryDate], data);
+      
+      // CRITICAL: Clear localStorage backup so smartMerge/auto-push recovery
+      // doesn't restore old counter values after reset
+      try {
+        const userId = getCurrentUserId();
+        if (userId) {
+          const backupKey = `track-backup-${userId}-${entryDate}`;
+          localStorage.removeItem(backupKey);
+          console.log('[useDailyEntry] Reset: cleared localStorage backup');
+        }
+      } catch (e) {
+        console.error('[useDailyEntry] Reset: failed to clear backup', e);
+      }
+      
       // Invalidate all leaderboard and activity queries
       queryClient.invalidateQueries({ queryKey: ['daily-entries'] });
       queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
