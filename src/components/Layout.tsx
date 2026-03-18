@@ -363,10 +363,19 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
           )}
           
           {/* Center - Page title */}
-          <div className="flex-1 flex justify-center">
-            <h1 className={`text-lg font-semibold ${isHomePage ? "text-primary-foreground" : "text-foreground"}`}>
-              {customTitle || getPageTitle()}
-            </h1>
+          <div className="flex-1 flex justify-center overflow-hidden relative h-7">
+            <AnimatePresence mode="wait">
+              <motion.h1
+                key={customTitle || getPageTitle()}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className={`text-lg font-semibold absolute ${isHomePage ? "text-primary-foreground" : "text-foreground"}`}
+              >
+                {customTitle || getPageTitle()}
+              </motion.h1>
+            </AnimatePresence>
           </div>
           
           {/* Right side - action buttons */}
