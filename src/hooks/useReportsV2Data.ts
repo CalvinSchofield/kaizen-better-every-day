@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays } from "date-fns";
+import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { useTeamLiveData } from "./useTeamLiveData";
 import { useTeamInsightsData } from "./useTeamInsightsData";
 import { 
