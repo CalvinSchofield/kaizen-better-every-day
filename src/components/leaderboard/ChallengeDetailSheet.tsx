@@ -6,6 +6,7 @@ import { Challenge, useRespondToChallenge, useVoidChallenge } from "@/hooks/useC
 import { useChallengeProgress } from "@/hooks/useChallengeProgress";
 import { useChallengeEditProposals } from "@/hooks/useChallengeEdits";
 import { useChallengeRecap } from "@/hooks/useChallengeRecap";
+import { useSingleDayRecap } from "@/hooks/useSingleDayRecap";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ProfileAvatar } from "@/components/ui/profile-avatar";
 import { Trophy, Eye, EyeOff, Pencil, Check, Clock, X, Swords, Users, Trash2, Crown, Calendar } from "lucide-react";
