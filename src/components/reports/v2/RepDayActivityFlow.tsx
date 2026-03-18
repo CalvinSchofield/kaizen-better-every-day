@@ -242,7 +242,7 @@ const getAdjacentEvent = (
       // The door knock is what started this interaction sequence
       while (searchIdx >= 0) {
         if (events[searchIdx].type === 'doors_knocked') {
-          return { event: events[searchIdx], time: formatTimeOnly(events[searchIdx].timestamp) };
+          return { event: events[searchIdx], time: formatTimeOnly(events[searchIdx].timestamp, tz) };
         }
         searchIdx--;
       }
