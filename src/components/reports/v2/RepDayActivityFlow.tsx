@@ -257,7 +257,7 @@ const getAdjacentEvent = (
   // For "after" direction, just get the next event
   const targetIdx = idx + 1;
   if (targetIdx >= events.length) return null;
-  return { event: events[targetIdx], time: formatTimeOnly(events[targetIdx].timestamp) };
+  return { event: events[targetIdx], time: formatTimeOnly(events[targetIdx].timestamp, tz) };
 };
 
 export const RepDayActivityFlow = ({
