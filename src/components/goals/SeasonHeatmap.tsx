@@ -29,6 +29,10 @@ interface SeasonHeatmapProps {
   dailyNeeded: number;
   remainingFp?: number;
   preseasonGoalHit?: boolean;
+  /** Funded goal total to display in the badge instead of pace */
+  activeGoalTotal?: number;
+  /** Callback when the tier badge is tapped */
+  onTierBadgeClick?: () => void;
 }
 
 type CellLevel = 'off' | 'future-off' | 'future-planned' | 'empty' | 1 | 2 | 3 | 4;
