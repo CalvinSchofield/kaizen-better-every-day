@@ -854,7 +854,7 @@ export const RepDayActivityFlow = ({
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-[11px] text-muted-foreground">{endLabel}</span>
-                      <span className="text-[11px] font-medium">{formatTimeOnly(zone.endTime)}</span>
+                      <span className="text-[11px] font-medium">{formatTimeOnly(zone.endTime, repTimezone)}</span>
                     </div>
                     {isDoorstep && (
                       <div className={cn("text-[10px] rounded px-2 py-1.5 italic mt-1", 
