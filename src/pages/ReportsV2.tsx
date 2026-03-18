@@ -24,7 +24,7 @@ import { GoalPaceSection } from "@/components/reports/v2/GoalPaceSection";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, RefreshCw, AlertCircle, Target, TrendingUp, AlertTriangle, ChevronRight } from "lucide-react";
+import { Calendar, RefreshCw, AlertCircle } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
