@@ -22,6 +22,7 @@ const CATEGORIES = [
 
 export default function Competitors() {
   const navigate = useNavigate();
+  useToolsBackButton();
   const [selectedCompetitor, setSelectedCompetitor] = useState<CompetitorData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
