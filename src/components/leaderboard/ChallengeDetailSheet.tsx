@@ -304,6 +304,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
   const respondMutation = useRespondToChallenge();
   const voidMutation = useVoidChallenge();
   const { fireConfetti } = useConfetti();
+  const { data: recapData } = useChallengeRecap(challenge.status === 'completed' && challenge.type === '1v1' ? challenge : null);
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
