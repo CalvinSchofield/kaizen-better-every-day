@@ -21,6 +21,7 @@ import { ReportsTeamFilter, TeamFilter } from "@/components/reports/v2/ReportsTe
 import { WorkingRepsDrawer } from "@/components/reports/v2/WorkingRepsDrawer";
 import { GoalPaceDrawer } from "@/components/reports/v2/GoalPaceDrawer";
 import { GoalPaceSection } from "@/components/reports/v2/GoalPaceSection";
+import { RepTimesDrawer } from "@/components/reports/v2/RepTimesDrawer";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
