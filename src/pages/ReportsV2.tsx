@@ -16,6 +16,7 @@ import {
   ProductionTrendChart,
   HourlyActivityChart,
 } from "@/components/reports/v2";
+import { RecordDetailsDrawer } from "@/components/reports/v2/RecordDetailsDrawer";
 import { ReportsDateRangeSheet } from "@/components/reports/v2/ReportsDateRangeSheet";
 import { TeamFilter } from "@/components/reports/v2/ReportsTeamFilter";
 import { WorkingRepsDrawer } from "@/components/reports/v2/WorkingRepsDrawer";
