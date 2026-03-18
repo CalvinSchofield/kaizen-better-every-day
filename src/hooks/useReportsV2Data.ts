@@ -1132,9 +1132,76 @@ export const useReportsV2Data = ({
     return processedData.repsWithEffort.find(r => r.userId === userId);
   };
 
+  // Compute active records by comparing current totals vs all-time records
+  const allTimeGroupRecords = insightsQuery.data?.allTimeGroupRecords;
+  
+  const activeRecords = useMemo<ActiveRecord[]>(() => {
+    if (!allTimeGroupRecords) return [];
+
+    const { funnelData } = processedData;
+    
+    // Compute avg start minutes from current reps
+    const starts = processedData.repsWithEffort
+      .filter(r => r.workStartTime || r.avgStartTime)
+      .map(r => {
+        if (r.workStartTime) {
+          try {
+            const d = new Date(r.workStartTime);
+            if (!isNaN(d.getTime())) return d.getHours() * 60 + d.getMinutes();
+          } catch {}
+        }
+        return null;
+      })
+      .filter((m): m is number => m !== null);
+    const avgStartMinutes = starts.length > 0
+      ? starts.reduce((a, b) => a + b, 0) / starts.length
+      : undefined;
+
+    const totalHours = processedData.repsWithEffort.reduce((sum, r) => sum + r.hoursWorked, 0);
+
+    // Determine preset from dateRange
+    const today = new Date();
+    const todayStr = format(today, 'yyyy-MM-dd');
+    const yesterdayStr = format(subDays(today, 1), 'yyyy-MM-dd');
+    
+    let preset = 'custom';
+    if (dateRange.start === todayStr && dateRange.end === todayStr) preset = isLiveView ? 'today' : 'today';
+    else if (dateRange.start === yesterdayStr && dateRange.end === yesterdayStr) preset = 'yesterday';
+    else {
+      // Check week/month by length
+      const startD = new Date(dateRange.start + 'T12:00:00');
+      const endD = new Date(dateRange.end + 'T12:00:00');
+      const days = Math.round((endD.getTime() - startD.getTime()) / (1000*60*60*24)) + 1;
+      if (days >= 6 && days <= 7) preset = 'week';
+      else if (days >= 28 && days <= 31) preset = 'month';
+    }
+
+    const currentDate = preset === 'today' ? today : preset === 'yesterday' ? subDays(today, 1) : today;
+
+    return detectActiveRecords(
+      allTimeGroupRecords,
+      {
+        fp: processedData.totalFP,
+        prmr: processedData.totalPRMR,
+        doors: funnelData.doors,
+        dms: funnelData.decisionMakers,
+        pitches: funnelData.pitches,
+        presentations: funnelData.presentations,
+        closes: funnelData.closes,
+        avgStartMinutes,
+        activeHours: totalHours,
+      },
+      preset,
+      isLiveView,
+      currentDate,
+    );
+  }, [allTimeGroupRecords, processedData, dateRange, isLiveView]);
+
   return {
     isLoading,
     ...processedData,
+    activeRecords,
+    allTimeGroupRecords,
     enhancedGoalPace,
     getRepById,
   };
