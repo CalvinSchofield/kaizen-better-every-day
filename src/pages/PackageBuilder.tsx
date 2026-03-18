@@ -29,6 +29,7 @@ import {
 
 const PackageBuilder = () => {
   const navigate = useNavigate();
+  useToolsBackButton();
   
   // State for regular packages
   const [packageType, setPackageType] = useState<PackageType | null>(null);
