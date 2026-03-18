@@ -45,6 +45,27 @@ type RepGoalsLike = {
   setup_complete: boolean | null;
 };
 
+export interface TierGoalProgress {
+  goal: number;
+  progress: number;
+  percent: number;
+}
+
+export interface EnhancedGoalPaceResult {
+  userId: string;
+  name: string;
+  phone?: string | null;
+  status: 'on_pace' | 'at_risk' | 'behind' | 'no_goals';
+  focusTier: 'preseason' | 'mustDo' | 'willDo' | 'couldDo' | null;
+  allGoals: Partial<Record<'preseason' | 'mustDo' | 'willDo' | 'couldDo', TierGoalProgress>>;
+  ytdFP: number;
+  futurePlannedDays: number;
+  needsPlanning: boolean;
+  dailyNeeded: number;
+  userDailyAvg: number;
+  activeGoal: number;
+}
+
 const hasConfiguredGoals = (g: RepGoalsLike | undefined | null): boolean => {
   if (!g) return false;
   if (g.setup_complete === true) return true;
@@ -110,6 +131,7 @@ export interface ReportsV2Data {
   // Team goal status
   teamGoalStatus: TeamGoalStatus;
   teamGoalStatusDetails?: TeamGoalStatusWithDetails;
+  enhancedGoalPace: EnhancedGoalPaceResult[];
   
   // Team baseline
   teamBaseline?: TeamBaseline;
@@ -241,7 +263,7 @@ export const useReportsV2Data = ({
       // Fetch rep names for goals
       const { data: reps, error: repsError } = await supabase
         .from('reps')
-        .select('user_id, name')
+        .select('user_id, name, phone')
         .in('user_id', userIds);
 
       if (repsError) throw repsError;
@@ -952,6 +974,151 @@ export const useReportsV2Data = ({
     };
   }, [isLiveView, liveQuery.data, insightsQuery.data, baselineQuery.data, goalsQuery.data, effortThresholds]);
 
+  // Enhanced goal pace computation (season-level, all tiers)
+  const enhancedGoalPace = useMemo<EnhancedGoalPaceResult[]>(() => {
+    if (!goalsQuery.data) return [];
+
+    const { goals, reps, ytdEntries, allPlannedDays, seasonConfigs } = goalsQuery.data;
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+    const goalsMap = new Map(goals.map(g => [g.user_id, g]));
+    const repsMap = new Map(
+      reps.filter(r => r.user_id).map(r => [r.user_id!, r])
+    );
+
+    // YTD FP per user
+    const ytdFpMap = new Map<string, number>();
+    (ytdEntries || []).forEach(e => {
+      ytdFpMap.set(e.user_id, (ytdFpMap.get(e.user_id) || 0) + (Number(e.fp_plus) || 0));
+    });
+
+    // Knocking days per user
+    const knockingDaysMap = new Map<string, number>();
+    (ytdEntries || []).forEach(e => {
+      if ((e.doors_knocked || 0) >= 5) {
+        knockingDaysMap.set(e.user_id, (knockingDaysMap.get(e.user_id) || 0) + 1);
+      }
+    });
+
+    // Planned days per user
+    const plannedDaysMap = new Map<string, string[]>();
+    (allPlannedDays || []).forEach(p => {
+      if (!plannedDaysMap.has(p.user_id)) plannedDaysMap.set(p.user_id, []);
+      plannedDaysMap.get(p.user_id)!.push(p.planned_date);
+    });
+
+    const seasonConfigMap = new Map(
+      (seasonConfigs || []).map(c => [c.user_id, c.personal_summer_start])
+    );
+
+    const SUMMER_END_DATE = new Date('2026-09-27');
+    const daysRemainingInSeason = Math.max(0, Math.ceil((SUMMER_END_DATE.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)));
+
+    const results: EnhancedGoalPaceResult[] = [];
+
+    for (const userId of userIds) {
+      const rep = repsMap.get(userId);
+      if (!rep) continue;
+
+      const goal = goalsMap.get(userId) as RepGoalsLike | undefined;
+      const ytdFP = ytdFpMap.get(userId) || 0;
+      const knockingDays = knockingDaysMap.get(userId) || 0;
+      const userPlannedDates = plannedDaysMap.get(userId) || [];
+      const futurePlannedDays = userPlannedDates.filter(d => d > todayStr).length;
+      const userDailyAvg = knockingDays > 0 ? ytdFP / knockingDays : 0;
+
+      // Build allGoals
+      const allGoals: Partial<Record<'preseason' | 'mustDo' | 'willDo' | 'couldDo', TierGoalProgress>> = {};
+      if (goal?.preseason_fp_goal && goal.preseason_fp_goal > 0) {
+        allGoals.preseason = { goal: goal.preseason_fp_goal, progress: ytdFP, percent: Math.min(100, (ytdFP / goal.preseason_fp_goal) * 100) };
+      }
+      if (goal?.must_do_fp_goal && goal.must_do_fp_goal > 0) {
+        allGoals.mustDo = { goal: goal.must_do_fp_goal, progress: ytdFP, percent: Math.min(100, (ytdFP / goal.must_do_fp_goal) * 100) };
+      }
+      if (goal?.will_do_fp_goal && goal.will_do_fp_goal > 0) {
+        allGoals.willDo = { goal: goal.will_do_fp_goal, progress: ytdFP, percent: Math.min(100, (ytdFP / goal.will_do_fp_goal) * 100) };
+      }
+      if (goal?.could_do_fp_goal && goal.could_do_fp_goal > 0) {
+        allGoals.couldDo = { goal: goal.could_do_fp_goal, progress: ytdFP, percent: Math.min(100, (ytdFP / goal.could_do_fp_goal) * 100) };
+      }
+
+      const hasGoals = hasConfiguredGoals(goal);
+
+      if (!hasGoals) {
+        results.push({
+          userId, name: rep.name, phone: (rep as any).phone,
+          status: 'no_goals', focusTier: null, allGoals: {},
+          ytdFP, futurePlannedDays, needsPlanning: false,
+          dailyNeeded: 0, userDailyAvg, activeGoal: 0,
+        });
+        continue;
+      }
+
+      // Use calculateSalesPace for proper pacing
+      const personalSummerStart = seasonConfigMap.get(userId);
+      const summerTier = (goal!.focus_tier === 'mustDo' || goal!.focus_tier === 'willDo' || goal!.focus_tier === 'couldDo')
+        ? goal!.focus_tier as 'mustDo' | 'willDo' | 'couldDo'
+        : 'willDo';
+
+      const baseInput = {
+        goals: {
+          preseason_fp_goal: goal!.preseason_fp_goal,
+          must_do_fp_goal: goal!.must_do_fp_goal,
+          will_do_fp_goal: goal!.will_do_fp_goal,
+          could_do_fp_goal: goal!.could_do_fp_goal,
+          cancel_rate: goal!.cancel_rate,
+          setup_complete: true,
+        },
+        plannedDays: userPlannedDates.map(d => ({ planned_date: d })),
+        knockingDays,
+        currentFpPlus: ytdFP,
+        currentPrmr: 0,
+        efpModeEnabled: false,
+        calculateEfp: (prmr: number) => prmr / 85,
+        personalSummerStart,
+      };
+
+      let focusTier: 'preseason' | 'mustDo' | 'willDo' | 'couldDo' = 'preseason';
+      let paceResult = calculateSalesPace(baseInput);
+
+      if (paceResult && !paceResult.isInPreseason) {
+        focusTier = summerTier;
+        paceResult = calculateSalesPace({ ...baseInput, activeTier: summerTier });
+      } else if (!paceResult) {
+        focusTier = summerTier;
+        paceResult = calculateSalesPace({ ...baseInput, activeTier: summerTier });
+      }
+
+      let status: 'on_pace' | 'at_risk' | 'behind' | 'no_goals' = 'no_goals';
+      let dailyNeeded = 0;
+      let activeGoal = 0;
+
+      if (paceResult && paceResult.fundedGoal > 0) {
+        dailyNeeded = paceResult.remainingDailyNeeded;
+        activeGoal = paceResult.fundedGoal;
+
+        const expectedPercent = paceResult.expectedAtThisPoint > 0
+          ? (ytdFP / paceResult.expectedAtThisPoint) * 100
+          : (ytdFP > 0 ? 100 : 0);
+
+        if (expectedPercent >= 90) status = 'on_pace';
+        else if (expectedPercent >= 70) status = 'at_risk';
+        else status = 'behind';
+      }
+
+      const needsPlanning = futurePlannedDays < 5 && daysRemainingInSeason > 30;
+
+      results.push({
+        userId, name: rep.name, phone: (rep as any).phone,
+        status, focusTier, allGoals, ytdFP,
+        futurePlannedDays, needsPlanning, dailyNeeded,
+        userDailyAvg, activeGoal,
+      });
+    }
+
+    return results;
+  }, [goalsQuery.data, userIds]);
+
   // Helper to get rep by ID
   const getRepById = (userId: string): RepWithEffort | undefined => {
     return processedData.repsWithEffort.find(r => r.userId === userId);
@@ -960,6 +1127,7 @@ export const useReportsV2Data = ({
   return {
     isLoading,
     ...processedData,
+    enhancedGoalPace,
     getRepById,
   };
 };

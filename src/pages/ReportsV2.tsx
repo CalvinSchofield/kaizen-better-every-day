@@ -20,10 +20,11 @@ import { ReportsDateRangeSheet } from "@/components/reports/v2/ReportsDateRangeS
 import { ReportsTeamFilter, TeamFilter } from "@/components/reports/v2/ReportsTeamFilter";
 import { WorkingRepsDrawer } from "@/components/reports/v2/WorkingRepsDrawer";
 import { GoalPaceDrawer } from "@/components/reports/v2/GoalPaceDrawer";
+import { GoalPaceSection } from "@/components/reports/v2/GoalPaceSection";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, RefreshCw, AlertCircle, Target, TrendingUp, AlertTriangle, ChevronRight } from "lucide-react";
+import { Calendar, RefreshCw, AlertCircle } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -123,6 +124,7 @@ export const ReportsV2Page = () => {
     constraint, actions,
     effortSummary, skillBottleneck, impactPotential,
     teamGoalStatus, teamGoalStatusDetails,
+    enhancedGoalPace,
     teamBaseline,
     repsWithEffort, funnelData,
     dailyTrend, hourlyActivity,
@@ -237,13 +239,6 @@ export const ReportsV2Page = () => {
 
   const selectedRep = selectedRepId ? getRepById(selectedRepId) : null;
 
-  // Goal pace counts
-  const goalCounts = teamGoalStatus ? {
-    onPace: teamGoalStatus.onPace.length,
-    atRisk: teamGoalStatus.atRisk.length,
-    behind: teamGoalStatus.behind.length,
-  } : null;
-
   return (
     <div className="p-4 space-y-5 pb-20">
       {/* Header */}
@@ -322,36 +317,12 @@ export const ReportsV2Page = () => {
         onWorkingClick={() => setShowWorkingDrawer(true)}
       />
 
-      {/* Goal Pace Summary (compact clickable) */}
-      {goalCounts && (goalCounts.onPace + goalCounts.atRisk + goalCounts.behind > 0) && (
-        <button
-          className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-card border border-border/50 hover:bg-muted/30 active:scale-[0.99] transition-all"
-          onClick={() => setShowGoalPaceDrawer(true)}
-        >
-          <div className="flex items-center gap-2">
-            <Target className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Goal Pace</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {goalCounts.onPace > 0 && (
-              <Badge variant="outline" className="gap-1 bg-green-500/10 text-green-600 border-green-500/30 text-xs">
-                <TrendingUp className="w-3 h-3" />{goalCounts.onPace}
-              </Badge>
-            )}
-            {goalCounts.atRisk > 0 && (
-              <Badge variant="outline" className="gap-1 bg-yellow-500/10 text-yellow-600 border-yellow-500/30 text-xs">
-                <AlertTriangle className="w-3 h-3" />{goalCounts.atRisk}
-              </Badge>
-            )}
-            {goalCounts.behind > 0 && (
-              <Badge variant="outline" className="gap-1 bg-red-500/10 text-red-600 border-red-500/30 text-xs">
-                {goalCounts.behind}
-              </Badge>
-            )}
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          </div>
-        </button>
-      )}
+      {/* Goal Pace Section */}
+      <GoalPaceSection
+        enhancedGoalPace={enhancedGoalPace}
+        onOpenDrawer={() => setShowGoalPaceDrawer(true)}
+        isLoading={isLoading}
+      />
 
       {/* Layer 2: Effort vs Skill */}
       <EffortSkillDiagnosis
@@ -466,14 +437,7 @@ export const ReportsV2Page = () => {
       <GoalPaceDrawer
         open={showGoalPaceDrawer}
         onOpenChange={setShowGoalPaceDrawer}
-        paceResults={teamGoalStatusDetails ? [
-          ...teamGoalStatusDetails.onPace,
-          ...teamGoalStatusDetails.atRisk,
-          ...teamGoalStatusDetails.behind,
-          ...teamGoalStatusDetails.noGoals,
-        ] : []}
-        periodLabel={getPeriodLabel()}
-        isLiveView={effectivePreset === 'today'}
+        enhancedGoalPace={enhancedGoalPace}
         onRepClick={handleRepClick}
       />
 
