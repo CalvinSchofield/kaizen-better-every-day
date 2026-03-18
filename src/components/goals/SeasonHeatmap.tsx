@@ -327,19 +327,31 @@ export const SeasonHeatmap = ({
             <span>Preseason goal hit!</span>
           </div>
         ) : (
-          <div className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold",
-            displayTierConfig.bgColor, displayTierConfig.color
-          )}>
+          <button
+            onClick={onTierBadgeClick}
+            disabled={!onTierBadgeClick}
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-opacity",
+              displayTierConfig.bgColor, displayTierConfig.color,
+              onTierBadgeClick && "active:opacity-70"
+            )}
+          >
             <DisplayTierIcon className="w-3 h-3" />
             <span>{displayTierConfig.label}</span>
-            <span className="opacity-60">·</span>
-            <span>
-              {dailyNeeded} {metricLabel}/day
-              {isCurrentlyPreseason && remainingFp > 0 && dailyNeeded >= 5 && (
-                <span className="opacity-60"> · {remainingFp} left</span>
-              )}
-            </span>
+            {activeGoalTotal !== undefined && (
+              <>
+                <span className="opacity-60">·</span>
+                <span>{activeGoalTotal} {metricLabel}</span>
+              </>
+            )}
+            {!activeGoalTotal && (
+              <>
+                <span className="opacity-60">·</span>
+                <span>{dailyNeeded} {metricLabel}/day</span>
+              </>
+            )}
+          </button>
+        )}
           </div>
         )}
       </div>
