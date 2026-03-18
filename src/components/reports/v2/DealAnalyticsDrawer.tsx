@@ -44,21 +44,27 @@ export const DealAnalyticsDrawer = ({
   totalFP,
   totalPRMR,
 }: DealAnalyticsDrawerProps) => {
+  // Loading timeout to prevent infinite skeleton
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+
   // Fetch raw sales data for all team reps in date range
-  const { data: sales = [], isLoading } = useQuery({
+  const { data: sales = [], isLoading: queryLoading } = useQuery({
     queryKey: ['team-deal-analytics', userIds, dateRange],
     enabled: open && userIds.length > 0,
     staleTime: 3 * 60 * 1000,
+    retry: 2,
     queryFn: async () => {
       if (userIds.length === 0) return [];
       
+      // Only fetch entries that actually have sales (sales_log with content, not just empty array)
       const { data, error } = await supabase
         .from('daily_entries')
         .select('entry_date, sales_log, user_id')
         .in('user_id', userIds)
         .gte('entry_date', dateRange.start)
         .lte('entry_date', dateRange.end)
-        .not('sales_log', 'is', null);
+        .not('sales_log', 'is', null)
+        .neq('sales_log', '[]');
 
       if (error) throw error;
 
@@ -77,6 +83,18 @@ export const DealAnalyticsDrawer = ({
       return allSales;
     },
   });
+
+  // Reset timeout when drawer opens/closes or loading finishes
+  useEffect(() => {
+    if (!open || !queryLoading) {
+      setLoadingTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setLoadingTimedOut(true), 8000);
+    return () => clearTimeout(timer);
+  }, [open, queryLoading]);
+
+  const isLoading = queryLoading && !loadingTimedOut;
 
   const analytics = useMemo(() => {
     if (sales.length === 0) return null;
