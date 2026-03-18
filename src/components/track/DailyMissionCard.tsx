@@ -72,13 +72,7 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   const unitLabel = data.metricLabel;
   const seasonLabel = 'to stay on track';
 
-  // Check if pace is unrealistic — use historical avg to avoid false positives
-  const baseThreshold = isRookie ? 3 : 4;
-  const historicalDailyAvg = data.userDailyAvg;
-  const dynamicThreshold = historicalDailyAvg > 0
-    ? Math.max(baseThreshold, historicalDailyAvg * 1.5)
-    : baseThreshold;
-  const isPaceUnrealistic = dailyGoal >= dynamicThreshold;
+  const unitLabel = data.metricLabel;
 
   // Weekly context from unified data
   const weekData = data.week;

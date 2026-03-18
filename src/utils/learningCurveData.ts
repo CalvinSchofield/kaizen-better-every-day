@@ -169,9 +169,9 @@ export function getLearningCurvePrincipleMessage(
     return "You're in strong position to crush your goal. Keep pushing!";
   }
   if (paceContext === 'stretch') {
-    return "Time to dig deep. You have the skills - now finish strong.";
+    return "Time to dig deep. You have the skills — now finish strong.";
   }
-  return "Your best weeks may still be ahead. Channel your best-day energy every day.";
+  return "Your best weeks may still be ahead. Stay locked in.";
 }
 
 /**
