@@ -98,6 +98,8 @@ export const SeasonHeatmap = ({
   dailyNeeded,
   remainingFp = 0,
   preseasonGoalHit = false,
+  activeGoalTotal,
+  onTierBadgeClick,
 }: SeasonHeatmapProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tappedCell, setTappedCell] = useState<string | null>(null);
