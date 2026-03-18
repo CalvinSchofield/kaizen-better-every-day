@@ -643,17 +643,31 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                 )}
 
                 {/* Race Timeline & Stats — 1v1 only */}
-                {is1v1 && recapData && challenge.participants && challenge.participants.length >= 2 && (
+                {is1v1 && challenge.participants && challenge.participants.length >= 2 && (
                   <>
-                    <ChallengeRaceTimeline
-                      moments={recapData.moments}
-                      days={recapData.days}
-                      participantIds={[challenge.participants[0].user_id, challenge.participants[1].user_id]}
-                      participantNames={recapData.participantNames}
-                      metric={challenge.metric}
-                      winnerId={challenge.winner_user_id}
-                    />
-                    <ChallengeRecapStats stats={recapData.stats} metric={challenge.metric} />
+                    {/* Single-day: show intra-day event timeline */}
+                    {isSingleDay && singleDayData && (
+                      <SingleDayRaceTimeline
+                        data={singleDayData}
+                        participantIds={[challenge.participants[0].user_id, challenge.participants[1].user_id]}
+                        metric={challenge.metric}
+                        winnerId={challenge.winner_user_id}
+                      />
+                    )}
+                    {/* Multi-day: show day-by-day recap */}
+                    {!isSingleDay && recapData && (
+                      <>
+                        <ChallengeRaceTimeline
+                          moments={recapData.moments}
+                          days={recapData.days}
+                          participantIds={[challenge.participants[0].user_id, challenge.participants[1].user_id]}
+                          participantNames={recapData.participantNames}
+                          metric={challenge.metric}
+                          winnerId={challenge.winner_user_id}
+                        />
+                        <ChallengeRecapStats stats={recapData.stats} metric={challenge.metric} />
+                      </>
+                    )}
                   </>
                 )}
 
