@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Minus, Users, ChevronRight, Zap, Crown } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Users, ChevronRight, Zap, Crown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { TeamBaseline } from "@/utils/baselineCalculations";
@@ -226,10 +226,11 @@ export const PulseHero = ({
           {avgStartTime && (
             <button
               onClick={onAvgStartClick}
-              className="flex items-baseline gap-1 hover:bg-muted/50 rounded px-1 -mx-1 transition-colors active:scale-[0.97]"
+              className="flex items-center gap-1 hover:bg-muted/50 rounded px-1 -mx-1 transition-colors active:scale-[0.97]"
             >
               <span className="font-medium">{avgStartTime}</span>
               <span className="text-muted-foreground text-xs">Avg Start</span>
+              <Info className="w-3 h-3 text-muted-foreground/60" />
             </button>
           )}
           {activeHours !== undefined && activeHours > 0 && (
