@@ -798,10 +798,10 @@ export const RecruitDetailDrawer = ({
       onboarding_complete: recruit.onboardingComplete ?? false,
       trainings_complete: recruit.trainingsComplete ?? false,
       slack_joined: recruit.slackJoined ?? false,
-      ramp_phase_1_complete: recruit.rampPhase1Complete ?? false,
-      ramp_phase_2_complete: recruit.rampPhase2Complete ?? false,
-      ramp_phase_3_complete: recruit.rampPhase3Complete ?? false,
-      ramp_phase_4_complete: recruit.rampPhase4Complete ?? false,
+      ramp_phase_1_complete: recruit.phase1Complete ?? false,
+      ramp_phase_2_complete: recruit.phase2Complete ?? false,
+      ramp_phase_3_complete: recruit.phase3Complete ?? false,
+      ramp_phase_4_complete: recruit.phase4Complete ?? false,
     };
 
     // Build updates object
