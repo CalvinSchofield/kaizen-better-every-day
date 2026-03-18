@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useReportsV2Data } from "@/hooks/useReportsV2Data";
 import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAvailableDatePresets";
@@ -17,16 +17,18 @@ import {
   HourlyActivityChart,
 } from "@/components/reports/v2";
 import { ReportsDateRangeSheet } from "@/components/reports/v2/ReportsDateRangeSheet";
-import { ReportsTeamFilter, TeamFilter } from "@/components/reports/v2/ReportsTeamFilter";
+import { TeamFilter } from "@/components/reports/v2/ReportsTeamFilter";
 import { WorkingRepsDrawer } from "@/components/reports/v2/WorkingRepsDrawer";
 import { GoalPaceDrawer } from "@/components/reports/v2/GoalPaceDrawer";
 import { GoalPaceSection } from "@/components/reports/v2/GoalPaceSection";
 import { RepTimesDrawer } from "@/components/reports/v2/RepTimesDrawer";
 import { DealAnalyticsDrawer } from "@/components/reports/v2/DealAnalyticsDrawer";
+import { SmartFilterDrawer, SmartFilterState, DEFAULT_FILTER_STATE, isFilterActive } from "@/components/filters/SmartFilterDrawer";
+import { useHeader } from "@/contexts/HeaderContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, RefreshCw, AlertCircle } from "lucide-react";
+import { Calendar, RefreshCw, AlertCircle, Filter } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -41,11 +43,14 @@ export const ReportsV2Page = () => {
   const [showCustomSheet, setShowCustomSheet] = useState(false);
   const [selectedRepId, setSelectedRepId] = useState<string | null>(null);
   const [teamFilter, setTeamFilter] = useState<TeamFilter>('all');
+  const [smartFilter, setSmartFilter] = useState<SmartFilterState>(DEFAULT_FILTER_STATE);
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [showWorkingDrawer, setShowWorkingDrawer] = useState(false);
   const [showGoalPaceDrawer, setShowGoalPaceDrawer] = useState(false);
   const [showTimeDrawer, setShowTimeDrawer] = useState(false);
   const [showDealDrawer, setShowDealDrawer] = useState(false);
+  const { setCustomRightContent } = useHeader();
   
   // Get team access
   const { data: teamAccess, isLoading: accessLoading, error: teamAccessError, refetch: refetchTeamAccess, wasLeader } = useTeamAccess();
