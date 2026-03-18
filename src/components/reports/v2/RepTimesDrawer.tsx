@@ -39,20 +39,30 @@ const minutesToPercent = (mins: number): number => {
 };
 
 /**
- * Classify a rep's start time relative to group using percentile bands.
- * Bottom 25% = early (green), Top 25% = late (orange), middle = normal.
+ * Classify a rep's hustle based on start AND end times relative to team averages.
+ * - 'hustler': started before avg AND ended after avg (both show hustle)
+ * - 'mixed': one of the two shows hustle
+ * - 'behind': started after avg AND ended before avg
  */
-const getStartTimeClassification = (
+const getHustleClassification = (
   startMinutes: number,
-  allStartMinutes: number[]
-): 'early' | 'normal' | 'late' => {
-  if (allStartMinutes.length < 3) return 'normal';
-  const sorted = [...allStartMinutes].sort((a, b) => a - b);
-  const p25 = sorted[Math.floor(sorted.length * 0.25)];
-  const p75 = sorted[Math.floor(sorted.length * 0.75)];
-  if (startMinutes <= p25) return 'early';
-  if (startMinutes >= p75) return 'late';
-  return 'normal';
+  endMinutes: number | null,
+  teamAvgStart: number | undefined,
+  teamAvgEnd: number | undefined,
+): 'hustler' | 'mixed' | 'behind' => {
+  if (teamAvgStart === undefined) return 'mixed';
+  
+  const startedEarly = startMinutes <= teamAvgStart;
+  const endedLate = teamAvgEnd !== undefined && endMinutes !== null && endMinutes >= teamAvgEnd;
+  
+  // If we don't have end time data, classify on start only
+  if (endMinutes === null || teamAvgEnd === undefined) {
+    return startedEarly ? 'hustler' : 'behind';
+  }
+  
+  if (startedEarly && endedLate) return 'hustler';
+  if (!startedEarly && !endedLate) return 'behind';
+  return 'mixed';
 };
 
 export const RepTimesDrawer = ({
@@ -71,11 +81,6 @@ export const RepTimesDrawer = ({
       .sort((a, b) => (a.avgStartMinutes ?? 999) - (b.avgStartMinutes ?? 999));
   }, [reps]);
 
-  // Collect all valid start minutes for percentile calculation
-  const allStartMinutes = useMemo(() => {
-    return sortedReps.map(r => r.avgStartMinutes!);
-  }, [sortedReps]);
-
   const timeMarkers = [
     { mins: 7 * 60, label: '7a' },
     { mins: 9 * 60, label: '9a' },
@@ -87,17 +92,6 @@ export const RepTimesDrawer = ({
     { mins: 21 * 60, label: '9p' },
   ];
 
-  // Compute the 25th/75th percentile labels for the legend
-  const legendLabels = useMemo(() => {
-    if (allStartMinutes.length < 3) return { early: 'Early', late: 'Late' };
-    const sorted = [...allStartMinutes].sort((a, b) => a - b);
-    const p25 = sorted[Math.floor(sorted.length * 0.25)];
-    const p75 = sorted[Math.floor(sorted.length * 0.75)];
-    return {
-      early: `Before ${minutesToTimeLabel(p25)}`,
-      late: `After ${minutesToTimeLabel(p75)}`,
-    };
-  }, [allStartMinutes]);
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -162,10 +156,12 @@ export const RepTimesDrawer = ({
                 : Math.min(startPct + 20, 100);
               const widthPct = Math.max(endPct - startPct, 2);
 
-              // Percentile-based color coding relative to the group
-              const classification = getStartTimeClassification(
+              // Classify hustle based on start + end relative to team averages
+              const classification = getHustleClassification(
                 rep.avgStartMinutes!,
-                allStartMinutes
+                rep.avgEndMinutes,
+                teamAvgStartMinutes,
+                teamAvgEndMinutes,
               );
 
               return (
@@ -200,9 +196,9 @@ export const RepTimesDrawer = ({
                     <div
                       className={cn(
                         "absolute top-0.5 bottom-0.5 rounded-full transition-all",
-                        classification === 'early' && "bg-green-500/70",
-                        classification === 'late' && "bg-orange-500/70",
-                        classification === 'normal' && "bg-primary/60"
+                        classification === 'hustler' && "bg-green-500/70",
+                        classification === 'behind' && "bg-orange-500/70",
+                        classification === 'mixed' && "bg-primary/60"
                       )}
                       style={{
                         left: `${startPct}%`,
@@ -235,15 +231,15 @@ export const RepTimesDrawer = ({
           <div className="flex items-center gap-4 text-[10px] text-muted-foreground justify-center pt-2 border-t border-border/50">
             <div className="flex items-center gap-1">
               <div className="w-3 h-2 rounded-full bg-green-500/70" />
-              <span>Top 25%</span>
+              <span>Hustler</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-3 h-2 rounded-full bg-primary/60" />
-              <span>Middle</span>
+              <span>Mixed</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-3 h-2 rounded-full bg-orange-500/70" />
-              <span>Bottom 25%</span>
+              <span>Behind</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-px h-3 bg-muted-foreground/30" />
