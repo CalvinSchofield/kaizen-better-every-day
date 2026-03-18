@@ -265,6 +265,7 @@ export const RepDayActivityFlow = ({
   workEndTime,
   isFinalized,
   breakPeriods,
+  repTimezone,
 }: RepDayActivityFlowProps) => {
   // Parse all events
   const events = useMemo(() => {
