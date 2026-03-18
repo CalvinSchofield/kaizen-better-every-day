@@ -109,6 +109,7 @@ export const PulseHero = ({
   avgStartTime, avgEndTime, activeHours,
   activeReps, workingCount, isLiveView,
   teamBaseline, periodLabel, isLoading, onWorkingClick,
+  onAvgStartClick,
 }: PulseHeroProps) => {
   if (isLoading) {
     return (
