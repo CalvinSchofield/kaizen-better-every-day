@@ -22,6 +22,7 @@ import { WorkingRepsDrawer } from "@/components/reports/v2/WorkingRepsDrawer";
 import { GoalPaceDrawer } from "@/components/reports/v2/GoalPaceDrawer";
 import { GoalPaceSection } from "@/components/reports/v2/GoalPaceSection";
 import { RepTimesDrawer } from "@/components/reports/v2/RepTimesDrawer";
+import { DealAnalyticsDrawer } from "@/components/reports/v2/DealAnalyticsDrawer";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,7 @@ export const ReportsV2Page = () => {
   const [showWorkingDrawer, setShowWorkingDrawer] = useState(false);
   const [showGoalPaceDrawer, setShowGoalPaceDrawer] = useState(false);
   const [showTimeDrawer, setShowTimeDrawer] = useState(false);
+  const [showDealDrawer, setShowDealDrawer] = useState(false);
   
   // Get team access
   const { data: teamAccess, isLoading: accessLoading, error: teamAccessError, refetch: refetchTeamAccess, wasLeader } = useTeamAccess();
@@ -374,6 +376,7 @@ export const ReportsV2Page = () => {
         isLoading={isLoading}
         onWorkingClick={() => setShowWorkingDrawer(true)}
         onAvgStartClick={() => setShowTimeDrawer(true)}
+        onFpClick={() => setShowDealDrawer(true)}
       />
 
       {/* Goal Pace Section */}
@@ -508,6 +511,15 @@ export const ReportsV2Page = () => {
         teamAvgStartMinutes={teamAvgStartMinutes}
         teamAvgEndMinutes={teamAvgEndMinutes}
         onRepClick={handleRepClick}
+      />
+
+      <DealAnalyticsDrawer
+        open={showDealDrawer}
+        onOpenChange={setShowDealDrawer}
+        userIds={filteredUserIds}
+        dateRange={dateRange}
+        totalFP={totalFP}
+        totalPRMR={totalPRMR}
       />
 
       <ReportsDateRangeSheet
