@@ -27,6 +27,15 @@ const STATUS_CONFIG = {
   needs_planning: { label: 'Plan Days', icon: Calendar, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/30' },
 };
 
+type SortOption = 'urgency' | 'pace' | 'ytd' | 'name';
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'urgency', label: 'Urgency' },
+  { value: 'pace', label: 'Pace %' },
+  { value: 'ytd', label: 'YTD' },
+  { value: 'name', label: 'Name' },
+];
+
 const TIER_ORDER: GoalTier[] = ['preseason', 'mustDo', 'willDo', 'couldDo'];
 
 const FilterChip = ({ active, onClick, label, colorClass }: { active: boolean; onClick: () => void; label: string; colorClass?: string }) => (
