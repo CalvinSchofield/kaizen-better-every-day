@@ -340,27 +340,82 @@ const TrackWithLayout = () => {
   // useDailyEntry.ts which checks server state + last_reset_at before pushing.
   // Having two handlers caused race conditions and premature backup clearing.
 
-  // Sync status tracking: listen for online/offline changes for UI indicator only
+  // Server-verified sync status: confirms data actually landed on the server
+  const verifyServerSync = useCallback(async () => {
+    if (!navigator.onLine) {
+      setSyncStatus('offline');
+      return;
+    }
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) return;
+      const todayDate = getTodayDate();
+      
+      const { data: serverRow, error } = await supabase
+        .from('daily_entries')
+        .select('doors_knocked, decision_makers, pitches, transitions, presentations, closes, updated_at')
+        .eq('user_id', userId)
+        .eq('entry_date', todayDate)
+        .maybeSingle();
+      
+      if (error) {
+        console.warn('[TrackSync] Server verify failed:', error.message);
+        setSyncStatus('error');
+        return;
+      }
+      
+      if (!serverRow) {
+        // No server row yet — if we have local activity, it hasn't synced
+        const localTotal = (entry.doors_knocked || 0) + (entry.decision_makers || 0) + 
+                          (entry.pitches || 0) + (entry.transitions || 0) + 
+                          (entry.presentations || 0) + (entry.closes || 0);
+        setSyncStatus(localTotal > 0 ? 'pending' : 'synced');
+        return;
+      }
+      
+      const serverTotal = (serverRow.doors_knocked || 0) + (serverRow.decision_makers || 0) + 
+                          (serverRow.pitches || 0) + (serverRow.transitions || 0) + 
+                          (serverRow.presentations || 0) + (serverRow.closes || 0);
+      const localTotal = (entry.doors_knocked || 0) + (entry.decision_makers || 0) + 
+                        (entry.pitches || 0) + (entry.transitions || 0) + 
+                        (entry.presentations || 0) + (entry.closes || 0);
+      
+      if (serverTotal >= localTotal) {
+        setSyncStatus('synced');
+      } else {
+        console.warn('[TrackSync] Server behind local:', { serverTotal, localTotal });
+        setSyncStatus('pending');
+      }
+    } catch {
+      setSyncStatus('error');
+    }
+  }, [entry]);
+
+  // Sync status tracking: listen for online/offline changes + periodic server verification
   useEffect(() => {
     const handleOnline = () => {
-      setSyncStatus((prev) => {
-        if (prev === 'offline' || prev === 'error') return 'pending';
-        return prev;
-      });
-      // Auto-resolve after useDailyEntry's handler has time to complete
-      setTimeout(() => {
-        setSyncStatus((prev) => prev === 'pending' ? 'synced' : prev);
-      }, 5000);
+      setSyncStatus('pending');
+      // Verify after reconnect sync has time to complete
+      setTimeout(verifyServerSync, 3000);
     };
     const handleOffline = () => setSyncStatus('offline');
     
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    
+    // Periodic server verification every 30 seconds when online
+    const interval = setInterval(() => {
+      if (navigator.onLine && !entry.is_finalized) {
+        verifyServerSync();
+      }
+    }, 30000);
+    
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearInterval(interval);
     };
-  }, []);
+  }, [verifyServerSync, entry.is_finalized]);
 
   // Handle save button click - check if before sunset
   const handleSaveButtonClick = () => {
