@@ -45,6 +45,27 @@ type RepGoalsLike = {
   setup_complete: boolean | null;
 };
 
+export interface TierGoalProgress {
+  goal: number;
+  progress: number;
+  percent: number;
+}
+
+export interface EnhancedGoalPaceResult {
+  userId: string;
+  name: string;
+  phone?: string | null;
+  status: 'on_pace' | 'at_risk' | 'behind' | 'no_goals';
+  focusTier: 'preseason' | 'mustDo' | 'willDo' | 'couldDo' | null;
+  allGoals: Partial<Record<'preseason' | 'mustDo' | 'willDo' | 'couldDo', TierGoalProgress>>;
+  ytdFP: number;
+  futurePlannedDays: number;
+  needsPlanning: boolean;
+  dailyNeeded: number;
+  userDailyAvg: number;
+  activeGoal: number;
+}
+
 const hasConfiguredGoals = (g: RepGoalsLike | undefined | null): boolean => {
   if (!g) return false;
   if (g.setup_complete === true) return true;
