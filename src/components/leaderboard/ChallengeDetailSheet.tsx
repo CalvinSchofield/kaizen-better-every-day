@@ -38,22 +38,29 @@ const getRoleLabel = (role: string, team?: string | null) => {
   return 'Participant';
 };
 
-// ESPN-style completed matchup hero for 1v1
+// ESPN-style completed matchup hero for 1v1 — winner emphasis
 const CompletedMatchupHero = ({ challenge, currentUserId, onClose }: { challenge: Challenge; currentUserId?: string; onClose: () => void }) => {
   const participants = challenge.participants || [];
-  const p1 = participants[0];
-  const p2 = participants[1];
-  if (!p1 || !p2) return null;
+  if (participants.length < 2) return null;
 
-  const p1Value = p1.final_value ?? 0;
-  const p2Value = p2.final_value ?? 0;
-  const isP1Winner = challenge.winner_user_id === p1.user_id;
-  const isP2Winner = challenge.winner_user_id === p2.user_id;
   const isTie = challenge.is_tie && !challenge.tiebreaker_winner_id;
   const config = metricConfig[challenge.metric];
 
+  // Always put winner on left
+  const winner = participants.find(p => p.user_id === challenge.winner_user_id);
+  const loser = participants.find(p => p.user_id !== challenge.winner_user_id);
+  // Fallback if no winner (tie)
+  const left = winner || participants[0];
+  const right = loser || participants[1];
+  const leftValue = left.final_value ?? 0;
+  const rightValue = right.final_value ?? 0;
+
   const userWon = currentUserId && challenge.winner_user_id === currentUserId;
   const userLost = currentUserId && challenge.winner_user_id && challenge.winner_user_id !== currentUserId && participants.some(p => p.user_id === currentUserId);
+
+  const total = leftValue + rightValue;
+  const leftPercent = total > 0 ? (leftValue / total) * 100 : 50;
+  const margin = Math.abs(leftValue - rightValue);
 
   return (
     <motion.div
@@ -77,97 +84,99 @@ const CompletedMatchupHero = ({ challenge, currentUserId, onClose }: { challenge
         </motion.div>
       )}
 
-      {/* Hero matchup */}
+      {/* Hero matchup — winner emphasized */}
       <div className="flex items-center justify-around">
-        {[p1, p2].map((p, i) => {
-          const isWinner = i === 0 ? isP1Winner : isP2Winner;
-          const value = i === 0 ? p1Value : p2Value;
-          return (
-            <motion.div
-              key={p.user_id}
-              initial={{ opacity: 0, x: i === 0 ? -30 : 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 + i * 0.1, type: "spring", stiffness: 300 }}
-              className="text-center"
-            >
-              <div className="relative inline-block">
-                {isWinner && (
-                  <motion.div
-                    initial={{ scale: 0, y: 10 }}
-                    animate={{ scale: 1, y: 0 }}
-                    transition={{ delay: 0.3, type: "spring" }}
-                    className="absolute -top-3 left-1/2 -translate-x-1/2 z-10"
-                  >
-                    <Crown className="h-6 w-6 text-amber-500 fill-amber-500" />
-                  </motion.div>
-                )}
-                <ProfileAvatar
-                  userId={p.user_id}
-                  name={p.rep_name}
-                  photoUrl={p.profile_photo_url}
-                  onBeforeNavigate={onClose}
-                  className={cn(
-                    "h-18 w-18 border-3",
-                    isWinner ? "border-amber-500 ring-2 ring-amber-500/30" : "border-border"
-                  )}
-                  fallbackClassName="text-xl font-bold"
-                />
-              </div>
-              <p className="font-semibold mt-2 text-sm">{getCleanFirstName(p.rep_name)}</p>
-              <motion.p
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                className={cn(
-                  "text-2xl font-bold mt-0.5",
-                  isWinner ? "text-primary" : "text-foreground"
-                )}
+        {/* Winner / Left */}
+        <motion.div
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+          className="text-center"
+        >
+          <div className="relative inline-block">
+            {winner && (
+              <motion.div
+                initial={{ scale: 0, y: 10 }}
+                animate={{ scale: 1, y: 0 }}
+                transition={{ delay: 0.3, type: "spring" }}
+                className="absolute -top-4 left-1/2 -translate-x-1/2 z-10"
               >
-                {config.format(value)}
-              </motion.p>
-            </motion.div>
-          );
-        })}
+                <Crown className="h-7 w-7 text-amber-500 fill-amber-500" />
+              </motion.div>
+            )}
+            <ProfileAvatar
+              userId={left.user_id}
+              name={left.rep_name}
+              photoUrl={left.profile_photo_url}
+              onBeforeNavigate={onClose}
+              className={cn(
+                "h-20 w-20 border-3",
+                winner ? "border-amber-500 ring-2 ring-amber-500/30 shadow-lg shadow-amber-500/20" : "border-border"
+              )}
+              fallbackClassName="text-2xl font-bold"
+            />
+          </div>
+          <p className="font-semibold mt-2 text-sm">{getCleanFirstName(left.rep_name)}</p>
+          <motion.p
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            className="text-2xl font-bold mt-0.5 text-primary"
+          >
+            {config.format(leftValue)}
+          </motion.p>
+        </motion.div>
+
+        {/* VS divider */}
+        <span className="text-xs font-bold text-muted-foreground/50 uppercase">vs</span>
+
+        {/* Loser / Right — smaller, slightly dimmed */}
+        <motion.div
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
+          className="text-center opacity-75"
+        >
+          <div className="relative inline-block">
+            <ProfileAvatar
+              userId={right.user_id}
+              name={right.rep_name}
+              photoUrl={right.profile_photo_url}
+              onBeforeNavigate={onClose}
+              className="h-14 w-14 border-2 border-border"
+              fallbackClassName="text-base font-bold"
+            />
+          </div>
+          <p className="font-medium mt-2 text-xs text-muted-foreground">{getCleanFirstName(right.rep_name)}</p>
+          <motion.p
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            className="text-xl font-bold mt-0.5 text-foreground"
+          >
+            {config.format(rightValue)}
+          </motion.p>
+        </motion.div>
       </div>
 
       {/* Score comparison bar */}
-      {(p1Value > 0 || p2Value > 0) && (() => {
-        const total = p1Value + p2Value;
-        const leftPercent = total > 0 ? (p1Value / total) * 100 : 50;
-        const margin = Math.abs(p1Value - p2Value);
-        const leaderName = p1Value >= p2Value ? getCleanFirstName(p1.rep_name) : getCleanFirstName(p2.rep_name);
-
-        return (
-          <div className="space-y-2">
+      {(leftValue > 0 || rightValue > 0) && (
+        <div className="space-y-2">
+          <motion.div
+            initial={{ opacity: 0, scaleX: 0.8 }}
+            animate={{ opacity: 1, scaleX: 1 }}
+            className="relative h-3 rounded-full overflow-hidden bg-muted"
+          >
             <motion.div
-              initial={{ opacity: 0, scaleX: 0.8 }}
-              animate={{ opacity: 1, scaleX: 1 }}
-              className="relative h-4 rounded-full overflow-hidden bg-gradient-to-r from-primary/20 via-muted to-foreground/20"
-            >
-              <motion.div
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/80"
-                initial={{ width: "50%" }}
-                animate={{ width: `${leftPercent}%` }}
-                transition={{ duration: 0.6 }}
-              />
-              <motion.div
-                className="absolute inset-y-0 right-0 bg-gradient-to-l from-foreground/60 to-foreground/40"
-                initial={{ width: "50%" }}
-                animate={{ width: `${100 - leftPercent}%` }}
-                transition={{ duration: 0.6 }}
-              />
-              <motion.div
-                className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-lg border-2 border-foreground/20"
-                initial={{ left: "calc(50% - 10px)" }}
-                animate={{ left: `calc(${leftPercent}% - 10px)` }}
-                transition={{ duration: 0.6 }}
-              />
-            </motion.div>
-            <p className="text-sm text-center text-muted-foreground">
-              {isTie ? "Tied!" : `${leaderName} won by ${config.format(margin)}`}
-            </p>
-          </div>
-        );
-      })()}
+              className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/80 rounded-full"
+              initial={{ width: "50%" }}
+              animate={{ width: `${leftPercent}%` }}
+              transition={{ duration: 0.6 }}
+            />
+          </motion.div>
+          <p className="text-xs text-center text-muted-foreground">
+            {isTie ? "Tied!" : `Won by ${config.format(margin)}`}
+          </p>
+        </div>
+      )}
     </motion.div>
   );
 };
