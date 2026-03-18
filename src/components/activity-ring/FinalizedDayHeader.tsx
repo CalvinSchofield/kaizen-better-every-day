@@ -1,14 +1,18 @@
 import { motion } from "framer-motion";
 import { CheckCircle2, Clock } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { formatTimeInTz } from "@/utils/timezoneUtils";
 
 interface FinalizedDayHeaderProps {
   workStart?: string | null;
   workEnd?: string | null;
   entryDate?: string;
+  timezone?: string | null;
 }
 
-const formatTime = (isoString: string): string => {
+const formatTime = (isoString: string, timezone?: string | null): string => {
+  const tz = formatTimeInTz(isoString, timezone);
+  if (tz) return tz;
   try {
     return format(parseISO(isoString), "h:mm a");
   } catch {

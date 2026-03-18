@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { AlertTriangle, Clock, TrendingDown, Target, Lightbulb, Coffee } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getTimeInTimezone, formatTimeInTz } from "@/utils/timezoneUtils";
 
 interface CoachingInsight {
   type: 'warning' | 'info' | 'success';

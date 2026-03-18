@@ -41,11 +41,12 @@ const EVENT_CONFIG: Record<string, { icon: any; color: string; label: string }> 
   end: { icon: Square, color: 'text-muted-foreground bg-muted', label: 'Ended' },
 };
 
-const formatTimeOnly = (date: Date): string => {
+const formatTimeOnly = (date: Date, timezone?: string | null): string => {
   return date.toLocaleTimeString('en-US', { 
     hour: 'numeric', 
     minute: '2-digit', 
-    hour12: true 
+    hour12: true,
+    ...(timezone ? { timeZone: timezone } : {}),
   });
 };
 

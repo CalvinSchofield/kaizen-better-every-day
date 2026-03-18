@@ -221,10 +221,8 @@ export const ReportsV2Page = () => {
       .map(r => {
         // workStartTime is ISO, avgStartTime is "h:mm AM/PM"
         if (r.workStartTime) {
-          try {
-            const d = new Date(r.workStartTime);
-            if (!isNaN(d.getTime())) return d.getHours() * 60 + d.getMinutes();
-          } catch {}
+          const mins = isoToMinutesInTimezone(r.workStartTime, r.timezone);
+          if (mins !== null) return mins;
         }
         if (r.avgStartTime) return parseFormattedTime(r.avgStartTime);
         return null;
@@ -246,17 +244,11 @@ export const ReportsV2Page = () => {
       let startMins: number | null = null;
       let endMins: number | null = null;
       if (r.workStartTime) {
-        try {
-          const d = new Date(r.workStartTime);
-          if (!isNaN(d.getTime())) startMins = d.getHours() * 60 + d.getMinutes();
-        } catch {}
+        startMins = isoToMinutesInTimezone(r.workStartTime, r.timezone);
       }
       if (!startMins && r.avgStartTime) startMins = parseFormattedTime(r.avgStartTime);
       if (r.workEndTime) {
-        try {
-          const d = new Date(r.workEndTime);
-          if (!isNaN(d.getTime())) endMins = d.getHours() * 60 + d.getMinutes();
-        } catch {}
+        endMins = isoToMinutesInTimezone(r.workEndTime, r.timezone);
       }
       if (!endMins && r.avgEndTime) endMins = parseFormattedTime(r.avgEndTime);
       return {
