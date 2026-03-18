@@ -163,7 +163,8 @@ const formatDuration = (minutes: number): string => {
 // This shows the journey: door → DM → pitch → transition → presentation → close → sale
 const getSaleFunnelPath = (
   events: TimelineEvent[], 
-  saleIdx: number
+  saleIdx: number,
+  tz?: string
 ): { funnelEvents: Array<{ event: TimelineEvent; time: string }>; duration: number } | null => {
   const saleEvent = events[saleIdx];
   const saleTime = saleEvent.timestamp.getTime();
