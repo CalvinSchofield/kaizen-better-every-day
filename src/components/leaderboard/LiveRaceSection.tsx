@@ -202,7 +202,7 @@ export const LiveRaceSection = ({ currentUserId, filterByYear }: LiveRaceSection
       </div>
 
       {/* Race List */}
-      <div className="max-h-[400px] overflow-y-auto">
+      <div className="max-h-[400px] overflow-y-auto overflow-x-hidden">
         <AnimatePresence mode="popLayout">
           {rankings.map((entry, index) => {
             const isCurrentUser = entry.userId === currentUserId;
