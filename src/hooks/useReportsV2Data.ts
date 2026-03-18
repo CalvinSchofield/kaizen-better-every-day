@@ -626,6 +626,8 @@ export const useReportsV2Data = ({
           presentations: totals.presentations,
           closes: totals.closes,
         },
+        dailyTrend: [],
+        hourlyActivity: { doors: {}, pitches: {}, transitions: {}, presentations: {}, closes: {} },
       };
     }
     
