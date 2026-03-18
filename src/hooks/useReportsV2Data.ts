@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays } from "date-fns";
+import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { useTeamLiveData } from "./useTeamLiveData";
 import { useTeamInsightsData } from "./useTeamInsightsData";
 import { 
@@ -263,7 +264,7 @@ export const useReportsV2Data = ({
       // Fetch rep names for goals
       const { data: reps, error: repsError } = await supabase
         .from('reps')
-        .select('user_id, name, phone')
+        .select('user_id, name, phone, stage')
         .in('user_id', userIds);
 
       if (repsError) throw repsError;
@@ -277,13 +278,13 @@ export const useReportsV2Data = ({
 
       if (ytdError) throw ytdError;
 
-      // Fetch all planned work days for proper daily goal calculation
-      const { data: allPlannedDays, error: plannedError } = await supabase
-        .from('planned_work_days')
-        .select('user_id, planned_date')
-        .in('user_id', userIds);
-
-      if (plannedError) throw plannedError;
+      // Fetch all planned work days via edge function (bypasses RLS for downline)
+      const session = (await supabase.auth.getSession()).data.session;
+      const { data: plannedResult, error: plannedError } = await supabase.functions.invoke('fetch-downline-planned-days', {
+        body: { userIds },
+      });
+      const allPlannedDays: { user_id: string; planned_date: string }[] = plannedResult?.plannedDays || [];
+      if (plannedError) console.warn('Failed to fetch downline planned days:', plannedError);
 
       // Fetch season_config for personal_summer_start
       const { data: seasonConfigs, error: configError } = await supabase
@@ -1019,6 +1020,8 @@ export const useReportsV2Data = ({
     for (const userId of userIds) {
       const rep = repsMap.get(userId);
       if (!rep) continue;
+      // Only show active selling reps (Signed, Shadow, Sold, Sold 5+)
+      if (!isStageIn((rep as any).stage, [...SIGNED_PLUS_STAGES])) continue;
 
       const goal = goalsMap.get(userId) as RepGoalsLike | undefined;
       const ytdFP = ytdFpMap.get(userId) || 0;

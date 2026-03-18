@@ -47,6 +47,11 @@ const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepCl
   const StatusIcon = statusConfig.icon;
   const tiers = TIER_ORDER.filter(t => rep.allGoals[t]);
 
+  // Calculate pace percentage: avg / needed
+  const pacePercent = rep.dailyNeeded > 0 ? Math.round((rep.userDailyAvg / rep.dailyNeeded) * 100) : (rep.userDailyAvg > 0 ? 999 : 0);
+  const isAheadOfPace = rep.userDailyAvg >= rep.dailyNeeded;
+  const isCriticallyBehind = pacePercent < 70 && rep.dailyNeeded > 0;
+
   return (
     <div
       className={cn(
@@ -56,8 +61,8 @@ const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepCl
       )}
       onClick={() => onRepClick?.(rep.userId)}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2">
+      {/* Header with pace badge */}
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Avatar className="h-8 w-8">
             <AvatarFallback className="text-xs bg-primary/10 text-primary">
@@ -75,47 +80,83 @@ const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepCl
             )}
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <StatusIcon className={cn("w-4 h-4", statusConfig.color)} />
+        <div className="flex items-center gap-2">
+          {/* Prominent pace percentage badge */}
+          {rep.dailyNeeded > 0 && (
+            <div className={cn(
+              "px-2.5 py-1 rounded-full text-xs font-bold",
+              isAheadOfPace 
+                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" 
+                : isCriticallyBehind
+                  ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                  : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+            )}>
+              {Math.min(pacePercent, 999)}% pace
+            </div>
+          )}
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50" />
         </div>
       </div>
 
-      {/* Pace context */}
-      <div className="flex items-baseline gap-4 mb-3 px-1">
-        <div>
-          <span className="text-[10px] text-muted-foreground">Avg</span>
-          <div className="text-sm font-bold">{rep.userDailyAvg.toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal">/day</span></div>
-        </div>
-        <div>
-          <span className="text-[10px] text-muted-foreground">Need</span>
+      {/* Prominent Avg vs Need comparison */}
+      <div className="flex items-center gap-2 mb-3 px-1">
+        <div className="flex-1 text-center p-2 rounded-lg bg-background/60">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Avg</span>
           <div className={cn(
-            "text-sm font-bold",
-            rep.dailyNeeded > rep.userDailyAvg * 1.2 ? "text-red-600 dark:text-red-400" : "text-foreground"
+            "text-lg font-bold leading-tight",
+            isAheadOfPace ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
           )}>
-            {rep.dailyNeeded.toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal">/day</span>
+            {rep.userDailyAvg.toFixed(1)}
           </div>
+          <span className="text-[10px] text-muted-foreground">/day</span>
         </div>
-        <div>
-          <span className="text-[10px] text-muted-foreground">YTD</span>
-          <div className="text-sm font-bold">{rep.ytdFP.toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal"> FP+</span></div>
+        
+        <div className={cn(
+          "text-xs font-bold px-1",
+          isAheadOfPace ? "text-emerald-500" : isCriticallyBehind ? "text-red-500" : "text-amber-500"
+        )}>
+          vs
+        </div>
+        
+        <div className="flex-1 text-center p-2 rounded-lg bg-background/60">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Need</span>
+          <div className={cn(
+            "text-lg font-bold leading-tight",
+            isCriticallyBehind ? "text-red-600 dark:text-red-400" : 
+            !isAheadOfPace ? "text-amber-600 dark:text-amber-400" : "text-foreground"
+          )}>
+            {rep.dailyNeeded.toFixed(1)}
+          </div>
+          <span className="text-[10px] text-muted-foreground">/day</span>
+        </div>
+        
+        <div className="flex-1 text-center p-2 rounded-lg bg-background/60">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">YTD</span>
+          <div className="text-lg font-bold leading-tight">
+            {rep.ytdFP.toFixed(1)}
+          </div>
+          <span className="text-[10px] text-muted-foreground">FP+</span>
         </div>
       </div>
 
-      {/* Multi-tier progress bars */}
+      {/* Multi-tier progress bars with expected pace marker */}
       {tiers.length > 0 && (
         <div className="space-y-1.5">
           {tiers.map(tier => {
             const tierData = rep.allGoals[tier]!;
             const config = GOAL_TIER_CONFIG[tier];
             const isFocus = tier === rep.focusTier;
+            // Expected pace position (based on time elapsed in season)
+            const expectedPacePercent = isFocus && rep.activeGoal > 0
+              ? Math.min(100, ((rep.activeGoal - (rep.dailyNeeded * (rep.activeGoal > rep.ytdFP ? 1 : 0))) / rep.activeGoal) * 100)
+              : null;
 
             return (
               <div key={tier} className="flex items-center gap-2">
                 <span className={cn("text-[10px] w-14 text-right font-medium", isFocus ? config.color : "text-muted-foreground")}>
                   {config.shortLabel}
                 </span>
-                <div className="flex-1 relative h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                <div className={cn("flex-1 relative rounded-full overflow-hidden", isFocus ? "h-2.5" : "h-1.5", "bg-muted/50")}>
                   <div
                     className={cn(
                       "absolute inset-y-0 left-0 rounded-full transition-all",
@@ -123,6 +164,13 @@ const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepCl
                     )}
                     style={{ width: `${tierData.percent}%` }}
                   />
+                  {/* Expected pace marker on focus tier */}
+                  {isFocus && expectedPacePercent !== null && (
+                    <div 
+                      className="absolute top-0 bottom-0 w-0.5 bg-foreground/50 z-10"
+                      style={{ left: `${Math.min(expectedPacePercent, 100)}%` }}
+                    />
+                  )}
                 </div>
                 <span className={cn("text-[10px] w-10 font-medium", isFocus ? config.color : "text-muted-foreground")}>
                   {Math.round(tierData.percent)}%
