@@ -903,7 +903,7 @@ export const LogSaleSheet = ({
             <Button
               onClick={handleSubmit}
               className="w-full h-12 text-base font-semibold"
-              disabled={!prmr || parseFloat(prmr) <= 0}
+              disabled={!isFormValid()}
             >
               {isEditing ? "Update Sale" : "Log Sale"}
             </Button>
