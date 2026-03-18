@@ -1563,6 +1563,10 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
       };
       // ==================== END BEST PERIODS CALCULATIONS ====================
 
+      // ==================== ALL-TIME GROUP RECORDS ====================
+      const allTimeGroupRecords = computeAllTimeGroupRecords(allEntries as any);
+      // ==================== END ALL-TIME GROUP RECORDS ====================
+
       // Calculate averages from sales_log
       const avgPrmrPerFp = totals.fpCount > 0 ? totals.fpPrmrTotal / totals.fpCount : 0;
       const avgPrmrPerUpgrade = totals.upgradeCount > 0 ? totals.upgradePrmrTotal / totals.upgradeCount : 0;
