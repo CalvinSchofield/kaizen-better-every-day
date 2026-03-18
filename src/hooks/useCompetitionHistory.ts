@@ -299,7 +299,12 @@ export const useCompetitionHistory = () => {
 
         // Check if user won
         const winnerIds = Array.isArray(i.winner_user_ids) ? i.winner_user_ids : [];
-        if (i.winner_user_id === user.id || winnerIds.includes(user.id)) {
+        if (i.target_type === 'group_total') {
+          const groupTotal = (i.eligible_reps || []).reduce((sum: number, r: any) => sum + (r.final_value || 0), 0);
+          if (groupTotal >= (i.target_value || 0)) {
+            group.stats.incentivesWon++;
+          }
+        } else if (i.winner_user_id === user.id || winnerIds.includes(user.id)) {
           group.stats.incentivesWon++;
         }
       });
