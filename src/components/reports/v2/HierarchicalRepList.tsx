@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { formatInTimeZone } from "date-fns-tz";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -19,6 +20,7 @@ interface RepData {
   workEndTime?: string;
   avgStartTime?: string;
   avgEndTime?: string;
+  timezone?: string;
   hoursWorked: number;
   doors: number;
   transitions: number;
@@ -227,11 +229,17 @@ export const HierarchicalRepList = ({
   };
 
   const RepRow = ({ rep }: { rep: RepData }) => {
+    const formatInRepTz = (isoStr: string) => {
+      if (rep.timezone) {
+        try { return formatInTimeZone(new Date(isoStr), rep.timezone, 'h:mm a'); } catch {}
+      }
+      return new Date(isoStr).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    };
     const displayTime = isLiveView 
-      ? (rep.workStartTime ? new Date(rep.workStartTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '—')
+      ? (rep.workStartTime ? formatInRepTz(rep.workStartTime) : '—')
       : (rep.avgStartTime || '—');
     const displayEndTime = isLiveView
-      ? (rep.workEndTime ? new Date(rep.workEndTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null)
+      ? (rep.workEndTime ? formatInRepTz(rep.workEndTime) : null)
       : (rep.avgEndTime || null);
     
     return (

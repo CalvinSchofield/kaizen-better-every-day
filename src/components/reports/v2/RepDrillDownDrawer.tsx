@@ -623,6 +623,7 @@ export const RepDrillDownDrawer = ({
           workStart={workStart}
           workEnd={workEnd}
           totalWorkMinutes={totalWorkMinutes}
+          repTimezone={extendedData?.timezone || undefined}
         />
         
         {/* Sales Log Drawer */}

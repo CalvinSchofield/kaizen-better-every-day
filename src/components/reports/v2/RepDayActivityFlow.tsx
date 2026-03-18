@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { formatInTimeZone } from "date-fns-tz";
 import { cn } from "@/lib/utils";
 import { 
   DoorOpen, 
@@ -59,6 +60,7 @@ interface RepDayActivityFlowProps {
   workEndTime?: string;
   isFinalized?: boolean;
   breakPeriods?: BreakPeriod[];
+  repTimezone?: string;
 }
 
 const EVENT_CONFIG: Record<string, { 
@@ -137,7 +139,10 @@ const EVENT_CONFIG: Record<string, {
 
 // TRANSITION is the key signal that rep got INTO a home
 // Presentations are also important to track separately
-const formatTimeOnly = (date: Date): string => {
+const formatTimeOnly = (date: Date, tz?: string): string => {
+  if (tz) {
+    return formatInTimeZone(date, tz, 'h:mm a');
+  }
   return date.toLocaleTimeString('en-US', { 
     hour: 'numeric', 
     minute: '2-digit', 
@@ -158,7 +163,8 @@ const formatDuration = (minutes: number): string => {
 // This shows the journey: door → DM → pitch → transition → presentation → close → sale
 const getSaleFunnelPath = (
   events: TimelineEvent[], 
-  saleIdx: number
+  saleIdx: number,
+  tz?: string
 ): { funnelEvents: Array<{ event: TimelineEvent; time: string }>; duration: number } | null => {
   const saleEvent = events[saleIdx];
   const saleTime = saleEvent.timestamp.getTime();
@@ -186,7 +192,7 @@ const getSaleFunnelPath = (
   const seenTypes = new Set<string>();
   
   // Add the door knock first
-  funnelEvents.push({ event: doorEvent, time: formatTimeOnly(doorEvent.timestamp) });
+  funnelEvents.push({ event: doorEvent, time: formatTimeOnly(doorEvent.timestamp, tz) });
   seenTypes.add('doors_knocked');
   
   // Collect events between door and sale (inclusive of sale)
@@ -194,7 +200,7 @@ const getSaleFunnelPath = (
     const event = events[i];
     // Only include funnel-relevant events, dedupe by type
     if (funnelOrder.includes(event.type) && !seenTypes.has(event.type)) {
-      funnelEvents.push({ event, time: formatTimeOnly(event.timestamp) });
+      funnelEvents.push({ event, time: formatTimeOnly(event.timestamp, tz) });
       seenTypes.add(event.type);
     }
   }
@@ -213,7 +219,8 @@ const getAdjacentEvent = (
   events: TimelineEvent[], 
   idx: number, 
   direction: 'before' | 'after',
-  currentEventType?: string
+  currentEventType?: string,
+  tz?: string
 ): { event: TimelineEvent; time: string } | null => {
   const currentEvent = events[idx];
   
@@ -235,7 +242,7 @@ const getAdjacentEvent = (
       // The door knock is what started this interaction sequence
       while (searchIdx >= 0) {
         if (events[searchIdx].type === 'doors_knocked') {
-          return { event: events[searchIdx], time: formatTimeOnly(events[searchIdx].timestamp) };
+          return { event: events[searchIdx], time: formatTimeOnly(events[searchIdx].timestamp, tz) };
         }
         searchIdx--;
       }
@@ -244,13 +251,13 @@ const getAdjacentEvent = (
     // For non-transitions or if no door found, just return the immediately preceding event
     const targetIdx = idx - 1;
     if (targetIdx < 0) return null;
-    return { event: events[targetIdx], time: formatTimeOnly(events[targetIdx].timestamp) };
+    return { event: events[targetIdx], time: formatTimeOnly(events[targetIdx].timestamp, tz) };
   }
   
   // For "after" direction, just get the next event
   const targetIdx = idx + 1;
   if (targetIdx >= events.length) return null;
-  return { event: events[targetIdx], time: formatTimeOnly(events[targetIdx].timestamp) };
+  return { event: events[targetIdx], time: formatTimeOnly(events[targetIdx].timestamp, tz) };
 };
 
 export const RepDayActivityFlow = ({
@@ -260,6 +267,7 @@ export const RepDayActivityFlow = ({
   workEndTime,
   isFinalized,
   breakPeriods,
+  repTimezone,
 }: RepDayActivityFlowProps) => {
   // Parse all events
   const events = useMemo(() => {
@@ -425,7 +433,7 @@ export const RepDayActivityFlow = ({
       if (position >= 0 && position <= 100) {
         markers.push({
           time: new Date(current),
-          label: current.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }),
+          label: repTimezone ? formatInTimeZone(current, repTimezone, 'ha') : current.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }),
           position,
         });
       }
@@ -728,7 +736,7 @@ export const RepDayActivityFlow = ({
                       ${sale.prmr || 0}
                     </div>
                     <div className="text-[10px] text-green-300/80">
-                      {formatTimeOnly(sale.timestamp)} • {sale.label === 'Upgrade' ? 'UPG' : 'FP'}
+                      {formatTimeOnly(sale.timestamp, repTimezone)} • {sale.label === 'Upgrade' ? 'UPG' : 'FP'}
                     </div>
                   </div>
                 </button>
@@ -747,7 +755,7 @@ export const RepDayActivityFlow = ({
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Time</span>
-                    <span className="text-sm font-medium">{formatTimeOnly(sale.timestamp)}</span>
+                    <span className="text-sm font-medium">{formatTimeOnly(sale.timestamp, repTimezone)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Type</span>
@@ -767,11 +775,11 @@ export const RepDayActivityFlow = ({
       <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1">
         <div className="flex items-center gap-1">
           <Play className="w-3 h-3 text-primary" />
-          <span className="font-medium">{formatTimeOnly(startTime)}</span>
+          <span className="font-medium">{formatTimeOnly(startTime, repTimezone)}</span>
         </div>
         <span className="text-muted-foreground/70">{events.length} events</span>
         <div className="flex items-center gap-1">
-          <span className="font-medium">{endTime ? formatTimeOnly(endTime) : 'Now'}</span>
+          <span className="font-medium">{endTime ? formatTimeOnly(endTime, repTimezone) : 'Now'}</span>
           {isFinalized ? (
             <Square className="w-2.5 h-2.5 text-muted-foreground" />
           ) : (
@@ -842,11 +850,11 @@ export const RepDayActivityFlow = ({
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-[11px] text-muted-foreground">Door Knocked</span>
-                      <span className="text-[11px] font-medium">{formatTimeOnly(zone.doorTime)}</span>
+                      <span className="text-[11px] font-medium">{formatTimeOnly(zone.doorTime, repTimezone)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-[11px] text-muted-foreground">{endLabel}</span>
-                      <span className="text-[11px] font-medium">{formatTimeOnly(zone.endTime)}</span>
+                      <span className="text-[11px] font-medium">{formatTimeOnly(zone.endTime, repTimezone)}</span>
                     </div>
                     {isDoorstep && (
                       <div className={cn("text-[10px] rounded px-2 py-1.5 italic mt-1", 
@@ -890,11 +898,11 @@ export const RepDayActivityFlow = ({
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] text-muted-foreground">Door Knocked</span>
-                    <span className="text-[11px] font-medium">{formatTimeOnly(convo.doorTime)}</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(convo.doorTime, repTimezone)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] text-muted-foreground">Last Activity</span>
-                    <span className="text-[11px] font-medium">{formatTimeOnly(convo.lastActivityTime)}</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(convo.lastActivityTime, repTimezone)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] text-muted-foreground">Logged</span>
@@ -935,11 +943,11 @@ export const RepDayActivityFlow = ({
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] text-muted-foreground">Started</span>
-                    <span className="text-[11px] font-medium">{formatTimeOnly(bp.startTime)}</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(bp.startTime, repTimezone)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] text-muted-foreground">Ended</span>
-                    <span className="text-[11px] font-medium">{formatTimeOnly(bp.endTime)}</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(bp.endTime, repTimezone)}</span>
                   </div>
                   <div className="text-[10px] text-amber-400 bg-amber-500/10 rounded px-2 py-1.5 italic mt-1">
                     ☕ Logged break time
@@ -999,7 +1007,7 @@ export const RepDayActivityFlow = ({
                   
                   {/* Time range */}
                   <div className="px-3 py-1.5 bg-muted/30 text-[11px] text-muted-foreground text-center">
-                    {formatTimeOnly(gap.startTime)} → {formatTimeOnly(gap.endTime)}
+                    {formatTimeOnly(gap.startTime, repTimezone)} → {formatTimeOnly(gap.endTime, repTimezone)}
                   </div>
                   
                   {/* Zoomed event sequence */}
@@ -1094,9 +1102,9 @@ export const RepDayActivityFlow = ({
             
             // For sales, get the full funnel path that led to this sale
             // For transitions, get simple before/after context
-            const saleFunnelPath = isSale ? getSaleFunnelPath(events, idx) : null;
-            const eventBefore = isTransition ? getAdjacentEvent(events, idx, 'before', event.type) : null;
-            const eventAfter = isTransition ? getAdjacentEvent(events, idx, 'after', event.type) : null;
+            const saleFunnelPath = isSale ? getSaleFunnelPath(events, idx, repTimezone) : null;
+            const eventBefore = isTransition ? getAdjacentEvent(events, idx, 'before', event.type, repTimezone) : null;
+            const eventAfter = isTransition ? getAdjacentEvent(events, idx, 'after', event.type, repTimezone) : null;
             
             // Non-interactive markers for regular events
             if (!isHighlight) {

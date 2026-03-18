@@ -21,6 +21,7 @@ import {
 import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { Sale } from "@/hooks/useDailyEntry";
 import { format, parseISO, differenceInMinutes } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { formatPRMR } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,7 @@ interface SegmentDetailDrawerProps {
   workStart: Date | null;
   workEnd: Date | null;
   totalWorkMinutes: number;
+  repTimezone?: string;
 }
 
 // Convert angle back to time
@@ -85,6 +87,7 @@ export const SegmentDetailDrawer = ({
   workStart,
   workEnd,
   totalWorkMinutes,
+  repTimezone,
 }: SegmentDetailDrawerProps) => {
   // For live/unfinalized entries, workEnd may be null — use "now" as a fallback
   const effectiveWorkEnd = workEnd || new Date();
@@ -142,7 +145,10 @@ export const SegmentDetailDrawer = ({
                   <span className="text-sm text-muted-foreground">Time</span>
                 </div>
                 <div className="text-sm font-medium tabular-nums">
-                  {format(startTime!, 'h:mm a')} – {format(endTime!, 'h:mm a')}
+                  {repTimezone 
+                    ? `${formatInTimeZone(startTime!, repTimezone, 'h:mm a')} – ${formatInTimeZone(endTime!, repTimezone, 'h:mm a')}`
+                    : `${format(startTime!, 'h:mm a')} – ${format(endTime!, 'h:mm a')}`
+                  }
                 </div>
               </div>
           
