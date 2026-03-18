@@ -102,6 +102,7 @@ export interface DailyEntry {
   timezone?: string | null;
   custom_counters?: Record<string, number>;
   sales_log?: Sale[];
+  last_reset_at?: string | null;
 }
 
 const getTodayDate = () => {
