@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { AlertTriangle, Clock, Coffee } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { parseISO, format } from "date-fns";
+import { parseISO } from "date-fns";
+import { getTimeInTimezone, formatTimeInTz } from "@/utils/timezoneUtils";
 
 interface EffortIssue {
   type: 'late_start' | 'early_end' | 'excessive_break';
@@ -14,11 +15,12 @@ interface EffortCoachingCalloutsProps {
   workStartTime?: string | null;
   workEndTime?: string | null;
   breakMinutes?: number;
-  totalBreakMinutes?: number; // Total break time from break_periods
-  dayOfWeek?: number; // 0 = Sunday, 6 = Saturday
-  repAverageStartMinutes?: number; // Rep's average start time in minutes from midnight
-  repAverageEndMinutes?: number; // Rep's average end time in minutes from midnight
+  totalBreakMinutes?: number;
+  dayOfWeek?: number;
+  repAverageStartMinutes?: number;
+  repAverageEndMinutes?: number;
   className?: string;
+  timezone?: string | null;
 }
 
 // Format minutes into natural language (e.g., "2 hours" instead of "120 min")
@@ -58,6 +60,7 @@ export const EffortCoachingCallouts = ({
   repAverageStartMinutes,
   repAverageEndMinutes,
   className,
+  timezone,
 }: EffortCoachingCalloutsProps) => {
   const issues: EffortIssue[] = [];
 
@@ -72,80 +75,78 @@ export const EffortCoachingCallouts = ({
 
   // Late Start Logic
   if (startDate) {
-    const startHour = startDate.getHours();
-    const startMinute = startDate.getMinutes();
-    const startInMinutes = startHour * 60 + startMinute;
+    const startTime = getTimeInTimezone(workStartTime!, timezone);
+    if (startTime) {
+      const startInMinutes = startTime.hours * 60 + startTime.minutes;
+      const timeLabel = formatTimeInTz(workStartTime!, timezone) || 'Unknown';
+      
+      const lateThresholdWeekday = 780;
+      const lateThresholdSaturday = 600;
+      
+      let isLate = false;
+      let lateReason = '';
+      
+      if (isWeekday && startInMinutes > lateThresholdWeekday) {
+        isLate = true;
+        const lateBy = startInMinutes - lateThresholdWeekday;
+        lateReason = `Started at ${timeLabel} (${formatDurationNatural(lateBy)} after 1pm)`;
+      } else if (isSaturday && startInMinutes > lateThresholdSaturday) {
+        isLate = true;
+        const lateBy = startInMinutes - lateThresholdSaturday;
+        lateReason = `Started at ${timeLabel} (${formatDurationNatural(lateBy)} after 10am)`;
+      } else if (repAverageStartMinutes !== undefined && startInMinutes > repAverageStartMinutes + 30) {
+        isLate = true;
+        const lateBy = startInMinutes - repAverageStartMinutes;
+        lateReason = `Started at ${timeLabel} (${formatDurationNatural(lateBy)} later than usual)`;
+      }
     
-    // Thresholds: Mon-Fri after 1pm (780 min), Sat after 10am (600 min)
-    // OR later than rep's average + 30 mins
-    const lateThresholdWeekday = 780; // 1:00 PM
-    const lateThresholdSaturday = 600; // 10:00 AM
-    
-    let isLate = false;
-    let lateReason = '';
-    
-    if (isWeekday && startInMinutes > lateThresholdWeekday) {
-      isLate = true;
-      const lateBy = startInMinutes - lateThresholdWeekday;
-      lateReason = `Started at ${format(startDate, 'h:mm a')} (${formatDurationNatural(lateBy)} after 1pm)`;
-    } else if (isSaturday && startInMinutes > lateThresholdSaturday) {
-      isLate = true;
-      const lateBy = startInMinutes - lateThresholdSaturday;
-      lateReason = `Started at ${format(startDate, 'h:mm a')} (${formatDurationNatural(lateBy)} after 10am)`;
-    } else if (repAverageStartMinutes !== undefined && startInMinutes > repAverageStartMinutes + 30) {
-      isLate = true;
-      const lateBy = startInMinutes - repAverageStartMinutes;
-      lateReason = `Started at ${format(startDate, 'h:mm a')} (${formatDurationNatural(lateBy)} later than usual)`;
-    }
-    
-    if (isLate) {
-      issues.push({
-        type: 'late_start',
-        icon: Clock,
-        message: lateReason,
-        severity: 'warning',
-      });
+      if (isLate) {
+        issues.push({
+          type: 'late_start',
+          icon: Clock,
+          message: lateReason,
+          severity: 'warning',
+        });
+      }
     }
   }
 
   // Early End Logic
   if (endDate) {
-    const endHour = endDate.getHours();
-    const endMinute = endDate.getMinutes();
-    const endInMinutes = endHour * 60 + endMinute;
-    
-    // Threshold: before 7pm (1140 min) Mon-Sat
-    // OR 30 min earlier than rep's average
-    const earlyThreshold = 1140; // 7:00 PM
-    
-    let isEarly = false;
-    let earlyReason = '';
-    
-    // Only apply early end check for Mon-Sat, and only if they worked during normal hours
-    const isWorkday = currentDayOfWeek >= 1 && currentDayOfWeek <= 6;
-    
-    if (isWorkday && endInMinutes < earlyThreshold && endInMinutes > 600) {
-      const earlyBy = earlyThreshold - endInMinutes;
-      if (earlyBy > 30) { // Only flag if more than 30 min early
-        isEarly = true;
-        earlyReason = `Ended at ${format(endDate, 'h:mm a')} (${formatDurationNatural(earlyBy)} before 7pm)`;
+    const endTime = getTimeInTimezone(workEndTime!, timezone);
+    if (endTime) {
+      const endInMinutes = endTime.hours * 60 + endTime.minutes;
+      const timeLabel = formatTimeInTz(workEndTime!, timezone) || 'Unknown';
+      
+      const earlyThreshold = 1140;
+      
+      let isEarly = false;
+      let earlyReason = '';
+      
+      const isWorkday = currentDayOfWeek >= 1 && currentDayOfWeek <= 6;
+      
+      if (isWorkday && endInMinutes < earlyThreshold && endInMinutes > 600) {
+        const earlyBy = earlyThreshold - endInMinutes;
+        if (earlyBy > 30) {
+          isEarly = true;
+          earlyReason = `Ended at ${timeLabel} (${formatDurationNatural(earlyBy)} before 7pm)`;
+        }
       }
-    }
+      
+      if (!isEarly && repAverageEndMinutes !== undefined && endInMinutes < repAverageEndMinutes - 30) {
+        const earlyBy = repAverageEndMinutes - endInMinutes;
+        isEarly = true;
+        earlyReason = `Ended at ${timeLabel} (${formatDurationNatural(earlyBy)} earlier than usual)`;
+      }
     
-    // Also check against rep's average
-    if (!isEarly && repAverageEndMinutes !== undefined && endInMinutes < repAverageEndMinutes - 30) {
-      const earlyBy = repAverageEndMinutes - endInMinutes;
-      isEarly = true;
-      earlyReason = `Ended at ${format(endDate, 'h:mm a')} (${formatDurationNatural(earlyBy)} earlier than usual)`;
-    }
-    
-    if (isEarly) {
-      issues.push({
-        type: 'early_end',
-        icon: Clock,
-        message: earlyReason,
-        severity: 'warning',
-      });
+      if (isEarly) {
+        issues.push({
+          type: 'early_end',
+          icon: Clock,
+          message: earlyReason,
+          severity: 'warning',
+        });
+      }
     }
   }
 

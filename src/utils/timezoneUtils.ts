@@ -125,3 +125,76 @@ export const getTrainingPaceStatus = (
   if (actualPercent >= expectedProgress - 0.1) return 'on-track';
   return 'behind';
 };
+
+// ============================================
+// Time display utilities for timezone-correct rendering
+// ============================================
+
+/**
+ * Get hours and minutes from an ISO timestamp in a specific timezone.
+ * This ensures times are displayed in the rep's local time, not the viewer's.
+ */
+export const getTimeInTimezone = (
+  isoString: string,
+  timezone?: string | null
+): { hours: number; minutes: number } | null => {
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return null;
+
+    if (timezone) {
+      const hourFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        hour: 'numeric',
+        hour12: false,
+      });
+      const minuteFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        minute: 'numeric',
+      });
+      const hours = parseInt(hourFormatter.format(date), 10);
+      const minutes = parseInt(minuteFormatter.format(date), 10);
+      return { hours, minutes };
+    }
+
+    return { hours: date.getHours(), minutes: date.getMinutes() };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Convert an ISO timestamp to "minutes from midnight" in a specific timezone.
+ * Used for timeline visualizations where we need a numeric position.
+ */
+export const isoToMinutesInTimezone = (
+  isoString: string,
+  timezone?: string | null
+): number | null => {
+  const time = getTimeInTimezone(isoString, timezone);
+  if (!time) return null;
+  return time.hours * 60 + time.minutes;
+};
+
+/**
+ * Format an ISO timestamp as a localized time string in a specific timezone.
+ * e.g. "2:39 PM"
+ */
+export const formatTimeInTz = (
+  isoString: string | null | undefined,
+  timezone?: string | null
+): string | null => {
+  if (!isoString) return null;
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return null;
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      ...(timezone ? { timeZone: timezone } : {}),
+    });
+  } catch {
+    return null;
+  }
+};

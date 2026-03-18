@@ -1,14 +1,18 @@
 import { motion } from "framer-motion";
 import { CheckCircle2, Clock } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { formatTimeInTz } from "@/utils/timezoneUtils";
 
 interface FinalizedDayHeaderProps {
   workStart?: string | null;
   workEnd?: string | null;
   entryDate?: string;
+  timezone?: string | null;
 }
 
-const formatTime = (isoString: string): string => {
+const formatTime = (isoString: string, timezone?: string | null): string => {
+  const tz = formatTimeInTz(isoString, timezone);
+  if (tz) return tz;
   try {
     return format(parseISO(isoString), "h:mm a");
   } catch {
@@ -20,6 +24,7 @@ export const FinalizedDayHeader = ({
   workStart,
   workEnd,
   entryDate,
+  timezone,
 }: FinalizedDayHeaderProps) => {
   const hasWorkTimes = workStart && workEnd;
   
@@ -55,7 +60,7 @@ export const FinalizedDayHeader = ({
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Clock className="w-3 h-3" />
                   <span className="tabular-nums">
-                    {formatTime(workStart)} – {formatTime(workEnd)}
+                    {formatTime(workStart, timezone)} – {formatTime(workEnd, timezone)}
                   </span>
                 </span>
               )}

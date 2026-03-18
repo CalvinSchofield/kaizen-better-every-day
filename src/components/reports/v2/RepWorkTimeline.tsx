@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Star, Clock, TrendingUp } from "lucide-react";
 import { format, parseISO, subDays } from "date-fns";
+import { formatTimeInTz } from "@/utils/timezoneUtils";
 
 interface DayActivity {
   date: string;
@@ -27,6 +28,7 @@ interface RepWorkTimelineProps {
   avgFPPerDay?: number;
   daysAboveAvg?: number;
   className?: string;
+  timezone?: string | null;
 }
 
 export const RepWorkTimeline = ({ 
@@ -34,7 +36,8 @@ export const RepWorkTimeline = ({
   avgDoorsPerDay = 0, 
   avgFPPerDay = 0,
   daysAboveAvg = 0,
-  className 
+  className,
+  timezone,
 }: RepWorkTimelineProps) => {
   // Generate last 14 days
   const last14Days = useMemo(() => {
@@ -68,6 +71,8 @@ export const RepWorkTimeline = ({
   // Format time from ISO string
   const formatTime = (isoString?: string) => {
     if (!isoString) return null;
+    const tzResult = formatTimeInTz(isoString, timezone);
+    if (tzResult) return tzResult;
     try {
       return format(parseISO(isoString), 'h:mm a');
     } catch {
