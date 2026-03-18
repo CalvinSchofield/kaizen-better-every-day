@@ -39,20 +39,30 @@ const minutesToPercent = (mins: number): number => {
 };
 
 /**
- * Classify a rep's start time relative to group using percentile bands.
- * Bottom 25% = early (green), Top 25% = late (orange), middle = normal.
+ * Classify a rep's hustle based on start AND end times relative to team averages.
+ * - 'hustler': started before avg AND ended after avg (both show hustle)
+ * - 'mixed': one of the two shows hustle
+ * - 'behind': started after avg AND ended before avg
  */
-const getStartTimeClassification = (
+const getHustleClassification = (
   startMinutes: number,
-  allStartMinutes: number[]
-): 'early' | 'normal' | 'late' => {
-  if (allStartMinutes.length < 3) return 'normal';
-  const sorted = [...allStartMinutes].sort((a, b) => a - b);
-  const p25 = sorted[Math.floor(sorted.length * 0.25)];
-  const p75 = sorted[Math.floor(sorted.length * 0.75)];
-  if (startMinutes <= p25) return 'early';
-  if (startMinutes >= p75) return 'late';
-  return 'normal';
+  endMinutes: number | null,
+  teamAvgStart: number | undefined,
+  teamAvgEnd: number | undefined,
+): 'hustler' | 'mixed' | 'behind' => {
+  if (teamAvgStart === undefined) return 'mixed';
+  
+  const startedEarly = startMinutes <= teamAvgStart;
+  const endedLate = teamAvgEnd !== undefined && endMinutes !== null && endMinutes >= teamAvgEnd;
+  
+  // If we don't have end time data, classify on start only
+  if (endMinutes === null || teamAvgEnd === undefined) {
+    return startedEarly ? 'hustler' : 'behind';
+  }
+  
+  if (startedEarly && endedLate) return 'hustler';
+  if (!startedEarly && !endedLate) return 'behind';
+  return 'mixed';
 };
 
 export const RepTimesDrawer = ({
