@@ -92,17 +92,6 @@ export const RepTimesDrawer = ({
     { mins: 21 * 60, label: '9p' },
   ];
 
-  // Compute the 25th/75th percentile labels for the legend
-  const legendLabels = useMemo(() => {
-    if (allStartMinutes.length < 3) return { early: 'Early', late: 'Late' };
-    const sorted = [...allStartMinutes].sort((a, b) => a - b);
-    const p25 = sorted[Math.floor(sorted.length * 0.25)];
-    const p75 = sorted[Math.floor(sorted.length * 0.75)];
-    return {
-      early: `Before ${minutesToTimeLabel(p25)}`,
-      late: `After ${minutesToTimeLabel(p75)}`,
-    };
-  }, [allStartMinutes]);
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
