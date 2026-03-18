@@ -164,7 +164,13 @@ export const PulseHero = ({
         <StatTile label="Pitches" value={pitches} delay={2} />
         <StatTile label="Pres" value={presentations} delay={3} />
         <StatTile label="Closes" value={closes} delay={4} />
-        <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={fpDelta} delay={5} />
+        {onFpClick ? (
+          <button onClick={onFpClick} className="active:scale-[0.96] transition-transform">
+            <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={fpDelta} delay={5} />
+          </button>
+        ) : (
+          <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={fpDelta} delay={5} />
+        )}
       </div>
 
       {/* Secondary metrics row */}
