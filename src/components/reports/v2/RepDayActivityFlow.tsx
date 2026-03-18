@@ -947,7 +947,7 @@ export const RepDayActivityFlow = ({
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] text-muted-foreground">Ended</span>
-                    <span className="text-[11px] font-medium">{formatTimeOnly(bp.endTime)}</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(bp.endTime, repTimezone)}</span>
                   </div>
                   <div className="text-[10px] text-amber-400 bg-amber-500/10 rounded px-2 py-1.5 italic mt-1">
                     ☕ Logged break time
