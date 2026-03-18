@@ -17,7 +17,7 @@ import { useGoalPaceCalculatorForUser } from "@/hooks/useGoalPaceCalculatorForUs
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { getInitials } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { format, parseISO } from "date-fns";
 import { ChevronLeft } from "lucide-react";
 
@@ -47,14 +47,38 @@ const Profile = () => {
   const navigate = useNavigate();
   const { userId: currentUserId } = useCurrentUserId();
   const [photoDrawerOpen, setPhotoDrawerOpen] = useState(false);
-  const { setCustomRightContent, setCustomLeftContent } = useHeader();
+  const { setCustomRightContent, setCustomLeftContent, setCustomTitle } = useHeader();
   const isOwnProfile = currentUserId === userId;
+  const [hasScrolledPastName, setHasScrolledPastName] = useState(false);
+  const nameRef = useRef<HTMLDivElement>(null);
   const { isWatching, toggleWatchlist } = useWatchlist();
 
   const { data: profile, isLoading } = useRepProfile(userId || currentUserId || null);
   const { data: teamAccess } = useTeamAccess();
   const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
   const downlineGoalPace = useGoalPaceCalculatorForUser(isDownline ? userId : null);
+
+  // Scroll-based header title: show rep name when scrolled past the name
+  useEffect(() => {
+    if (!nameRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHasScrolledPastName(!entry.isIntersecting);
+      },
+      { threshold: 0, rootMargin: "-60px 0px 0px 0px" }
+    );
+    observer.observe(nameRef.current);
+    return () => observer.disconnect();
+  }, [profile?.name]);
+
+  // Update header title based on scroll
+  useEffect(() => {
+    if (hasScrolledPastName && profile?.name) {
+      setCustomTitle(profile.name);
+    } else {
+      setCustomTitle(null);
+    }
+  }, [hasScrolledPastName, profile?.name, setCustomTitle]);
 
   // Set header content
   useEffect(() => {
@@ -74,6 +98,7 @@ const Profile = () => {
     return () => {
       setCustomRightContent(null);
       setCustomLeftContent(null);
+      setCustomTitle(null);
     };
   }, [isOwnProfile]);
 
@@ -147,6 +172,7 @@ const Profile = () => {
         {/* Overlaid name + meta */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 z-10">
           <motion.div
+            ref={nameRef}
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
