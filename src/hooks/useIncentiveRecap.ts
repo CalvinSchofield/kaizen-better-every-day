@@ -6,6 +6,32 @@ import { SingleDayRecapData, RecapMoment as IntraDayMoment } from './useSingleDa
 import { formatInTimeZone } from 'date-fns-tz';
 import { format, parseISO } from 'date-fns';
 
+export type MomentPriority = 'high' | 'medium' | 'low';
+
+export function getMomentPriority(momentType: string, metric: IncentiveMetric): MomentPriority {
+  // Sales are always high priority
+  if (momentType === 'sale') return 'high';
+  // Started is always high
+  if (momentType === 'started') return 'high';
+  
+  // The competing metric's events are high priority
+  if (metric === 'fp_plus' || metric === 'prmr') {
+    // Sales already handled above; closes are medium, rest low
+    if (momentType === 'close') return 'medium';
+    if (momentType === 'transition') return 'low';
+    if (momentType === 'door_batch') return 'low';
+  } else if (metric === 'transitions') {
+    if (momentType === 'transition') return 'high';
+    if (momentType === 'close') return 'medium';
+    if (momentType === 'door_batch') return 'low';
+  } else if (metric === 'doors_knocked') {
+    if (momentType === 'door_batch') return 'high';
+    if (momentType === 'transition') return 'low';
+    if (momentType === 'close') return 'medium';
+  }
+  return 'low';
+}
+
 export interface IncentiveRecapDay {
   date: string;
   dayNumber: number;
