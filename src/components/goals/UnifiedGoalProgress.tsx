@@ -386,7 +386,7 @@ const FullMode = ({
               </div>
               {current.live > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
                   <span>{formatFP(current.live)} live</span>
                 </div>
               )}
