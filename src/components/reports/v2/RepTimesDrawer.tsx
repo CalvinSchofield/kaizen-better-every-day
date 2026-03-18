@@ -156,10 +156,12 @@ export const RepTimesDrawer = ({
                 : Math.min(startPct + 20, 100);
               const widthPct = Math.max(endPct - startPct, 2);
 
-              // Percentile-based color coding relative to the group
-              const classification = getStartTimeClassification(
+              // Classify hustle based on start + end relative to team averages
+              const classification = getHustleClassification(
                 rep.avgStartMinutes!,
-                allStartMinutes
+                rep.avgEndMinutes,
+                teamAvgStartMinutes,
+                teamAvgEndMinutes,
               );
 
               return (
