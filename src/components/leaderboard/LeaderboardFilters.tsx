@@ -124,44 +124,46 @@ export const LeaderboardFilters = ({
         </div>
       </div>
 
-      {/* Scope Toggle */}
-      <div className="flex justify-end">
-        <div className="flex items-center gap-0.5 bg-secondary/50 rounded-full p-0.5">
-          <button
-            onClick={() => onScopeFilterChange('all')}
-            className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-              scopeFilter === 'all'
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            All
-          </button>
-          <button
-            onClick={() => onScopeFilterChange('rookies')}
-            className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-              scopeFilter === 'rookies'
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Rookies
-          </button>
-          <button
-            onClick={() => onScopeFilterChange('watchlist')}
-            className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-              scopeFilter === 'watchlist'
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            👀 Watchlist
-          </button>
+      {/* Scope Toggle - only shown if props are provided */}
+      {scopeFilter && onScopeFilterChange && (
+        <div className="flex justify-end">
+          <div className="flex items-center gap-0.5 bg-secondary/50 rounded-full p-0.5">
+            <button
+              onClick={() => onScopeFilterChange('all')}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                scopeFilter === 'all'
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              All
+            </button>
+            <button
+              onClick={() => onScopeFilterChange('rookies')}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                scopeFilter === 'rookies'
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Rookies
+            </button>
+            <button
+              onClick={() => onScopeFilterChange('watchlist')}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                scopeFilter === 'watchlist'
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              👀 Watchlist
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Custom Date Range Sheet */}
       <Sheet open={showCustomSheet} onOpenChange={setShowCustomSheet}>
