@@ -432,13 +432,6 @@ export const ReportsV2Page = () => {
         isLoading={isLoading}
       />
 
-      {/* Goal Attention Alerts — leader-facing unrealistic pace warnings */}
-      {!isLoading && (
-        <GoalAttentionAlerts
-          enhancedGoalPace={enhancedGoalPace}
-          onRepClick={handleRepClick}
-        />
-      )}
 
       {/* Layer 2: Effort vs Skill */}
       <EffortSkillDiagnosis
