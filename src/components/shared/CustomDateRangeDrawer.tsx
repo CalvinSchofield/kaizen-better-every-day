@@ -68,11 +68,12 @@ export const CustomDateRangeDrawer = ({
 
   // Quick select data
   const seasons: { label: string; type: SeasonType; range: { start: Date; end: Date } | null }[] = useMemo(() => {
+    const today = new Date();
     return (['preseason', 'summer', 'extension'] as SeasonType[]).map(type => ({
       label: type.charAt(0).toUpperCase() + type.slice(1),
       type,
       range: getSeasonDateRange(SEASON_YEAR, type),
-    }));
+    })).filter(s => s.range && s.range.start <= today); // Only show seasons that have started
   }, []);
 
   const weeks = useMemo(() => {
