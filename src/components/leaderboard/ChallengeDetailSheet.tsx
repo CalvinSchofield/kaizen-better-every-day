@@ -306,7 +306,9 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
   const respondMutation = useRespondToChallenge();
   const voidMutation = useVoidChallenge();
   const { fireConfetti } = useConfetti();
-  const { data: recapData } = useChallengeRecap(challenge.status === 'completed' && challenge.type === '1v1' ? challenge : null);
+  const isSingleDay = challenge.start_date === challenge.end_date;
+  const { data: recapData } = useChallengeRecap(challenge.status === 'completed' && challenge.type === '1v1' && !isSingleDay ? challenge : null);
+  const { data: singleDayData } = useSingleDayRecap(challenge.status === 'completed' && challenge.type === '1v1' && isSingleDay ? challenge : null);
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
