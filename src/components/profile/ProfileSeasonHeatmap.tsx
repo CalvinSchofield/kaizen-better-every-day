@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { motion } from 'framer-motion';
+
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { SeasonHeatmap, DailyEntry } from '@/components/goals/SeasonHeatmap';
 
@@ -178,17 +178,11 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
 
   if (isLoading) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mx-5 mb-5"
-      >
-        <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-[100px] w-full" />
-          <Skeleton className="h-4 w-48 mx-auto" />
-        </div>
-      </motion.div>
+      <div className="bg-card border border-border rounded-2xl p-4 space-y-3 h-full">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-[100px] w-full" />
+        <Skeleton className="h-4 w-48 mx-auto" />
+      </div>
     );
   }
 
@@ -198,13 +192,7 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
   const dailyNeeded = paceStats?.dailyNeeded || 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: 0.15 }}
-      className="mx-5 mb-5"
-    >
-      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+    <div className="bg-card border border-border rounded-2xl p-4 space-y-3 h-full flex flex-col">
         {/* Heatmap */}
         <SeasonHeatmap
           dailyEntries={entries}
@@ -267,7 +255,6 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
             {paceStats.futurePlanned} planned days remaining · {paceStats.remaining.toFixed(1)} FP+ to go
           </div>
         )}
-      </div>
-    </motion.div>
+    </div>
   );
 };
