@@ -819,6 +819,13 @@ const TrackWithLayout = () => {
         toast.info("Today's work is already saved. Start fresh tomorrow!");
         setSavedThisSession(true); // Prevent further attempts
         setSyncStatus('synced');
+      } else if (error?.message === 'AUTH_SESSION_EXPIRED') {
+        // FIX: Explicit auth error feedback — user needs to know their session died
+        setSyncStatus('error');
+        toast.error('Session expired — please close and reopen the app to continue tracking', {
+          duration: 8000,
+          id: 'auth-expired', // Prevent duplicate toasts
+        });
       } else if (!navigator.onLine) {
         // OFFLINE SUPPORT: Show friendly offline message
         setSyncStatus('offline');
