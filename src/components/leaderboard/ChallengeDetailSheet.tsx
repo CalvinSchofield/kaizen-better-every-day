@@ -20,6 +20,7 @@ import { metricConfig } from "@/utils/challengeMetricConfig";
 import { formatCompetitionDuration } from "@/utils/competitionDateUtils";
 import { ChallengeRaceTimeline } from "@/components/competitions/ChallengeRaceTimeline";
 import { ChallengeRecapStats } from "@/components/competitions/ChallengeRecapStats";
+import { SingleDayRaceTimeline } from "@/components/competitions/SingleDayRaceTimeline";
 import { toast } from "sonner";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { useConfetti } from "@/hooks/useConfetti";
