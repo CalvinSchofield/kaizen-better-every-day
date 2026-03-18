@@ -239,6 +239,84 @@ export const ReportsV2Page = () => {
 
   const selectedRep = selectedRepId ? getRepById(selectedRepId) : null;
 
+  return (
+    <div className="p-4 space-y-5 pb-20">
+      {/* Header */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Reports</h1>
+          <ReportsTeamFilter
+            teams={teamAccess.teams || []}
+            mgmtGroups={teamAccess.mgmtGroups || []}
+            accessLevel={teamAccess.accessLevel}
+            selectedFilter={teamFilter}
+            onFilterChange={setTeamFilter}
+            repCount={filteredUserIds.length}
+          />
+        </div>
+
+        {teamFilter !== 'all' && (
+          <Badge variant="secondary" className="text-xs">
+            Viewing: {teamFilter.name} ({filteredUserIds.length} reps)
+          </Badge>
+        )}
+
+        {/* Date presets */}
+        <div className="flex gap-1 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+          {presetConfig
+            .filter(p => availablePresets.includes(p.key))
+            .map((preset) => (
+              <Button
+                key={preset.key}
+                variant={effectivePreset === preset.key ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setDatePreset(preset.key)}
+                className="flex-shrink-0 gap-1.5"
+              >
+                {preset.label}
+                {preset.isLive && effectivePreset === 'today' && (
+                  <span className={cn(
+                    "h-2 w-2 rounded-full",
+                    isFetching ? "bg-primary-foreground animate-pulse" : "bg-green-500"
+                  )} />
+                )}
+              </Button>
+            ))}
+          <Button
+            variant={effectivePreset === 'custom' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setShowCustomSheet(true)}
+            className="flex-shrink-0 gap-1"
+          >
+            <Calendar className="h-3.5 w-3.5" />
+            {effectivePreset === 'custom' && customStartDate && customEndDate
+              ? `${format(customStartDate, 'MMM d')} - ${format(customEndDate, 'MMM d')}`
+              : 'Custom'
+            }
+          </Button>
+        </div>
+      </div>
+
+      {/* Layer 1: Pulse Hero */}
+      <PulseHero
+        doors={funnelData.doors}
+        dms={funnelData.decisionMakers}
+        pitches={funnelData.pitches}
+        presentations={funnelData.presentations}
+        closes={funnelData.closes}
+        fp={totalFP}
+        prmr={totalPRMR}
+        avgStartTime={avgStartTime}
+        activeHours={totalHours}
+        activeReps={activeReps}
+        workingCount={workingCount}
+        isLiveView={effectivePreset === 'today'}
+        teamBaseline={teamBaseline}
+        periodLabel={getPeriodLabel()}
+        isLoading={isLoading}
+        onWorkingClick={() => setShowWorkingDrawer(true)}
+      />
+
       {/* Goal Pace Section */}
       <GoalPaceSection
         enhancedGoalPace={enhancedGoalPace}
