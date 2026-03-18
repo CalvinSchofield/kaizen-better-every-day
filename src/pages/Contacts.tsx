@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useToolsBackButton } from "@/hooks/useToolsBackButton";
 
 interface Contact {
   id: string;
@@ -22,6 +23,7 @@ interface Contact {
 
 const Contacts = () => {
   const navigate = useNavigate();
+  useToolsBackButton();
   const [expandedContact, setExpandedContact] = useState<string | null>(null);
   const [aiInput, setAiInput] = useState("");
   const [aiRecommendation, setAiRecommendation] = useState("");

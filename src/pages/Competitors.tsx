@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { COMPETITORS, CompetitorData } from "@/data/competitorData";
 import { CompetitorGuide } from "@/components/competitors/CompetitorGuide";
+import { useToolsBackButton } from "@/hooks/useToolsBackButton";
 
 const CATEGORIES = [
   { label: "All", value: "all" },
@@ -21,6 +22,7 @@ const CATEGORIES = [
 
 export default function Competitors() {
   const navigate = useNavigate();
+  useToolsBackButton();
   const [selectedCompetitor, setSelectedCompetitor] = useState<CompetitorData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { UpgradePrmrCalculator } from "@/components/UpgradePrmrCalculatorV2";
+import { useToolsBackButton } from "@/hooks/useToolsBackButton";
 
 interface PainPoint {
   emoji: string;
@@ -160,6 +161,7 @@ const PRMR_STEPS = [
 
 export default function UpgradeCheatSheet() {
   const navigate = useNavigate();
+  useToolsBackButton();
   const [activeCategory, setActiveCategory] = useState("all");
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
