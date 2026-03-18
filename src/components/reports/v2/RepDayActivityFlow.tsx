@@ -902,7 +902,7 @@ export const RepDayActivityFlow = ({
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] text-muted-foreground">Last Activity</span>
-                    <span className="text-[11px] font-medium">{formatTimeOnly(convo.lastActivityTime)}</span>
+                    <span className="text-[11px] font-medium">{formatTimeOnly(convo.lastActivityTime, repTimezone)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] text-muted-foreground">Logged</span>
