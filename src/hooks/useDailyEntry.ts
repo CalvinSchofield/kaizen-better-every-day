@@ -10,6 +10,32 @@ const getBackupFromStorage = (userId: string, entryDate: string): Partial<DailyE
   return getInstantBackup(userId, entryDate);
 };
 
+interface TrackBackupRecord {
+  entry: Record<string, unknown>;
+  timestamp: string;
+  userId: string;
+  lastServerSync?: string;
+}
+
+const getBackupRecord = (userId: string, entryDate: string): TrackBackupRecord | null => {
+  try {
+    const key = `track-backup-${userId}-${entryDate}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as TrackBackupRecord;
+    if (parsed.userId !== userId) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const getBackupComparisonTimestamp = (backup: TrackBackupRecord): number | null => {
+  const referenceIso = backup.lastServerSync || backup.timestamp;
+  const ts = new Date(referenceIso).getTime();
+  return Number.isNaN(ts) ? null : ts;
+};
+
 // Calculate total activity from entry
 const getActivityTotal = (entry: Partial<DailyEntry> | null): number => {
   if (!entry) return 0;
