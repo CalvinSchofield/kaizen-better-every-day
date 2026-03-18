@@ -363,7 +363,6 @@ export const ReportsV2Page = () => {
             }
           </Button>
         </div>
-      </div>
 
       {/* Layer 1: Pulse Hero */}
       <PulseHero
