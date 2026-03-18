@@ -80,12 +80,14 @@ export const HourlyActivityChart = ({ hourlyActivity, isLoading }: HourlyActivit
             className="text-[9px] fill-muted-foreground" 
             axisLine={false} 
             tickLine={false}
-            interval={1}
+            interval="preserveStartEnd"
+            tick={{ fontSize: 9 }}
           />
           <YAxis 
             className="text-[9px] fill-muted-foreground" 
             axisLine={false} 
             tickLine={false}
+            width={30}
           />
           <Tooltip content={<CustomTooltip />} />
           <Bar 
