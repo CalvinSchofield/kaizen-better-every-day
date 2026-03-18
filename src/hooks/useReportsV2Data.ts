@@ -1020,6 +1020,8 @@ export const useReportsV2Data = ({
     for (const userId of userIds) {
       const rep = repsMap.get(userId);
       if (!rep) continue;
+      // Only show active selling reps (Signed, Shadow, Sold, Sold 5+)
+      if (!isStageIn((rep as any).stage, [...SIGNED_PLUS_STAGES])) continue;
 
       const goal = goalsMap.get(userId) as RepGoalsLike | undefined;
       const ytdFP = ytdFpMap.get(userId) || 0;
