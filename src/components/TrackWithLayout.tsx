@@ -318,15 +318,19 @@ const TrackWithLayout = () => {
   }, [entry, finalizeEntry]);
 
   // BULLETPROOF: Save backup to localStorage on every entry change
+  // FIX: Only save when values go UP — prevents rollback from overwriting backup with lower values
+  const lastBackupTotalRef = useRef<number>(0);
   useEffect(() => {
     if (!entry.is_finalized && userId) {
-      const hasActivity = entry.doors_knocked > 0 || 
-                         entry.decision_makers > 0 || 
-                         entry.pitches > 0 || 
-                         entry.transitions > 0 || 
-                         entry.presentations > 0 || 
-                         entry.closes > 0;
-      if (hasActivity) {
+      const currentTotal = (entry.doors_knocked || 0) + 
+                           (entry.decision_makers || 0) + 
+                           (entry.pitches || 0) + 
+                           (entry.transitions || 0) + 
+                           (entry.presentations || 0) + 
+                           (entry.closes || 0);
+      // Only save if activity total is >= our last saved total (never go backwards)
+      if (currentTotal > 0 && currentTotal >= lastBackupTotalRef.current) {
+        lastBackupTotalRef.current = currentTotal;
         saveBackup(entry);
       }
     }
