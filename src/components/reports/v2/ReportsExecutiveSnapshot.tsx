@@ -346,11 +346,8 @@ export const ReportsExecutiveSnapshot = ({
       <GoalPaceDrawer
         open={showGoalPaceDrawer}
         onOpenChange={setShowGoalPaceDrawer}
-        paceResults={goalPaceResults || []}
-        periodLabel={goalPeriodLabel || periodLabel}
-        isLiveView={isLiveView}
+        enhancedGoalPace={[]}
         onRepClick={(userId) => {
-          // Don't close - keep drawer visible behind RepDrillDownDrawer
           onRepClick?.(userId);
         }}
       />

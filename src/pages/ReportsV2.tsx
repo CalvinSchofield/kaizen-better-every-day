@@ -359,14 +359,7 @@ export const ReportsV2Page = () => {
       <GoalPaceDrawer
         open={showGoalPaceDrawer}
         onOpenChange={setShowGoalPaceDrawer}
-        paceResults={teamGoalStatusDetails ? [
-          ...teamGoalStatusDetails.onPace,
-          ...teamGoalStatusDetails.atRisk,
-          ...teamGoalStatusDetails.behind,
-          ...teamGoalStatusDetails.noGoals,
-        ] : []}
-        periodLabel={getPeriodLabel()}
-        isLiveView={effectivePreset === 'today'}
+        enhancedGoalPace={enhancedGoalPace}
         onRepClick={handleRepClick}
       />
 
