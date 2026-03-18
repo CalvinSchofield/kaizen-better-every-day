@@ -329,25 +329,23 @@ export const useDailyEntry = (date?: string) => {
       // MULTI-DEVICE SAFETY: Check last_reset_at to prevent stale backups from undoing resets
       if (backup && backupTotal > serverTotal && !serverEntry?.is_finalized) {
         // Check if backup is older than a server-side reset
-        const lastResetAt = (data as any)?.last_reset_at;
+        const lastResetAt = (serverEntry as DailyEntry | null)?.last_reset_at;
         if (lastResetAt) {
-          const resetTime = new Date(lastResetAt).getTime();
-          // Get backup timestamp from localStorage
           try {
             const backupKey = `track-backup-${activeUser.id}-${entryDate}`;
-            const storedBackup = localStorage.getItem(backupKey);
-            if (storedBackup) {
-              const backupData = JSON.parse(storedBackup);
-              const backupTime = new Date(backupData.timestamp).getTime();
-              if (backupTime < resetTime) {
-                console.log('[DailyEntry] Discarding stale backup (older than server reset)', {
-                  backupTime: new Date(backupTime).toISOString(),
-                  resetTime: new Date(resetTime).toISOString(),
-                });
-                // Clear stale backup on this device
-                localStorage.removeItem(backupKey);
-                return serverEntry;
-              }
+            const backupRecord = getBackupRecord(activeUser.id, entryDate);
+            const backupTime = backupRecord ? getBackupComparisonTimestamp(backupRecord) : null;
+            const resetTime = new Date(lastResetAt).getTime();
+
+            if (backupTime && !Number.isNaN(resetTime) && backupTime < resetTime) {
+              console.log('[DailyEntry] Discarding stale backup (older than server reset)', {
+                backupTime: new Date(backupTime).toISOString(),
+                resetTime: new Date(resetTime).toISOString(),
+              });
+              // Clear stale backup on this device
+              localStorage.removeItem(backupKey);
+              sessionStorage.removeItem(`backup-push-${entryDate}`);
+              return serverEntry;
             }
           } catch (e) {
             console.error('[DailyEntry] Error checking backup vs reset timestamp:', e);
