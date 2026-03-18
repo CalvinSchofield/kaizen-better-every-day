@@ -45,6 +45,7 @@ export const ReportsV2Page = () => {
   const [showWorkingDrawer, setShowWorkingDrawer] = useState(false);
   const [showGoalPaceDrawer, setShowGoalPaceDrawer] = useState(false);
   const [showTimeDrawer, setShowTimeDrawer] = useState(false);
+  const [showDealDrawer, setShowDealDrawer] = useState(false);
   
   // Get team access
   const { data: teamAccess, isLoading: accessLoading, error: teamAccessError, refetch: refetchTeamAccess, wasLeader } = useTeamAccess();
