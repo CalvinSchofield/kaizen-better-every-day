@@ -198,13 +198,7 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
   const dailyNeeded = paceStats?.dailyNeeded || 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: 0.15 }}
-      className="mx-5 mb-5"
-    >
-      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+    <div className="bg-card border border-border rounded-2xl p-4 space-y-3 h-full flex flex-col">
         {/* Heatmap */}
         <SeasonHeatmap
           dailyEntries={entries}
