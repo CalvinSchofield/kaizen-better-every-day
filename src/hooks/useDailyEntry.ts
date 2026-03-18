@@ -442,6 +442,18 @@ export const useDailyEntry = (date?: string) => {
 
       // Use the safe upsert function that merges sales_log instead of overwriting
       // This prevents iPad/phone sync issues where stale cache overwrites sales
+      const salesPayload = updates.sales_log ? JSON.parse(JSON.stringify(updates.sales_log)) : null;
+      
+      // DIAGNOSTIC: Log when sales are being sent to server
+      if (salesPayload && salesPayload.length > 0) {
+        console.log('[useDailyEntry] RPC call includes sales_log:', {
+          salesCount: salesPayload.length,
+          saleIds: salesPayload.map((s: any) => s.id?.substring(0, 8)),
+          fp_plus: updates.fp_plus,
+          prmr: updates.prmr,
+        });
+      }
+      
       const { data, error } = await supabase.rpc('upsert_daily_entry_safe', {
         p_user_id: user.id,
         p_entry_date: entryDate,
@@ -460,16 +472,25 @@ export const useDailyEntry = (date?: string) => {
         p_counter_timestamps: updates.counter_timestamps ? JSON.parse(JSON.stringify(updates.counter_timestamps)) : null,
         p_custom_counters: updates.custom_counters ? JSON.parse(JSON.stringify(updates.custom_counters)) : null,
         p_timezone: updates.timezone ?? null,
-        p_sales_log: updates.sales_log ? JSON.parse(JSON.stringify(updates.sales_log)) : null,
+        p_sales_log: salesPayload,
         p_is_finalized: updates.is_finalized ?? null,
       });
 
       if (error) {
+        console.error('[useDailyEntry] RPC error:', error.message, { hasSales: !!salesPayload });
         // Check for finalized entry error
         if (error.message?.includes('finalized')) {
           throw new Error('ENTRY_ALREADY_FINALIZED');
         }
         throw error;
+      }
+      
+      // DIAGNOSTIC: Verify server response includes sales
+      if (salesPayload && salesPayload.length > 0) {
+        const returnedSales = (data as any)?.sales_log;
+        const returnedCount = Array.isArray(returnedSales) ? returnedSales.length : 0;
+        console.log('[useDailyEntry] RPC response sales count:', returnedCount, 
+          returnedCount >= salesPayload.length ? '✅' : '⚠️ MISMATCH');
       }
       
       return data;
