@@ -16,6 +16,7 @@ import {
   ProductionTrendChart,
   HourlyActivityChart,
 } from "@/components/reports/v2";
+import { RecordDetailsDrawer } from "@/components/reports/v2/RecordDetailsDrawer";
 import { ReportsDateRangeSheet } from "@/components/reports/v2/ReportsDateRangeSheet";
 import { TeamFilter } from "@/components/reports/v2/ReportsTeamFilter";
 import { WorkingRepsDrawer } from "@/components/reports/v2/WorkingRepsDrawer";
@@ -51,6 +52,7 @@ export const ReportsV2Page = () => {
   const [showGoalPaceDrawer, setShowGoalPaceDrawer] = useState(false);
   const [showTimeDrawer, setShowTimeDrawer] = useState(false);
   const [showDealDrawer, setShowDealDrawer] = useState(false);
+  const [showRecordDrawer, setShowRecordDrawer] = useState(false);
   const { setCustomRightContent } = useHeader();
   
   // Get team access
@@ -162,6 +164,7 @@ export const ReportsV2Page = () => {
     teamBaseline,
     repsWithEffort, funnelData,
     dailyTrend, hourlyActivity,
+    activeRecords,
     getRepById,
   } = useReportsV2Data({
     userIds: filteredUserIds,
@@ -409,6 +412,8 @@ export const ReportsV2Page = () => {
         onWorkingClick={() => setShowWorkingDrawer(true)}
         onAvgStartClick={() => setShowTimeDrawer(true)}
         onFpClick={() => setShowDealDrawer(true)}
+        activeRecords={activeRecords}
+        onRecordBannerClick={() => setShowRecordDrawer(true)}
       />
 
       {/* Goal Pace Section */}
@@ -568,6 +573,12 @@ export const ReportsV2Page = () => {
         startDate={customStartDate}
         endDate={customEndDate}
         onApply={handleCustomApply}
+      />
+
+      <RecordDetailsDrawer
+        open={showRecordDrawer}
+        onOpenChange={setShowRecordDrawer}
+        records={activeRecords}
       />
     </div>
   );

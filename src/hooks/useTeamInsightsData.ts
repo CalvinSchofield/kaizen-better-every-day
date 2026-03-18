@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, startOfDay, endOfDay, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { computeAllTimeGroupRecords, AllTimeGroupRecords } from "@/utils/teamRecordDetection";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
 
 interface DailyEntry {
@@ -268,6 +269,7 @@ interface TeamInsightsData {
     date?: string;
     timezone?: string;
   }>;
+  allTimeGroupRecords?: AllTimeGroupRecords;
 }
 
 interface UseTeamInsightsDataParams {
@@ -1561,6 +1563,10 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
       };
       // ==================== END BEST PERIODS CALCULATIONS ====================
 
+      // ==================== ALL-TIME GROUP RECORDS ====================
+      const allTimeGroupRecords = computeAllTimeGroupRecords(allEntries as any);
+      // ==================== END ALL-TIME GROUP RECORDS ====================
+
       // Calculate averages from sales_log
       const avgPrmrPerFp = totals.fpCount > 0 ? totals.fpPrmrTotal / totals.fpCount : 0;
       const avgPrmrPerUpgrade = totals.upgradeCount > 0 ? totals.upgradePrmrTotal / totals.upgradeCount : 0;
@@ -1623,6 +1629,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
         dailyTrendByMgmt,
         bestPeriods,
         workScheduleData,
+        allTimeGroupRecords,
       } as TeamInsightsData;
     },
     enabled: userIds.length > 0,
