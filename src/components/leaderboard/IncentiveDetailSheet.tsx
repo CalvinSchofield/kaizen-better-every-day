@@ -11,6 +11,9 @@ import { Trophy, Users, Target, Clock, Eye, EyeOff, Pencil, XCircle, Loader2, Ch
 import { cn } from "@/lib/utils";
 import { Incentive, IncentiveMetric, useCancelIncentive } from "@/hooks/useIncentives";
 import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
+import { useIncentiveRecap } from "@/hooks/useIncentiveRecap";
+import { IncentiveRaceTimeline } from "@/components/competitions/IncentiveRaceTimeline";
+import { IncentiveRecapStats } from "@/components/competitions/IncentiveRecapStats";
 import { EditIncentiveDrawer } from "./EditIncentiveDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
