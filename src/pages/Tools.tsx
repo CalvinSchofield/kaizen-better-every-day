@@ -1,13 +1,9 @@
-import { useState, type MouseEvent } from "react";
-import { TrendingUp as UpgradeIcon } from "lucide-react";
-import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield, TrendingUp, Wallet, ClipboardCheck, Instagram, Info, ChevronDown, MessageSquare, GraduationCap, Calculator } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Shield, TrendingUp, MessageSquare, Calculator, Phone, GraduationCap, BarChart3, Wallet, ExternalLink, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import TeamCalendarModal from "@/components/TeamCalendarModal";
-import { useRepData } from "@/hooks/useRepData";
 import { ExternalLink as ExternalLinkComponent } from "@/components/ExternalLink";
 import { useNavigate } from "react-router-dom";
+import { useUplineContact } from "@/hooks/useUplineContact";
+import { motion } from "framer-motion";
 import {
   Sheet,
   SheetContent,
@@ -16,450 +12,275 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import curatorNav from "@/assets/curator-navigation.jpeg";
 
-interface ToolSection {
-  title: string;
-  description: string;
-  icon: any;
-  links: Array<{
-    title: string;
-    description: string;
-    href: string;
-    icon: any;
-    comingSoon?: boolean;
-    hasInfo?: boolean;
-  }>;
-}
-
-const Tools = () => {
-  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
-  const [socialsOpen, setSocialsOpen] = useState(false);
-  const { repData } = useRepData();
-  const navigate = useNavigate();
-
-  // Smart link handler - opens Notion links in app
-  const handleLinkClick = (e: MouseEvent<HTMLAnchorElement>, href: string) => {
-    // Check if it's a Notion link and try to open in Notion app
-    if (href.includes('notion.so') || href.includes('notion.site')) {
-      e.preventDefault();
-      // Extract page ID from URL and construct notion:// deep link
-      const notionMatch = href.match(/([a-f0-9]{32}|[a-f0-9-]{36})/);
-      if (notionMatch) {
-        const pageId = notionMatch[1].replace(/-/g, '');
-        const notionAppUrl = `notion://${pageId}`;
-        
-        // Try to open in Notion app
-        window.location.href = notionAppUrl;
-        
-        // Fallback to web after short delay if app doesn't open
-        setTimeout(() => {
-          window.open(href, '_blank', 'noopener,noreferrer');
-        }, 500);
-        return;
-      }
-    }
-    
-    // For other links, allow default behavior (open in new tab)
-  };
-
-  const sections: ToolSection[] = [
-    {
-      title: "Sales Resources",
-      description: "Daily tools to help you sell",
-      icon: Wrench,
-      links: [
-        {
-          title: "Competitor Cheat Sheet",
-          description: "Quick reference for competitor products",
-          href: "/tools/competitors",
-          icon: Shield,
-        },
-        {
-          title: "Upgrade Cheat Sheet",
-          description: "Pain points & PRMR calculator for upgrades",
-          href: "/tools/upgrades",
-          icon: UpgradeIcon,
-        },
-        {
-          title: "Objections",
-          description: "Common objections & responses",
-          href: "/tools/objections",
-          icon: MessageSquare,
-        },
-        {
-          title: "Package Builder",
-          description: "Quick monthly estimate calculator",
-          href: "/tools/package-builder",
-          icon: Calculator,
-        },
-        {
-          title: "Useful Contacts",
-          description: "Contact info and tips for key resources",
-          href: "/tools/contacts",
-          icon: Phone,
-        },
-      ],
-    },
-    {
-      title: "Team Info",
-      description: "Get to know your team and find help",
-      icon: Users,
-      links: [
-        {
-          title: "About the Team",
-          description: "Team story, culture, and expectations",
-          href: "/about-team",
-          icon: Users,
-        },
-        {
-          title: "Team Calendar",
-          description: "View blitz dates and meetings",
-          href: "#",
-          icon: Calendar,
-        },
-        {
-          title: "FAQ",
-          description: "Common questions answered",
-          href: "#",
-          icon: HelpCircle,
-          comingSoon: true,
-      },
-    ],
+const toolCards = [
+  {
+    title: "Competitors",
+    description: "Quick cheat sheet",
+    icon: Shield,
+    href: "/tools/competitors",
   },
   {
-    title: "Vivint Portals",
-    description: "Essential tools for tracking & managing your business",
+    title: "Upgrades",
+    description: "Pain points & PRMR",
     icon: TrendingUp,
-    links: [
-      {
-        title: "Training Portal",
-        description: "Official Vivint videos & podcasts",
-        href: "https://dthvivinttraining.conveyour.com/ui/portal/",
-        icon: GraduationCap,
-      },
-      {
-        title: "Insider",
-        description: "Simple way to track sales & upgrades",
-        href: "https://insider.vivint.com/login#",
-        icon: BarChart3,
-      },
-      {
-        title: "Curator",
-        description: "Detailed analytics & competitions",
-        href: "https://curator.vivint.com/dashboard/production-test-production-report",
-        icon: TrendingUp,
-        hasInfo: true,
-      },
-      {
-        title: "Source",
-        description: "Paystubs, pay info & buyouts",
-        href: "https://curator.vivint.com/dashboard/source-weekly-pay",
-        icon: Wallet,
-      },
-    ],
+    href: "/tools/upgrades",
+  },
+  {
+    title: "Objections",
+    description: "Responses ready",
+    icon: MessageSquare,
+    href: "/tools/objections",
+  },
+  {
+    title: "Packages",
+    description: "Monthly estimate",
+    icon: Calculator,
+    href: "/tools/package-builder",
+  },
+  {
+    title: "Contacts",
+    description: "Key numbers",
+    icon: Phone,
+    href: "/tools/contacts",
   },
 ];
 
-  const socialLinks = [
-    {
-      name: "Lead Region",
-      handle: "lead.region",
-      url: "https://www.instagram.com/lead.region/profilecard/?igsh=aDl1OGE5Nnk3djR2",
-    },
-    {
-      name: "Triumph PTR",
-      handle: "triumph.ptr",
-      url: "https://www.instagram.com/triumph.ptr/profilecard/?igsh=emQzOWJldmludnYw",
-    },
-    {
-      name: "SmartHomePros",
-      handle: "thesmarthomepros",
-      url: "https://www.instagram.com/thesmarthomepros/profilecard/?igsh=bHF1MWFoZTU2ZXd3",
-    },
-  ];
+const vivintPortals = [
+  {
+    title: "Training",
+    description: "Videos & podcasts",
+    icon: GraduationCap,
+    href: "https://dthvivinttraining.conveyour.com/ui/portal/",
+  },
+  {
+    title: "Insider",
+    description: "Track sales",
+    icon: BarChart3,
+    href: "https://insider.vivint.com/login#",
+  },
+  {
+    title: "Curator",
+    description: "Analytics",
+    icon: TrendingUp,
+    href: "https://curator.vivint.com/dashboard/production-test-production-report",
+    hasInfo: true,
+  },
+  {
+    title: "Source",
+    description: "Paystubs & pay",
+    icon: Wallet,
+    href: "https://curator.vivint.com/dashboard/source-weekly-pay",
+  },
+];
+
+const containerVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.04 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
+
+const Tools = () => {
+  const navigate = useNavigate();
+  const { data: upline, isLoading: uplineLoading } = useUplineContact();
+
+  const handleContact = (method: 'call' | 'text') => {
+    if (!upline?.phone) return;
+    const clean = upline.phone.replace(/\D/g, '');
+    if (method === 'call') {
+      window.open(`tel:${clean}`, '_self');
+    } else {
+      window.open(`sms:${clean}`, '_self');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Content */}
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {sections.map((section) => {
-          const SectionIcon = section.icon;
-          return (
-            <Card key={section.title}>
-              <CardHeader>
-                <div className="flex items-center gap-2 mb-2">
-                  <SectionIcon className="w-5 h-5 text-primary" />
-                  <CardTitle className="text-lg">{section.title}</CardTitle>
-                </div>
-                <CardDescription>{section.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {section.links.map((link) => {
-                  const LinkIcon = link.icon;
-                  const isCalendar = link.title === "Team Calendar";
-                  const isComingSoon = link.comingSoon;
-                  const isInternalRoute = link.href.startsWith('/');
-                  const hasCuratorInfo = link.hasInfo && link.title === "Curator";
-                  
-                  if (isCalendar) {
-                    return (
-                      <button
-                        key={link.title}
-                        onClick={() => setCalendarModalOpen(true)}
-                        className="w-full flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all group text-left"
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                          <LinkIcon className="w-5 h-5 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors">
-                            {link.title}
-                          </h3>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            {link.description}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  }
-                  
-                  if (isComingSoon) {
-                    return (
-                      <div
-                        key={link.title}
-                        className="flex items-start gap-3 p-4 rounded-lg border border-border opacity-50 cursor-not-allowed"
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                          <LinkIcon className="w-5 h-5 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-sm">
-                              {link.title}
-                            </h3>
-                            <Badge variant="outline" className="text-xs">Coming soon</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            {link.description}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  }
+      <div className="max-w-lg mx-auto px-4 py-6 space-y-8">
 
-                  if (isInternalRoute) {
-                    return (
-                      <button
-                        key={link.title}
-                        onClick={() => navigate(link.href)}
-                        className="w-full flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all group text-left"
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                          <LinkIcon className="w-5 h-5 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors">
-                            {link.title}
-                          </h3>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            {link.description}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  }
-                  
-                  if (hasCuratorInfo) {
-                    return (
-                      <div key={link.title} className="relative">
-                        <ExternalLinkComponent
-                          href={link.href}
-                          showIcon={false}
-                          className="flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all group no-underline hover:no-underline"
-                        >
-                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                            <LinkIcon className="w-5 h-5 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0 pr-8">
-                            <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors flex items-center gap-1.5">
-                              {link.title}
-                              <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
-                            </h3>
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                              {link.description}
-                            </p>
-                          </div>
-                        </ExternalLinkComponent>
-                        <Sheet>
-                          <SheetTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="absolute top-3 right-3 w-8 h-8 hover:bg-accent"
-                            >
-                              <Info className="w-4 h-4" />
-                            </Button>
-                          </SheetTrigger>
-                          <SheetContent side="bottom" className="rounded-t-3xl max-h-[80dvh] flex flex-col">
-                            <SheetHeader className="flex-shrink-0">
-                              <SheetTitle>Curator Filter Tips</SheetTitle>
-                            </SheetHeader>
-                            <div className="overflow-y-auto flex-1 mt-4">
-                              <SheetDescription className="text-left space-y-4">
-                                <p className="text-sm">
-                                  Curator is your go to resource for tracking sales.
-                                </p>
-                                <p className="text-sm">
-                                  Click <strong>menu → Reports → Production Report</strong> and then filter.
-                                </p>
-                                <img 
-                                  src={curatorNav} 
-                                  alt="Curator navigation menu showing Reports and Production Report path" 
-                                  className="w-full rounded-lg border border-border"
-                                />
-                                <p className="text-sm">
-                                  <strong>Tip —</strong> "Group by" should be set to rep to see yourself and how you're doing in the office, region, division or company.
-                                </p>
-                              </SheetDescription>
-                            </div>
-                          </SheetContent>
-                        </Sheet>
-                      </div>
-                    );
-                  }
-                  
-                  return (
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">On the Doors</h1>
+          <p className="text-sm text-muted-foreground mt-1">Quick-access tools for selling</p>
+        </motion.div>
+
+        {/* Sales Tools Grid */}
+        <motion.div
+          className="grid grid-cols-3 gap-3"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          {toolCards.map((tool) => {
+            const Icon = tool.icon;
+            return (
+              <motion.button
+                key={tool.title}
+                variants={itemVariants}
+                onClick={() => navigate(tool.href)}
+                className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-border bg-card hover:border-primary/40 hover:bg-accent active:scale-[0.97] transition-all"
+              >
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Icon className="w-5.5 h-5.5 text-primary" />
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-semibold text-foreground leading-tight">{tool.title}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{tool.description}</p>
+                </div>
+              </motion.button>
+            );
+          })}
+        </motion.div>
+
+        {/* Vivint Portals */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.25, duration: 0.3 }}
+          className="space-y-3"
+        >
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">Vivint Portals</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {vivintPortals.map((portal) => {
+              const Icon = portal.icon;
+
+              if (portal.hasInfo) {
+                return (
+                  <div key={portal.title} className="relative">
                     <ExternalLinkComponent
-                      key={link.title}
-                      href={link.href}
+                      href={portal.href}
                       showIcon={false}
-                      className="flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all group no-underline hover:no-underline"
+                      className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-accent transition-all no-underline hover:no-underline w-full"
                     >
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                        <LinkIcon className="w-5 h-5 text-primary" />
+                      <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                        <Icon className="w-4 h-4 text-muted-foreground" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors flex items-center gap-1.5">
-                          {link.title}
-                          <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
-                        </h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          {link.description}
+                      <div className="flex-1 min-w-0 pr-6">
+                        <p className="text-xs font-semibold text-foreground flex items-center gap-1">
+                          {portal.title}
+                          <ExternalLink className="w-3 h-3 text-muted-foreground" />
                         </p>
+                        <p className="text-[10px] text-muted-foreground">{portal.description}</p>
                       </div>
                     </ExternalLinkComponent>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          );
-        })}
-
-        {/* Stay Connected - Expandable */}
-        <Collapsible open={socialsOpen} onOpenChange={setSocialsOpen}>
-          <Card>
-            <CollapsibleTrigger className="w-full">
-              <CardHeader className="cursor-pointer">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Instagram className="w-5 h-5 text-primary" />
-                      <CardTitle className="text-lg">Stay Connected</CardTitle>
-                    </div>
-                    <CardDescription className="text-left">Follow to stay in the loop</CardDescription>
+                    <Sheet>
+                      <SheetTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-2 right-1.5 w-7 h-7 hover:bg-accent"
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                        </Button>
+                      </SheetTrigger>
+                      <SheetContent side="bottom" className="rounded-t-3xl max-h-[80dvh] flex flex-col">
+                        <SheetHeader className="flex-shrink-0">
+                          <SheetTitle>Curator Filter Tips</SheetTitle>
+                        </SheetHeader>
+                        <div className="overflow-y-auto flex-1 mt-4">
+                          <SheetDescription className="text-left space-y-4">
+                            <p className="text-sm">
+                              Curator is your go to resource for tracking sales.
+                            </p>
+                            <p className="text-sm">
+                              Click <strong>menu → Reports → Production Report</strong> and then filter.
+                            </p>
+                            <img
+                              src={curatorNav}
+                              alt="Curator navigation menu showing Reports and Production Report path"
+                              className="w-full rounded-lg border border-border"
+                            />
+                            <p className="text-sm">
+                              <strong>Tip —</strong> "Group by" should be set to rep to see yourself and how you're doing in the office, region, division or company.
+                            </p>
+                          </SheetDescription>
+                        </div>
+                      </SheetContent>
+                    </Sheet>
                   </div>
-                  <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${socialsOpen ? 'rotate-180' : ''}`} />
-                </div>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="space-y-6">
-                {/* Horizontal Scroll Instagram Accounts */}
-                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                  {socialLinks.map((social) => (
-                    <ExternalLinkComponent
-                      key={social.name}
-                      href={social.url}
-                      showIcon={false}
-                      className="flex-shrink-0 flex flex-col items-center gap-2 p-4 rounded-xl border border-border hover:border-primary hover:bg-accent transition-all no-underline hover:no-underline group w-32"
-                    >
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center flex-shrink-0">
-                        <Instagram className="w-8 h-8 text-white" />
-                      </div>
-                      <div className="text-xs font-semibold text-center group-hover:text-primary transition-colors">
-                        {social.name}
-                      </div>
-                      <div className="text-xs text-center text-muted-foreground whitespace-nowrap">
-                        @{social.handle}
-                      </div>
-                    </ExternalLinkComponent>
-                  ))}
-                </div>
+                );
+              }
 
-                {/* SmartHomePros Embed */}
-                <div>
-                  <p className="text-sm font-semibold mb-3">Latest from SmartHomePros</p>
-                  <div className="w-full overflow-hidden rounded-lg border border-border">
-                    <iframe
-                      src="https://www.instagram.com/thesmarthomepros/embed"
-                      className="w-full h-[500px] border-0"
-                      scrolling="no"
-                      allowTransparency={true}
-                      title="SmartHomePros Instagram"
-                    />
+              return (
+                <ExternalLinkComponent
+                  key={portal.title}
+                  href={portal.href}
+                  showIcon={false}
+                  className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-accent transition-all no-underline hover:no-underline"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-4 h-4 text-muted-foreground" />
                   </div>
-                </div>
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-foreground flex items-center gap-1">
+                      {portal.title}
+                      <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{portal.description}</p>
+                  </div>
+                </ExternalLinkComponent>
+              );
+            })}
+          </div>
+        </motion.div>
 
-        {/* Quick Actions */}
-        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-lg">Need Help?</CardTitle>
-            <CardDescription>
-              Reach out to your team leader or use the AI assistant
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button 
-              variant="outline" 
-              className="w-full" 
-              size="lg"
-              asChild={!!(repData?.team_leader_phone)}
-              disabled={!repData?.team_leader_phone}
-            >
-              {repData?.team_leader_phone ? (
-                <a href={`tel:${repData.team_leader_phone}`}>
-                  <Phone className="w-4 h-4 mr-2" />
-                  Call {repData.team_leader}
-                </a>
-              ) : (
-                <>
-                  <Phone className="w-4 h-4 mr-2" />
-                  Call Leader
-                </>
-              )}
-            </Button>
-            <Button variant="default" className="w-full" size="lg" asChild>
-              <ExternalLinkComponent href="https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt" showIcon={false} className="no-underline hover:no-underline">
-                <HelpCircle className="w-4 h-4 mr-2" />
-                Ask AI Assistant
-                <ExternalLink className="w-3.5 h-3.5 ml-auto" />
-              </ExternalLinkComponent>
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Need Help? - Smart Upline Contact */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35, duration: 0.3 }}
+          className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-primary/8 to-primary/3 p-4"
+        >
+          <p className="text-sm font-semibold text-foreground mb-1">Need Help?</p>
+          {uplineLoading ? (
+            <p className="text-xs text-muted-foreground">Finding your upline...</p>
+          ) : upline ? (
+            <>
+              <p className="text-xs text-muted-foreground mb-3">
+                Reach out to <span className="font-medium text-foreground">{upline.name}</span>
+                <span className="ml-1.5 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
+                  {upline.year}
+                </span>
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl h-9 text-xs font-semibold gap-1.5"
+                  onClick={() => handleContact('call')}
+                  disabled={!upline.phone}
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  Call
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl h-9 text-xs font-semibold gap-1.5"
+                  onClick={() => handleContact('text')}
+                  disabled={!upline.phone}
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Text
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">Contact your team leader for help</p>
+          )}
+        </motion.div>
       </div>
-
-      <TeamCalendarModal open={calendarModalOpen} onOpenChange={setCalendarModalOpen} />
     </div>
   );
 };
