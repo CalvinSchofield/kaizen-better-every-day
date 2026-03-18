@@ -30,10 +30,8 @@ export const GritAwardsSheet = ({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh] border-t-0 overflow-hidden">
         {/* Premium gradient header */}
-        <div className="relative overflow-hidden">
-          {/* Background gradient with warm glow */}
-          <div className="absolute inset-0 bg-gradient-to-b from-orange-500/10 via-transparent to-transparent dark:from-orange-500/15 dark:via-transparent dark:to-transparent" />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-16 bg-orange-500/15 blur-3xl rounded-full dark:bg-orange-500/20" />
+        <div className="relative overflow-hidden bg-gradient-to-b from-orange-500/10 via-orange-500/5 to-transparent dark:from-orange-500/15 dark:via-orange-500/8 dark:to-transparent">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 bg-orange-500/15 blur-3xl rounded-full dark:bg-orange-500/20" />
           
           <div className="relative px-6 pt-4 pb-4">
             
@@ -48,10 +46,7 @@ export const GritAwardsSheet = ({
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg shadow-orange-500/25">
                     <Flame className="h-6 w-6 text-white" />
                   </div>
-                  <div className="text-center">
-                    <h2 className="text-xl font-bold text-foreground tracking-tight">Grit Awards</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5 italic">First to fight, last to leave</p>
-                  </div>
+                  <h2 className="text-xl font-bold text-foreground tracking-tight">Grit Awards</h2>
                 </motion.div>
               )}
             </AnimatePresence>
