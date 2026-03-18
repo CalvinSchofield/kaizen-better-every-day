@@ -1,0 +1,1 @@
+UPDATE incentives SET winner_user_ids = '["843dac61-139d-4511-a057-c3bf359a9c07", "d37d3df9-5657-4a7d-8ac3-742ab07f3fac"]'::jsonb WHERE id = 'cced010e-b856-42bf-9cf1-7f031f89d0f4';
