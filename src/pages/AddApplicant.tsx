@@ -314,7 +314,7 @@ export default function AddApplicant() {
             </p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => navigate("/mygroup")}>
+            <Button variant="outline" onClick={() => navigate("/my-group")}>
               View My Group
             </Button>
             <Button onClick={() => {
