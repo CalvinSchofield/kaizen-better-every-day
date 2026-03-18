@@ -122,7 +122,18 @@ export const CalendarPlanningPreview = ({
     setIsOpen(prev => !prev);
   }, []);
 
-  const isCalendarLoading = isLoadingPlanned || isLoadingEntries;
+  // Timeout to prevent infinite loading — after 8s, show heatmap with whatever data we have
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  useEffect(() => {
+    if (!isLoadingPlanned && !isLoadingEntries) {
+      setLoadingTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setLoadingTimedOut(true), 8000);
+    return () => clearTimeout(timer);
+  }, [isLoadingPlanned, isLoadingEntries]);
+
+  const isCalendarLoading = (isLoadingPlanned || isLoadingEntries) && !loadingTimedOut;
 
   // Compute stats with preseason vs summer split
   const stats = useMemo(() => {
