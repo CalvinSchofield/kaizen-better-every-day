@@ -1,19 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { CustomDateRangeDrawer } from "@/components/shared/CustomDateRangeDrawer";
 import type { TimeframeType, CustomDateRange } from "@/hooks/useExpandedLeaderboard";
 import { useState } from "react";
 
@@ -49,21 +37,14 @@ export const LeaderboardFilters = ({
   onScopeFilterChange,
   onCustomDateRangeChange,
 }: LeaderboardFiltersProps) => {
-  const [showCustomSheet, setShowCustomSheet] = useState(false);
-  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(
-    customDateRange ? new Date(customDateRange.start + 'T12:00:00') : undefined
-  );
-  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(
-    customDateRange ? new Date(customDateRange.end + 'T12:00:00') : undefined
-  );
+  const [showCustomDrawer, setShowCustomDrawer] = useState(false);
 
-  const handleApplyCustomRange = () => {
-    if (customStartDate && customEndDate && onCustomDateRangeChange) {
-      const start = format(customStartDate, 'yyyy-MM-dd');
-      const end = format(customEndDate, 'yyyy-MM-dd');
-      onCustomDateRangeChange({ start, end });
+  const handleCustomApply = (start: Date, end: Date) => {
+    if (onCustomDateRangeChange) {
+      const startStr = format(start, 'yyyy-MM-dd');
+      const endStr = format(end, 'yyyy-MM-dd');
+      onCustomDateRangeChange({ start: startStr, end: endStr });
       onTimeFilterChange('custom');
-      setShowCustomSheet(false);
     }
   };
 
@@ -79,40 +60,48 @@ export const LeaderboardFilters = ({
     return 'Custom';
   };
 
+  // Filter out 'custom' from scrollable presets
+  const scrollablePresets = availablePresets.filter(k => k !== 'custom');
+
   return (
     <div className="space-y-3">
-      {/* Time Filter Pills */}
-      <div className="overflow-x-auto scrollbar-hide -mx-4 px-4">
-        <div className="flex gap-2 min-w-max">
-          {availablePresets.map((key) => (
-            <button
-              key={key}
-              onClick={() => onTimeFilterChange(key)}
-              className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1.5",
-                timeFilter === key
-                  ? "bg-primary text-primary-foreground shadow-md"
-                  : "bg-secondary/60 text-secondary-foreground hover:bg-secondary"
-              )}
-            >
-              {timeLabels[key]}
-              {key === 'live' && (
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className={cn(
-                    "relative inline-flex rounded-full h-2 w-2",
-                    timeFilter === key ? "bg-green-300" : "bg-green-500"
-                  )}></span>
-                </span>
-              )}
-            </button>
-          ))}
-          
-          {/* Custom Date Range Button */}
+      {/* Time Filter: scrollable presets + pinned Custom */}
+      <div className="flex items-center gap-0">
+        {/* Scrollable presets */}
+        <div className="flex-1 overflow-x-auto scrollbar-hide -ml-4 pl-4">
+          <div className="flex gap-2 min-w-max pr-2">
+            {scrollablePresets.map((key) => (
+              <button
+                key={key}
+                onClick={() => onTimeFilterChange(key)}
+                className={cn(
+                  "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1.5 flex-shrink-0",
+                  timeFilter === key
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "bg-secondary/60 text-secondary-foreground hover:bg-secondary"
+                )}
+              >
+                {timeLabels[key]}
+                {key === 'live' && (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className={cn(
+                      "relative inline-flex rounded-full h-2 w-2",
+                      timeFilter === key ? "bg-green-300" : "bg-green-500"
+                    )}></span>
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Pinned Custom button */}
+        <div className="flex-shrink-0 pl-2 border-l border-border/50 -mr-4 pr-4">
           <button
-            onClick={() => setShowCustomSheet(true)}
+            onClick={() => setShowCustomDrawer(true)}
             className={cn(
-              "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1.5",
+              "px-3.5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1.5",
               timeFilter === 'custom'
                 ? "bg-primary text-primary-foreground shadow-md"
                 : "bg-secondary/60 text-secondary-foreground hover:bg-secondary"
@@ -124,7 +113,7 @@ export const LeaderboardFilters = ({
         </div>
       </div>
 
-      {/* Scope Toggle - only shown if props are provided */}
+      {/* Scope Toggle */}
       {scopeFilter && onScopeFilterChange && (
         <div className="flex justify-end">
           <div className="flex items-center gap-0.5 bg-secondary/50 rounded-full p-0.5">
@@ -165,69 +154,14 @@ export const LeaderboardFilters = ({
         </div>
       )}
 
-      {/* Custom Date Range Sheet */}
-      <Sheet open={showCustomSheet} onOpenChange={setShowCustomSheet}>
-        <SheetContent side="bottom" className="rounded-t-3xl">
-          <SheetHeader>
-            <SheetTitle>Select Custom Date Range</SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Start Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customStartDate ? format(customStartDate, 'PPP') : 'Pick start date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={customStartDate}
-                    onSelect={setCustomStartDate}
-                    disabled={(date) => date > new Date()}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium mb-2 block">End Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customEndDate ? format(customEndDate, 'PPP') : 'Pick end date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={customEndDate}
-                    onSelect={setCustomEndDate}
-                    disabled={(date) => 
-                      date > new Date() || (customStartDate ? date < customStartDate : false)
-                    }
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <Button 
-              onClick={handleApplyCustomRange}
-              className="w-full"
-              disabled={!customStartDate || !customEndDate}
-            >
-              Apply Date Range
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Custom Date Range Drawer */}
+      <CustomDateRangeDrawer
+        open={showCustomDrawer}
+        onOpenChange={setShowCustomDrawer}
+        startDate={customDateRange ? new Date(customDateRange.start + 'T12:00:00') : undefined}
+        endDate={customDateRange ? new Date(customDateRange.end + 'T12:00:00') : undefined}
+        onApply={handleCustomApply}
+      />
     </div>
   );
 };
