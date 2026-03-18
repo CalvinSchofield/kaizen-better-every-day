@@ -367,7 +367,10 @@ export const useCompetitionHistory = () => {
       enrichedIncentives.forEach(i => {
         if (i.status !== 'completed') return;
         const winnerIds = Array.isArray(i.winner_user_ids) ? i.winner_user_ids : [];
-        if (i.winner_user_id === user.id || winnerIds.includes(user.id)) {
+        // Check direct winner, winner_user_ids array, OR group_total success (all participants win)
+        const isGroupWin = i.target_type === 'group_total' && i.status === 'completed' && 
+          (winnerIds.length > 0 || (i.winner_user_id === null && winnerIds.length === 0));
+        if (i.winner_user_id === user.id || winnerIds.includes(user.id) || isGroupWin) {
           incentivesWon++;
         }
       });
