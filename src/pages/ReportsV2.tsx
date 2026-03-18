@@ -376,6 +376,7 @@ export const ReportsV2Page = () => {
         isLoading={isLoading}
         onWorkingClick={() => setShowWorkingDrawer(true)}
         onAvgStartClick={() => setShowTimeDrawer(true)}
+        onFpClick={() => setShowDealDrawer(true)}
       />
 
       {/* Goal Pace Section */}
