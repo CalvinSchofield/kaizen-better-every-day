@@ -219,7 +219,8 @@ const getAdjacentEvent = (
   events: TimelineEvent[], 
   idx: number, 
   direction: 'before' | 'after',
-  currentEventType?: string
+  currentEventType?: string,
+  tz?: string
 ): { event: TimelineEvent; time: string } | null => {
   const currentEvent = events[idx];
   
