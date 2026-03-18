@@ -121,6 +121,103 @@ export function getComparisonSeasonInfo(currentDate: Date, comparisonYear: numbe
 }
 
 /**
+ * Get the date range for a specific season in a given year
+ */
+export function getSeasonDateRange(year: number, seasonType: SeasonType): { start: Date; end: Date } | null {
+  const yearDef = SEASON_DEFINITIONS[year];
+  if (!yearDef) return null;
+
+  const start = yearDef[seasonType];
+  
+  // End date is the day before the next season starts
+  if (seasonType === 'preseason') {
+    return { start, end: addDays(yearDef.summer, -1) };
+  }
+  if (seasonType === 'summer') {
+    return { start, end: addDays(yearDef.extension, -1) };
+  }
+  // Extension ends the day before next year's preseason
+  const nextYear = SEASON_DEFINITIONS[year + 1];
+  if (nextYear) {
+    return { start, end: addDays(nextYear.preseason, -1) };
+  }
+  // Fallback: extension runs ~4 weeks
+  return { start, end: addDays(start, 27) };
+}
+
+/**
+ * Get all weeks (Sun-Sat) for a season, with labels and date ranges
+ */
+export function getSeasonWeeks(year: number, seasonType: SeasonType): { label: string; start: Date; end: Date; weekNum: number }[] {
+  const range = getSeasonDateRange(year, seasonType);
+  if (!range) return [];
+
+  const prefix = seasonType === 'preseason' ? 'Pre' : seasonType === 'summer' ? 'Sum' : 'Ext';
+  const weeks: { label: string; start: Date; end: Date; weekNum: number }[] = [];
+  let weekStart = range.start;
+  let weekNum = 1;
+  const today = new Date();
+  
+  while (weekStart <= range.end) {
+    const weekEnd = addDays(weekStart, 6);
+    const clampedEnd = weekEnd > range.end ? range.end : weekEnd;
+    weeks.push({
+      label: `${prefix} W${weekNum}`,
+      start: weekStart,
+      end: clampedEnd > today ? today : clampedEnd,
+      weekNum,
+    });
+    weekStart = addDays(weekStart, 7);
+    weekNum++;
+    if (weekStart > today) break; // Don't show future weeks
+  }
+  return weeks;
+}
+
+/**
+ * Get months within the 2026 season year (Oct 2025 - Sep 2026)
+ */
+export function getSeasonMonths(year: number): { label: string; start: Date; end: Date }[] {
+  const yearDef = SEASON_DEFINITIONS[year];
+  if (!yearDef) return [];
+
+  const seasonStart = yearDef.preseason;
+  const today = new Date();
+  const months: { label: string; start: Date; end: Date }[] = [];
+  
+  // Start from the preseason month, go through 12 months
+  let current = new Date(seasonStart.getFullYear(), seasonStart.getMonth(), 1);
+  
+  for (let i = 0; i < 12; i++) {
+    const monthStart = new Date(current.getFullYear(), current.getMonth(), 1);
+    const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0); // last day of month
+    
+    if (monthStart > today) break; // Don't show future months
+    
+    const label = format(monthStart, "MMM ''yy");
+    months.push({
+      label,
+      start: monthStart,
+      end: monthEnd > today ? today : monthEnd,
+    });
+    
+    current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+  }
+  
+  return months;
+}
+
+/**
+ * Get the current season week info for highlighting "now" chips
+ */
+export function getCurrentSeasonWeekLabel(): string | null {
+  const info = getSeasonInfo(new Date());
+  if (!info) return null;
+  const prefix = info.type === 'preseason' ? 'Pre' : info.type === 'summer' ? 'Sum' : 'Ext';
+  return `${prefix} W${info.week}`;
+}
+
+/**
  * Format a date for display in season context
  */
 export function formatSeasonDate(date: Date): string {
