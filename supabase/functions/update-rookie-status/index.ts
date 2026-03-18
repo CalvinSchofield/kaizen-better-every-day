@@ -185,12 +185,12 @@ Deno.serve(async (req) => {
 
     console.log(`[update-rookie-status] Updating rookieId: ${rookieId} with:`, updateData);
 
-    // Update by ID
+    // Update reps table by ID
     const { data, error } = await supabase
       .from('reps')
       .update(updateData)
       .eq('id', rookieId)
-      .select('id, name');
+      .select('id, name, user_id');
     
     if (error) {
       console.error(`[update-rookie-status] Error updating rep:`, error);
@@ -198,6 +198,29 @@ Deno.serve(async (req) => {
     }
 
     const updateSuccess = data && data.length > 0;
+    
+    // Also update the recruits table directly (for recruits without a reps row)
+    const recruitUpdateData: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (updateData.onboarding_complete !== undefined) recruitUpdateData.onboarding_complete = updateData.onboarding_complete;
+    if (updateData.trainings_complete !== undefined) recruitUpdateData.trainings_complete = updateData.trainings_complete;
+    if (updateData.slack_joined !== undefined) recruitUpdateData.slack_joined = updateData.slack_joined;
+    if (updateData.ramp_phase_1_complete !== undefined) recruitUpdateData.ramp_phase_1_complete = updateData.ramp_phase_1_complete;
+    if (updateData.ramp_phase_2_complete !== undefined) recruitUpdateData.ramp_phase_2_complete = updateData.ramp_phase_2_complete;
+    if (updateData.ramp_phase_3_complete !== undefined) recruitUpdateData.ramp_phase_3_complete = updateData.ramp_phase_3_complete;
+    if (updateData.ramp_phase_4_complete !== undefined) recruitUpdateData.ramp_phase_4_complete = updateData.ramp_phase_4_complete;
+    if (updateData.ipad_assigned !== undefined) recruitUpdateData.ipad_assigned = updateData.ipad_assigned;
+
+    const { error: recruitError } = await supabase
+      .from('recruits')
+      .update(recruitUpdateData)
+      .eq('id', rookieId);
+
+    if (recruitError) {
+      console.warn(`[update-rookie-status] Could not update recruits table:`, recruitError.message);
+    } else {
+      console.log(`[update-rookie-status] Also updated recruits table for id: ${rookieId}`);
+    }
+
     if (updateSuccess) {
       console.log(`[update-rookie-status] Updated rep: ${data[0].name}`);
 
@@ -219,14 +242,9 @@ Deno.serve(async (req) => {
         }
 
         if (phase) {
-          // Get the rep's user_id
-          const { data: repData } = await supabase
-            .from('reps')
-            .select('user_id')
-            .eq('id', rookieId)
-            .maybeSingle();
+          const repUserId = data[0].user_id;
 
-          if (repData?.user_id) {
+          if (repUserId) {
             try {
               await fetch(`${supabaseUrl}/functions/v1/send-onboarding-completion-notification`, {
                 method: 'POST',
@@ -235,7 +253,7 @@ Deno.serve(async (req) => {
                   'Authorization': `Bearer ${supabaseServiceKey}`,
                 },
                 body: JSON.stringify({
-                  repUserId: repData.user_id,
+                  repUserId,
                   repName,
                   phase,
                   stepDescription,
@@ -260,13 +278,9 @@ Deno.serve(async (req) => {
         else if (rampPhase4Complete === true) { phase = 'phase_4'; stepDescription = 'Pack & Prepare'; }
 
         if (phase) {
-          const { data: repData } = await supabase
-            .from('reps')
-            .select('user_id')
-            .eq('id', rookieId)
-            .maybeSingle();
+          const repUserId = data[0].user_id;
 
-          if (repData?.user_id) {
+          if (repUserId) {
             try {
               await fetch(`${supabaseUrl}/functions/v1/send-onboarding-completion-notification`, {
                 method: 'POST',
@@ -275,7 +289,7 @@ Deno.serve(async (req) => {
                   'Authorization': `Bearer ${supabaseServiceKey}`,
                 },
                 body: JSON.stringify({
-                  repUserId: repData.user_id,
+                  repUserId,
                   repName,
                   phase,
                   stepDescription,
@@ -289,7 +303,7 @@ Deno.serve(async (req) => {
         }
       }
     } else {
-      console.warn(`[update-rookie-status] No rep found with id: ${rookieId}`);
+      console.warn(`[update-rookie-status] No rep found with id: ${rookieId}, recruits table updated directly`);
     }
 
     // The sync_rep_to_recruit trigger will automatically sync changes to the recruits table
