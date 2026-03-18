@@ -263,7 +263,7 @@ export const useReportsV2Data = ({
       // Fetch rep names for goals
       const { data: reps, error: repsError } = await supabase
         .from('reps')
-        .select('user_id, name')
+        .select('user_id, name, phone')
         .in('user_id', userIds);
 
       if (repsError) throw repsError;
