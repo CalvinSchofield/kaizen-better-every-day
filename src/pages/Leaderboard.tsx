@@ -169,19 +169,21 @@ const Leaderboard = () => {
         <div data-tour="leaderboard-filters">
           <LeaderboardFilters
             timeFilter={timeFilter}
-            scopeFilter={scopeFilter}
             availablePresets={availablePresets}
             customDateRange={customDateRange}
             onTimeFilterChange={setTimeFilter}
-            onScopeFilterChange={(filter) => {
-              setScopeFilter(filter);
-              if (filter === 'watchlist') {
-                setWatchlistDrawerOpen(true);
-              }
-            }}
             onCustomDateRangeChange={setCustomDateRange}
           />
         </div>
+
+        {/* Smart Filter Drawer */}
+        <SmartFilterDrawer
+          open={showFilterDrawer}
+          onOpenChange={setShowFilterDrawer}
+          filterState={smartFilter}
+          onFilterApply={setSmartFilter}
+          showTeamFilters={false}
+        />
 
         {/* Content */}
         {(isLive ? todayLoading : isLoading) ? (
