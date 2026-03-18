@@ -9,7 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { GoalTier } from '@/config/goalTiers';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isAfter } from 'date-fns';
-import { calculateFromSalesLog } from '@/utils/salesLogCalculations';
 
 const SEASON_START = '2025-09-28';
 const PRESEASON_END = '2026-04-11';
