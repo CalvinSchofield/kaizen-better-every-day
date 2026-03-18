@@ -68,7 +68,10 @@ const Leaderboard = () => {
           .single();
         if (repData) {
           setCurrentUserYear(repData.year);
-          setScopeFilter(repData.year === 'Rookie' ? 'rookies' : 'all');
+          setSmartFilter(prev => ({
+            ...prev,
+            yearFilters: repData.year === 'Rookie' ? ['Rookie'] : [],
+          }));
         }
       }
       setIsUserInitialized(true);
@@ -76,6 +79,29 @@ const Leaderboard = () => {
     fetchUser();
   }, []);
 
+  // Inject filter icon into header
+  useEffect(() => {
+    const active = isFilterActive(smartFilter);
+    setCustomRightContent(
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setShowFilterDrawer(true)}
+        className="relative h-10 w-10"
+      >
+        <Filter className="h-5 w-5" />
+        {active && (
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
+        )}
+      </Button>
+    );
+    return () => setCustomRightContent(null);
+  }, [setCustomRightContent, smartFilter]);
+
+  // Derive scope from smart filter
+  const scopeFilter = smartFilter.scope === 'watchlist' ? 'watchlist' 
+    : smartFilter.yearFilters.includes('Rookie') && smartFilter.yearFilters.length === 1 ? 'rookies' 
+    : 'all';
   const filterByYear = scopeFilter === 'rookies' ? 'Rookie' : undefined;
   const isWatchlistMode = scopeFilter === 'watchlist';
 

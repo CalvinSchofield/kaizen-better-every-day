@@ -105,6 +105,30 @@ export const ReportsV2Page = () => {
     return ids;
   }, [teamAccess, teamFilter, allUserIds, currentUserId]);
 
+  // Sync smart filter → team filter (must be before early returns)
+  useEffect(() => {
+    setTeamFilter(smartFilter.teamFilter);
+  }, [smartFilter.teamFilter]);
+
+  // Inject filter icon into header (must be before early returns)
+  useEffect(() => {
+    const active = isFilterActive(smartFilter);
+    setCustomRightContent(
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setShowFilterDrawer(true)}
+        className="relative h-10 w-10"
+      >
+        <Filter className="h-5 w-5" />
+        {active && (
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
+        )}
+      </Button>
+    );
+    return () => setCustomRightContent(null);
+  }, [setCustomRightContent, smartFilter]);
+
   // Calculate date range
   const getDateRange = () => {
     const today = new Date();
