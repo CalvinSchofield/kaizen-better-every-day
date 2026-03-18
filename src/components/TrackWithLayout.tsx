@@ -1000,8 +1000,18 @@ const TrackWithLayout = () => {
     setSyncStatus('pending');
     try {
       // Try direct save FIRST (no queue)
+      console.log('[handleLogSale] Sending sale to server:', {
+        salesCount: updatedSalesLog.length,
+        fp: Math.round(fp * 100) / 100,
+        prmr: Math.round(totalPrmr * 100) / 100,
+        hasSalesLog: !!updates.sales_log,
+        salesLogLength: updates.sales_log?.length,
+      });
       await updateCounter(updates);
       setSyncStatus('synced');
+      // Schedule server verification to confirm sale landed
+      setTimeout(verifyServerSync, 2000);
+      console.log('[handleLogSale] Sale mutation completed successfully');
       // Fire-and-forget: notify watchlist watchers and recruiter about this sale
       const currentUid = getCurrentUserId();
       if (currentUid) {
