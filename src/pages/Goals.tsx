@@ -798,7 +798,7 @@ const Goals = () => {
   const activeGoalData = tiers[activeTier];
 
   // Check for leader-requested goal review
-  const goalReviewRequested = goals?.goal_review_requested_by && goals?.goal_review_requested_at;
+  const goalReviewRequested = (goals as any)?.goal_review_requested_by && (goals as any)?.goal_review_requested_at;
   const handleDismissReview = async () => {
     if (!userId) return;
     await supabase
