@@ -339,14 +339,14 @@ const TrackWithLayout = () => {
   // Sync status tracking: listen for online/offline changes for UI indicator only
   useEffect(() => {
     const handleOnline = () => {
-      if (syncStatus === 'offline') {
-        setSyncStatus('pending');
-        // Status will flip to 'synced' when useDailyEntry's handler completes
-        // and the next mutation succeeds
-        setTimeout(() => {
-          if (syncStatus === 'pending') setSyncStatus('synced');
-        }, 5000);
-      }
+      setSyncStatus((prev) => {
+        if (prev === 'offline' || prev === 'error') return 'pending';
+        return prev;
+      });
+      // Auto-resolve after useDailyEntry's handler has time to complete
+      setTimeout(() => {
+        setSyncStatus((prev) => prev === 'pending' ? 'synced' : prev);
+      }, 5000);
     };
     const handleOffline = () => setSyncStatus('offline');
     
@@ -356,7 +356,7 @@ const TrackWithLayout = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [syncStatus]);
+  }, []);
 
   // Handle save button click - check if before sunset
   const handleSaveButtonClick = () => {
