@@ -755,7 +755,7 @@ export const RepDayActivityFlow = ({
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Time</span>
-                    <span className="text-sm font-medium">{formatTimeOnly(sale.timestamp)}</span>
+                    <span className="text-sm font-medium">{formatTimeOnly(sale.timestamp, repTimezone)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Type</span>
