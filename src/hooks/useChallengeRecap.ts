@@ -79,7 +79,7 @@ async function fetchRecapData(challenge: Challenge): Promise<ChallengeRecapData 
 
     userIds.forEach(uid => {
       const entry = entries.find(e => e.user_id === uid && e.entry_date === dateStr);
-      const val = entry ? Number((entry as any)[col]) || 0 : 0;
+      const val = entry ? Number(entry[col as keyof typeof entry]) || 0 : 0;
       dayValues[uid] = val;
       cumulative[uid] += val;
     });
