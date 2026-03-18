@@ -21,6 +21,7 @@ import { ReportsTeamFilter, TeamFilter } from "@/components/reports/v2/ReportsTe
 import { WorkingRepsDrawer } from "@/components/reports/v2/WorkingRepsDrawer";
 import { GoalPaceDrawer } from "@/components/reports/v2/GoalPaceDrawer";
 import { GoalPaceSection } from "@/components/reports/v2/GoalPaceSection";
+import { RepTimesDrawer } from "@/components/reports/v2/RepTimesDrawer";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,7 @@ export const ReportsV2Page = () => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [showWorkingDrawer, setShowWorkingDrawer] = useState(false);
   const [showGoalPaceDrawer, setShowGoalPaceDrawer] = useState(false);
+  const [showTimeDrawer, setShowTimeDrawer] = useState(false);
   
   // Get team access
   const { data: teamAccess, isLoading: accessLoading, error: teamAccessError, refetch: refetchTeamAccess, wasLeader } = useTeamAccess();
@@ -165,17 +167,32 @@ export const ReportsV2Page = () => {
     { key: 'ytd', label: 'YTD' },
   ];
 
+  // Parse "h:mm AM/PM" formatted time string to minutes from midnight
+  const parseFormattedTime = (t: string): number | null => {
+    const match = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return null;
+    let h = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    const pm = match[3].toUpperCase() === 'PM';
+    if (pm && h < 12) h += 12;
+    if (!pm && h === 12) h = 0;
+    return h * 60 + m;
+  };
+
   // Compute avg start time from reps (must be before early returns)
   const avgStartTime = useMemo(() => {
     const starts = repsWithEffort
       .filter(r => r.workStartTime || r.avgStartTime)
       .map(r => {
-        const t = r.workStartTime || r.avgStartTime;
-        if (!t) return null;
-        try {
-          const d = new Date(t);
-          return d.getHours() * 60 + d.getMinutes();
-        } catch { return null; }
+        // workStartTime is ISO, avgStartTime is "h:mm AM/PM"
+        if (r.workStartTime) {
+          try {
+            const d = new Date(r.workStartTime);
+            if (!isNaN(d.getTime())) return d.getHours() * 60 + d.getMinutes();
+          } catch {}
+        }
+        if (r.avgStartTime) return parseFormattedTime(r.avgStartTime);
+        return null;
       })
       .filter((m): m is number => m !== null);
     
@@ -187,6 +204,47 @@ export const ReportsV2Page = () => {
     const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
     return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
   }, [repsWithEffort]);
+
+  // Compute rep time data for the times drawer
+  const repTimeData = useMemo(() => {
+    return repsWithEffort.map(r => {
+      let startMins: number | null = null;
+      let endMins: number | null = null;
+      if (r.workStartTime) {
+        try {
+          const d = new Date(r.workStartTime);
+          if (!isNaN(d.getTime())) startMins = d.getHours() * 60 + d.getMinutes();
+        } catch {}
+      }
+      if (!startMins && r.avgStartTime) startMins = parseFormattedTime(r.avgStartTime);
+      if (r.workEndTime) {
+        try {
+          const d = new Date(r.workEndTime);
+          if (!isNaN(d.getTime())) endMins = d.getHours() * 60 + d.getMinutes();
+        } catch {}
+      }
+      if (!endMins && r.avgEndTime) endMins = parseFormattedTime(r.avgEndTime);
+      return {
+        userId: r.userId,
+        name: r.name,
+        avgStartMinutes: startMins,
+        avgEndMinutes: endMins,
+        hoursWorked: r.hoursWorked,
+      };
+    });
+  }, [repsWithEffort]);
+
+  const teamAvgStartMinutes = useMemo(() => {
+    const valid = repTimeData.filter(r => r.avgStartMinutes !== null);
+    if (valid.length === 0) return undefined;
+    return Math.round(valid.reduce((s, r) => s + r.avgStartMinutes!, 0) / valid.length);
+  }, [repTimeData]);
+
+  const teamAvgEndMinutes = useMemo(() => {
+    const valid = repTimeData.filter(r => r.avgEndMinutes !== null);
+    if (valid.length === 0) return undefined;
+    return Math.round(valid.reduce((s, r) => s + r.avgEndMinutes!, 0) / valid.length);
+  }, [repTimeData]);
 
   // Total hours (must be before early returns)
   const totalHours = useMemo(() => repsWithEffort.reduce((sum, r) => sum + r.hoursWorked, 0), [repsWithEffort]);
@@ -315,6 +373,7 @@ export const ReportsV2Page = () => {
         periodLabel={getPeriodLabel()}
         isLoading={isLoading}
         onWorkingClick={() => setShowWorkingDrawer(true)}
+        onAvgStartClick={() => setShowTimeDrawer(true)}
       />
 
       {/* Goal Pace Section */}
@@ -438,6 +497,16 @@ export const ReportsV2Page = () => {
         open={showGoalPaceDrawer}
         onOpenChange={setShowGoalPaceDrawer}
         enhancedGoalPace={enhancedGoalPace}
+        onRepClick={handleRepClick}
+      />
+
+      <RepTimesDrawer
+        open={showTimeDrawer}
+        onOpenChange={setShowTimeDrawer}
+        reps={repTimeData}
+        periodLabel={getPeriodLabel()}
+        teamAvgStartMinutes={teamAvgStartMinutes}
+        teamAvgEndMinutes={teamAvgEndMinutes}
         onRepClick={handleRepClick}
       />
 

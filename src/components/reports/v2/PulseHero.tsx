@@ -23,6 +23,7 @@ interface PulseHeroProps {
   periodLabel: string;
   isLoading?: boolean;
   onWorkingClick?: () => void;
+  onAvgStartClick?: () => void;
 }
 
 interface StatTileProps {
@@ -108,6 +109,7 @@ export const PulseHero = ({
   avgStartTime, avgEndTime, activeHours,
   activeReps, workingCount, isLiveView,
   teamBaseline, periodLabel, isLoading, onWorkingClick,
+  onAvgStartClick,
 }: PulseHeroProps) => {
   if (isLoading) {
     return (
@@ -171,10 +173,13 @@ export const PulseHero = ({
             <span className="text-muted-foreground text-xs">PRMR</span>
           </div>
           {avgStartTime && (
-            <div className="flex items-baseline gap-1">
+            <button
+              onClick={onAvgStartClick}
+              className="flex items-baseline gap-1 hover:bg-muted/50 rounded px-1 -mx-1 transition-colors active:scale-[0.97]"
+            >
               <span className="font-medium">{avgStartTime}</span>
               <span className="text-muted-foreground text-xs">Avg Start</span>
-            </div>
+            </button>
           )}
           {activeHours !== undefined && activeHours > 0 && (
             <div className="flex items-baseline gap-1">
