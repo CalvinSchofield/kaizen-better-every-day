@@ -75,31 +75,30 @@ export const EffortCoachingCallouts = ({
 
   // Late Start Logic
   if (startDate) {
-    const startHour = startDate.getHours();
-    const startMinute = startDate.getMinutes();
-    const startInMinutes = startHour * 60 + startMinute;
-    
-    // Thresholds: Mon-Fri after 1pm (780 min), Sat after 10am (600 min)
-    // OR later than rep's average + 30 mins
-    const lateThresholdWeekday = 780; // 1:00 PM
-    const lateThresholdSaturday = 600; // 10:00 AM
-    
-    let isLate = false;
-    let lateReason = '';
-    
-    if (isWeekday && startInMinutes > lateThresholdWeekday) {
-      isLate = true;
-      const lateBy = startInMinutes - lateThresholdWeekday;
-      lateReason = `Started at ${format(startDate, 'h:mm a')} (${formatDurationNatural(lateBy)} after 1pm)`;
-    } else if (isSaturday && startInMinutes > lateThresholdSaturday) {
-      isLate = true;
-      const lateBy = startInMinutes - lateThresholdSaturday;
-      lateReason = `Started at ${format(startDate, 'h:mm a')} (${formatDurationNatural(lateBy)} after 10am)`;
-    } else if (repAverageStartMinutes !== undefined && startInMinutes > repAverageStartMinutes + 30) {
-      isLate = true;
-      const lateBy = startInMinutes - repAverageStartMinutes;
-      lateReason = `Started at ${format(startDate, 'h:mm a')} (${formatDurationNatural(lateBy)} later than usual)`;
-    }
+    const startTime = getTimeInTimezone(workStartTime!, timezone);
+    if (startTime) {
+      const startInMinutes = startTime.hours * 60 + startTime.minutes;
+      const timeLabel = formatTimeInTz(workStartTime!, timezone) || 'Unknown';
+      
+      const lateThresholdWeekday = 780;
+      const lateThresholdSaturday = 600;
+      
+      let isLate = false;
+      let lateReason = '';
+      
+      if (isWeekday && startInMinutes > lateThresholdWeekday) {
+        isLate = true;
+        const lateBy = startInMinutes - lateThresholdWeekday;
+        lateReason = `Started at ${timeLabel} (${formatDurationNatural(lateBy)} after 1pm)`;
+      } else if (isSaturday && startInMinutes > lateThresholdSaturday) {
+        isLate = true;
+        const lateBy = startInMinutes - lateThresholdSaturday;
+        lateReason = `Started at ${timeLabel} (${formatDurationNatural(lateBy)} after 10am)`;
+      } else if (repAverageStartMinutes !== undefined && startInMinutes > repAverageStartMinutes + 30) {
+        isLate = true;
+        const lateBy = startInMinutes - repAverageStartMinutes;
+        lateReason = `Started at ${timeLabel} (${formatDurationNatural(lateBy)} later than usual)`;
+      }
     
     if (isLate) {
       issues.push({
