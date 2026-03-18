@@ -775,7 +775,7 @@ export const RepDayActivityFlow = ({
       <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1">
         <div className="flex items-center gap-1">
           <Play className="w-3 h-3 text-primary" />
-          <span className="font-medium">{formatTimeOnly(startTime)}</span>
+          <span className="font-medium">{formatTimeOnly(startTime, repTimezone)}</span>
         </div>
         <span className="text-muted-foreground/70">{events.length} events</span>
         <div className="flex items-center gap-1">
