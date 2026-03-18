@@ -339,7 +339,7 @@ export const GoalPaceDrawer = ({ open, onOpenChange, enhancedGoalPace, onRepClic
           {withGoals.length > 0 && (
             <div className="space-y-3">
               {withGoals.map(rep => (
-                <RepGoalCard key={rep.userId} rep={rep} onRepClick={onRepClick} />
+                <RepGoalCard key={rep.userId} rep={rep} onRepClick={onRepClick} onSuggestReview={handleSuggestReview} />
               ))}
             </div>
           )}
