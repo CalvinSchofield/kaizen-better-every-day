@@ -374,6 +374,18 @@ export const ReportsV2Page = () => {
         isLoading={isLoading}
       />
 
+      {/* Production Trend Chart (multi-day views) */}
+      <ProductionTrendChart
+        data={dailyTrend}
+        isLoading={isLoading}
+      />
+
+      {/* Hourly Activity Chart */}
+      <HourlyActivityChart
+        hourlyActivity={hourlyActivity}
+        isLoading={isLoading}
+      />
+
       {/* Layer 4: Auto Insights */}
       <AutoInsights
         constraint={constraint}
