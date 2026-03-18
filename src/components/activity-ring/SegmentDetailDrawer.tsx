@@ -87,6 +87,7 @@ export const SegmentDetailDrawer = ({
   workStart,
   workEnd,
   totalWorkMinutes,
+  repTimezone,
 }: SegmentDetailDrawerProps) => {
   // For live/unfinalized entries, workEnd may be null — use "now" as a fallback
   const effectiveWorkEnd = workEnd || new Date();
