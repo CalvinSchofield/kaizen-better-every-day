@@ -127,6 +127,7 @@ const objections: Objection[] = [
 
 const Objections = () => {
   const navigate = useNavigate();
+  useToolsBackButton();
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [favorites, setFavorites] = useLocalStorage<Record<string, number>>("objection-favorites", {});

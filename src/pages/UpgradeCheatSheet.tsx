@@ -161,6 +161,7 @@ const PRMR_STEPS = [
 
 export default function UpgradeCheatSheet() {
   const navigate = useNavigate();
+  useToolsBackButton();
   const [activeCategory, setActiveCategory] = useState("all");
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
   const [calculatorOpen, setCalculatorOpen] = useState(false);

@@ -23,6 +23,7 @@ interface Contact {
 
 const Contacts = () => {
   const navigate = useNavigate();
+  useToolsBackButton();
   const [expandedContact, setExpandedContact] = useState<string | null>(null);
   const [aiInput, setAiInput] = useState("");
   const [aiRecommendation, setAiRecommendation] = useState("");
