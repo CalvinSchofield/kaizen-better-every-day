@@ -318,46 +318,49 @@ const TrackWithLayout = () => {
   }, [entry, finalizeEntry]);
 
   // BULLETPROOF: Save backup to localStorage on every entry change
+  // FIX: Only save when values go UP — prevents rollback from overwriting backup with lower values
+  const lastBackupTotalRef = useRef<number>(0);
   useEffect(() => {
     if (!entry.is_finalized && userId) {
-      const hasActivity = entry.doors_knocked > 0 || 
-                         entry.decision_makers > 0 || 
-                         entry.pitches > 0 || 
-                         entry.transitions > 0 || 
-                         entry.presentations > 0 || 
-                         entry.closes > 0;
-      if (hasActivity) {
+      const currentTotal = (entry.doors_knocked || 0) + 
+                           (entry.decision_makers || 0) + 
+                           (entry.pitches || 0) + 
+                           (entry.transitions || 0) + 
+                           (entry.presentations || 0) + 
+                           (entry.closes || 0);
+      // Only save if activity total is >= our last saved total (never go backwards)
+      if (currentTotal > 0 && currentTotal >= lastBackupTotalRef.current) {
+        lastBackupTotalRef.current = currentTotal;
         saveBackup(entry);
       }
     }
   }, [entry, userId, saveBackup]);
 
-  // OFFLINE SUPPORT: Background sync when coming back online
+  // REMOVED: Duplicate online handler was here. The authoritative one lives in
+  // useDailyEntry.ts which checks server state + last_reset_at before pushing.
+  // Having two handlers caused race conditions and premature backup clearing.
+
+  // Sync status tracking: listen for online/offline changes for UI indicator only
   useEffect(() => {
-    const handleOnline = async () => {
-      // Check if we have unsaved backup data that needs syncing
-      const backup = loadBackup();
-      if (backup && hasUnsavedBackup(entry)) {
-        setSyncStatus('pending');
-        toast.info('Syncing your offline data...', { icon: '🔄', duration: 2000 });
-        try {
-          await updateCounter(backup);
-          clearBackup();
-          setSyncStatus('synced');
-          toast.success('Offline data synced!', { duration: 3000 });
-        } catch {
-          setSyncStatus('error');
-          toast.error('Sync failed - will retry later');
-        }
-      } else if (syncStatus === 'offline') {
-        // Just came back online, update status
-        setSyncStatus('synced');
-      }
+    const handleOnline = () => {
+      setSyncStatus((prev) => {
+        if (prev === 'offline' || prev === 'error') return 'pending';
+        return prev;
+      });
+      // Auto-resolve after useDailyEntry's handler has time to complete
+      setTimeout(() => {
+        setSyncStatus((prev) => prev === 'pending' ? 'synced' : prev);
+      }, 5000);
     };
+    const handleOffline = () => setSyncStatus('offline');
     
     window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, [loadBackup, hasUnsavedBackup, entry, updateCounter, clearBackup, syncStatus]);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Handle save button click - check if before sunset
   const handleSaveButtonClick = () => {
@@ -820,6 +823,13 @@ const TrackWithLayout = () => {
         toast.info("Today's work is already saved. Start fresh tomorrow!");
         setSavedThisSession(true); // Prevent further attempts
         setSyncStatus('synced');
+      } else if (error?.message === 'AUTH_SESSION_EXPIRED') {
+        // FIX: Explicit auth error feedback — user needs to know their session died
+        setSyncStatus('error');
+        toast.error('Session expired — please close and reopen the app to continue tracking', {
+          duration: 8000,
+          id: 'auth-expired', // Prevent duplicate toasts
+        });
       } else if (!navigator.onLine) {
         // OFFLINE SUPPORT: Show friendly offline message
         setSyncStatus('offline');

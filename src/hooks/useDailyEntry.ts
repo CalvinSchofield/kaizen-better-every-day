@@ -428,8 +428,17 @@ export const useDailyEntry = (date?: string) => {
   const updateCounterMutation = useMutation({
     mutationKey: ['update-counter', entryDate],
     mutationFn: async (updates: Partial<DailyEntry>) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      // FIX: Try getUser first, then attempt session refresh before giving up
+      let user = (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        console.warn('[useDailyEntry] Session expired during mutation — attempting refresh');
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        user = refreshData?.user ?? null;
+        if (!user) {
+          throw new Error('AUTH_SESSION_EXPIRED');
+        }
+        console.log('[useDailyEntry] Session refreshed successfully during mutation');
+      }
 
       // Use the safe upsert function that merges sales_log instead of overwriting
       // This prevents iPad/phone sync issues where stale cache overwrites sales
@@ -467,7 +476,12 @@ export const useDailyEntry = (date?: string) => {
     },
     // OFFLINE SUPPORT: Queue mutations when offline, retry when back online
     networkMode: 'offlineFirst',
-    retry: 3,
+    retry: (failureCount, error) => {
+      // Don't retry auth errors beyond 1 attempt (refresh already tried in mutationFn)
+      if (error?.message === 'AUTH_SESSION_EXPIRED') return false;
+      if (error?.message === 'ENTRY_ALREADY_FINALIZED') return false;
+      return failureCount < 3;
+    },
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
     onMutate: async (updates) => {
       // Cancel outgoing refetches
@@ -525,9 +539,25 @@ export const useDailyEntry = (date?: string) => {
       return { previousEntry };
     },
     onError: (err, updates, context) => {
-      // Rollback on error
+      // FIX: Only rollback if the previous entry had EQUAL or HIGHER values.
+      // If rollback would reduce counter values, keep the optimistic update
+      // to prevent backup overwrite with lower values.
+      const currentCache = queryClient.getQueryData<DailyEntry>(['daily-entry', entryDate]);
+      const previousEntry = context?.previousEntry as DailyEntry | null | undefined;
+      
+      if (previousEntry && currentCache) {
+        const currentTotal = getActivityTotal(currentCache);
+        const previousTotal = getActivityTotal(previousEntry);
+        
+        if (previousTotal < currentTotal) {
+          // DON'T rollback — keep higher values in cache so backup stays intact
+          console.warn('[useDailyEntry] Mutation failed but keeping optimistic values to protect backup');
+          return;
+        }
+      }
+      
+      // Safe to rollback (previous had same or higher values)
       queryClient.setQueryData(['daily-entry', entryDate], context?.previousEntry);
-      // Don't show generic error toast here - let the caller handle offline-aware messaging
     },
     onSuccess: (data) => {
       // Mark backup as server-confirmed after successful mutation
@@ -540,7 +570,6 @@ export const useDailyEntry = (date?: string) => {
             const backup = JSON.parse(stored);
             backup.lastServerSync = new Date().toISOString();
             localStorage.setItem(key, JSON.stringify(backup));
-            console.log('[useDailyEntry] Backup marked as server-confirmed');
           }
         } catch {}
       }
