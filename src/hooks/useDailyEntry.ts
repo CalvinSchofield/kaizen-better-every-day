@@ -703,7 +703,9 @@ export const useDailyEntry = (date?: string) => {
         if (userId) {
           const backupKey = `track-backup-${userId}-${entryDate}`;
           localStorage.removeItem(backupKey);
-          console.log('[useDailyEntry] Reset: cleared localStorage backup');
+          // Also clear the auto-push guard so future legitimate pushes aren't blocked
+          sessionStorage.removeItem(`backup-push-${entryDate}`);
+          console.log('[useDailyEntry] Reset: cleared localStorage backup and push guard');
         }
       } catch (e) {
         console.error('[useDailyEntry] Reset: failed to clear backup', e);
