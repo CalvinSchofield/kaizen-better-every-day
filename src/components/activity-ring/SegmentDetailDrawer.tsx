@@ -145,7 +145,10 @@ export const SegmentDetailDrawer = ({
                   <span className="text-sm text-muted-foreground">Time</span>
                 </div>
                 <div className="text-sm font-medium tabular-nums">
-                  {format(startTime!, 'h:mm a')} – {format(endTime!, 'h:mm a')}
+                  {repTimezone 
+                    ? `${formatInTimeZone(startTime!, repTimezone, 'h:mm a')} – ${formatInTimeZone(endTime!, repTimezone, 'h:mm a')}`
+                    : `${format(startTime!, 'h:mm a')} – ${format(endTime!, 'h:mm a')}`
+                  }
                 </div>
               </div>
           
