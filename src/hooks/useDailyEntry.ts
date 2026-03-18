@@ -654,6 +654,7 @@ export const useDailyEntry = (date?: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const resetTimestamp = new Date().toISOString();
       const { data, error } = await supabase
         .from('daily_entries')
         .upsert({
@@ -674,7 +675,8 @@ export const useDailyEntry = (date?: string) => {
           counter_timestamps: {},
           custom_counters: {},
           sales_log: [],
-        }, {
+          last_reset_at: resetTimestamp,
+        } as any, {
           onConflict: 'user_id,entry_date'
         })
         .select()
