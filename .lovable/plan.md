@@ -1,82 +1,35 @@
+# Notification System – Implementation Plan
 
+## Completed
 
-## Problem Summary
+### Phase 1: Core Notification Pipeline
+- 21 notification types (web push + APNs)
+- Timezone-aware cron-based nudges
+- Deduplication via notification_logs
+- In-app foreground banner (InAppNotificationBanner.tsx)
 
-From the screenshots:
-1. **Reports page has a double title** — Layout header shows "Reports" AND there's an inline `<h1>Reports</h1>` with a filter button below it
-2. **Leaderboard** has no filter icon in the header bar — the scope filter (All/Rookies/Watchlist) is inline in the content area, nothing in top-right
-3. Both pages need a **unified filter icon** in the top-right of the header bar that opens a **world-class filter drawer**
-4. The filter drawer needs to be built as a **scalable foundation** for hundreds/thousands of reps — with saved filters, watchlist toggle, team hierarchy, etc.
+### Phase 2: iOS Rich Notifications (Press & Hold)
+- **Swift files created** in `ios-notification-setup/`:
+  - `NotificationCategories.swift` — 23 categories with contextual actions
+  - `NotificationResponseHandler.swift` — Handles all action responses including inline replies, call/text, snooze, RSVP
+  - `README.md` — Step-by-step setup guide
+- **`handle-notification-reply` edge function** — Receives inline replies from iOS, saves as comments, triggers comment notifications
+- **APNs payload enriched** — Now passes `activityId`, `recruitId`, `recruitName`, `phone`, `challengeId`, `repUserId` through to iOS `userInfo`
 
-## Plan
+### User Notes on Specific Notifications
+- **task_past_due**: Actions = View Tasks, Reschedule (navigate to tasks page)
+- **preseason_accountability**: Just a reminder of commitments, not a logging action
+- **access_request**: Should track onboarding flow progression (3 levels up upline), not just signup
+- **install_reminder_eve**: "View Sale" opens to that customer in CRM
+- **install_reminder_due**: "Installed" confirms, "Update" for canceled/rescheduled
+- **personal_record**: Need to determine what view/page to show
+- **leader_coaching**: Call/Text the struggling rep + need a coaching view/page
+- **challenge_progress**: "View" opens that specific challenge
 
-### 1. Remove duplicate Reports title & move filter to header bar
-
-**`src/pages/ReportsV2.tsx`**:
-- Remove the inline `<h1>Reports</h1>` and the `<ReportsTeamFilter>` from the content area (lines 305-316)
-- Use `useHeader()` to inject a filter icon button into `customRightContent` that opens the new unified filter drawer
-- The Layout header already shows "Reports" via `getPageTitle()`, so removing the inline h1 eliminates the double
-
-### 2. Add filter icon to Leaderboard header bar
-
-**`src/pages/Leaderboard.tsx`**:
-- Use `useHeader()` to inject the same filter icon into `customRightContent`
-- Opens the same unified filter drawer pattern
-- Move the scope filter (All/Rookies/Watchlist) into the drawer instead of inline
-
-### 3. Create a unified `SmartFilterDrawer` component
-
-**`src/components/filters/SmartFilterDrawer.tsx`** — A world-class mobile filter drawer with these sections:
-
-```text
-┌─────────────────────────────┐
-│  ─── (drag handle)          │
-│                             │
-│  Filters              Reset │
-│                             │
-│  ┌─ Saved Filters ────────┐ │
-│  │ 🔖 My Rookies          │ │
-│  │ 🔖 West Coast Team     │ │
-│  │ + Save Current Filter   │ │
-│  └─────────────────────────┘ │
-│                             │
-│  ┌─ Quick Filters ────────┐ │
-│  │ 👀 Watchlist Only       │ │
-│  │ 🟢 Rookies  ⚪ Sophs   │ │
-│  │ ⚪ Vets                 │ │
-│  └─────────────────────────┘ │
-│                             │
-│  ┌─ Teams ─────────────────┐ │
-│  │ ▸ All Teams (42)        │ │
-│  │ ▸ MGMT Group A (12)    │ │
-│  │ ▸ MGMT Group B (15)    │ │
-│  │   ▸ Team Alpha (6)     │ │
-│  │   ▸ Team Beta (9)      │ │
-│  └─────────────────────────┘ │
-│                             │
-│  [ Apply Filters ]          │
-└─────────────────────────────┘
-```
-
-Key features:
-- **Saved Filters**: Persist named filter combos to localStorage. Users can save/delete/rename. Each saved filter stores: selected team/group, year filter, watchlist toggle
-- **Quick Filters**: Watchlist toggle (uses existing `useWatchlist` hook), year-based pills (Rookie/Sophomore/Vet)
-- **Team Hierarchy**: Reuse the collapsible MGMT Group → Team → Individual pattern from `TeamFilterSheet.tsx`, with checkboxes for multi-select
-- **Active filter indicator**: The filter icon in the header shows a small dot/badge when filters are active (not "all")
-- **Search**: Text input at top to search reps by name when the list grows to hundreds
-
-### 4. Wire filter state
-
-- **Leaderboard**: The drawer controls `scopeFilter` (all/rookies/watchlist) + potentially team filtering in the future. For now, map drawer selections back to existing filter state
-- **Reports**: The drawer replaces both `ReportsTeamFilter` and the year filter toggle, controlling `teamFilter` and adding year/watchlist filtering
-
-### 5. Files to create/modify
-
-| File | Action |
-|------|--------|
-| `src/components/filters/SmartFilterDrawer.tsx` | **Create** — unified filter drawer |
-| `src/components/filters/SavedFilters.tsx` | **Create** — saved filter management (localStorage) |
-| `src/pages/ReportsV2.tsx` | **Edit** — remove double title, use `useHeader()` for filter icon |
-| `src/pages/Leaderboard.tsx` | **Edit** — use `useHeader()` for filter icon, wire drawer |
-| `src/components/leaderboard/LeaderboardFilters.tsx` | **Edit** — remove inline scope toggle (All/Rookies/Watchlist), keep time pills only |
-
+## TODO
+- [ ] Enrich all notification callers to pass `activityId`, `recruitId`, `phone`, etc. to APNs
+- [ ] Build coaching view page for leader_coaching deep link
+- [ ] Build personal record celebration view
+- [ ] Build task reschedule flow for task_past_due
+- [ ] Add install status update flow for install_reminder_due
+- [ ] Onboarding progression notifications (3 levels up approval flow)

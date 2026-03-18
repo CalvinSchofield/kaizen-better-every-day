@@ -1,17 +1,21 @@
 import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import { LeaderboardHeroBanner } from "@/components/leaderboard/LeaderboardHeroBanner";
-import { LeaderboardFilters, TimeFilter, ScopeFilter } from "@/components/leaderboard/LeaderboardFilters";
+import { LeaderboardFilters, TimeFilter } from "@/components/leaderboard/LeaderboardFilters";
 import { UnifiedRaceSection } from "@/components/leaderboard/UnifiedRaceSection";
 import { LeaderboardSpotlightRow } from "@/components/leaderboard/LeaderboardSpotlightRow";
 import { WatchlistDrawer } from "@/components/leaderboard/WatchlistDrawer";
+import { SmartFilterDrawer, SmartFilterState, DEFAULT_FILTER_STATE, isFilterActive } from "@/components/filters/SmartFilterDrawer";
 import { useExpandedLeaderboard, CustomDateRange, getDateRange } from "@/hooks/useExpandedLeaderboard";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { useWatchlist } from "@/hooks/useWatchlist";
+import { useHeader } from "@/contexts/HeaderContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const LeaderboardSkeleton = () => (
@@ -33,12 +37,14 @@ const LeaderboardSkeleton = () => (
 
 const Leaderboard = () => {
   const [timeFilter, setTimeFilter] = useState<TimeFilter | null>(null);
-  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('all');
+  const [smartFilter, setSmartFilter] = useState<SmartFilterState>(DEFAULT_FILTER_STATE);
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [customDateRange, setCustomDateRange] = useState<CustomDateRange | undefined>(undefined);
   const [watchlistDrawerOpen, setWatchlistDrawerOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
   const [isUserInitialized, setIsUserInitialized] = useState(false);
+  const { setCustomRightContent } = useHeader();
 
   useSalesRealtime();
   const { watchedUserIds } = useWatchlist();
@@ -62,7 +68,10 @@ const Leaderboard = () => {
           .single();
         if (repData) {
           setCurrentUserYear(repData.year);
-          setScopeFilter(repData.year === 'Rookie' ? 'rookies' : 'all');
+          setSmartFilter(prev => ({
+            ...prev,
+            yearFilters: repData.year === 'Rookie' ? ['Rookie'] : [],
+          }));
         }
       }
       setIsUserInitialized(true);
@@ -70,6 +79,29 @@ const Leaderboard = () => {
     fetchUser();
   }, []);
 
+  // Inject filter icon into header
+  useEffect(() => {
+    const active = isFilterActive(smartFilter);
+    setCustomRightContent(
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setShowFilterDrawer(true)}
+        className="relative h-10 w-10"
+      >
+        <Filter className="h-5 w-5" />
+        {active && (
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
+        )}
+      </Button>
+    );
+    return () => setCustomRightContent(null);
+  }, [setCustomRightContent, smartFilter]);
+
+  // Derive scope from smart filter
+  const scopeFilter = smartFilter.scope === 'watchlist' ? 'watchlist' 
+    : smartFilter.yearFilters.includes('Rookie') && smartFilter.yearFilters.length === 1 ? 'rookies' 
+    : 'all';
   const filterByYear = scopeFilter === 'rookies' ? 'Rookie' : undefined;
   const isWatchlistMode = scopeFilter === 'watchlist';
 
@@ -137,19 +169,21 @@ const Leaderboard = () => {
         <div data-tour="leaderboard-filters">
           <LeaderboardFilters
             timeFilter={timeFilter}
-            scopeFilter={scopeFilter}
             availablePresets={availablePresets}
             customDateRange={customDateRange}
             onTimeFilterChange={setTimeFilter}
-            onScopeFilterChange={(filter) => {
-              setScopeFilter(filter);
-              if (filter === 'watchlist') {
-                setWatchlistDrawerOpen(true);
-              }
-            }}
             onCustomDateRangeChange={setCustomDateRange}
           />
         </div>
+
+        {/* Smart Filter Drawer */}
+        <SmartFilterDrawer
+          open={showFilterDrawer}
+          onOpenChange={setShowFilterDrawer}
+          filterState={smartFilter}
+          onFilterApply={setSmartFilter}
+          showTeamFilters={false}
+        />
 
         {/* Content */}
         {(isLive ? todayLoading : isLoading) ? (

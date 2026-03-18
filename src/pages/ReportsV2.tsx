@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useReportsV2Data } from "@/hooks/useReportsV2Data";
 import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAvailableDatePresets";
@@ -17,16 +17,18 @@ import {
   HourlyActivityChart,
 } from "@/components/reports/v2";
 import { ReportsDateRangeSheet } from "@/components/reports/v2/ReportsDateRangeSheet";
-import { ReportsTeamFilter, TeamFilter } from "@/components/reports/v2/ReportsTeamFilter";
+import { TeamFilter } from "@/components/reports/v2/ReportsTeamFilter";
 import { WorkingRepsDrawer } from "@/components/reports/v2/WorkingRepsDrawer";
 import { GoalPaceDrawer } from "@/components/reports/v2/GoalPaceDrawer";
 import { GoalPaceSection } from "@/components/reports/v2/GoalPaceSection";
 import { RepTimesDrawer } from "@/components/reports/v2/RepTimesDrawer";
 import { DealAnalyticsDrawer } from "@/components/reports/v2/DealAnalyticsDrawer";
+import { SmartFilterDrawer, SmartFilterState, DEFAULT_FILTER_STATE, isFilterActive } from "@/components/filters/SmartFilterDrawer";
+import { useHeader } from "@/contexts/HeaderContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, RefreshCw, AlertCircle } from "lucide-react";
+import { Calendar, RefreshCw, AlertCircle, Filter } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -41,11 +43,14 @@ export const ReportsV2Page = () => {
   const [showCustomSheet, setShowCustomSheet] = useState(false);
   const [selectedRepId, setSelectedRepId] = useState<string | null>(null);
   const [teamFilter, setTeamFilter] = useState<TeamFilter>('all');
+  const [smartFilter, setSmartFilter] = useState<SmartFilterState>(DEFAULT_FILTER_STATE);
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [showWorkingDrawer, setShowWorkingDrawer] = useState(false);
   const [showGoalPaceDrawer, setShowGoalPaceDrawer] = useState(false);
   const [showTimeDrawer, setShowTimeDrawer] = useState(false);
   const [showDealDrawer, setShowDealDrawer] = useState(false);
+  const { setCustomRightContent } = useHeader();
   
   // Get team access
   const { data: teamAccess, isLoading: accessLoading, error: teamAccessError, refetch: refetchTeamAccess, wasLeader } = useTeamAccess();
@@ -99,6 +104,30 @@ export const ReportsV2Page = () => {
     }
     return ids;
   }, [teamAccess, teamFilter, allUserIds, currentUserId]);
+
+  // Sync smart filter → team filter (must be before early returns)
+  useEffect(() => {
+    setTeamFilter(smartFilter.teamFilter);
+  }, [smartFilter.teamFilter]);
+
+  // Inject filter icon into header (must be before early returns)
+  useEffect(() => {
+    const active = isFilterActive(smartFilter);
+    setCustomRightContent(
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setShowFilterDrawer(true)}
+        className="relative h-10 w-10"
+      >
+        <Filter className="h-5 w-5" />
+        {active && (
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
+        )}
+      </Button>
+    );
+    return () => setCustomRightContent(null);
+  }, [setCustomRightContent, smartFilter]);
 
   // Calculate date range
   const getDateRange = () => {
@@ -301,31 +330,34 @@ export const ReportsV2Page = () => {
 
   return (
     <div className="p-4 space-y-5 pb-20">
-      {/* Header */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Reports</h1>
-          <ReportsTeamFilter
-            teams={teamAccess.teams || []}
-            mgmtGroups={teamAccess.mgmtGroups || []}
-            accessLevel={teamAccess.accessLevel}
-            selectedFilter={teamFilter}
-            onFilterChange={setTeamFilter}
-            repCount={filteredUserIds.length}
-          />
-        </div>
+      {/* Active filter badge */}
+      {isFilterActive(smartFilter) && (
+        <Badge variant="secondary" className="text-xs">
+          {smartFilter.scope === 'watchlist' && '👀 Watchlist'}
+          {smartFilter.yearFilters.length > 0 && ` · ${smartFilter.yearFilters.join(', ')}`}
+          {smartFilter.teamFilter !== 'all' && ` · ${smartFilter.teamFilter.name}`}
+          {' '}({filteredUserIds.length} reps)
+        </Badge>
+      )}
 
-        {teamFilter !== 'all' && (
-          <Badge variant="secondary" className="text-xs">
-            Viewing: {teamFilter.name} ({filteredUserIds.length} reps)
-          </Badge>
-        )}
+      {/* Smart Filter Drawer */}
+      <SmartFilterDrawer
+        open={showFilterDrawer}
+        onOpenChange={setShowFilterDrawer}
+        filterState={smartFilter}
+        onFilterApply={setSmartFilter}
+        teams={teamAccess.teams || []}
+        mgmtGroups={teamAccess.mgmtGroups || []}
+        accessLevel={teamAccess.accessLevel}
+        repCount={filteredUserIds.length}
+        showTeamFilters={teamAccess.accessLevel === 'area_director' || teamAccess.accessLevel === 'mgmt_group_lead'}
+      />
 
-        {/* Date presets */}
-        <div className="flex gap-1 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
-          {presetConfig
-            .filter(p => availablePresets.includes(p.key))
-            .map((preset) => (
+      {/* Date presets */}
+      <div className="flex gap-1 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+        {presetConfig
+          .filter(p => availablePresets.includes(p.key))
+          .map((preset) => (
               <Button
                 key={preset.key}
                 variant={effectivePreset === preset.key ? 'default' : 'ghost'}
@@ -355,7 +387,6 @@ export const ReportsV2Page = () => {
             }
           </Button>
         </div>
-      </div>
 
       {/* Layer 1: Pulse Hero */}
       <PulseHero
