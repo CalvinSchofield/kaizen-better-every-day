@@ -196,12 +196,47 @@ export const useDailyEntry = (date?: string) => {
     const handleOnline = async () => {
       const userId = getCurrentUserId();
       if (!userId) return;
-      
+
+      const backupRecord = getBackupRecord(userId, entryDate);
       const backup = getInstantBackup(userId, entryDate);
       if (!backup || getActivityTotal(backup) === 0) return;
-      
-      console.log('[useDailyEntry] Back online - pushing backup to server via safe upsert');
+
       try {
+        const { data: serverRaw, error: serverError } = await supabase
+          .from('daily_entries')
+          .select('doors_knocked, decision_makers, pitches, transitions, presentations, closes, is_finalized, last_reset_at')
+          .eq('user_id', userId)
+          .eq('entry_date', entryDate)
+          .maybeSingle();
+
+        if (serverError) {
+          console.error('[useDailyEntry] Failed to check server state before reconnect sync:', serverError);
+          return;
+        }
+
+        const serverEntry = serverRaw as Partial<DailyEntry> | null;
+        if (serverEntry?.is_finalized) return;
+
+        const serverTotal = getActivityTotal(serverEntry);
+        const backupTotal = getActivityTotal(backup);
+
+        // No-op if backup isn't ahead of server
+        if (backupTotal <= serverTotal) return;
+
+        // If server was reset after this backup's last server-confirmed point, discard backup
+        const lastResetAt = serverEntry?.last_reset_at;
+        const backupComparisonTs = backupRecord ? getBackupComparisonTimestamp(backupRecord) : null;
+        if (lastResetAt && backupComparisonTs) {
+          const resetTs = new Date(lastResetAt).getTime();
+          if (!Number.isNaN(resetTs) && backupComparisonTs < resetTs) {
+            localStorage.removeItem(`track-backup-${userId}-${entryDate}`);
+            sessionStorage.removeItem(`backup-push-${entryDate}`);
+            console.log('[useDailyEntry] Discarded stale backup on reconnect (older than server reset)');
+            return;
+          }
+        }
+
+        console.log('[useDailyEntry] Back online - pushing backup to server via safe upsert');
         await supabase.rpc('upsert_daily_entry_safe', {
           p_user_id: userId,
           p_entry_date: entryDate,
@@ -224,7 +259,6 @@ export const useDailyEntry = (date?: string) => {
           p_is_finalized: null,
         });
         console.log('[useDailyEntry] Backup synced to server successfully');
-        // Refresh from server after sync
         queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
       } catch (err) {
         console.error('[useDailyEntry] Failed to sync backup on reconnect:', err);
