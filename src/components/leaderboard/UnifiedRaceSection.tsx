@@ -184,7 +184,7 @@ export const UnifiedRaceSection = ({ rankings, currentUserId, isLive = false, is
       </div>
 
       {/* Race List */}
-      <div className="max-h-[400px] overflow-y-auto">
+      <div className="max-h-[400px] overflow-y-auto overflow-x-hidden">
         <AnimatePresence mode="popLayout">
           {currentRankings.map((entry, index) => {
             const isCurrentUser = entry.userId === currentUserId;
