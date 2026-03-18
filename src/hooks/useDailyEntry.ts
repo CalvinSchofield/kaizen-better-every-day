@@ -10,6 +10,32 @@ const getBackupFromStorage = (userId: string, entryDate: string): Partial<DailyE
   return getInstantBackup(userId, entryDate);
 };
 
+interface TrackBackupRecord {
+  entry: Record<string, unknown>;
+  timestamp: string;
+  userId: string;
+  lastServerSync?: string;
+}
+
+const getBackupRecord = (userId: string, entryDate: string): TrackBackupRecord | null => {
+  try {
+    const key = `track-backup-${userId}-${entryDate}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as TrackBackupRecord;
+    if (parsed.userId !== userId) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const getBackupComparisonTimestamp = (backup: TrackBackupRecord): number | null => {
+  const referenceIso = backup.lastServerSync || backup.timestamp;
+  const ts = new Date(referenceIso).getTime();
+  return Number.isNaN(ts) ? null : ts;
+};
+
 // Calculate total activity from entry
 const getActivityTotal = (entry: Partial<DailyEntry> | null): number => {
   if (!entry) return 0;
@@ -76,6 +102,7 @@ export interface DailyEntry {
   timezone?: string | null;
   custom_counters?: Record<string, number>;
   sales_log?: Sale[];
+  last_reset_at?: string | null;
 }
 
 const getTodayDate = () => {
@@ -169,12 +196,47 @@ export const useDailyEntry = (date?: string) => {
     const handleOnline = async () => {
       const userId = getCurrentUserId();
       if (!userId) return;
-      
+
+      const backupRecord = getBackupRecord(userId, entryDate);
       const backup = getInstantBackup(userId, entryDate);
       if (!backup || getActivityTotal(backup) === 0) return;
-      
-      console.log('[useDailyEntry] Back online - pushing backup to server via safe upsert');
+
       try {
+        const { data: serverRaw, error: serverError } = await supabase
+          .from('daily_entries')
+          .select('doors_knocked, decision_makers, pitches, transitions, presentations, closes, is_finalized, last_reset_at')
+          .eq('user_id', userId)
+          .eq('entry_date', entryDate)
+          .maybeSingle();
+
+        if (serverError) {
+          console.error('[useDailyEntry] Failed to check server state before reconnect sync:', serverError);
+          return;
+        }
+
+        const serverEntry = serverRaw as Partial<DailyEntry> | null;
+        if (serverEntry?.is_finalized) return;
+
+        const serverTotal = getActivityTotal(serverEntry);
+        const backupTotal = getActivityTotal(backup);
+
+        // No-op if backup isn't ahead of server
+        if (backupTotal <= serverTotal) return;
+
+        // If server was reset after this backup's last server-confirmed point, discard backup
+        const lastResetAt = serverEntry?.last_reset_at;
+        const backupComparisonTs = backupRecord ? getBackupComparisonTimestamp(backupRecord) : null;
+        if (lastResetAt && backupComparisonTs) {
+          const resetTs = new Date(lastResetAt).getTime();
+          if (!Number.isNaN(resetTs) && backupComparisonTs < resetTs) {
+            localStorage.removeItem(`track-backup-${userId}-${entryDate}`);
+            sessionStorage.removeItem(`backup-push-${entryDate}`);
+            console.log('[useDailyEntry] Discarded stale backup on reconnect (older than server reset)');
+            return;
+          }
+        }
+
+        console.log('[useDailyEntry] Back online - pushing backup to server via safe upsert');
         await supabase.rpc('upsert_daily_entry_safe', {
           p_user_id: userId,
           p_entry_date: entryDate,
@@ -197,7 +259,6 @@ export const useDailyEntry = (date?: string) => {
           p_is_finalized: null,
         });
         console.log('[useDailyEntry] Backup synced to server successfully');
-        // Refresh from server after sync
         queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
       } catch (err) {
         console.error('[useDailyEntry] Failed to sync backup on reconnect:', err);
@@ -268,25 +329,23 @@ export const useDailyEntry = (date?: string) => {
       // MULTI-DEVICE SAFETY: Check last_reset_at to prevent stale backups from undoing resets
       if (backup && backupTotal > serverTotal && !serverEntry?.is_finalized) {
         // Check if backup is older than a server-side reset
-        const lastResetAt = (data as any)?.last_reset_at;
+        const lastResetAt = (serverEntry as DailyEntry | null)?.last_reset_at;
         if (lastResetAt) {
-          const resetTime = new Date(lastResetAt).getTime();
-          // Get backup timestamp from localStorage
           try {
             const backupKey = `track-backup-${activeUser.id}-${entryDate}`;
-            const storedBackup = localStorage.getItem(backupKey);
-            if (storedBackup) {
-              const backupData = JSON.parse(storedBackup);
-              const backupTime = new Date(backupData.timestamp).getTime();
-              if (backupTime < resetTime) {
-                console.log('[DailyEntry] Discarding stale backup (older than server reset)', {
-                  backupTime: new Date(backupTime).toISOString(),
-                  resetTime: new Date(resetTime).toISOString(),
-                });
-                // Clear stale backup on this device
-                localStorage.removeItem(backupKey);
-                return serverEntry;
-              }
+            const backupRecord = getBackupRecord(activeUser.id, entryDate);
+            const backupTime = backupRecord ? getBackupComparisonTimestamp(backupRecord) : null;
+            const resetTime = new Date(lastResetAt).getTime();
+
+            if (backupTime && !Number.isNaN(resetTime) && backupTime < resetTime) {
+              console.log('[DailyEntry] Discarding stale backup (older than server reset)', {
+                backupTime: new Date(backupTime).toISOString(),
+                resetTime: new Date(resetTime).toISOString(),
+              });
+              // Clear stale backup on this device
+              localStorage.removeItem(backupKey);
+              sessionStorage.removeItem(`backup-push-${entryDate}`);
+              return serverEntry;
             }
           } catch (e) {
             console.error('[DailyEntry] Error checking backup vs reset timestamp:', e);
@@ -787,9 +846,9 @@ export const useDailyEntry = (date?: string) => {
     queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
   };
 
-  // Detect if data is potentially stale (refetching in background)
-  // This helps prevent showing stale cache data that could confuse users
-  const isRefreshing = fetchStatus === 'fetching';
+  // Show syncing indicator only when we don't already have usable local backup data.
+  // This avoids noisy "Syncing..." flashes during harmless background refreshes.
+  const isRefreshing = fetchStatus === 'fetching' && !isOfflineWithBackup && !hasValidBackup;
   
   return {
     entry: entry || {
