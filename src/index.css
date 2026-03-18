@@ -214,7 +214,8 @@ All colors MUST be HSL.
     --safe-area-fallback-bottom: 0px;
     
     /* Effective safe area values that use fallback when needed */
-    --effective-safe-area-top: max(var(--safe-area-top), var(--safe-area-fallback-top));
+    /* 59px minimum covers Dynamic Island on iPhone 14 Pro+ */
+    --effective-safe-area-top: max(var(--safe-area-top), var(--safe-area-fallback-top), 59px);
     --effective-safe-area-bottom: max(var(--safe-area-bottom), var(--safe-area-fallback-bottom));
     
     /* App layout constants - generous spacing like LinkedIn */
