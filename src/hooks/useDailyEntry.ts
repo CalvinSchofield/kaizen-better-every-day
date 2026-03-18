@@ -265,7 +265,33 @@ export const useDailyEntry = (date?: string) => {
       const backupTotal = getActivityTotal(backup);
       
       // Recover from backup if backup has more data than server and entry isn't finalized
+      // MULTI-DEVICE SAFETY: Check last_reset_at to prevent stale backups from undoing resets
       if (backup && backupTotal > serverTotal && !serverEntry?.is_finalized) {
+        // Check if backup is older than a server-side reset
+        const lastResetAt = (data as any)?.last_reset_at;
+        if (lastResetAt) {
+          const resetTime = new Date(lastResetAt).getTime();
+          // Get backup timestamp from localStorage
+          try {
+            const backupKey = `track-backup-${activeUser.id}-${entryDate}`;
+            const storedBackup = localStorage.getItem(backupKey);
+            if (storedBackup) {
+              const backupData = JSON.parse(storedBackup);
+              const backupTime = new Date(backupData.timestamp).getTime();
+              if (backupTime < resetTime) {
+                console.log('[DailyEntry] Discarding stale backup (older than server reset)', {
+                  backupTime: new Date(backupTime).toISOString(),
+                  resetTime: new Date(resetTime).toISOString(),
+                });
+                // Clear stale backup on this device
+                localStorage.removeItem(backupKey);
+                return serverEntry;
+              }
+            }
+          } catch (e) {
+            console.error('[DailyEntry] Error checking backup vs reset timestamp:', e);
+          }
+        }
         console.log('[DailyEntry] Recovering from backup - backup has more data:', backupTotal, 'vs server:', serverTotal);
         
         // PHASE 3: Use smart merge to take higher values
