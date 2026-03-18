@@ -17,7 +17,7 @@ import {
   HourlyActivityChart,
 } from "@/components/reports/v2";
 import { RecordDetailsDrawer } from "@/components/reports/v2/RecordDetailsDrawer";
-import { ReportsDateRangeSheet } from "@/components/reports/v2/ReportsDateRangeSheet";
+import { CustomDateRangeDrawer } from "@/components/shared/CustomDateRangeDrawer";
 import { TeamFilter } from "@/components/reports/v2/ReportsTeamFilter";
 import { WorkingRepsDrawer } from "@/components/reports/v2/WorkingRepsDrawer";
 import { GoalPaceDrawer } from "@/components/reports/v2/GoalPaceDrawer";
