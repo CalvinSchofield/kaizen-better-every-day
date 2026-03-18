@@ -875,9 +875,16 @@ export const useDailyEntry = (date?: string) => {
     queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
   };
 
-  // Show syncing indicator only when we don't already have usable local backup data.
-  // This avoids noisy "Syncing..." flashes during harmless background refreshes.
-  const isRefreshing = fetchStatus === 'fetching' && !isOfflineWithBackup && !hasValidBackup;
+  // If query has ever resolved once (even to null), we have a usable baseline snapshot.
+  // This prevents background refetches from locking counters behind a stale "Syncing..." gate.
+  const hasResolvedEntrySnapshot = entry !== undefined;
+
+  // Show syncing indicator only for true cold-start fetches with no usable baseline.
+  const isRefreshing =
+    fetchStatus === 'fetching' &&
+    !isOfflineWithBackup &&
+    !hasValidBackup &&
+    !hasResolvedEntrySnapshot;
   
   return {
     entry: entry || {
@@ -899,13 +906,18 @@ export const useDailyEntry = (date?: string) => {
       sales_log: [],
     },
     isLoading,
-    // True when actively fetching data (initial load or background refresh)
+    // True only during cold-start fetches without usable baseline data.
     isRefreshing,
     // PHASE 2: Freshness gate - true when:
     // 1. Query has completed fetching (fetchStatus is 'idle')
     // 2. OR we're offline with a valid backup
-    // 3. OR we have a valid backup (allow immediate interaction while syncing in background)
-    isFreshDataVerified: fetchStatus === 'idle' || isOfflineWithBackup || hasValidBackup,
+    // 3. OR we have a valid backup
+    // 4. OR we already have a resolved entry snapshot and are only background-refetching
+    isFreshDataVerified:
+      fetchStatus === 'idle' ||
+      isOfflineWithBackup ||
+      hasValidBackup ||
+      hasResolvedEntrySnapshot,
     isOfflineWithBackup,
     fetchStatus,
     updateCounter: updateCounterMutation.mutateAsync,
