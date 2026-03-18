@@ -131,6 +131,7 @@ export interface ReportsV2Data {
   // Team goal status
   teamGoalStatus: TeamGoalStatus;
   teamGoalStatusDetails?: TeamGoalStatusWithDetails;
+  enhancedGoalPace: EnhancedGoalPaceResult[];
   
   // Team baseline
   teamBaseline?: TeamBaseline;
