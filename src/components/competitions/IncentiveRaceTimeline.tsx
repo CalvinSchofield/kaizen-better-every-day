@@ -4,7 +4,7 @@ import { IncentiveMetric, IncentiveTargetType } from '@/hooks/useIncentives';
 import { metricConfig } from '@/utils/challengeMetricConfig';
 import { format, parseISO } from 'date-fns';
 import { Area, ComposedChart, Line, ResponsiveContainer, YAxis, ReferenceLine } from 'recharts';
-import { SingleDayRaceTimeline } from './SingleDayRaceTimeline';
+import { IncentiveSingleDayTimeline } from './IncentiveSingleDayTimeline';
 
 interface IncentiveRaceTimelineProps {
   data: IncentiveRecapData;
