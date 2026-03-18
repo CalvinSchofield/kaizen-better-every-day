@@ -60,6 +60,7 @@ export const EffortCoachingCallouts = ({
   repAverageStartMinutes,
   repAverageEndMinutes,
   className,
+  timezone,
 }: EffortCoachingCalloutsProps) => {
   const issues: EffortIssue[] = [];
 
