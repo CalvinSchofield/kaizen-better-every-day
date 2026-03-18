@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Star, Clock, TrendingUp } from "lucide-react";
 import { format, parseISO, subDays } from "date-fns";
+import { formatTimeInTz } from "@/utils/timezoneUtils";
 
 interface DayActivity {
   date: string;
