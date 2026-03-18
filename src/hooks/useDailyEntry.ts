@@ -846,9 +846,9 @@ export const useDailyEntry = (date?: string) => {
     queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
   };
 
-  // Detect if data is potentially stale (refetching in background)
-  // This helps prevent showing stale cache data that could confuse users
-  const isRefreshing = fetchStatus === 'fetching';
+  // Show syncing indicator only when we don't already have usable local backup data.
+  // This avoids noisy "Syncing..." flashes during harmless background refreshes.
+  const isRefreshing = fetchStatus === 'fetching' && !isOfflineWithBackup && !hasValidBackup;
   
   return {
     entry: entry || {
