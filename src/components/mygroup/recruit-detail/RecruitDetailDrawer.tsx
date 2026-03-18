@@ -782,7 +782,7 @@ export const RecruitDetailDrawer = ({
   };
 
   const handleConfirmOnboardingChange = async () => {
-    if (!pendingOnboardingStep || !recruitRepData || !recruit) return;
+    if (!pendingOnboardingStep || !recruit) return;
     const { field, value } = pendingOnboardingStep;
 
     const recruitRepQueryKey = ['recruit-rep-data', recruit?.id, recruit?.email, recruit?.name] as const;
@@ -793,13 +793,15 @@ export const RecruitDetailDrawer = ({
       'ramp_phase_1_complete', 'ramp_phase_2_complete', 'ramp_phase_3_complete', 'ramp_phase_4_complete'
     ];
 
-    const fieldToNotionStatus: Record<string, string> = {
-      'onboarding_complete': 'Onboarding ✅', 'trainings_complete': 'Required Trainings ✅', 'slack_joined': 'Slack ✅',
-      'ramp_phase_1_complete': 'Phase 1 ✅', 'ramp_phase_2_complete': 'Phase 2 ✅', 'ramp_phase_3_complete': 'Phase 3 ✅', 'ramp_phase_4_complete': 'Phase 4 ✅',
-    };
-    const fieldToEdgeFunctionParam: Record<string, string> = {
-      'ramp_phase_1_complete': 'rampPhase1Complete', 'ramp_phase_2_complete': 'rampPhase2Complete',
-      'ramp_phase_3_complete': 'rampPhase3Complete', 'ramp_phase_4_complete': 'rampPhase4Complete',
+    // Use recruitRepData if available, otherwise build from recruit data for recruits without a reps row
+    const currentData = recruitRepData ?? {
+      onboarding_complete: recruit.onboardingComplete ?? false,
+      trainings_complete: recruit.trainingsComplete ?? false,
+      slack_joined: recruit.slackJoined ?? false,
+      ramp_phase_1_complete: recruit.phase1Complete ?? false,
+      ramp_phase_2_complete: recruit.phase2Complete ?? false,
+      ramp_phase_3_complete: recruit.phase3Complete ?? false,
+      ramp_phase_4_complete: recruit.phase4Complete ?? false,
     };
 
     // Build updates object
@@ -811,26 +813,28 @@ export const RecruitDetailDrawer = ({
     if (value) {
       // Completing: mark all previous steps as complete too
       allStepsOrder.slice(0, fieldIndex).forEach(prevField => {
-        if (!recruitRepData[prevField as keyof typeof recruitRepData]) {
+        if (!(currentData as any)[prevField]) {
           updates[prevField] = true;
         }
       });
     } else {
       // Uncompleting: mark all subsequent steps as incomplete too
       allStepsOrder.slice(fieldIndex + 1).forEach(subsequentField => {
-        if (recruitRepData[subsequentField as keyof typeof recruitRepData]) {
+        if ((currentData as any)[subsequentField]) {
           updates[subsequentField] = false;
         }
       });
     }
 
-    // Optimistic update
-    queryClient.setQueryData(recruitRepQueryKey, (old: any) => old ? { ...old, ...updates } : old);
+    // Optimistic update on rep data if available
+    if (recruitRepData) {
+      queryClient.setQueryData(recruitRepQueryKey, (old: any) => old ? { ...old, ...updates } : old);
+    }
     setOnboardingConfirmOpen(false);
     setPendingOnboardingStep(null);
     try {
       // Leaders/recruiters can't directly update the reps row due to RLS; use backend function so it persists.
-      const finalState: any = { ...recruitRepData, ...updates };
+      const finalState: any = { ...currentData, ...updates };
 
       let computedOnboardingStatus = 'Not started';
       if (finalState.ramp_phase_4_complete) computedOnboardingStatus = 'Phase 4 ✅';
@@ -844,10 +848,13 @@ export const RecruitDetailDrawer = ({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
+      // Use rep ID if available, otherwise use recruit ID
+      const rookieId = recruitRepData?.id ?? recruit.id;
+
       const { error } = await supabase.functions.invoke('update-rookie-status', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
-          rookieId: recruitRepData.id,
+          rookieId,
           onboardingStatus: computedOnboardingStatus,
         },
       });
@@ -863,8 +870,10 @@ export const RecruitDetailDrawer = ({
       if (value && field === 'onboarding_complete') await checkAndUpdateStage(recruit.id, recruit.stage);
     } catch (error) {
       // Rollback optimistic update
-      const rollback = Object.fromEntries(Object.keys(updates).map(k => [k, !updates[k]]));
-      queryClient.setQueryData(recruitRepQueryKey, (old: any) => old ? { ...old, ...rollback } : old);
+      if (recruitRepData) {
+        const rollback = Object.fromEntries(Object.keys(updates).map(k => [k, !updates[k]]));
+        queryClient.setQueryData(recruitRepQueryKey, (old: any) => old ? { ...old, ...rollback } : old);
+      }
       toast.error("Couldn't update");
     }
   };
