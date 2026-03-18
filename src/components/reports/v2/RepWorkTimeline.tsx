@@ -71,6 +71,8 @@ export const RepWorkTimeline = ({
   // Format time from ISO string
   const formatTime = (isoString?: string) => {
     if (!isoString) return null;
+    const tzResult = formatTimeInTz(isoString, timezone);
+    if (tzResult) return tzResult;
     try {
       return format(parseISO(isoString), 'h:mm a');
     } catch {
