@@ -1000,8 +1000,42 @@ const TrackWithLayout = () => {
     setSyncStatus('pending');
     try {
       // Try direct save FIRST (no queue)
+      console.log('[handleLogSale] Sending sale to server:', {
+        salesCount: updatedSalesLog.length,
+        fp: Math.round(fp * 100) / 100,
+        prmr: Math.round(totalPrmr * 100) / 100,
+        hasSalesLog: !!updates.sales_log,
+        salesLogLength: updates.sales_log?.length,
+      });
       await updateCounter(updates);
       setSyncStatus('synced');
+      
+      // CRITICAL: Verify sale actually landed on server — if not, retry via dedicated sale path
+      setTimeout(async () => {
+        try {
+          const uid = getCurrentUserId();
+          if (!uid) return;
+          const { data: serverRow } = await supabase
+            .from('daily_entries')
+            .select('sales_log')
+            .eq('user_id', uid)
+            .eq('entry_date', today)
+            .maybeSingle();
+          const serverSales = (serverRow?.sales_log as any[]) || [];
+          const saleOnServer = serverSales.some((s: any) => s.id === saleId);
+          if (!saleOnServer) {
+            console.warn('[handleLogSale] Sale NOT found on server — retrying via addSaleToEntry');
+            await addSaleToEntry({ entryDate: today, sale: saleData, saleTimestamp });
+          } else {
+            console.log('[handleLogSale] Sale confirmed on server ✅');
+          }
+          verifyServerSync();
+        } catch (e) {
+          console.error('[handleLogSale] Post-sale verification failed:', e);
+        }
+      }, 3000);
+      
+      console.log('[handleLogSale] Sale mutation completed successfully');
       // Fire-and-forget: notify watchlist watchers and recruiter about this sale
       const currentUid = getCurrentUserId();
       if (currentUid) {
@@ -1100,8 +1134,42 @@ const TrackWithLayout = () => {
     
     setSyncStatus('pending');
     try {
+      console.log('[handleLogSaleFromPage] Sending sale to server:', {
+        salesCount: updatedSalesLog.length,
+        fp: Math.round(fp * 100) / 100,
+        prmr: Math.round(totalPrmr * 100) / 100,
+        hasSalesLog: !!updates.sales_log,
+        salesLogLength: updates.sales_log?.length,
+      });
       await updateCounter(updates);
       setSyncStatus('synced');
+      
+      // CRITICAL: Verify sale actually landed on server — if not, retry via dedicated sale path
+      setTimeout(async () => {
+        try {
+          const uid = getCurrentUserId();
+          if (!uid) return;
+          const { data: serverRow } = await supabase
+            .from('daily_entries')
+            .select('sales_log')
+            .eq('user_id', uid)
+            .eq('entry_date', today)
+            .maybeSingle();
+          const serverSales = (serverRow?.sales_log as any[]) || [];
+          const saleOnServer = serverSales.some((s: any) => s.id === saleId);
+          if (!saleOnServer) {
+            console.warn('[handleLogSaleFromPage] Sale NOT found on server — retrying via addSaleToEntry');
+            await addSaleToEntry({ entryDate: today, sale: saleData, saleTimestamp });
+          } else {
+            console.log('[handleLogSaleFromPage] Sale confirmed on server ✅');
+          }
+          verifyServerSync();
+        } catch (e) {
+          console.error('[handleLogSaleFromPage] Post-sale verification failed:', e);
+        }
+      }, 3000);
+      
+      console.log('[handleLogSaleFromPage] Sale mutation completed successfully');
       // Fire-and-forget: notify recruiter about this sale
       const currentUid = getCurrentUserId();
       if (currentUid) {
