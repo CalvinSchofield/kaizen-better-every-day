@@ -278,13 +278,13 @@ export const useReportsV2Data = ({
 
       if (ytdError) throw ytdError;
 
-      // Fetch all planned work days for proper daily goal calculation
-      const { data: allPlannedDays, error: plannedError } = await supabase
-        .from('planned_work_days')
-        .select('user_id, planned_date')
-        .in('user_id', userIds);
-
-      if (plannedError) throw plannedError;
+      // Fetch all planned work days via edge function (bypasses RLS for downline)
+      const session = (await supabase.auth.getSession()).data.session;
+      const { data: plannedResult, error: plannedError } = await supabase.functions.invoke('fetch-downline-planned-days', {
+        body: { userIds },
+      });
+      const allPlannedDays: { user_id: string; planned_date: string }[] = plannedResult?.plannedDays || [];
+      if (plannedError) console.warn('Failed to fetch downline planned days:', plannedError);
 
       // Fetch season_config for personal_summer_start
       const { data: seasonConfigs, error: configError } = await supabase
