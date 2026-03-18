@@ -387,9 +387,9 @@ export const useReportsV2Data = ({
         repsWithActivity: repsWithEffort.filter(r => r.doors > 0 || r.fp > 0).length,
       };
       
-      const constraint = detectPrimaryConstraint(teamMetrics);
-      const skillBottleneck = analyzeFunnelBottleneck(teamMetrics);
-      const impactPotential = calculateImpactPotential(teamMetrics, skillBottleneck);
+      const constraint = detectPrimaryConstraint(teamMetrics, teamBaseline?.conversions);
+      const skillBottleneck = analyzeFunnelBottleneck(teamMetrics, teamBaseline?.conversions);
+      const impactPotential = calculateImpactPotential(teamMetrics, skillBottleneck, teamBaseline?.conversions);
       
       // Generate leader actions
       const repPerformanceData: RepPerformanceData[] = repsWithEffort.map(rep => ({
