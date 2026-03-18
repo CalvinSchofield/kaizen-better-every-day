@@ -304,30 +304,6 @@ export const ReportsV2Page = () => {
 
   const selectedRep = selectedRepId ? getRepById(selectedRepId) : null;
 
-  // Sync smart filter → team filter
-  useEffect(() => {
-    setTeamFilter(smartFilter.teamFilter);
-  }, [smartFilter.teamFilter]);
-
-  // Inject filter icon into header
-  useEffect(() => {
-    const active = isFilterActive(smartFilter);
-    setCustomRightContent(
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setShowFilterDrawer(true)}
-        className="relative h-10 w-10"
-      >
-        <Filter className="h-5 w-5" />
-        {active && (
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
-        )}
-      </Button>
-    );
-    return () => setCustomRightContent(null);
-  }, [setCustomRightContent, smartFilter]);
-
   return (
     <div className="p-4 space-y-5 pb-20">
       {/* Active filter badge */}
@@ -353,11 +329,11 @@ export const ReportsV2Page = () => {
         showTeamFilters={teamAccess.accessLevel === 'area_director' || teamAccess.accessLevel === 'mgmt_group_lead'}
       />
 
-        {/* Date presets */}
-        <div className="flex gap-1 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
-          {presetConfig
-            .filter(p => availablePresets.includes(p.key))
-            .map((preset) => (
+      {/* Date presets */}
+      <div className="flex gap-1 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+        {presetConfig
+          .filter(p => availablePresets.includes(p.key))
+          .map((preset) => (
               <Button
                 key={preset.key}
                 variant={effectivePreset === preset.key ? 'default' : 'ghost'}
