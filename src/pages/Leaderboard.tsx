@@ -1,17 +1,21 @@
 import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import { LeaderboardHeroBanner } from "@/components/leaderboard/LeaderboardHeroBanner";
-import { LeaderboardFilters, TimeFilter, ScopeFilter } from "@/components/leaderboard/LeaderboardFilters";
+import { LeaderboardFilters, TimeFilter } from "@/components/leaderboard/LeaderboardFilters";
 import { UnifiedRaceSection } from "@/components/leaderboard/UnifiedRaceSection";
 import { LeaderboardSpotlightRow } from "@/components/leaderboard/LeaderboardSpotlightRow";
 import { WatchlistDrawer } from "@/components/leaderboard/WatchlistDrawer";
+import { SmartFilterDrawer, SmartFilterState, DEFAULT_FILTER_STATE, isFilterActive } from "@/components/filters/SmartFilterDrawer";
 import { useExpandedLeaderboard, CustomDateRange, getDateRange } from "@/hooks/useExpandedLeaderboard";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { useWatchlist } from "@/hooks/useWatchlist";
+import { useHeader } from "@/contexts/HeaderContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const LeaderboardSkeleton = () => (
