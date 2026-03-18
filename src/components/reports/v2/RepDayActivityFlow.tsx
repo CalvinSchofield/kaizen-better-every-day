@@ -59,6 +59,7 @@ interface RepDayActivityFlowProps {
   workEndTime?: string;
   isFinalized?: boolean;
   breakPeriods?: BreakPeriod[];
+  repTimezone?: string;
 }
 
 const EVENT_CONFIG: Record<string, { 
