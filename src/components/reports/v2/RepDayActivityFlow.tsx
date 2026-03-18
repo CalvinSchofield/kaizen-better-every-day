@@ -433,7 +433,7 @@ export const RepDayActivityFlow = ({
       if (position >= 0 && position <= 100) {
         markers.push({
           time: new Date(current),
-          label: current.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }),
+          label: repTimezone ? formatInTimeZone(current, repTimezone, 'ha') : current.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }),
           position,
         });
       }
