@@ -1,47 +1,35 @@
+# Notification System – Implementation Plan
 
+## Completed
 
-## Multi-Device Sync: Prevent Stale Backup from Overriding Reset
+### Phase 1: Core Notification Pipeline
+- 21 notification types (web push + APNs)
+- Timezone-aware cron-based nudges
+- Deduplication via notification_logs
+- In-app foreground banner (InAppNotificationBanner.tsx)
 
-### The Problem
+### Phase 2: iOS Rich Notifications (Press & Hold)
+- **Swift files created** in `ios-notification-setup/`:
+  - `NotificationCategories.swift` — 23 categories with contextual actions
+  - `NotificationResponseHandler.swift` — Handles all action responses including inline replies, call/text, snooze, RSVP
+  - `README.md` — Step-by-step setup guide
+- **`handle-notification-reply` edge function** — Receives inline replies from iOS, saves as comments, triggers comment notifications
+- **APNs payload enriched** — Now passes `activityId`, `recruitId`, `recruitName`, `phone`, `challengeId`, `repUserId` through to iOS `userInfo`
 
-When you reset on Device A (preview), it zeroes the server and clears Device A's localStorage backup. But Device B (TestFlight) still has its old backup. When Device B opens, it sees backup (old values) > server (0) and auto-pushes the old values back — undoing the reset.
+### User Notes on Specific Notifications
+- **task_past_due**: Actions = View Tasks, Reschedule (navigate to tasks page)
+- **preseason_accountability**: Just a reminder of commitments, not a logging action
+- **access_request**: Should track onboarding flow progression (3 levels up upline), not just signup
+- **install_reminder_eve**: "View Sale" opens to that customer in CRM
+- **install_reminder_due**: "Installed" confirms, "Update" for canceled/rescheduled
+- **personal_record**: Need to determine what view/page to show
+- **leader_coaching**: Call/Text the struggling rep + need a coaching view/page
+- **challenge_progress**: "View" opens that specific challenge
 
-The same issue applies if a rep is actively using both iPad and phone: whichever device opens second could push stale backup data.
-
-### Solution: Server-Side Reset Timestamp
-
-Add a `last_reset_at` column to `daily_entries`. When a reset happens, it gets timestamped. When any device loads and considers auto-pushing its backup, it checks: **is my backup older than `last_reset_at`?** If yes, discard it.
-
-This is the only reliable cross-device solution since localStorage is device-local.
-
-### Changes
-
-**1. Database Migration**
-- Add `last_reset_at timestamptz` column to `daily_entries` (nullable, default null)
-
-**2. Reset Mutation (`useDailyEntry.ts`)**
-- Set `last_reset_at: new Date().toISOString()` when resetting
-- Also clear the `backup-push-{date}` sessionStorage flag so the push guard doesn't block future legitimate pushes
-
-**3. Auto-Push Recovery Guard (`useDailyEntry.ts`)**
-- In the query function where backup > server triggers auto-push: check `serverEntry.last_reset_at`
-- If backup timestamp < `last_reset_at`, discard the backup instead of auto-pushing
-- Clear the stale backup from localStorage on that device
-
-**4. `upsert_daily_entry_safe` Update (optional but recommended)**
-- Preserve `last_reset_at` during normal upserts (don't overwrite it)
-- Only the reset flow sets it
-
-### Files
-
-| File | Action |
-|---|---|
-| Database migration | Add `last_reset_at` column |
-| `src/hooks/useDailyEntry.ts` | Reset sets timestamp; auto-push checks it before restoring |
-| `src/hooks/useTrackBackup.ts` | No changes needed — backup timestamp comparison happens in useDailyEntry |
-
-### What This Fixes
-- Reset on any device is respected by all other devices
-- Normal multi-device use (iPad + phone both tracking) continues to work via GREATEST() — counters only go up
-- Stale backups from inactive devices can't resurrect old data after a reset
-
+## TODO
+- [ ] Enrich all notification callers to pass `activityId`, `recruitId`, `phone`, etc. to APNs
+- [ ] Build coaching view page for leader_coaching deep link
+- [ ] Build personal record celebration view
+- [ ] Build task reschedule flow for task_past_due
+- [ ] Add install status update flow for install_reminder_due
+- [ ] Onboarding progression notifications (3 levels up approval flow)
