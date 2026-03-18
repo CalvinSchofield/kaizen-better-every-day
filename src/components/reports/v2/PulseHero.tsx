@@ -1,9 +1,9 @@
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, Users, ChevronRight, Zap } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Users, ChevronRight, Zap, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { TeamBaseline } from "@/utils/baselineCalculations";
+import { ActiveRecord } from "@/utils/teamRecordDetection";
+import { RecordBanner } from "./RecordBanner";
 
 interface PulseHeroProps {
   doors: number;
@@ -25,6 +25,8 @@ interface PulseHeroProps {
   onWorkingClick?: () => void;
   onAvgStartClick?: () => void;
   onFpClick?: () => void;
+  activeRecords?: ActiveRecord[];
+  onRecordBannerClick?: () => void;
 }
 
 interface StatTileProps {
@@ -34,9 +36,11 @@ interface StatTileProps {
   format?: 'number' | 'currency' | 'decimal';
   highlight?: boolean;
   delay?: number;
+  isRecord?: boolean;
+  onPace?: boolean;
 }
 
-const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0 }: StatTileProps) => {
+const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0, isRecord, onPace }: StatTileProps) => {
   const displayValue = format === 'currency' 
     ? `$${typeof value === 'number' ? value.toLocaleString() : value}`
     : format === 'decimal' && typeof value === 'number'
@@ -55,14 +59,29 @@ const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: delay * 0.05, duration: 0.3 }}
       className={cn(
-        "rounded-xl p-3 flex flex-col items-center justify-center gap-1",
+        "rounded-xl p-3 flex flex-col items-center justify-center gap-1 relative",
         "bg-card border border-border/50",
-        highlight && "ring-2 ring-primary/20 bg-primary/5"
+        highlight && "ring-2 ring-primary/20 bg-primary/5",
+        isRecord && "ring-2 ring-amber-400/60 bg-amber-500/5",
+        onPace && !isRecord && "ring-1 ring-amber-400/30 bg-amber-500/[0.03]",
       )}
     >
+      {(isRecord || onPace) && (
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: (delay * 0.05) + 0.2, type: "spring", stiffness: 400 }}
+          className="absolute -top-1.5 -right-1.5"
+        >
+          <Crown className={cn(
+            "w-3.5 h-3.5",
+            isRecord ? "text-amber-500" : "text-amber-400/60"
+          )} />
+        </motion.div>
+      )}
       <span className={cn(
         "text-3xl font-bold tracking-tight",
-        highlight ? "text-primary" : "text-foreground"
+        isRecord ? "text-amber-600 dark:text-amber-400" : highlight ? "text-primary" : "text-foreground"
       )}>
         {displayValue}
       </span>
@@ -95,7 +114,7 @@ const generatePulseSentence = (
     return "Waiting for field activity to begin";
   }
 
-  const expectedFP =(baseline.teamExpectedFPToday || 0);
+  const expectedFP = (baseline.teamExpectedFPToday || 0);
   if (expectedFP <= 0) return `${fp.toFixed(1)} FP+ produced today`;
 
   const pct = ((fp / expectedFP) * 100);
@@ -105,13 +124,19 @@ const generatePulseSentence = (
   return `Team is significantly behind expected pace — ${(100 - pct).toFixed(0)}% below baseline`;
 };
 
+// Map metric keys to StatTile labels
+const METRIC_KEY_MAP: Record<string, string> = {
+  doors: 'Doors', dms: 'DMs', pitches: 'Pitches',
+  presentations: 'Pres', closes: 'Closes', fp: 'FP+',
+};
+
 export const PulseHero = ({
   doors, dms, pitches, presentations, closes, fp, prmr,
   avgStartTime, avgEndTime, activeHours,
   activeReps, workingCount, isLiveView,
   teamBaseline, periodLabel, isLoading, onWorkingClick,
-  onAvgStartClick,
-  onFpClick,
+  onAvgStartClick, onFpClick,
+  activeRecords = [], onRecordBannerClick,
 }: PulseHeroProps) => {
   if (isLoading) {
     return (
@@ -125,6 +150,19 @@ export const PulseHero = ({
       </div>
     );
   }
+
+  // Build record lookup
+  const recordMap = new Map<string, ActiveRecord>();
+  activeRecords.forEach(r => {
+    // Only store the first (most significant) record per metric
+    if (!recordMap.has(r.metricKey)) recordMap.set(r.metricKey, r);
+  });
+
+  const getRecordProps = (metricKey: string) => {
+    const r = recordMap.get(metricKey);
+    if (!r) return {};
+    return { isRecord: r.isRecord, onPace: r.onPace };
+  };
 
   // Calculate deltas vs baseline
   const calcDelta = (actual: number, expected: number | undefined) => {
@@ -159,19 +197,24 @@ export const PulseHero = ({
 
       {/* Stat tiles grid - 3x2 */}
       <div className="grid grid-cols-3 gap-2">
-        <StatTile label="Doors" value={doors} delay={0} />
-        <StatTile label="DMs" value={dms} delay={1} />
-        <StatTile label="Pitches" value={pitches} delay={2} />
-        <StatTile label="Pres" value={presentations} delay={3} />
-        <StatTile label="Closes" value={closes} delay={4} />
+        <StatTile label="Doors" value={doors} delay={0} {...getRecordProps('doors')} />
+        <StatTile label="DMs" value={dms} delay={1} {...getRecordProps('dms')} />
+        <StatTile label="Pitches" value={pitches} delay={2} {...getRecordProps('pitches')} />
+        <StatTile label="Pres" value={presentations} delay={3} {...getRecordProps('presentations')} />
+        <StatTile label="Closes" value={closes} delay={4} {...getRecordProps('closes')} />
         {onFpClick ? (
           <button onClick={onFpClick} className="active:scale-[0.96] transition-transform">
-            <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={fpDelta} delay={5} />
+            <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={fpDelta} delay={5} {...getRecordProps('fp')} />
           </button>
         ) : (
-          <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={fpDelta} delay={5} />
+          <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={fpDelta} delay={5} {...getRecordProps('fp')} />
         )}
       </div>
+
+      {/* Record Banner */}
+      {activeRecords.length > 0 && (
+        <RecordBanner records={activeRecords} onClick={onRecordBannerClick} />
+      )}
 
       {/* Secondary metrics row */}
       <div className="bg-card rounded-xl border border-border/50 px-4 py-2.5">
