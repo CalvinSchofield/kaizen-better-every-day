@@ -345,7 +345,7 @@ export default function AddRecruit() {
       toast.success('Recruit added!', { description: `${data.name} has been added to your pipeline` });
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.refetchQueries({ queryKey: ['group-recruits'] });
-      navigate('/mygroup', { state: { newRecruitId: data.recruitId } });
+      navigate('/my-group', { state: { newRecruitId: data.recruitId } });
     },
     onError: (error) => {
       console.error('Failed to create recruit:', error);
