@@ -529,6 +529,7 @@ export const RepDrillDownDrawer = ({
                 workEndTime={dayActivity?.workEndTime || displayData.workEndTime}
                 totalBreakMinutes={dayActivity?.breakMinutes}
                 dayOfWeek={getDay(selectedDate)}
+                timezone={extendedData?.timezone}
               />
             )}
             
@@ -545,6 +546,7 @@ export const RepDrillDownDrawer = ({
                 workEndTime={displayData.workEndTime}
                 gapMinutes={dayActivity?.gapMinutes}
                 isRookie={rep.year === 'rookie'}
+                timezone={extendedData?.timezone}
               />
             )}
 

@@ -112,34 +112,31 @@ export const EffortCoachingCallouts = ({
 
   // Early End Logic
   if (endDate) {
-    const endHour = endDate.getHours();
-    const endMinute = endDate.getMinutes();
-    const endInMinutes = endHour * 60 + endMinute;
-    
-    // Threshold: before 7pm (1140 min) Mon-Sat
-    // OR 30 min earlier than rep's average
-    const earlyThreshold = 1140; // 7:00 PM
-    
-    let isEarly = false;
-    let earlyReason = '';
-    
-    // Only apply early end check for Mon-Sat, and only if they worked during normal hours
-    const isWorkday = currentDayOfWeek >= 1 && currentDayOfWeek <= 6;
-    
-    if (isWorkday && endInMinutes < earlyThreshold && endInMinutes > 600) {
-      const earlyBy = earlyThreshold - endInMinutes;
-      if (earlyBy > 30) { // Only flag if more than 30 min early
-        isEarly = true;
-        earlyReason = `Ended at ${format(endDate, 'h:mm a')} (${formatDurationNatural(earlyBy)} before 7pm)`;
+    const endTime = getTimeInTimezone(workEndTime!, timezone);
+    if (endTime) {
+      const endInMinutes = endTime.hours * 60 + endTime.minutes;
+      const timeLabel = formatTimeInTz(workEndTime!, timezone) || 'Unknown';
+      
+      const earlyThreshold = 1140;
+      
+      let isEarly = false;
+      let earlyReason = '';
+      
+      const isWorkday = currentDayOfWeek >= 1 && currentDayOfWeek <= 6;
+      
+      if (isWorkday && endInMinutes < earlyThreshold && endInMinutes > 600) {
+        const earlyBy = earlyThreshold - endInMinutes;
+        if (earlyBy > 30) {
+          isEarly = true;
+          earlyReason = `Ended at ${timeLabel} (${formatDurationNatural(earlyBy)} before 7pm)`;
+        }
       }
-    }
-    
-    // Also check against rep's average
-    if (!isEarly && repAverageEndMinutes !== undefined && endInMinutes < repAverageEndMinutes - 30) {
-      const earlyBy = repAverageEndMinutes - endInMinutes;
-      isEarly = true;
-      earlyReason = `Ended at ${format(endDate, 'h:mm a')} (${formatDurationNatural(earlyBy)} earlier than usual)`;
-    }
+      
+      if (!isEarly && repAverageEndMinutes !== undefined && endInMinutes < repAverageEndMinutes - 30) {
+        const earlyBy = repAverageEndMinutes - endInMinutes;
+        isEarly = true;
+        earlyReason = `Ended at ${timeLabel} (${formatDurationNatural(earlyBy)} earlier than usual)`;
+      }
     
     if (isEarly) {
       issues.push({
