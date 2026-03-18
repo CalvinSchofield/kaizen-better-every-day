@@ -702,9 +702,9 @@ export const useReportsV2Data = ({
         repsWithActivity: data.uniqueRepsWorked,
       };
       
-      const constraint = detectPrimaryConstraint(teamMetrics);
-      const skillBottleneck = analyzeFunnelBottleneck(teamMetrics);
-      const impactPotential = calculateImpactPotential(teamMetrics, skillBottleneck);
+      const constraint = detectPrimaryConstraint(teamMetrics, teamBaseline?.conversions);
+      const skillBottleneck = analyzeFunnelBottleneck(teamMetrics, teamBaseline?.conversions);
+      const impactPotential = calculateImpactPotential(teamMetrics, skillBottleneck, teamBaseline?.conversions);
       
       const repPerformanceData: RepPerformanceData[] = repsWithEffort.map(rep => ({
         name: rep.name,
