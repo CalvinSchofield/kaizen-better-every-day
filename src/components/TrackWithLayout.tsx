@@ -872,6 +872,8 @@ const TrackWithLayout = () => {
     try {
       await updateCounter(updates);
       setSyncStatus('synced');
+      // Schedule server verification to confirm data actually landed
+      setTimeout(verifyServerSync, 2000);
     } catch (error: any) {
       // PROTECTION: If entry was finalized between checks, show friendly message
       if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
