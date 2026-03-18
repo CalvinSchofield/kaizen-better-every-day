@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { AlertTriangle, Clock, Coffee } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { parseISO, format } from "date-fns";
+import { parseISO } from "date-fns";
+import { getTimeInTimezone, formatTimeInTz } from "@/utils/timezoneUtils";
 
 interface EffortIssue {
   type: 'late_start' | 'early_end' | 'excessive_break';
