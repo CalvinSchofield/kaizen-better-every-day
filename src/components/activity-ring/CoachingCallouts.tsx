@@ -24,6 +24,7 @@ interface CoachingCalloutsProps {
   isRookie?: boolean;
   doorsPerHourTarget?: number;
   className?: string;
+  timezone?: string | null;
 }
 
 const generateInsights = (props: CoachingCalloutsProps): CoachingInsight[] => {
