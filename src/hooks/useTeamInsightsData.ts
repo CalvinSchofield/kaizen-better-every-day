@@ -1013,10 +1013,39 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
               startTimeMinutes.push(hour * 60 + minute);
             } catch {}
           }
+          // Try actual end time first
+          let hasEndTime = false;
           if (e.work_end_time) {
             try {
               const { hour, minute } = calculateLocalTime(e.work_end_time, repTimezone);
               endTimeMinutes.push(hour * 60 + minute);
+              hasEndTime = true;
+            } catch {}
+          }
+          // Infer end time from last counter_timestamp if day is past and no end time saved
+          if (!hasEndTime && e.work_start_time && e.counter_timestamps) {
+            try {
+              const entryDate = parseISO(e.entry_date);
+              const now = new Date();
+              // Only infer for past days (entry date is before today in rep's timezone)
+              if (entryDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+                const timestamps = e.counter_timestamps as Record<string, string[]>;
+                let latestTs: Date | null = null;
+                for (const field of Object.values(timestamps)) {
+                  if (Array.isArray(field)) {
+                    for (const ts of field) {
+                      const d = new Date(ts);
+                      if (!isNaN(d.getTime()) && (!latestTs || d > latestTs)) {
+                        latestTs = d;
+                      }
+                    }
+                  }
+                }
+                if (latestTs) {
+                  const { hour, minute } = calculateLocalTime(latestTs.toISOString(), repTimezone);
+                  endTimeMinutes.push(hour * 60 + minute);
+                }
+              }
             } catch {}
           }
         });

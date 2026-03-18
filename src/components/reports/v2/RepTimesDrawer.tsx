@@ -38,6 +38,23 @@ const minutesToPercent = (mins: number): number => {
   return Math.max(0, Math.min(100, ((mins - TIMELINE_START) / TIMELINE_RANGE) * 100));
 };
 
+/**
+ * Classify a rep's start time relative to group using percentile bands.
+ * Bottom 25% = early (green), Top 25% = late (orange), middle = normal.
+ */
+const getStartTimeClassification = (
+  startMinutes: number,
+  allStartMinutes: number[]
+): 'early' | 'normal' | 'late' => {
+  if (allStartMinutes.length < 3) return 'normal';
+  const sorted = [...allStartMinutes].sort((a, b) => a - b);
+  const p25 = sorted[Math.floor(sorted.length * 0.25)];
+  const p75 = sorted[Math.floor(sorted.length * 0.75)];
+  if (startMinutes <= p25) return 'early';
+  if (startMinutes >= p75) return 'late';
+  return 'normal';
+};
+
 export const RepTimesDrawer = ({
   open,
   onOpenChange,
@@ -54,6 +71,11 @@ export const RepTimesDrawer = ({
       .sort((a, b) => (a.avgStartMinutes ?? 999) - (b.avgStartMinutes ?? 999));
   }, [reps]);
 
+  // Collect all valid start minutes for percentile calculation
+  const allStartMinutes = useMemo(() => {
+    return sortedReps.map(r => r.avgStartMinutes!);
+  }, [sortedReps]);
+
   const timeMarkers = [
     { mins: 7 * 60, label: '7a' },
     { mins: 9 * 60, label: '9a' },
@@ -64,6 +86,18 @@ export const RepTimesDrawer = ({
     { mins: 19 * 60, label: '7p' },
     { mins: 21 * 60, label: '9p' },
   ];
+
+  // Compute the 25th/75th percentile labels for the legend
+  const legendLabels = useMemo(() => {
+    if (allStartMinutes.length < 3) return { early: 'Early', late: 'Late' };
+    const sorted = [...allStartMinutes].sort((a, b) => a - b);
+    const p25 = sorted[Math.floor(sorted.length * 0.25)];
+    const p75 = sorted[Math.floor(sorted.length * 0.75)];
+    return {
+      early: `Before ${minutesToTimeLabel(p25)}`,
+      late: `After ${minutesToTimeLabel(p75)}`,
+    };
+  }, [allStartMinutes]);
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -128,9 +162,11 @@ export const RepTimesDrawer = ({
                 : Math.min(startPct + 20, 100);
               const widthPct = Math.max(endPct - startPct, 2);
 
-              // Color coding: early starters green, late starters warm
-              const isEarly = rep.avgStartMinutes! < 9 * 60 + 30; // before 9:30
-              const isLate = rep.avgStartMinutes! > 11 * 60; // after 11:00
+              // Percentile-based color coding relative to the group
+              const classification = getStartTimeClassification(
+                rep.avgStartMinutes!,
+                allStartMinutes
+              );
 
               return (
                 <button
@@ -164,9 +200,9 @@ export const RepTimesDrawer = ({
                     <div
                       className={cn(
                         "absolute top-0.5 bottom-0.5 rounded-full transition-all",
-                        isEarly && "bg-green-500/70",
-                        isLate && "bg-orange-500/70",
-                        !isEarly && !isLate && "bg-primary/60"
+                        classification === 'early' && "bg-green-500/70",
+                        classification === 'late' && "bg-orange-500/70",
+                        classification === 'normal' && "bg-primary/60"
                       )}
                       style={{
                         left: `${startPct}%`,
@@ -199,15 +235,15 @@ export const RepTimesDrawer = ({
           <div className="flex items-center gap-4 text-[10px] text-muted-foreground justify-center pt-2 border-t border-border/50">
             <div className="flex items-center gap-1">
               <div className="w-3 h-2 rounded-full bg-green-500/70" />
-              <span>Before 9:30a</span>
+              <span>Top 25%</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-3 h-2 rounded-full bg-primary/60" />
-              <span>Normal</span>
+              <span>Middle</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-3 h-2 rounded-full bg-orange-500/70" />
-              <span>After 11a</span>
+              <span>Bottom 25%</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-px h-3 bg-muted-foreground/30" />
