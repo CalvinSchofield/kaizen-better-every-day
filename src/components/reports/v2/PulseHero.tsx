@@ -1,0 +1,209 @@
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { TrendingUp, TrendingDown, Minus, Users, ChevronRight, Zap } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
+import { TeamBaseline } from "@/utils/baselineCalculations";
+
+interface PulseHeroProps {
+  doors: number;
+  dms: number;
+  pitches: number;
+  presentations: number;
+  closes: number;
+  fp: number;
+  prmr: number;
+  avgStartTime?: string;
+  avgEndTime?: string;
+  activeHours?: number;
+  activeReps: number;
+  workingCount?: number;
+  isLiveView?: boolean;
+  teamBaseline?: TeamBaseline;
+  periodLabel: string;
+  isLoading?: boolean;
+  onWorkingClick?: () => void;
+}
+
+interface StatTileProps {
+  label: string;
+  value: number | string;
+  delta?: number | null;
+  format?: 'number' | 'currency' | 'decimal';
+  highlight?: boolean;
+  delay?: number;
+}
+
+const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0 }: StatTileProps) => {
+  const displayValue = format === 'currency' 
+    ? `$${typeof value === 'number' ? value.toLocaleString() : value}`
+    : format === 'decimal' && typeof value === 'number'
+    ? value.toFixed(1)
+    : value;
+
+  const getDeltaColor = (d: number) => {
+    if (d > 5) return "text-green-600 dark:text-green-400 bg-green-500/10";
+    if (d < -5) return "text-destructive bg-destructive/10";
+    return "text-muted-foreground bg-muted/50";
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: delay * 0.05, duration: 0.3 }}
+      className={cn(
+        "rounded-xl p-3 flex flex-col items-center justify-center gap-1",
+        "bg-card border border-border/50",
+        highlight && "ring-2 ring-primary/20 bg-primary/5"
+      )}
+    >
+      <span className={cn(
+        "text-3xl font-bold tracking-tight",
+        highlight ? "text-primary" : "text-foreground"
+      )}>
+        {displayValue}
+      </span>
+      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+        {label}
+      </span>
+      {delta !== undefined && delta !== null && (
+        <div className={cn(
+          "flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold",
+          getDeltaColor(delta)
+        )}>
+          {delta > 0 ? <TrendingUp className="w-2.5 h-2.5" /> : delta < 0 ? <TrendingDown className="w-2.5 h-2.5" /> : <Minus className="w-2.5 h-2.5" />}
+          {delta > 0 ? '+' : ''}{delta.toFixed(0)}%
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+// Generate pulse sentence based on metrics and baseline
+const generatePulseSentence = (
+  fp: number,
+  doors: number,
+  baseline?: TeamBaseline,
+  isLiveView?: boolean,
+): string => {
+  if (!baseline || !isLiveView) {
+    if (fp > 0) return `${fp.toFixed(1)} FP+ produced so far`;
+    if (doors > 0) return `${doors} doors knocked, working towards first sale`;
+    return "Waiting for field activity to begin";
+  }
+
+  const expectedFP =(baseline.teamExpectedFPToday || 0);
+  if (expectedFP <= 0) return `${fp.toFixed(1)} FP+ produced today`;
+
+  const pct = ((fp / expectedFP) * 100);
+  if (pct >= 110) return `Production is ${(pct - 100).toFixed(0)}% above expected pace 🔥`;
+  if (pct >= 90) return "Team is tracking on pace with baseline";
+  if (pct >= 70) return `Team is ${(100 - pct).toFixed(0)}% behind normal pace`;
+  return `Team is significantly behind expected pace — ${(100 - pct).toFixed(0)}% below baseline`;
+};
+
+export const PulseHero = ({
+  doors, dms, pitches, presentations, closes, fp, prmr,
+  avgStartTime, avgEndTime, activeHours,
+  activeReps, workingCount, isLiveView,
+  teamBaseline, periodLabel, isLoading, onWorkingClick,
+}: PulseHeroProps) => {
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        <div className="h-8 w-48 bg-muted animate-pulse rounded-lg" />
+        <div className="grid grid-cols-3 gap-2">
+          {[1,2,3,4,5,6].map(i => (
+            <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate deltas vs baseline
+  const calcDelta = (actual: number, expected: number | undefined) => {
+    if (!expected || expected === 0 || !isLiveView) return null;
+    return ((actual - expected) / expected) * 100;
+  };
+
+  const expectedFP = teamBaseline?.teamExpectedFPToday;
+  const fpDelta = calcDelta(fp, expectedFP);
+
+  const pulseSentence = generatePulseSentence(fp, doors, teamBaseline, isLiveView);
+
+  // Determine pulse color
+  const pulseColor = !fpDelta ? "text-muted-foreground" 
+    : fpDelta >= 0 ? "text-green-600 dark:text-green-400" 
+    : fpDelta < -15 ? "text-destructive" 
+    : "text-warning";
+
+  return (
+    <div className="space-y-3">
+      {/* Pulse sentence */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex items-center gap-2"
+      >
+        <Zap className={cn("w-4 h-4", pulseColor)} />
+        <p className={cn("text-sm font-medium", pulseColor)}>
+          {pulseSentence}
+        </p>
+      </motion.div>
+
+      {/* Stat tiles grid - 3x2 */}
+      <div className="grid grid-cols-3 gap-2">
+        <StatTile label="Doors" value={doors} delay={0} />
+        <StatTile label="DMs" value={dms} delay={1} />
+        <StatTile label="Pitches" value={pitches} delay={2} />
+        <StatTile label="Pres" value={presentations} delay={3} />
+        <StatTile label="Closes" value={closes} delay={4} />
+        <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={fpDelta} delay={5} />
+      </div>
+
+      {/* Secondary metrics row */}
+      <div className="flex items-center justify-between bg-card rounded-xl border border-border/50 px-4 py-2.5">
+        <div className="flex items-center gap-4 text-sm">
+          <div>
+            <span className="font-bold text-green-600 dark:text-green-400">${prmr.toLocaleString()}</span>
+            <span className="text-muted-foreground ml-1 text-xs">PRMR</span>
+          </div>
+          {avgStartTime && (
+            <div>
+              <span className="font-medium">{avgStartTime}</span>
+              <span className="text-muted-foreground ml-1 text-xs">Avg Start</span>
+            </div>
+          )}
+          {activeHours !== undefined && activeHours > 0 && (
+            <div>
+              <span className="font-medium">{activeHours.toFixed(1)}h</span>
+              <span className="text-muted-foreground ml-1 text-xs">Active</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Working reps clickable */}
+      {onWorkingClick && (
+        <button
+          onClick={onWorkingClick}
+          className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 active:scale-[0.99] transition-all"
+        >
+          <div className="flex items-center gap-2 text-sm">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <span className="font-medium">{isLiveView ? workingCount || 0 : activeReps}</span>
+            <span className="text-muted-foreground">
+              {isLiveView ? 'working now' : 'reps worked'}
+            </span>
+            {isLiveView && (
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            )}
+          </div>
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </button>
+      )}
+    </div>
+  );
+};
