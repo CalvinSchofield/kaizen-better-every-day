@@ -259,20 +259,17 @@ const Profile = () => {
         </div>
       </motion.div>
 
-      {/* Season Heatmap — only visible to leaders viewing downline reps */}
-      {isDownline && userId && (
-        <ProfileSeasonHeatmap
-          userId={userId}
-          isOwnProfile={false}
-        />
-      )}
-
-      {/* Momentum Sparkline / Goal Pace Swiper */}
+      {/* Momentum Sparkline / Goal Pace / Heatmap Swiper */}
       <ProfileSwiper
         dailyFp={profile.dailyFpValues}
         isOwnProfile={isOwnProfile}
         goalPaceData={isDownline && downlineGoalPace.hasGoals ? downlineGoalPace : null}
         repName={profile.name}
+        extraSlide={
+          isDownline && userId ? (
+            <ProfileSeasonHeatmap userId={userId} isOwnProfile={false} />
+          ) : undefined
+        }
       />
 
       {/* Tabbed content */}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { MomentumSparkline } from "./MomentumSparkline";
 import { UnifiedGoalProgress } from "@/components/goals/UnifiedGoalProgress";
@@ -10,16 +10,24 @@ interface ProfileSwiperProps {
   isOwnProfile: boolean;
   goalPaceData: GoalPaceData | null;
   repName: string;
+  /** Optional extra slide (e.g. season heatmap) rendered as third panel */
+  extraSlide?: ReactNode;
 }
 
-export const ProfileSwiper = ({ dailyFp, isOwnProfile, goalPaceData, repName }: ProfileSwiperProps) => {
+const SLIDE_MIN_H = "min-h-[260px]";
+
+export const ProfileSwiper = ({ dailyFp, isOwnProfile, goalPaceData, repName, extraSlide }: ProfileSwiperProps) => {
   const hasGoalData = goalPaceData !== null;
+  const hasExtra = !!extraSlide;
+  const slideCount = 1 + (hasGoalData ? 1 : 0) + (hasExtra ? 1 : 0);
+  const isCarousel = slideCount > 1;
+
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: 'start',
     containScroll: 'trimSnaps',
-    active: hasGoalData, // Only enable swiping if there's a second card
+    active: isCarousel,
   });
 
   const onSelect = useCallback(() => {
@@ -33,8 +41,8 @@ export const ProfileSwiper = ({ dailyFp, isOwnProfile, goalPaceData, repName }: 
     return () => { emblaApi.off('select', onSelect); };
   }, [emblaApi, onSelect]);
 
-  // If no goal data, just render the sparkline directly (no carousel)
-  if (!hasGoalData) {
+  // If only one slide, render directly (no carousel)
+  if (!isCarousel) {
     return (
       <MomentumSparkline
         dailyFp={dailyFp}
@@ -48,29 +56,44 @@ export const ProfileSwiper = ({ dailyFp, isOwnProfile, goalPaceData, repName }: 
       <div ref={emblaRef} className="overflow-hidden">
         <div className="flex">
           {/* Slide 1: Momentum */}
-          <div className="min-w-full snap-center px-4">
-            <MomentumSparkline
-              dailyFp={dailyFp}
-              isOwnProfile={isOwnProfile}
-            />
+          <div className={cn("min-w-full snap-center px-4 flex flex-col", SLIDE_MIN_H)}>
+            <div className="flex-1 flex flex-col">
+              <MomentumSparkline
+                dailyFp={dailyFp}
+                isOwnProfile={isOwnProfile}
+              />
+            </div>
           </div>
 
-          {/* Slide 2: Goal Progress (UnifiedGoalProgress) */}
-          <div className="min-w-full snap-center px-4">
-            <UnifiedGoalProgress
-              data={goalPaceData}
-              mode="full"
-              showTierSelector={!goalPaceData.isPreseason}
-              showPaceContext
-              showTimeframeToggle
-            />
-          </div>
+          {/* Slide 2: Goal Progress */}
+          {hasGoalData && (
+            <div className={cn("min-w-full snap-center px-4 flex flex-col", SLIDE_MIN_H)}>
+              <div className="flex-1 flex flex-col">
+                <UnifiedGoalProgress
+                  data={goalPaceData}
+                  mode="full"
+                  showTierSelector={!goalPaceData.isPreseason}
+                  showPaceContext
+                  showTimeframeToggle
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Slide 3: Extra (Heatmap) */}
+          {hasExtra && (
+            <div className={cn("min-w-full snap-center px-4 flex flex-col", SLIDE_MIN_H)}>
+              <div className="flex-1 flex flex-col">
+                {extraSlide}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Dots */}
       <div className="flex justify-center gap-1.5 mt-2">
-        {[0, 1].map(i => (
+        {Array.from({ length: slideCount }).map((_, i) => (
           <button
             key={i}
             className={cn(
