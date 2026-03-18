@@ -103,11 +103,16 @@ export const CalendarPlanningPreview = ({
         .eq('user_id', userId)
         .gte('entry_date', SEASON_START)
         .lte('entry_date', SEASON_END);
-      if (error) return [];
+      if (error) {
+        console.warn('Failed to fetch season heatmap entries:', error);
+        return [];
+      }
       return (data || []) as DailyEntry[];
     },
     enabled: !!userId,
     staleTime: 2 * 60 * 1000,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const efpLabel = efpModeEnabled ? 'EFP' : 'FP+';
