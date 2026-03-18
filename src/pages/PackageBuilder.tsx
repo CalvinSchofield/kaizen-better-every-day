@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { hapticMedium } from "@/utils/haptics";
 import { useHeader } from "@/contexts/HeaderContext";
+import { useToolsBackButton } from "@/hooks/useToolsBackButton";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PackageTypeSelector } from "@/components/tools/package-builder/PackageTypeSelector";
