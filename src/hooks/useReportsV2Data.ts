@@ -127,6 +127,26 @@ export interface ReportsV2Data {
     closes: number;
   };
   
+  // Chart data
+  dailyTrend: Array<{
+    date: string;
+    doors: number;
+    pitches: number;
+    transitions: number;
+    presentations: number;
+    fp: number;
+    efp: number;
+    prmr: number;
+    hoursWorked: number;
+  }>;
+  hourlyActivity: {
+    doors: Record<number, number>;
+    pitches: Record<number, number>;
+    transitions: Record<number, number>;
+    presentations: Record<number, number>;
+    closes: Record<number, number>;
+  };
+  
   // For drill-down
   getRepById: (userId: string) => RepWithEffort | undefined;
 }
@@ -606,6 +626,8 @@ export const useReportsV2Data = ({
           presentations: totals.presentations,
           closes: totals.closes,
         },
+        dailyTrend: [],
+        hourlyActivity: { doors: {}, pitches: {}, transitions: {}, presentations: {}, closes: {} },
       };
     }
     
@@ -876,6 +898,8 @@ export const useReportsV2Data = ({
           presentations: data.totalPresentations,
           closes: data.totalCloses,
         },
+        dailyTrend: data.dailyTrend || [],
+        hourlyActivity: data.hourlyActivity || { doors: {}, pitches: {}, transitions: {}, presentations: {}, closes: {} },
       };
     }
     
@@ -918,6 +942,8 @@ export const useReportsV2Data = ({
         presentations: 0,
         closes: 0,
       },
+      dailyTrend: [],
+      hourlyActivity: { doors: {}, pitches: {}, transitions: {}, presentations: {}, closes: {} },
     };
   }, [isLiveView, liveQuery.data, insightsQuery.data, baselineQuery.data, goalsQuery.data, effortThresholds]);
 

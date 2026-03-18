@@ -13,6 +13,8 @@ import {
   AlertsHighlights,
   RepArchetypes,
   AutoInsights,
+  ProductionTrendChart,
+  HourlyActivityChart,
 } from "@/components/reports/v2";
 import { ReportsDateRangeSheet } from "@/components/reports/v2/ReportsDateRangeSheet";
 import { ReportsTeamFilter, TeamFilter } from "@/components/reports/v2/ReportsTeamFilter";
@@ -123,6 +125,7 @@ export const ReportsV2Page = () => {
     teamGoalStatus, teamGoalStatusDetails,
     teamBaseline,
     repsWithEffort, funnelData,
+    dailyTrend, hourlyActivity,
     getRepById,
   } = useReportsV2Data({
     userIds: filteredUserIds,
@@ -368,6 +371,18 @@ export const ReportsV2Page = () => {
         presentations={funnelData.presentations}
         closes={funnelData.closes}
         fp={totalFP}
+        isLoading={isLoading}
+      />
+
+      {/* Production Trend Chart (multi-day views) */}
+      <ProductionTrendChart
+        data={dailyTrend}
+        isLoading={isLoading}
+      />
+
+      {/* Hourly Activity Chart */}
+      <HourlyActivityChart
+        hourlyActivity={hourlyActivity}
         isLoading={isLoading}
       />
 

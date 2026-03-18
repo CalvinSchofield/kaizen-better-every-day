@@ -21,3 +21,5 @@ export { TopPerformers } from './TopPerformers';
 export { AlertsHighlights } from './AlertsHighlights';
 export { RepArchetypes } from './RepArchetypes';
 export { AutoInsights } from './AutoInsights';
+export { ProductionTrendChart } from './ProductionTrendChart';
+export { HourlyActivityChart } from './HourlyActivityChart';
