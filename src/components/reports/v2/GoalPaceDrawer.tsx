@@ -230,10 +230,36 @@ const RepGoalCard = ({ rep, onRepClick, onSuggestReview }: { rep: EnhancedGoalPa
 export const GoalPaceDrawer = ({ open, onOpenChange, enhancedGoalPace, onRepClick }: GoalPaceDrawerProps) => {
   const [filter, setFilter] = useState<FilterStatus>('all');
   const [sortBy, setSortBy] = useState<SortOption>('urgency');
+  const { userId: currentUserId } = useCurrentUserId();
 
   const cycleSortBy = () => {
     const idx = SORT_OPTIONS.findIndex(s => s.value === sortBy);
     setSortBy(SORT_OPTIONS[(idx + 1) % SORT_OPTIONS.length].value);
+  };
+
+  const handleSuggestReview = async (repUserId: string) => {
+    if (!currentUserId) return;
+    const { error } = await supabase
+      .from('rep_goals')
+      .update({
+        goal_review_requested_by: currentUserId,
+        goal_review_requested_at: new Date().toISOString(),
+      } as any)
+      .eq('user_id', repUserId);
+    
+    if (error) {
+      toast.error("Failed to send review request");
+      return;
+    }
+    
+    // Send push notification to the rep
+    try {
+      await supabase.functions.invoke('send-goal-review-notification', {
+        body: { repUserId, leaderUserId: currentUserId },
+      });
+    } catch { /* best effort */ }
+    
+    toast.success("Goal review suggested", { description: "The rep will see a prompt to review their goals." });
   };
 
   const counts = {
