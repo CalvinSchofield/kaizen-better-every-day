@@ -513,6 +513,15 @@ export const ReportsV2Page = () => {
         onRepClick={handleRepClick}
       />
 
+      <DealAnalyticsDrawer
+        open={showDealDrawer}
+        onOpenChange={setShowDealDrawer}
+        userIds={filteredUserIds}
+        dateRange={dateRange}
+        totalFP={totalFP}
+        totalPRMR={totalPRMR}
+      />
+
       <ReportsDateRangeSheet
         open={showCustomSheet}
         onOpenChange={setShowCustomSheet}
