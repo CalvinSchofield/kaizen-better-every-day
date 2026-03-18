@@ -576,7 +576,7 @@ export const ReportsV2Page = () => {
         totalPRMR={totalPRMR}
       />
 
-      <ReportsDateRangeSheet
+      <CustomDateRangeDrawer
         open={showCustomSheet}
         onOpenChange={setShowCustomSheet}
         startDate={customStartDate}
