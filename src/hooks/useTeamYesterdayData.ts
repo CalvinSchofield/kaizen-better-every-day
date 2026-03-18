@@ -124,16 +124,22 @@ export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYe
 
       if (error) throw error;
 
-      // Fetch team/MGMT group mapping from cache
-      const cachedAccess = localStorage.getItem('team-access-cache');
+      // Fetch team/MGMT group mapping from cache (versioned key format)
       let accessibleReps: any[] = [];
-      if (cachedAccess) {
-        try {
-          const { data } = JSON.parse(cachedAccess);
-          accessibleReps = data?.accessibleReps || [];
-        } catch (e) {
-          console.error('Failed to parse team access cache:', e);
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.startsWith('team-access-cache:v4:')) {
+            const cached = localStorage.getItem(key);
+            if (cached) {
+              const { data } = JSON.parse(cached);
+              accessibleReps = data?.accessibleReps || [];
+              break;
+            }
+          }
         }
+      } catch (e) {
+        console.error('Failed to parse team access cache:', e);
       }
 
       const repInfoMap = new Map(accessibleReps.map((r: any) => [r.userId, r]));
