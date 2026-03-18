@@ -64,7 +64,7 @@ export const GritAwardsSection = ({ gritAwards, currentUserId, streaks }: GritAw
           streakHolderName={streaks?.ironmanStreak?.name}
         >
           <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
-            First to fight & last to leave — earned both Early Bird and Night Owl.
+            Earned both Early Bird and Night Owl.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <AwardWinnerColumn
