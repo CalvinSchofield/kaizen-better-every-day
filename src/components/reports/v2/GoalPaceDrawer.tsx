@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Target, TrendingUp, AlertTriangle, XCircle, HelpCircle, Calendar, ChevronRight, MessageSquare } from "lucide-react";
@@ -25,6 +26,15 @@ const STATUS_CONFIG = {
   no_goals: { label: 'No Goals', icon: HelpCircle, color: 'text-muted-foreground', bg: 'bg-muted/50', border: 'border-muted' },
   needs_planning: { label: 'Plan Days', icon: Calendar, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/30' },
 };
+
+type SortOption = 'urgency' | 'pace' | 'ytd' | 'name';
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'urgency', label: 'Urgency' },
+  { value: 'pace', label: 'Pace %' },
+  { value: 'ytd', label: 'YTD' },
+  { value: 'name', label: 'Name' },
+];
 
 const TIER_ORDER: GoalTier[] = ['preseason', 'mustDo', 'willDo', 'couldDo'];
 
@@ -194,6 +204,12 @@ const RepGoalCard = ({ rep, onRepClick }: { rep: EnhancedGoalPaceResult; onRepCl
 
 export const GoalPaceDrawer = ({ open, onOpenChange, enhancedGoalPace, onRepClick }: GoalPaceDrawerProps) => {
   const [filter, setFilter] = useState<FilterStatus>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('urgency');
+
+  const cycleSortBy = () => {
+    const idx = SORT_OPTIONS.findIndex(s => s.value === sortBy);
+    setSortBy(SORT_OPTIONS[(idx + 1) % SORT_OPTIONS.length].value);
+  };
 
   const counts = {
     on_pace: enhancedGoalPace.filter(r => r.status === 'on_pace').length,
@@ -210,9 +226,23 @@ export const GoalPaceDrawer = ({ open, onOpenChange, enhancedGoalPace, onRepClic
     filtered = enhancedGoalPace.filter(r => r.status === filter);
   }
 
+  const computeUrgency = (r: EnhancedGoalPaceResult) => {
+    const statusWeight = { behind: 100, at_risk: 60, on_pace: 0, no_goals: -10 } as const;
+    const pacePercent = r.dailyNeeded > 0 ? Math.min(100, (r.userDailyAvg / r.dailyNeeded) * 100) : (r.userDailyAvg > 0 ? 0 : 100);
+    return statusWeight[r.status] + (100 - pacePercent) + (r.needsPlanning ? 20 : 0) + (r.dailyNeeded > 3 ? 10 : 0);
+  };
+
   const sorted = [...filtered].sort((a, b) => {
-    const order = { behind: 0, at_risk: 1, on_pace: 2, no_goals: 3 };
-    return order[a.status] - order[b.status];
+    switch (sortBy) {
+      case 'urgency': return computeUrgency(b) - computeUrgency(a);
+      case 'pace': {
+        const paceA = a.dailyNeeded > 0 ? a.userDailyAvg / a.dailyNeeded : 999;
+        const paceB = b.dailyNeeded > 0 ? b.userDailyAvg / b.dailyNeeded : 999;
+        return paceA - paceB;
+      }
+      case 'ytd': return b.ytdFP - a.ytdFP;
+      case 'name': return a.name.localeCompare(b.name);
+    }
   });
 
   const withGoals = sorted.filter(r => r.status !== 'no_goals');
@@ -222,10 +252,19 @@ export const GoalPaceDrawer = ({ open, onOpenChange, enhancedGoalPace, onRepClic
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh]">
         <DrawerHeader className="pb-2">
-          <DrawerTitle className="flex items-center gap-2">
-            <Target className="w-5 h-5" />
-            Goal Pace
-          </DrawerTitle>
+          <div className="flex items-center justify-between">
+            <DrawerTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5" />
+              Goal Pace
+            </DrawerTitle>
+            <button
+              onClick={cycleSortBy}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/50 text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <ArrowUpDown className="w-3 h-3" />
+              {SORT_OPTIONS.find(s => s.value === sortBy)?.label}
+            </button>
+          </div>
         </DrawerHeader>
 
         <div className="px-4 pb-6 overflow-y-auto space-y-4">
