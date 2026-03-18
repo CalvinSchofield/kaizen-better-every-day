@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -103,11 +103,16 @@ export const CalendarPlanningPreview = ({
         .eq('user_id', userId)
         .gte('entry_date', SEASON_START)
         .lte('entry_date', SEASON_END);
-      if (error) return [];
+      if (error) {
+        console.warn('Failed to fetch season heatmap entries:', error);
+        return [];
+      }
       return (data || []) as DailyEntry[];
     },
     enabled: !!userId,
     staleTime: 2 * 60 * 1000,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const efpLabel = efpModeEnabled ? 'EFP' : 'FP+';
@@ -117,7 +122,18 @@ export const CalendarPlanningPreview = ({
     setIsOpen(prev => !prev);
   }, []);
 
-  const isCalendarLoading = isLoadingPlanned || isLoadingEntries;
+  // Timeout to prevent infinite loading — after 8s, show heatmap with whatever data we have
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  useEffect(() => {
+    if (!isLoadingPlanned && !isLoadingEntries) {
+      setLoadingTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setLoadingTimedOut(true), 8000);
+    return () => clearTimeout(timer);
+  }, [isLoadingPlanned, isLoadingEntries]);
+
+  const isCalendarLoading = (isLoadingPlanned || isLoadingEntries) && !loadingTimedOut;
 
   // Compute stats with preseason vs summer split
   const stats = useMemo(() => {

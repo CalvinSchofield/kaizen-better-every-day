@@ -26,6 +26,10 @@ const SALES_DEPENDENT_KEYS = [
   'today-entry-unified',
   'all-entries-unified',
   'rep-goals',
+  // Goals page specific
+  'season-heatmap-entries',
+  'goals-knocking-days',
+  'summer-stats-for-whatif',
   // Leaderboards (all variants)
   'today-leaderboard',
   'yesterday-leaderboard',
