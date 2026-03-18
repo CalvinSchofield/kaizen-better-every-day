@@ -628,7 +628,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
               </motion.div>
             )}
 
-            {/* === COMPLETED STATE - ESPN-Style === */}
+            {/* === COMPLETED STATE - Race Recap === */}
             {isCompleted && (
               <>
                 {is1v1 && (
@@ -636,6 +636,21 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
                 )}
                 {isTeamBattle && (
                   <CompletedTeamHero challenge={challenge} currentUserId={currentUser?.id} onClose={() => onOpenChange(false)} />
+                )}
+
+                {/* Race Timeline & Stats — 1v1 only */}
+                {is1v1 && recapData && challenge.participants && challenge.participants.length >= 2 && (
+                  <>
+                    <ChallengeRaceTimeline
+                      moments={recapData.moments}
+                      days={recapData.days}
+                      participantIds={[challenge.participants[0].user_id, challenge.participants[1].user_id]}
+                      participantNames={recapData.participantNames}
+                      metric={challenge.metric}
+                      winnerId={challenge.winner_user_id}
+                    />
+                    <ChallengeRecapStats stats={recapData.stats} metric={challenge.metric} />
+                  </>
                 )}
 
                 {/* Duration info */}
