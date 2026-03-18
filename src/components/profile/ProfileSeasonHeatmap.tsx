@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { SeasonHeatmap, DailyEntry } from '@/components/goals/SeasonHeatmap';
+import type { PlannedDay } from '@/hooks/usePlannedDays';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GoalTier } from '@/config/goalTiers';
 import { cn } from '@/lib/utils';
