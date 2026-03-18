@@ -500,6 +500,16 @@ export const ReportsV2Page = () => {
         onRepClick={handleRepClick}
       />
 
+      <RepTimesDrawer
+        open={showTimeDrawer}
+        onOpenChange={setShowTimeDrawer}
+        reps={repTimeData}
+        periodLabel={getPeriodLabel()}
+        teamAvgStartMinutes={teamAvgStartMinutes}
+        teamAvgEndMinutes={teamAvgEndMinutes}
+        onRepClick={handleRepClick}
+      />
+
       <ReportsDateRangeSheet
         open={showCustomSheet}
         onOpenChange={setShowCustomSheet}
