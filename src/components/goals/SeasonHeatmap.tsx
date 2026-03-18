@@ -352,8 +352,6 @@ export const SeasonHeatmap = ({
             )}
           </button>
         )}
-          </div>
-        )}
       </div>
 
       <div className="flex gap-1.5 relative">
