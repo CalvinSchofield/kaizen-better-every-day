@@ -78,6 +78,8 @@ export const normalizeSale = (sale: any): Sale => ({
   // Migrate old field names to canonical names
   customer_account_number: sale.customer_account_number || sale.account_number,
   customer_address: sale.customer_address || sale.customer_location,
+  // Normalize legacy install_status values
+  install_status: sale.install_status === 'funded' ? 'installed' : sale.install_status,
 });
 
 export interface DailyEntry {
