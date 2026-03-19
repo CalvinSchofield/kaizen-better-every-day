@@ -563,7 +563,8 @@ export function useGoalPaceCalculator(): GoalPaceData {
       return data || [];
     },
     enabled: !!userId,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0, // Always refetch — critical for reflecting install_status changes (pending/funded)
+    gcTime: 5 * 60 * 1000,
   });
 
   // Historical 2025 summer daily average for preseason severity calibration
