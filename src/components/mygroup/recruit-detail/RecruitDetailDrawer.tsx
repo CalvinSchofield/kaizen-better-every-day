@@ -163,7 +163,7 @@ export const RecruitDetailDrawer = ({
     },
     enabled: !!recruitProp?.id && open,
     staleTime: 0,
-    refetchInterval: open ? 1000 : false,
+    refetchInterval: open ? 5000 : false,
   });
   
   const recruit = liveRecruit || recruitProp;

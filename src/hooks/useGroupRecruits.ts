@@ -1026,11 +1026,11 @@ export const useLogRecruitActivity = () => {
       }
     },
     onSettled: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
       const identifier = data?.recruitId || data?.recruitNotionId;
       if (identifier) {
         queryClient.invalidateQueries({ queryKey: ['recruit-activities', identifier] });
+        queryClient.invalidateQueries({ queryKey: ['recruit-detail-live', identifier] });
       }
       // Send task assignment notification
       if (data?.assignedToUserId && data?.logged_by_user_id) {

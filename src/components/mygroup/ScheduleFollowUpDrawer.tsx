@@ -216,7 +216,7 @@ export const ScheduleFollowUpDrawer = ({
             <label className="text-sm font-medium mb-2 block">
               Assign to (optional)
             </label>
-            {assignableUsersLoading ? (
+            {assignableUsersLoading && !assignableUsers.length ? (
               <Skeleton className="h-10 w-full" />
             ) : assignableUsers.length > 0 ? (
               <Popover open={showAssigneePopover} onOpenChange={setShowAssigneePopover}>
