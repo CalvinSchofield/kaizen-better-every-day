@@ -424,7 +424,7 @@ const TrackWithLayout = () => {
           closes: entry.closes || 0,
           fp_plus: entry.fp_plus || 0,
           prmr: entry.prmr || 0,
-          upgrade_prmr: entry.upgrade_prmr ?? null,
+          
           work_start_time: entry.work_start_time ?? null,
           work_end_time: entry.work_end_time ?? null,
           break_periods: entry.break_periods || [],
