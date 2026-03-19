@@ -681,38 +681,28 @@ export const useDailyEntry = (date?: string) => {
         }
       }
       
-      // Check for automatic stage progression if FP+ is logged
+      // Fire-and-forget: Non-critical post-save enhancements (stage progression, personal records)
+      // These run in background and never block the save flow
       if (data.fp_plus > 0) {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
+        supabase.auth.getSession().then(({ data: { session } }) => {
           if (session) {
-            await supabase.functions.invoke('check-auto-stage-progression', {
+            supabase.functions.invoke('check-auto-stage-progression', {
               headers: { Authorization: `Bearer ${session.access_token}` },
-            });
+            }).catch(e => console.error('Auto stage progression error:', e));
           }
-        } catch (stageError) {
-          console.error('Error checking auto stage progression:', stageError);
-          // Don't throw - this is a non-critical enhancement
-        }
+        }).catch(() => {});
       }
       
-      // Check for personal records (best day FP+ or PRMR)
       if (data.fp_plus > 0 || data.prmr > 0) {
-        try {
-          await supabase.functions.invoke('check-personal-records', {
-            body: {
-              userId: user.id,
-              entryId: entry?.id || '',
-              fpPlus: data.fp_plus,
-              prmr: data.prmr,
-              entryDate: data.saveDate
-            }
-          });
-          console.log('[useDailyEntry] Personal records check completed');
-        } catch (recordsError) {
-          console.error('Error checking personal records:', recordsError);
-          // Don't throw - this is a non-critical enhancement
-        }
+        supabase.functions.invoke('check-personal-records', {
+          body: {
+            userId: user.id,
+            entryId: entry?.id || '',
+            fpPlus: data.fp_plus,
+            prmr: data.prmr,
+            entryDate: data.saveDate
+          }
+        }).catch(e => console.error('Personal records check error:', e));
       }
     },
     onSuccess: async (_, variables) => {
