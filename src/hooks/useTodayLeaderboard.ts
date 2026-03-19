@@ -304,9 +304,10 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
 
       return leaderboard;
     },
-    staleTime: 5000,
+    staleTime: 0,
     refetchInterval: 10000,
     refetchIntervalInBackground: true,
+    refetchOnMount: "always",
     refetchOnWindowFocus: "always",
     refetchOnReconnect: "always",
   });

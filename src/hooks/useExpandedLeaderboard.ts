@@ -911,6 +911,10 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
 
       return result;
     },
-    staleTime: 30000,
+    staleTime: timeframe === 'live' ? 0 : 30000,
+    refetchInterval: timeframe === 'live' ? 10000 : undefined,
+    refetchOnMount: timeframe === 'live' ? 'always' as const : true,
+    refetchOnWindowFocus: 'always' as const,
+    refetchOnReconnect: 'always' as const,
   });
 };
