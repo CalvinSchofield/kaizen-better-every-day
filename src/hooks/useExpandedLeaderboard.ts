@@ -911,9 +911,9 @@ export const useExpandedLeaderboard = (timeframe: TimeframeType, filterByYear?: 
 
       return result;
     },
-    staleTime: timeframe === 'today' ? 0 : 30000,
-    refetchInterval: timeframe === 'today' ? 10000 : undefined,
-    refetchOnMount: timeframe === 'today' ? 'always' as const : true,
+    staleTime: timeframe === 'live' ? 0 : 30000,
+    refetchInterval: timeframe === 'live' ? 10000 : undefined,
+    refetchOnMount: timeframe === 'live' ? 'always' as const : true,
     refetchOnWindowFocus: 'always' as const,
     refetchOnReconnect: 'always' as const,
   });
