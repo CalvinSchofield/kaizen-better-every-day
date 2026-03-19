@@ -336,6 +336,65 @@ serve(async (req) => {
             }
           }
         }
+
+        // ===== 9 AM: Morning-of install confirmation reminder =====
+        const { data: existingMorningInstall } = await supabase
+          .from("notification_logs")
+          .select("id")
+          .eq("recipient_user_id", rep.user_id)
+          .eq("notification_type", "install_reminder_morning")
+          .eq("entry_date", today)
+          .limit(1);
+
+        if (!existingMorningInstall || existingMorningInstall.length === 0) {
+          const { data: installEntries } = await supabase
+            .from("daily_entries")
+            .select("id, entry_date, sales_log")
+            .eq("user_id", rep.user_id)
+            .not("sales_log", "is", null);
+
+          if (installEntries) {
+            const todaysInstalls: Array<{ saleId: string; prmr: number; type: string; customerName: string; customerPhone: string }> = [];
+
+            for (const entry of installEntries) {
+              const salesLog = entry.sales_log as Array<Record<string, unknown>> | null;
+              if (!salesLog || !Array.isArray(salesLog)) continue;
+
+              for (const sale of salesLog) {
+                if (sale.install_status !== "pending" || !sale.scheduled_install_date) continue;
+                if ((sale.scheduled_install_date as string) === localDate) {
+                  todaysInstalls.push({
+                    saleId: sale.id as string,
+                    prmr: (sale.prmr as number) || 0,
+                    type: (sale.type as string) || "fp",
+                    customerName: (sale.customerName as string) || "",
+                    customerPhone: (sale.customerPhone as string) || "",
+                  });
+                }
+              }
+            }
+
+            if (todaysInstalls.length > 0) {
+              const sale = todaysInstalls[0];
+              const typeLabel = sale.type === "fp" ? "FP" : "UP";
+              const title = todaysInstalls.length === 1
+                ? `📦 Install today: ${sale.customerName || `$${Math.round(sale.prmr)} ${typeLabel}`}`
+                : `📦 ${todaysInstalls.length} installs scheduled today`;
+              const body = todaysInstalls.length === 1
+                ? `Confirm with ${sale.customerName || "the customer"} that you're still coming today!`
+                : `$${Math.round(todaysInstalls.reduce((s, p) => s + p.prmr, 0))} total PRMR — reach out to confirm you're coming!`;
+
+              const sent = await sendNotification(
+                supabase, rep.user_id, title, body,
+                "/track",
+                "install_reminder_morning",
+                { count: todaysInstalls.length, date: localDate },
+                { recruitPhone: sale.customerPhone || null }
+              );
+              totalSent += sent;
+            }
+          }
+        }
       }
 
       if (is6pm) {
