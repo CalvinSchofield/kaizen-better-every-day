@@ -927,9 +927,11 @@ const TrackWithLayout = () => {
     // Immediately call updateCounter for instant optimistic UI update
     try {
       await updateCounter(updates);
-      setSyncStatus('synced');
-      // Schedule server verification to confirm data actually landed
-      setTimeout(verifyServerSync, 2000);
+      // Keep pending until server verification confirms parity
+      setSyncStatus('pending');
+      setTimeout(() => {
+        void verifyServerSync();
+      }, 1500);
     } catch (error: any) {
       // PROTECTION: If entry was finalized between checks, show friendly message
       if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
@@ -958,7 +960,7 @@ const TrackWithLayout = () => {
         });
       }
     }
-  }, [entry, updateCounter, isSaveInProgress, savedThisSession, salesLoggerEnabled, isFreshDataVerified, isOfflineWithBackup]);
+  }, [entry, updateCounter, verifyServerSync, isSaveInProgress, savedThisSession, salesLoggerEnabled, isFreshDataVerified, isOfflineWithBackup]);
 
   // Sales logger handlers
   const handleLogSale = useCallback(async (saleData: Omit<Sale, 'id' | 'timestamp'>) => {
