@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -130,8 +130,24 @@ const MyGroup = () => {
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
 
+  // Safety timeout: if loading takes >8s, force-resolve to prevent infinite skeleton
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  
+  useEffect(() => {
+    if (accessLoading || recruitsLoading || suggestionsLoading) {
+      loadingTimeoutRef.current = setTimeout(() => setLoadingTimedOut(true), 8000);
+    } else {
+      setLoadingTimedOut(false);
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    }
+    return () => {
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    };
+  }, [accessLoading, recruitsLoading, suggestionsLoading]);
+
   // Always show loading until server data arrives - prevents stale cache display
-  const isLoading = accessLoading || (isLeader ? recruitsLoading : suggestionsLoading);
+  const isLoading = !loadingTimedOut && (accessLoading || (isLeader ? recruitsLoading : suggestionsLoading));
 
   // Fetch current user's rep data to get their team leader name
   const { data: currentUserRep } = useQuery({
