@@ -563,7 +563,7 @@ export function useGoalPaceCalculator(): GoalPaceData {
       return data || [];
     },
     enabled: !!userId,
-    staleTime: 0, // Always refetch — critical for reflecting install_status changes (pending/funded)
+    staleTime: 30 * 1000, // 30s — invalidated on CRM updates via invalidateAllSalesQueries
     gcTime: 5 * 60 * 1000,
   });
 

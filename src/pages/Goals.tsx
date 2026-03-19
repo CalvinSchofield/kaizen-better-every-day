@@ -551,7 +551,15 @@ const Goals = () => {
     return () => clearTimeout(timer);
   }, [hasGoalsData, stickySetupComplete]);
 
-  if (!hasGoalsData && (!canDecideSetup || isDataLoading) && !stickySetupComplete) {
+  // Safety timeout for initial loading gate
+  const [initialLoadTimedOut, setInitialLoadTimedOut] = useState(false);
+  useEffect(() => {
+    if (hasGoalsData || stickySetupComplete) return;
+    const t = setTimeout(() => setInitialLoadTimedOut(true), 8000);
+    return () => clearTimeout(t);
+  }, [hasGoalsData, stickySetupComplete]);
+
+  if (!hasGoalsData && !initialLoadTimedOut && (!canDecideSetup || isDataLoading) && !stickySetupComplete) {
     return (
       <Layout>
         <div className="p-4 space-y-6">
