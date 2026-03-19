@@ -266,8 +266,12 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     );
     const plannedDaysTotal = periodPlannedDays.length;
 
-    // Elapsed planned days (planned days that are on or before today)
-    const plannedDaysElapsed = periodPlannedDays.filter(d => d <= todayStr).length;
+    // Elapsed planned days (planned days before today, or today if finalized)
+    // Today should NOT count as elapsed until finalized — otherwise an unstarted day
+    // inflates "expected" and compresses the remaining target into fewer days.
+    const plannedDaysElapsed = periodPlannedDays.filter(d =>
+      d < todayStr || (d === todayStr && todayFinalized)
+    ).length;
 
     // Bucketed production in this period (sales_log is source of truth)
     let actual = 0;
