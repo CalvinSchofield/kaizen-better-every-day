@@ -398,6 +398,11 @@ const Track = ({
           })()}
         </div>
 
+        {/* Pending Install Alert - actionable after finalizing */}
+        <div className="px-4 mt-2">
+          <PendingInstallAlertCard alwaysShow />
+        </div>
+
         {/* Contextual Card Stack */}
         <div className="px-4 space-y-3 mt-3">
           {/* Goal Result Card - daily goal progress */}
