@@ -159,6 +159,10 @@ const TrackWithLayout = () => {
   // Rapid-tap detection: track recent taps per field
   const recentTapsRef = useRef<Record<string, number[]>>({});
   const rapidTapWarningShownRef = useRef(false);
+
+  // Auto-heal sync when server is behind local counters
+  const autoResyncInFlightRef = useRef(false);
+  const lastAutoResyncAttemptRef = useRef(0);
   
   // Handle ?prompt=save or ?save=true URL parameter (from push notification or home alert)
   useEffect(() => {
