@@ -171,18 +171,18 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
 
 
       {/* Weekly context */}
-      {effectiveRemainingDays > 0 && (
+      {effectiveRemainingDays > 0 && weekData.remaining > 0 && (
         <div className="border-t border-border/30 pt-4">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">This Week</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Rest of Week</span>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-lg font-semibold text-foreground">
               {formatFP(weekData.remaining)} {unitLabel}
             </span>
             <span className="text-sm text-muted-foreground">
-              over {effectiveRemainingDays} day{effectiveRemainingDays !== 1 ? 's' : ''}
+              needed over {effectiveRemainingDays} day{effectiveRemainingDays !== 1 ? 's' : ''}
             </span>
           </div>
         </div>
