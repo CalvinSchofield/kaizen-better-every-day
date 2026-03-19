@@ -365,9 +365,10 @@ export const SeasonHeatmap = ({
         </div>
 
         {/* Scrollable heatmap grid */}
-        <div 
-          ref={scrollRef} 
-          className="overflow-x-auto flex-1 scrollbar-hide" 
+        <div
+          ref={scrollRef}
+          data-embla-no-drag="true"
+          className="overflow-x-auto flex-1 scrollbar-hide touch-pan-x"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           <div className="inline-flex flex-col">

@@ -28,6 +28,13 @@ export const ProfileSwiper = ({ dailyFp, isOwnProfile, goalPaceData, repName, ex
     align: 'start',
     containScroll: 'trimSnaps',
     active: isCarousel,
+    watchDrag: (_emblaApi, event) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('[data-embla-no-drag="true"]')) {
+        return false;
+      }
+      return true;
+    },
   });
 
   const onSelect = useCallback(() => {
