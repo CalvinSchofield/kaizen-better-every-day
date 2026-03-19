@@ -38,6 +38,7 @@ import {
 import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { PreWorkingState } from "@/components/track";
 import { CompetitorNudgeBanner } from "@/components/track/CompetitorNudgeBanner";
+import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 
 interface TrackProps {
   entry: DailyEntry | {
