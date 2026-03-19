@@ -7,6 +7,7 @@ import { SeasonGoalsPreview } from "./SeasonGoalsPreview";
 import { CompetitionsPreview } from "./CompetitionsPreview";
 import { WatchlistPulseCard } from "./WatchlistPulseCard";
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
+import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 
 import { WeatherStrip } from "./WeatherStrip";
 import { LeaderboardMiniRow } from "./LeaderboardMiniRow";
