@@ -146,6 +146,8 @@ function getNotificationIcon(type?: string): string {
     case 'inactivity_save': return '🌙';
     case 'blitz_rsvp_first': return '🔥';
     case 'install_reminder_eve': return '📅';
+    case 'install_reminder_morning': return '📦';
+    case 'install_reminder_due': return '📦';
     case 'access_request': return '👋';
     default: return '🔔';
   }
