@@ -1,35 +1,36 @@
-# Notification System – Implementation Plan
 
-## Completed
 
-### Phase 1: Core Notification Pipeline
-- 21 notification types (web push + APNs)
-- Timezone-aware cron-based nudges
-- Deduplication via notification_logs
-- In-app foreground banner (InAppNotificationBanner.tsx)
+## Plan: Speed Up My Group Activity Logging & Scheduling
 
-### Phase 2: iOS Rich Notifications (Press & Hold)
-- **Swift files created** in `ios-notification-setup/`:
-  - `NotificationCategories.swift` — 23 categories with contextual actions
-  - `NotificationResponseHandler.swift` — Handles all action responses including inline replies, call/text, snooze, RSVP
-  - `README.md` — Step-by-step setup guide
-- **`handle-notification-reply` edge function** — Receives inline replies from iOS, saves as comments, triggers comment notifications
-- **APNs payload enriched** — Now passes `activityId`, `recruitId`, `recruitName`, `phone`, `challengeId`, `repUserId` through to iOS `userInfo`
+### Problem
+When you open a recruit detail, log an activity, or schedule a follow-up, the app feels slow or hangs because:
 
-### User Notes on Specific Notifications
-- **task_past_due**: Actions = View Tasks, Reschedule (navigate to tasks page)
-- **preseason_accountability**: Just a reminder of commitments, not a logging action
-- **access_request**: Should track onboarding flow progression (3 levels up upline), not just signup
-- **install_reminder_eve**: "View Sale" opens to that customer in CRM
-- **install_reminder_due**: "Installed" confirms, "Update" for canceled/rescheduled
-- **personal_record**: Need to determine what view/page to show
-- **leader_coaching**: Call/Text the struggling rep + need a coaching view/page
-- **challenge_progress**: "View" opens that specific challenge
+1. **Edge function cold starts**: The `fetch-assignable-users` function boots fresh each time (~30-50ms boot + network round trip + complex upline chain logic). Multiple components call it independently.
+2. **Aggressive polling**: The recruit detail drawer polls for live data every 1 second, creating constant network chatter.
+3. **Cascade refetches**: After logging an activity, the entire `group-recruits` dataset is invalidated and refetched, which is a heavy query.
 
-## TODO
-- [ ] Enrich all notification callers to pass `activityId`, `recruitId`, `phone`, etc. to APNs
-- [ ] Build coaching view page for leader_coaching deep link
-- [ ] Build personal record celebration view
-- [ ] Build task reschedule flow for task_past_due
-- [ ] Add install status update flow for install_reminder_due
-- [ ] Onboarding progression notifications (3 levels up approval flow)
+### Changes
+
+**1. Cache assignable users more aggressively**
+- In `src/hooks/useAssignableUsers.ts`: Increase `staleTime` from 5 minutes to 15 minutes and add `gcTime` of 30 minutes. The upline chain rarely changes mid-session.
+- This means the edge function is only called once per recruit, not every time a drawer opens.
+
+**2. Reduce live polling frequency in RecruitDetailDrawer**
+- In `src/components/mygroup/recruit-detail/RecruitDetailDrawer.tsx`: Change `refetchInterval` from `1000` (every second) to `5000` (every 5 seconds). Realtime subscriptions already handle instant updates for most changes — the polling is just a safety net.
+
+**3. Skip redundant group-recruits invalidation after activity logging**
+- In `src/hooks/useGroupRecruits.ts` (`useLogRecruitActivity.onSettled`): The optimistic update in `onMutate` already updates the cache. Remove the `invalidateQueries({ queryKey: ['group-recruits'] })` call and instead only invalidate the specific recruit's activities query. The realtime subscription will handle syncing the full dataset.
+
+**4. Add loading timeout to ScheduleFollowUpDrawer and PostContactDrawer**
+- Apply the same 8-second safety timeout pattern used on other pages. If the assignable users fetch hangs, render the form without the assignee picker rather than showing a perpetual loader.
+
+### Technical Details
+
+| File | Change |
+|---|---|
+| `src/hooks/useAssignableUsers.ts` | `staleTime: 15 * 60 * 1000`, add `gcTime: 30 * 60 * 1000` |
+| `src/components/mygroup/recruit-detail/RecruitDetailDrawer.tsx` | `refetchInterval: 5000` (was `1000`) |
+| `src/hooks/useGroupRecruits.ts` (useLogRecruitActivity) | Remove `invalidateQueries(['group-recruits'])` from `onSettled`, keep only recruit-specific invalidation |
+| `src/components/mygroup/ScheduleFollowUpDrawer.tsx` | Show form immediately even if assignable users are still loading |
+| `src/components/mygroup/PostContactDrawer.tsx` | Same — don't block form render on assignable users |
+
