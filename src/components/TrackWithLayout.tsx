@@ -350,50 +350,102 @@ const TrackWithLayout = () => {
       setSyncStatus('offline');
       return;
     }
+
     try {
       const userId = getCurrentUserId();
       if (!userId) return;
       const todayDate = getTodayDate();
-      
+
       const { data: serverRow, error } = await supabase
         .from('daily_entries')
-        .select('doors_knocked, decision_makers, pitches, transitions, presentations, closes, updated_at')
+        .select('doors_knocked, decision_makers, pitches, transitions, presentations, closes, is_finalized, updated_at')
         .eq('user_id', userId)
         .eq('entry_date', todayDate)
         .maybeSingle();
-      
+
       if (error) {
         console.warn('[TrackSync] Server verify failed:', error.message);
         setSyncStatus('error');
         return;
       }
-      
+
+      const localTotal =
+        (entry.doors_knocked || 0) +
+        (entry.decision_makers || 0) +
+        (entry.pitches || 0) +
+        (entry.transitions || 0) +
+        (entry.presentations || 0) +
+        (entry.closes || 0);
+
       if (!serverRow) {
         // No server row yet — if we have local activity, it hasn't synced
-        const localTotal = (entry.doors_knocked || 0) + (entry.decision_makers || 0) + 
-                          (entry.pitches || 0) + (entry.transitions || 0) + 
-                          (entry.presentations || 0) + (entry.closes || 0);
         setSyncStatus(localTotal > 0 ? 'pending' : 'synced');
         return;
       }
-      
-      const serverTotal = (serverRow.doors_knocked || 0) + (serverRow.decision_makers || 0) + 
-                          (serverRow.pitches || 0) + (serverRow.transitions || 0) + 
-                          (serverRow.presentations || 0) + (serverRow.closes || 0);
-      const localTotal = (entry.doors_knocked || 0) + (entry.decision_makers || 0) + 
-                        (entry.pitches || 0) + (entry.transitions || 0) + 
-                        (entry.presentations || 0) + (entry.closes || 0);
-      
+
+      const serverTotal =
+        (serverRow.doors_knocked || 0) +
+        (serverRow.decision_makers || 0) +
+        (serverRow.pitches || 0) +
+        (serverRow.transitions || 0) +
+        (serverRow.presentations || 0) +
+        (serverRow.closes || 0);
+
       if (serverTotal >= localTotal) {
         setSyncStatus('synced');
-      } else {
-        console.warn('[TrackSync] Server behind local:', { serverTotal, localTotal });
-        setSyncStatus('pending');
+        return;
+      }
+
+      console.warn('[TrackSync] Server behind local:', { serverTotal, localTotal });
+      setSyncStatus('pending');
+
+      const now = Date.now();
+      const shouldAttemptAutoResync =
+        !entry.is_finalized &&
+        !serverRow.is_finalized &&
+        localTotal > 0 &&
+        !autoResyncInFlightRef.current &&
+        now - lastAutoResyncAttemptRef.current > 15000;
+
+      if (!shouldAttemptAutoResync) {
+        return;
+      }
+
+      autoResyncInFlightRef.current = true;
+      lastAutoResyncAttemptRef.current = now;
+
+      try {
+        await updateCounter({
+          doors_knocked: entry.doors_knocked || 0,
+          decision_makers: entry.decision_makers || 0,
+          pitches: entry.pitches || 0,
+          transitions: entry.transitions || 0,
+          presentations: entry.presentations || 0,
+          closes: entry.closes || 0,
+          fp_plus: entry.fp_plus || 0,
+          prmr: entry.prmr || 0,
+          upgrade_prmr: entry.upgrade_prmr ?? null,
+          work_start_time: entry.work_start_time ?? null,
+          work_end_time: entry.work_end_time ?? null,
+          break_periods: entry.break_periods || [],
+          counter_timestamps: entry.counter_timestamps || {},
+          custom_counters: entry.custom_counters || {},
+          timezone: entry.timezone ?? null,
+          sales_log: entry.sales_log || [],
+        });
+
+        setTimeout(() => {
+          void verifyServerSync();
+        }, 1500);
+      } catch (resyncError) {
+        console.warn('[TrackSync] Auto-resync failed:', resyncError);
+      } finally {
+        autoResyncInFlightRef.current = false;
       }
     } catch {
       setSyncStatus('error');
     }
-  }, [entry]);
+  }, [entry, updateCounter]);
 
   // Sync status tracking: listen for online/offline changes + periodic server verification
   useEffect(() => {
