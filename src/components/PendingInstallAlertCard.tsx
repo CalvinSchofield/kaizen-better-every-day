@@ -81,11 +81,11 @@ export const PendingInstallAlertCard = ({ alwaysShow = false }: PendingInstallAl
                 </div>
 
                 {showRemoveConfirm ? (
-                  <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-3 space-y-2">
+                    <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-3 space-y-2">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
                       <p className="text-xs text-muted-foreground">
-                        This deal never installed. Remove it completely from your numbers?
+                        This deal never installed. Mark it as "Never Installed" and remove it from your numbers?
                       </p>
                     </div>
                     <div className="flex gap-2">
@@ -105,7 +105,7 @@ export const PendingInstallAlertCard = ({ alwaysShow = false }: PendingInstallAl
                         onClick={() => handleMarkNeverInstalled(sale.entryId, sale.id)}
                         disabled={isUpdating}
                       >
-                        Yes, Remove
+                        Never Installed
                       </Button>
                     </div>
                   </div>

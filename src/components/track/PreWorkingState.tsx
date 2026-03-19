@@ -7,6 +7,7 @@ import { SeasonGoalsPreview } from "./SeasonGoalsPreview";
 import { CompetitionsPreview } from "./CompetitionsPreview";
 import { WatchlistPulseCard } from "./WatchlistPulseCard";
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
+import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 
 import { WeatherStrip } from "./WeatherStrip";
 import { LeaderboardMiniRow } from "./LeaderboardMiniRow";
@@ -117,6 +118,10 @@ export const PreWorkingState = ({
 
       {/* Content cards */}
       <div className="flex-1 px-4 space-y-4">
+        <motion.div variants={itemVariants}>
+          <PendingInstallAlertCard alwaysShow />
+        </motion.div>
+
         <motion.div variants={itemVariants}>
           <DailyMissionCard />
         </motion.div>

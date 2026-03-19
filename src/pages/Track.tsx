@@ -38,6 +38,7 @@ import {
 import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { PreWorkingState } from "@/components/track";
 import { CompetitorNudgeBanner } from "@/components/track/CompetitorNudgeBanner";
+import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 
 interface TrackProps {
   entry: DailyEntry | {
@@ -395,6 +396,11 @@ const Track = ({
               </motion.div>
             );
           })()}
+        </div>
+
+        {/* Pending Install Alert - actionable after finalizing */}
+        <div className="px-4 mt-2">
+          <PendingInstallAlertCard alwaysShow />
         </div>
 
         {/* Contextual Card Stack */}
