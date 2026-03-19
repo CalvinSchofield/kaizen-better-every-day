@@ -778,7 +778,10 @@ const Goals = () => {
   const needsInitialSync = effectiveFPData && !effectiveFPData.hasOfficialTotals;
   const needsBiweekly = effectiveFPData?.needsBiweeklySync && effectiveFPData?.hasOfficialTotals;
 
-  if (needsInitialSync || needsBiweekly) {
+  // Don't block with sync gate if rep is actively working today
+  const isActivelyWorking = todayEntry?.work_start_time && !todayEntry?.is_finalized;
+
+  if ((needsInitialSync || needsBiweekly) && !isActivelyWorking) {
     return (
       <Layout>
         <BiweeklySyncGate
