@@ -127,10 +127,10 @@ export const SeasonHeatmap = ({
 
   // Build week-column grid — only Mon–Sat (skip Sunday)
   const { weeks, monthLabels } = useMemo(() => {
-    const seasonStart = parseISO(SEASON_START);
-    const seasonEnd = parseISO(SEASON_END);
+    const seasonStart = parseLocalDate(SEASON_START);
+    const seasonEnd = parseLocalDate(SEASON_END);
     const today = new Date();
-    const summerStartDate = parseISO(effectiveSummerStart);
+    const summerStartDate = parseLocalDate(effectiveSummerStart);
 
     const gridStart = startOfWeek(seasonStart, { weekStartsOn: 1 });
     
@@ -259,7 +259,7 @@ export const SeasonHeatmap = ({
   useEffect(() => {
     if (!scrollRef.current || isLoading) return;
     const today = new Date();
-    const seasonStart = parseISO(SEASON_START);
+    const seasonStart = parseLocalDate(SEASON_START);
     if (isBefore(today, seasonStart)) return;
     
     const weeksSinceStart = Math.floor((today.getTime() - seasonStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
@@ -270,7 +270,7 @@ export const SeasonHeatmap = ({
 
   // Determine if we're currently in preseason or summer
   const today = new Date();
-  const isCurrentlyPreseason = isBefore(today, parseISO(effectiveSummerStart));
+  const isCurrentlyPreseason = isBefore(today, parseLocalDate(effectiveSummerStart));
 
   // For the badge: show Preseason during preseason, focus tier during summer
   const displayTier: GoalTier = isCurrentlyPreseason ? 'preseason' : activeTier;
@@ -435,7 +435,7 @@ export const SeasonHeatmap = ({
               onClick={handleBackdropTap}
             />
             <div className="absolute z-50 top-0 right-0 mt-[-4px] mr-0 px-3 py-2 rounded-xl bg-popover border border-border shadow-xl text-xs pointer-events-none">
-              <div className="font-semibold text-foreground">{format(parseISO(tappedCellData.date), 'EEE, MMM d')}</div>
+              <div className="font-semibold text-foreground">{format(parseLocalDate(tappedCellData.date), 'EEE, MMM d')}</div>
               {tappedCellData.production !== undefined ? (
                 <div className="text-muted-foreground mt-0.5">
                   {tappedCellData.production} {metricLabel}
