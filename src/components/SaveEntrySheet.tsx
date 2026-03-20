@@ -482,10 +482,12 @@ export const SaveEntrySheet = ({
     proceedWithSave();
   }, [entry?.is_finalized, endTimeWarning, acknowledgedEarlyEnd, salesLog, localSales]);
 
-  const handleInstallConfirm = (updatedSales: Sale[]) => {
+  const handleInstallConfirm = async (updatedSales: Sale[]) => {
     setPendingSalesWithInstallTracking(updatedSales);
-    setShowInstallStep(false);
-    proceedWithSaveWithSales(updatedSales);
+    // Don't close install step yet - let proceedWithSaveWithSales handle closing everything
+    // This keeps the loading state visible to the user
+    await proceedWithSaveWithSales(updatedSales);
+    // proceedWithSaveWithSales closes everything in its finally block
   };
 
   const proceedWithSave = async () => {
