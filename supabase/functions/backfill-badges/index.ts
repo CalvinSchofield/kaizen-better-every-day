@@ -35,6 +35,7 @@ interface DailyEntry {
   sales_log: any[] | null;
   counter_timestamps: Record<string, string[]> | null;
   is_finalized: boolean | null;
+  timezone: string | null;
 }
 
 interface BadgeDef {
@@ -70,18 +71,24 @@ Deno.serve(async (req) => {
     // Load all reps to check rookie status
     const { data: reps } = await supabase
       .from("reps")
-      .select("user_id, year");
+      .select("user_id, year, timezone");
     const rookieUserIds = new Set<string>();
+    const userTimezones = new Map<string, string>();
     for (const r of reps || []) {
-      if (r.user_id && (r.year === "Rookie" || r.year === "rookie" || !r.year)) {
-        rookieUserIds.add(r.user_id);
+      if (r.user_id) {
+        if (r.year === "Rookie" || r.year === "rookie" || !r.year) {
+          rookieUserIds.add(r.user_id);
+        }
+        if (r.timezone) {
+          userTimezones.set(r.user_id, r.timezone);
+        }
       }
     }
 
     // Load ALL daily entries ordered by user and date
     const { data: entries, error: entryError } = await supabase
       .from("daily_entries")
-      .select("entry_date, user_id, doors_knocked, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, sales_log, counter_timestamps, is_finalized")
+      .select("entry_date, user_id, doors_knocked, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, sales_log, counter_timestamps, is_finalized, timezone")
       .order("entry_date", { ascending: true });
     if (entryError) throw entryError;
 
@@ -139,11 +146,27 @@ Deno.serve(async (req) => {
           award(userId, "first_door_magic", date);
         }
 
-        // --- Night Owl ---
+        // --- Night Owl (timezone-aware: 9 PM in rep's LOCAL time) ---
         if (closes > 0 && entry.counter_timestamps) {
           const doorTs = entry.counter_timestamps["doors_knocked"];
           if (doorTs && Array.isArray(doorTs)) {
-            const hasLate = doorTs.some((ts: string) => new Date(ts).getHours() >= 21);
+            // Use entry timezone, then rep's profile timezone, then default PST
+            const tz = entry.timezone || userTimezones.get(userId) || "America/Los_Angeles";
+            const hasLate = doorTs.some((ts: string) => {
+              try {
+                const d = new Date(ts);
+                if (isNaN(d.getTime())) return false;
+                // Get the hour in the rep's local timezone
+                const hourStr = new Intl.DateTimeFormat("en-US", {
+                  timeZone: tz,
+                  hour: "numeric",
+                  hour12: false,
+                }).format(d);
+                return parseInt(hourStr, 10) >= 21;
+              } catch {
+                return false;
+              }
+            });
             if (hasLate) {
               award(userId, "night_owl", date);
             }
