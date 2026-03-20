@@ -173,12 +173,12 @@ function calculateAvailableDays(
   };
 
   // Check preseason availability
-  const preseasonEnd = parseISO(PRESEASON_END);
+  const preseasonEnd = parseLocalDate(PRESEASON_END);
   if (isBefore(today, preseasonEnd) || today.toISOString().split('T')[0] === PRESEASON_END) {
     const startDate = today;
     const endDate = personalSummerStart 
-      ? parseISO(personalSummerStart) < preseasonEnd 
-        ? parseISO(personalSummerStart) 
+      ? parseLocalDate(personalSummerStart) < preseasonEnd 
+        ? parseLocalDate(personalSummerStart) 
         : preseasonEnd
       : preseasonEnd;
     
