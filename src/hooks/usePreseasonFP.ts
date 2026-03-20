@@ -58,8 +58,9 @@ export const clearPreseasonFPCache = (userId: string): void => {
 };
 
 export const usePreseasonFP = () => {
-  // Get user ID reliably to prevent race conditions
-  const { userId, isReady: authReady } = useCurrentUserId();
+  // Read userId from cache-backed auth hook, but don't block on per-hook auth verification.
+  // HydrationGate already verifies auth globally.
+  const { userId } = useCurrentUserId();
 
   // Get initial data from cache for instant display
   const initialData = userId ? getCachedPreseasonFP(userId) : undefined;
@@ -67,8 +68,7 @@ export const usePreseasonFP = () => {
   const { data, isLoading } = useQuery({
     // Include userId in query key to prevent caching 0 values for wrong user
     queryKey: ['preseason-fp-total', userId],
-    // Only run query when we have a valid user ID
-    enabled: authReady && !!userId,
+    enabled: !!userId,
     queryFn: async () => {
       if (!userId) return { totalFP: 0, totalPRMR: 0, totalEFP: 0, knockingDays: 0, fundedFP: 0, fundedPRMR: 0, fundedEFP: 0 };
 
@@ -178,6 +178,6 @@ export const usePreseasonFP = () => {
     fundedEFP: data?.fundedEFP ?? 0,
     // Knocking days for pace calculations
     knockingDays: data?.knockingDays ?? 0,
-    isLoading: isLoading || !authReady
+    isLoading
   };
 };
