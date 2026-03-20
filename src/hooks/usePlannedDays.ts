@@ -53,10 +53,10 @@ export const usePlannedDays = () => {
 
       const { data, error } = await supabase
         .from('planned_work_days')
-        .insert({
+        .upsert({
           user_id: userId,
           planned_date: date,
-        })
+        }, { onConflict: 'user_id,planned_date' })
         .select()
         .single();
 
