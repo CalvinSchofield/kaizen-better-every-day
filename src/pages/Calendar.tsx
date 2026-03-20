@@ -84,10 +84,10 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
 
   // Parse personal summer dates from season config
   const personalSummerStart = seasonConfig?.personal_summer_start 
-    ? new Date(seasonConfig.personal_summer_start) 
+    ? parseLocalDate(seasonConfig.personal_summer_start) 
     : undefined;
   const personalSummerEnd = seasonConfig?.personal_summer_end 
-    ? new Date(seasonConfig.personal_summer_end) 
+    ? parseLocalDate(seasonConfig.personal_summer_end) 
     : undefined;
 
   // Check if user is a pre-blitz rookie - use centralized hook

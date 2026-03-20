@@ -56,7 +56,7 @@ export function useFocusTier(currentProgress: number = 0): FocusTierData {
     if (!personalStart) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const startDate = parseISO(personalStart);
+    const startDate = parseLocalDate(personalStart);
     return today >= startDate;
   }, [seasonConfig?.personal_summer_start]);
 
