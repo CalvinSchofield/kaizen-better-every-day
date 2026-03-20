@@ -352,10 +352,11 @@ export const filterAndSortReps = (
 ): { grouped: Map<string, ParticipantRep[]>; total: number } => {
   // Apply filters
   let filtered = reps.filter(rep => {
-    // Scope filter
-    if (scope === 'my_recruits' && !rep.isMyRecruit) return false;
-    if (scope === 'my_team' && !rep.isInMyTeam) return false;
-    if (scope === 'my_mgmt' && !rep.isInMyMgmt) return false;
+    // Scope filter — always include self regardless of scope
+    if (rep.isSelf) { /* always pass scope filter */ }
+    else if (scope === 'my_recruits' && !rep.isMyRecruit) return false;
+    else if (scope === 'my_team' && !rep.isInMyTeam) return false;
+    else if (scope === 'my_mgmt' && !rep.isInMyMgmt) return false;
     // all_office shows everyone
     
     // Year filter (if any are selected)
