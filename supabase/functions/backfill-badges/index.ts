@@ -73,9 +73,15 @@ Deno.serve(async (req) => {
       .from("reps")
       .select("user_id, year, timezone");
     const rookieUserIds = new Set<string>();
+    const userTimezones = new Map<string, string>();
     for (const r of reps || []) {
-      if (r.user_id && (r.year === "Rookie" || r.year === "rookie" || !r.year)) {
-        rookieUserIds.add(r.user_id);
+      if (r.user_id) {
+        if (r.year === "Rookie" || r.year === "rookie" || !r.year) {
+          rookieUserIds.add(r.user_id);
+        }
+        if (r.timezone) {
+          userTimezones.set(r.user_id, r.timezone);
+        }
       }
     }
 
