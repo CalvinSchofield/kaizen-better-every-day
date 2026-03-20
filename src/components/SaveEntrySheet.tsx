@@ -1251,6 +1251,7 @@ export const SaveEntrySheet = ({
         onOpenChange={setShowInstallStep}
         salesLog={[...salesLog, ...localSales]}
         onConfirm={handleInstallConfirm}
+        isSaving={isSaving}
       />
     </>
   );
