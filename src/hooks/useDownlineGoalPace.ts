@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateSalesPace } from '@/utils/salesPaceCalculator';
-import { parseISO, isAfter, startOfDay, format } from 'date-fns';
+import { isAfter, startOfDay, format } from 'date-fns';
+import { parseLocalDate } from '@/utils/dateUtils';
 
 const SEASON_START = '2025-09-28';
 const PRESEASON_END = '2026-04-11';

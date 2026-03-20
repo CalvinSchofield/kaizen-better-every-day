@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { parseISO, differenceInWeeks, format, isAfter, isBefore, getDay } from "date-fns";
+import { differenceInWeeks, format, isAfter, isBefore, getDay } from "date-fns";
+import { parseLocalDate } from "@/utils/dateUtils";
 
 const PRESEASON_START = '2025-09-28';
 const PRESEASON_END = '2026-04-11';
