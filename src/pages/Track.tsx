@@ -274,22 +274,24 @@ const Track = ({
         </div>
 
         {/* Activity Visualization - Ring or Timeline based on preference */}
-        <div className="px-4 py-2 flex justify-center">
+        <div className="px-4 py-2">
           {visualizationMode === 'ring' ? (
-            <ActivityRingHero
-              entry={entry}
-              counterTimestamps={counterTimestamps}
-              salesLog={salesLog}
-              showGoalRing={true}
-              size="lg"
-              metricLabel={efpModeEnabled ? 'EFP' : 'FP+'}
-              metricValue={efpModeEnabled ? calculateEfp(prmr) : fp}
-              onSegmentClick={(segment, matchedSale) => {
-                setSelectedSegment(segment);
-                setSelectedSegmentSale(matchedSale || null);
-                setShowSegmentDetail(true);
-              }}
-            />
+            <div className="flex justify-center">
+              <ActivityRingHero
+                entry={entry}
+                counterTimestamps={counterTimestamps}
+                salesLog={salesLog}
+                showGoalRing={true}
+                size="lg"
+                metricLabel={efpModeEnabled ? 'EFP' : 'FP+'}
+                metricValue={efpModeEnabled ? calculateEfp(prmr) : fp}
+                onSegmentClick={(segment, matchedSale) => {
+                  setSelectedSegment(segment);
+                  setSelectedSegmentSale(matchedSale || null);
+                  setShowSegmentDetail(true);
+                }}
+              />
+            </div>
           ) : (
             <HorizontalActivityTimeline
               entry={entry}
