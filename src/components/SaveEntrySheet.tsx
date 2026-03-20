@@ -1251,7 +1251,14 @@ export const SaveEntrySheet = ({
       {/* Scheduled Install Step */}
       <ScheduledInstallStep
         open={showInstallStep}
-        onOpenChange={setShowInstallStep}
+        onOpenChange={(open) => {
+          setShowInstallStep(open);
+          // If user dismissed install step (swiped away) without confirming,
+          // close the entire SaveEntrySheet to prevent frozen state
+          if (!open && !isSavingRef.current) {
+            onOpenChange(false);
+          }
+        }}
         salesLog={[...salesLog, ...localSales]}
         onConfirm={handleInstallConfirm}
         isSaving={isSaving}
