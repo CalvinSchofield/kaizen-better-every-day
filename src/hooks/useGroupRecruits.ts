@@ -668,8 +668,8 @@ export const useGroupRecruits = () => {
       }
       return undefined;
     },
-    retry: 3, // Increased retries for mobile network flakiness
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
+    retry: 2, // Reduced from 3 to prevent long waits on mobile
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
   // Show toast when using stale data due to error
