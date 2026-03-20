@@ -7,6 +7,8 @@ import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { useVisualizationPreference } from "@/hooks/useVisualizationPreference";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
+import { useSmartActivityGoals } from "@/hooks/useSmartActivityGoals";
 import { useHeader } from "@/contexts/HeaderContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -104,6 +106,12 @@ const Track = ({
   
   // EFP mode for vets
   const { efpModeEnabled } = useEfpMode();
+  
+  // Smart activity goals
+  const goalPaceData = useGoalPaceCalculator();
+  const isRookie = repData?.year === 'Rookie';
+  const dailyFpGoal = goalPaceData.hasGoals ? Math.round(goalPaceData.dailyNeeded * 10) / 10 : 1;
+  const smartGoals = useSmartActivityGoals({ dailyFpGoal, isRookie });
   
   // Visualization preference (ring vs timeline)
   const { mode: visualizationMode, toggle: toggleVisualization } = useVisualizationPreference();
@@ -566,6 +574,7 @@ const Track = ({
             isRefreshing={isRefreshing}
             counterTimestamps={counterTimestamps}
             onRapidTapDetected={handleRapidTapDetected}
+            smartGoals={smartGoals.hasEnoughData ? smartGoals.smartGoalsMap : undefined}
           />
         </div>
         
