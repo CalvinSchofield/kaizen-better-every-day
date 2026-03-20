@@ -173,14 +173,14 @@ export const CounterCard = ({
           rx={rx}
           ry={ry}
           fill="none"
-          stroke={isComplete ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.25)'}
+          stroke='hsl(var(--primary))'
           strokeWidth={strokeWidth}
           strokeDasharray={perimeter}
           strokeDashoffset={dashoffset}
           strokeLinecap="round"
           className="transition-all duration-500 ease-out"
           style={{
-            opacity: isComplete ? 0.6 : 0.4,
+            opacity: isComplete ? 0.7 : 0.6,
           }}
         />
       </svg>
