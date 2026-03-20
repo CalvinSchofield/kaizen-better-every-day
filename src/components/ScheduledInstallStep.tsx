@@ -22,6 +22,7 @@ export const ScheduledInstallStep = ({
   onOpenChange,
   salesLog,
   onConfirm,
+  isSaving = false,
 }: ScheduledInstallStepProps) => {
   const [selectedSaleIds, setSelectedSaleIds] = useState<Set<string>>(new Set());
   const [scheduledDates, setScheduledDates] = useState<Record<string, Date>>({});
