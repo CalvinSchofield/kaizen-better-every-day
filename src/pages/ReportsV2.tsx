@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useReportsV2Data } from "@/hooks/useReportsV2Data";
 import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAvailableDatePresets";
@@ -277,8 +277,25 @@ export const ReportsV2Page = () => {
   // Total hours (must be before early returns)
   const totalHours = useMemo(() => repsWithEffort.reduce((sum, r) => sum + r.hoursWorked, 0), [repsWithEffort]);
 
-  // Loading state
-  if (accessLoading || presetsLoading) {
+  // Safety timeout: force-resolve after 5s to prevent infinite skeleton
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  
+  useEffect(() => {
+    if (accessLoading || presetsLoading) {
+      loadingTimeoutRef.current = setTimeout(() => setLoadingTimedOut(true), 5000);
+    } else {
+      setLoadingTimedOut(false);
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    }
+    return () => {
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    };
+  }, [accessLoading, presetsLoading]);
+
+  // Loading state — skip if we have cached teamAccess data
+  const hasAnyData = !!teamAccess;
+  if (!loadingTimedOut && !hasAnyData && (accessLoading || presetsLoading)) {
     return (
       <div className="p-4 space-y-4">
         <div className="h-8 w-48 bg-muted animate-pulse rounded" />
