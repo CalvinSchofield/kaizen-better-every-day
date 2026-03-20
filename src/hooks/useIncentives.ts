@@ -524,9 +524,10 @@ export const useCancelIncentive = () => {
 
       return { id: incentiveId };
     },
-    onSuccess: () => {
+    onSuccess: (_data, incentiveId) => {
       queryClient.invalidateQueries({ queryKey: ['incentives'] });
       queryClient.invalidateQueries({ queryKey: ['my-active-incentives'] });
+      queryClient.invalidateQueries({ queryKey: ['incentive', incentiveId] });
     },
   });
 };
