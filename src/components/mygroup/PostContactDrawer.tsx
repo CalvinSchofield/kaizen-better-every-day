@@ -192,9 +192,8 @@ export const PostContactDrawer = ({
         const dateOnlyString = format(scheduleDate, 'yyyy-MM-dd');
         mutationParams.nextAction = scheduleNotes || 'Follow up';
         mutationParams.nextActionDue = dateOnlyString;
-        if (scheduleAssignee) {
-          mutationParams.assignedToUserId = scheduleAssignee;
-        }
+        // Always assign (to chosen user or self) so it appears in the planner
+        mutationParams.assignedToUserId = scheduleAssignee || undefined;
       }
 
       const loggedActivity = await withTimeout(
