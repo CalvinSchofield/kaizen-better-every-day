@@ -609,7 +609,9 @@ export function useGoalPaceCalculator(): GoalPaceData {
 
   const personalSummerStart = seasonConfig?.personal_summer_start || null;
   const isPreseason = !isUserSummerStarted;
-  const conversionFactor = efpModeEnabled ? (goals?.avg_prmr_per_fp || 85) / 85 : 1;
+  // Goals are stored in the user's chosen display unit (EFP when efpModeEnabled, FP+ otherwise)
+  // so no conversion is needed — conversionFactor is always 1.
+  const conversionFactor = 1;
 
   // Official totals from Vivint sync — reconciles app-tracked data with reality
   const seasonType = isPreseason ? 'preseason' : 'summer';
