@@ -22,6 +22,7 @@ interface BiweeklySyncGateProps {
   isInitialSync?: boolean;
   isUserSummerStarted?: boolean;
   onComplete: () => void;
+  onSkip?: () => void;
 }
 
 type SyncStep = 'intro' | 'curator' | 'fp_plus' | 'fp_sold' | 'prmr' | 'knocking_days' | 'source' | 'crm' | 'confirm' | 'success';
@@ -67,7 +68,7 @@ const clearProgress = () => {
   try { localStorage.removeItem(STORAGE_KEY); } catch {}
 };
 
-export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = false, isUserSummerStarted = false, onComplete }: BiweeklySyncGateProps) => {
+export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = false, isUserSummerStarted = false, onComplete, onSkip }: BiweeklySyncGateProps) => {
   const navigate = useNavigate();
   const { upsertTotalsAsync, isUpserting } = useOfficialTotals(seasonType);
   const { data: teamAccess } = useTeamAccess();
@@ -828,6 +829,14 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
           )}
         </div>
       )}
+        {step === 'intro' && onSkip && (
+          <button
+            onClick={onSkip}
+            className="w-full text-center text-sm text-muted-foreground py-2 active:opacity-70 transition-opacity"
+          >
+            Skip for now
+          </button>
+        )}
     </div>
   );
 };

@@ -99,6 +99,7 @@ const Goals = () => {
   const [showCatchUpWizard, setShowCatchUpWizard] = useState(false);
   const [activeTier, setActiveTier] = useState<GoalTier>('preseason');
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
+  const [syncGateSkipped, setSyncGateSkipped] = useState(false);
   const location = useLocation();
 
   // Open sync wizard if navigated with openSync state (e.g. from Blitzes page)
@@ -789,7 +790,7 @@ const Goals = () => {
   // Don't block with sync gate if rep is actively working today
   const isActivelyWorking = todayEntry?.work_start_time && !todayEntry?.is_finalized;
 
-  if ((needsInitialSync || needsBiweekly) && !isActivelyWorking) {
+  if ((needsInitialSync || needsBiweekly) && !isActivelyWorking && !syncGateSkipped) {
     return (
       <Layout>
         <BiweeklySyncGate
@@ -801,6 +802,7 @@ const Goals = () => {
             queryClient.invalidateQueries({ queryKey: ['effective-fp'] });
             queryClient.invalidateQueries({ queryKey: ['official-totals'] });
           }}
+          onSkip={() => setSyncGateSkipped(true)}
         />
       </Layout>
     );
