@@ -194,6 +194,24 @@ export const IncentiveDetailSheet = ({ incentive: initialIncentive, open, onOpen
           </motion.div>
 
           {/* Active Progress Section */}
+          {isActive && progressLoading && !progressData && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Loading progress...</span>
+              </div>
+              {Array.from({ length: Math.min(incentive.eligible_count || 3, 5) }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 animate-pulse">
+                  <div className="h-10 w-10 rounded-full bg-muted" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-4 w-24 rounded bg-muted" />
+                    <div className="h-3 w-16 rounded bg-muted" />
+                  </div>
+                  <div className="h-5 w-10 rounded bg-muted" />
+                </div>
+              ))}
+            </div>
+          )}
           <AnimatePresence>
             {isActive && progressData && (
               <motion.div 
