@@ -189,8 +189,8 @@ function calculateAvailableDays(
 
   // Check summer availability
   if (personalSummerStart && personalSummerEnd) {
-    const summerStart = parseISO(personalSummerStart);
-    const summerEnd = parseISO(personalSummerEnd);
+    const summerStart = parseLocalDate(personalSummerStart);
+    const summerEnd = parseLocalDate(personalSummerEnd);
     const effectiveEnd = isBefore(summerEnd, globalEnd) ? summerEnd : globalEnd;
     
     if (!isAfter(today, effectiveEnd)) {
