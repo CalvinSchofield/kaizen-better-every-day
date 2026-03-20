@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MentionInput } from "./recruit-detail/MentionInput";
 import { format, addDays, getDay, startOfDay } from "date-fns";
+import { withTimeout } from "@/utils/withTimeout";
 
 interface PostContactDrawerProps {
   open: boolean;
@@ -166,25 +167,33 @@ export const PostContactDrawer = ({
       const wasConnected = effectiveOutcome === 'connected';
       const outcomeLabel = wasConnected ? 'Connected' : 'No answer';
       
-      await logActivityMutation.mutateAsync({
+      const loggedActivity = await withTimeout(
+        logActivityMutation.mutateAsync({
         recruitId: recruit.id,
         recruitNotionId: recruit.id,
         activityType: method === 'in_person' ? 'in_person' : method === 'text' ? 'text' as any : 'phone_call',
         notes: notes || `${actionLabel} ${firstName}${isCall ? ` - ${outcomeLabel}` : ''}`,
         updateLastContact: wasConnected,
         activityDate: backdateValue || undefined,
-      });
+        }),
+        15000,
+        'Saving contact timed out — please try again'
+      );
       
       // Mark scheduled activity as complete if connected and user opted to
       const taskWasCompleted = scheduledActivity && wasConnected && markTaskComplete;
       if (taskWasCompleted) {
-        const { error: completeError } = await supabase
-          .from('recruit_activities')
-          .update({
-            assignment_status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', scheduledActivity.id);
+        const { error: completeError } = await withTimeout(
+          supabase
+            .from('recruit_activities')
+            .update({
+              assignment_status: 'completed',
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', scheduledActivity.id),
+          12000,
+          'Marking task complete timed out'
+        );
         
         if (completeError) {
           console.error('Failed to mark task complete:', completeError);
@@ -197,47 +206,72 @@ export const PostContactDrawer = ({
       // Create scheduled follow-up if user filled in scheduling
       let scheduledFollowUp = false;
       let newActivityId: string | null = null;
+      let scheduleFailed = false;
       if (showScheduling && scheduleDate) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            // Format as date-only string to match expected format
-            const dateOnlyString = format(scheduleDate, 'yyyy-MM-dd');
-            
-            const { data: insertedActivity, error: scheduleError } = await supabase
-            .from('recruit_activities')
-            .insert({
-              recruit_id: recruit.id,
-              activity_type: 'next_step',
-              logged_by_user_id: user.id,
-              assigned_to_user_id: scheduleAssignee || user.id,
-              assignment_status: 'pending',
-              next_action: scheduleNotes || 'Follow up',
-              next_action_due: dateOnlyString,
-              notes: scheduleNotes || null,
-            })
-            .select('id')
-            .single();
-          
-          if (scheduleError) {
-            console.error('Failed to schedule follow-up:', scheduleError);
-          } else {
-            newActivityId = insertedActivity?.id || null;
-            
-              // Sync notes to recruit.next_action for display consistency
-              await supabase
-                .from('recruits')
-                .update({
-                  next_action: scheduleNotes || 'Follow up',
-                  next_action_due: dateOnlyString,
-                })
-                .eq('id', recruit.id);
-            
-            scheduledFollowUp = true;
-            queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
-            queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
-            queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+        try {
+          // Format as date-only string to match expected format
+          const dateOnlyString = format(scheduleDate, 'yyyy-MM-dd');
+          const loggedByUserId =
+            typeof loggedActivity?.logged_by_user_id === 'string'
+              ? loggedActivity.logged_by_user_id
+              : null;
+
+          if (!loggedByUserId) {
+            throw new Error('Could not resolve current user for scheduling');
           }
+
+          const { data: insertedActivity, error: scheduleError } = await withTimeout(
+            supabase
+              .from('recruit_activities')
+              .insert({
+                recruit_id: recruit.id,
+                activity_type: 'next_step',
+                logged_by_user_id: loggedByUserId,
+                assigned_to_user_id: scheduleAssignee || loggedByUserId,
+                assignment_status: 'pending',
+                next_action: scheduleNotes || 'Follow up',
+                next_action_due: dateOnlyString,
+                notes: scheduleNotes || null,
+              })
+              .select('id')
+              .single(),
+            12000,
+            'Scheduling follow-up timed out'
+          );
+
+          if (scheduleError) throw scheduleError;
+
+          newActivityId = insertedActivity?.id || null;
+
+          // Sync notes to recruit.next_action for display consistency
+          const { error: recruitUpdateError } = await withTimeout(
+            supabase
+              .from('recruits')
+              .update({
+                next_action: scheduleNotes || 'Follow up',
+                next_action_due: dateOnlyString,
+              })
+              .eq('id', recruit.id),
+            8000,
+            'Updating recruit follow-up timed out'
+          );
+
+          if (recruitUpdateError) {
+            console.error('Failed to sync recruit next action:', recruitUpdateError);
+          }
+
+          scheduledFollowUp = true;
+          queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
+          queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+        } catch (scheduleError) {
+          scheduleFailed = true;
+          console.error('Failed to schedule follow-up:', scheduleError);
         }
+      }
+
+      if (scheduleFailed) {
+        toast.error('Contact logged, but scheduling timed out. Please try scheduling again.');
       }
       
       // Show appropriate toast
