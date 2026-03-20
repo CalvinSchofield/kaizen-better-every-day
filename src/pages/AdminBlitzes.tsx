@@ -43,6 +43,20 @@ export default function AdminBlitzes() {
   const [editingBlitz, setEditingBlitz] = useState<Blitz | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingBlitz, setDeletingBlitz] = useState<Blitz | null>(null);
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Safety timeout to prevent infinite loading
+  useEffect(() => {
+    if (accessLoading) {
+      loadingTimeoutRef.current = setTimeout(() => setLoadingTimedOut(true), 5000);
+    } else {
+      setLoadingTimedOut(false);
+    }
+    return () => {
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    };
+  }, [accessLoading]);
 
   const isLeader = teamAccess?.accessLevel === 'area_director' || 
                    teamAccess?.accessLevel === 'mgmt_group_lead' || 
