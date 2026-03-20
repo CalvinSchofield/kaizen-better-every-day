@@ -477,9 +477,10 @@ export const useUpdateIncentive = () => {
 
       return { id: input.id };
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['incentives'] });
       queryClient.invalidateQueries({ queryKey: ['my-active-incentives'] });
+      queryClient.invalidateQueries({ queryKey: ['incentive', variables.id] });
     },
   });
 };

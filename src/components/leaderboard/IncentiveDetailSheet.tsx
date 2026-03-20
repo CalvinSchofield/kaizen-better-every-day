@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Trophy, Users, Target, Clock, Eye, EyeOff, Pencil, XCircle, Loader2, CheckCircle2, Circle, ChevronDown, Crown, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Incentive, IncentiveMetric, useCancelIncentive } from "@/hooks/useIncentives";
+import { Incentive, IncentiveMetric, useCancelIncentive, useIncentiveById } from "@/hooks/useIncentives";
 import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { useIncentiveRecap } from "@/hooks/useIncentiveRecap";
 import { IncentiveRaceTimeline } from "@/components/competitions/IncentiveRaceTimeline";
