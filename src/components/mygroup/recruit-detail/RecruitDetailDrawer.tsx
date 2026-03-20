@@ -100,6 +100,7 @@ export const RecruitDetailDrawer = ({
   const [list100ConnectedOpen, setList100ConnectedOpen] = useState(false);
   const [postContactOpen, setPostContactOpen] = useState(false);
   const [postContactMethod, setPostContactMethod] = useState<'call' | 'text' | 'in_person'>('call');
+  const [postContactScheduledActivity, setPostContactScheduledActivity] = useState<RecruitActivity | null>(null);
   const [followUpNextStep, setFollowUpNextStep] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [selectedActivity, setSelectedActivity] = useState<RecruitActivity | null>(null);
@@ -913,7 +914,7 @@ export const RecruitDetailDrawer = ({
     // This re-uses the consolidated notes pattern from the PostContactDrawer
     setPostContactMethod(completedType === 'in_person' ? 'in_person' : completedType === 'text' ? 'text' : 'call');
     setPostContactScheduledActivity(activity);
-    setPostContactDrawerOpen(true);
+    setPostContactOpen(true);
   };
 
   // Legacy fallback — direct mark complete without PostContactDrawer
@@ -1441,13 +1442,19 @@ export const RecruitDetailDrawer = ({
       {/* Post Contact Drawer - with full scheduling flow */}
       <PostContactDrawer
         open={postContactOpen}
-        onOpenChange={setPostContactOpen}
+        onOpenChange={(open) => {
+          setPostContactOpen(open);
+          if (!open) setPostContactScheduledActivity(null);
+        }}
         recruit={recruit}
         contactMethod={postContactMethod}
-        onComplete={() => {
+        scheduledActivity={postContactScheduledActivity}
+        onComplete={(wasConnected) => {
           setPostContactOpen(false);
+          setPostContactScheduledActivity(null);
           queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
           queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+          queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
         }}
       />
 
