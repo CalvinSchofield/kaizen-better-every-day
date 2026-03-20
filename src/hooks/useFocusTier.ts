@@ -138,7 +138,7 @@ export function useFocusTier(currentProgress: number = 0): FocusTierData {
     focusTierGoalRaw,
     fundedFocusTierGoal,
     allTiers,
-    isLoading: goalsLoading || seasonLoading,
+    isLoading: goalsLoading,
     isUserSummerStarted,
   };
 }
