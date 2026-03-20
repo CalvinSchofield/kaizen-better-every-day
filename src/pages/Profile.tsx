@@ -336,14 +336,19 @@ const Profile = () => {
           </TabsContent>
 
           <TabsContent value="badges" className="mt-4">
-            <div className="bg-card border border-border rounded-2xl p-8 flex flex-col items-center text-center">
-              <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Lock className="h-7 w-7 text-muted-foreground" />
-              </div>
-              <h3 className="font-semibold text-foreground mb-1">Badges Coming Soon</h3>
-              <p className="text-sm text-muted-foreground max-w-xs">
-                Earn badges for selling streaks, personal records, and milestones. Stay tuned!
-              </p>
+            <div className="bg-card border border-border rounded-2xl p-4">
+              {allDefinitions && earnedBadges ? (
+                <BadgeGrid
+                  earnedBadges={earnedBadges}
+                  allDefinitions={allDefinitions}
+                  isOwnProfile={isOwnProfile}
+                />
+              ) : (
+                <div className="flex flex-col items-center text-center py-8">
+                  <Skeleton className="h-12 w-12 rounded-full mb-4" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>

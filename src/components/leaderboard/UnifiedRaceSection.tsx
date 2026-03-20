@@ -327,6 +327,18 @@ export const UnifiedRaceSection = ({ rankings, currentUserId, isLive = false, is
                         <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500 border border-background"></span>
                       </span>
                     )}
+                    {/* Badge icons overlay */}
+                    {badgeMap && badgeMap.get(entry.userId)?.map((badge, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "absolute",
+                          i === 0 ? "-bottom-1 -left-1" : "-bottom-1 -right-1"
+                        )}
+                      >
+                        <BadgeIcon emoji={badge.emoji} rarity={badge.rarity} size="sm" />
+                      </div>
+                    ))}
                   </div>
 
                   {/* Name - tappable to navigate to profile */}
