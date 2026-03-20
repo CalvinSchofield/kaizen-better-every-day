@@ -174,8 +174,10 @@ const SegmentedBar = ({
 // =====================================================
 
 const PaceBadge = ({ paceDiff, severity }: { paceDiff: number; severity: PaceSeverity }) => {
-  const sc = severityConfig[severity];
   const isAhead = paceDiff >= 0;
+  // Badge color reflects actual ahead/behind status, not just global severity
+  const badgeSeverity: PaceSeverity = isAhead ? 'green' : (severity === 'red' ? 'red' : 'amber');
+  const sc = severityConfig[badgeSeverity];
 
   return (
     <span className={cn(
