@@ -13,17 +13,15 @@ import type { PlannedDay } from '@/hooks/usePlannedDays';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GoalTier, GOAL_TIER_CONFIG, SummerTier } from '@/config/goalTiers';
 import { cn } from '@/lib/utils';
-import { format, parseISO, isAfter } from 'date-fns';
+import { useGoalPaceCalculatorForUser } from '@/hooks/useGoalPaceCalculatorForUser';
 import {
   Drawer,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
-  DrawerTrigger,
 } from '@/components/ui/drawer';
 
 const SEASON_START = '2025-09-28';
-const PRESEASON_END = '2026-04-11';
 
 interface ProfileSeasonHeatmapProps {
   userId: string;
@@ -34,7 +32,10 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedTierOverride, setSelectedTierOverride] = useState<GoalTier | null>(null);
 
-  // Fetch season entries
+  // Use the SAME unified calculator as the Goal Progress card
+  const paceData = useGoalPaceCalculatorForUser(userId);
+
+  // Fetch season entries (still needed for the heatmap visual)
   const { data: entries, isLoading: entriesLoading } = useQuery({
     queryKey: ['profile-heatmap-entries', userId],
     queryFn: async () => {
@@ -48,7 +49,7 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch planned days — own profile direct, others via edge function
+  // Fetch planned days (still needed for the heatmap visual)
   const { data: plannedDays, isLoading: plannedLoading } = useQuery({
     queryKey: ['profile-heatmap-planned', userId, isOwnProfile],
     queryFn: async (): Promise<PlannedDay[]> => {
@@ -82,21 +83,7 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch goals
-  const { data: goals } = useQuery({
-    queryKey: ['profile-heatmap-goals', userId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('rep_goals')
-        .select('preseason_fp_goal, must_do_fp_goal, will_do_fp_goal, could_do_fp_goal, focus_tier, setup_complete, cancel_rate')
-        .eq('user_id', userId)
-        .maybeSingle();
-      return data;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Fetch season config
+  // Fetch season config (for heatmap visual)
   const { data: seasonConfig } = useQuery({
     queryKey: ['profile-heatmap-season', userId],
     queryFn: async () => {
@@ -110,96 +97,35 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
     staleTime: 5 * 60 * 1000,
   });
 
-  // Determine if currently preseason
-  const personalSummerStart = seasonConfig?.personal_summer_start || '2026-04-12';
-  const isUserPreseason = !isAfter(new Date(), parseISO(personalSummerStart));
-
-  // Resolve focus tier
-  const defaultFocusTier = useMemo((): SummerTier => {
-    const raw = goals?.focus_tier || 'willDo';
-    if (raw === 'mustDo' || raw === 'must_do') return 'mustDo';
-    if (raw === 'couldDo' || raw === 'could_do') return 'couldDo';
-    return 'willDo';
-  }, [goals?.focus_tier]);
-
-  // Active tier considers override
+  // Derive tier info from the unified paceData
+  const isUserPreseason = paceData.isPreseason;
   const activeTier: GoalTier = useMemo(() => {
     if (isUserPreseason) return 'preseason';
-    return selectedTierOverride || defaultFocusTier;
-  }, [isUserPreseason, selectedTierOverride, defaultFocusTier]);
+    return selectedTierOverride || (paceData.focusTier as SummerTier) || 'willDo';
+  }, [isUserPreseason, selectedTierOverride, paceData.focusTier]);
 
-  // Cancel rate buffer
-  const cancelRate = goals?.cancel_rate || 0;
-  const applyBuffer = (goal: number) =>
-    cancelRate > 0 && cancelRate < 1 ? goal / (1 - cancelRate) : goal;
-
-  // Goal values for each tier (funded)
+  // Tier goals from the unified allTiers
   const tierGoals = useMemo(() => {
-    if (!goals) return { preseason: 0, mustDo: 0, willDo: 0, couldDo: 0 };
+    const mustDo = paceData.allTiers?.find(t => t.key === 'mustDo')?.goal || 0;
+    const willDo = paceData.allTiers?.find(t => t.key === 'willDo')?.goal || 0;
+    const couldDo = paceData.allTiers?.find(t => t.key === 'couldDo')?.goal || 0;
     return {
-      preseason: goals.preseason_fp_goal || 0,
-      mustDo: Math.round(applyBuffer(goals.must_do_fp_goal || 0) * 10) / 10,
-      willDo: Math.round(applyBuffer(goals.will_do_fp_goal || 0) * 10) / 10,
-      couldDo: Math.round(applyBuffer(goals.could_do_fp_goal || 0) * 10) / 10,
+      preseason: paceData.isPreseason ? paceData.activeGoal : 0,
+      mustDo,
+      willDo,
+      couldDo,
     };
-  }, [goals, cancelRate]);
+  }, [paceData.allTiers, paceData.isPreseason, paceData.activeGoal]);
 
   const activeGoalTotal = tierGoals[activeTier];
 
-  // Compute pace stats
-  const paceStats = useMemo(() => {
-    if (!goals?.setup_complete || !entries) return null;
+  // Pull pace stats directly from the unified calculator
+  const dailyNeeded = paceData.dailyNeeded;
+  const userDailyAvg = paceData.userDailyAvg;
+  const remaining = paceData.season.remaining;
+  const futurePlanned = Math.max(0, paceData.season.plannedDaysTotal - paceData.season.plannedDaysElapsed);
 
-    const today = new Date();
-    const currentTier = isUserPreseason ? 'preseason' : (selectedTierOverride || defaultFocusTier);
-
-    let ytdFP = 0;
-    let knockingDays = 0;
-    for (const entry of entries) {
-      if (!entry.is_finalized) continue;
-      ytdFP += entry.fp_plus || 0;
-      if ((entry.doors_knocked || 0) >= 4) knockingDays++;
-    }
-
-    const activeGoal = currentTier === 'preseason'
-      ? (goals.preseason_fp_goal || 0)
-      : currentTier === 'mustDo' ? (goals.must_do_fp_goal || 0)
-      : currentTier === 'couldDo' ? (goals.could_do_fp_goal || 0)
-      : (goals.will_do_fp_goal || 0);
-
-    const remaining = Math.max(0, activeGoal - ytdFP);
-    const todayStr = format(today, 'yyyy-MM-dd');
-    const futurePlanned = (plannedDays || []).filter(d => d.planned_date > todayStr).length;
-    const dailyNeeded = futurePlanned > 0 ? remaining / futurePlanned : 0;
-    const userDailyAvg = knockingDays > 0 ? ytdFP / knockingDays : 0;
-
-    const preseasonGoal = goals.preseason_fp_goal || 0;
-    const allPlannedDates = (plannedDays || []).map(d => d.planned_date);
-    const preseasonPlanned = allPlannedDates.filter(d => d <= personalSummerStart).length;
-    const summerPlanned = allPlannedDates.filter(d => d > personalSummerStart).length;
-    const preseasonDailyPace = preseasonPlanned > 0 ? preseasonGoal / preseasonPlanned : 0;
-
-    const summerGoalRaw = currentTier === 'mustDo' ? (goals.must_do_fp_goal || 0)
-      : currentTier === 'couldDo' ? (goals.could_do_fp_goal || 0)
-      : (goals.will_do_fp_goal || 0);
-    const summerDailyPace = summerPlanned > 0 ? (summerGoalRaw - preseasonGoal) / summerPlanned : 0;
-
-    return {
-      ytdFP,
-      remaining,
-      dailyNeeded: Math.round(dailyNeeded * 100) / 100,
-      userDailyAvg: Math.round(userDailyAvg * 100) / 100,
-      futurePlanned,
-      activeGoal,
-      focusTier: currentTier as GoalTier,
-      isUserPreseason,
-      preseasonDailyPace,
-      summerDailyPace,
-      knockingDays,
-    };
-  }, [goals, entries, plannedDays, seasonConfig, selectedTierOverride, defaultFocusTier, isUserPreseason]);
-
-  const isLoading = entriesLoading || plannedLoading;
+  const isLoading = entriesLoading || plannedLoading || paceData.isLoading;
 
   if (isLoading) {
     return (
@@ -213,8 +139,6 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
 
   if (!entries || entries.length === 0) return null;
 
-  const dailyNeeded = paceStats?.dailyNeeded || 0;
-
   const summerTiers: SummerTier[] = ['mustDo', 'willDo', 'couldDo'];
   const availableTiers = summerTiers.filter(t => tierGoals[t] > 0);
 
@@ -227,43 +151,43 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
         excludedSummerDays={(seasonConfig?.excluded_summer_days as string[]) || []}
         personalSummerStart={seasonConfig?.personal_summer_start}
         personalSummerEnd={seasonConfig?.personal_summer_end}
-        preseasonDailyPace={paceStats?.preseasonDailyPace || 0}
-        summerDailyPace={paceStats?.summerDailyPace || 0}
+        preseasonDailyPace={paceData.preseasonDailyPace}
+        summerDailyPace={paceData.summerDailyPace}
         efpModeEnabled={false}
         isLoading={false}
         activeTier={activeTier}
         dailyNeeded={dailyNeeded}
-        remainingFp={paceStats?.remaining || 0}
-        preseasonGoalHit={paceStats ? paceStats.remaining <= 0 : false}
+        remainingFp={remaining}
+        preseasonGoalHit={remaining <= 0}
         activeGoalTotal={activeGoalTotal}
         onTierBadgeClick={!isUserPreseason && availableTiers.length > 1 ? () => setDrawerOpen(true) : undefined}
       />
 
-      {/* Pace comparison bar */}
-      {paceStats && paceStats.activeGoal > 0 && (
+      {/* Pace comparison bar — same numbers as Goal Progress card */}
+      {paceData.hasGoals && paceData.activeGoal > 0 && (
         <div className="flex items-center justify-between pt-2 border-t border-border/50">
           <div className="flex items-center gap-4">
             <div className="text-center">
               <div className="text-xs text-muted-foreground">Avg/day</div>
-              <div className="text-sm font-bold text-foreground">{paceStats.userDailyAvg.toFixed(2)}</div>
+              <div className="text-sm font-bold text-foreground">{userDailyAvg.toFixed(2)}</div>
             </div>
             <div className="text-center">
               <div className="text-xs text-muted-foreground">Need/day</div>
               <div className={cn(
                 "text-sm font-bold",
-                paceStats.userDailyAvg >= paceStats.dailyNeeded ? "text-emerald-500" : "text-amber-500"
+                userDailyAvg >= dailyNeeded ? "text-emerald-500" : "text-amber-500"
               )}>
-                {paceStats.dailyNeeded.toFixed(2)}
+                {dailyNeeded.toFixed(2)}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            {paceStats.userDailyAvg >= paceStats.dailyNeeded ? (
+            {paceData.severity === 'green' ? (
               <>
                 <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
                 <span className="text-xs font-semibold text-emerald-500">On Pace</span>
               </>
-            ) : paceStats.userDailyAvg >= paceStats.dailyNeeded * 0.8 ? (
+            ) : paceData.severity === 'amber' ? (
               <>
                 <Minus className="h-3.5 w-3.5 text-amber-500" />
                 <span className="text-xs font-semibold text-amber-500">Close</span>
@@ -279,9 +203,9 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
       )}
 
       {/* Planned days count */}
-      {paceStats && paceStats.futurePlanned > 0 && (
+      {paceData.hasGoals && futurePlanned > 0 && (
         <div className="text-[10px] text-muted-foreground text-center">
-          {paceStats.futurePlanned} planned days remaining · {paceStats.remaining.toFixed(1)} FP+ to go
+          {futurePlanned} planned days remaining · {remaining.toFixed(1)} {paceData.metricLabel} to go
         </div>
       )}
 
