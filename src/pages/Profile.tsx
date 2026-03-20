@@ -313,7 +313,7 @@ const Profile = () => {
         transition={{ duration: 0.35, delay: 0.2 }}
         className="px-5 pb-4"
       >
-        <Tabs defaultValue="stats" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" ref={tabsRef}>
           <TabsList className="w-full grid grid-cols-3 bg-muted/50">
             <TabsTrigger value="stats" className="text-xs font-semibold">Stats</TabsTrigger>
             <TabsTrigger value="records" className="text-xs font-semibold">Records</TabsTrigger>
