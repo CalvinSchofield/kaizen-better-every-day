@@ -745,37 +745,32 @@ export const CalendarView = ({
         </div>
       </div>
 
-      {/* Goal Progress Card & Summary Teaser - hidden in planning mode */}
-      <AnimatePresence mode="wait">
-        {!planningMode ? (
-          <motion.div
-            key="normal-cards"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="mt-4">
-              <CalendarGoalProgress />
-            </div>
+      {/* Goal Progress Card - always mounted to keep query subscriptions active */}
+      <div className={planningMode ? 'hidden' : undefined}>
+        <div className="mt-4">
+          <CalendarGoalProgress />
+        </div>
 
-            {viewTotals.daysWorked > 0 && (
-              <CalendarSummaryTeaser
-                viewMode={viewMode}
-                weekStart={weekStart}
-                weekEnd={new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000)}
-                currentDate={currentDate}
-                viewTotals={viewTotals}
-                prevPeriodTotals={prevPeriodTotals}
-                entries={entries}
-                cumulativeComparison={cumulativeComparison}
-                periodHistoricalTotals={periodHistoricalTotals}
-                comparisonYear={comparisonYear}
-                hasHistoricalData={hasMeVsMeData && meVsMeEnabled}
-              />
-            )}
-          </motion.div>
-        ) : (
+        {viewTotals.daysWorked > 0 && (
+          <CalendarSummaryTeaser
+            viewMode={viewMode}
+            weekStart={weekStart}
+            weekEnd={new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000)}
+            currentDate={currentDate}
+            viewTotals={viewTotals}
+            prevPeriodTotals={prevPeriodTotals}
+            entries={entries}
+            cumulativeComparison={cumulativeComparison}
+            periodHistoricalTotals={periodHistoricalTotals}
+            comparisonYear={comparisonYear}
+            hasHistoricalData={hasMeVsMeData && meVsMeEnabled}
+          />
+        )}
+      </div>
+
+      {/* Planning mode card */}
+      <AnimatePresence mode="wait">
+        {planningMode && (
           <motion.div
             key="planning-card"
             initial={{ opacity: 0, y: 10 }}
