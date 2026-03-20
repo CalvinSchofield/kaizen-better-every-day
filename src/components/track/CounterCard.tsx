@@ -7,7 +7,7 @@ interface CounterCardProps {
   label: string;
   value: number;
   field: string;
-  onCounterChange: (field: string, value: number) => void;
+  onCounterChange: (field: string, value: number, operation?: 'increment' | 'decrement') => void;
   lastTapTime?: string;
   onRapidTapDetected?: () => void;
   goal?: number;
@@ -79,9 +79,9 @@ export const CounterCard = ({
     }
     
     if (isSubtract) {
-      onCounterChange(field, Math.max(0, value - 1));
+      onCounterChange(field, Math.max(0, value - 1), 'decrement');
     } else {
-      onCounterChange(field, value + 1);
+      onCounterChange(field, value + 1, 'increment');
     }
   };
 
