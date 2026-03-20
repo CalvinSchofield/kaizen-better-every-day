@@ -304,8 +304,15 @@ export const UnifiedRaceSection = ({ rankings, currentUserId, isLive = false, is
                   </div>
 
                   {/* Avatar */}
-                  <div className="relative shrink-0">
-                    <Avatar className="h-9 w-9">
+                  <button
+                    className="relative shrink-0 active:scale-95 transition-transform"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      hapticLight();
+                      navigate(`/profile/${entry.userId}`);
+                    }}
+                  >
+                    <Avatar className="h-9 w-9 cursor-pointer">
                       <AvatarImage src={entry.profilePhotoUrl || undefined} alt={entry.name} />
                       <AvatarFallback className="bg-muted text-muted-foreground text-sm font-medium">
                         {getInitials(entry.name)}
@@ -339,7 +346,7 @@ export const UnifiedRaceSection = ({ rankings, currentUserId, isLive = false, is
                         <BadgeIcon emoji={badge.emoji} rarity={badge.rarity} size="sm" />
                       </div>
                     ))}
-                  </div>
+                  </button>
 
                   {/* Name - tappable to navigate to profile */}
                   <button
