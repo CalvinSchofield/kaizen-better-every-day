@@ -569,6 +569,7 @@ export const SaveEntrySheet = ({
       // Error is already handled by the parent's handleSave - just ensure we close
     } finally {
       isSavingRef.current = false;
+      setShowInstallStep(false);
       onOpenChange(false);
     }
   };
