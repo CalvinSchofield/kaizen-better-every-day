@@ -64,6 +64,8 @@ const TeamReports = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<ReportTab>('people');
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
 
   // Role-aware default tab based on downline size
