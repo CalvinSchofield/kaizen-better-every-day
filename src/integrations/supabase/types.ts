@@ -159,6 +159,51 @@ export type Database = {
         }
         Relationships: []
       }
+      badge_definitions: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          icon_emoji: string | null
+          icon_url: string | null
+          id: string
+          is_hidden: boolean | null
+          name: string
+          rarity: string | null
+          rookie_only: boolean | null
+          slug: string
+          sort_order: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description?: string | null
+          icon_emoji?: string | null
+          icon_url?: string | null
+          id?: string
+          is_hidden?: boolean | null
+          name: string
+          rarity?: string | null
+          rookie_only?: boolean | null
+          slug: string
+          sort_order?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          icon_emoji?: string | null
+          icon_url?: string | null
+          id?: string
+          is_hidden?: boolean | null
+          name?: string
+          rarity?: string | null
+          rookie_only?: boolean | null
+          slug?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
       blitz_accommodations: {
         Row: {
           address: string | null
@@ -2020,6 +2065,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "reps"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      user_badges: {
+        Row: {
+          badge_id: string
+          earned_at: string | null
+          entry_date: string | null
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          badge_id: string
+          earned_at?: string | null
+          entry_date?: string | null
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          badge_id?: string
+          earned_at?: string | null
+          entry_date?: string | null
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badge_definitions"
+            referencedColumns: ["id"]
           },
         ]
       }

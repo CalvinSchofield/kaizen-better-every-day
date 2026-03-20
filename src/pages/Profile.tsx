@@ -10,6 +10,9 @@ import { ProfileSwiper } from "@/components/profile/ProfileSwiper";
 import { ProfileContactBar } from "@/components/profile/ProfileContactBar";
 import { ProfileSeasonHeatmap } from "@/components/profile/ProfileSeasonHeatmap";
 import { useHeader } from "@/contexts/HeaderContext";
+import { useUserBadges, useBadgeDefinitions, getTopBadges } from "@/hooks/useUserBadges";
+import { BadgeGrid } from "@/components/badges/BadgeGrid";
+import { BadgeIcon } from "@/components/badges/BadgeIcon";
 
 import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
@@ -58,6 +61,11 @@ const Profile = () => {
   const { data: teamAccess } = useTeamAccess();
   const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
   const downlineGoalPace = useGoalPaceCalculatorForUser(isDownline ? userId : null);
+
+  const targetUserId = userId || currentUserId || null;
+  const { data: earnedBadges } = useUserBadges(targetUserId);
+  const { data: allDefinitions } = useBadgeDefinitions();
+  const topBadges = earnedBadges ? getTopBadges(earnedBadges, 2) : [];
 
   // Scroll-based header title: show rep name when scrolled past the name
   useEffect(() => {
@@ -253,8 +261,23 @@ const Profile = () => {
           <StatCell label="YTD FP+" value={profile.ytdFpPlus.toFixed(1)} />
           <StatCell label="YTD PRMR" value={`$${Math.round(profile.ytdPrmr).toLocaleString()}`} />
           <div className="flex flex-col items-center px-2 gap-1">
-            <Award className="h-5 w-5 text-muted-foreground/50" />
-            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Coming Soon</span>
+            {topBadges.length > 0 ? (
+              <>
+                <div className="flex gap-1">
+                  {topBadges.map((b, i) => (
+                    <BadgeIcon key={i} emoji={b.iconEmoji} rarity={b.rarity} size="md" />
+                  ))}
+                </div>
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                  {earnedBadges?.length || 0} Badges
+                </span>
+              </>
+            ) : (
+              <>
+                <Award className="h-5 w-5 text-muted-foreground/50" />
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">No Badges</span>
+              </>
+            )}
           </div>
         </div>
       </motion.div>
@@ -313,14 +336,19 @@ const Profile = () => {
           </TabsContent>
 
           <TabsContent value="badges" className="mt-4">
-            <div className="bg-card border border-border rounded-2xl p-8 flex flex-col items-center text-center">
-              <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Lock className="h-7 w-7 text-muted-foreground" />
-              </div>
-              <h3 className="font-semibold text-foreground mb-1">Badges Coming Soon</h3>
-              <p className="text-sm text-muted-foreground max-w-xs">
-                Earn badges for selling streaks, personal records, and milestones. Stay tuned!
-              </p>
+            <div className="bg-card border border-border rounded-2xl p-4">
+              {allDefinitions && earnedBadges ? (
+                <BadgeGrid
+                  earnedBadges={earnedBadges}
+                  allDefinitions={allDefinitions}
+                  isOwnProfile={isOwnProfile}
+                />
+              ) : (
+                <div className="flex flex-col items-center text-center py-8">
+                  <Skeleton className="h-12 w-12 rounded-full mb-4" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>

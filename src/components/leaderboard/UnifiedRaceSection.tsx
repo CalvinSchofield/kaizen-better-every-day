@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { getInitials } from "@/utils/nameUtils";
 import { useNavigate } from "react-router-dom";
+import { useLeaderboardBadges } from "@/hooks/useUserBadges";
+import { BadgeIcon } from "@/components/badges/BadgeIcon";
 import type { ExpandedRankings, RankedEntry } from "@/hooks/useExpandedLeaderboard";
 
 interface RankingEntryWithWorking extends RankedEntry {
@@ -53,6 +55,21 @@ export const UnifiedRaceSection = ({ rankings, currentUserId, isLive = false, is
   const [showPhotoUpload, setShowPhotoUpload] = useState<string | null>(null);
   const navigate = useNavigate();
   const userRowRef = useRef<HTMLDivElement>(null);
+
+  // Batch-fetch top badges for all users in the current rankings
+  const allUserIds = useMemo(() => {
+    if (!rankings) return [];
+    const ids = new Set<string>();
+    for (const key of Object.keys(rankings)) {
+      const arr = (rankings as any)[key];
+      if (Array.isArray(arr)) {
+        arr.forEach((e: any) => ids.add(e.userId));
+      }
+    }
+    return Array.from(ids);
+  }, [rankings]);
+
+  const { data: badgeMap } = useLeaderboardBadges(allUserIds);
 
   // Track previous rankings for live mode rank change animations
   const [prevRankings, setPrevRankings] = useState<Map<string, number>>(new Map());
@@ -310,6 +327,18 @@ export const UnifiedRaceSection = ({ rankings, currentUserId, isLive = false, is
                         <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500 border border-background"></span>
                       </span>
                     )}
+                    {/* Badge icons overlay */}
+                    {badgeMap && badgeMap.get(entry.userId)?.map((badge, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "absolute",
+                          i === 0 ? "-bottom-1 -left-1" : "-bottom-1 -right-1"
+                        )}
+                      >
+                        <BadgeIcon emoji={badge.emoji} rarity={badge.rarity} size="sm" />
+                      </div>
+                    ))}
                   </div>
 
                   {/* Name - tappable to navigate to profile */}
