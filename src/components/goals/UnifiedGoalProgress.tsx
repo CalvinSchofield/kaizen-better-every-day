@@ -88,6 +88,7 @@ const SegmentedBar = ({
   live,
   pending = 0,
   goal,
+  unbufferedGoal,
   expected,
   severity,
   height = 'h-3',
@@ -98,6 +99,8 @@ const SegmentedBar = ({
   live: number;
   pending?: number;
   goal: number;
+  /** Raw goal without cancel buffer — used as the visual 100% reference */
+  unbufferedGoal?: number;
   expected: number;
   severity: PaceSeverity;
   height?: string;
@@ -105,15 +108,29 @@ const SegmentedBar = ({
 }) => {
   if (goal <= 0) return null;
 
+  // Use unbuffered goal as the visual reference (100% of bar width)
+  // Unfunded and pending can overflow beyond this
+  const displayGoal = unbufferedGoal && unbufferedGoal > 0 ? unbufferedGoal : goal;
+
   // Split finalized into funded (green) and unfunded (blue)
   const fundedAmount = Math.min(funded, finalized);
   const unfundedAmount = Math.max(0, finalized - fundedAmount);
 
-  const fundedPct = Math.min(100, (fundedAmount / goal) * 100);
-  const livePct = Math.min(100 - fundedPct, (live / goal) * 100);
-  const unfundedPct = Math.min(100 - fundedPct - livePct, (unfundedAmount / goal) * 100);
-  const pendingPct = Math.min(100 - fundedPct - livePct - unfundedPct, (pending / goal) * 100);
-  const expectedPct = Math.min(100, (expected / goal) * 100);
+  // Calculate total to determine if we need overflow
+  const totalProduction = fundedAmount + live + unfundedAmount + pending;
+  const overflowRatio = totalProduction > displayGoal ? totalProduction / displayGoal : 1;
+  
+  // The bar's visual width represents max(displayGoal, totalProduction)
+  const barMax = Math.max(displayGoal, totalProduction);
+
+  const fundedPct = (fundedAmount / barMax) * 100;
+  const livePct = (live / barMax) * 100;
+  const unfundedPct = (unfundedAmount / barMax) * 100;
+  const pendingPct = (pending / barMax) * 100;
+  const expectedPct = (expected / barMax) * 100;
+  
+  // Where the 100% goal line sits (may be < 100% of bar if overflowing)
+  const goalLinePct = (displayGoal / barMax) * 100;
 
   return (
     <div className="relative">
@@ -125,7 +142,7 @@ const SegmentedBar = ({
           animate={{ width: `${fundedPct}%` }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
         />
-        {/* Live (lighter green — visually extends funded without ugly opacity pulse) */}
+        {/* Live (lighter green) */}
         {livePct > 0 && (
           <motion.div
             className="h-full absolute top-0 bg-emerald-400"
@@ -156,6 +173,13 @@ const SegmentedBar = ({
           />
         )}
       </div>
+      {/* Goal line marker when bar overflows past the raw goal */}
+      {overflowRatio > 1 && (
+        <div
+          className="absolute top-[-3px] bottom-[-3px] w-[2px] bg-foreground/60 rounded-full z-10"
+          style={{ left: `${goalLinePct}%` }}
+        />
+      )}
       {/* Expected marker */}
       {showExpectedMarker && expected > 0 && expectedPct > 0 && (
         <div
