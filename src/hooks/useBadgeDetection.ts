@@ -25,6 +25,7 @@ interface DailyEntryForBadge {
   upgrade_prmr: number;
   counter_timestamps: Record<string, string[]> | null;
   sales_log: any[] | null;
+  timezone: string | null;
 }
 
 /**
