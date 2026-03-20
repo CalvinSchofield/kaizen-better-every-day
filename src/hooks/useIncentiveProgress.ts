@@ -62,23 +62,83 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
   useEffect(() => {
     if (!incentive) return;
 
-    const channel = supabase
-      .channel(`incentive-progress-${incentive.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'daily_entries',
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['incentive-progress', incentive.id] });
-        }
-      )
-      .subscribe();
+    const queryKey = ['incentive-progress', incentive.id] as const;
+    const refresh = () => {
+      queryClient.invalidateQueries({ queryKey, refetchType: 'all' });
+    };
+
+    const channelName = `incentive-progress-${incentive.id}-${Math.random().toString(36).slice(2)}`;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let reconnectTimer: number | null = null;
+    let isMounted = true;
+
+    const clearReconnectTimer = () => {
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    };
+
+    const subscribe = () => {
+      if (!isMounted) return;
+
+      channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'daily_entries',
+          },
+          refresh
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            clearReconnectTimer();
+            refresh();
+            return;
+          }
+
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            if (channel) {
+              supabase.removeChannel(channel);
+              channel = null;
+            }
+
+            clearReconnectTimer();
+            reconnectTimer = window.setTimeout(() => {
+              subscribe();
+            }, 1500);
+          }
+        });
+    };
+
+    subscribe();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refresh();
+      }
+    };
+    const handleOnline = () => refresh();
+    const handleFocus = () => refresh();
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('pageshow', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      supabase.removeChannel(channel);
+      isMounted = false;
+      clearReconnectTimer();
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('pageshow', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [incentive?.id, queryClient]);
 
@@ -223,6 +283,12 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
       incentive.status === 'active' || 
       (incentive.status === 'completed' && isIncentiveStillVisible(incentive, incentive.eligible_reps?.map(r => r.timezone) || []))
     ),
-    staleTime: 30 * 1000, // 30 seconds - ensures quick refresh after mutations
+    staleTime: 0,
+    refetchInterval: incentive?.status === 'active' ? 10 * 1000 : false,
+    refetchIntervalInBackground: true,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
+    refetchOnReconnect: 'always',
+    retry: 1,
   });
 };
