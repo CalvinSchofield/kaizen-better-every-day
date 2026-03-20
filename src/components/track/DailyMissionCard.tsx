@@ -170,6 +170,27 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
         <p className="text-sm text-muted-foreground">
           {seasonLabel}
         </p>
+        {/* Inline smart targets */}
+        {smartGoals.hasEnoughData && (() => {
+          const items = [
+            { value: smartGoals.suggestedDoors, label: 'doors' },
+            { value: smartGoals.suggestedDMs, label: 'DMs' },
+            { value: smartGoals.suggestedPitches, label: 'pitches' },
+            { value: smartGoals.suggestedTransitions, label: 'trans' },
+            { value: smartGoals.suggestedPresentations, label: 'pres' },
+          ].filter(i => i.value > 0);
+          if (items.length === 0) return null;
+          return (
+            <p className="text-xs text-muted-foreground/70 mt-1.5">
+              {items.map((item, i) => (
+                <span key={item.label}>
+                  {i > 0 && ' · '}
+                  <span className="text-muted-foreground">{item.value}</span> {item.label}
+                </span>
+              ))}
+            </p>
+          );
+        })()}
       </div>
 
 
