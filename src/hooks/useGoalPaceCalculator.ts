@@ -451,12 +451,16 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
   const preseasonTodayInRange = todayStr >= preseasonStartStr && todayStr <= preseasonEndStr;
   const preseasonRemainingDays = Math.max(0, preseasonKnockingDone + preseasonFuturePlanned + (preseasonTodayInRange && includeTodayInRemaining ? 1 : 0) - preseasonKnockingDone);
   
-  // Preseason progress
+  // Preseason progress — use reconciled currentProgress when in preseason for consistency with dailyNeeded
   let preseasonProgress = 0;
-  for (const entry of input.entries) {
-    if (entry.entry_date < preseasonStartStr || entry.entry_date > preseasonEndStr) continue;
-    if (!entry.is_finalized) continue;
-    preseasonProgress += input.efpModeEnabled ? (entry.prmr || 0) / 85 : (entry.fp_plus || 0);
+  if (input.isPreseason) {
+    preseasonProgress = input.currentProgress;
+  } else {
+    for (const entry of input.entries) {
+      if (entry.entry_date < preseasonStartStr || entry.entry_date > preseasonEndStr) continue;
+      if (!entry.is_finalized) continue;
+      preseasonProgress += input.efpModeEnabled ? (entry.prmr || 0) / 85 : (entry.fp_plus || 0);
+    }
   }
   const preseasonDailyPace = preseasonRemainingDays > 0 
     ? Math.max(0, preseasonGoalBuffered - preseasonProgress) / preseasonRemainingDays 
@@ -470,12 +474,16 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
   const summerTodayInRange = todayStr >= summerStartStr && todayStr <= summerEndStr;
   const summerRemainingDays = Math.max(0, summerKnockingDone + summerFuturePlanned + (summerTodayInRange && includeTodayInRemaining ? 1 : 0) - summerKnockingDone);
   
-  // Summer progress
+  // Summer progress — use reconciled currentProgress when in summer for consistency with dailyNeeded
   let summerProgress = 0;
-  for (const entry of input.entries) {
-    if (entry.entry_date < summerStartStr || entry.entry_date > summerEndStr) continue;
-    if (!entry.is_finalized) continue;
-    summerProgress += input.efpModeEnabled ? (entry.prmr || 0) / 85 : (entry.fp_plus || 0);
+  if (!input.isPreseason) {
+    summerProgress = input.currentProgress;
+  } else {
+    for (const entry of input.entries) {
+      if (entry.entry_date < summerStartStr || entry.entry_date > summerEndStr) continue;
+      if (!entry.is_finalized) continue;
+      summerProgress += input.efpModeEnabled ? (entry.prmr || 0) / 85 : (entry.fp_plus || 0);
+    }
   }
   // Forecast preseason total and subtract from summer goal (matching What If drawer logic)
   const forecastedPreseason = preseasonProgress + (preseasonDailyPace * preseasonRemainingDays);
