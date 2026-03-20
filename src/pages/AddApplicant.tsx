@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +43,8 @@ export default function AddApplicant() {
   const [selectedRecruiterId, setSelectedRecruiterId] = useState<string>("");
   const [hasManuallyChangedTeam, setHasManuallyChangedTeam] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Check auth
   const { data: session, isLoading: sessionLoading } = useQuery({
@@ -52,6 +54,18 @@ export default function AddApplicant() {
       return data.session;
     },
   });
+
+  // Safety timeout to prevent infinite loading
+  useEffect(() => {
+    if (sessionLoading || teamAccessLoading) {
+      loadingTimeoutRef.current = setTimeout(() => setLoadingTimedOut(true), 5000);
+    } else {
+      setLoadingTimedOut(false);
+    }
+    return () => {
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    };
+  }, [sessionLoading, teamAccessLoading]);
 
   // Get current user's rep info (for auto-populating team/recruiter)
   const { data: currentUserRep } = useQuery({
@@ -271,8 +285,8 @@ export default function AddApplicant() {
     createRecruitMutation.mutate();
   };
 
-  // Loading state
-  if (sessionLoading || teamAccessLoading) {
+  // Loading state — skip if timed out or have cached data
+  if (!loadingTimedOut && !teamAccess && (sessionLoading || teamAccessLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />

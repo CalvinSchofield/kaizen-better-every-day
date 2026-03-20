@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Calendar, MapPin, Edit2, Trash2, Home, Wifi, Key } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +43,20 @@ export default function AdminBlitzes() {
   const [editingBlitz, setEditingBlitz] = useState<Blitz | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingBlitz, setDeletingBlitz] = useState<Blitz | null>(null);
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Safety timeout to prevent infinite loading
+  useEffect(() => {
+    if (accessLoading) {
+      loadingTimeoutRef.current = setTimeout(() => setLoadingTimedOut(true), 5000);
+    } else {
+      setLoadingTimedOut(false);
+    }
+    return () => {
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    };
+  }, [accessLoading]);
 
   const isLeader = teamAccess?.accessLevel === 'area_director' || 
                    teamAccess?.accessLevel === 'mgmt_group_lead' || 
@@ -133,7 +147,7 @@ export default function AdminBlitzes() {
   const handleDrawerClose = () => { setDrawerOpen(false); setEditingBlitz(null); };
   const handleSaveSuccess = () => { handleDrawerClose(); fetchBlitzes(); };
 
-  if (accessLoading) {
+  if (!loadingTimedOut && !teamAccess && accessLoading) {
     return (
       <div className="p-4">
         <div className="space-y-4">
