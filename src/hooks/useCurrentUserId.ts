@@ -53,13 +53,31 @@ export const useCurrentUserId = () => {
   useEffect(() => {
     let mounted = true;
     const cachedUserId = getCachedUserId();
-    
+    const AUTH_READY_TIMEOUT_MS = 4000;
+
     const getUser = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
+      type AuthResult = { userId: string | null; timedOut: boolean };
+
+      let authResult: AuthResult;
+      try {
+        authResult = await Promise.race<AuthResult>([
+          supabase.auth.getUser().then(({ data }) => ({ userId: data.user?.id ?? null, timedOut: false })),
+          new Promise<AuthResult>((resolve) =>
+            setTimeout(() => resolve({ userId: cachedUserId, timedOut: true }), AUTH_READY_TIMEOUT_MS)
+          ),
+        ]);
+      } catch {
+        authResult = { userId: cachedUserId, timedOut: false };
+      }
+
       if (!mounted) return;
-      
-      const newUserId = user?.id ?? null;
-      
+
+      if (authResult.timedOut) {
+        console.warn('[useCurrentUserId] Auth check timed out, using cached user id for recovery');
+      }
+
+      const newUserId = authResult.userId;
+
       // CRITICAL: If we had a cached userId but auth returns null/error,
       // the session is invalid/expired - clear all caches to prevent stale data display
       if (cachedUserId && !newUserId) {
@@ -84,21 +102,21 @@ export const useCurrentUserId = () => {
           // Ignore storage errors
         }
       }
-      
+
       // If user changed (e.g., different account), clear old user's caches
       if (cachedUserId && newUserId && cachedUserId !== newUserId) {
         console.log('[useCurrentUserId] User changed, clearing old caches');
         clearAllRepCaches();
       }
-      
+
       setUserId(newUserId);
       storeCachedUserId(newUserId);
       setIsReady(true);
       setAuthVerified(true);
     };
-    
+
     getUser();
-    
+
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;

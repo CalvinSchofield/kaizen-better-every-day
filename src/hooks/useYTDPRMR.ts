@@ -39,14 +39,14 @@ const setCachedYTDPRMR = (userId: string, data: YTDPRMRData): void => {
 };
 
 export const useYTDPRMR = () => {
-  const { userId, isReady: authReady } = useCurrentUserId();
+  const { userId } = useCurrentUserId();
   
   // Get initial data from cache for instant display
   const initialData = userId ? getCachedYTDPRMR(userId) : undefined;
 
   const { data, isLoading } = useQuery({
     queryKey: ['ytd-prmr-total', userId],
-    enabled: authReady && !!userId,
+    enabled: !!userId,
     queryFn: async () => {
       if (!userId) return { totalPRMR: 0 };
 
@@ -87,6 +87,6 @@ export const useYTDPRMR = () => {
 
   return { 
     totalPRMR: data?.totalPRMR ?? 0, 
-    isLoading: isLoading || !authReady 
+    isLoading
   };
 };

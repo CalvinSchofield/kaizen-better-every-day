@@ -55,14 +55,14 @@ const setCachedCumulativeFP = (userId: string, efpModeEnabled: boolean, data: Cu
 
 export const useCumulativeFP = () => {
   const { efpModeEnabled, calculateEfp } = useEfpMode();
-  const { userId, isReady: authReady } = useCurrentUserId();
+  const { userId } = useCurrentUserId();
 
   // Get initial data from cache for instant display
   const initialData = userId ? getCachedCumulativeFP(userId, efpModeEnabled) : undefined;
 
   return useQuery({
     queryKey: ["cumulative-fp", userId, efpModeEnabled],
-    enabled: authReady && !!userId,
+    enabled: !!userId,
     queryFn: async () => {
       if (!userId) return [];
 
