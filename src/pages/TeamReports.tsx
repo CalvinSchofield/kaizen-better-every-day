@@ -376,8 +376,21 @@ const TeamReports = () => {
     }
   };
 
-  // Show skeleton while access or presets are loading, or before we've set a datePreset
-  if (accessLoading || presetsLoading || datePreset === null) {
+  // Safety timeout to prevent infinite loading
+  useEffect(() => {
+    if (accessLoading || presetsLoading) {
+      loadingTimeoutRef.current = setTimeout(() => setLoadingTimedOut(true), 5000);
+    } else {
+      setLoadingTimedOut(false);
+    }
+    return () => {
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    };
+  }, [accessLoading, presetsLoading]);
+
+  // Show skeleton while loading, but skip if we have cached data or timed out
+  const hasAnyData = !!accessData;
+  if (!loadingTimedOut && !hasAnyData && (accessLoading || presetsLoading || datePreset === null)) {
     return <ReportsPageSkeleton />;
   }
 

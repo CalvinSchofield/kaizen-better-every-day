@@ -285,8 +285,8 @@ export default function AddApplicant() {
     createRecruitMutation.mutate();
   };
 
-  // Loading state
-  if (sessionLoading || teamAccessLoading) {
+  // Loading state — skip if timed out or have cached data
+  if (!loadingTimedOut && !teamAccess && (sessionLoading || teamAccessLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />

@@ -147,7 +147,7 @@ export default function AdminBlitzes() {
   const handleDrawerClose = () => { setDrawerOpen(false); setEditingBlitz(null); };
   const handleSaveSuccess = () => { handleDrawerClose(); fetchBlitzes(); };
 
-  if (accessLoading) {
+  if (!loadingTimedOut && !teamAccess && accessLoading) {
     return (
       <div className="p-4">
         <div className="space-y-4">
