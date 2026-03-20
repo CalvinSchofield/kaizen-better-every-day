@@ -13,25 +13,57 @@ export const useSalesRealtime = () => {
 
   useEffect(() => {
     const invalidate = () => invalidateAllSalesQueries(queryClient);
+    const channelName = `sales-realtime-updates-${Math.random().toString(36).slice(2)}`;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let reconnectTimer: number | null = null;
+    let isMounted = true;
 
-    const channel = supabase
-      .channel("sales-realtime-updates")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "daily_entries",
-        },
-        invalidate
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          invalidate();
-        }
-      });
+    const clearReconnectTimer = () => {
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    };
+
+    const subscribe = () => {
+      if (!isMounted) return;
+
+      channel = supabase
+        .channel(channelName)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "daily_entries",
+          },
+          invalidate
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            clearReconnectTimer();
+            invalidate();
+            return;
+          }
+
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            if (channel) {
+              supabase.removeChannel(channel);
+              channel = null;
+            }
+
+            clearReconnectTimer();
+            reconnectTimer = window.setTimeout(() => {
+              subscribe();
+            }, 1500);
+          }
+        });
+    };
+
+    subscribe();
 
     const handleOnline = () => invalidate();
+    const handleFocus = () => invalidate();
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         invalidate();
@@ -39,12 +71,20 @@ export const useSalesRealtime = () => {
     };
 
     window.addEventListener("online", handleOnline);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("pageshow", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
+      isMounted = false;
+      clearReconnectTimer();
       window.removeEventListener("online", handleOnline);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("pageshow", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [queryClient]);
 };
