@@ -16,11 +16,10 @@ import { useCurrentUserId } from '@/hooks/useCurrentUserId';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, parseISO, isBefore, eachDayOfInterval, getDay, isAfter } from 'date-fns';
+import { format, isBefore, isAfter } from 'date-fns';
 import { parseLocalDate } from '@/utils/dateUtils';
+import { useGoalPaceCalculator } from '@/hooks/useGoalPaceCalculator';
 
-const PRESEASON_END = '2026-04-11';
-const GLOBAL_SUMMER_START = '2026-04-12';
 const SEASON_START = '2025-09-28';
 const SEASON_END = '2026-09-27';
 
@@ -49,6 +48,9 @@ export const CalendarPlanningPreview = ({
   const { totalFP, totalPRMR } = usePreseasonFP();
   const { userId } = useCurrentUserId();
 
+  // Use the unified pace calculator — single source of truth
+  const unifiedPace = useGoalPaceCalculator();
+
   // Fetch season config for summer date range and excluded days
   const { data: seasonConfig } = useQuery({
     queryKey: ['season-config-whatif', userId],
@@ -66,7 +68,7 @@ export const CalendarPlanningPreview = ({
   });
 
   // Historical 2025 summer daily average for severity calibration during preseason
-  const personalSummerStart = seasonConfig?.personal_summer_start || GLOBAL_SUMMER_START;
+  const personalSummerStart = seasonConfig?.personal_summer_start || '2026-04-12';
   const isSummerStarted = !isBefore(new Date(), parseLocalDate(personalSummerStart));
 
   const { data: historicalSummerAvg = 0 } = useQuery({
@@ -80,17 +82,15 @@ export const CalendarPlanningPreview = ({
         .eq('season_type', 'summer')
         .eq('season_year', 2025);
       if (!data || data.length === 0) return 0;
-      // Filter to actual knocking days (≥4 doors)
       const knockingEntries = data.filter(e => (e.doors_knocked || 0) >= 4);
       if (knockingEntries.length === 0) return 0;
-      // Calculate daily avg in the same metric (EFP or FP+)
       const totalMetric = knockingEntries.reduce((sum, e) => {
         return sum + (efpModeEnabled ? (Number(e.prmr) || 0) / 85 : (Number(e.fp_plus) || 0));
       }, 0);
       return totalMetric / knockingEntries.length;
     },
     enabled: !!userId,
-    staleTime: 30 * 60 * 1000, // Cache for 30 min — historical data doesn't change
+    staleTime: 30 * 60 * 1000,
   });
 
   // Fetch ALL daily entries for the full season (for heatmap)
@@ -123,7 +123,7 @@ export const CalendarPlanningPreview = ({
     setIsOpen(prev => !prev);
   }, []);
 
-  // Timeout to prevent infinite loading — after 8s, show heatmap with whatever data we have
+  // Timeout to prevent infinite loading
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   useEffect(() => {
     if (!isLoadingPlanned && !isLoadingEntries) {
@@ -136,103 +136,38 @@ export const CalendarPlanningPreview = ({
 
   const isCalendarLoading = (isLoadingPlanned || isLoadingEntries) && !loadingTimedOut;
 
-  // Compute stats with preseason vs summer split
+  // Derive display stats from the unified pace calculator
   const stats = useMemo(() => {
-    const today = new Date();
-    const preseasonEnd = parseLocalDate(PRESEASON_END);
-    const summerStart = parseLocalDate(personalSummerStart);
-    const excluded = seasonConfig?.excluded_summer_days || [];
-
     const isPreseasonTier = activeTier === 'preseason';
 
-    const preseasonPlanned = plannedDays?.filter(d => !isAfter(parseLocalDate(d.planned_date), preseasonEnd)).length || 0;
-    const summerPlanned = plannedDays?.filter(d => !isBefore(parseLocalDate(d.planned_date), summerStart) && !excluded.includes(d.planned_date)).length || 0;
-    const totalPlanned = isPreseasonTier ? preseasonPlanned : summerPlanned;
+    // Use unified calculator's dailyNeeded — the single source of truth
+    const dailyNeeded = Math.round(unifiedPace.dailyNeeded * 10) / 10;
+    const weeklyNeeded = Math.round(unifiedPace.weeklyNeeded * 10) / 10;
 
-    const activeGoal = isPreseasonTier
-      ? (goals?.preseason_fp_goal || 0)
-      : activeTier === 'mustDo'
-        ? (goals?.must_do_fp_goal || 0)
-        : activeTier === 'willDo'
-          ? (goals?.will_do_fp_goal || 0)
-          : (goals?.could_do_fp_goal || 0);
+    // Remaining goal amount
+    const remainingFp = Math.max(0, Math.round((unifiedPace.activeGoal - unifiedPace.currentProgress) * 10) / 10);
+    const preseasonGoalHit = remainingFp <= 0;
 
-    const cancelRate = goals?.cancel_rate || 0;
-    const fundedGoalNeeded = cancelRate > 0 && cancelRate < 1
-      ? activeGoal / (1 - cancelRate)
-      : activeGoal;
+    // Days left from unified season data
+    const daysLeft = unifiedPace.season.plannedDaysTotal - unifiedPace.season.plannedDaysElapsed;
 
+    // Forecasted preseason total for summer display
     const dailyAvg = knockingDays > 0 ? currentProgress / knockingDays : 0;
-
-    const futurePreseasonPlanned = plannedDays?.filter(d => {
-      const date = parseISO(d.planned_date);
-      return date > today && !isAfter(date, preseasonEnd);
-    }).length || 0;
-
-    const remainingPreseasonWorkDays = futurePreseasonPlanned > 0
-      ? futurePreseasonPlanned
-      : (() => {
-          const days = eachDayOfInterval({ start: today, end: preseasonEnd });
-          return days.filter(d => d > today && getDay(d) !== 0).length;
-        })();
-
-    const forecastedPreseasonTotal = currentProgress + (dailyAvg * remainingPreseasonWorkDays);
-
-    let dailyNeeded: number;
-    let remainingFp = 0;
-    let preseasonGoalHit = false;
-
-    if (isPreseasonTier) {
-      const remaining = Math.max(0, fundedGoalNeeded - currentProgress);
-      remainingFp = Math.round(remaining * 10) / 10;
-      preseasonGoalHit = remaining <= 0;
-      const remainingDays = futurePreseasonPlanned + 1;
-      dailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
-    } else {
-      const remainingForSummer = Math.max(0, fundedGoalNeeded - forecastedPreseasonTotal);
-      const futureSummerPlanned = plannedDays?.filter(d => {
-        const date = parseISO(d.planned_date);
-        return !isBefore(date, summerStart) && !excluded.includes(d.planned_date);
-      }).length || 0;
-      dailyNeeded = futureSummerPlanned > 0 ? remainingForSummer / futureSummerPlanned : 0;
-    }
-
-    const weeklyNeeded = Math.round(dailyNeeded * 6 * 10) / 10;
-    // Pace targets for heatmap — use fixed baseline (total planned days) not shrinking remaining
-    const preseasonGoal = goals?.preseason_fp_goal || 0;
-    const totalPreseasonPlannedDays = knockingDays + (futurePreseasonPlanned > 0 ? futurePreseasonPlanned : 1);
-    const preseasonDailyPace = totalPreseasonPlannedDays > 0 ? preseasonGoal / totalPreseasonPlannedDays : 0;
-    
-    const summerGoal = activeGoal;
-    const futureSummerPlannedAll = plannedDays?.filter(d => {
-      const date = parseISO(d.planned_date);
-      return !isBefore(date, summerStart) && !excluded.includes(d.planned_date);
-    }).length || 0;
-    const summerDailyPace = futureSummerPlannedAll > 0
-      ? Math.max(0, summerGoal - forecastedPreseasonTotal) / futureSummerPlannedAll
-      : dailyNeeded;
-
-    // Days left = future planned days (after today)
-    const futurePlanned = isPreseasonTier
-      ? futurePreseasonPlanned
-      : (plannedDays?.filter(d => {
-          const date = parseISO(d.planned_date);
-          return date > today && !isBefore(date, summerStart) && !excluded.includes(d.planned_date);
-        }).length || 0);
+    const forecastedPreseasonTotal = isPreseasonTier
+      ? Math.round((currentProgress + dailyAvg * Math.max(daysLeft, 0)) * 10) / 10
+      : Math.round(currentProgress * 10) / 10;
 
     return {
-      totalPlanned,
-      knockingDays,
-      daysLeft: futurePlanned,
-      dailyNeeded: Math.round(dailyNeeded * 10) / 10,
+      daysLeft: Math.max(0, daysLeft),
+      dailyNeeded,
       weeklyNeeded,
-      forecastedPreseasonTotal: Math.round(forecastedPreseasonTotal * 10) / 10,
-      preseasonDailyPace: Math.round(preseasonDailyPace * 10) / 10,
-      summerDailyPace: Math.round(summerDailyPace * 10) / 10,
+      forecastedPreseasonTotal,
+      preseasonDailyPace: Math.round(unifiedPace.preseasonDailyPace * 10) / 10,
+      summerDailyPace: Math.round(unifiedPace.summerDailyPace * 10) / 10,
       remainingFp,
       preseasonGoalHit,
     };
-  }, [plannedDays, goals, activeTier, efpModeEnabled, knockingDays, currentProgress]);
+  }, [unifiedPace, activeTier, knockingDays, currentProgress]);
 
   return (
     <motion.div
@@ -258,9 +193,9 @@ export const CalendarPlanningPreview = ({
                 )} />
               </div>
 
-              {/* Hero stat - weekly target */}
+              {/* Hero stat - daily target (unified with calendar) */}
               <div className="text-center space-y-1">
-                {isLoadingPlanned ? (
+                {isLoadingPlanned || unifiedPace.isLoading ? (
                   <div className="space-y-2 flex flex-col items-center">
                     <Skeleton className="h-9 w-48" />
                     <Skeleton className="h-3 w-56" />
@@ -269,20 +204,18 @@ export const CalendarPlanningPreview = ({
                 ) : (
                   <>
                     <motion.div
-                      key={activeTier === 'preseason' ? stats.dailyNeeded : stats.weeklyNeeded}
+                      key={stats.dailyNeeded}
                       initial={{ scale: 0.95, opacity: 0.5 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ type: "spring", stiffness: 300, damping: 25 }}
                       className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-amber-500"
                     >
-                      {activeTier === 'preseason'
-                        ? `${stats.dailyNeeded} / day needed`
-                        : `${stats.weeklyNeeded} / week needed`}
+                      {stats.dailyNeeded} / day needed
                     </motion.div>
                     <div className="text-xs text-muted-foreground leading-snug max-w-[260px] mx-auto">
                       {activeTier === 'preseason'
                         ? `${efpLabel} to hit your preseason goal`
-                        : `if you start summer at ~${stats.forecastedPreseasonTotal} ${efpLabel} (current pace)`
+                        : `${efpLabel} to hit your ${unifiedPace.tierLabel} goal`
                       }
                     </div>
                     <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
