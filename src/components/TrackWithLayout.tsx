@@ -159,10 +159,15 @@ const TrackWithLayout = () => {
   // Rapid-tap detection: track recent taps per field
   const recentTapsRef = useRef<Record<string, number[]>>({});
   const rapidTapWarningShownRef = useRef(false);
+  const latestEntryRef = useRef(entry);
 
   // Auto-heal sync when server is behind local counters
   const autoResyncInFlightRef = useRef(false);
   const lastAutoResyncAttemptRef = useRef(0);
+
+  useEffect(() => {
+    latestEntryRef.current = entry;
+  }, [entry]);
   
   // Handle ?prompt=save or ?save=true URL parameter (from push notification or home alert)
   useEffect(() => {
@@ -753,7 +758,13 @@ const TrackWithLayout = () => {
   const isRookie = repData?.year === "Rookie";
   const showPrmrHelper = isRookie || preseasonFP < 20;
 
-  const handleCounterChange = useCallback(async (field: string, value: number) => {
+  const handleCounterChange = useCallback(async (
+    field: string,
+    value: number,
+    operation?: 'increment' | 'decrement'
+  ) => {
+    const latestEntry = latestEntryRef.current;
+
     // PHASE 2: FRESHNESS GATE - Only block if NO backup AND still loading
     // With a valid backup, allow immediate interaction (snappy UX)
     if (!isFreshDataVerified && !isOfflineWithBackup) {
@@ -768,9 +779,9 @@ const TrackWithLayout = () => {
       return;
     }
     
-    if (savedThisSession || entry.is_finalized) {
+    if (savedThisSession || latestEntry.is_finalized) {
       // SPECIAL CASE: Allow adding closes via post-finalization flow
-      if (field === 'closes' && value > (entry.closes || 0) && salesLoggerEnabled) {
+      if (field === 'closes' && value >= (latestEntry.closes || 0) && salesLoggerEnabled) {
         if (isLogSaleSheetOpen || pendingPostFinalizationSale) {
           return; // Already logging
         }
@@ -781,7 +792,7 @@ const TrackWithLayout = () => {
           state: { 
             crmEnabled: true, 
             crmDetailedEnabled: true,
-            counterTimestamps: entry.counter_timestamps,
+            counterTimestamps: latestEntry.counter_timestamps,
             returnPath: '/track'
           } 
         });
@@ -796,11 +807,19 @@ const TrackWithLayout = () => {
     
     // Get current value to determine if adding or subtracting
     const currentValue = field.startsWith('custom_') 
-      ? (entry.custom_counters?.[field.replace('custom_', '')] || 0)
-      : (entry[field as keyof typeof entry] as number || 0);
+      ? (latestEntry.custom_counters?.[field.replace('custom_', '')] || 0)
+      : (latestEntry[field as keyof typeof latestEntry] as number || 0);
+
+    const resolvedOperation =
+      operation ?? (value < currentValue ? 'decrement' : 'increment');
+
+    const nextValue =
+      resolvedOperation === 'decrement' ? Math.max(0, currentValue - 1) : currentValue + 1;
     
-    const isAdding = value > currentValue;
-    const isSubtracting = value < currentValue;
+    const isAdding = nextValue > currentValue;
+    const isSubtracting = nextValue < currentValue;
+
+    if (!isAdding && !isSubtracting) return;
     
     // RAPID-TAP DETECTION: Track taps and warn if 5+ taps in 30 seconds
     if (isAdding && !field.startsWith('custom_')) {
@@ -848,29 +867,29 @@ const TrackWithLayout = () => {
     
     // SALES LOGGER: Intercept closes counter when subtracting and there are logged sales
     // Show picker to choose which sale to delete instead of just decrementing
-    const salesLog = entry.sales_log || [];
+    const salesLog = latestEntry.sales_log || [];
     if (field === 'closes' && isSubtracting && salesLoggerEnabled && salesLog.length > 0) {
       setIsDeleteSalePickerOpen(true);
       return; // Don't decrement closes yet - wait for sale selection
     }
     
     // Immediately trigger optimistic update through mutation
-    const updates: any = { [field]: Math.max(0, value) };
+    const updates: any = { [field]: nextValue };
     
     // Handle custom counters separately
     if (field.startsWith('custom_')) {
       const customId = field.replace('custom_', '');
-      const customCounters = entry.custom_counters || {};
+      const customCounters = latestEntry.custom_counters || {};
       updates.custom_counters = {
         ...customCounters,
-        [customId]: Math.max(0, value),
+        [customId]: nextValue,
       };
       delete updates[field]; // Remove the custom_ prefixed field
     }
     
     // Auto-end break if one is active when counter is tapped (only when adding)
     if (isAdding) {
-      const breakPeriods = entry.break_periods || [];
+      const breakPeriods = latestEntry.break_periods || [];
       const currentBreak = breakPeriods.find(bp => !bp.end);
       if (currentBreak) {
         const updatedBreaks = breakPeriods.map(bp => 
@@ -881,7 +900,7 @@ const TrackWithLayout = () => {
     }
     
     // Auto-start work time on first counter tap (only when adding)
-    if (isAdding && !entry.work_start_time && value > 0) {
+    if (isAdding && !latestEntry.work_start_time && nextValue > 0) {
       const now = new Date();
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       updates.work_start_time = now.toISOString();
@@ -889,7 +908,7 @@ const TrackWithLayout = () => {
     }
     
     // Handle timestamps: add when increasing, remove when decreasing
-    const timestamps = entry.counter_timestamps || {};
+    const timestamps = latestEntry.counter_timestamps || {};
     const fieldTimestamps = timestamps[field] || [];
     
     if (isAdding) {
@@ -923,6 +942,15 @@ const TrackWithLayout = () => {
     
     // Set sync status to pending
     setSyncStatus('pending');
+
+    // Keep a local source-of-truth in sync so rapid taps cannot regress from stale props
+    latestEntryRef.current = {
+      ...latestEntry,
+      ...updates,
+      custom_counters: updates.custom_counters ?? latestEntry.custom_counters,
+      break_periods: updates.break_periods ?? latestEntry.break_periods,
+      counter_timestamps: updates.counter_timestamps ?? latestEntry.counter_timestamps,
+    } as typeof latestEntry;
     
     // Immediately call updateCounter for instant optimistic UI update
     try {
@@ -960,7 +988,19 @@ const TrackWithLayout = () => {
         });
       }
     }
-  }, [entry, updateCounter, verifyServerSync, isSaveInProgress, savedThisSession, salesLoggerEnabled, isFreshDataVerified, isOfflineWithBackup]);
+  }, [
+    updateCounter,
+    verifyServerSync,
+    isSaveInProgress,
+    savedThisSession,
+    salesLoggerEnabled,
+    isFreshDataVerified,
+    isOfflineWithBackup,
+    isLogSaleSheetOpen,
+    pendingPostFinalizationSale,
+    pendingCloseIncrement,
+    navigate,
+  ]);
 
   // Sales logger handlers
   const handleLogSale = useCallback(async (saleData: Omit<Sale, 'id' | 'timestamp'>) => {

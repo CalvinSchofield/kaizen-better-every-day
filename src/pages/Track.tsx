@@ -60,7 +60,7 @@ interface TrackProps {
     timezone: string | null;
   };
   updateCounter: (updates: Partial<DailyEntry>) => Promise<any>;
-  onCounterChange: (field: string, value: number) => Promise<void>;
+  onCounterChange: (field: string, value: number, operation?: 'increment' | 'decrement') => Promise<void>;
   onStartWork: () => void;
   onEndWork: () => void;
   onStartBreak: () => void;
