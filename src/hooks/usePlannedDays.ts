@@ -195,10 +195,10 @@ export const usePlannedDays = () => {
     try {
       const { error } = await supabase
         .from('planned_work_days')
-        .insert(newDates.map(date => ({
+        .upsert(newDates.map(date => ({
           user_id: userId,
           planned_date: date,
-        })));
+        })), { onConflict: 'user_id,planned_date' });
 
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ['planned-days'] });
