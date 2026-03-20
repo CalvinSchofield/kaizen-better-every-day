@@ -640,8 +640,15 @@ export const useDailyEntry = (date?: string) => {
       sales_log?: Sale[];
       daily_target?: number | null;
     }) => {
-      // Wait for any pending counter updates to complete first
-      await queryClient.refetchQueries({ queryKey: ['update-counter', data.saveDate] });
+      // Wait for any pending counter updates to complete first (with timeout to prevent hanging)
+      try {
+        await Promise.race([
+          queryClient.refetchQueries({ queryKey: ['update-counter', data.saveDate] }),
+          new Promise(resolve => setTimeout(resolve, 3000)), // 3s timeout
+        ]);
+      } catch (e) {
+        console.warn('[finalizeEntry] refetchQueries timed out or failed, proceeding anyway');
+      }
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');

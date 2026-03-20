@@ -545,24 +545,30 @@ export const SaveEntrySheet = ({
     const finalPrmr = fpPrmrTotal + upgradePrmrTotal;
     const finalUpgradePrmr = upgradePrmrTotal > 0 ? upgradePrmrTotal : null;
     
-    await onSave({
-      doors_knocked: parseInt(doorsKnocked) || 0,
-      decision_makers: parseInt(decisionMakers) || 0,
-      pitches: parseInt(pitches) || 0,
-      transitions: parseInt(transitions) || 0,
-      presentations: parseInt(presentations) || 0,
-      closes: salesToSave.length, // Closes = number of sales
-      fp_plus: finalFpPlus,
-      prmr: finalPrmr,
-      upgrade_prmr: finalUpgradePrmr,
-      saveDate,
-      work_start_time: workStartTime,
-      work_end_time: workEndTime,
-      custom_counters: customCounterData,
-      sales_log: salesToSave,
-    });
-    
-    onOpenChange(false);
+    try {
+      await onSave({
+        doors_knocked: parseInt(doorsKnocked) || 0,
+        decision_makers: parseInt(decisionMakers) || 0,
+        pitches: parseInt(pitches) || 0,
+        transitions: parseInt(transitions) || 0,
+        presentations: parseInt(presentations) || 0,
+        closes: salesToSave.length, // Closes = number of sales
+        fp_plus: finalFpPlus,
+        prmr: finalPrmr,
+        upgrade_prmr: finalUpgradePrmr,
+        saveDate,
+        work_start_time: workStartTime,
+        work_end_time: workEndTime,
+        custom_counters: customCounterData,
+        sales_log: salesToSave,
+      });
+    } catch (error) {
+      console.error('[SaveEntrySheet] Save failed:', error);
+      // Error is already handled by the parent's handleSave - just ensure we close
+    } finally {
+      isSavingRef.current = false;
+      onOpenChange(false);
+    }
   };
 
   const calculateTotalTime = () => {
