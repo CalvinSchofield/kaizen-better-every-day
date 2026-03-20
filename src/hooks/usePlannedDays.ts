@@ -11,13 +11,29 @@ export interface PlannedDay {
   created_at: string;
 }
 
-// NOTE: initialData from localStorage removed to prevent stale display.
-// React Query in-memory cache handles instant navigation between pages.
+// Use placeholderData from localStorage for instant loading while fresh data arrives.
+
+const getCachedPlannedDays = (userId: string): PlannedDay[] | undefined => {
+  try {
+    const cached = localStorage.getItem(`planned-days-cache-${userId}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.timestamp && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+        return parsed.data;
+      }
+    }
+  } catch {
+    // Ignore cache errors
+  }
+  return undefined;
+};
 
 export const usePlannedDays = () => {
   const queryClient = useQueryClient();
   // Use useCurrentUserId for faster auth access - this hydrates from localStorage instantly
   const { userId, isReady } = useCurrentUserId();
+
+  const cachedData = userId ? getCachedPlannedDays(userId) : undefined;
 
   const { data: plannedDays, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['planned-days', userId],
@@ -45,6 +61,7 @@ export const usePlannedDays = () => {
     gcTime: 30 * 60 * 1000, // Keep in memory for 30 min
     retry: 3, // Retry failed fetches up to 3 times
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff
+    placeholderData: cachedData,
   });
 
   const addPlannedDayMutation = useMutation({
