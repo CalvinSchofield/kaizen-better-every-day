@@ -10,6 +10,7 @@ import { useWeeklyComparison } from "@/hooks/useWeeklyComparison";
 import { useMeVsMe } from "@/hooks/useMeVsMe";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { getSeasonInfo } from "@/utils/seasonWeekUtils";
+import { useSmartActivityGoals } from "@/hooks/useSmartActivityGoals";
 import { startOfWeek } from "date-fns";
 import { useMemo } from "react";
 
