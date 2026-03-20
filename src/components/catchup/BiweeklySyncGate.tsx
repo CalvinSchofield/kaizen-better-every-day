@@ -22,6 +22,7 @@ interface BiweeklySyncGateProps {
   isInitialSync?: boolean;
   isUserSummerStarted?: boolean;
   onComplete: () => void;
+  onSkip?: () => void;
 }
 
 type SyncStep = 'intro' | 'curator' | 'fp_plus' | 'fp_sold' | 'prmr' | 'knocking_days' | 'source' | 'crm' | 'confirm' | 'success';

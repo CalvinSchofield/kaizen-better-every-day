@@ -98,6 +98,7 @@ const Goals = () => {
   const [showBlitzEditor, setShowBlitzEditor] = useState(false);
   const [showCatchUpWizard, setShowCatchUpWizard] = useState(false);
   const [activeTier, setActiveTier] = useState<GoalTier>('preseason');
+  const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
   const [syncGateSkipped, setSyncGateSkipped] = useState(false);
   const location = useLocation();
 
