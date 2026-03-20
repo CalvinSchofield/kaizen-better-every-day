@@ -56,6 +56,21 @@ export const UnifiedRaceSection = ({ rankings, currentUserId, isLive = false, is
   const navigate = useNavigate();
   const userRowRef = useRef<HTMLDivElement>(null);
 
+  // Batch-fetch top badges for all users in the current rankings
+  const allUserIds = useMemo(() => {
+    if (!rankings) return [];
+    const ids = new Set<string>();
+    for (const key of Object.keys(rankings)) {
+      const arr = (rankings as any)[key];
+      if (Array.isArray(arr)) {
+        arr.forEach((e: any) => ids.add(e.userId));
+      }
+    }
+    return Array.from(ids);
+  }, [rankings]);
+
+  const { data: badgeMap } = useLeaderboardBadges(allUserIds);
+
   // Track previous rankings for live mode rank change animations
   const [prevRankings, setPrevRankings] = useState<Map<string, number>>(new Map());
   const [rankChanges, setRankChanges] = useState<Map<string, 'up' | 'down' | null>>(new Map());
