@@ -7,7 +7,7 @@ import { PlanningNudgeCard } from "./PlanningNudgeCard";
 import { SeasonGoalsPreview } from "./SeasonGoalsPreview";
 import { CompetitionsPreview } from "./CompetitionsPreview";
 import { WatchlistPulseCard } from "./WatchlistPulseCard";
-import { SmartTargetsCard } from "./SmartTargetsCard";
+
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 
@@ -16,9 +16,9 @@ import { LeaderboardMiniRow } from "./LeaderboardMiniRow";
 import { hapticMedium } from "@/utils/haptics";
 import { getCleanFirstName } from "@/utils/nameUtils";
 import { format } from "date-fns";
-import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
-import { useSmartActivityGoals } from "@/hooks/useSmartActivityGoals";
-import { useEfpMode } from "@/hooks/useEfpMode";
+
+
+
 
 interface PreWorkingStateProps {
   repName?: string;
@@ -79,13 +79,8 @@ export const PreWorkingState = ({
   const firstName = repName ? getCleanFirstName(repName) : '';
   const todayFormatted = format(new Date(), 'EEEE, MMMM d');
   
-  // Smart targets
-  const { efpModeEnabled } = useEfpMode();
-  const goalPaceData = useGoalPaceCalculator();
-  const isRookie = repData?.year === 'Rookie';
-  const dailyFpGoal = goalPaceData.hasGoals ? Math.round(goalPaceData.dailyNeeded * 10) / 10 : 1;
-  const smartGoals = useSmartActivityGoals({ dailyFpGoal, isRookie });
-  const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
+
+
 
   const handleStartDay = async () => {
     if (starting || isStarting) return;
@@ -148,15 +143,7 @@ export const PreWorkingState = ({
           <SeasonGoalsPreview />
         </motion.div>
 
-        {smartGoals.hasEnoughData && (
-          <motion.div variants={itemVariants}>
-            <SmartTargetsCard
-              smartGoals={smartGoals}
-              dailyGoal={dailyFpGoal}
-              metricLabel={metricLabel}
-            />
-          </motion.div>
-        )}
+        {/* Smart targets now inline in DailyMissionCard */}
 
         <motion.div variants={itemVariants}>
           <LeaderboardMiniRow />

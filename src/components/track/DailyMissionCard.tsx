@@ -10,6 +10,7 @@ import { useWeeklyComparison } from "@/hooks/useWeeklyComparison";
 import { useMeVsMe } from "@/hooks/useMeVsMe";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { getSeasonInfo } from "@/utils/seasonWeekUtils";
+import { useSmartActivityGoals } from "@/hooks/useSmartActivityGoals";
 import { startOfWeek } from "date-fns";
 import { useMemo } from "react";
 
@@ -26,6 +27,8 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   const { comparisonData: weeklyData } = useWeeklyComparison();
 
   const isRookie = repData?.year === 'Rookie';
+  const dailyFpGoalForTargets = data.hasGoals ? Math.round(data.dailyNeeded * 10) / 10 : 1;
+  const smartGoals = useSmartActivityGoals({ dailyFpGoal: dailyFpGoalForTargets, isRookie });
 
   // Historical comparison setup
   const now = useMemo(() => new Date(), []);
@@ -167,6 +170,27 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
         <p className="text-sm text-muted-foreground">
           {seasonLabel}
         </p>
+        {/* Inline smart targets */}
+        {smartGoals.hasEnoughData && (() => {
+          const items = [
+            { value: smartGoals.suggestedDoors, label: 'doors' },
+            { value: smartGoals.suggestedDMs, label: 'DMs' },
+            { value: smartGoals.suggestedPitches, label: 'pitches' },
+            { value: smartGoals.suggestedTransitions, label: 'trans' },
+            { value: smartGoals.suggestedPresentations, label: 'pres' },
+          ].filter(i => i.value > 0);
+          if (items.length === 0) return null;
+          return (
+            <p className="text-xs text-muted-foreground/70 mt-1.5">
+              {items.map((item, i) => (
+                <span key={item.label}>
+                  {i > 0 && ' · '}
+                  <span className="text-muted-foreground">{item.value}</span> {item.label}
+                </span>
+              ))}
+            </p>
+          );
+        })()}
       </div>
 
 
