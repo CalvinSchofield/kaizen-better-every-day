@@ -908,8 +908,16 @@ export const RecruitDetailDrawer = ({
   };
 
   // Handler for marking a scheduled activity as complete
-  const handleMarkScheduledComplete = (activity: RecruitActivity, completedType: 'phone_call' | 'in_person') => {
-    // Log the completed activity with the scheduled notes
+  const handleMarkScheduledComplete = (activity: RecruitActivity, completedType: 'phone_call' | 'in_person' | 'text') => {
+    // Open PostContactDrawer to log the contact + resolve this task in one flow
+    // This re-uses the consolidated notes pattern from the PostContactDrawer
+    setPostContactMethod(completedType === 'in_person' ? 'in_person' : completedType === 'text' ? 'text' : 'call');
+    setPostContactScheduledActivity(activity);
+    setPostContactDrawerOpen(true);
+  };
+
+  // Legacy fallback — direct mark complete without PostContactDrawer
+  const handleDirectMarkComplete = (activity: RecruitActivity, completedType: 'phone_call' | 'in_person' | 'text') => {
     logActivityMutation.mutate({
       recruitId: recruit.id,
       recruitNotionId: recruit.id,
@@ -918,18 +926,22 @@ export const RecruitDetailDrawer = ({
       updateLastContact: true,
     }, {
       onSuccess: () => {
-        // Delete the scheduled activity after logging the completed one
-        deleteActivityMutation.mutate(activity.id, {
-          onSuccess: () => {
-            toast.success('Marked complete!');
-            queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
-          },
-          onError: () => {
-            // Still show success for the logged activity even if delete fails
-            toast.success('Activity logged');
-            queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
-          }
-        });
+        // Mark the scheduled activity as completed (don't delete — resolve it)
+        supabase
+          .from('recruit_activities')
+          .update({
+            assignment_status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', activity.id)
+          .then(({ error }) => {
+            if (error) console.error('Failed to mark task complete:', error);
+          });
+
+        toast.success('Marked complete!');
+        queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
+        queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+        queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       },
       onError: () => {
         toast.error("Couldn't log activity");
