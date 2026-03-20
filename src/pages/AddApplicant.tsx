@@ -46,18 +46,6 @@ export default function AddApplicant() {
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Safety timeout to prevent infinite loading
-  useEffect(() => {
-    if (sessionLoading || teamAccessLoading) {
-      loadingTimeoutRef.current = setTimeout(() => setLoadingTimedOut(true), 5000);
-    } else {
-      setLoadingTimedOut(false);
-    }
-    return () => {
-      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
-    };
-  }, [sessionLoading, teamAccessLoading]);
-
   // Check auth
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ["session"],
