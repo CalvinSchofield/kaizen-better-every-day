@@ -655,7 +655,7 @@ export const useDailyEntry = (date?: string) => {
 
       // BULLETPROOF: Use safe upsert RPC for finalization to prevent data overwrites
       // This ensures sales_log, counter_timestamps etc. are merged, not replaced
-      const { data: result, error } = await supabase.rpc('upsert_daily_entry_safe', {
+      const rpcPromise = supabase.rpc('upsert_daily_entry_safe', {
         p_user_id: user.id,
         p_entry_date: data.saveDate,
         p_doors_knocked: data.doors_knocked,
@@ -676,6 +676,13 @@ export const useDailyEntry = (date?: string) => {
         p_sales_log: data.sales_log ? JSON.parse(JSON.stringify(data.sales_log)) : null,
         p_is_finalized: true,
       });
+
+      // Timeout protection: prevent indefinite hanging on iOS/mobile
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Finalize request timed out after 15s')), 15000);
+      });
+
+      const { data: result, error } = await Promise.race([rpcPromise, timeoutPromise]) as any;
 
       if (error) throw error;
 
