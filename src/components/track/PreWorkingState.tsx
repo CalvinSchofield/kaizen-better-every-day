@@ -15,6 +15,9 @@ import { LeaderboardMiniRow } from "./LeaderboardMiniRow";
 import { hapticMedium } from "@/utils/haptics";
 import { getCleanFirstName } from "@/utils/nameUtils";
 import { format } from "date-fns";
+import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
+import { useSmartActivityGoals } from "@/hooks/useSmartActivityGoals";
+import { useEfpMode } from "@/hooks/useEfpMode";
 
 interface PreWorkingStateProps {
   repName?: string;
