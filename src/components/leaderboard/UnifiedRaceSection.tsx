@@ -328,7 +328,7 @@ export const UnifiedRaceSection = ({ rankings, currentUserId, isLive = false, is
                       </span>
                     )}
                     {/* Badge icons overlay */}
-                    {badgeMap && (badgeMap instanceof Map ? badgeMap.get(entry.userId) : undefined)?.map((badge, i) => (
+                    {badgeMap && badgeMap[entry.userId]?.map((badge, i) => (
                       <div
                         key={i}
                         className={cn(

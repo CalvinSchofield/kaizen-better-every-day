@@ -140,8 +140,8 @@ export const getTopBadges = (badges: UserBadge[], count: number = 2): UserBadge[
 export const useLeaderboardBadges = (userIds: string[]) => {
   return useQuery({
     queryKey: ["leaderboard-badges", userIds.sort().join(",")],
-    queryFn: async () => {
-      if (!userIds.length) return new Map<string, { emoji: string; name: string; rarity: string }[]>();
+    queryFn: async (): Promise<Record<string, { emoji: string; name: string; rarity: string }[]>> => {
+      if (!userIds.length) return {};
 
       const { data, error } = await supabase
         .from("user_badges")
@@ -151,32 +151,29 @@ export const useLeaderboardBadges = (userIds: string[]) => {
       if (error) throw error;
 
       // Group by user and pick top 2
-      const byUser = new Map<string, { slug: string; name: string; emoji: string; rarity: string; earnedAt: string }[]>();
+      const byUser: Record<string, { slug: string; name: string; emoji: string; rarity: string }[]> = {};
       for (const row of data || []) {
         const bd = (row as any).badge_definitions;
         if (!bd) continue;
-        const list = byUser.get(row.user_id) || [];
-        list.push({
+        if (!byUser[row.user_id]) byUser[row.user_id] = [];
+        byUser[row.user_id].push({
           slug: bd.slug,
           name: bd.name,
           emoji: bd.icon_emoji,
           rarity: bd.rarity,
-          earnedAt: '',
         });
-        byUser.set(row.user_id, list);
       }
 
-      const result = new Map<string, { emoji: string; name: string; rarity: string }[]>();
-      for (const [uid, badges] of byUser) {
-        // Deduplicate by slug
-        const uniqueBySlug = new Map<string, typeof badges[0]>();
+      const result: Record<string, { emoji: string; name: string; rarity: string }[]> = {};
+      for (const [uid, badges] of Object.entries(byUser)) {
+        const uniqueBySlug: Record<string, typeof badges[0]> = {};
         for (const b of badges) {
-          if (!uniqueBySlug.has(b.slug)) uniqueBySlug.set(b.slug, b);
+          if (!uniqueBySlug[b.slug]) uniqueBySlug[b.slug] = b;
         }
-        const sorted = Array.from(uniqueBySlug.values())
+        const sorted = Object.values(uniqueBySlug)
           .sort((a, b) => (RARITY_PRIORITY[b.rarity] || 0) - (RARITY_PRIORITY[a.rarity] || 0))
           .slice(0, 2);
-        result.set(uid, sorted.map(b => ({ emoji: b.emoji, name: b.name, rarity: b.rarity })));
+        result[uid] = sorted.map(b => ({ emoji: b.emoji, name: b.name, rarity: b.rarity }));
       }
 
       return result;
