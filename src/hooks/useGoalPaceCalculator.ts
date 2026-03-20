@@ -497,8 +497,11 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     ? Math.max(0, summerSellNeeded) / summerRemainingDays
     : 0;
 
+  const unbufferedGoal = rawGoal * input.conversionFactor;
+
   return {
     activeGoal,
+    unbufferedGoal,
     tierLabel,
     focusTier: input.isPreseason ? 'preseason' as any : input.focusTier,
     isPreseason: input.isPreseason,
