@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
     // Load ALL daily entries ordered by user and date
     const { data: entries, error: entryError } = await supabase
       .from("daily_entries")
-      .select("entry_date, user_id, doors_knocked, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, sales_log, counter_timestamps, is_finalized")
+      .select("entry_date, user_id, doors_knocked, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, sales_log, counter_timestamps, is_finalized, timezone")
       .order("entry_date", { ascending: true });
     if (entryError) throw entryError;
 
