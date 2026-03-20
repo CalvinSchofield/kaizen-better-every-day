@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Phone, MessageSquare, CalendarDays, CheckCircle2, Users, Clock, UserCircle, Loader2 } from "lucide-react";
+import { Phone, MessageSquare, CalendarDays, CheckCircle2, Users, Clock, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
