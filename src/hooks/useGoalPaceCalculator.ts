@@ -266,11 +266,12 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     );
     const plannedDaysTotal = periodPlannedDays.length;
 
-    // Elapsed planned days (planned days before today, or today if finalized)
-    // Today should NOT count as elapsed until finalized — otherwise an unstarted day
-    // inflates "expected" and compresses the remaining target into fewer days.
+    // Elapsed planned days: past planned days + today if the user has started working
+    // (i.e. has an entry for today). This ensures "X of Y work days" reflects reality
+    // without waiting for finalization.
+    const todayHasEntry = input.entries.some(e => e.entry_date === todayStr);
     const plannedDaysElapsed = periodPlannedDays.filter(d =>
-      d < todayStr || (d === todayStr && todayFinalized)
+      d < todayStr || (d === todayStr && (todayFinalized || todayHasEntry))
     ).length;
 
     // Bucketed production in this period (sales_log is source of truth)
