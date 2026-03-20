@@ -602,7 +602,6 @@ export const useGroupRecruits = () => {
 
         // activities are already sorted newest-first
         for (const a of activities) {
-          if (a.activity_type !== 'next_step') continue;
           if (!a.next_action && !a.next_action_due) continue;
           const recruitId = a.recruit_id;
           if (recruitId && !nextStepByRecruit.has(recruitId)) {
