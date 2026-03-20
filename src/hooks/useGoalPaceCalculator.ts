@@ -690,7 +690,9 @@ export function useGoalPaceCalculator(): GoalPaceData {
       }
     }
 
-    return officialFp + trackedSince;
+    // Never allow stale official totals to reduce known tracked progress.
+    const reconciledProgress = officialFp + trackedSince;
+    return Math.max(rawProgress, reconciledProgress);
   }, [officialTotalsData, rawProgress, allEntries, efpModeEnabled, seasonStartStr]);
 
   const isLoading = goalsLoading || fpLoading || plannedLoading || tierLoading;
