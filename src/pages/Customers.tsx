@@ -49,7 +49,7 @@ const Customers = () => {
   // Add sale sheet state
   const [addSaleSheetOpen, setAddSaleSheetOpen] = useState(false);
 
-  const { sales, salesWithLocation, isLoading, totalCount, updateFunding, updateSaleDetails } = useCustomerData(
+  const { sales, salesWithLocation, isLoading, totalCount, updateFunding, updateSaleDetails, deleteSale } = useCustomerData(
     searchQuery, 
     filterType,
     sortBy
@@ -104,7 +104,9 @@ const Customers = () => {
     updateSaleDetails(selectedSale.id, selectedSale.entry_date, updatedSale);
   };
 
-  const handleDeleteSale = (_saleId: string) => {
+  const handleDeleteSale = (saleId: string) => {
+    if (!selectedSale) return;
+    deleteSale(saleId, selectedSale.entry_date);
     setDetailSheetOpen(false);
   };
 
