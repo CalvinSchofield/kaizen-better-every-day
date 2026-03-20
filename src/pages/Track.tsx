@@ -274,7 +274,7 @@ const Track = ({
         </div>
 
         {/* Activity Visualization - Ring or Timeline based on preference */}
-        <div className="px-4 py-2 flex justify-center">
+        <div className="px-4 py-2">
           {visualizationMode === 'ring' ? (
             <ActivityRingHero
               entry={entry}
