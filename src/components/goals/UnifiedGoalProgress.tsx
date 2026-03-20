@@ -624,7 +624,7 @@ const CompactMode = ({
                   {formatFP(Math.min(tfData.funded, tfData.actual + tfData.live))}
                   {tfData.pending > 0 && <span className="text-warning text-xs"> +{formatFP(tfData.pending)} pending</span>}
                 </span>
-                <span className="text-muted-foreground">/ {formatFP(tfData.goal)} {data.metricLabel}</span>
+                <span className="text-muted-foreground">/ {formatFP(data.unbufferedGoal || tfData.goal)} {data.metricLabel}</span>
                 {goalHit && <Check className="w-3.5 h-3.5 text-emerald-500" />}
               </div>
             </div>
@@ -634,6 +634,7 @@ const CompactMode = ({
               live={tfData.live}
               pending={tfData.pending}
               goal={tfData.goal}
+              unbufferedGoal={data.unbufferedGoal}
               expected={tf !== 'D' ? tfData.expected : 0}
               severity={data.severity}
               height="h-2"
