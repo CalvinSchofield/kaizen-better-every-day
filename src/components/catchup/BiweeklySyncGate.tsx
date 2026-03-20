@@ -828,8 +828,15 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
             </Button>
           )}
         </div>
-      )}
-    </div>
+        {step === 'intro' && onSkip && (
+          <button
+            onClick={onSkip}
+            className="w-full text-center text-sm text-muted-foreground py-2 active:opacity-70 transition-opacity"
+          >
+            Skip for now
+          </button>
+        )}
+      </div>
   );
 };
 
