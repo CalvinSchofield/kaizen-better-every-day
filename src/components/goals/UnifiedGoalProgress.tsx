@@ -363,7 +363,7 @@ const FullMode = ({
                   <span className="text-warning font-normal"> +{formatFP(current.pending)} pending</span>
                 )}
               </span>
-              <span className="text-muted-foreground">/ {formatFP(current.goal)} {data.metricLabel}</span>
+              <span className="text-muted-foreground">/ {formatFP(data.unbufferedGoal || current.goal)} {data.metricLabel}</span>
             </div>
           </div>
 
@@ -374,6 +374,7 @@ const FullMode = ({
             live={current.live}
             pending={current.pending}
             goal={current.goal}
+            unbufferedGoal={data.unbufferedGoal}
             expected={current.expected}
             severity={data.severity}
             showExpectedMarker={data.knockingDaysCompleted >= 6}
