@@ -120,13 +120,22 @@ export const useBadgeDetection = (
       await awardBadge(SPECIAL_SLUGS.FIRST_DOOR_MAGIC, date);
     }
 
-    // Night Owl: has a door timestamp after 9 PM and made a sale
+    // Night Owl: has a door timestamp after 9 PM LOCAL TIME and made a sale
     if (closes > 0 && todayEntry.counter_timestamps) {
       const doorTs = todayEntry.counter_timestamps['doors_knocked'];
       if (doorTs && Array.isArray(doorTs)) {
+        const repTz = todayEntry.timezone || 'America/Los_Angeles';
         const hasLateKnock = doorTs.some(ts => {
-          const hour = new Date(ts).getHours();
-          return hour >= 21;
+          try {
+            const hourStr = new Intl.DateTimeFormat('en-US', {
+              timeZone: repTz,
+              hour: 'numeric',
+              hour12: false,
+            }).format(new Date(ts));
+            return parseInt(hourStr, 10) >= 21;
+          } catch {
+            return false;
+          }
         });
         if (hasLateKnock) {
           await awardBadge(SPECIAL_SLUGS.NIGHT_OWL, date);
