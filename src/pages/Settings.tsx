@@ -195,10 +195,10 @@ export default function Settings() {
       
       if (seasonConfig) {
         if (seasonConfig.personal_summer_start) {
-          setSummerStart(new Date(seasonConfig.personal_summer_start));
+          setSummerStart(parseLocalDate(seasonConfig.personal_summer_start));
         }
         if (seasonConfig.personal_summer_end) {
-          setSummerEnd(new Date(seasonConfig.personal_summer_end));
+          setSummerEnd(parseLocalDate(seasonConfig.personal_summer_end));
         }
       }
       
