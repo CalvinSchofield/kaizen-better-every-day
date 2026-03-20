@@ -33,6 +33,23 @@ interface TeamAccessResponse {
 }
 
 export const useTeamAccess = () => {
+  // Load cached data for instant hydration
+  const getCachedData = (): TeamAccessResponse | undefined => {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('team-access-cache:v4:')) {
+          const cached = localStorage.getItem(key);
+          if (cached) {
+            const { data } = JSON.parse(cached);
+            return data as TeamAccessResponse;
+          }
+        }
+      }
+    } catch { /* ignore */ }
+    return undefined;
+  };
+
   const query = useQuery({
     queryKey: ['team-access'],
     queryFn: async () => {
@@ -63,9 +80,9 @@ export const useTeamAccess = () => {
       }
 
       try {
-        // Add timeout for mobile networks - 20 second timeout with Promise.race
+        // Add timeout for mobile networks - 12 second timeout (reduced from 20)
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Request timeout')), 20000);
+          setTimeout(() => reject(new Error('Request timeout')), 12000);
         });
 
         const fetchPromise = supabase.functions.invoke('fetch-team-access', {
@@ -107,10 +124,11 @@ export const useTeamAccess = () => {
         throw fetchError;
       }
     },
+    placeholderData: getCachedData(), // Instant hydration from localStorage
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     gcTime: 1000 * 60 * 30, // Keep in memory for 30 minutes
-    retry: 3, // Retry 3 times for mobile network flakiness
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000), // Exponential backoff
+    retry: 2, // Reduced from 3 to prevent long waits
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Cap at 5s instead of 8s
   });
 
   // Check if we SHOULD be a leader based on cached data (for recovery UI)
