@@ -216,6 +216,63 @@ export const useCustomerData = (
     },
   });
 
+  // Mutation to delete a sale entirely
+  const deleteSaleMutation = useMutation({
+    mutationFn: async ({ saleId, entryDate }: { saleId: string; entryDate: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: entry, error: fetchError } = await supabase
+        .from('daily_entries')
+        .select('sales_log')
+        .eq('user_id', user.id)
+        .eq('entry_date', entryDate)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const salesLog = (entry.sales_log as unknown as Sale[]) || [];
+      const updatedSalesLog = salesLog.filter(sale => sale.id !== saleId);
+
+      // Recalculate totals
+      const fundedSales = updatedSalesLog.filter(s =>
+        s.install_status !== 'cancelled' && s.install_status !== 'never_installed'
+      );
+      const fpSales = fundedSales.filter(s => s.type === 'fp');
+      const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
+
+      const fpCount = fpSales.length;
+      const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+      const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+      const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
+      const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
+
+      const { error: updateError } = await supabase
+        .from('daily_entries')
+        .update({
+          sales_log: updatedSalesLog as unknown as null,
+          closes: fundedSales.length,
+          fp_plus: Math.round(calculatedFpPlus * 100) / 100,
+          prmr: Math.round(totalPrmr * 100) / 100,
+          upgrade_prmr: Math.round(upgradePrmrTotal * 100) / 100,
+        })
+        .eq('user_id', user.id)
+        .eq('entry_date', entryDate);
+
+      if (updateError) throw updateError;
+
+      return { saleId };
+    },
+    onSuccess: () => {
+      clearSalesLocalStorageCaches();
+      invalidateAllSalesQueries(queryClient);
+      toast.success('Sale deleted');
+    },
+    onError: () => {
+      toast.error('Failed to delete sale');
+    },
+  });
+
   // Filter and search
   const filteredSales = useMemo(() => {
     let result = allSales;

@@ -104,7 +104,9 @@ const Customers = () => {
     updateSaleDetails(selectedSale.id, selectedSale.entry_date, updatedSale);
   };
 
-  const handleDeleteSale = (_saleId: string) => {
+  const handleDeleteSale = (saleId: string) => {
+    if (!selectedSale) return;
+    deleteSale(saleId, selectedSale.entry_date);
     setDetailSheetOpen(false);
   };
 
