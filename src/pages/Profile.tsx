@@ -262,7 +262,16 @@ const Profile = () => {
         <div className="grid grid-cols-3 divide-x divide-border">
           <StatCell label="YTD FP+" value={profile.ytdFpPlus.toFixed(1)} />
           <StatCell label="YTD PRMR" value={`$${Math.round(profile.ytdPrmr).toLocaleString()}`} />
-          <div className="flex flex-col items-center px-2 gap-1">
+          <button
+            className="flex flex-col items-center px-2 gap-1 w-full"
+            onClick={() => {
+              hapticLight();
+              setActiveTab("badges");
+              setTimeout(() => {
+                tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }, 100);
+            }}
+          >
             {topBadges.length > 0 ? (
               <>
                 <div className="flex gap-1">
@@ -280,7 +289,7 @@ const Profile = () => {
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">No Badges</span>
               </>
             )}
-          </div>
+          </button>
         </div>
       </motion.div>
 
