@@ -261,8 +261,23 @@ const Profile = () => {
           <StatCell label="YTD FP+" value={profile.ytdFpPlus.toFixed(1)} />
           <StatCell label="YTD PRMR" value={`$${Math.round(profile.ytdPrmr).toLocaleString()}`} />
           <div className="flex flex-col items-center px-2 gap-1">
-            <Award className="h-5 w-5 text-muted-foreground/50" />
-            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Coming Soon</span>
+            {topBadges.length > 0 ? (
+              <>
+                <div className="flex gap-1">
+                  {topBadges.map((b, i) => (
+                    <BadgeIcon key={i} emoji={b.iconEmoji} rarity={b.rarity} size="md" />
+                  ))}
+                </div>
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                  {earnedBadges?.length || 0} Badges
+                </span>
+              </>
+            ) : (
+              <>
+                <Award className="h-5 w-5 text-muted-foreground/50" />
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">No Badges</span>
+              </>
+            )}
           </div>
         </div>
       </motion.div>
