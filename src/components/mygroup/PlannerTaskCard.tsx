@@ -122,7 +122,7 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
     }
   };
 
-  const handleMarkComplete = async (type: 'phone_call' | 'in_person') => {
+  const handleMarkComplete = async (type: 'phone_call' | 'in_person' | 'text') => {
     try {
       await logActivityMutation.mutateAsync({
         recruitId: recruit.id,
@@ -130,6 +130,16 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
         notes: `Completed: ${activity.next_action || 'Follow up'}`,
         updateLastContact: true,
       });
+
+      // Resolve the scheduled activity so it doesn't stay overdue
+      await supabase
+        .from('recruit_activities')
+        .update({
+          assignment_status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', activity.id);
+
       toast.success('Marked complete');
       setCompleteOpen(false);
     } catch (error) {
@@ -224,6 +234,15 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
                   >
                     <Phone className="h-5 w-5" />
                     Call
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-14 gap-2"
+                    onClick={() => handleMarkComplete('text')}
+                    disabled={logActivityMutation.isPending}
+                  >
+                    <MessageSquare className="h-5 w-5" />
+                    Text
                   </Button>
                   <Button
                     variant="outline"

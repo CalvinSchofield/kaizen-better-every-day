@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Calendar, Trash2, Phone, Users, Pencil } from "lucide-react";
+import { Check, Calendar, Trash2, Phone, Users, Pencil, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { RecruitActivity } from "@/hooks/useGroupRecruits";
@@ -8,7 +8,7 @@ interface ScheduledActivityActionSheetProps {
   activity: RecruitActivity | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onMarkComplete: (activity: RecruitActivity, completedType: 'phone_call' | 'in_person') => void;
+  onMarkComplete: (activity: RecruitActivity, completedType: 'phone_call' | 'in_person' | 'text') => void;
   onEdit: (activity: RecruitActivity) => void;
   onReschedule: (activity: RecruitActivity) => void;
   onDelete: (activity: RecruitActivity) => void;
@@ -36,7 +36,7 @@ export const ScheduledActivityActionSheet = ({
     setShowTypeSelection(true);
   };
 
-  const handleTypeSelect = (type: 'phone_call' | 'in_person') => {
+  const handleTypeSelect = (type: 'phone_call' | 'in_person' | 'text') => {
     if (activity) {
       onMarkComplete(activity, type);
       setShowTypeSelection(false);
@@ -114,6 +114,18 @@ export const ScheduledActivityActionSheet = ({
                 </div>
               </Button>
               
+              <Button
+                variant="outline"
+                className="w-full justify-start h-14 text-left"
+                onClick={() => handleTypeSelect('text')}
+              >
+                <MessageSquare className="h-5 w-5 mr-3 text-blue-500" />
+                <div>
+                  <div className="font-medium">Text</div>
+                  <div className="text-xs text-muted-foreground">Completed via text</div>
+                </div>
+              </Button>
+
               <Button
                 variant="outline"
                 className="w-full justify-start h-14 text-left"
