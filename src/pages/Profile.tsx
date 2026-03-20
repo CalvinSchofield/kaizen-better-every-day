@@ -54,7 +54,9 @@ const Profile = () => {
   const { setCustomRightContent, setCustomLeftContent, setCustomTitle } = useHeader();
   const isOwnProfile = currentUserId === userId;
   const [hasScrolledPastName, setHasScrolledPastName] = useState(false);
+  const [activeTab, setActiveTab] = useState("stats");
   const nameRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const { isWatching, toggleWatchlist } = useWatchlist();
 
   const { data: profile, isLoading } = useRepProfile(userId || currentUserId || null);
