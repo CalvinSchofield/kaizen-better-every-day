@@ -146,11 +146,27 @@ Deno.serve(async (req) => {
           award(userId, "first_door_magic", date);
         }
 
-        // --- Night Owl ---
+        // --- Night Owl (timezone-aware: 9 PM in rep's LOCAL time) ---
         if (closes > 0 && entry.counter_timestamps) {
           const doorTs = entry.counter_timestamps["doors_knocked"];
           if (doorTs && Array.isArray(doorTs)) {
-            const hasLate = doorTs.some((ts: string) => new Date(ts).getHours() >= 21);
+            // Use entry timezone, then rep's profile timezone, then default PST
+            const tz = entry.timezone || userTimezones.get(userId) || "America/Los_Angeles";
+            const hasLate = doorTs.some((ts: string) => {
+              try {
+                const d = new Date(ts);
+                if (isNaN(d.getTime())) return false;
+                // Get the hour in the rep's local timezone
+                const hourStr = new Intl.DateTimeFormat("en-US", {
+                  timeZone: tz,
+                  hour: "numeric",
+                  hour12: false,
+                }).format(d);
+                return parseInt(hourStr, 10) >= 21;
+              } catch {
+                return false;
+              }
+            });
             if (hasLate) {
               award(userId, "night_owl", date);
             }
