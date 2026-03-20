@@ -49,7 +49,7 @@ const Customers = () => {
   // Add sale sheet state
   const [addSaleSheetOpen, setAddSaleSheetOpen] = useState(false);
 
-  const { sales, salesWithLocation, isLoading, totalCount, updateFunding, updateSaleDetails } = useCustomerData(
+  const { sales, salesWithLocation, isLoading, totalCount, updateFunding, updateSaleDetails, deleteSale } = useCustomerData(
     searchQuery, 
     filterType,
     sortBy

@@ -356,6 +356,10 @@ export const useCustomerData = (
     updateSaleDetailsMutation.mutate({ saleId, entryDate, updates });
   };
 
+  const deleteSale = (saleId: string, entryDate: string) => {
+    deleteSaleMutation.mutate({ saleId, entryDate });
+  };
+
   return {
     sales: filteredSales,
     salesWithLocation,
@@ -363,6 +367,7 @@ export const useCustomerData = (
     totalCount: allSales.length,
     updateFunding,
     updateSaleDetails,
+    deleteSale,
     isUpdatingFunding: updateFundingMutation.isPending,
     isUpdatingSaleDetails: updateSaleDetailsMutation.isPending,
   };
