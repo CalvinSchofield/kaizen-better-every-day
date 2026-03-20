@@ -54,7 +54,9 @@ const Profile = () => {
   const { setCustomRightContent, setCustomLeftContent, setCustomTitle } = useHeader();
   const isOwnProfile = currentUserId === userId;
   const [hasScrolledPastName, setHasScrolledPastName] = useState(false);
+  const [activeTab, setActiveTab] = useState("stats");
   const nameRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const { isWatching, toggleWatchlist } = useWatchlist();
 
   const { data: profile, isLoading } = useRepProfile(userId || currentUserId || null);
@@ -260,7 +262,16 @@ const Profile = () => {
         <div className="grid grid-cols-3 divide-x divide-border">
           <StatCell label="YTD FP+" value={profile.ytdFpPlus.toFixed(1)} />
           <StatCell label="YTD PRMR" value={`$${Math.round(profile.ytdPrmr).toLocaleString()}`} />
-          <div className="flex flex-col items-center px-2 gap-1">
+          <button
+            className="flex flex-col items-center px-2 gap-1 w-full"
+            onClick={() => {
+              hapticLight();
+              setActiveTab("badges");
+              setTimeout(() => {
+                tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }, 100);
+            }}
+          >
             {topBadges.length > 0 ? (
               <>
                 <div className="flex gap-1">
@@ -278,7 +289,7 @@ const Profile = () => {
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">No Badges</span>
               </>
             )}
-          </div>
+          </button>
         </div>
       </motion.div>
 
@@ -302,7 +313,7 @@ const Profile = () => {
         transition={{ duration: 0.35, delay: 0.2 }}
         className="px-5 pb-4"
       >
-        <Tabs defaultValue="stats" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" ref={tabsRef}>
           <TabsList className="w-full grid grid-cols-3 bg-muted/50">
             <TabsTrigger value="stats" className="text-xs font-semibold">Stats</TabsTrigger>
             <TabsTrigger value="records" className="text-xs font-semibold">Records</TabsTrigger>
