@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { getInitials } from "@/utils/nameUtils";
 import { useNavigate } from "react-router-dom";
+import { useLeaderboardBadges } from "@/hooks/useUserBadges";
+import { BadgeIcon } from "@/components/badges/BadgeIcon";
 import type { ExpandedRankings, RankedEntry } from "@/hooks/useExpandedLeaderboard";
 
 interface RankingEntryWithWorking extends RankedEntry {
