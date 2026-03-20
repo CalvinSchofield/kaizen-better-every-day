@@ -45,7 +45,9 @@ export interface IncentiveProgressData {
   timeRemaining: string;
 }
 
-const getMetricColumn = (metric: IncentiveMetric): string => {
+type IncentiveProgressMetricColumn = 'fp_plus' | 'prmr' | 'transitions' | 'doors_knocked';
+
+const getMetricColumn = (metric: IncentiveMetric): IncentiveProgressMetricColumn => {
   switch (metric) {
     case 'fp_plus': return 'fp_plus';
     case 'prmr': return 'prmr';
@@ -57,17 +59,18 @@ const getMetricColumn = (metric: IncentiveMetric): string => {
 
 export const useIncentiveProgress = (incentive: Incentive | null) => {
   const queryClient = useQueryClient();
+  const incentiveId = incentive?.id;
 
   // Set up realtime subscription for daily entries
   useEffect(() => {
-    if (!incentive) return;
+    if (!incentiveId) return;
 
-    const queryKey = ['incentive-progress', incentive.id] as const;
+    const queryKey = ['incentive-progress', incentiveId] as const;
     const refresh = () => {
       queryClient.invalidateQueries({ queryKey, refetchType: 'all' });
     };
 
-    const channelName = `incentive-progress-${incentive.id}-${Math.random().toString(36).slice(2)}`;
+    const channelName = `incentive-progress-${incentiveId}-${Math.random().toString(36).slice(2)}`;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let reconnectTimer: number | null = null;
     let isMounted = true;
@@ -140,7 +143,7 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
         supabase.removeChannel(channel);
       }
     };
-  }, [incentive?.id, queryClient]);
+  }, [incentiveId, queryClient]);
 
   return useQuery({
     queryKey: ['incentive-progress', incentive?.id],
@@ -183,7 +186,9 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
 
       entries?.forEach(entry => {
         let value = 0;
-        const salesLog = entry.sales_log as any[] | null;
+        const salesLog = Array.isArray(entry.sales_log)
+          ? (entry.sales_log as Record<string, unknown>[])
+          : null;
         const hasSalesLog = salesLog && salesLog.length > 0;
         
         if (incentive.metric === 'fp_plus') {
@@ -204,7 +209,7 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
           }
         } else {
           // transitions, doors_knocked - use column directly
-          value = (entry as any)[metricColumn] || 0;
+          value = Number(entry[metricColumn] ?? 0);
         }
         
         userProgress[entry.user_id] = (userProgress[entry.user_id] || 0) + value;
