@@ -138,6 +138,10 @@ export const PreWorkingState = ({
           <DailyMissionCard />
         </motion.div>
 
+        <motion.div variants={itemVariants}>
+          <PlanningNudgeCard />
+        </motion.div>
+
 
         <motion.div variants={itemVariants}>
           <SeasonGoalsPreview />
