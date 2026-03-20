@@ -90,7 +90,10 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
       // Get eligible user IDs
       const eligibleUserIds = incentive.eligible_reps?.map(r => r.user_id) || [];
       
-      if (eligibleUserIds.length === 0) return null;
+      if (eligibleUserIds.length === 0) {
+        console.warn('[IncentiveProgress] No eligible_reps found on incentive:', incentive.id, 'eligible_count:', incentive.eligible_count);
+        return null;
+      }
 
       // Get daily entries for the incentive date range
       const { data: entries, error } = await supabase
