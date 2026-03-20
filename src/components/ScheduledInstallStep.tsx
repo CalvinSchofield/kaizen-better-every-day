@@ -14,6 +14,7 @@ interface ScheduledInstallStepProps {
   onOpenChange: (open: boolean) => void;
   salesLog: Sale[];
   onConfirm: (updatedSales: Sale[]) => void;
+  isSaving?: boolean;
 }
 
 export const ScheduledInstallStep = ({
@@ -21,6 +22,7 @@ export const ScheduledInstallStep = ({
   onOpenChange,
   salesLog,
   onConfirm,
+  isSaving = false,
 }: ScheduledInstallStepProps) => {
   const [selectedSaleIds, setSelectedSaleIds] = useState<Set<string>>(new Set());
   const [scheduledDates, setScheduledDates] = useState<Record<string, Date>>({});
@@ -84,7 +86,7 @@ export const ScheduledInstallStep = ({
     });
 
     onConfirm(updatedSales);
-    onOpenChange(false);
+    // Don't close here - parent controls closing after save completes
   };
 
   const handleAllInstalled = () => {
@@ -95,7 +97,7 @@ export const ScheduledInstallStep = ({
       install_status: 'installed' as const,
     }));
     onConfirm(updatedSales);
-    onOpenChange(false);
+    // Don't close here - parent controls closing after save completes
   };
 
   return (
@@ -115,9 +117,16 @@ export const ScheduledInstallStep = ({
               variant="outline"
               className="flex-1 h-12 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-950/50"
               onClick={handleAllInstalled}
+              disabled={isSaving}
             >
-              <Check className="h-4 w-4 mr-2" />
-              All Installed Today
+              {isSaving ? (
+                <span className="animate-pulse">Saving...</span>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  All Installed Today
+                </>
+              )}
             </Button>
             <Button
               variant="outline"
@@ -241,11 +250,12 @@ export const ScheduledInstallStep = ({
                 className="w-full mt-4"
                 onClick={handleConfirm}
                 disabled={
-                  selectedSaleIds.size > 0 &&
-                  [...selectedSaleIds].some(id => !scheduledDates[id])
+                  isSaving ||
+                  (selectedSaleIds.size > 0 &&
+                  [...selectedSaleIds].some(id => !scheduledDates[id]))
                 }
               >
-                Confirm & Save
+                {isSaving ? 'Saving...' : 'Confirm & Save'}
               </Button>
             </div>
           ) : null}
