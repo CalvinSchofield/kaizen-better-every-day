@@ -10,6 +10,9 @@ import { ProfileSwiper } from "@/components/profile/ProfileSwiper";
 import { ProfileContactBar } from "@/components/profile/ProfileContactBar";
 import { ProfileSeasonHeatmap } from "@/components/profile/ProfileSeasonHeatmap";
 import { useHeader } from "@/contexts/HeaderContext";
+import { useUserBadges, useBadgeDefinitions, getTopBadges } from "@/hooks/useUserBadges";
+import { BadgeGrid } from "@/components/badges/BadgeGrid";
+import { BadgeIcon } from "@/components/badges/BadgeIcon";
 
 import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
