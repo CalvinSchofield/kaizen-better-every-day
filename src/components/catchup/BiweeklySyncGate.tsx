@@ -828,6 +828,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
             </Button>
           )}
         </div>
+      )}
         {step === 'intro' && onSkip && (
           <button
             onClick={onSkip}
@@ -836,7 +837,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
             Skip for now
           </button>
         )}
-      </div>
+    </div>
   );
 };
 
