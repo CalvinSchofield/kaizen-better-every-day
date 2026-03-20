@@ -86,7 +86,7 @@ export const ScheduledInstallStep = ({
     });
 
     onConfirm(updatedSales);
-    onOpenChange(false);
+    // Don't close here - parent controls closing after save completes
   };
 
   const handleAllInstalled = () => {
@@ -97,7 +97,7 @@ export const ScheduledInstallStep = ({
       install_status: 'installed' as const,
     }));
     onConfirm(updatedSales);
-    onOpenChange(false);
+    // Don't close here - parent controls closing after save completes
   };
 
   return (
