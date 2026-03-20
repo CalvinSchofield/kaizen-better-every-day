@@ -14,7 +14,10 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, entryId, fpPlus, prmr, entryDate } = await req.json();
+    const { userId, entryId, fpPlus: rawFpPlus, prmr, entryDate } = await req.json();
+    
+    // Round FP+ to 2 decimal places for display and storage
+    const fpPlus = Math.round((rawFpPlus || 0) * 100) / 100;
     
     console.log(`[check-personal-records] Checking records for user ${userId}: FP+=${fpPlus}, PRMR=${prmr}`);
 
@@ -32,7 +35,7 @@ serve(async (req) => {
     // Get rep info for the notification
     const { data: rep, error: repError } = await supabase
       .from('reps')
-      .select('name, email')
+      .select('name, email, year')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -42,6 +45,11 @@ serve(async (req) => {
     }
 
     const repName = rep.name;
+    
+    // Minimum threshold: must have at least 1 FP+ before a "personal best" counts
+    // This prevents the first small deal from triggering a celebration
+    const FP_MIN_THRESHOLD = 1;
+    
     console.log(`[check-personal-records] Checking records for ${repName}`);
 
     // Check existing records
@@ -63,8 +71,8 @@ serve(async (req) => {
     let oldFpValue = existingFpRecord?.value || 0;
     let oldPrmrValue = existingPrmrRecord?.value || 0;
 
-    // Check FP+ record (only if fpPlus > 0)
-    if (fpPlus > 0 && fpPlus > oldFpValue) {
+    // Check FP+ record (must meet minimum 1 FP+ threshold)
+    if (fpPlus >= FP_MIN_THRESHOLD && fpPlus > oldFpValue) {
       beatFp = true;
       console.log(`[check-personal-records] NEW FP+ RECORD: ${fpPlus} beats ${oldFpValue}`);
       
@@ -88,8 +96,8 @@ serve(async (req) => {
       }
     }
 
-    // Check PRMR record (only if prmr > 0)
-    if (prmr > 0 && prmr > oldPrmrValue) {
+    // Check PRMR record (only if prmr > 0 and FP threshold met — prevents noise from tiny deals)
+    if (prmr > 0 && prmr > oldPrmrValue && fpPlus >= FP_MIN_THRESHOLD) {
       beatPrmr = true;
       console.log(`[check-personal-records] NEW PRMR RECORD: ${prmr} beats ${oldPrmrValue}`);
       
