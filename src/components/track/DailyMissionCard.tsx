@@ -27,6 +27,8 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
   const { comparisonData: weeklyData } = useWeeklyComparison();
 
   const isRookie = repData?.year === 'Rookie';
+  const dailyFpGoalForTargets = data.hasGoals ? Math.round(data.dailyNeeded * 10) / 10 : 1;
+  const smartGoals = useSmartActivityGoals({ dailyFpGoal: dailyFpGoalForTargets, isRookie });
 
   // Historical comparison setup
   const now = useMemo(() => new Date(), []);
