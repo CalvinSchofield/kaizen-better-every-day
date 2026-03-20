@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Phone, MessageSquare, CalendarDays, CheckCircle2, Users, Clock, UserCircle } from "lucide-react";
+import { Phone, MessageSquare, CalendarDays, CheckCircle2, Users, Clock, UserCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
@@ -130,6 +130,16 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
         notes: `Completed: ${activity.next_action || 'Follow up'}`,
         updateLastContact: true,
       });
+
+      // Resolve the scheduled activity so it doesn't stay overdue
+      await supabase
+        .from('recruit_activities')
+        .update({
+          assignment_status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', activity.id);
+
       toast.success('Marked complete');
       setCompleteOpen(false);
     } catch (error) {
