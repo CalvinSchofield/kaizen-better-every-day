@@ -34,11 +34,15 @@ const metricLabels: Record<IncentiveMetric, string> = {
   doors_knocked: 'Doors',
 };
 
-export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: IncentiveDetailSheetProps) => {
+export const IncentiveDetailSheet = ({ incentive: initialIncentive, open, onOpenChange }: IncentiveDetailSheetProps) => {
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [showWinners, setShowWinners] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const cancelMutation = useCancelIncentive();
+  
+  // Fetch live data so edits reflect immediately
+  const { data: liveIncentive } = useIncentiveById(open ? initialIncentive.id : null);
+  const incentive = liveIncentive || initialIncentive;
   
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
