@@ -603,6 +603,26 @@ export function useGoalPaceCalculator(): GoalPaceData {
   const isPreseason = !isUserSummerStarted;
   const conversionFactor = efpModeEnabled ? (goals?.avg_prmr_per_fp || 85) / 85 : 1;
 
+  // Official totals from Vivint sync — reconciles app-tracked data with reality
+  const seasonType = isPreseason ? 'preseason' : 'summer';
+  const seasonStartStr = isPreseason ? '2025-09-28' : (personalSummerStart || '2026-04-12');
+  const { data: officialTotalsData } = useQuery({
+    queryKey: ['official-totals-pace', userId, seasonType],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data } = await supabase
+        .from('official_totals')
+        .select('fp_plus, prmr, knocking_days, last_verified_at')
+        .eq('user_id', userId)
+        .eq('season_year', 2025)
+        .eq('season_type', seasonType)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Calculate today's FP (finalized vs live)
   const { todayFP, todayLiveFP } = useMemo(() => {
     if (!todayEntry) return { todayFP: 0, todayLiveFP: 0 };
@@ -630,6 +650,38 @@ export function useGoalPaceCalculator(): GoalPaceData {
     
     return { todayFP: 0, todayLiveFP: liveFP };
   }, [todayEntry, efpModeEnabled]);
+
+  // Reconcile current progress: if official_totals exist (Vivint sync),
+  // use officialFP + tracked since verification. Otherwise use raw tracked total.
+  const currentProgress = useMemo(() => {
+    if (!officialTotalsData?.last_verified_at) return rawProgress;
+
+    const officialFp = officialTotalsData.fp_plus || 0;
+    const lastVerifiedDate = new Date(officialTotalsData.last_verified_at).toISOString().split('T')[0];
+
+    // Sum FP from entries tracked AFTER the verification date
+    let trackedSince = 0;
+    for (const entry of allEntries || []) {
+      if (entry.entry_date <= lastVerifiedDate) continue;
+      if (entry.entry_date < seasonStartStr) continue;
+      const salesLog = entry.sales_log as any[] | null;
+      if (Array.isArray(salesLog) && salesLog.length > 0) {
+        for (const sale of salesLog) {
+          if (sale.install_status === 'never_installed' || sale.install_status === 'pending') continue;
+          if (efpModeEnabled) {
+            trackedSince += (Number(sale.prmr) || 0) / 85;
+          } else {
+            if (sale.type === 'fp') trackedSince += 1;
+            else if (sale.type === 'upgrade') trackedSince += (Number(sale.prmr) || 0) / 85;
+          }
+        }
+      } else if (entry.is_finalized) {
+        trackedSince += efpModeEnabled ? (Number(entry.prmr) || 0) / 85 : (Number(entry.fp_plus) || 0);
+      }
+    }
+
+    return officialFp + trackedSince;
+  }, [officialTotalsData, rawProgress, allEntries, efpModeEnabled, seasonStartStr]);
 
   const isLoading = goalsLoading || fpLoading || plannedLoading || tierLoading;
 
