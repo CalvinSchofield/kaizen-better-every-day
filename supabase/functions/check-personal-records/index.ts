@@ -96,8 +96,8 @@ serve(async (req) => {
       }
     }
 
-    // Check PRMR record (only if prmr > 0)
-    if (prmr > 0 && prmr > oldPrmrValue) {
+    // Check PRMR record (only if prmr > 0 and FP threshold met — prevents noise from tiny deals)
+    if (prmr > 0 && prmr > oldPrmrValue && fpPlus >= FP_MIN_THRESHOLD) {
       beatPrmr = true;
       console.log(`[check-personal-records] NEW PRMR RECORD: ${prmr} beats ${oldPrmrValue}`);
       
