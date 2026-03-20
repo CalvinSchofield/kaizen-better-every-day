@@ -4,7 +4,7 @@ import { useEfpMode } from './useEfpMode';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useRepData } from './useRepData';
-import { parseISO } from 'date-fns';
+import { parseLocalDate } from '@/utils/dateUtils';
 
 export type FocusTier = 'mustDo' | 'willDo' | 'couldDo';
 
