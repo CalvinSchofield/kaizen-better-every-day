@@ -87,7 +87,7 @@ export const usePersonalBenchmarks = ({
       // Calculate week in summer
       let weekInSummer = 0;
       if (personalSummerStart) {
-        const summerStart = parseISO(personalSummerStart);
+        const summerStart = parseLocalDate(personalSummerStart);
         if (!isBefore(today, summerStart)) {
           weekInSummer = Math.max(1, differenceInWeeks(today, summerStart) + 1);
         }
