@@ -27,7 +27,7 @@ export const ResetConfirmSheet = ({
 }: ResetConfirmSheetProps) => {
   const handleConfirm = () => {
     onConfirm();
-    onOpenChange(false);
+    // Don't close here — let the parent close after mutation succeeds
   };
 
   const hasSales = entrySummary && entrySummary.salesCount > 0;

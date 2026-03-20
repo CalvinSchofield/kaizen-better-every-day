@@ -1628,7 +1628,35 @@ const TrackWithLayout = () => {
       <ResetConfirmSheet
         open={isResetSheetOpen}
         onOpenChange={setIsResetSheetOpen}
-        onConfirm={resetEntry}
+        onConfirm={() => {
+          resetEntry(undefined, {
+            onSuccess: () => {
+              // Clear local ref so counters show 0 immediately
+              latestEntryRef.current = {
+                ...latestEntryRef.current,
+                doors_knocked: 0,
+                decision_makers: 0,
+                pitches: 0,
+                transitions: 0,
+                presentations: 0,
+                closes: 0,
+                fp_plus: 0,
+                prmr: 0,
+                sales_log: [],
+                work_start_time: null,
+                work_end_time: null,
+                break_periods: [],
+                counter_timestamps: {},
+                custom_counters: {},
+                is_finalized: false,
+              };
+              setIsResetSheetOpen(false);
+            },
+            onError: () => {
+              setIsResetSheetOpen(false);
+            },
+          });
+        }}
         isResetting={isResetting}
         entrySummary={{
           doors: entry.doors_knocked || 0,
