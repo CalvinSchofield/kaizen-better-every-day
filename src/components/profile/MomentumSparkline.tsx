@@ -59,7 +59,22 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile }: MomentumSparklinePr
     };
   }, [dailyFp, mode]);
 
-  if (!dailyFp || dailyFp.length < 2 || data.length === 0) return null;
+  if (!dailyFp || dailyFp.length < 2 || data.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.15 }}
+        className="mx-4 mb-4 rounded-2xl bg-card border border-border p-6 flex flex-col items-center justify-center text-center min-h-[200px]"
+      >
+        <Flame className="h-8 w-8 text-muted-foreground/30 mb-3" />
+        <p className="text-sm font-medium text-muted-foreground">No sales data yet</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">
+          Production momentum will appear here once they start logging days.
+        </p>
+      </motion.div>
+    );
+  }
 
   const displayData = isOwnProfile ? data : data.slice(-20);
 
