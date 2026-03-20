@@ -104,6 +104,22 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch official totals (Vivint sync data) for this user
+  const { data: officialTotalsData } = useQuery({
+    queryKey: ['downline-official-totals-pace', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data } = await supabase
+        .from('official_totals')
+        .select('fp_plus, prmr, knocking_days, last_verified_at, season_type')
+        .eq('user_id', userId)
+        .eq('season_year', 2025);
+      return data || [];
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const today = getLocalToday();
   const todayStr = format(today, 'yyyy-MM-dd');
 
@@ -120,6 +136,13 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
   const focusTier: FocusTier = 
     focusTierRaw === 'mustDo' || focusTierRaw === 'must_do' ? 'mustDo' :
     focusTierRaw === 'couldDo' || focusTierRaw === 'could_do' ? 'couldDo' : 'willDo';
+
+  // Season start for reconciliation
+  const seasonType = isPreseason ? 'preseason' : 'summer';
+  const seasonStartStr = isPreseason ? SEASON_START : (personalSummerStart || '2026-04-12');
+
+  // Get official totals for the current season type
+  const officialForSeason = officialTotalsData?.find(t => t.season_type === seasonType) || null;
 
   // Calculate current progress and knocking days from entries
   const { currentProgress, knockingDays, todayFP, todayLiveFP } = useMemo(() => {
@@ -165,8 +188,32 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
       }
     }
 
-    return { currentProgress: ytdFP, knockingDays: kd, todayFP: dayFP, todayLiveFP: dayLiveFP };
-  }, [allEntries, todayStr]);
+    // Reconcile with official totals (Vivint sync) if available
+    let effectiveProgress = ytdFP;
+    if (officialForSeason?.last_verified_at) {
+      const officialFp = officialForSeason.fp_plus || 0;
+      const lastVerifiedDate = new Date(officialForSeason.last_verified_at).toISOString().split('T')[0];
+      
+      let trackedSince = 0;
+      for (const entry of allEntries) {
+        if (entry.entry_date <= lastVerifiedDate) continue;
+        if (entry.entry_date < seasonStartStr) continue;
+        const sl = entry.sales_log as any[] | null;
+        if (Array.isArray(sl) && sl.length > 0) {
+          for (const sale of sl) {
+            if (sale.install_status === 'never_installed' || sale.install_status === 'pending') continue;
+            if (sale.type === 'fp') trackedSince += 1;
+            else if (sale.type === 'upgrade') trackedSince += (Number(sale.prmr) || 0) / 85;
+          }
+        } else if (entry.is_finalized) {
+          trackedSince += Number(entry.fp_plus) || 0;
+        }
+      }
+      effectiveProgress = officialFp + trackedSince;
+    }
+
+    return { currentProgress: effectiveProgress, knockingDays: kd, todayFP: dayFP, todayLiveFP: dayLiveFP };
+  }, [allEntries, todayStr, officialForSeason, seasonStartStr]);
 
   const isLoading = goalsLoading || entriesLoading || plannedLoading;
 
