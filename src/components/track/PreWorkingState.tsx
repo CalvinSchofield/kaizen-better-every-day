@@ -6,6 +6,7 @@ import { DailyMissionCard } from "./DailyMissionCard";
 import { SeasonGoalsPreview } from "./SeasonGoalsPreview";
 import { CompetitionsPreview } from "./CompetitionsPreview";
 import { WatchlistPulseCard } from "./WatchlistPulseCard";
+import { SmartTargetsCard } from "./SmartTargetsCard";
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 
