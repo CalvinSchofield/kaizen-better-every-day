@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, CalendarDays, Sparkles, Pointer, Undo2, Lock, Plane, MapPin, Loader2, CalendarIcon, Check } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
@@ -65,7 +66,20 @@ export const CalendarView = ({
   const [internalViewMode, setInternalViewMode] = useState<"month" | "week">("week");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [planningMode, setPlanningMode] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [planningMode, setPlanningMode] = useState(() => searchParams.get('planning') === 'true');
+
+  // Clear the query param after reading it so it doesn't persist on refresh
+  useEffect(() => {
+    if (searchParams.get('planning') === 'true') {
+      setPlanningMode(true);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('planning');
+        return next;
+      }, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [confirmCommitBlitz, setConfirmCommitBlitz] = useState<any>(null);
   const [confirmUncommitBlitz, setConfirmUncommitBlitz] = useState<any>(null);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);

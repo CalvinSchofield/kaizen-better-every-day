@@ -3,6 +3,7 @@ import { motion, Easing } from "framer-motion";
 import { Rocket, Sun, Moon, CloudSun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DailyMissionCard } from "./DailyMissionCard";
+import { PlanningNudgeCard } from "./PlanningNudgeCard";
 import { SeasonGoalsPreview } from "./SeasonGoalsPreview";
 import { CompetitionsPreview } from "./CompetitionsPreview";
 import { WatchlistPulseCard } from "./WatchlistPulseCard";
@@ -136,6 +137,10 @@ export const PreWorkingState = ({
 
         <motion.div variants={itemVariants}>
           <DailyMissionCard />
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <PlanningNudgeCard />
         </motion.div>
 
 
