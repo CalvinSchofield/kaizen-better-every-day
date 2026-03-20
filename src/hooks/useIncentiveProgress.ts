@@ -45,7 +45,9 @@ export interface IncentiveProgressData {
   timeRemaining: string;
 }
 
-const getMetricColumn = (metric: IncentiveMetric): string => {
+type IncentiveProgressMetricColumn = 'fp_plus' | 'prmr' | 'transitions' | 'doors_knocked';
+
+const getMetricColumn = (metric: IncentiveMetric): IncentiveProgressMetricColumn => {
   switch (metric) {
     case 'fp_plus': return 'fp_plus';
     case 'prmr': return 'prmr';
@@ -57,30 +59,91 @@ const getMetricColumn = (metric: IncentiveMetric): string => {
 
 export const useIncentiveProgress = (incentive: Incentive | null) => {
   const queryClient = useQueryClient();
+  const incentiveId = incentive?.id;
 
   // Set up realtime subscription for daily entries
   useEffect(() => {
-    if (!incentive) return;
+    if (!incentiveId) return;
 
-    const channel = supabase
-      .channel(`incentive-progress-${incentive.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'daily_entries',
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['incentive-progress', incentive.id] });
-        }
-      )
-      .subscribe();
+    const queryKey = ['incentive-progress', incentiveId] as const;
+    const refresh = () => {
+      queryClient.invalidateQueries({ queryKey, refetchType: 'all' });
+    };
+
+    const channelName = `incentive-progress-${incentiveId}-${Math.random().toString(36).slice(2)}`;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let reconnectTimer: number | null = null;
+    let isMounted = true;
+
+    const clearReconnectTimer = () => {
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    };
+
+    const subscribe = () => {
+      if (!isMounted) return;
+
+      channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'daily_entries',
+          },
+          refresh
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            clearReconnectTimer();
+            refresh();
+            return;
+          }
+
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            if (channel) {
+              supabase.removeChannel(channel);
+              channel = null;
+            }
+
+            clearReconnectTimer();
+            reconnectTimer = window.setTimeout(() => {
+              subscribe();
+            }, 1500);
+          }
+        });
+    };
+
+    subscribe();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refresh();
+      }
+    };
+    const handleOnline = () => refresh();
+    const handleFocus = () => refresh();
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('pageshow', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      supabase.removeChannel(channel);
+      isMounted = false;
+      clearReconnectTimer();
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('pageshow', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
-  }, [incentive?.id, queryClient]);
+  }, [incentiveId, queryClient]);
 
   return useQuery({
     queryKey: ['incentive-progress', incentive?.id],
@@ -123,7 +186,9 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
 
       entries?.forEach(entry => {
         let value = 0;
-        const salesLog = entry.sales_log as any[] | null;
+        const salesLog = Array.isArray(entry.sales_log)
+          ? (entry.sales_log as Record<string, unknown>[])
+          : null;
         const hasSalesLog = salesLog && salesLog.length > 0;
         
         if (incentive.metric === 'fp_plus') {
@@ -144,7 +209,7 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
           }
         } else {
           // transitions, doors_knocked - use column directly
-          value = (entry as any)[metricColumn] || 0;
+          value = Number(entry[metricColumn] ?? 0);
         }
         
         userProgress[entry.user_id] = (userProgress[entry.user_id] || 0) + value;
@@ -223,6 +288,12 @@ export const useIncentiveProgress = (incentive: Incentive | null) => {
       incentive.status === 'active' || 
       (incentive.status === 'completed' && isIncentiveStillVisible(incentive, incentive.eligible_reps?.map(r => r.timezone) || []))
     ),
-    staleTime: 30 * 1000, // 30 seconds - ensures quick refresh after mutations
+    staleTime: 0,
+    refetchInterval: incentive?.status === 'active' ? 10 * 1000 : false,
+    refetchIntervalInBackground: true,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
+    refetchOnReconnect: 'always',
+    retry: 1,
   });
 };
