@@ -109,6 +109,55 @@ export interface CreateIncentiveInput {
   eligible_user_ids: string[];
 }
 
+export const useIncentiveById = (id: string | null) => {
+  return useQuery({
+    queryKey: ['incentive', id],
+    queryFn: async (): Promise<Incentive | null> => {
+      if (!id) return null;
+
+      const { data: incentive, error } = await supabase
+        .from('incentives')
+        .select(`
+          *,
+          incentive_eligible_reps (
+            id,
+            user_id,
+            final_value
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      if (!incentive) return null;
+
+      const userIds = new Set<string>();
+      userIds.add(incentive.created_by);
+      incentive.incentive_eligible_reps?.forEach((r: any) => userIds.add(r.user_id));
+
+      const { data: reps } = await supabase
+        .from('reps')
+        .select('user_id, name, profile_photo_url')
+        .in('user_id', Array.from(userIds));
+
+      const repMap = new Map(reps?.map(r => [r.user_id, r]) || []);
+
+      return {
+        ...incentive,
+        creator_name: repMap.get(incentive.created_by)?.name || 'Unknown',
+        eligible_count: incentive.incentive_eligible_reps?.length || 0,
+        eligible_reps: incentive.incentive_eligible_reps?.map((r: any) => ({
+          ...r,
+          rep_name: repMap.get(r.user_id)?.name || 'Unknown',
+          profile_photo_url: repMap.get(r.user_id)?.profile_photo_url,
+        })),
+      } as Incentive;
+    },
+    enabled: !!id,
+    staleTime: 30 * 1000,
+  });
+};
+
 export const useIncentives = (filter: 'active' | 'history' = 'active') => {
   return useQuery({
     queryKey: ['incentives', filter],
@@ -428,9 +477,10 @@ export const useUpdateIncentive = () => {
 
       return { id: input.id };
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['incentives'] });
       queryClient.invalidateQueries({ queryKey: ['my-active-incentives'] });
+      queryClient.invalidateQueries({ queryKey: ['incentive', variables.id] });
     },
   });
 };
@@ -474,9 +524,10 @@ export const useCancelIncentive = () => {
 
       return { id: incentiveId };
     },
-    onSuccess: () => {
+    onSuccess: (_data, incentiveId) => {
       queryClient.invalidateQueries({ queryKey: ['incentives'] });
       queryClient.invalidateQueries({ queryKey: ['my-active-incentives'] });
+      queryClient.invalidateQueries({ queryKey: ['incentive', incentiveId] });
     },
   });
 };

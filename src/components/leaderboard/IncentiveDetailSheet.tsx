@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Trophy, Users, Target, Clock, Eye, EyeOff, Pencil, XCircle, Loader2, CheckCircle2, Circle, ChevronDown, Crown, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Incentive, IncentiveMetric, useCancelIncentive } from "@/hooks/useIncentives";
+import { Incentive, IncentiveMetric, useCancelIncentive, useIncentiveById } from "@/hooks/useIncentives";
 import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { useIncentiveRecap } from "@/hooks/useIncentiveRecap";
 import { IncentiveRaceTimeline } from "@/components/competitions/IncentiveRaceTimeline";
@@ -34,11 +34,15 @@ const metricLabels: Record<IncentiveMetric, string> = {
   doors_knocked: 'Doors',
 };
 
-export const IncentiveDetailSheet = ({ incentive, open, onOpenChange }: IncentiveDetailSheetProps) => {
+export const IncentiveDetailSheet = ({ incentive: initialIncentive, open, onOpenChange }: IncentiveDetailSheetProps) => {
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [showWinners, setShowWinners] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const cancelMutation = useCancelIncentive();
+  
+  // Fetch live data so edits reflect immediately
+  const { data: liveIncentive } = useIncentiveById(open ? initialIncentive.id : null);
+  const incentive = liveIncentive || initialIncentive;
   
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
