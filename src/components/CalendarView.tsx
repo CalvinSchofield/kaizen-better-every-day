@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, CalendarDays, Sparkles, Pointer, Undo2, Lock, Plane, MapPin, Loader2, CalendarIcon, Check } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
+import { parseLocalDate } from '@/utils/dateUtils';
 import { CalendarDayDrawer } from "@/components/CalendarDayDrawer";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useQueryClient } from "@tanstack/react-query";
@@ -927,20 +928,20 @@ export const CalendarView = ({
                                   className="text-sm font-semibold text-foreground bg-background/60 border border-border rounded-xl px-3 py-1.5 active:scale-[0.97] transition-transform"
                                   onClick={() => hapticLight()}
                                 >
-                                  {editSummerStart ? format(parseISO(editSummerStart), 'MMM d') : 'Set'}
+                                  {editSummerStart ? format(parseLocalDate(editSummerStart), 'MMM d') : 'Set'}
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent className="w-auto p-0" align="end">
                                 <Calendar
                                   mode="single"
-                                  selected={editSummerStart ? parseISO(editSummerStart) : undefined}
+                                  selected={editSummerStart ? parseLocalDate(editSummerStart) : undefined}
                                   onSelect={(date) => {
                                     if (date) {
                                       setEditSummerStart(format(date, 'yyyy-MM-dd'));
                                       setStartPopoverOpen(false);
                                     }
                                   }}
-                                  defaultMonth={editSummerStart ? parseISO(editSummerStart) : new Date(2026, 3)}
+                                  defaultMonth={editSummerStart ? parseLocalDate(editSummerStart) : new Date(2026, 3)}
                                 />
                               </PopoverContent>
                             </Popover>
@@ -965,20 +966,20 @@ export const CalendarView = ({
                                 className="text-sm font-semibold text-foreground bg-background/60 border border-border rounded-xl px-3 py-1.5 active:scale-[0.97] transition-transform"
                                 onClick={() => hapticLight()}
                               >
-                                {editSummerEnd ? format(parseISO(editSummerEnd), 'MMM d') : 'Set'}
+                                {editSummerEnd ? format(parseLocalDate(editSummerEnd), 'MMM d') : 'Set'}
                               </button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="end">
                               <Calendar
                                 mode="single"
-                                selected={editSummerEnd ? parseISO(editSummerEnd) : undefined}
+                                selected={editSummerEnd ? parseLocalDate(editSummerEnd) : undefined}
                                 onSelect={(date) => {
                                   if (date) {
                                     setEditSummerEnd(format(date, 'yyyy-MM-dd'));
                                     setEndPopoverOpen(false);
                                   }
                                 }}
-                                defaultMonth={editSummerEnd ? parseISO(editSummerEnd) : new Date(2026, 8)}
+                                defaultMonth={editSummerEnd ? parseLocalDate(editSummerEnd) : new Date(2026, 8)}
                               />
                             </PopoverContent>
                           </Popover>

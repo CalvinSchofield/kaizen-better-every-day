@@ -5,6 +5,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { parseLocalDate } from "@/utils/dateUtils";
 import { Calendar as CalendarIcon, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -83,10 +84,10 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
 
   // Parse personal summer dates from season config
   const personalSummerStart = seasonConfig?.personal_summer_start 
-    ? new Date(seasonConfig.personal_summer_start) 
+    ? parseLocalDate(seasonConfig.personal_summer_start) 
     : undefined;
   const personalSummerEnd = seasonConfig?.personal_summer_end 
-    ? new Date(seasonConfig.personal_summer_end) 
+    ? parseLocalDate(seasonConfig.personal_summer_end) 
     : undefined;
 
   // Check if user is a pre-blitz rookie - use centralized hook

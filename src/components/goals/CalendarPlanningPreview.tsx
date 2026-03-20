@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, parseISO, isBefore, eachDayOfInterval, getDay, isAfter } from 'date-fns';
+import { parseLocalDate } from '@/utils/dateUtils';
 
 const PRESEASON_END = '2026-04-11';
 const GLOBAL_SUMMER_START = '2026-04-12';
@@ -66,7 +67,7 @@ export const CalendarPlanningPreview = ({
 
   // Historical 2025 summer daily average for severity calibration during preseason
   const personalSummerStart = seasonConfig?.personal_summer_start || GLOBAL_SUMMER_START;
-  const isSummerStarted = !isBefore(new Date(), parseISO(personalSummerStart));
+  const isSummerStarted = !isBefore(new Date(), parseLocalDate(personalSummerStart));
 
   const { data: historicalSummerAvg = 0 } = useQuery({
     queryKey: ['historical-summer-avg', userId],
@@ -138,14 +139,14 @@ export const CalendarPlanningPreview = ({
   // Compute stats with preseason vs summer split
   const stats = useMemo(() => {
     const today = new Date();
-    const preseasonEnd = parseISO(PRESEASON_END);
-    const summerStart = parseISO(personalSummerStart);
+    const preseasonEnd = parseLocalDate(PRESEASON_END);
+    const summerStart = parseLocalDate(personalSummerStart);
     const excluded = seasonConfig?.excluded_summer_days || [];
 
     const isPreseasonTier = activeTier === 'preseason';
 
-    const preseasonPlanned = plannedDays?.filter(d => !isAfter(parseISO(d.planned_date), preseasonEnd)).length || 0;
-    const summerPlanned = plannedDays?.filter(d => !isBefore(parseISO(d.planned_date), summerStart) && !excluded.includes(d.planned_date)).length || 0;
+    const preseasonPlanned = plannedDays?.filter(d => !isAfter(parseLocalDate(d.planned_date), preseasonEnd)).length || 0;
+    const summerPlanned = plannedDays?.filter(d => !isBefore(parseLocalDate(d.planned_date), summerStart) && !excluded.includes(d.planned_date)).length || 0;
     const totalPlanned = isPreseasonTier ? preseasonPlanned : summerPlanned;
 
     const activeGoal = isPreseasonTier

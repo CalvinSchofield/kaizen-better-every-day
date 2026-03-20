@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { parseISO, differenceInWeeks, format, isAfter, isBefore, getDay } from "date-fns";
+import { differenceInWeeks, format, isAfter, isBefore, getDay } from "date-fns";
+import { parseLocalDate } from "@/utils/dateUtils";
 
 const PRESEASON_START = '2025-09-28';
 const PRESEASON_END = '2026-04-11';
@@ -86,7 +87,7 @@ export const usePersonalBenchmarks = ({
       // Calculate week in summer
       let weekInSummer = 0;
       if (personalSummerStart) {
-        const summerStart = parseISO(personalSummerStart);
+        const summerStart = parseLocalDate(personalSummerStart);
         if (!isBefore(today, summerStart)) {
           weekInSummer = Math.max(1, differenceInWeeks(today, summerStart) + 1);
         }
@@ -147,8 +148,8 @@ function calculateAvailableDays(
   personalSummerEnd: string | null | undefined,
   _userId: string
 ): { canAddMoreDays: boolean; availableDaysToAdd: number } {
-  const today = parseISO(todayStr);
-  const globalEnd = parseISO(GLOBAL_SUMMER_END);
+  const today = parseLocalDate(todayStr);
+  const globalEnd = parseLocalDate(GLOBAL_SUMMER_END);
   
   // If we're past the global summer end, no days can be added
   if (isAfter(today, globalEnd)) {
@@ -172,12 +173,12 @@ function calculateAvailableDays(
   };
 
   // Check preseason availability
-  const preseasonEnd = parseISO(PRESEASON_END);
+  const preseasonEnd = parseLocalDate(PRESEASON_END);
   if (isBefore(today, preseasonEnd) || today.toISOString().split('T')[0] === PRESEASON_END) {
     const startDate = today;
     const endDate = personalSummerStart 
-      ? parseISO(personalSummerStart) < preseasonEnd 
-        ? parseISO(personalSummerStart) 
+      ? parseLocalDate(personalSummerStart) < preseasonEnd 
+        ? parseLocalDate(personalSummerStart) 
         : preseasonEnd
       : preseasonEnd;
     
@@ -188,8 +189,8 @@ function calculateAvailableDays(
 
   // Check summer availability
   if (personalSummerStart && personalSummerEnd) {
-    const summerStart = parseISO(personalSummerStart);
-    const summerEnd = parseISO(personalSummerEnd);
+    const summerStart = parseLocalDate(personalSummerStart);
+    const summerEnd = parseLocalDate(personalSummerEnd);
     const effectiveEnd = isBefore(summerEnd, globalEnd) ? summerEnd : globalEnd;
     
     if (!isAfter(today, effectiveEnd)) {

@@ -11,6 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, ChevronRight, Bell, Percent, ClipboardList, RotateCcw, BarChart3, Save, Sparkles } from "lucide-react";
 import { format } from "date-fns";
+import { parseLocalDate } from "@/utils/dateUtils";
 import { useRepData } from "@/hooks/useRepData";
 import { useUnifiedPushNotifications } from "@/hooks/useUnifiedPushNotifications";
 import { useRepGoals } from "@/hooks/useRepGoals";
@@ -194,10 +195,10 @@ export default function Settings() {
       
       if (seasonConfig) {
         if (seasonConfig.personal_summer_start) {
-          setSummerStart(new Date(seasonConfig.personal_summer_start));
+          setSummerStart(parseLocalDate(seasonConfig.personal_summer_start));
         }
         if (seasonConfig.personal_summer_end) {
-          setSummerEnd(new Date(seasonConfig.personal_summer_end));
+          setSummerEnd(parseLocalDate(seasonConfig.personal_summer_end));
         }
       }
       

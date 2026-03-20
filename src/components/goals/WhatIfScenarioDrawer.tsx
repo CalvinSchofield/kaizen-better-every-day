@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { TrendingUp, TrendingDown, Minus, CalendarPlus, CalendarMinus } from 'lucide-react';
-import { parseISO, isBefore, isAfter, eachDayOfInterval, getDay } from 'date-fns';
+import { isBefore, isAfter, eachDayOfInterval, getDay } from 'date-fns';
+import { parseLocalDate } from '@/utils/dateUtils';
 import { Slider } from '@/components/ui/slider';
 import { GOAL_TIER_CONFIG } from '@/config/goalTiers';
 
@@ -88,8 +89,8 @@ function getSeverity(dailyNeeded: number, userDailyAvg: number): 'green' | 'ambe
 
 // Calculate work days (Mon-Sat) in a date range
 function getWorkDaysInRange(startDate: string, endDate: string): number {
-  const start = parseISO(startDate);
-  const end = parseISO(endDate);
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
   if (isAfter(start, end)) return 0;
   const days = eachDayOfInterval({ start, end });
   return days.filter(d => getDay(d) !== 0).length; // Exclude Sundays
@@ -141,11 +142,11 @@ export const WhatIfScenarioDrawer = ({
   const effectiveSummerEnd = personalSummerEnd || GLOBAL_SUMMER_END;
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
-  const isSummerStarted = !isBefore(today, parseISO(effectiveSummerStart));
+  const isSummerStarted = !isBefore(today, parseLocalDate(effectiveSummerStart));
 
   // Calculate summer day stats
   const summerDayStats = useMemo(() => {
-    const summerStart = parseISO(effectiveSummerStart);
+    const summerStart = parseLocalDate(effectiveSummerStart);
 
     // For summer mode, count remaining days from today; for preseason, count all summer days
     const rangeStart = isSummerStarted ? todayStr : effectiveSummerStart;
@@ -154,7 +155,7 @@ export const WhatIfScenarioDrawer = ({
     // Current planned summer days from calendar (future only if summer started)
     // Defensively exclude any days in excludedSummerDays that may still exist in planned_days
     const currentPlanned = plannedDays?.filter(d => {
-      const date = parseISO(d.planned_date);
+      const date = parseLocalDate(d.planned_date);
       if (excludedSummerDays.includes(d.planned_date)) return false;
       if (isSummerStarted) {
         return !isBefore(date, today) && !isBefore(date, summerStart);

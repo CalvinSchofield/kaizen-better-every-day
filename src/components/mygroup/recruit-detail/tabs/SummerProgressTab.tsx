@@ -3,6 +3,7 @@ import { TrendingUp, TrendingDown, Minus, Calendar, Clock, Target, Flame, Trophy
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { differenceInDays, format, parseISO, startOfWeek } from "date-fns";
+import { parseLocalDate } from '@/utils/dateUtils';
 
 interface DailyEntry {
   entry_date: string;
@@ -42,8 +43,8 @@ export const SummerProgressTab = ({
   
   const stats = useMemo(() => {
     const today = new Date();
-    const startDate = parseISO(summerStart);
-    const endDate = parseISO(summerEnd);
+    const startDate = parseLocalDate(summerStart);
+    const endDate = parseLocalDate(summerEnd);
     const totalSummerDays = differenceInDays(endDate, startDate) + 1;
     const daysElapsed = Math.max(0, differenceInDays(today, startDate) + 1);
     const daysRemaining = Math.max(0, differenceInDays(endDate, today));
@@ -315,9 +316,9 @@ export const SummerProgressTab = ({
           <span className="text-sm text-muted-foreground">Summer Timeline</span>
         </div>
         <div className="flex justify-between text-xs text-muted-foreground">
-          <span>{format(parseISO(summerStart), 'MMM d')}</span>
+          <span>{format(parseLocalDate(summerStart), 'MMM d')}</span>
           <span className="font-medium text-foreground">Day {stats.daysElapsed} of {stats.totalSummerDays}</span>
-          <span>{format(parseISO(summerEnd), 'MMM d')}</span>
+          <span>{format(parseLocalDate(summerEnd), 'MMM d')}</span>
         </div>
         <Progress 
           value={(stats.daysElapsed / stats.totalSummerDays) * 100} 

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { differenceInDays, parseISO, isAfter, isSameDay, startOfToday, format, startOfDay } from "date-fns";
+import { parseLocalDate } from '@/utils/dateUtils';
 import { formatDaysUntilBlitz } from "@/utils/blitzDateUtils";
 import { 
   AlertTriangle, 
@@ -91,10 +92,10 @@ export const FocusCard = ({
   const paceInfo = useMemo(() => {
     const today = startOfDay(new Date());
     const todayStr = format(today, 'yyyy-MM-dd');
-    const preseasonEndDate = parseISO(PRESEASON_END);
+    const preseasonEndDate = parseLocalDate(PRESEASON_END);
     const isGlobalPreseason = !isAfter(today, preseasonEndDate);
     const hasPersonalSummerStarted = summerStart 
-      ? !isAfter(parseISO(summerStart), today)
+      ? !isAfter(parseLocalDate(summerStart), today)
       : false;
     const isPreseason = isGlobalPreseason && !hasPersonalSummerStarted;
 

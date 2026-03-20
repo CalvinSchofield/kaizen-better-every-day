@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
+import { parseLocalDate } from '@/utils/dateUtils';
 import { Calendar, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -27,10 +28,10 @@ export const EditSummerDatesDrawer = ({
 }: EditSummerDatesDrawerProps) => {
   const queryClient = useQueryClient();
   const [startDate, setStartDate] = useState<Date | undefined>(
-    person.personalSummerStart ? parseISO(person.personalSummerStart) : undefined
+    person.personalSummerStart ? parseLocalDate(person.personalSummerStart) : undefined
   );
   const [endDate, setEndDate] = useState<Date | undefined>(
-    person.personalSummerEnd ? parseISO(person.personalSummerEnd) : undefined
+    person.personalSummerEnd ? parseLocalDate(person.personalSummerEnd) : undefined
   );
   const [isSaving, setIsSaving] = useState(false);
 
