@@ -413,7 +413,10 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
   const season = calcTimeframe(seasonStartStr, seasonEndStr, input.isPreseason ? 'Preseason' : 'Season');
   season.goal = activeGoal;
   const seasonProgress = season.actual + season.live;
-  season.expected = dailyNeeded * seasonKnockingDaysComplete;
+  // Use linear distribution for expected: (goal / totalDays) × elapsedDays
+  // This avoids the circular math of projecting the catch-up rate backward
+  const linearDailyRate = totalSeasonDays > 0 ? activeGoal / totalSeasonDays : 0;
+  season.expected = linearDailyRate * seasonKnockingDaysComplete;
   season.paceDiff = seasonProgress - season.expected;
   season.isAhead = season.paceDiff >= 0;
   season.remaining = Math.max(0, activeGoal - seasonProgress);
