@@ -11,6 +11,7 @@ import { GOAL_TIER_CONFIG } from '@/config/goalTiers';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format, parseISO } from 'date-fns';
+import { parseLocalDate } from '@/utils/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -265,20 +266,20 @@ export const QuickEditGoalsDrawer = ({
                         className="text-sm font-semibold text-foreground bg-background/60 border-2 border-border rounded-xl px-3 py-2 active:scale-[0.97] transition-transform"
                         onClick={() => hapticLight()}
                       >
-                        {summerStart ? format(parseISO(summerStart), 'MMM d') : 'Set'}
+                        {summerStart ? format(parseLocalDate(summerStart), 'MMM d') : 'Set'}
                       </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="end">
                       <Calendar
                         mode="single"
-                        selected={summerStart ? parseISO(summerStart) : undefined}
+                        selected={summerStart ? parseLocalDate(summerStart) : undefined}
                         onSelect={(date) => {
                           if (date) {
                             setSummerStart(format(date, 'yyyy-MM-dd'));
                             setStartPopoverOpen(false);
                           }
                         }}
-                        defaultMonth={summerStart ? parseISO(summerStart) : new Date(2026, 3)}
+                        defaultMonth={summerStart ? parseLocalDate(summerStart) : new Date(2026, 3)}
                       />
                     </PopoverContent>
                   </Popover>
@@ -305,20 +306,20 @@ export const QuickEditGoalsDrawer = ({
                         className="text-sm font-semibold text-foreground bg-background/60 border-2 border-border rounded-xl px-3 py-2 active:scale-[0.97] transition-transform"
                         onClick={() => hapticLight()}
                       >
-                        {summerEnd ? format(parseISO(summerEnd), 'MMM d') : 'Set'}
+                        {summerEnd ? format(parseLocalDate(summerEnd), 'MMM d') : 'Set'}
                       </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="end">
                       <Calendar
                         mode="single"
-                        selected={summerEnd ? parseISO(summerEnd) : undefined}
+                        selected={summerEnd ? parseLocalDate(summerEnd) : undefined}
                         onSelect={(date) => {
                           if (date) {
                             setSummerEnd(format(date, 'yyyy-MM-dd'));
                             setEndPopoverOpen(false);
                           }
                         }}
-                        defaultMonth={summerEnd ? parseISO(summerEnd) : new Date(2026, 8)}
+                        defaultMonth={summerEnd ? parseLocalDate(summerEnd) : new Date(2026, 8)}
                       />
                     </PopoverContent>
                   </Popover>
