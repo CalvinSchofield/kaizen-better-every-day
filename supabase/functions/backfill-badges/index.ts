@@ -35,6 +35,7 @@ interface DailyEntry {
   sales_log: any[] | null;
   counter_timestamps: Record<string, string[]> | null;
   is_finalized: boolean | null;
+  timezone: string | null;
 }
 
 interface BadgeDef {
