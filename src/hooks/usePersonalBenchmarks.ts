@@ -148,8 +148,8 @@ function calculateAvailableDays(
   personalSummerEnd: string | null | undefined,
   _userId: string
 ): { canAddMoreDays: boolean; availableDaysToAdd: number } {
-  const today = parseISO(todayStr);
-  const globalEnd = parseISO(GLOBAL_SUMMER_END);
+  const today = parseLocalDate(todayStr);
+  const globalEnd = parseLocalDate(GLOBAL_SUMMER_END);
   
   // If we're past the global summer end, no days can be added
   if (isAfter(today, globalEnd)) {
