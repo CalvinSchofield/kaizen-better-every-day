@@ -62,6 +62,11 @@ const Profile = () => {
   const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
   const downlineGoalPace = useGoalPaceCalculatorForUser(isDownline ? userId : null);
 
+  const targetUserId = userId || currentUserId || null;
+  const { data: earnedBadges } = useUserBadges(targetUserId);
+  const { data: allDefinitions } = useBadgeDefinitions();
+  const topBadges = earnedBadges ? getTopBadges(earnedBadges, 2) : [];
+
   // Scroll-based header title: show rep name when scrolled past the name
   useEffect(() => {
     if (!nameRef.current) return;
