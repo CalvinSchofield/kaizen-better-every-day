@@ -14,7 +14,10 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, entryId, fpPlus, prmr, entryDate } = await req.json();
+    const { userId, entryId, fpPlus: rawFpPlus, prmr, entryDate } = await req.json();
+    
+    // Round FP+ to 2 decimal places for display and storage
+    const fpPlus = Math.round((rawFpPlus || 0) * 100) / 100;
     
     console.log(`[check-personal-records] Checking records for user ${userId}: FP+=${fpPlus}, PRMR=${prmr}`);
 
