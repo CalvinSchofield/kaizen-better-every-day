@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSubmitSuggestion, useMySuggestions } from "@/hooks/useGroupRecruits";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { withTimeout } from "@/utils/withTimeout";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -332,12 +333,20 @@ export default function AddRecruit() {
     }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
-      const { data, error } = await supabase.functions.invoke('create-recruit', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: recruitData,
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('create-recruit', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: recruitData,
+        }),
+        15000,
+        'Request timed out — please try again'
+      );
+      if (error) {
+        // Extract message from edge function error response
+        const errMsg = typeof error === 'object' && 'message' in error ? error.message : String(error);
+        throw new Error(errMsg);
+      }
       if (data?.error) throw new Error(data.error);
-      if (error) throw error;
       return data;
     },
     onSuccess: (data) => {

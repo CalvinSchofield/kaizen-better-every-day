@@ -152,6 +152,17 @@ Deno.serve(async (req) => {
 
     if (insertError) {
       console.error('Error creating recruit:', insertError);
+      const msg = insertError.message || '';
+      // Check for duplicate trigger error
+      if (msg.includes('Duplicate recruit detected') || msg.includes('duplicate') || msg.includes('already exists')) {
+        return new Response(JSON.stringify({ 
+          error: `This recruit already exists. ${msg.includes(':') ? msg.split(':').slice(1).join(':').trim() : msg}`,
+          duplicateEmail: true,
+        }), {
+          status: 409,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       throw new Error(`Failed to create recruit: ${insertError.message}`);
     }
 
