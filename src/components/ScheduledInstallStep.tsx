@@ -14,6 +14,7 @@ interface ScheduledInstallStepProps {
   onOpenChange: (open: boolean) => void;
   salesLog: Sale[];
   onConfirm: (updatedSales: Sale[]) => void;
+  isSaving?: boolean;
 }
 
 export const ScheduledInstallStep = ({
