@@ -16,7 +16,7 @@ import { LeaderboardMiniRow } from "./LeaderboardMiniRow";
 import { hapticMedium } from "@/utils/haptics";
 import { getCleanFirstName } from "@/utils/nameUtils";
 import { format } from "date-fns";
-import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
+
 
 
 
