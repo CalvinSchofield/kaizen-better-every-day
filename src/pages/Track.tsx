@@ -574,6 +574,7 @@ const Track = ({
             isRefreshing={isRefreshing}
             counterTimestamps={counterTimestamps}
             onRapidTapDetected={handleRapidTapDetected}
+            smartGoals={smartGoals.hasEnoughData ? smartGoals.smartGoalsMap : undefined}
           />
         </div>
         
