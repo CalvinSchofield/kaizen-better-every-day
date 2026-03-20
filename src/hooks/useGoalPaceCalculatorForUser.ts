@@ -9,7 +9,8 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfDay, parseISO, isAfter } from 'date-fns';
+import { format, startOfDay, isAfter } from 'date-fns';
+import { parseLocalDate } from '@/utils/dateUtils';
 import { calculateGoalPace, GoalPaceData, GoalPaceInput } from './useGoalPaceCalculator';
 import type { TimeframeData } from './useGoalPaceCalculator';
 import type { FocusTier } from './useFocusTier';
