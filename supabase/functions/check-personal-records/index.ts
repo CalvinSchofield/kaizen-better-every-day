@@ -35,7 +35,7 @@ serve(async (req) => {
     // Get rep info for the notification
     const { data: rep, error: repError } = await supabase
       .from('reps')
-      .select('name, email')
+      .select('name, email, year')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -45,6 +45,11 @@ serve(async (req) => {
     }
 
     const repName = rep.name;
+    
+    // Minimum threshold: must have at least 1 FP+ before a "personal best" counts
+    // This prevents the first small deal from triggering a celebration
+    const FP_MIN_THRESHOLD = 1;
+    
     console.log(`[check-personal-records] Checking records for ${repName}`);
 
     // Check existing records
