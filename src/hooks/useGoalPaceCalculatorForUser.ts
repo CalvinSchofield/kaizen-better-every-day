@@ -126,9 +126,9 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
 
   // Determine preseason vs summer
   const personalSummerStart = seasonConfig?.personal_summer_start || null;
-  const isGlobalPreseason = !isAfter(today, parseISO(PRESEASON_END));
+  const isGlobalPreseason = !isAfter(today, parseLocalDate(PRESEASON_END));
   const hasPersonalSummerStarted = personalSummerStart
-    ? !isAfter(parseISO(personalSummerStart), today)
+    ? !isAfter(parseLocalDate(personalSummerStart), today)
     : false;
   const isPreseason = isGlobalPreseason && !hasPersonalSummerStarted;
 
