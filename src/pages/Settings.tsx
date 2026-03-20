@@ -11,6 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, ChevronRight, Bell, Percent, ClipboardList, RotateCcw, BarChart3, Save, Sparkles } from "lucide-react";
 import { format } from "date-fns";
+import { parseLocalDate } from "@/utils/dateUtils";
 import { useRepData } from "@/hooks/useRepData";
 import { useUnifiedPushNotifications } from "@/hooks/useUnifiedPushNotifications";
 import { useRepGoals } from "@/hooks/useRepGoals";
