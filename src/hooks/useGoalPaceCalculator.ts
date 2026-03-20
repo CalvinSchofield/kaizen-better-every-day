@@ -51,6 +51,8 @@ export interface TimeframeData {
 export interface GoalPaceData {
   // Active goal info
   activeGoal: number;
+  /** Raw goal without cancel-rate buffer — used as the display denominator */
+  unbufferedGoal: number;
   tierLabel: string;
   focusTier: FocusTier | 'preseason';
   isPreseason: boolean;
