@@ -107,6 +107,12 @@ const Track = ({
   // EFP mode for vets
   const { efpModeEnabled } = useEfpMode();
   
+  // Smart activity goals
+  const goalPaceData = useGoalPaceCalculator();
+  const isRookie = repData?.year === 'Rookie';
+  const dailyFpGoal = goalPaceData.hasGoals ? Math.round(goalPaceData.dailyNeeded * 10) / 10 : 1;
+  const smartGoals = useSmartActivityGoals({ dailyFpGoal, isRookie });
+  
   // Visualization preference (ring vs timeline)
   const { mode: visualizationMode, toggle: toggleVisualization } = useVisualizationPreference();
   
