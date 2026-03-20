@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSubmitSuggestion, useMySuggestions } from "@/hooks/useGroupRecruits";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { withTimeout } from "@/utils/withTimeout";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
