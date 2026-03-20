@@ -141,7 +141,7 @@ export const useLeaderboardBadges = (userIds: string[]) => {
   return useQuery({
     queryKey: ["leaderboard-badges", userIds.sort().join(",")],
     queryFn: async () => {
-      if (!userIds.length) return new Map<string, { emoji: string; name: string }[]>();
+      if (!userIds.length) return new Map<string, { emoji: string; name: string; rarity: string }[]>();
 
       const { data, error } = await supabase
         .from("user_badges")
