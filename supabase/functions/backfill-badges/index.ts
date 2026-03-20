@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     // Load all reps to check rookie status
     const { data: reps } = await supabase
       .from("reps")
-      .select("user_id, year");
+      .select("user_id, year, timezone");
     const rookieUserIds = new Set<string>();
     for (const r of reps || []) {
       if (r.user_id && (r.year === "Rookie" || r.year === "rookie" || !r.year)) {
