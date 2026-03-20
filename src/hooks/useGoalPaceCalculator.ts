@@ -318,8 +318,10 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     // Goal for this period = dailyNeeded × planned days in period
     const goal = dailyNeeded * plannedDaysTotal;
 
-    // Expected at this point = dailyNeeded × elapsed planned days
-    const expected = dailyNeeded * plannedDaysElapsed;
+    // Expected at this point = linear distribution × elapsed planned days
+    // Uses linear rate (goal/totalDays) instead of catch-up rate to avoid circular math
+    const linearRate = totalSeasonDays > 0 ? activeGoal / totalSeasonDays : 0;
+    const expected = linearRate * plannedDaysElapsed;
 
     const totalProgress = actual + live;
     const paceDiff = totalProgress - expected;
