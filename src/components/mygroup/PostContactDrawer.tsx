@@ -168,16 +168,36 @@ export const PostContactDrawer = ({
       const effectiveOutcome = isCall ? outcome : 'connected';
       const wasConnected = effectiveOutcome === 'connected';
       const outcomeLabel = wasConnected ? 'Connected' : 'No answer';
-      
-      const loggedActivity = await withTimeout(
-        logActivityMutation.mutateAsync({
+
+      // Build combined notes when scheduling is included
+      const wantsSchedule = showScheduling && scheduleDate;
+      let combinedNotes = notes || `${actionLabel} ${firstName}${isCall ? ` - ${outcomeLabel}` : ''}`;
+      if (wantsSchedule && scheduleNotes) {
+        // Merge contact notes and schedule notes with a divider
+        combinedNotes = combinedNotes + '\n—\n' + scheduleNotes;
+      }
+
+      // Build the mutation params — include scheduling data on the same activity
+      const mutationParams: Parameters<typeof logActivityMutation.mutateAsync>[0] = {
         recruitId: recruit.id,
         recruitNotionId: recruit.id,
         activityType,
-        notes: notes || `${actionLabel} ${firstName}${isCall ? ` - ${outcomeLabel}` : ''}`,
+        notes: combinedNotes,
         updateLastContact: wasConnected,
         activityDate: backdateValue || undefined,
-        }),
+      };
+
+      // Attach scheduling fields so the planner picks it up
+      if (wantsSchedule) {
+        const dateOnlyString = format(scheduleDate, 'yyyy-MM-dd');
+        mutationParams.nextAction = scheduleNotes || 'Follow up';
+        mutationParams.nextActionDue = dateOnlyString;
+        // Always assign (to chosen user or self) so it appears in the planner
+        mutationParams.assignedToUserId = scheduleAssignee || undefined;
+      }
+
+      const loggedActivity = await withTimeout(
+        logActivityMutation.mutateAsync(mutationParams),
         15000,
         'Saving contact timed out — please try again'
       );
@@ -205,75 +225,30 @@ export const PostContactDrawer = ({
         }
       }
 
-      // Create scheduled follow-up if user filled in scheduling
-      let scheduledFollowUp = false;
       let newActivityId: string | null = null;
-      let scheduleFailed = false;
-      if (showScheduling && scheduleDate) {
-        try {
-          // Format as date-only string to match expected format
-          const dateOnlyString = format(scheduleDate, 'yyyy-MM-dd');
-          const loggedByUserId =
-            typeof loggedActivity?.logged_by_user_id === 'string'
-              ? loggedActivity.logged_by_user_id
-              : null;
+      let scheduledFollowUp = false;
 
-          if (!loggedByUserId) {
-            throw new Error('Could not resolve current user for scheduling');
-          }
+      // If scheduling was included, sync recruit table and capture the activity id
+      if (wantsSchedule) {
+        const dateOnlyString = format(scheduleDate, 'yyyy-MM-dd');
+        newActivityId = loggedActivity?.id || null;
+        scheduledFollowUp = true;
 
-          const { data: insertedActivity, error: scheduleError } = await withTimeout(
-            supabase
-              .from('recruit_activities')
-              .insert({
-                recruit_id: recruit.id,
-                activity_type: 'next_step',
-                logged_by_user_id: loggedByUserId,
-                assigned_to_user_id: scheduleAssignee || loggedByUserId,
-                assignment_status: 'pending',
-                next_action: scheduleNotes || 'Follow up',
-                next_action_due: dateOnlyString,
-                notes: scheduleNotes || null,
-              })
-              .select('id')
-              .single(),
-            12000,
-            'Scheduling follow-up timed out'
-          );
+        // Sync next_action to recruit row for display consistency
+        supabase
+          .from('recruits')
+          .update({
+            next_action: scheduleNotes || 'Follow up',
+            next_action_due: dateOnlyString,
+          })
+          .eq('id', recruit.id)
+          .then(({ error }) => {
+            if (error) console.error('Failed to sync recruit next action:', error);
+          });
 
-          if (scheduleError) throw scheduleError;
-
-          newActivityId = insertedActivity?.id || null;
-
-          // Sync notes to recruit.next_action for display consistency
-          const { error: recruitUpdateError } = await withTimeout(
-            supabase
-              .from('recruits')
-              .update({
-                next_action: scheduleNotes || 'Follow up',
-                next_action_due: dateOnlyString,
-              })
-              .eq('id', recruit.id),
-            8000,
-            'Updating recruit follow-up timed out'
-          );
-
-          if (recruitUpdateError) {
-            console.error('Failed to sync recruit next action:', recruitUpdateError);
-          }
-
-          scheduledFollowUp = true;
-          queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
-          queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
-          queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-        } catch (scheduleError) {
-          scheduleFailed = true;
-          console.error('Failed to schedule follow-up:', scheduleError);
-        }
-      }
-
-      if (scheduleFailed) {
-        toast.error('Contact logged, but scheduling timed out. Please try scheduling again.');
+        queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+        queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
+        queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       }
       
       // Show appropriate toast
