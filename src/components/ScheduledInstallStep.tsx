@@ -250,11 +250,12 @@ export const ScheduledInstallStep = ({
                 className="w-full mt-4"
                 onClick={handleConfirm}
                 disabled={
-                  selectedSaleIds.size > 0 &&
-                  [...selectedSaleIds].some(id => !scheduledDates[id])
+                  isSaving ||
+                  (selectedSaleIds.size > 0 &&
+                  [...selectedSaleIds].some(id => !scheduledDates[id]))
                 }
               >
-                Confirm & Save
+                {isSaving ? 'Saving...' : 'Confirm & Save'}
               </Button>
             </div>
           ) : null}
