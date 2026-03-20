@@ -68,7 +68,7 @@ const clearProgress = () => {
   try { localStorage.removeItem(STORAGE_KEY); } catch {}
 };
 
-export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = false, isUserSummerStarted = false, onComplete }: BiweeklySyncGateProps) => {
+export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = false, isUserSummerStarted = false, onComplete, onSkip }: BiweeklySyncGateProps) => {
   const navigate = useNavigate();
   const { upsertTotalsAsync, isUpserting } = useOfficialTotals(seasonType);
   const { data: teamAccess } = useTeamAccess();
