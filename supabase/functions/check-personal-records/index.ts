@@ -71,8 +71,8 @@ serve(async (req) => {
     let oldFpValue = existingFpRecord?.value || 0;
     let oldPrmrValue = existingPrmrRecord?.value || 0;
 
-    // Check FP+ record (only if fpPlus > 0)
-    if (fpPlus > 0 && fpPlus > oldFpValue) {
+    // Check FP+ record (must meet minimum 1 FP+ threshold)
+    if (fpPlus >= FP_MIN_THRESHOLD && fpPlus > oldFpValue) {
       beatFp = true;
       console.log(`[check-personal-records] NEW FP+ RECORD: ${fpPlus} beats ${oldFpValue}`);
       
