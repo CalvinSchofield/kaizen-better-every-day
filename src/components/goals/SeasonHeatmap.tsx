@@ -1,5 +1,6 @@
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
-import { format, parseISO, getDay, isToday, isBefore, startOfWeek, addDays, isAfter } from 'date-fns';
+import { format, getDay, isToday, isBefore, startOfWeek, addDays, isAfter } from 'date-fns';
+import { parseLocalDate } from '@/utils/dateUtils';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlannedDay } from '@/hooks/usePlannedDays';

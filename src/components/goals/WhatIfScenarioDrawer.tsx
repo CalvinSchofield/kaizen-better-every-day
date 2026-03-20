@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
 import { TrendingUp, TrendingDown, Minus, CalendarPlus, CalendarMinus } from 'lucide-react';
-import { parseISO, isBefore, isAfter, eachDayOfInterval, getDay } from 'date-fns';
+import { isBefore, isAfter, eachDayOfInterval, getDay } from 'date-fns';
+import { parseLocalDate } from '@/utils/dateUtils';
 import { Slider } from '@/components/ui/slider';
 import { GOAL_TIER_CONFIG } from '@/config/goalTiers';
 
