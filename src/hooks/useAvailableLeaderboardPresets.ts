@@ -35,8 +35,8 @@ export const useLeaderboardDataBoundary = () => {
       // which allows viewing entries from CURRENT_DATE - 1 day
       const { data: entries, error } = await supabase
         .from('daily_entries')
-        .select('entry_date, is_finalized, doors_knocked')
-        .or('doors_knocked.gte.1,fp_plus.gte.1,prmr.gte.1')
+        .select('entry_date, is_finalized, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr')
+        .or('doors_knocked.gte.1,decision_makers.gte.1,pitches.gte.1,transitions.gte.1,presentations.gte.1,closes.gte.1,fp_plus.gte.1,prmr.gte.1')
         .order('entry_date', { ascending: true });
 
       if (error || !entries || entries.length === 0) {
