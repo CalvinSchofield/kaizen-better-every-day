@@ -51,6 +51,8 @@ export interface TimeframeData {
 export interface GoalPaceData {
   // Active goal info
   activeGoal: number;
+  /** Raw goal without cancel-rate buffer — used as the display denominator */
+  unbufferedGoal: number;
   tierLabel: string;
   focusTier: FocusTier | 'preseason';
   isPreseason: boolean;
@@ -495,8 +497,11 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
     ? Math.max(0, summerSellNeeded) / summerRemainingDays
     : 0;
 
+  const unbufferedGoal = rawGoal * input.conversionFactor;
+
   return {
     activeGoal,
+    unbufferedGoal,
     tierLabel,
     focusTier: input.isPreseason ? 'preseason' as any : input.focusTier,
     isPreseason: input.isPreseason,
@@ -751,6 +756,7 @@ export function useGoalPaceCalculator(): GoalPaceData {
   if (!paceData) {
     return {
       activeGoal: 0,
+      unbufferedGoal: 0,
       tierLabel: isPreseason ? 'Preseason' : 'Will Do',
       focusTier: isPreseason ? 'preseason' as any : focusTier,
       isPreseason,

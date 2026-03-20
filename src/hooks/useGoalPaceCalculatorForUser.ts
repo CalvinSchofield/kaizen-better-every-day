@@ -274,6 +274,7 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
   if (!paceData) {
     return {
       activeGoal: 0,
+      unbufferedGoal: 0,
       tierLabel: isPreseason ? 'Preseason' : 'Will Do',
       focusTier: isPreseason ? 'preseason' as any : focusTier,
       isPreseason,
