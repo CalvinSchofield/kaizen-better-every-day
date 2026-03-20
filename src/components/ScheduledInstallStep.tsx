@@ -117,9 +117,16 @@ export const ScheduledInstallStep = ({
               variant="outline"
               className="flex-1 h-12 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-950/50"
               onClick={handleAllInstalled}
+              disabled={isSaving}
             >
-              <Check className="h-4 w-4 mr-2" />
-              All Installed Today
+              {isSaving ? (
+                <span className="animate-pulse">Saving...</span>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  All Installed Today
+                </>
+              )}
             </Button>
             <Button
               variant="outline"
