@@ -143,7 +143,15 @@ export const PreWorkingState = ({
           <SeasonGoalsPreview />
         </motion.div>
 
-
+        {smartGoals.hasEnoughData && (
+          <motion.div variants={itemVariants}>
+            <SmartTargetsCard
+              smartGoals={smartGoals}
+              dailyGoal={dailyFpGoal}
+              metricLabel={metricLabel}
+            />
+          </motion.div>
+        )}
 
         <motion.div variants={itemVariants}>
           <LeaderboardMiniRow />
