@@ -158,26 +158,40 @@ export const PostContactDrawer = ({
     if (isCall && !outcome) return;
     
     setIsLoading(true);
-    try {
-      const firstName = stripEmojis(recruit.name)?.split(' ')[0] || 'them';
-      const actionLabel = method === 'call' ? 'Called' : method === 'text' ? 'Texted' : 'Met with';
-      const activityType: 'phone_call' | 'in_person' | 'text' =
-        method === 'in_person' ? 'in_person' : method === 'text' ? 'text' : 'phone_call';
-      
-      // For texts/in-person, always mark as connected (they inherently connected)
-      const effectiveOutcome = isCall ? outcome : 'connected';
-      const wasConnected = effectiveOutcome === 'connected';
-      const outcomeLabel = wasConnected ? 'Connected' : 'No answer';
 
-      // Build combined notes when scheduling is included
-      const wantsSchedule = showScheduling && scheduleDate;
-      let combinedNotes = notes || `${actionLabel} ${firstName}${isCall ? ` - ${outcomeLabel}` : ''}`;
-      if (wantsSchedule && scheduleNotes) {
-        // Merge contact notes and schedule notes with a divider
-        combinedNotes = combinedNotes + '\n—\n' + scheduleNotes;
+    const firstName = stripEmojis(recruit.name)?.split(' ')[0] || 'them';
+    const actionLabel = method === 'call' ? 'Called' : method === 'text' ? 'Texted' : 'Met with';
+    const activityType: 'phone_call' | 'in_person' | 'text' =
+      method === 'in_person' ? 'in_person' : method === 'text' ? 'text' : 'phone_call';
+    
+    // For texts/in-person, always mark as connected (they inherently connected)
+    const effectiveOutcome = isCall ? outcome : 'connected';
+    const wasConnected = effectiveOutcome === 'connected';
+    const outcomeLabel = wasConnected ? 'Connected' : 'No answer';
+
+    // Build combined notes when scheduling is included
+    const wantsSchedule = showScheduling && scheduleDate;
+    let combinedNotes = notes || `${actionLabel} ${firstName}${isCall ? ` - ${outcomeLabel}` : ''}`;
+    if (wantsSchedule && scheduleNotes) {
+      // Merge contact notes and schedule notes with a divider
+      combinedNotes = combinedNotes + '\n—\n' + scheduleNotes;
+    }
+
+    // ── STEP 1: Log the contact activity (primary operation) ──
+    let loggedActivity: any = null;
+    try {
+      // Refresh session before critical operation to prevent auth failures
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // Try refreshing
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+          toast.error('Session expired — please sign in again');
+          setIsLoading(false);
+          return;
+        }
       }
 
-      // Build the mutation params — include scheduling data on the same activity
       const mutationParams: Parameters<typeof logActivityMutation.mutateAsync>[0] = {
         recruitId: recruit.id,
         recruitNotionId: recruit.id,
@@ -196,15 +210,25 @@ export const PostContactDrawer = ({
         mutationParams.assignedToUserId = scheduleAssignee || undefined;
       }
 
-      const loggedActivity = await withTimeout(
+      loggedActivity = await withTimeout(
         logActivityMutation.mutateAsync(mutationParams),
         15000,
         'Saving contact timed out — please try again'
       );
-      
-      // Mark scheduled activity as complete if connected and user opted to
-      const taskWasCompleted = scheduledActivity && wasConnected && markTaskComplete;
-      if (taskWasCompleted) {
+    } catch (error: any) {
+      console.error('Failed to log contact activity:', error);
+      const msg = error?.message?.includes('timed out')
+        ? 'Timed out saving — check your connection and try again'
+        : 'Failed to log contact — tap Save to retry';
+      toast.error(msg);
+      setIsLoading(false);
+      return; // Don't proceed if the primary operation failed
+    }
+
+    // ── STEP 2: Mark scheduled task complete (independent, non-blocking) ──
+    const taskWasCompleted = scheduledActivity && wasConnected && markTaskComplete;
+    if (taskWasCompleted) {
+      try {
         const { error: completeError } = await withTimeout(
           supabase
             .from('recruit_activities')
@@ -219,106 +243,107 @@ export const PostContactDrawer = ({
         
         if (completeError) {
           console.error('Failed to mark task complete:', completeError);
+          toast.error('Contact logged, but failed to mark task complete');
         } else {
           queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
           queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
         }
+      } catch (err) {
+        console.error('Task completion error:', err);
+        toast.error('Contact logged, but task completion timed out');
       }
-
-      let newActivityId: string | null = null;
-      let scheduledFollowUp = false;
-
-      // If scheduling was included, sync recruit table and capture the activity id
-      if (wantsSchedule) {
-        const dateOnlyString = format(scheduleDate, 'yyyy-MM-dd');
-        newActivityId = loggedActivity?.id || null;
-        scheduledFollowUp = true;
-
-        // Sync next_action to recruit row for display consistency
-        supabase
-          .from('recruits')
-          .update({
-            next_action: scheduleNotes || 'Follow up',
-            next_action_due: dateOnlyString,
-          })
-          .eq('id', recruit.id)
-          .then(({ error }) => {
-            if (error) console.error('Failed to sync recruit next action:', error);
-          });
-
-        queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
-        queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
-        queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-      }
-      
-      // Show appropriate toast
-      if (taskWasCompleted && scheduledFollowUp) {
-        toast.success(`Logged contact, completed task, and scheduled follow-up for ${format(scheduleDate!, 'MMM d')}`);
-      } else if (taskWasCompleted) {
-        const taskName = scheduledActivity.next_action || 'Task';
-        toast.success(`Logged contact and marked "${taskName}" complete`, {
-          action: {
-            label: 'Undo',
-            onClick: async () => {
-              const { error: undoError } = await supabase
-                .from('recruit_activities')
-                .update({
-                  assignment_status: 'pending',
-                  completed_at: null,
-                })
-                .eq('id', scheduledActivity.id);
-              
-              if (undoError) {
-                toast.error('Failed to undo');
-              } else {
-                queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
-                queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
-                queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-                toast.success('Task restored');
-              }
-            },
-          },
-          duration: 5000,
-        });
-      } else if (scheduledFollowUp) {
-        toast.success(`Logged contact and scheduled follow-up for ${format(scheduleDate!, 'MMM d')}`);
-      } else if (isCall) {
-        toast.success(
-          wasConnected 
-            ? `Great! Logged call with ${firstName}` 
-            : `Logged attempt - ${firstName} stays in your list`
-        );
-      } else {
-        toast.success(`Logged ${method === 'text' ? 'text' : 'meeting'} with ${firstName}`);
-      }
-      
-      // If we scheduled a follow-up assigned to me, show the calendar prompt
-      if (scheduledFollowUp && newActivityId && scheduleDate && !scheduleAssignee) {
-        setScheduledActivityId(newActivityId);
-        setScheduledDateString(format(scheduleDate, 'yyyy-MM-dd')); // Use date-only format
-        setShowCalendarPrompt(true);
-        // Don't close drawer yet - let calendar prompt handle it
-      } else {
-        // Reset and close
-        setOutcome(null);
-        setNotes('');
-        setBackdateValue('');
-        setMarkTaskComplete(true);
-        setShowScheduling(false);
-        setScheduleDate(undefined);
-        setQuickDateOption(null);
-        setScheduleNotes('');
-        setScheduleMentions([]);
-        setScheduleAssignee(null);
-        onOpenChange(false);
-        onComplete?.(wasConnected);
-      }
-    } catch (error) {
-      console.error('Failed to log contact:', error);
-      toast.error('Failed to log contact');
-    } finally {
-      setIsLoading(false);
     }
+
+    // ── STEP 3: Sync recruit row for scheduling (independent, non-blocking) ──
+    let newActivityId: string | null = null;
+    let scheduledFollowUp = false;
+
+    if (wantsSchedule) {
+      const dateOnlyString = format(scheduleDate, 'yyyy-MM-dd');
+      newActivityId = loggedActivity?.id || null;
+      scheduledFollowUp = true;
+
+      // Sync next_action to recruit row for display consistency (fire-and-forget)
+      supabase
+        .from('recruits')
+        .update({
+          next_action: scheduleNotes || 'Follow up',
+          next_action_due: dateOnlyString,
+        })
+        .eq('id', recruit.id)
+        .then(({ error }) => {
+          if (error) console.error('Failed to sync recruit next action:', error);
+        });
+
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+    }
+    
+    // ── STEP 4: Show success toast ──
+    if (taskWasCompleted && scheduledFollowUp) {
+      toast.success(`Logged contact, completed task, and scheduled follow-up for ${format(scheduleDate!, 'MMM d')}`);
+    } else if (taskWasCompleted) {
+      const taskName = scheduledActivity.next_action || 'Task';
+      toast.success(`Logged contact and marked "${taskName}" complete`, {
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            const { error: undoError } = await supabase
+              .from('recruit_activities')
+              .update({
+                assignment_status: 'pending',
+                completed_at: null,
+              })
+              .eq('id', scheduledActivity.id);
+            
+            if (undoError) {
+              toast.error('Failed to undo');
+            } else {
+              queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+              queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
+              queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+              toast.success('Task restored');
+            }
+          },
+        },
+        duration: 5000,
+      });
+    } else if (scheduledFollowUp) {
+      toast.success(`Logged contact and scheduled follow-up for ${format(scheduleDate!, 'MMM d')}`);
+    } else if (isCall) {
+      toast.success(
+        wasConnected 
+          ? `Great! Logged call with ${firstName}` 
+          : `Logged attempt - ${firstName} stays in your list`
+      );
+    } else {
+      toast.success(`Logged ${method === 'text' ? 'text' : 'meeting'} with ${firstName}`);
+    }
+    
+    // ── STEP 5: Handle calendar prompt or close ──
+    if (scheduledFollowUp && newActivityId && scheduleDate && !scheduleAssignee) {
+      setScheduledActivityId(newActivityId);
+      setScheduledDateString(format(scheduleDate, 'yyyy-MM-dd'));
+      setShowCalendarPrompt(true);
+      // Don't close drawer yet - let calendar prompt handle it
+    } else {
+      // Reset and close
+      setOutcome(null);
+      setNotes('');
+      setBackdateValue('');
+      setMarkTaskComplete(true);
+      setShowScheduling(false);
+      setScheduleDate(undefined);
+      setQuickDateOption(null);
+      setScheduleNotes('');
+      setScheduleMentions([]);
+      setScheduleAssignee(null);
+      onOpenChange(false);
+      onComplete?.(wasConnected);
+    }
+    
+    setIsLoading(false);
   };
 
   const handleClose = () => {
