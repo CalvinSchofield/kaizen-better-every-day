@@ -520,8 +520,8 @@ export function useGoalPaceCalculator(): GoalPaceData {
   const { repData } = useRepData();
   const { userId } = useCurrentUserId();
 
-  const currentProgress = efpModeEnabled ? totalEFP : totalFP;
-  const { focusTier, setFocusTier, allTiers, isUserSummerStarted, isLoading: tierLoading } = useFocusTier(currentProgress);
+  const rawProgress = efpModeEnabled ? totalEFP : totalFP;
+  const { focusTier, setFocusTier, allTiers, isUserSummerStarted, isLoading: tierLoading } = useFocusTier(rawProgress);
 
   // Season config
   const { data: seasonConfig } = useQuery({
