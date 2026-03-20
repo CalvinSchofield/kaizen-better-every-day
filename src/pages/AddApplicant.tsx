@@ -55,6 +55,18 @@ export default function AddApplicant() {
     },
   });
 
+  // Safety timeout to prevent infinite loading
+  useEffect(() => {
+    if (sessionLoading || teamAccessLoading) {
+      loadingTimeoutRef.current = setTimeout(() => setLoadingTimedOut(true), 5000);
+    } else {
+      setLoadingTimedOut(false);
+    }
+    return () => {
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    };
+  }, [sessionLoading, teamAccessLoading]);
+
   // Get current user's rep info (for auto-populating team/recruiter)
   const { data: currentUserRep } = useQuery({
     queryKey: ["current-user-rep"],
