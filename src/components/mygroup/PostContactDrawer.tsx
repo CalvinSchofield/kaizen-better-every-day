@@ -161,6 +161,8 @@ export const PostContactDrawer = ({
     try {
       const firstName = stripEmojis(recruit.name)?.split(' ')[0] || 'them';
       const actionLabel = method === 'call' ? 'Called' : method === 'text' ? 'Texted' : 'Met with';
+      const activityType: 'phone_call' | 'in_person' | 'text' =
+        method === 'in_person' ? 'in_person' : method === 'text' ? 'text' : 'phone_call';
       
       // For texts/in-person, always mark as connected (they inherently connected)
       const effectiveOutcome = isCall ? outcome : 'connected';
@@ -171,7 +173,7 @@ export const PostContactDrawer = ({
         logActivityMutation.mutateAsync({
         recruitId: recruit.id,
         recruitNotionId: recruit.id,
-        activityType: method === 'in_person' ? 'in_person' : method === 'text' ? 'text' as any : 'phone_call',
+        activityType,
         notes: notes || `${actionLabel} ${firstName}${isCall ? ` - ${outcomeLabel}` : ''}`,
         updateLastContact: wasConnected,
         activityDate: backdateValue || undefined,
