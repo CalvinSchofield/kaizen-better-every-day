@@ -189,7 +189,7 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
       }
     }
 
-    // Reconcile with official totals (Vivint sync) if available
+    // Reconcile with official totals if available, but never below tracked progress.
     let effectiveProgress = ytdFP;
     if (officialForSeason?.last_verified_at) {
       const officialFp = officialForSeason.fp_plus || 0;
@@ -210,7 +210,8 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
           trackedSince += Number(entry.fp_plus) || 0;
         }
       }
-      effectiveProgress = officialFp + trackedSince;
+      const reconciledProgress = officialFp + trackedSince;
+      effectiveProgress = Math.max(ytdFP, reconciledProgress);
     }
 
     return { currentProgress: effectiveProgress, knockingDays: kd, todayFP: dayFP, todayLiveFP: dayLiveFP };
