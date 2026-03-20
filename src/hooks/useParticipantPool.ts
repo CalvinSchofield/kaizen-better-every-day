@@ -316,7 +316,8 @@ export const useParticipantPool = (options: UseParticipantPoolOptions = {}): Use
     }
   }, [accessLevel]);
   
-  const isLoading = isLoadingTeamAccess || isLoadingAllOffice || isLoadingPlanned || isLoadingEntries;
+  // Only block on the essential data — working-status is decorative and can load async
+  const isLoading = isLoadingTeamAccess || isLoadingAllOffice;
   
   return {
     allReps,
