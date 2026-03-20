@@ -23,6 +23,7 @@ interface QTallyGridProps {
   isRefreshing?: boolean;
   counterTimestamps?: Record<string, string[]>;
   onRapidTapDetected?: () => void;
+  smartGoals?: Record<string, number>;
 }
 
 export const QTallyGrid = ({ 
@@ -33,10 +34,10 @@ export const QTallyGrid = ({
   isLoading = false,
   isRefreshing = false,
   counterTimestamps,
-  onRapidTapDetected
+  onRapidTapDetected,
+  smartGoals,
 }: QTallyGridProps) => {
   
-  // Show skeleton grid when loading
   if (isLoading) {
     return (
       <div className="w-full h-full">
@@ -58,17 +59,15 @@ export const QTallyGrid = ({
     { label: "Closes", field: "closes", value: entry.closes },
   ];
   
-  // Apply custom layout if available
   let coreCounters = allCoreCounters;
   if (counterLayoutConfig) {
-    // Reorder based on layout config
     coreCounters = counterLayoutConfig.order
       .map(field => allCoreCounters.find(c => c.field === field))
       .filter((c): c is typeof allCoreCounters[0] => c !== undefined);
   }
 
   const customCounters = customCounterConfig
-    .filter((config) => !config.hidden) // Filter out hidden counters
+    .filter((config) => !config.hidden)
     .map((config) => ({
       label: `${config.emoji} ${config.name}`,
       field: `custom_${config.id}`,
@@ -77,7 +76,6 @@ export const QTallyGrid = ({
 
   const hasCustomCounters = customCounters.length > 0;
 
-  // Helper to get the last tap time for a field
   const getLastTapTime = (field: string): string | undefined => {
     const timestamps = counterTimestamps?.[field];
     return timestamps?.length ? timestamps[timestamps.length - 1] : undefined;
@@ -85,7 +83,6 @@ export const QTallyGrid = ({
 
   return (
     <div data-tour="track-counter-grid" className={`w-full relative ${hasCustomCounters ? 'overflow-y-auto' : 'h-full'}`}>
-      {/* Subtle refreshing indicator - shows while syncing data */}
       {isRefreshing && (
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-center py-1 bg-background/80 backdrop-blur-sm rounded-t-xl">
           <Loader2 className="h-3 w-3 animate-spin text-muted-foreground mr-1.5" />
@@ -93,7 +90,6 @@ export const QTallyGrid = ({
         </div>
       )}
       
-      {/* Core 6 counters - Fixed grid */}
       <div className="grid grid-cols-2 gap-3 w-full" style={{ gridTemplateRows: 'repeat(3, 1fr)', minHeight: hasCustomCounters ? 'auto' : '100%' }}>
         {coreCounters.map((counter) => (
           <div 
@@ -107,12 +103,12 @@ export const QTallyGrid = ({
               onCounterChange={onCounterChange}
               lastTapTime={getLastTapTime(counter.field)}
               onRapidTapDetected={onRapidTapDetected}
+              goal={smartGoals?.[counter.field]}
             />
           </div>
         ))}
       </div>
 
-      {/* Custom counters - Scrollable section */}
       {hasCustomCounters && (
         <div className="mt-4 pt-4 border-t border-border">
           <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1">My Counters</h3>
