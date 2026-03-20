@@ -79,13 +79,8 @@ export const PreWorkingState = ({
   const firstName = repName ? getCleanFirstName(repName) : '';
   const todayFormatted = format(new Date(), 'EEEE, MMMM d');
   
-  // Smart targets
-  const { efpModeEnabled } = useEfpMode();
-  const goalPaceData = useGoalPaceCalculator();
-  const isRookie = repData?.year === 'Rookie';
-  const dailyFpGoal = goalPaceData.hasGoals ? Math.round(goalPaceData.dailyNeeded * 10) / 10 : 1;
-  const smartGoals = useSmartActivityGoals({ dailyFpGoal, isRookie });
-  const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
+
+
 
   const handleStartDay = async () => {
     if (starting || isStarting) return;
