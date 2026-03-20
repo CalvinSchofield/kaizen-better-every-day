@@ -7,6 +7,8 @@ import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { useVisualizationPreference } from "@/hooks/useVisualizationPreference";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
+import { useSmartActivityGoals } from "@/hooks/useSmartActivityGoals";
 import { useHeader } from "@/contexts/HeaderContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
