@@ -16,7 +16,7 @@ interface QTallyGridProps {
     closes: number;
     custom_counters?: Record<string, number>;
   };
-  onCounterChange: (field: string, value: number) => void;
+  onCounterChange: (field: string, value: number, operation?: 'increment' | 'decrement') => void;
   customCounterConfig?: Array<{ id: string; name: string; emoji: string; hidden?: boolean }>;
   counterLayoutConfig?: CounterLayoutConfig;
   isLoading?: boolean;
