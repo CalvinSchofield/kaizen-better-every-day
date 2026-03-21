@@ -23,6 +23,18 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
+  // Capture invite code from URL
+  const inviteCode = searchParams.get('invite');
+  
+  // If invite code present, default to signup mode
+  useEffect(() => {
+    if (inviteCode) {
+      setIsLogin(false);
+      // Store invite code in sessionStorage so SetupFlow can use it
+      sessionStorage.setItem('kaizen-invite-code', inviteCode);
+    }
+  }, [inviteCode]);
+
   // Check if PWA is installed
   const isPWA = isPWAInstalled();
   
