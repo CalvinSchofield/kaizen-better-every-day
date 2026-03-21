@@ -575,7 +575,17 @@ const TrackWithLayout = () => {
     };
   }, [verifyServerSync, entry.is_finalized]);
 
-  // Handle save button click - check if before sunset
+  // Reflect counter queue state into sync status
+  useEffect(() => {
+    if (counterQueueLength > 0) {
+      setSyncStatus(navigator.onLine ? 'pending' : 'offline');
+    } else if (counterQueueLength === 0 && !isCounterProcessing && syncStatus === 'pending') {
+      // Queue drained - verify server state
+      verifyServerSync();
+    }
+  }, [counterQueueLength, isCounterProcessing]);
+
+
   const handleSaveButtonClick = () => {
     // Check if it's before typical end of work day
     if (isBeforeSunset()) {
