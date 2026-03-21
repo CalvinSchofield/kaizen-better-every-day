@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, Target, Trophy, UserPlus, Contact, Sparkles, Swords, RefreshCw, type LucideIcon } from "lucide-react";
+import { Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, Target, Trophy, UserPlus, Contact, Sparkles, Swords, RefreshCw, GitBranch, type LucideIcon } from "lucide-react";
+import { canManageTeam } from "@/utils/roleHierarchy";
 import {
   Sheet,
   SheetContent,
@@ -351,6 +352,13 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
               if (!(isLeader && !isKnockingMode && !isCalendarLocked)) {
                 teamItems.push(
                   <DrawerItem key="group" to="/my-group" icon={UserPlus} label="My Group" onClick={() => setOpen(false)} />
+                );
+              }
+              
+              // Organization - team lead and above
+              if (teamAccess?.accessLevel && canManageTeam(teamAccess.accessLevel)) {
+                teamItems.push(
+                  <DrawerItem key="org-chart" to="/org-chart" icon={GitBranch} label="Organization" onClick={() => { hapticLight(); setOpen(false); }} />
                 );
               }
               
