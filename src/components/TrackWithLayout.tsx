@@ -683,6 +683,7 @@ const TrackWithLayout = () => {
       // This prevents the bug where navigating away and back shows zeros/unfinalized state
       // Clear localStorage backup
       clearBackup();
+      clearCounterQueue();
       setSyncStatus('synced');
       // Store summary for success sheet (including Me vs Me comparison data)
       // Calculate hours worked from start/end times
