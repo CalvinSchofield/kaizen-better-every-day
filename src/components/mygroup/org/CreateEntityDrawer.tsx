@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,9 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "@/hooks/use-toast";
+import { useSubmitOrgRequest } from "@/hooks/useOrgRequests";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { hasMinAccess } from "@/utils/roleHierarchy";
 
 interface Rep {
   userId: string | null;
@@ -49,63 +49,36 @@ export const CreateEntityDrawer = ({
   const [name, setName] = useState("");
   const [leadUserId, setLeadUserId] = useState("__none__");
   const [mgmtGroupId, setMgmtGroupId] = useState("__none__");
-  const [saving, setSaving] = useState(false);
-  const queryClient = useQueryClient();
+  const { data: teamAccess } = useTeamAccess();
+  const submitRequest = useSubmitOrgRequest();
+
+  const accessLevel = teamAccess?.accessLevel || 'none';
+  const isCorporate = hasMinAccess(accessLevel, 'corporate');
+  const requestType = mode === "team" ? "create_team" : "create_mgmt_group";
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      toast({ title: "Name is required", variant: "destructive" });
-      return;
+    if (!name.trim()) return;
+
+    const requestData: Record<string, any> = {
+      name: name.trim(),
+      leadUserId: leadUserId === "__none__" ? null : leadUserId,
+    };
+
+    if (mode === "team" && mgmtGroupId !== "__none__") {
+      requestData.mgmtGroupId = mgmtGroupId;
     }
 
-    setSaving(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
-
-      const endpoint = mode === "team" ? "manage-team" : "manage-mgmt-group";
-      const body =
-        mode === "team"
-          ? {
-              action: "create",
-              name: name.trim(),
-              leadUserId: leadUserId === "__none__" ? null : leadUserId,
-              mgmtGroupId: mgmtGroupId === "__none__" ? null : mgmtGroupId,
-            }
-          : {
-              action: "create",
-              name: name.trim(),
-              leadUserId: leadUserId === "__none__" ? null : leadUserId,
-            };
-
-      const { error } = await supabase.functions.invoke(endpoint, {
-        body,
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
+    submitRequest.mutate(
+      { requestType, requestData },
+      {
+        onSuccess: () => {
+          setName("");
+          setLeadUserId("__none__");
+          setMgmtGroupId("__none__");
+          onOpenChange(false);
         },
-      });
-
-      if (error) throw error;
-
-      toast({ title: `${mode === "team" ? "Team" : "Management Group"} created` });
-      queryClient.invalidateQueries({ queryKey: ["team-access"] });
-      queryClient.invalidateQueries({ queryKey: ["org-structure"] });
-      
-      // Reset form
-      setName("");
-      setLeadUserId("__none__");
-      setMgmtGroupId("__none__");
-      onOpenChange(false);
-    } catch (err) {
-      console.error("Error creating entity:", err);
-      toast({
-        title: "Error creating " + (mode === "team" ? "team" : "group"),
-        description: err instanceof Error ? err.message : "Unknown error",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
-    }
+      }
+    );
   };
 
   const title = mode === "team" ? "Create New Team" : "Create New Management Group";
@@ -123,6 +96,15 @@ export const CreateEntityDrawer = ({
         </DrawerHeader>
 
         <div className="p-4 space-y-4">
+          {!isCorporate && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border/50">
+              <ShieldCheck className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                This request will be sent to your upline leadership for approval before being executed.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input
@@ -173,8 +155,12 @@ export const CreateEntityDrawer = ({
         </div>
 
         <DrawerFooter className="border-t">
-          <Button onClick={handleSave} disabled={saving} className="w-full">
-            {saving ? "Creating..." : `Create ${mode === "team" ? "Team" : "Group"}`}
+          <Button onClick={handleSave} disabled={submitRequest.isPending || !name.trim()} className="w-full">
+            {submitRequest.isPending
+              ? "Submitting..."
+              : isCorporate
+              ? `Create ${mode === "team" ? "Team" : "Group"}`
+              : `Request ${mode === "team" ? "Team" : "Group"} Creation`}
           </Button>
         </DrawerFooter>
       </DrawerContent>
