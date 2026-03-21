@@ -260,62 +260,57 @@ export const useParticipantPool = (options: UseParticipantPoolOptions = {}): Use
     return { myRecruitIds, directRecruitIds, myTeamIds, myMgmtIds, allOfficeIds };
   }, [teamAccess, allOfficeReps, currentUserId]);
   
-  // Build enriched rep list from all office reps + downline reps from teamAccess
-  // This ensures the user's full downline is always visible even if some reps
-  // don't pass the active-stage filter in useAllOfficeReps
+  // Build enriched rep list from all office reps
   const allReps = useMemo((): ParticipantRep[] => {
-    const seenUserIds = new Set<string>();
-    const result: ParticipantRep[] = [];
+    if (!allOfficeReps) return [];
     
-    const addRep = (rep: { id: string; userId: string; name: string; phone?: string | null; year?: string | null; stage?: string | null; teamId?: string | null; teamName?: string | null; mgmtGroupId?: string | null; mgmtGroupName?: string | null }) => {
-      if (!rep.userId) return;
-      if (seenUserIds.has(rep.userId)) return;
-      if (!includeCurrentUser && rep.userId === currentUserId) return;
-      
-      seenUserIds.add(rep.userId);
-      result.push({
+    // Debug: log sizes to understand why "My Recruits" might be empty
+    console.log('[useParticipantPool] allOfficeReps:', allOfficeReps.length, 
+      'myRecruitIds:', myRecruitIds.size, 
+      'myTeamIds:', myTeamIds.size,
+      'myMgmtIds:', myMgmtIds.size,
+      'accessLevel:', teamAccess?.accessLevel,
+      'accessibleReps:', teamAccess?.accessibleReps?.length);
+    
+    // Debug: check overlap between allOfficeReps userIds and myRecruitIds
+    if (myRecruitIds.size > 0) {
+      const officeUserIds = new Set(allOfficeReps.map(r => r.userId));
+      let matchCount = 0;
+      myRecruitIds.forEach(id => { if (officeUserIds.has(id)) matchCount++; });
+      console.log('[useParticipantPool] Overlap: myRecruitIds in allOfficeReps:', matchCount, '/', myRecruitIds.size);
+      if (matchCount === 0) {
+        // Log sample IDs for debugging
+        const sampleRecruitIds = Array.from(myRecruitIds).slice(0, 3);
+        const sampleOfficeIds = Array.from(officeUserIds).slice(0, 3);
+        console.log('[useParticipantPool] Sample myRecruitIds:', sampleRecruitIds);
+        console.log('[useParticipantPool] Sample officeUserIds:', sampleOfficeIds);
+      }
+    }
+    
+    return allOfficeReps
+      .filter(rep => {
+        if (!rep.userId) return false;
+        if (!includeCurrentUser && rep.userId === currentUserId) return false;
+        return true;
+      })
+      .map(rep => ({
         id: rep.id,
         userId: rep.userId,
         name: rep.name,
         phone: rep.phone,
         year: rep.year,
         stage: rep.stage,
-        teamId: rep.teamId ?? null,
-        teamName: rep.teamName ?? null,
-        mgmtGroupId: rep.mgmtGroupId ?? null,
-        mgmtGroupName: rep.mgmtGroupName ?? null,
+        teamId: rep.teamId,
+        teamName: rep.teamName,
+        mgmtGroupId: rep.mgmtGroupId,
+        mgmtGroupName: rep.mgmtGroupName,
         isMyRecruit: myRecruitIds.has(rep.userId),
         isDirectRecruit: directRecruitIds.has(rep.userId),
         isInMyTeam: myTeamIds.has(rep.userId),
         isInMyMgmt: myMgmtIds.has(rep.userId),
         isWorking: workingUserIds.has(rep.userId),
         isSelf: rep.userId === currentUserId,
-      });
-    };
-    
-    // 1. Add all office reps (active-stage filtered, broadest pool)
-    allOfficeReps?.forEach(rep => addRep(rep));
-    
-    // 2. Add downline reps from teamAccess that weren't in allOfficeReps
-    // This catches reps in non-active stages that are still in the user's downline
-    teamAccess?.accessibleReps?.forEach(rep => {
-      if (rep.userId) {
-        addRep({
-          id: rep.id,
-          userId: rep.userId,
-          name: rep.name,
-          phone: rep.phone,
-          year: rep.year,
-          stage: rep.stage,
-          teamId: rep.teamId,
-          teamName: rep.teamName,
-          mgmtGroupId: rep.mgmtGroupId,
-          mgmtGroupName: rep.mgmtGroupName,
-        });
-      }
-    });
-    
-    return result;
+      }));
   }, [allOfficeReps, teamAccess, myRecruitIds, directRecruitIds, myTeamIds, myMgmtIds, workingUserIds, includeCurrentUser, currentUserId]);
   
   // Filter by scope
