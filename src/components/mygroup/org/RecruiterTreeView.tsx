@@ -56,9 +56,9 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
     queryKey: ["recruiter-tree-data"],
     queryFn: async () => {
       const [recruitsRes, repsRes, teamsRes] = await Promise.all([
-        supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, phone, email, created_at, updated_at"),
-        supabase.from("reps").select("user_id, name, profile_photo_url"),
-        supabase.from("teams").select("id, name"),
+        supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, phone, email, created_at, updated_at").limit(5000),
+        supabase.from("reps").select("user_id, name, profile_photo_url").limit(5000),
+        supabase.from("teams").select("id, name").limit(500),
       ]);
 
       return {
