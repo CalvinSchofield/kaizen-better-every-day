@@ -531,9 +531,16 @@ export const EditRecruitDrawer = ({
                 <SelectValue placeholder="Select stage" />
               </SelectTrigger>
               <SelectContent>
-                {notionOptions?.stageOptions?.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
+              {(() => {
+                  const options = notionOptions?.stageOptions || [];
+                  // Ensure current stage is always in the list even if not returned by options API
+                  const allStages = stage && !options.includes(stage) 
+                    ? [stage, ...options] 
+                    : options;
+                  return allStages.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ));
+                })()}
               </SelectContent>
             </Select>
           </div>
