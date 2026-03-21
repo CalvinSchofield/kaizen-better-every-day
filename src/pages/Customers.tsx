@@ -237,7 +237,7 @@ const Customers = () => {
             </div>
 
             {/* Customer List */}
-            {isLoading ? (
+            {isLoading && !loadingTimedOut ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-36 w-full rounded-xl" />
