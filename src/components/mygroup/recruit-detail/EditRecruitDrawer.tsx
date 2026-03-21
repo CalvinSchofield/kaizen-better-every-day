@@ -46,7 +46,9 @@ interface EditRecruitDrawerProps {
 
 // Format phone number as user types
 const formatPhoneNumber = (value: string) => {
-  const digits = value.replace(/\D/g, '');
+  let digits = value.replace(/\D/g, '');
+  // Strip leading country code '1' from 11-digit numbers (e.g. pasting +1 (385) 225-7363)
+  if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
   if (digits.length <= 3) return digits;
   if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
@@ -529,9 +531,16 @@ export const EditRecruitDrawer = ({
                 <SelectValue placeholder="Select stage" />
               </SelectTrigger>
               <SelectContent>
-                {notionOptions?.stageOptions?.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
+              {(() => {
+                  const options = notionOptions?.stageOptions || [];
+                  // Ensure current stage is always in the list even if not returned by options API
+                  const allStages = stage && !options.includes(stage) 
+                    ? [stage, ...options] 
+                    : options;
+                  return allStages.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ));
+                })()}
               </SelectContent>
             </Select>
           </div>
