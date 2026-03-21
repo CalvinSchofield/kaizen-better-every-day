@@ -419,7 +419,7 @@ export const EditRecruitDrawer = ({
     },
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const cleanPhone = phone.replace(/\D/g, '');
     
     // Find the recruiter name from the user ID
@@ -439,6 +439,37 @@ export const EditRecruitDrawer = ({
       significantOtherName: significantOtherName.trim(),
       watchOutNotes: watchOutNotes.trim(),
     });
+
+    // If a role was selected, insert into user_roles
+    // We need the recruit's user_id - get it from the reps table
+    if (selectedRole && canAssignRoles) {
+      try {
+        const { data: repData } = await supabase
+          .from('reps')
+          .select('user_id')
+          .eq('id', recruit.id)
+          .maybeSingle();
+        
+        if (repData?.user_id) {
+          // Check if role already exists
+          const { data: existing } = await supabase
+            .from('user_roles' as any)
+            .select('id')
+            .eq('user_id', repData.user_id)
+            .eq('role', selectedRole)
+            .maybeSingle();
+          
+          if (!existing) {
+            await supabase.from('user_roles' as any).insert({
+              user_id: repData.user_id,
+              role: selectedRole,
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to assign role:', e);
+      }
+    }
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
