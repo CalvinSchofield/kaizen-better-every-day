@@ -24,6 +24,7 @@ import { usePendingSalesQueue } from "@/hooks/usePendingSalesQueue";
 import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
 import { useCompetitorNudge } from "@/hooks/useCompetitorNudge";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useConfetti } from "@/hooks/useConfetti";
@@ -59,6 +60,7 @@ const getTodayDate = () => {
 };
 
 const TrackWithLayout = () => {
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -396,6 +398,15 @@ const TrackWithLayout = () => {
         (serverRow.presentations || 0) +
         (serverRow.closes || 0);
 
+      if (serverTotal > localTotal) {
+        // If another device (or server-side safety merge) is ahead, force-refresh
+        // local Track cache so UI reflects true server totals immediately.
+        queryClient.invalidateQueries({
+          queryKey: ['daily-entry', todayDate],
+          refetchType: 'all',
+        });
+      }
+
       if (serverTotal >= localTotal) {
         setSyncStatus('synced');
         return;
@@ -450,7 +461,7 @@ const TrackWithLayout = () => {
     } catch {
       setSyncStatus('error');
     }
-  }, [entry, updateCounter]);
+  }, [entry, updateCounter, queryClient]);
 
   // Sync status tracking: listen for online/offline changes + periodic server verification
   useEffect(() => {
@@ -460,9 +471,22 @@ const TrackWithLayout = () => {
       setTimeout(verifyServerSync, 3000);
     };
     const handleOffline = () => setSyncStatus('offline');
+    const handleFocus = () => {
+      if (navigator.onLine && !entry.is_finalized) {
+        verifyServerSync();
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine && !entry.is_finalized) {
+        verifyServerSync();
+      }
+    };
     
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('pageshow', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
     
     // Periodic server verification every 30 seconds when online
     const interval = setInterval(() => {
@@ -474,6 +498,9 @@ const TrackWithLayout = () => {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('pageshow', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
       clearInterval(interval);
     };
   }, [verifyServerSync, entry.is_finalized]);
