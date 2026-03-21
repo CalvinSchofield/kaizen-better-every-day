@@ -42,7 +42,9 @@ interface EditRecruitDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recruit: Recruit;
-  onSuccess?: () => void;
+  onSuccess?: (assignedRole?: string) => void;
+  /** When true, show role assignment dropdown (for pending approval flow) */
+  showRoleAssignment?: boolean;
 }
 
 // Format phone number as user types
