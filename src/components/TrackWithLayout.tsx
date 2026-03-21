@@ -21,6 +21,7 @@ import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
 import { useSaleUpdate } from "@/hooks/useSaleUpdate";
 import { usePendingSalesQueue } from "@/hooks/usePendingSalesQueue";
+import { usePendingCounterQueue, CounterEvent } from "@/hooks/usePendingCounterQueue";
 import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
 import { useCompetitorNudge } from "@/hooks/useCompetitorNudge";
 import { supabase } from "@/integrations/supabase/client";
