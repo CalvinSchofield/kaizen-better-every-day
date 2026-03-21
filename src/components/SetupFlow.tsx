@@ -386,6 +386,96 @@ const SetupFlow = () => {
     }
   };
 
+  // Show invite-based onboarding form
+  if (showInviteOnboarding) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-8 pb-8">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">🎉</span>
+              </div>
+              <h2 className="text-xl font-bold mb-2">Welcome to Kaizen!</h2>
+              <p className="text-sm text-muted-foreground">
+                Let's get your profile set up. Just a few quick questions.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="invite-name">Full Name</Label>
+                <Input
+                  id="invite-name"
+                  placeholder="First and Last Name"
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  disabled={isProcessingInvite}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="invite-phone">Phone Number</Label>
+                <Input
+                  id="invite-phone"
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  value={invitePhone}
+                  onChange={(e) => setInvitePhone(e.target.value)}
+                  disabled={isProcessingInvite}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="invite-year">Experience Level</Label>
+                <Select value={inviteYear} onValueChange={setInviteYear} disabled={isProcessingInvite}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your experience" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Rookie">Rookie (1st year)</SelectItem>
+                    <SelectItem value="Sophomore">Sophomore (2nd year)</SelectItem>
+                    <SelectItem value="Vet">Vet (3+ years)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {userEmail && (
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Signed in as:</p>
+                  <p className="text-sm font-medium">{userEmail}</p>
+                </div>
+              )}
+
+              <Button
+                onClick={processInviteSignup}
+                disabled={isProcessingInvite || !inviteName.trim()}
+                className="w-full"
+                size="lg"
+              >
+                {isProcessingInvite ? "Setting up your account..." : "Join My Team →"}
+              </Button>
+
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  sessionStorage.removeItem('kaizen-invite-code');
+                  await supabase.auth.signOut();
+                  navigate('/auth');
+                }}
+                className="w-full text-muted-foreground"
+                size="sm"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Show "Not in System" request access screen
   if (notInSystem) {
     return (
@@ -393,12 +483,12 @@ const SetupFlow = () => {
         <Card className="w-full max-w-md">
           <CardContent className="pt-8 pb-8">
             <div className="text-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-4">
-                <UserX className="w-8 h-8 text-orange-500" />
+              <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+                <UserX className="w-8 h-8 text-destructive" />
               </div>
               <h2 className="text-xl font-bold mb-2">Account Not Found</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                Your account isn't set up in our system yet. Please contact your team leader to get added.
+                Your account isn't set up in our system yet. Please contact your team leader to get added, or ask them for an invite link.
               </p>
               {userEmail && (
                 <div className="bg-muted/50 rounded-lg p-3 mb-4">
@@ -412,8 +502,8 @@ const SetupFlow = () => {
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
                 <h3 className="font-medium text-sm mb-2">What to do:</h3>
                 <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                  <li>Contact your team leader or recruiter</li>
-                  <li>Ask them to add your email to the system</li>
+                  <li>Ask your recruiter for their invite link</li>
+                  <li>Or contact your team leader to get added</li>
                   <li>Once added, come back and try again</li>
                 </ol>
               </div>
