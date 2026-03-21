@@ -514,6 +514,8 @@ const OrgChart = () => {
           if (!open) {
             setSelectedNodeId(null);
             setDrawerRecruit(null);
+            // Refetch tree data to reflect any changes (recruiter reassignment, stage change, etc.)
+            queryClient.invalidateQueries({ queryKey: ["org-chart-full-tree"] });
           }
         }}
         initialTab="details"
