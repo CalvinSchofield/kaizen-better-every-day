@@ -284,9 +284,17 @@ export const PendingApprovalsSection = () => {
           open={!!editingRecruit}
           onOpenChange={(open) => !open && setEditingRecruit(null)}
           recruit={toRecruitShape(editingRecruit)}
-          onSuccess={() => {
+          showRoleAssignment={true}
+          onSuccess={(assignedRole) => {
             queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
             queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+            // Show leadership prompt if a role was assigned
+            if (assignedRole && editingRecruit) {
+              setLeadershipPrompt({
+                name: editingRecruit.name,
+                role: getRoleLabel(assignedRole as any),
+              });
+            }
           }}
         />
       )}
