@@ -2,8 +2,8 @@
  * Centralized role hierarchy and permission utilities.
  * 
  * Hierarchy (lowest to highest):
- * none → recruiter → assistant_manager → team_lead → mgmt_group_lead → 
- * area_director → regional → sr_regional → partner → divisional → corporate
+ * none → recruiter → assistant_manager → team_lead → manager → senior_manager →
+ * mgmt_group_lead → area_director → regional → sr_regional → partner → divisional → corporate
  */
 
 export type AccessLevel =
@@ -14,6 +14,8 @@ export type AccessLevel =
   | 'regional'
   | 'area_director'
   | 'mgmt_group_lead'
+  | 'senior_manager'
+  | 'manager'
   | 'team_lead'
   | 'assistant_manager'
   | 'recruiter'
@@ -24,6 +26,8 @@ const ROLE_HIERARCHY: AccessLevel[] = [
   'recruiter',
   'assistant_manager',
   'team_lead',
+  'manager',
+  'senior_manager',
   'mgmt_group_lead',
   'area_director',
   'regional',
@@ -60,6 +64,8 @@ export const getRoleLabel = (level: AccessLevel): string => {
     recruiter: 'Recruiter',
     assistant_manager: 'Assistant Manager',
     team_lead: 'Team Lead',
+    manager: 'Manager',
+    senior_manager: 'Senior Manager',
     mgmt_group_lead: 'MGMT Group Lead',
     area_director: 'Area Director',
     regional: 'Regional',
@@ -74,6 +80,8 @@ export const getRoleLabel = (level: AccessLevel): string => {
 /** All assignable roles for admin panel (excludes dynamic roles) */
 export const ASSIGNABLE_ROLES: AccessLevel[] = [
   'assistant_manager',
+  'manager',
+  'senior_manager',
   'regional',
   'sr_regional',
   'partner',
