@@ -246,21 +246,11 @@ export const LogSaleSheet = ({
   };
 
   const getLocation = async () => {
-    if (!navigator.geolocation) {
-      setLocationError('Location not supported on this device');
-      return;
-    }
-    
     setIsGettingLocation(true);
     setLocationError(null);
     try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 30000
-        });
-      });
+      const { getNativePosition } = await import('@/utils/nativeGeolocation');
+      const position = await getNativePosition();
 
       const { latitude, longitude } = position.coords;
       setCustomerLat(latitude);
