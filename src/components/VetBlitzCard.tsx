@@ -960,7 +960,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   };
   
   // Check if we need secondary selectors
-  const needsMgmtGroupSelector = attendanceScope === 'mgmt' && accessLevel === 'area_director' || accessLevel === 'corporate';
+  const needsMgmtGroupSelector = attendanceScope === 'mgmt' && (accessLevel === 'area_director' || accessLevel === 'corporate');
   const needsTeamSelector = attendanceScope === 'team' && (accessLevel === 'area_director' || accessLevel === 'corporate' || accessLevel === 'mgmt_group_lead');
 
   // Simplified personal view for non-leaders OR when scope is 'you'
