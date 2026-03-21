@@ -4,6 +4,7 @@ import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { hasMinAccess, canFilterByTeam } from "@/utils/roleHierarchy";
 import { useGroupRecruits, useMySuggestions, useDeleteMySuggestion, RecruitSuggestion, Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
@@ -901,7 +902,7 @@ const MyGroup = () => {
           <Search className="h-4 w-4" />
         </Button>
       )}
-      {(teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'corporate' || teamAccess?.accessLevel === 'mgmt_group_lead') && (
+      {teamAccess?.accessLevel && canFilterByTeam(teamAccess.accessLevel) && (
         <Button 
           variant={selectedTeamFilter ? 'default' : 'ghost'} 
           size="icon" 

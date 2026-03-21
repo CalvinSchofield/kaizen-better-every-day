@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { canFilterByTeam } from "@/utils/roleHierarchy";
 import { useReportsV2Data } from "@/hooks/useReportsV2Data";
 import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAvailableDatePresets";
 import { useQuery } from "@tanstack/react-query";
@@ -364,7 +365,7 @@ export const ReportsV2Page = () => {
         mgmtGroups={teamAccess.mgmtGroups || []}
         accessLevel={teamAccess.accessLevel}
         repCount={filteredUserIds.length}
-        showTeamFilters={teamAccess.accessLevel === 'area_director' || teamAccess?.accessLevel === 'corporate' || teamAccess.accessLevel === 'mgmt_group_lead'}
+        showTeamFilters={canFilterByTeam(teamAccess.accessLevel)}
       />
 
       {/* Date presets */}

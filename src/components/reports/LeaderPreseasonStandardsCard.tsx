@@ -37,7 +37,7 @@ interface LeaderPreseasonStandardsCardProps {
     isTeamLead?: boolean;
   }>;
   excludeUserIds?: string[];
-  accessLevel?: 'corporate' | 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
+  accessLevel?: import("@/utils/roleHierarchy").AccessLevel;
 }
 
 interface CommitmentStatus {

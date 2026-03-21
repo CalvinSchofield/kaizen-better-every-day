@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+import type { AccessLevel } from "@/utils/roleHierarchy";
+
 interface TeamAccessResponse {
-  accessLevel: 'corporate' | 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
+  accessLevel: AccessLevel;
   mgmtGroups: Array<{
     id: string;
     name: string;

@@ -52,6 +52,7 @@ import ReportsV2 from "./pages/ReportsV2";
 import LogSale from "./pages/LogSale";
 import Profile from "./pages/Profile";
 import DebugNotifications from "./pages/DebugNotifications";
+import Admin from "./pages/Admin";
 import { queryPersister } from "./lib/queryPersister";
 
 const queryClient = new QueryClient({
@@ -134,6 +135,7 @@ const App = () => {
                 <Route path="/reports-v2" element={<ProtectedRoute><Layout><ReportsV2 /></Layout></ProtectedRoute>} />
                 <Route path="/log-sale" element={<ProtectedRoute><Layout><LogSale /></Layout></ProtectedRoute>} />
                 <Route path="/debug-notifications" element={<ProtectedRoute><Layout><DebugNotifications /></Layout></ProtectedRoute>} />
+                <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
 
                 {/* Catch-all */}
                 <Route path="*" element={<NotFound />} />

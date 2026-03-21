@@ -9,7 +9,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
-
+import { canFilterByTeam, type AccessLevel } from "@/utils/roleHierarchy";
 interface Team {
   id: string;
   name: string;
@@ -29,7 +29,7 @@ export type TeamFilter =
 interface ReportsTeamFilterProps {
   teams: Team[];
   mgmtGroups: MgmtGroup[];
-  accessLevel: 'corporate' | 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
+  accessLevel: AccessLevel;
   selectedFilter: TeamFilter;
   onFilterChange: (filter: TeamFilter) => void;
   repCount?: number;
@@ -43,8 +43,8 @@ export const ReportsTeamFilter = ({
   onFilterChange,
   repCount,
 }: ReportsTeamFilterProps) => {
-  // Only show for area directors and mgmt group leads
-  if (accessLevel !== 'area_director' && accessLevel !== 'mgmt_group_lead') {
+  // Only show for users with team filter access (mgmt_group_lead+)
+  if (!canFilterByTeam(accessLevel)) {
     return null;
   }
 
@@ -105,7 +105,7 @@ export const ReportsTeamFilter = ({
           </button>
 
           {/* MGMT Groups - only for Area Directors */}
-          {(['area_director', 'corporate'].includes(accessLevel)) && mgmtGroups.length > 0 && (
+          {canFilterByTeam(accessLevel) && mgmtGroups.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
                 Management Groups

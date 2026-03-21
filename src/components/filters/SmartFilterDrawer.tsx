@@ -45,7 +45,7 @@ interface SmartFilterDrawerProps {
   onFilterApply: (state: SmartFilterState) => void;
   teams?: Team[];
   mgmtGroups?: MgmtGroup[];
-  accessLevel?: 'corporate' | 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
+  accessLevel?: import("@/utils/roleHierarchy").AccessLevel;
   repCount?: number;
   showYearFilters?: boolean;
   showTeamFilters?: boolean;

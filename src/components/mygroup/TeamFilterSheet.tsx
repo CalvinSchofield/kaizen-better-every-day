@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, Users } from "lucide-react";
+import { hasMinAccess, type AccessLevel } from "@/utils/roleHierarchy";
 
 interface Team {
   id: string;
@@ -28,7 +29,7 @@ interface TeamFilterSheetProps {
   mgmtGroups: MgmtGroup[];
   selectedFilter: string | null;
   onFilterChange: (filter: string | null) => void;
-  accessLevel: 'corporate' | 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
+  accessLevel: AccessLevel;
   recruitCounts?: Record<string, number>;
   totalRecruits?: number;
 }
@@ -74,7 +75,7 @@ export const TeamFilterSheet = ({
           </Button>
 
           {/* MGMT Groups (for Area Directors) */}
-          {accessLevel === 'area_director' || accessLevel === 'corporate' && mgmtGroups.length > 0 && (
+          {hasMinAccess(accessLevel, 'area_director') && mgmtGroups.length > 0 && (
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-2">
                 Management Groups
