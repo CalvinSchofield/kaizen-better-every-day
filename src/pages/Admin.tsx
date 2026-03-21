@@ -448,7 +448,7 @@ const RolesTab = () => {
 
   const removeRole = useMutation({
     mutationFn: async (roleId: string) => {
-      const { error } = await supabase.from('user_roles').delete().eq('id', roleId);
+      const { error } = await supabase.from('user_roles' as any).delete().eq('id', roleId);
       if (error) throw error;
     },
     onSuccess: () => {
