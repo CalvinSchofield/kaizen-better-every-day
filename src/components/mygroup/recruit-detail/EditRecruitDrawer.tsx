@@ -410,7 +410,7 @@ export const EditRecruitDrawer = ({
       // Invalidate assignable/mentionable users cache when recruiter changes
       queryClient.invalidateQueries({ queryKey: ['assignable-users', recruit.id] });
       queryClient.invalidateQueries({ queryKey: ['mentionable-users', recruit.id] });
-      onSuccess?.();
+      onSuccess?.(selectedRole || undefined);
       onOpenChange(false);
     },
     onError: (error) => {
