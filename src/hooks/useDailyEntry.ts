@@ -456,27 +456,34 @@ export const useDailyEntry = (date?: string) => {
         });
       }
       
-      const { data, error } = await supabase.rpc('upsert_daily_entry_safe', {
-        p_user_id: user.id,
-        p_entry_date: entryDate,
-        p_doors_knocked: updates.doors_knocked ?? null,
-        p_decision_makers: updates.decision_makers ?? null,
-        p_pitches: updates.pitches ?? null,
-        p_transitions: updates.transitions ?? null,
-        p_presentations: updates.presentations ?? null,
-        p_closes: updates.closes ?? null,
-        p_fp_plus: updates.fp_plus ?? null,
-        p_prmr: updates.prmr ?? null,
-        p_upgrade_prmr: updates.upgrade_prmr ?? null,
-        p_work_start_time: updates.work_start_time ?? null,
-        p_work_end_time: updates.work_end_time ?? null,
-        p_break_periods: updates.break_periods ? JSON.parse(JSON.stringify(updates.break_periods)) : null,
-        p_counter_timestamps: updates.counter_timestamps ? JSON.parse(JSON.stringify(updates.counter_timestamps)) : null,
-        p_custom_counters: updates.custom_counters ? JSON.parse(JSON.stringify(updates.custom_counters)) : null,
-        p_timezone: updates.timezone ?? null,
-        p_sales_log: salesPayload,
-        p_is_finalized: updates.is_finalized ?? null,
-      });
+      const rpcResult = await Promise.race([
+        supabase.rpc('upsert_daily_entry_safe', {
+          p_user_id: user.id,
+          p_entry_date: entryDate,
+          p_doors_knocked: updates.doors_knocked ?? null,
+          p_decision_makers: updates.decision_makers ?? null,
+          p_pitches: updates.pitches ?? null,
+          p_transitions: updates.transitions ?? null,
+          p_presentations: updates.presentations ?? null,
+          p_closes: updates.closes ?? null,
+          p_fp_plus: updates.fp_plus ?? null,
+          p_prmr: updates.prmr ?? null,
+          p_upgrade_prmr: updates.upgrade_prmr ?? null,
+          p_work_start_time: updates.work_start_time ?? null,
+          p_work_end_time: updates.work_end_time ?? null,
+          p_break_periods: updates.break_periods ? JSON.parse(JSON.stringify(updates.break_periods)) : null,
+          p_counter_timestamps: updates.counter_timestamps ? JSON.parse(JSON.stringify(updates.counter_timestamps)) : null,
+          p_custom_counters: updates.custom_counters ? JSON.parse(JSON.stringify(updates.custom_counters)) : null,
+          p_timezone: updates.timezone ?? null,
+          p_sales_log: salesPayload,
+          p_is_finalized: updates.is_finalized ?? null,
+        }),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('COUNTER_SYNC_TIMEOUT')), 12000);
+        }),
+      ]) as { data: any; error: any };
+
+      const { data, error } = rpcResult;
 
       if (error) {
         console.error('[useDailyEntry] RPC error:', error.message, { hasSales: !!salesPayload });
@@ -583,6 +590,18 @@ export const useDailyEntry = (date?: string) => {
       queryClient.setQueryData(['daily-entry', entryDate], context?.previousEntry);
     },
     onSuccess: (data) => {
+      if (data) {
+        const normalized = {
+          ...(data as any),
+          break_periods: ((data as any).break_periods as any) || [],
+          counter_timestamps: ((data as any).counter_timestamps as any) || {},
+          custom_counters: ((data as any).custom_counters as any) || {},
+          sales_log: ((data as any).sales_log as any) || [],
+        } as DailyEntry;
+
+        queryClient.setQueryData(['daily-entry', entryDate], normalized);
+      }
+
       // Mark backup as server-confirmed after successful mutation
       const userId = getCurrentUserId();
       if (userId && data) {
