@@ -1,17 +1,14 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Sale } from "@/hooks/useDailyEntry";
 import { X, Ban } from "lucide-react";
-import { format, parseISO, isBefore, isAfter, startOfDay } from "date-fns";
+import { format } from "date-fns";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useFocusTier } from "@/hooks/useFocusTier";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
-import { usePlannedDays } from "@/hooks/usePlannedDays";
+import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useEffect } from "react";
 import confetti from "canvas-confetti";
-
-const PRESEASON_END = '2026-04-11';
-const SUMMER_END = '2026-09-27';
 
 interface SalesLoggerCardProps {
   salesLog: Sale[];
