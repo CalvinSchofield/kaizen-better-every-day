@@ -260,37 +260,63 @@ export const useParticipantPool = (options: UseParticipantPoolOptions = {}): Use
     return { myRecruitIds, directRecruitIds, myTeamIds, myMgmtIds, allOfficeIds };
   }, [teamAccess, allOfficeReps, currentUserId]);
   
-  // Build enriched rep list from all office reps
+  // Build enriched rep list from all office reps + downline reps from teamAccess
+  // This ensures the user's full downline is always visible even if some reps
+  // don't pass the active-stage filter in useAllOfficeReps
   const allReps = useMemo((): ParticipantRep[] => {
-    if (!allOfficeReps) return [];
+    const seenUserIds = new Set<string>();
+    const result: ParticipantRep[] = [];
     
-    return allOfficeReps
-      .filter(rep => {
-        if (!rep.userId) return false;
-        // includeCurrentUser controls whether to show self in the list
-        // For competitions, we always include self (includeCurrentUser: true)
-        if (!includeCurrentUser && rep.userId === currentUserId) return false;
-        return true;
-      })
-      .map(rep => ({
+    const addRep = (rep: { id: string; userId: string; name: string; phone?: string | null; year?: string | null; stage?: string | null; teamId?: string | null; teamName?: string | null; mgmtGroupId?: string | null; mgmtGroupName?: string | null }) => {
+      if (!rep.userId) return;
+      if (seenUserIds.has(rep.userId)) return;
+      if (!includeCurrentUser && rep.userId === currentUserId) return;
+      
+      seenUserIds.add(rep.userId);
+      result.push({
         id: rep.id,
         userId: rep.userId,
         name: rep.name,
         phone: rep.phone,
         year: rep.year,
         stage: rep.stage,
-        teamId: rep.teamId,
-        teamName: rep.teamName,
-        mgmtGroupId: rep.mgmtGroupId,
-        mgmtGroupName: rep.mgmtGroupName,
+        teamId: rep.teamId ?? null,
+        teamName: rep.teamName ?? null,
+        mgmtGroupId: rep.mgmtGroupId ?? null,
+        mgmtGroupName: rep.mgmtGroupName ?? null,
         isMyRecruit: myRecruitIds.has(rep.userId),
         isDirectRecruit: directRecruitIds.has(rep.userId),
         isInMyTeam: myTeamIds.has(rep.userId),
         isInMyMgmt: myMgmtIds.has(rep.userId),
         isWorking: workingUserIds.has(rep.userId),
         isSelf: rep.userId === currentUserId,
-      }));
-  }, [allOfficeReps, myRecruitIds, directRecruitIds, myTeamIds, myMgmtIds, workingUserIds, includeCurrentUser, currentUserId]);
+      });
+    };
+    
+    // 1. Add all office reps (active-stage filtered, broadest pool)
+    allOfficeReps?.forEach(rep => addRep(rep));
+    
+    // 2. Add downline reps from teamAccess that weren't in allOfficeReps
+    // This catches reps in non-active stages that are still in the user's downline
+    teamAccess?.accessibleReps?.forEach(rep => {
+      if (rep.userId) {
+        addRep({
+          id: rep.id,
+          userId: rep.userId,
+          name: rep.name,
+          phone: rep.phone,
+          year: rep.year,
+          stage: rep.stage,
+          teamId: rep.teamId,
+          teamName: rep.teamName,
+          mgmtGroupId: rep.mgmtGroupId,
+          mgmtGroupName: rep.mgmtGroupName,
+        });
+      }
+    });
+    
+    return result;
+  }, [allOfficeReps, teamAccess, myRecruitIds, directRecruitIds, myTeamIds, myMgmtIds, workingUserIds, includeCurrentUser, currentUserId]);
   
   // Filter by scope
   const myRecruits = useMemo(() => allReps.filter(r => r.isMyRecruit), [allReps]);
