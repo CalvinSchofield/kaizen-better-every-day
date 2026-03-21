@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Settings, Camera, Lock, Trophy, Flame, Target, Footprints, Presentation, ArrowRightLeft, Award, Eye, EyeOff } from "lucide-react";
+import { Settings, Camera, Lock, Trophy, Flame, Target, Footprints, Presentation, ArrowRightLeft, Award, Eye, EyeOff, ChevronLeft, AlertCircle, RefreshCw } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,6 @@ import { getInitials } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { format, parseISO } from "date-fns";
-import { ChevronLeft } from "lucide-react";
 
 const formatRelativeTime = (isoString: string | null): string | null => {
   if (!isoString) return null;
@@ -50,16 +49,17 @@ const Profile = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { userId: currentUserId } = useCurrentUserId();
+  const normalizedRouteUserId = userId && userId !== 'null' && userId !== 'undefined' ? userId : null;
   const [photoDrawerOpen, setPhotoDrawerOpen] = useState(false);
   const { setCustomRightContent, setCustomLeftContent, setCustomTitle } = useHeader();
-  const isOwnProfile = currentUserId === userId;
+  const isOwnProfile = !!currentUserId && normalizedRouteUserId === currentUserId;
   const [hasScrolledPastName, setHasScrolledPastName] = useState(false);
   const [activeTab, setActiveTab] = useState("stats");
   const nameRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
   const { isWatching, toggleWatchlist } = useWatchlist();
 
-  const { data: profile, isLoading } = useRepProfile(userId || currentUserId || null);
+  const { data: profile, isLoading, error, refetch, isRefetching } = useRepProfile(normalizedRouteUserId || currentUserId || null);
 
   // Safety timeout: force past loading skeleton after 6 seconds
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
@@ -70,10 +70,10 @@ const Profile = () => {
   }, [isLoading]);
 
   const { data: teamAccess } = useTeamAccess();
-  const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
-  const downlineGoalPace = useGoalPaceCalculatorForUser(isDownline ? userId : null);
+  const isDownline = !isOwnProfile && !!normalizedRouteUserId && !!teamAccess?.accessibleUserIds?.includes(normalizedRouteUserId);
+  const downlineGoalPace = useGoalPaceCalculatorForUser(isDownline ? normalizedRouteUserId : null);
 
-  const targetUserId = userId || currentUserId || null;
+  const targetUserId = normalizedRouteUserId || currentUserId || null;
   const { data: earnedBadges } = useUserBadges(targetUserId);
   const { data: allDefinitions } = useBadgeDefinitions();
   const topBadges = earnedBadges ? getTopBadges(earnedBadges, 2) : [];
@@ -122,7 +122,7 @@ const Profile = () => {
     };
   }, [isOwnProfile]);
 
-  if (!userId && currentUserId) {
+  if (!normalizedRouteUserId && currentUserId) {
     return <Navigate to={`/profile/${currentUserId}`} replace />;
   }
 
@@ -146,6 +146,21 @@ const Profile = () => {
             <Skeleton className="h-16 w-20" />
             <Skeleton className="h-16 w-20" />
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !profile) {
+    return (
+      <div className="px-4 py-8">
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-6 text-center">
+          <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground mb-4">Couldn't load this profile right now.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isRefetching}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
+            {isRefetching ? 'Retrying...' : 'Try Again'}
+          </Button>
         </div>
       </div>
     );
@@ -238,13 +253,13 @@ const Profile = () => {
           >
             <Camera className="h-4 w-4" />
           </button>
-        ) : userId ? (
+        ) : normalizedRouteUserId ? (
           <div className="absolute bottom-5 right-5 z-20 flex gap-2">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 hapticLight();
-                toggleWatchlist(userId);
+                toggleWatchlist(normalizedRouteUserId);
               }}
               className={`h-10 w-10 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform border-2 border-white/20 ${
                 isWatching(userId)
@@ -261,7 +276,7 @@ const Profile = () => {
             <ProfileContactBar
               name={profile.name}
               phone={profile.phone}
-              userId={userId}
+              userId={normalizedRouteUserId}
               canLog={isDownline}
               variant="overlay"
             />
@@ -317,8 +332,8 @@ const Profile = () => {
         goalPaceData={isDownline && downlineGoalPace.hasGoals ? downlineGoalPace : null}
         repName={profile.name}
         extraSlide={
-          isDownline && userId ? (
-            <ProfileSeasonHeatmap userId={userId} isOwnProfile={false} />
+          isDownline && normalizedRouteUserId ? (
+            <ProfileSeasonHeatmap userId={normalizedRouteUserId} isOwnProfile={false} />
           ) : undefined
         }
       />
