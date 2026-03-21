@@ -430,10 +430,10 @@ const RolesTab = () => {
   const assignRole = useMutation({
     mutationFn: async () => {
       if (!selectedRepUserId) throw new Error('Select a rep');
-      const { error } = await supabase.from('user_roles').insert({
+      const { error } = await supabase.from('user_roles' as any).insert({
         user_id: selectedRepUserId,
         role: selectedRole,
-      });
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
