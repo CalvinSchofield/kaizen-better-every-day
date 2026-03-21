@@ -46,6 +46,8 @@ interface EditRecruitDrawerProps {
   onSuccess?: (assignedRole?: string) => void;
   /** When true, show role assignment dropdown (for pending approval flow) */
   showRoleAssignment?: boolean;
+  /** When true, this is a one-time bootstrap approval (allows assigning higher roles) */
+  isBootstrapApproval?: boolean;
 }
 
 // Format phone number as user types
