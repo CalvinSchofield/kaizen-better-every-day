@@ -317,7 +317,24 @@ export const useParticipantPool = (options: UseParticipantPoolOptions = {}): Use
   }, [accessLevel]);
   
   // Only block on the essential data — working-status is decorative and can load async
-  const isLoading = isLoadingTeamAccess || isLoadingAllOffice;
+  // Add a safety timeout: after 6 seconds, stop showing the loading spinner regardless
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  
+  useEffect(() => {
+    if (!isLoadingTeamAccess && !isLoadingAllOffice) {
+      setLoadingTimedOut(false);
+      return;
+    }
+    
+    const timer = setTimeout(() => {
+      console.warn('[useParticipantPool] Loading safety timeout reached');
+      setLoadingTimedOut(true);
+    }, 6000);
+    
+    return () => clearTimeout(timer);
+  }, [isLoadingTeamAccess, isLoadingAllOffice]);
+  
+  const isLoading = (isLoadingTeamAccess || isLoadingAllOffice) && !loadingTimedOut;
   
   return {
     allReps,
