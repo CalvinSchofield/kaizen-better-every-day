@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { UserX, Mail, LogOut } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 
@@ -16,10 +19,61 @@ const SetupFlow = () => {
   const [userName, setUserName] = useState<string | null>(null);
   const [isRequestingAccess, setIsRequestingAccess] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  
+  // Invite-based onboarding state
+  const [showInviteOnboarding, setShowInviteOnboarding] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteName, setInviteName] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviteYear, setInviteYear] = useState("Rookie");
+  const [isProcessingInvite, setIsProcessingInvite] = useState(false);
 
   useEffect(() => {
     runSetup();
   }, []);
+
+  const processInviteSignup = async () => {
+    setIsProcessingInvite(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase.functions.invoke('process-invite-signup', {
+        body: {
+          inviteCode,
+          name: inviteName || userName,
+          phone: invitePhone || null,
+          year: inviteYear,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: "Welcome to Kaizen! 🎉",
+        description: data?.inviterName 
+          ? `You've been added to ${data.inviterName}'s team.`
+          : "Your account has been set up.",
+      });
+
+      // Now continue with normal setup flow
+      setShowInviteOnboarding(false);
+      await runSetup();
+    } catch (error: any) {
+      console.error('Invite processing error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to process invite. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingInvite(false);
+    }
+  };
 
   const runSetup = async () => {
     try {
@@ -28,6 +82,9 @@ const SetupFlow = () => {
       
       setUserEmail(user.email || null);
       setUserName(user.user_metadata?.name || null);
+
+      // Check for invite code (from sessionStorage or user metadata)
+      const storedInviteCode = sessionStorage.getItem('kaizen-invite-code') || user.user_metadata?.invite_code;
 
       // Step 1: Check rep profile in Supabase
       setStatusText("Loading your profile...");
@@ -39,10 +96,20 @@ const SetupFlow = () => {
         .maybeSingle();
 
       if (!existingRep) {
-        // No rep found - user needs to be added by admin
+        // No rep found - check if they have an invite code
+        if (storedInviteCode) {
+          setInviteCode(storedInviteCode);
+          setInviteName(user.user_metadata?.name || '');
+          setShowInviteOnboarding(true);
+          return;
+        }
+        // No invite code either - user needs to be added by admin
         setNotInSystem(true);
         return;
       }
+      
+      // Clear invite code from session storage since we're past that point
+      sessionStorage.removeItem('kaizen-invite-code');
 
       // Cache rep data
       const repData = existingRep;
