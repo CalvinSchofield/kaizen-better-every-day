@@ -77,6 +77,59 @@ Deno.serve(async (req) => {
       .eq('user_id', invite.inviter_user_id)
       .maybeSingle();
 
+    // 2b. Auto-resolve team_id and mgmt_group_id from inviter if not set on invite code
+    let resolvedTeamId = invite.team_id || null;
+    let resolvedMgmtGroupId = invite.mgmt_group_id || null;
+
+    if (inviterRep && (!resolvedTeamId || !resolvedMgmtGroupId)) {
+      // Look up inviter's recruit record for their team/MGMT group
+      const { data: inviterRecruit } = await supabase
+        .from('recruits')
+        .select('team_id, mgmt_group_id')
+        .eq('id', inviterRep.id)
+        .maybeSingle();
+
+      if (inviterRecruit) {
+        if (!resolvedTeamId && inviterRecruit.team_id) {
+          resolvedTeamId = inviterRecruit.team_id;
+        }
+        if (!resolvedMgmtGroupId && inviterRecruit.mgmt_group_id) {
+          resolvedMgmtGroupId = inviterRecruit.mgmt_group_id;
+        }
+      }
+
+      // Also check if inviter leads a team or MGMT group
+      if (!resolvedTeamId) {
+        const { data: ledTeam } = await supabase
+          .from('teams')
+          .select('id')
+          .eq('lead_user_id', invite.inviter_user_id)
+          .limit(1)
+          .maybeSingle();
+        if (ledTeam) resolvedTeamId = ledTeam.id;
+      }
+
+      if (!resolvedMgmtGroupId) {
+        const { data: ledGroup } = await supabase
+          .from('mgmt_groups')
+          .select('id')
+          .eq('lead_user_id', invite.inviter_user_id)
+          .limit(1)
+          .maybeSingle();
+        if (ledGroup) resolvedMgmtGroupId = ledGroup.id;
+      }
+
+      // If we resolved a team but not a MGMT group, look up the team's MGMT group
+      if (resolvedTeamId && !resolvedMgmtGroupId) {
+        const { data: teamMgmt } = await supabase
+          .from('team_mgmt_groups')
+          .select('mgmt_group_id')
+          .eq('team_id', resolvedTeamId)
+          .maybeSingle();
+        if (teamMgmt) resolvedMgmtGroupId = teamMgmt.mgmt_group_id;
+      }
+    }
+
     const finalName = name || user.user_metadata?.name || user.email?.split('@')[0] || 'New Rep';
     const finalYear = year || 'Rookie';
 
@@ -128,8 +181,8 @@ Deno.serve(async (req) => {
       stage: 'Signed',
       year: finalYear,
       recruiter_user_id: invite.inviter_user_id,
-      team_id: invite.team_id || null,
-      mgmt_group_id: invite.mgmt_group_id || null,
+      team_id: resolvedTeamId,
+      mgmt_group_id: resolvedMgmtGroupId,
       invite_code_used: inviteCode,
       approval_status: 'pending',
     };

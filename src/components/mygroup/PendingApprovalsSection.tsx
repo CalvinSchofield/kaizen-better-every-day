@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, XCircle, Pencil, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { hapticSuccess } from "@/utils/haptics";
+import { getRoleLabel } from "@/utils/roleHierarchy";
 import { getCleanName } from "@/utils/nameUtils";
 import {
   Drawer,
@@ -41,6 +42,7 @@ export const PendingApprovalsSection = () => {
   const { data: teamAccess } = useTeamAccess();
   const [editingRecruit, setEditingRecruit] = useState<PendingRecruit | null>(null);
   const [rejectConfirmId, setRejectConfirmId] = useState<string | null>(null);
+  const [leadershipPrompt, setLeadershipPrompt] = useState<{ name: string; role: string } | null>(null);
 
   // Fetch pending recruits that this user can approve
   const { data: pendingRecruits = [], isLoading } = useQuery({
@@ -282,9 +284,17 @@ export const PendingApprovalsSection = () => {
           open={!!editingRecruit}
           onOpenChange={(open) => !open && setEditingRecruit(null)}
           recruit={toRecruitShape(editingRecruit)}
-          onSuccess={() => {
+          showRoleAssignment={true}
+          onSuccess={(assignedRole) => {
             queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
             queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+            // Show leadership prompt if a role was assigned
+            if (assignedRole && editingRecruit) {
+              setLeadershipPrompt({
+                name: editingRecruit.name,
+                role: getRoleLabel(assignedRole as any),
+              });
+            }
           }}
         />
       )}
@@ -312,6 +322,27 @@ export const PendingApprovalsSection = () => {
                 {rejectMutation.isPending ? 'Rejecting...' : 'Reject'}
               </Button>
             </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Post-approval leadership prompt */}
+      <Drawer open={!!leadershipPrompt} onOpenChange={(open) => !open && setLeadershipPrompt(null)}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>🎉 Role Assigned!</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 pb-8 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              <strong>{leadershipPrompt?.name}</strong> has been assigned the <strong>{leadershipPrompt?.role}</strong> role. 
+              They can now manage their org structure and send invite links to their downline.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              💡 <strong>Next step:</strong> Let {leadershipPrompt?.name} know they can go to the <strong>Organization</strong> tab to set up their teams, then share their invite link with their people.
+            </p>
+            <Button className="w-full" onClick={() => setLeadershipPrompt(null)}>
+              Got it
+            </Button>
           </div>
         </DrawerContent>
       </Drawer>

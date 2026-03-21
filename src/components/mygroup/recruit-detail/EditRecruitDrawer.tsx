@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Recruit } from "@/hooks/useGroupRecruits";
+import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, type AccessLevel } from "@/utils/roleHierarchy";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import {
   Drawer,
@@ -41,7 +42,9 @@ interface EditRecruitDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recruit: Recruit;
-  onSuccess?: () => void;
+  onSuccess?: (assignedRole?: string) => void;
+  /** When true, show role assignment dropdown (for pending approval flow) */
+  showRoleAssignment?: boolean;
 }
 
 // Format phone number as user types
@@ -72,10 +75,16 @@ export const EditRecruitDrawer = ({
   open, 
   onOpenChange, 
   recruit,
-  onSuccess 
+  onSuccess,
+  showRoleAssignment = false,
 }: EditRecruitDrawerProps) => {
   const queryClient = useQueryClient();
   const { data: teamAccess } = useTeamAccess();
+  
+  // Role assignment state
+  const [selectedRole, setSelectedRole] = useState<string>('');
+  const accessLevel = (teamAccess?.accessLevel || 'none') as AccessLevel;
+  const canAssignRoles = showRoleAssignment && hasMinAccess(accessLevel, 'mgmt_group_lead');
   
   // Track if form has been initialized for this drawer open session
   const [formInitialized, setFormInitialized] = useState(false);
@@ -401,7 +410,7 @@ export const EditRecruitDrawer = ({
       // Invalidate assignable/mentionable users cache when recruiter changes
       queryClient.invalidateQueries({ queryKey: ['assignable-users', recruit.id] });
       queryClient.invalidateQueries({ queryKey: ['mentionable-users', recruit.id] });
-      onSuccess?.();
+      onSuccess?.(selectedRole || undefined);
       onOpenChange(false);
     },
     onError: (error) => {
@@ -410,7 +419,7 @@ export const EditRecruitDrawer = ({
     },
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const cleanPhone = phone.replace(/\D/g, '');
     
     // Find the recruiter name from the user ID
@@ -430,6 +439,37 @@ export const EditRecruitDrawer = ({
       significantOtherName: significantOtherName.trim(),
       watchOutNotes: watchOutNotes.trim(),
     });
+
+    // If a role was selected, insert into user_roles
+    // We need the recruit's user_id - get it from the reps table
+    if (selectedRole && canAssignRoles) {
+      try {
+        const { data: repData } = await supabase
+          .from('reps')
+          .select('user_id')
+          .eq('id', recruit.id)
+          .maybeSingle();
+        
+        if (repData?.user_id) {
+          // Check if role already exists
+          const { data: existing } = await supabase
+            .from('user_roles' as any)
+            .select('id')
+            .eq('user_id', repData.user_id)
+            .eq('role', selectedRole)
+            .maybeSingle();
+          
+          if (!existing) {
+            await supabase.from('user_roles' as any).insert({
+              user_id: repData.user_id,
+              role: selectedRole,
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to assign role:', e);
+      }
+    }
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -713,6 +753,27 @@ export const EditRecruitDrawer = ({
               <p className="text-xs text-muted-foreground mt-1">No accessible recruiters in this team</p>
             )}
           </div>
+
+          {/* Role Assignment — only for mgmt_group_lead+ during approval flow */}
+          {canAssignRoles && (
+            <div>
+              <Label>Assign Role (Optional)</Label>
+              <Select value={selectedRole || "__none__"} onValueChange={(v) => setSelectedRole(v === "__none__" ? "" : v)}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="No role (regular rep)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No role (regular rep)</SelectItem>
+                  {ASSIGNABLE_ROLES.map((role) => (
+                    <SelectItem key={role} value={role}>{getRoleLabel(role)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Assign a leadership role so they can manage their org
+              </p>
+            </div>
+          )}
 
           {/* Significant Other Name */}
           <div>
