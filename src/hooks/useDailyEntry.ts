@@ -590,6 +590,18 @@ export const useDailyEntry = (date?: string) => {
       queryClient.setQueryData(['daily-entry', entryDate], context?.previousEntry);
     },
     onSuccess: (data) => {
+      if (data) {
+        const normalized = {
+          ...(data as any),
+          break_periods: ((data as any).break_periods as any) || [],
+          counter_timestamps: ((data as any).counter_timestamps as any) || {},
+          custom_counters: ((data as any).custom_counters as any) || {},
+          sales_log: ((data as any).sales_log as any) || [],
+        } as DailyEntry;
+
+        queryClient.setQueryData(['daily-entry', entryDate], normalized);
+      }
+
       // Mark backup as server-confirmed after successful mutation
       const userId = getCurrentUserId();
       if (userId && data) {
