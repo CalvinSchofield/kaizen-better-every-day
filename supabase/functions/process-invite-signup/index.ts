@@ -181,8 +181,8 @@ Deno.serve(async (req) => {
       stage: 'Signed',
       year: finalYear,
       recruiter_user_id: invite.inviter_user_id,
-      team_id: invite.team_id || null,
-      mgmt_group_id: invite.mgmt_group_id || null,
+      team_id: resolvedTeamId,
+      mgmt_group_id: resolvedMgmtGroupId,
       invite_code_used: inviteCode,
       approval_status: 'pending',
     };
