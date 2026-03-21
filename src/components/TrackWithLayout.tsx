@@ -1644,7 +1644,7 @@ const TrackWithLayout = () => {
         onReset={() => setIsResetSheetOpen(true)}
         isSaving={isFinalizing}
         isResetting={isResetting}
-        syncIndicator={<SyncIndicator status={syncStatus} pendingCount={counterQueueLength} />}
+        syncIndicator={<SyncIndicator status={syncStatus} pendingCount={syncStatus === 'offline' ? counterQueueLength : undefined} />}
         isEntryFinalized={entry.is_finalized || savedThisSession}
         onViewRecap={handleViewRecap}
         hasWorkStarted={!!entry.work_start_time}

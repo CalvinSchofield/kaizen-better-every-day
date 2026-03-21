@@ -164,8 +164,11 @@ export function usePendingCounterQueue(userId: string | null) {
 
           // Exponential backoff
           const delay = Math.min(BASE_DELAY_MS * Math.pow(2, retryCountRef.current), 30000);
-          await new Promise(resolve => {
-            retryTimerRef.current = window.setTimeout(resolve, delay);
+          await new Promise<void>((resolve) => {
+            retryTimerRef.current = window.setTimeout(() => {
+              retryTimerRef.current = null;
+              resolve();
+            }, delay);
           });
           
           // Re-read queue in case it was modified
@@ -186,8 +189,10 @@ export function usePendingCounterQueue(userId: string | null) {
     if (!userId) return;
 
     // If queue was paused from prior failures, reset and retry on the next user action.
+    // IMPORTANT: don't clear timer while actively processing, because that timer may
+    // be an in-flight backoff wait; clearing it can leave the processor stuck forever.
     retryCountRef.current = 0;
-    if (retryTimerRef.current) {
+    if (!processingRef.current && retryTimerRef.current) {
       window.clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
     }
