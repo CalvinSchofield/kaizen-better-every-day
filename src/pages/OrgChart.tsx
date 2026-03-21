@@ -1,213 +1,237 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import Layout from "@/components/Layout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Globe, Building2, Users, User, ChevronDown, ChevronRight } from "lucide-react";
-import { getRoleLabel, type AccessLevel } from "@/utils/roleHierarchy";
-import { useState } from "react";
+import { Users, GitBranch } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
-
-interface OrgNode {
-  id: string;
-  name: string;
-  type: 'region' | 'office' | 'mgmt_group' | 'team' | 'person';
-  role?: string;
-  children: OrgNode[];
-  memberCount?: number;
-}
+import { VisualRecruiterTree, type TreeNode } from "@/components/mygroup/org/VisualRecruiterTree";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { OrgStructureTree } from "@/components/org/OrgStructureTree";
 
 const OrgChart = () => {
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
+  const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
 
-  const { data: orgData, isLoading } = useQuery({
-    queryKey: ['org-chart-data'],
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentAuthUserId(data.user?.id || null);
+    });
+  }, []);
+
+  const { data: treeData, isLoading } = useQuery({
+    queryKey: ["org-chart-full-tree"],
     queryFn: async () => {
-      const [regionsRes, officesRes, mgmtGroupsRes, teamsRes, teamMgmtRes, officeStaffRes, repsRes] = await Promise.all([
-        supabase.from('regions').select('*').order('name'),
-        supabase.from('offices').select('*').order('name'),
-        supabase.from('mgmt_groups').select('*').order('name'),
-        supabase.from('teams').select('*').order('name'),
-        supabase.from('team_mgmt_groups').select('*'),
-        supabase.from('office_staff').select('*'),
-        supabase.from('reps').select('id, user_id, name, profile_photo_url'),
+      const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, teamMgmtRes, officeStaffRes] = await Promise.all([
+        supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, year"),
+        supabase.from("reps").select("user_id, name, profile_photo_url, year, stage"),
+        supabase.from("teams").select("id, name, lead_user_id"),
+        supabase.from("mgmt_groups").select("id, name, lead_user_id"),
+        supabase.from("team_mgmt_groups").select("team_id, mgmt_group_id"),
+        supabase.from("office_staff").select("user_id, role"),
       ]);
       return {
-        regions: regionsRes.data || [],
-        offices: officesRes.data || [],
-        mgmtGroups: mgmtGroupsRes.data || [],
+        recruits: recruitsRes.data || [],
+        reps: repsRes.data || [],
         teams: teamsRes.data || [],
+        mgmtGroups: mgmtGroupsRes.data || [],
         teamMgmt: teamMgmtRes.data || [],
         officeStaff: officeStaffRes.data || [],
-        reps: repsRes.data || [],
       };
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 2,
   });
 
+  // Build role map: userId -> title
+  const roleMap = useMemo(() => {
+    if (!treeData) return new Map<string, string>();
+    const map = new Map<string, string>();
+
+    treeData.teams.forEach((t) => {
+      if (t.lead_user_id) map.set(t.lead_user_id, "Team Lead");
+    });
+    treeData.mgmtGroups.forEach((mg) => {
+      if (mg.lead_user_id) map.set(mg.lead_user_id, "MGMT Group Lead");
+    });
+    treeData.officeStaff.forEach((s) => {
+      if (s.role === "area_director") map.set(s.user_id, "Area Director");
+    });
+
+    return map;
+  }, [treeData]);
+
+  // Build recruiter tree
   const tree = useMemo(() => {
-    if (!orgData) return [];
-    const { regions, offices, mgmtGroups, teams, teamMgmt, officeStaff, reps } = orgData;
-    const repMap = new Map(reps.map(r => [r.user_id, r]));
-    const getRepName = (userId: string | null) => {
-      if (!userId) return 'Unassigned';
-      return repMap.get(userId)?.name || 'Unknown';
-    };
+    if (!treeData || !currentAuthUserId) return null;
 
-    // Build teams → mgmt_groups → offices → regions
-    const teamNodes = (mgmtGroupId: string): OrgNode[] => {
-      const groupTeamIds = teamMgmt.filter(tm => tm.mgmt_group_id === mgmtGroupId).map(tm => tm.team_id);
-      return teams
-        .filter(t => groupTeamIds.includes(t.id))
-        .map(t => ({
-          id: t.id,
-          name: t.name,
-          type: 'team' as const,
-          role: t.lead_user_id ? `Led by ${getRepName(t.lead_user_id)}` : undefined,
-          children: [],
-        }));
-    };
+    const { recruits, reps } = treeData;
+    const repMap = new Map(reps.map((r) => [r.user_id, r]));
+    const recruitsByRecruiter = new Map<string, typeof recruits>();
+    recruits.forEach((r) => {
+      if (r.recruiter_user_id) {
+        const existing = recruitsByRecruiter.get(r.recruiter_user_id) || [];
+        existing.push(r);
+        recruitsByRecruiter.set(r.recruiter_user_id, existing);
+      }
+    });
 
-    const mgmtNodes = (officeId: string): OrgNode[] => {
-      return mgmtGroups
-        .filter(mg => mg.office_id === officeId)
-        .map(mg => ({
-          id: mg.id,
-          name: mg.name,
-          type: 'mgmt_group' as const,
-          role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
-          children: teamNodes(mg.id),
-        }));
-    };
+    const buildNode = (userId: string, visited = new Set<string>()): TreeNode | null => {
+      if (visited.has(userId)) return null;
+      visited.add(userId);
 
-    const officeNodes = (regionId: string | null): OrgNode[] => {
-      return offices
-        .filter((o: any) => regionId ? o.region_id === regionId : !o.region_id)
-        .map(o => {
-          const staff = officeStaff.filter(s => s.office_id === o.id);
-          const adNames = staff.map(s => getRepName(s.user_id)).join(', ');
-          return {
-            id: o.id,
-            name: o.name,
-            type: 'office' as const,
-            role: adNames || undefined,
-            children: mgmtNodes(o.id),
-          };
-        });
-    };
+      const rep = repMap.get(userId);
+      const recruiterRecruits = recruitsByRecruiter.get(userId) || [];
+      const repName = rep?.name || "";
+      const recruitByName = new Map(recruits.map((r) => [getCleanName(r.name).toLowerCase(), r]));
+      const recruitRecord = recruitByName.get(getCleanName(repName).toLowerCase());
 
-    const regionNodes: OrgNode[] = regions.map(r => ({
-      id: r.id,
-      name: r.name,
-      type: 'region' as const,
-      role: r.lead_user_id ? `Led by ${getRepName(r.lead_user_id)}` : undefined,
-      children: officeNodes(r.id),
-    }));
+      const children: TreeNode[] = [];
 
-    // Add unassigned offices as top-level
-    const unassignedOffices = officeNodes(null);
-    if (unassignedOffices.length > 0) {
-      regionNodes.push({
-        id: 'unassigned',
-        name: 'Unassigned Offices',
-        type: 'region',
-        children: unassignedOffices,
+      // Children with accounts
+      recruiterRecruits.forEach((r) => {
+        const recruitRep = reps.find(
+          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
+        );
+        if (recruitRep?.user_id) {
+          const child = buildNode(recruitRep.user_id, new Set(visited));
+          if (child) children.push(child);
+        }
       });
+
+      // Leaf recruits without accounts
+      recruiterRecruits.forEach((r) => {
+        const recruitRep = reps.find(
+          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
+        );
+        if (!recruitRep?.user_id) {
+          children.push({
+            id: r.id,
+            name: r.name,
+            userId: null,
+            stage: r.stage,
+            profilePhotoUrl: null,
+            role: null,
+            year: r.year,
+            children: [],
+          });
+        }
+      });
+
+      children.sort((a, b) => b.children.length - a.children.length);
+
+      return {
+        id: recruitRecord?.id || userId,
+        name: rep?.name || "Unknown",
+        userId,
+        stage: recruitRecord?.stage || rep?.stage || null,
+        profilePhotoUrl: rep?.profile_photo_url,
+        role: roleMap.get(userId) || null,
+        year: rep?.year || recruitRecord?.year || null,
+        children,
+      };
+    };
+
+    const rootNodes: TreeNode[] = [];
+    const accessLevel = teamAccess?.accessLevel;
+
+    // For higher-level leaders, find true root nodes
+    if (
+      accessLevel === "area_director" ||
+      accessLevel === "corporate" ||
+      accessLevel === "regional" ||
+      accessLevel === "sr_regional" ||
+      accessLevel === "partner" ||
+      accessLevel === "divisional"
+    ) {
+      const recruitedUserIds = new Set<string>();
+      recruits.forEach((r) => {
+        const recruitRep = reps.find(
+          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
+        );
+        if (recruitRep?.user_id && r.recruiter_user_id) {
+          recruitedUserIds.add(recruitRep.user_id);
+        }
+      });
+
+      const allRecruiterIds = new Set(
+        recruits.map((r) => r.recruiter_user_id).filter(Boolean) as string[]
+      );
+      allRecruiterIds.forEach((recruiterId) => {
+        if (!recruitedUserIds.has(recruiterId)) {
+          const node = buildNode(recruiterId);
+          if (node && node.children.length > 0) rootNodes.push(node);
+        }
+      });
+    } else if (currentAuthUserId) {
+      // For regular users, show their own tree
+      const node = buildNode(currentAuthUserId);
+      if (node) {
+        if (node.children.length > 0) {
+          rootNodes.push(node);
+        }
+      }
     }
 
-    return regionNodes;
-  }, [orgData]);
+    return rootNodes.sort((a, b) => b.children.length - a.children.length);
+  }, [treeData, teamAccess, currentAuthUserId, roleMap]);
+
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  const handleSelectNode = useCallback(
+    (node: { id: string; name: string; userId: string | null; childCount: number } | null) => {
+      setSelectedNodeId(node?.id || null);
+    },
+    []
+  );
 
   if (accessLoading || isLoading) {
     return (
-      <Layout>
-        <div className="p-4 space-y-4">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-64 w-full rounded-xl" />
-        </div>
-      </Layout>
+      <div className="p-4 space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="p-4 space-y-4 pb-24">
-        <div>
-          <h1 className="text-2xl font-bold">Org Chart</h1>
-          <p className="text-sm text-muted-foreground">Organization hierarchy overview</p>
-        </div>
-
-        {tree.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <Globe className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No organizational structure defined yet</p>
-            <p className="text-sm">Create regions and offices in the admin panel</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {tree.map(node => (
-              <OrgNodeCard key={node.id} node={node} depth={0} />
-            ))}
-          </div>
-        )}
+    <div className="p-4 space-y-4 pb-24">
+      <div>
+        <h1 className="text-2xl font-bold">Org Chart</h1>
+        <p className="text-sm text-muted-foreground">Organization hierarchy & recruiter tree</p>
       </div>
-    </Layout>
-  );
-};
 
-const typeIcons = {
-  region: Globe,
-  office: Building2,
-  mgmt_group: Users,
-  team: Users,
-  person: User,
-};
+      <Tabs defaultValue="tree" className="w-full">
+        <TabsList className="w-full">
+          <TabsTrigger value="tree" className="flex-1 gap-1.5">
+            <GitBranch className="h-3.5 w-3.5" />
+            Recruiter Tree
+          </TabsTrigger>
+          <TabsTrigger value="structure" className="flex-1 gap-1.5">
+            <Users className="h-3.5 w-3.5" />
+            Structure
+          </TabsTrigger>
+        </TabsList>
 
-const typeColors: Record<string, string> = {
-  region: 'text-primary',
-  office: 'text-amber-500',
-  mgmt_group: 'text-blue-500',
-  team: 'text-green-500',
-  person: 'text-muted-foreground',
-};
+        <TabsContent value="tree" className="mt-3">
+          {!tree || tree.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <GitBranch className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>No recruiter tree found</p>
+              <p className="text-sm">Recruiting relationships will appear here</p>
+            </div>
+          ) : (
+            <VisualRecruiterTree
+              roots={tree}
+              selectedNodeId={selectedNodeId}
+              onSelectNode={handleSelectNode}
+            />
+          )}
+        </TabsContent>
 
-const OrgNodeCard = ({ node, depth }: { node: OrgNode; depth: number }) => {
-  const [expanded, setExpanded] = useState(depth < 2);
-  const hasChildren = node.children.length > 0;
-  const Icon = typeIcons[node.type];
-
-  return (
-    <div className={depth > 0 ? 'ml-4 border-l border-border pl-3' : ''}>
-      <button
-        onClick={() => hasChildren && setExpanded(!expanded)}
-        className="w-full text-left flex items-center gap-2 p-2.5 rounded-lg hover:bg-accent/50 transition-colors group"
-      >
-        {hasChildren ? (
-          expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-        ) : (
-          <span className="w-4" />
-        )}
-        <Icon className={`h-4 w-4 shrink-0 ${typeColors[node.type]}`} />
-        <span className="text-sm font-medium truncate">{node.name}</span>
-        {node.role && (
-          <span className="text-xs text-muted-foreground truncate ml-auto">{node.role}</span>
-        )}
-        {hasChildren && (
-          <Badge variant="outline" className="text-xs ml-1 shrink-0">
-            {node.children.length}
-          </Badge>
-        )}
-      </button>
-      {expanded && hasChildren && (
-        <div className="space-y-0.5">
-          {node.children.map(child => (
-            <OrgNodeCard key={child.id} node={child} depth={depth + 1} />
-          ))}
-        </div>
-      )}
+        <TabsContent value="structure" className="mt-3">
+          <OrgStructureTree />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
