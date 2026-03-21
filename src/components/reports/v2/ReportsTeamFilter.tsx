@@ -105,7 +105,7 @@ export const ReportsTeamFilter = ({
           </button>
 
           {/* MGMT Groups - only for Area Directors */}
-          {accessLevel === 'area_director' || accessLevel === 'corporate' && mgmtGroups.length > 0 && (
+          {(accessLevel === 'area_director' || accessLevel === 'corporate') && mgmtGroups.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
                 Management Groups
