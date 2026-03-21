@@ -823,13 +823,22 @@ export const EditRecruitDrawer = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">No role (regular rep)</SelectItem>
-                  {ASSIGNABLE_ROLES.map((role) => (
-                    <SelectItem key={role} value={role}>{getRoleLabel(role)}</SelectItem>
-                  ))}
+                  {ASSIGNABLE_ROLES
+                    .filter((role) => {
+                      // During bootstrap approval, allow assigning ANY role (even above yours)
+                      if (isBootstrapApproval) return true;
+                      // Otherwise, only show roles below the approver's level
+                      return ROLE_HIERARCHY.indexOf(role) < ROLE_HIERARCHY.indexOf(accessLevel);
+                    })
+                    .map((role) => (
+                      <SelectItem key={role} value={role}>{getRoleLabel(role)}</SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
-                Assign a leadership role so they can manage their org
+                {isBootstrapApproval 
+                  ? "Bootstrap mode: you can assign any role (including your upline)" 
+                  : "Assign a leadership role so they can manage their org"}
               </p>
             </div>
           )}
