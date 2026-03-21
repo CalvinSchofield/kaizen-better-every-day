@@ -290,6 +290,7 @@ export const PendingApprovalsSection = () => {
           onOpenChange={(open) => !open && setEditingRecruit(null)}
           recruit={toRecruitShape(editingRecruit)}
           showRoleAssignment={true}
+          isBootstrapApproval={true}
           onSuccess={(assignedRole) => {
             queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
             queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
