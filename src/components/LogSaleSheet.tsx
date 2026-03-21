@@ -252,7 +252,7 @@ export const LogSaleSheet = ({
       const { getNativePosition } = await import('@/utils/nativeGeolocation');
       const position = await getNativePosition();
 
-      const { latitude, longitude } = position.coords;
+      const { latitude, longitude } = position;
       setCustomerLat(latitude);
       setCustomerLng(longitude);
       
