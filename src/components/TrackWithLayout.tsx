@@ -11,7 +11,7 @@ import { EarlyEndConfirmSheet } from "./EarlyEndConfirmSheet";
 import { PostSaveSuccessSheet } from "./PostSaveSuccessSheet";
 import { SyncIndicator } from "./SyncIndicator";
 import { LogSaleSheet } from "./LogSaleSheet";
-import { Sale } from "@/hooks/useDailyEntry";
+import { Sale, DailyEntry } from "@/hooks/useDailyEntry";
 import { SaleDetailSheet } from "./SaleDetailSheet";
 import { DeleteSalePickerSheet } from "./DeleteSalePickerSheet";
 import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
@@ -154,9 +154,9 @@ const TrackWithLayout = () => {
   // Competitor nudge for early save motivation
   const { competitor: competitorNudge, loading: competitorLoading } = useCompetitorNudge();
   
-  // Debounce ref for batching rapid updates
-  const pendingUpdateRef = useRef<any>(null);
-  const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Serialize counter sync writes so rapid taps can never arrive out-of-order on the server
+  const pendingUpdateRef = useRef<Partial<DailyEntry> | null>(null);
+  const counterSyncInFlightRef = useRef(false);
   
   // Rapid-tap detection: track recent taps per field
   const recentTapsRef = useRef<Record<string, number[]>>({});
@@ -851,6 +851,66 @@ const TrackWithLayout = () => {
   const isRookie = repData?.year === "Rookie";
   const showPrmrHelper = isRookie || preseasonFP < 20;
 
+  const handleCounterSyncError = useCallback((error: any) => {
+    if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
+      toast.info("Today's work is already saved. Start fresh tomorrow!");
+      setSavedThisSession(true);
+      setSyncStatus('synced');
+      return;
+    }
+
+    if (error?.message === 'AUTH_SESSION_EXPIRED') {
+      setSyncStatus('error');
+      toast.error('Session expired — please close and reopen the app to continue tracking', {
+        duration: 8000,
+        id: 'auth-expired',
+      });
+      return;
+    }
+
+    if (!navigator.onLine) {
+      setSyncStatus('offline');
+      toast.info('Saved locally - will sync when online', {
+        icon: '📶',
+        duration: 3000,
+      });
+      return;
+    }
+
+    setSyncStatus('error');
+    toast.error('Connection issue - your data is backed up locally', {
+      duration: 4000,
+    });
+  }, []);
+
+  const flushCounterSyncQueue = useCallback(async () => {
+    if (counterSyncInFlightRef.current) return;
+    counterSyncInFlightRef.current = true;
+
+    try {
+      while (pendingUpdateRef.current) {
+        const payload = pendingUpdateRef.current;
+        pendingUpdateRef.current = null;
+        await updateCounter(payload);
+      }
+
+      // Keep pending until parity check confirms server == local
+      setSyncStatus('pending');
+      setTimeout(() => {
+        void verifyServerSync();
+      }, 1000);
+    } catch (error: any) {
+      handleCounterSyncError(error);
+    } finally {
+      counterSyncInFlightRef.current = false;
+      if (pendingUpdateRef.current) {
+        setTimeout(() => {
+          void flushCounterSyncQueue();
+        }, 0);
+      }
+    }
+  }, [updateCounter, verifyServerSync, handleCounterSyncError]);
+
   const handleCounterChange = useCallback(async (
     field: string,
     value: number,
@@ -1065,45 +1125,12 @@ const TrackWithLayout = () => {
       sales_log: syncedEntry.sales_log || [],
     };
     
-    // Immediately call updateCounter for instant optimistic UI update
-    try {
-      await updateCounter(syncPayload);
-      // Keep pending until server verification confirms parity
-      setSyncStatus('pending');
-      setTimeout(() => {
-        void verifyServerSync();
-      }, 1000);
-    } catch (error: any) {
-      // PROTECTION: If entry was finalized between checks, show friendly message
-      if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
-        toast.info("Today's work is already saved. Start fresh tomorrow!");
-        setSavedThisSession(true); // Prevent further attempts
-        setSyncStatus('synced');
-      } else if (error?.message === 'AUTH_SESSION_EXPIRED') {
-        // FIX: Explicit auth error feedback — user needs to know their session died
-        setSyncStatus('error');
-        toast.error('Session expired — please close and reopen the app to continue tracking', {
-          duration: 8000,
-          id: 'auth-expired', // Prevent duplicate toasts
-        });
-      } else if (!navigator.onLine) {
-        // OFFLINE SUPPORT: Show friendly offline message
-        setSyncStatus('offline');
-        toast.info('Saved locally - will sync when online', { 
-          icon: '📶',
-          duration: 3000 
-        });
-      } else {
-        // Connection issue but online
-        setSyncStatus('error');
-        toast.error('Connection issue - your data is backed up locally', {
-          duration: 4000
-        });
-      }
-    }
+    // Queue latest full snapshot; only one network write runs at a time.
+    // This guarantees last tap wins and prevents out-of-order regressions.
+    pendingUpdateRef.current = syncPayload;
+    void flushCounterSyncQueue();
   }, [
-    updateCounter,
-    verifyServerSync,
+    flushCounterSyncQueue,
     isSaveInProgress,
     savedThisSession,
     salesLoggerEnabled,
