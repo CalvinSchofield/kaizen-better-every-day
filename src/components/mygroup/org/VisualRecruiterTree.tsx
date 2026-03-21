@@ -31,6 +31,7 @@ interface PositionedNode {
   x: number;
   y: number;
   childCount: number;
+  totalDescendants: number;
 }
 
 interface Line {
@@ -48,6 +49,16 @@ const H_GAP = 24;
 const V_GAP = 80;
 const LABEL_HEIGHT = 48;
 const NODE_TOTAL_H = NODE_DIAMETER + LABEL_HEIGHT;
+
+// ── Helpers ────────────────────────────────────────────
+
+function countDescendants(node: TreeNode): number {
+  let count = node.children.length;
+  for (const child of node.children) {
+    count += countDescendants(child);
+  }
+  return count;
+}
 
 // ── Layout Algorithm ───────────────────────────────────
 
