@@ -67,15 +67,27 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
   return useQuery({
     queryKey: ["today-leaderboard", todayDateKey, filterByYear],
     queryFn: async () => {
-      // Fetch reps with timezone info
-      const { data: repsData, error: repsError } = await supabase
-        .from("reps")
-        .select("user_id, name, year, timezone, profile_photo_url, stage");
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+      const twoDaysAgoStr = twoDaysAgo.toISOString().split("T")[0];
 
-      if (repsError) throw repsError;
+      const [repsResponse, entriesResponse] = await Promise.all([
+        supabase
+          .from("reps")
+          .select("user_id, name, year, timezone, profile_photo_url, stage"),
+        supabase
+          .from("daily_entries")
+          .select(
+            "user_id, entry_date, timezone, updated_at, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, is_finalized, sales_log"
+          )
+          .gte("entry_date", twoDaysAgoStr),
+      ]);
+
+      if (repsResponse.error) throw repsResponse.error;
+      if (entriesResponse.error) throw entriesResponse.error;
 
       const repsMap = new Map(
-        repsData
+        repsResponse.data
           ?.filter((r) => isRepActive(r.stage))
           .map((r) => [
             r.user_id,
@@ -88,19 +100,7 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
           ]) || []
       );
 
-      // Fetch entries from the last 2 days to handle timezone edge cases
-      const twoDaysAgo = new Date();
-      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-      const twoDaysAgoStr = twoDaysAgo.toISOString().split("T")[0];
-
-      const { data: entries, error } = await supabase
-        .from("daily_entries")
-        .select(
-          "user_id, entry_date, timezone, updated_at, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, is_finalized, sales_log"
-        )
-        .gte("entry_date", twoDaysAgoStr);
-
-      if (error) throw error;
+      const entries = entriesResponse.data;
 
       // Filter entries to only include those where entry_date matches "today" in the entry/rep timezone
       const todayEntries =
