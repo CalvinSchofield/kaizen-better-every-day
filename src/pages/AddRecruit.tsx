@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { ShareInviteLinkButton } from "@/components/mygroup/ShareInviteLinkButton";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSubmitSuggestion, useMySuggestions } from "@/hooks/useGroupRecruits";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
