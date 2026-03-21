@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Recruit } from "@/hooks/useGroupRecruits";
+import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, type AccessLevel } from "@/utils/roleHierarchy";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import {
   Drawer,
