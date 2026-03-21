@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, startOfDay, endOfDay, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { computeAllTimeGroupRecords, AllTimeGroupRecords } from "@/utils/teamRecordDetection";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+import { withTimeout } from "@/utils/withTimeout";
 
 interface DailyEntry {
   user_id: string;
@@ -318,17 +319,21 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
         throw new Error('Not authenticated');
       }
 
-      const { data, error } = await supabase.functions.invoke('fetch-team-insights', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: {
-          userIds,
-          dateRange,
-          excludeUserIds,
-          includeLive,
-        },
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('fetch-team-insights', {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: {
+            userIds,
+            dateRange,
+            excludeUserIds,
+            includeLive,
+          },
+        }),
+        15000,
+        'Timed out loading team insights'
+      );
 
       if (error) throw error;
 
@@ -338,10 +343,14 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
       
       // Fetch all entries for overall comparison (all-time)
       const allUserIds = reps.map(r => r.user_id);
-      const { data: allEntries, error: allError } = await supabase
-        .from('daily_entries')
-        .select('*')
-        .in('user_id', allUserIds);
+      const { data: allEntries, error: allError } = await withTimeout(
+        supabase
+          .from('daily_entries')
+          .select('*')
+          .in('user_id', allUserIds),
+        12000,
+        'Timed out loading historical entries'
+      );
 
       if (allError) throw allError;
 
