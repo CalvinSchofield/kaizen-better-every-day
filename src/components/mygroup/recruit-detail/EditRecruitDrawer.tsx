@@ -80,9 +80,11 @@ export const EditRecruitDrawer = ({
   recruit,
   onSuccess,
   showRoleAssignment = false,
+  isBootstrapApproval = false,
 }: EditRecruitDrawerProps) => {
   const queryClient = useQueryClient();
   const { data: teamAccess } = useTeamAccess();
+  const { userId: currentUserId } = useCurrentUserId();
   
   // Role assignment state
   const [selectedRole, setSelectedRole] = useState<string>('');
