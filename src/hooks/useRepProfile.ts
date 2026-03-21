@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateFromSalesLog } from '@/utils/salesLogCalculations';
+import { withTimeout } from '@/utils/withTimeout';
 import { startOfWeek, startOfMonth, format } from 'date-fns';
 
 const SEASON_START = '2025-09-28';
@@ -119,12 +120,14 @@ export const useRepProfile = (userId: string | null) => {
             .gte('entry_date', SEASON_START),
       ]);
 
-      const [repResult, entriesResult] = await Promise.race([
+      const [repResult, entriesResult] = await withTimeout(
         fetchData,
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Profile load timeout')), PROFILE_TIMEOUT_MS)
-        ),
-      ]);
+        PROFILE_TIMEOUT_MS,
+        'Profile load timeout'
+      );
+
+      if (repResult.error) throw repResult.error;
+      if (entriesResult.error) throw entriesResult.error;
 
       const rep = repResult.data;
       if (!rep) return null;
