@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, Users } from "lucide-react";
+import { hasMinAccess, type AccessLevel } from "@/utils/roleHierarchy";
 
 interface Team {
   id: string;
