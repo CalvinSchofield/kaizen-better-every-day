@@ -42,6 +42,7 @@ export const PendingApprovalsSection = () => {
   const { data: teamAccess } = useTeamAccess();
   const [editingRecruit, setEditingRecruit] = useState<PendingRecruit | null>(null);
   const [rejectConfirmId, setRejectConfirmId] = useState<string | null>(null);
+  const [leadershipPrompt, setLeadershipPrompt] = useState<{ name: string; role: string } | null>(null);
 
   // Fetch pending recruits that this user can approve
   const { data: pendingRecruits = [], isLoading } = useQuery({
