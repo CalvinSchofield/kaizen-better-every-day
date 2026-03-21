@@ -754,6 +754,27 @@ export const EditRecruitDrawer = ({
             )}
           </div>
 
+          {/* Role Assignment — only for mgmt_group_lead+ during approval flow */}
+          {canAssignRoles && (
+            <div>
+              <Label>Assign Role (Optional)</Label>
+              <Select value={selectedRole || "__none__"} onValueChange={(v) => setSelectedRole(v === "__none__" ? "" : v)}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="No role (regular rep)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No role (regular rep)</SelectItem>
+                  {ASSIGNABLE_ROLES.map((role) => (
+                    <SelectItem key={role} value={role}>{getRoleLabel(role)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Assign a leadership role so they can manage their org
+              </p>
+            </div>
+          )}
+
           {/* Significant Other Name */}
           <div>
             <Label>Significant Other</Label>
