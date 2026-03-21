@@ -26,6 +26,7 @@ const DEFAULT_STAGE_FILTERS = new Set(
 const ALL_FILTER_STAGES = [...PRIMARY_STAGES, ...EXIT_STAGES];
 
 const OrgChart = () => {
+  const queryClient = useQueryClient();
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
 
