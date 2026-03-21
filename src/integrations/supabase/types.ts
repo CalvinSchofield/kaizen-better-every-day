@@ -560,6 +560,36 @@ export type Database = {
         }
         Relationships: []
       }
+      counter_event_log: {
+        Row: {
+          applied_at: string | null
+          delta: number
+          entry_date: string
+          field: string
+          id: string
+          idempotency_key: string
+          user_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          delta: number
+          entry_date: string
+          field: string
+          id?: string
+          idempotency_key: string
+          user_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          delta?: number
+          entry_date?: string
+          field?: string
+          id?: string
+          idempotency_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_entries: {
         Row: {
           break_periods: Json | null
@@ -2469,10 +2499,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_counter_event: {
+        Args: {
+          p_break_periods?: Json
+          p_delta: number
+          p_entry_date: string
+          p_field: string
+          p_idempotency_key: string
+          p_timestamp_value?: string
+          p_timezone?: string
+          p_user_id: string
+          p_work_start_time?: string
+        }
+        Returns: Json
+      }
       can_access_recruit: {
         Args: { _recruit_id: string; _user_id: string }
         Returns: boolean
       }
+      cleanup_old_counter_events: { Args: never; Returns: undefined }
       get_accessible_team_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_office_ids: { Args: { _user_id: string }; Returns: string[] }
       has_min_role: {
