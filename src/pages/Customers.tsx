@@ -60,6 +60,16 @@ const Customers = () => {
   const { addSale, isAddingSale } = useAddSaleToEntry();
   useSalesRealtime();
 
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  
+  // Safety timeout: force-render after 5s to prevent infinite skeleton
+  useEffect(() => {
+    if (!isLoading) return;
+    setLoadingTimedOut(false);
+    const timer = setTimeout(() => setLoadingTimedOut(true), 5000);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+
   if (isPreBlitzRookie) {
     return (
       <div className="min-h-screen bg-background p-4 pb-24 flex items-center justify-center">
