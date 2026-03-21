@@ -6,7 +6,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle2, XCircle, Pencil, Clock, User, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Pencil, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { hapticSuccess } from "@/utils/haptics";
 import { getCleanName } from "@/utils/nameUtils";
@@ -16,9 +16,8 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EditRecruitDrawer } from "./recruit-detail/EditRecruitDrawer";
+import { Recruit } from "@/hooks/useGroupRecruits";
 
 interface PendingRecruit {
   id: string;
@@ -30,6 +29,10 @@ interface PendingRecruit {
   recruiter_user_id: string | null;
   created_at: string | null;
   invite_code_used: string | null;
+  team_id: string | null;
+  mgmt_group_id: string | null;
+  location: string | null;
+  recruitment_source: string | null;
 }
 
 export const PendingApprovalsSection = () => {
@@ -37,9 +40,6 @@ export const PendingApprovalsSection = () => {
   const queryClient = useQueryClient();
   const { data: teamAccess } = useTeamAccess();
   const [editingRecruit, setEditingRecruit] = useState<PendingRecruit | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editYear, setEditYear] = useState("");
-  const [editPhone, setEditPhone] = useState("");
   const [rejectConfirmId, setRejectConfirmId] = useState<string | null>(null);
 
   // Fetch pending recruits that this user can approve
@@ -59,7 +59,7 @@ export const PendingApprovalsSection = () => {
         // Also check if user is directly the inviter
         const { data: directPending } = await supabase
           .from('recruits')
-          .select('id, name, email, phone, stage, year, recruiter_user_id, created_at, invite_code_used')
+          .select('id, name, email, phone, stage, year, recruiter_user_id, created_at, invite_code_used, team_id, mgmt_group_id, location, recruitment_source')
           .eq('approval_status', 'pending')
           .eq('recruiter_user_id', userId)
           .order('created_at', { ascending: false });
@@ -70,7 +70,7 @@ export const PendingApprovalsSection = () => {
       // Get all pending recruits in accessible teams OR where user is the inviter
       const { data } = await supabase
         .from('recruits')
-        .select('id, name, email, phone, stage, year, recruiter_user_id, created_at, invite_code_used')
+        .select('id, name, email, phone, stage, year, recruiter_user_id, created_at, invite_code_used, team_id, mgmt_group_id, location, recruitment_source')
         .eq('approval_status', 'pending')
         .or(`team_id.in.(${teamIds.join(',')}),recruiter_user_id.eq.${userId}`)
         .order('created_at', { ascending: false });
@@ -158,33 +158,40 @@ export const PendingApprovalsSection = () => {
     onError: () => toast.error('Failed to reject'),
   });
 
-  const editMutation = useMutation({
-    mutationFn: async ({ id, name, year, phone }: { id: string; name: string; year: string; phone: string }) => {
-      const { error } = await supabase
-        .from('recruits')
-        .update({ name, year, phone: phone || null, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
-
-      // Also update the rep record
-      await supabase
-        .from('reps')
-        .update({ name, year, phone: phone || null, updated_at: new Date().toISOString() })
-        .eq('id', id);
-    },
-    onSuccess: () => {
-      toast.success('Info updated');
-      setEditingRecruit(null);
-      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
-    },
-    onError: () => toast.error('Failed to update'),
-  });
-
   const handleApproveAll = async () => {
     for (const recruit of pendingRecruits) {
       await approveMutation.mutateAsync(recruit.id);
     }
   };
+
+  // Convert PendingRecruit to Recruit shape for EditRecruitDrawer
+  const toRecruitShape = (pr: PendingRecruit): Recruit => ({
+    id: pr.id,
+    name: pr.name,
+    email: pr.email,
+    phone: pr.phone,
+    stage: pr.stage,
+    location: pr.location,
+    recruitmentSource: pr.recruitment_source,
+    recruiterUserId: pr.recruiter_user_id,
+    teamId: pr.team_id,
+    mgmtGroupId: pr.mgmt_group_id,
+    lastContact: null,
+    nextAction: null,
+    nextActionDue: null,
+    createdAt: pr.created_at,
+    updatedAt: null,
+    onboardingComplete: false,
+    trainingsComplete: false,
+    slackJoined: false,
+    phase1Complete: false,
+    phase2Complete: false,
+    phase3Complete: false,
+    phase4Complete: false,
+    blitzReady: false,
+    ipadAssigned: false,
+    inviteCodeUsed: pr.invite_code_used,
+  } as Recruit);
 
   if (isLoading || pendingRecruits.length === 0) return null;
 
@@ -232,12 +239,7 @@ export const PendingApprovalsSection = () => {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => {
-                        setEditingRecruit(recruit);
-                        setEditName(recruit.name);
-                        setEditYear(recruit.year || 'Rookie');
-                        setEditPhone(recruit.phone || '');
-                      }}
+                      onClick={() => setEditingRecruit(recruit)}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -271,53 +273,18 @@ export const PendingApprovalsSection = () => {
         </CardContent>
       </Card>
 
-      {/* Edit Drawer */}
-      <Drawer open={!!editingRecruit} onOpenChange={(open) => !open && setEditingRecruit(null)}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Edit Signup Info</DrawerTitle>
-          </DrawerHeader>
-          <div className="p-4 pb-8 space-y-4">
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Phone</Label>
-              <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Experience Level</Label>
-              <Select value={editYear} onValueChange={setEditYear}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Rookie">Rookie</SelectItem>
-                  <SelectItem value="Sophomore">Sophomore</SelectItem>
-                  <SelectItem value="Vet">Vet</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                className="flex-1"
-                onClick={() => {
-                  if (editingRecruit) {
-                    editMutation.mutate({
-                      id: editingRecruit.id,
-                      name: editName,
-                      year: editYear,
-                      phone: editPhone,
-                    });
-                  }
-                }}
-                disabled={editMutation.isPending}
-              >
-                {editMutation.isPending ? 'Saving...' : 'Save & Approve'}
-              </Button>
-            </div>
-          </div>
-        </DrawerContent>
-      </Drawer>
+      {/* Full Edit Drawer — reuses the same EditRecruitDrawer from recruit details */}
+      {editingRecruit && (
+        <EditRecruitDrawer
+          open={!!editingRecruit}
+          onOpenChange={(open) => !open && setEditingRecruit(null)}
+          recruit={toRecruitShape(editingRecruit)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
+            queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+          }}
+        />
+      )}
 
       {/* Reject Confirmation Drawer */}
       <Drawer open={!!rejectConfirmId} onOpenChange={(open) => !open && setRejectConfirmId(null)}>

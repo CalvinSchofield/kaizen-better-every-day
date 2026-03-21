@@ -236,6 +236,9 @@ Deno.serve(async (req) => {
 /**
  * Send push notifications to the inviter and their upline (up to MGMT group lead)
  * about a new signup that needs approval.
+ * 
+ * Walks the recruiter chain: inviter -> inviter's recruiter -> ... -> MGMT group lead.
+ * Stops at the MGMT group lead (does NOT notify anyone above that level).
  */
 async function notifyUplineOfPendingApproval(
   supabase: ReturnType<typeof createClient>,
@@ -244,53 +247,80 @@ async function notifyUplineOfPendingApproval(
   recruitId: string,
 ) {
   try {
-    // Collect user IDs to notify: inviter + upline
     const notifyUserIds = new Set<string>();
     notifyUserIds.add(inviterUserId);
 
-    // Find inviter's team lead
-    const { data: inviterTeams } = await supabase
-      .from('teams')
-      .select('lead_user_id')
-      .eq('lead_user_id', inviterUserId)
-      .maybeSingle();
-
-    // If inviter IS the team lead, find their MGMT group lead
-    // If inviter is NOT a team lead, find who leads their team
+    // Find the inviter's recruit record to get their mgmt_group_id
     const { data: inviterRep } = await supabase
       .from('reps')
       .select('id')
       .eq('user_id', inviterUserId)
       .maybeSingle();
 
+    let mgmtGroupLeadUserId: string | null = null;
+
     if (inviterRep) {
-      // Find the recruit record for the inviter to get their team
       const { data: inviterRecruit } = await supabase
         .from('recruits')
-        .select('team_id, mgmt_group_id')
+        .select('mgmt_group_id')
         .eq('id', inviterRep.id)
         .maybeSingle();
 
-      if (inviterRecruit?.team_id) {
-        // Add team lead
-        const { data: team } = await supabase
-          .from('teams')
-          .select('lead_user_id')
-          .eq('id', inviterRecruit.team_id)
-          .maybeSingle();
-        if (team?.lead_user_id) notifyUserIds.add(team.lead_user_id);
-      }
-
       if (inviterRecruit?.mgmt_group_id) {
-        // Add MGMT group lead
         const { data: mgmt } = await supabase
           .from('mgmt_groups')
           .select('lead_user_id')
           .eq('id', inviterRecruit.mgmt_group_id)
           .maybeSingle();
-        if (mgmt?.lead_user_id) notifyUserIds.add(mgmt.lead_user_id);
+        if (mgmt?.lead_user_id) {
+          mgmtGroupLeadUserId = mgmt.lead_user_id;
+        }
       }
     }
+
+    // Walk the recruiter chain from the inviter up to the MGMT group lead
+    // Each person's recruiter is found via the recruits table
+    let currentUserId: string | null = inviterUserId;
+    const maxDepth = 10; // Safety limit
+    let depth = 0;
+
+    while (currentUserId && depth < maxDepth) {
+      // If we've already reached the MGMT group lead, stop — don't go higher
+      if (mgmtGroupLeadUserId && currentUserId === mgmtGroupLeadUserId) {
+        notifyUserIds.add(currentUserId);
+        break;
+      }
+
+      // Find this person's rep record
+      const { data: rep } = await supabase
+        .from('reps')
+        .select('id')
+        .eq('user_id', currentUserId)
+        .maybeSingle();
+
+      if (!rep) break;
+
+      // Find their recruit record to get their recruiter
+      const { data: recruit } = await supabase
+        .from('recruits')
+        .select('recruiter_user_id')
+        .eq('id', rep.id)
+        .maybeSingle();
+
+      if (!recruit?.recruiter_user_id) break;
+
+      // Add the recruiter to the notification set
+      notifyUserIds.add(recruit.recruiter_user_id);
+      currentUserId = recruit.recruiter_user_id;
+      depth++;
+    }
+
+    // Always include the MGMT group lead even if the chain didn't reach them
+    if (mgmtGroupLeadUserId) {
+      notifyUserIds.add(mgmtGroupLeadUserId);
+    }
+
+    console.log(`[notify-upline] Notifying ${notifyUserIds.size} users for pending approval of ${newRepName}`);
 
     // Send push notifications to all collected user IDs
     for (const userId of notifyUserIds) {
