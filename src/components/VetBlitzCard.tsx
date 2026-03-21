@@ -945,7 +945,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     setAttendanceScope(newScope);
     
     // Reset secondary selectors when scope changes
-    if (newScope === 'mgmt' && accessLevel === 'area_director' || accessLevel === 'corporate') {
+    if (newScope === 'mgmt' && (accessLevel === 'area_director' || accessLevel === 'corporate')) {
       // For ADs, require selecting a MGMT group
       setSelectedMgmtGroupId(mgmtGroups && mgmtGroups.length > 0 ? mgmtGroups[0].id : null);
       setSelectedTeamId(null);
