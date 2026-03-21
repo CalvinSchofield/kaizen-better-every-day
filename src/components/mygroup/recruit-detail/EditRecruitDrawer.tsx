@@ -75,10 +75,16 @@ export const EditRecruitDrawer = ({
   open, 
   onOpenChange, 
   recruit,
-  onSuccess 
+  onSuccess,
+  showRoleAssignment = false,
 }: EditRecruitDrawerProps) => {
   const queryClient = useQueryClient();
   const { data: teamAccess } = useTeamAccess();
+  
+  // Role assignment state
+  const [selectedRole, setSelectedRole] = useState<string>('');
+  const accessLevel = (teamAccess?.accessLevel || 'none') as AccessLevel;
+  const canAssignRoles = showRoleAssignment && hasMinAccess(accessLevel, 'mgmt_group_lead');
   
   // Track if form has been initialized for this drawer open session
   const [formInitialized, setFormInitialized] = useState(false);
