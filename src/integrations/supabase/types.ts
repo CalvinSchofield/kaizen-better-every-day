@@ -1628,6 +1628,9 @@ export type Database = {
       }
       recruits: {
         Row: {
+          approval_status: string
+          approved_at: string | null
+          approved_by_user_id: string | null
           badge_id: string | null
           blitz_ready: boolean | null
           caution_notes: string | null
@@ -1661,6 +1664,9 @@ export type Database = {
           year: string | null
         }
         Insert: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by_user_id?: string | null
           badge_id?: string | null
           blitz_ready?: boolean | null
           caution_notes?: string | null
@@ -1694,6 +1700,9 @@ export type Database = {
           year?: string | null
         }
         Update: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by_user_id?: string | null
           badge_id?: string | null
           blitz_ready?: boolean | null
           caution_notes?: string | null
