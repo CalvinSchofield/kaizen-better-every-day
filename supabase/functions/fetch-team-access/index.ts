@@ -11,13 +11,15 @@ const ROLE_WEIGHT: Record<string, number> = {
   recruiter: 1,
   assistant_manager: 2,
   team_lead: 3,
-  mgmt_group_lead: 4,
-  area_director: 5,
-  regional: 6,
-  sr_regional: 7,
-  partner: 8,
-  divisional: 9,
-  corporate: 10,
+  manager: 4,
+  senior_manager: 5,
+  mgmt_group_lead: 6,
+  area_director: 7,
+  regional: 8,
+  sr_regional: 9,
+  partner: 10,
+  divisional: 11,
+  corporate: 12,
 };
 
 Deno.serve(async (req) => {
