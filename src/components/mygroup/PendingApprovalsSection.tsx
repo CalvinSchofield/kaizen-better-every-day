@@ -165,6 +165,10 @@ export const PendingApprovalsSection = () => {
     for (const recruit of pendingRecruits) {
       await approveMutation.mutateAsync(recruit.id);
     }
+    // After batch approval, prompt for recruiter reassignment
+    if (pendingRecruits.length > 1) {
+      setShowReassignPrompt(true);
+    }
   };
 
   // Convert PendingRecruit to Recruit shape for EditRecruitDrawer
