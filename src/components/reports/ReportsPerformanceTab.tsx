@@ -55,7 +55,7 @@ interface ReportsPerformanceTabProps {
   dailyTrendByRep?: any;
   dailyTrendByTeam?: any;
   dailyTrendByMgmt?: any;
-  accessLevel: 'corporate' | 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
+  accessLevel: import("@/utils/roleHierarchy").AccessLevel;
   cumulativeLoading?: boolean;
   
   canceledStats?: any;
