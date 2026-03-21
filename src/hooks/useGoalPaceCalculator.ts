@@ -205,7 +205,11 @@ export function calculateGoalPace(input: GoalPaceInput): Omit<GoalPaceData, 'onT
   const remainingDays = Math.max(0, totalSeasonDays - seasonKnockingDaysComplete);
 
   // Catch-up daily pace
-  const remaining = Math.max(0, activeGoal - input.currentProgress);
+  // IMPORTANT: Exclude today's live (unfinalized) production so the daily target
+  // stays FIXED throughout the day. This prevents the goal from shrinking as the
+  // rep logs more sales — the target is locked based on start-of-day progress.
+  const progressExcludingToday = Math.max(0, input.currentProgress - input.todayFP - input.todayLiveFP);
+  const remaining = Math.max(0, activeGoal - progressExcludingToday);
   const dailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
   const weeklyNeeded = dailyNeeded * 6;
 
