@@ -32,6 +32,7 @@ import { EditTeamDrawer } from "./org/EditTeamDrawer";
 import { EditRepOrgDrawer } from "./org/EditRepOrgDrawer";
 import { CreateEntityDrawer } from "./org/CreateEntityDrawer";
 import { hasMinAccess, type AccessLevel } from "@/utils/roleHierarchy";
+import { PendingOrgRequests } from "./org/PendingOrgRequests";
 import { getCleanName } from "@/utils/nameUtils";
 import { cn } from "@/lib/utils";
 
@@ -412,6 +413,9 @@ export const OrganizationManagementView = () => {
           </Button>
         )}
       </div>
+
+      {/* Pending Org Change Requests */}
+      <PendingOrgRequests mode="both" />
 
       {/* Management Groups */}
       <div className="space-y-2">

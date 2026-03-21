@@ -1232,6 +1232,77 @@ export type Database = {
         }
         Relationships: []
       }
+      org_change_approvals: {
+        Row: {
+          approved: boolean | null
+          approver_role: string
+          approver_user_id: string
+          created_at: string
+          id: string
+          request_id: string
+          responded_at: string | null
+        }
+        Insert: {
+          approved?: boolean | null
+          approver_role: string
+          approver_user_id: string
+          created_at?: string
+          id?: string
+          request_id: string
+          responded_at?: string | null
+        }
+        Update: {
+          approved?: boolean | null
+          approver_role?: string
+          approver_user_id?: string
+          created_at?: string
+          id?: string
+          request_id?: string
+          responded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_change_approvals_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "org_change_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_change_requests: {
+        Row: {
+          created_at: string
+          id: string
+          request_data: Json
+          request_type: string
+          requested_by: string
+          resolved_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          request_data?: Json
+          request_type: string
+          requested_by: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          request_data?: Json
+          request_type?: string
+          requested_by?: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       personal_recaps: {
         Row: {
           created_at: string | null
