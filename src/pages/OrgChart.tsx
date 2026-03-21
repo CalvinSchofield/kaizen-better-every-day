@@ -23,12 +23,12 @@ const OrgChart = () => {
     queryKey: ["org-chart-full-tree"],
     queryFn: async () => {
       const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, teamMgmtRes, officeStaffRes] = await Promise.all([
-        supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, year"),
-        supabase.from("reps").select("user_id, name, profile_photo_url, year, stage"),
-        supabase.from("teams").select("id, name, lead_user_id"),
-        supabase.from("mgmt_groups").select("id, name, lead_user_id"),
-        supabase.from("team_mgmt_groups").select("team_id, mgmt_group_id"),
-        supabase.from("office_staff").select("user_id, role"),
+        supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, year").limit(5000),
+        supabase.from("reps").select("user_id, name, profile_photo_url, year, stage").limit(5000),
+        supabase.from("teams").select("id, name, lead_user_id").limit(500),
+        supabase.from("mgmt_groups").select("id, name, lead_user_id").limit(500),
+        supabase.from("team_mgmt_groups").select("team_id, mgmt_group_id").limit(500),
+        supabase.from("office_staff").select("user_id, role").limit(500),
       ]);
       return {
         recruits: recruitsRes.data || [],
