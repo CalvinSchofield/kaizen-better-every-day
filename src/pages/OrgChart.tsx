@@ -148,7 +148,8 @@ const OrgChart = () => {
         const recruitRep = reps.find(
           (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
         );
-        if (recruitRep?.user_id && r.recruiter_user_id) {
+        // Skip self-referencing recruits (recruiter_user_id === own user_id)
+        if (recruitRep?.user_id && r.recruiter_user_id && r.recruiter_user_id !== recruitRep.user_id) {
           recruitedUserIds.add(recruitRep.user_id);
         }
       });
