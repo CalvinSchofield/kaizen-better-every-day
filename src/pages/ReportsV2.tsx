@@ -365,7 +365,7 @@ export const ReportsV2Page = () => {
         mgmtGroups={teamAccess.mgmtGroups || []}
         accessLevel={teamAccess.accessLevel}
         repCount={filteredUserIds.length}
-        showTeamFilters={teamAccess.accessLevel === 'area_director' || teamAccess?.accessLevel === 'corporate' || teamAccess.accessLevel === 'mgmt_group_lead'}
+        showTeamFilters={canFilterByTeam(teamAccess.accessLevel)}
       />
 
       {/* Date presets */}

@@ -902,7 +902,7 @@ const MyGroup = () => {
           <Search className="h-4 w-4" />
         </Button>
       )}
-      {(teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'corporate' || teamAccess?.accessLevel === 'mgmt_group_lead') && (
+      {teamAccess?.accessLevel && canFilterByTeam(teamAccess.accessLevel) && (
         <Button 
           variant={selectedTeamFilter ? 'default' : 'ghost'} 
           size="icon" 
