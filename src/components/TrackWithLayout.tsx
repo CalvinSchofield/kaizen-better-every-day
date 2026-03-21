@@ -989,7 +989,7 @@ const TrackWithLayout = () => {
       closes: syncedEntry.closes || 0,
       fp_plus: syncedEntry.fp_plus || 0,
       prmr: syncedEntry.prmr || 0,
-      upgrade_prmr: syncedEntry.upgrade_prmr ?? null,
+      upgrade_prmr: (syncedEntry as any).upgrade_prmr ?? null,
       work_start_time: syncedEntry.work_start_time ?? null,
       work_end_time: syncedEntry.work_end_time ?? null,
       break_periods: syncedEntry.break_periods || [],
