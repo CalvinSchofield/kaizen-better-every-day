@@ -8,8 +8,8 @@ import { QueryClient } from '@tanstack/react-query';
  * When adding a new sales-dependent query, add its key here.
  */
 const SALES_DEPENDENT_KEYS = [
-  // Core entry data
-  'daily-entry',
+  // Core entry data - EXCLUDED: 'daily-entry' is managed by the durable counter queue
+  // to prevent realtime refetches from overwriting optimistic local state during active tracking.
   'all-daily-entries',
   'daily-entries',
   // Aggregates & summaries
