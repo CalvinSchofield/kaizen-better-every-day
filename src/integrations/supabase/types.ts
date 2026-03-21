@@ -1150,6 +1150,7 @@ export type Database = {
           id: string
           location: string | null
           name: string
+          region_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1158,6 +1159,7 @@ export type Database = {
           id?: string
           location?: string | null
           name: string
+          region_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1166,9 +1168,18 @@ export type Database = {
           id?: string
           location?: string | null
           name?: string
+          region_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "offices_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       official_totals: {
         Row: {
@@ -1736,6 +1747,38 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      regions: {
+        Row: {
+          created_at: string | null
+          id: string
+          lead_user_id: string | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regions_lead_user_id_fkey"
+            columns: ["lead_user_id"]
+            isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["user_id"]
           },
         ]
       }
