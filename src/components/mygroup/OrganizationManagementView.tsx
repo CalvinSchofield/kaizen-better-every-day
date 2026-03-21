@@ -414,6 +414,9 @@ export const OrganizationManagementView = () => {
         )}
       </div>
 
+      {/* Pending Org Change Requests */}
+      <PendingOrgRequests mode="both" />
+
       {/* Management Groups */}
       <div className="space-y-2">
         {filteredData.groups.map((group) => {
