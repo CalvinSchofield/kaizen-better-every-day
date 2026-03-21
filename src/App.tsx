@@ -52,6 +52,7 @@ import ReportsV2 from "./pages/ReportsV2";
 import LogSale from "./pages/LogSale";
 import Profile from "./pages/Profile";
 import DebugNotifications from "./pages/DebugNotifications";
+import Admin from "./pages/Admin";
 import { queryPersister } from "./lib/queryPersister";
 
 const queryClient = new QueryClient({
