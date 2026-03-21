@@ -81,11 +81,36 @@ Regional+          | All      | All     | Manage  | No    | Everything
 Corporate          | All      | All     | Manage  | Yes   | Everything
 ```
 
-## Phase 4: Next Steps (TODO)
+## Phase 4: Operational Features ✅ IN PROGRESS
 
-### What to build next:
-- **Recruiter reassignment UI**: Allow upline to reassign recruiters within their downline
-- **Office management UI for regionals**: Regionals should be able to create/manage offices and assign ADs
-- **Role-specific feature gating**: Fine-tune which features each role can create (e.g., assistant managers can create incentives but not blitzes)
-- **Organizational hierarchy visualization**: Show the full org chart across offices
-- **Invite link improvements**: Rate limiting, approval workflow, invite analytics
+### 4a. Recruiter Reassignment UI ✅ BUILT
+- **Visual recruiter tree**: Beautiful circle-node tree diagram (inspired by family tree UIs) with:
+  - Circle avatar nodes with color-coded borders by stage (Sold 5+ = purple, Sold = green, Shadow = blue, Signed = amber)
+  - SVG connecting lines with right-angle junctions
+  - Zoom/pan via react-zoom-pan-pinch (pinch-to-zoom on mobile)
+  - Zoom controls (+, -, reset)
+  - Child count badges on parent nodes
+- **Tap-to-reassign UX**: Tap a node → reassignment drawer opens with searchable recruiter list
+- **Branch move confirmation**: When reassigning someone with recruits, shows confirmation with count of affected downstream reps
+- **Permissions**: Team Lead+ can reassign (updated `update-rep-assignment` edge function from area_director-only to team_lead+)
+- **Components**: `VisualRecruiterTree.tsx`, `ReassignRecruiterDrawer.tsx`, updated `RecruiterTreeView.tsx`
+
+### 4b. Blitz Cross-Group Invitations (TODO)
+- **Scoping**: "Same region" = groups that share the same Regional in the hierarchy
+  - Can invite any MGMT group or specific team/reps within the same Regional's downline
+  - Cannot invite groups under a different Regional (even if they share the same Partner/Divisional)
+- **Implementation approach**: Need to resolve which Regional a group belongs to by tracing upward through the hierarchy
+- **UI**: Extend blitz creation to allow inviting external groups within the region
+
+### 4c. Office Management for Regionals (TODO)
+- Extend admin panel so Regionals can create/manage offices and assign ADs
+- Currently only Corporate can access /admin
+
+### 4d. Organizational Hierarchy Visualization (TODO)
+- Full interactive org chart showing the formal hierarchy across offices
+- Separate from the recruiter tree (shows offices → MGMT groups → teams → reps)
+
+### 4e. Invite Improvements (TODO)
+- Rate limiting (max invites per day/week)
+- Approval workflow for new signups
+- Invite analytics (conversion rates, active vs expired)
