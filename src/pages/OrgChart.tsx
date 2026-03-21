@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +26,7 @@ const DEFAULT_STAGE_FILTERS = new Set(
 const ALL_FILTER_STAGES = [...PRIMARY_STAGES, ...EXIT_STAGES];
 
 const OrgChart = () => {
+  const queryClient = useQueryClient();
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
 
@@ -513,6 +514,8 @@ const OrgChart = () => {
           if (!open) {
             setSelectedNodeId(null);
             setDrawerRecruit(null);
+            // Refetch tree data to reflect any changes (recruiter reassignment, stage change, etc.)
+            queryClient.invalidateQueries({ queryKey: ["org-chart-full-tree"] });
           }
         }}
         initialTab="details"
