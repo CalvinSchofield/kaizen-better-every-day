@@ -352,6 +352,25 @@ export const PendingApprovalsSection = () => {
           </div>
         </DrawerContent>
       </Drawer>
+      {/* Post-batch approval: recruiter reassignment prompt */}
+      <Drawer open={showReassignPrompt} onOpenChange={(open) => !open && setShowReassignPrompt(false)}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>📋 Recruiter Reassignment</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 pb-8 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              You just approved multiple signups. Some of these reps may have different direct recruiters.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              💡 <strong>Next step:</strong> Go to the <strong>Recruiter Tree</strong> in the Organization tab to reassign anyone who has a different direct recruiter than you.
+            </p>
+            <Button className="w-full" onClick={() => setShowReassignPrompt(false)}>
+              Got it
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };
