@@ -21,6 +21,7 @@ import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
 import { useSaleUpdate } from "@/hooks/useSaleUpdate";
 import { usePendingSalesQueue } from "@/hooks/usePendingSalesQueue";
+import { usePendingCounterQueue, CounterEvent } from "@/hooks/usePendingCounterQueue";
 import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
 import { useCompetitorNudge } from "@/hooks/useCompetitorNudge";
 import { supabase } from "@/integrations/supabase/client";
@@ -153,6 +154,9 @@ const TrackWithLayout = () => {
   
   // Competitor nudge for early save motivation
   const { competitor: competitorNudge, loading: competitorLoading } = useCompetitorNudge();
+  
+  // Durable counter queue for bulletproof counter persistence
+  const { pushEvent: pushCounterEvent, queueLength: counterQueueLength, isProcessing: isCounterProcessing, clearQueue: clearCounterQueue } = usePendingCounterQueue(userId);
   
   // Serialize counter sync writes so rapid taps can never arrive out-of-order on the server
   const pendingUpdateRef = useRef<Partial<DailyEntry> | null>(null);
@@ -571,7 +575,17 @@ const TrackWithLayout = () => {
     };
   }, [verifyServerSync, entry.is_finalized]);
 
-  // Handle save button click - check if before sunset
+  // Reflect counter queue state into sync status
+  useEffect(() => {
+    if (counterQueueLength > 0) {
+      setSyncStatus(navigator.onLine ? 'pending' : 'offline');
+    } else if (counterQueueLength === 0 && !isCounterProcessing && syncStatus === 'pending') {
+      // Queue drained - verify server state
+      verifyServerSync();
+    }
+  }, [counterQueueLength, isCounterProcessing]);
+
+
   const handleSaveButtonClick = () => {
     // Check if it's before typical end of work day
     if (isBeforeSunset()) {
@@ -640,6 +654,7 @@ const TrackWithLayout = () => {
       // DON'T call clearLocalEntry - let the invalidation refetch the real finalized data from DB
       // This prevents the bug where navigating away and back shows zeros/unfinalized state
       clearBackup();
+      clearCounterQueue();
       setSyncStatus('synced');
       toast.success('Entry saved!');
       
@@ -678,6 +693,7 @@ const TrackWithLayout = () => {
       // This prevents the bug where navigating away and back shows zeros/unfinalized state
       // Clear localStorage backup
       clearBackup();
+      clearCounterQueue();
       setSyncStatus('synced');
       // Store summary for success sheet (including Me vs Me comparison data)
       // Calculate hours worked from start/end times
@@ -1105,6 +1121,24 @@ const TrackWithLayout = () => {
       counter_timestamps: updates.counter_timestamps ?? latestEntry.counter_timestamps,
     } as typeof latestEntry;
 
+    // DURABLE QUEUE: Push an atomic counter event instead of a full snapshot.
+    // This survives app restarts, offline periods, and auth expiry.
+    const counterEvent: CounterEvent = {
+      id: crypto.randomUUID(),
+      field,
+      delta: isAdding ? 1 : -1,
+      timestampValue: isAdding ? new Date().toISOString() : null,
+      entryDate: getTodayDate(),
+      workStartTime: updates.work_start_time ?? null,
+      timezone: updates.timezone ?? null,
+      breakPeriods: updates.break_periods ?? null,
+      createdAt: new Date().toISOString(),
+    };
+
+    pushCounterEvent(counterEvent);
+
+    // ALSO fire the legacy snapshot path for optimistic cache update
+    // (the durable queue handles persistence; this keeps the React Query cache fresh)
     const syncedEntry = latestEntryRef.current;
     const syncPayload = {
       doors_knocked: syncedEntry.doors_knocked || 0,
@@ -1125,12 +1159,12 @@ const TrackWithLayout = () => {
       sales_log: syncedEntry.sales_log || [],
     };
     
-    // Queue latest full snapshot; only one network write runs at a time.
-    // This guarantees last tap wins and prevents out-of-order regressions.
+    // Optimistic cache update via mutation (fire-and-forget, durable queue is the safety net)
     pendingUpdateRef.current = syncPayload;
     void flushCounterSyncQueue();
   }, [
     flushCounterSyncQueue,
+    pushCounterEvent,
     isSaveInProgress,
     savedThisSession,
     salesLoggerEnabled,
@@ -1610,7 +1644,7 @@ const TrackWithLayout = () => {
         onReset={() => setIsResetSheetOpen(true)}
         isSaving={isFinalizing}
         isResetting={isResetting}
-        syncIndicator={<SyncIndicator status={syncStatus} />}
+        syncIndicator={<SyncIndicator status={syncStatus} pendingCount={counterQueueLength} />}
         isEntryFinalized={entry.is_finalized || savedThisSession}
         onViewRecap={handleViewRecap}
         hasWorkStarted={!!entry.work_start_time}
@@ -1802,6 +1836,7 @@ const TrackWithLayout = () => {
                 custom_counters: {},
                 is_finalized: false,
               };
+              clearCounterQueue();
               setIsResetSheetOpen(false);
             },
             onError: () => {
