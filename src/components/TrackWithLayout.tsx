@@ -1263,6 +1263,12 @@ const TrackWithLayout = () => {
         toast.info("Today's work is already saved. Start fresh tomorrow!");
         setSavedThisSession(true);
         setSyncStatus('synced');
+      } else if (error?.message === 'AUTH_SESSION_EXPIRED') {
+        setSyncStatus('error');
+        toast.error('Session expired — close and reopen the app so sales can sync', {
+          duration: 8000,
+          id: 'auth-expired-sale',
+        });
       } else {
         setSyncStatus('error');
         // Only queue if save fails
@@ -1397,6 +1403,12 @@ const TrackWithLayout = () => {
         toast.info("Today's work is already saved. Start fresh tomorrow!");
         setSavedThisSession(true);
         setSyncStatus('synced');
+      } else if (error?.message === 'AUTH_SESSION_EXPIRED') {
+        setSyncStatus('error');
+        toast.error('Session expired — close and reopen the app so sales can sync', {
+          duration: 8000,
+          id: 'auth-expired-sale',
+        });
       } else {
         setSyncStatus('error');
         queueSale(today, saleData);

@@ -105,30 +105,25 @@ export const usePendingSalesQueue = (userId: string | null) => {
     console.log('[PendingSalesQueue] Sale dequeued:', pendingId);
   }, [loadQueue, saveQueue]);
 
+  const ensureAuthenticatedUser = async (expectedUserId: string) => {
+    let user = (await supabase.auth.getUser()).data.user;
+
+    if (!user) {
+      const { data: refreshData } = await supabase.auth.refreshSession();
+      user = refreshData?.user ?? null;
+    }
+
+    if (!user || user.id !== expectedUserId) return null;
+    return user;
+  };
+
   // Process a single pending sale
   const processSale = async (pending: PendingSale): Promise<boolean> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || user.id !== pending.userId) {
+      const user = await ensureAuthenticatedUser(pending.userId);
+      if (!user) {
         console.log('[PendingSalesQueue] User mismatch, skipping');
         return false;
-      }
-
-      // Fetch existing entry
-      const { data: existingEntry, error: fetchError } = await supabase
-        .from('daily_entries')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('entry_date', pending.entryDate)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-
-      // Check if sale already exists (idempotency)
-      const existingSalesLog = existingEntry?.sales_log as unknown as Sale[] || [];
-      if (existingSalesLog.some(s => s.id === pending.saleId)) {
-        console.log('[PendingSalesQueue] Sale already saved, dequeuing');
-        return true;
       }
 
       // Create the full sale object
@@ -138,59 +133,36 @@ export const usePendingSalesQueue = (userId: string | null) => {
         timestamp: pending.saleTimestamp,
       };
 
-      const updatedSalesLog = [...existingSalesLog, fullSale];
+      const { data, error } = await supabase.rpc('upsert_daily_entry_safe', {
+        p_user_id: user.id,
+        p_entry_date: pending.entryDate,
+        p_sales_log: JSON.parse(JSON.stringify([fullSale])),
+        p_doors_knocked: null,
+        p_decision_makers: null,
+        p_pitches: null,
+        p_transitions: null,
+        p_presentations: null,
+        p_closes: null,
+        p_fp_plus: null,
+        p_prmr: null,
+        p_upgrade_prmr: null,
+        p_work_start_time: null,
+        p_work_end_time: null,
+        p_break_periods: null,
+        p_counter_timestamps: null,
+        p_custom_counters: null,
+        p_timezone: null,
+        p_is_finalized: null,
+      });
 
-      // Calculate totals
-      const fundedSales = updatedSalesLog.filter(s =>
-        s.install_status !== 'cancelled' && s.install_status !== 'never_installed'
-      );
-      const fpSales = fundedSales.filter(s => s.type === 'fp');
-      const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
-      const fpCount = fpSales.length;
-      const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
-      const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
-      const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
-      const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
+      if (error) throw error;
 
-      if (existingEntry) {
-        const { error: updateError } = await supabase
-          .from('daily_entries')
-          .update({
-            sales_log: updatedSalesLog as unknown as null,
-            closes: fundedSales.length,
-            fp_plus: Math.round(calculatedFpPlus * 100) / 100,
-            prmr: Math.round(totalPrmr * 100) / 100,
-            upgrade_prmr: Math.round(upgradePrmrTotal * 100) / 100,
-          })
-          .eq('user_id', user.id)
-          .eq('entry_date', pending.entryDate);
+      const mergedSalesLog = ((data as { sales_log?: unknown } | null)?.sales_log as Sale[]) || [];
+      const wasPersisted = mergedSalesLog.some((sale) => sale.id === pending.saleId);
 
-        if (updateError) throw updateError;
-      } else {
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const now = new Date().toISOString();
-
-        const { error: insertError } = await supabase
-          .from('daily_entries')
-          .insert({
-            user_id: user.id,
-            entry_date: pending.entryDate,
-            sales_log: updatedSalesLog as unknown as null,
-            closes: fundedSales.length,
-            fp_plus: Math.round(calculatedFpPlus * 100) / 100,
-            prmr: Math.round(totalPrmr * 100) / 100,
-            upgrade_prmr: Math.round(upgradePrmrTotal * 100) / 100,
-            doors_knocked: 0,
-            decision_makers: 0,
-            pitches: 0,
-            transitions: 0,
-            presentations: 0,
-            work_start_time: now,
-            timezone,
-            is_finalized: true,
-          });
-
-        if (insertError) throw insertError;
+      if (!wasPersisted) {
+        console.warn('[PendingSalesQueue] Sale not confirmed in merged sales_log, will retry');
+        return false;
       }
 
       console.log('[PendingSalesQueue] Sale saved successfully');
@@ -206,44 +178,54 @@ export const usePendingSalesQueue = (userId: string | null) => {
     if (!userId || isProcessingRef.current) return;
     isProcessingRef.current = true;
 
-    const queue = loadQueue();
-    if (queue.sales.length === 0) {
-      isProcessingRef.current = false;
-      return;
-    }
+    try {
+      const queue = loadQueue();
+      if (queue.sales.length === 0) {
+        return;
+      }
 
-    console.log('[PendingSalesQueue] Processing queue:', queue.sales.length, 'pending');
+      console.log('[PendingSalesQueue] Processing queue:', queue.sales.length, 'pending');
 
-    for (const pending of queue.sales) {
-      const success = await processSale(pending);
-      
-      if (success) {
-        dequeueSale(pending.id);
-        toast.success('Pending sale saved! 💰', { duration: 3000 });
-      } else {
-        // Increment retry count
-        pending.retryCount++;
-        if (pending.retryCount >= MAX_RETRIES) {
-          // Max retries reached - keep in queue but notify user
+      const remainingSales: PendingSale[] = [];
+
+      for (const pending of queue.sales) {
+        const success = await processSale(pending);
+
+        if (success) {
+          toast.success('Pending sale saved! 💰', { duration: 3000 });
+          continue;
+        }
+
+        const updatedPending: PendingSale = {
+          ...pending,
+          retryCount: pending.retryCount + 1,
+        };
+
+        if (updatedPending.retryCount >= MAX_RETRIES) {
           toast.error('Sale failed to save after retries. Please check your connection.', {
             duration: 5000,
           });
         }
-        saveQueue(loadQueue()); // Update with new retry count
+
+        remainingSales.push(updatedPending);
       }
-    }
 
-    isProcessingRef.current = false;
+      saveQueue({
+        ...queue,
+        sales: remainingSales,
+      });
 
-    // Schedule retry for remaining items
-    const remaining = loadQueue();
-    if (remaining.sales.length > 0) {
-      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
-      retryTimeoutRef.current = setTimeout(() => {
-        processQueue();
-      }, RETRY_DELAY);
+      // Schedule retry for remaining items
+      if (remainingSales.length > 0) {
+        if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = setTimeout(() => {
+          void processQueue();
+        }, RETRY_DELAY);
+      }
+    } finally {
+      isProcessingRef.current = false;
     }
-  }, [userId, loadQueue, dequeueSale, saveQueue]);
+  }, [userId, loadQueue, saveQueue]);
 
   // Check for pending sales count
   const getPendingCount = useCallback((): number => {

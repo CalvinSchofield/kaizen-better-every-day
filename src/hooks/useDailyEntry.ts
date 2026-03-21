@@ -479,7 +479,7 @@ export const useDailyEntry = (date?: string) => {
           p_is_finalized: updates.is_finalized ?? null,
         }),
         new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('COUNTER_SYNC_TIMEOUT')), 12000);
+          setTimeout(() => reject(new Error('COUNTER_SYNC_TIMEOUT')), 15000);
         }),
       ]) as { data: any; error: any };
 
