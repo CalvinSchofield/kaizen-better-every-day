@@ -247,8 +247,12 @@ Deno.serve(async (req) => {
       accessLevel = 'team_lead';
     }
 
-    // Area director overrides everything
-    if (isAreaDirector) {
+    // Corporate overrides everything
+    if (isCorporate) {
+      accessLevel = 'corporate';
+    }
+    // Area director overrides team/mgmt roles
+    else if (isAreaDirector || officeIds.length > 0) {
       accessLevel = 'area_director';
     }
 
