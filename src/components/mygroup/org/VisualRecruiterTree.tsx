@@ -31,6 +31,7 @@ interface PositionedNode {
   x: number;
   y: number;
   childCount: number;
+  totalDescendants: number;
 }
 
 interface Line {
@@ -48,6 +49,16 @@ const H_GAP = 24;
 const V_GAP = 80;
 const LABEL_HEIGHT = 48;
 const NODE_TOTAL_H = NODE_DIAMETER + LABEL_HEIGHT;
+
+// ── Helpers ────────────────────────────────────────────
+
+function countDescendants(node: TreeNode): number {
+  let count = node.children.length;
+  for (const child of node.children) {
+    count += countDescendants(child);
+  }
+  return count;
+}
 
 // ── Layout Algorithm ───────────────────────────────────
 
@@ -82,6 +93,7 @@ function layoutNodes(
     x: cx,
     y: cy,
     childCount: node.children.length,
+    totalDescendants: countDescendants(node),
   });
 
   if (node.children.length === 0) return;
@@ -307,13 +319,13 @@ export const VisualRecruiterTree = ({
                         </span>
                       )}
 
-                      {/* Child count badge */}
-                      {node.childCount > 0 && (
+                      {/* Total downline count badge */}
+                      {node.totalDescendants > 0 && (
                         <Badge
                           variant="secondary"
                           className="absolute -bottom-1 -right-1 h-4 min-w-4 px-1 text-[9px] font-bold"
                         >
-                          {node.childCount}
+                          {node.totalDescendants}
                         </Badge>
                       )}
                     </div>
