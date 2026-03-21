@@ -76,7 +76,7 @@ interface UseParticipantPoolResult {
   workingUserIds: Set<string>;
   
   // Access level determines which scopes are available
-  accessLevel: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
+  accessLevel: 'corporate' | 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
   
   // Available scope options based on access level
   availableScopes: ScopeFilter[];

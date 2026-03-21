@@ -29,7 +29,7 @@ export type TeamFilter =
 interface ReportsTeamFilterProps {
   teams: Team[];
   mgmtGroups: MgmtGroup[];
-  accessLevel: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
+  accessLevel: 'corporate' | 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
   selectedFilter: TeamFilter;
   onFilterChange: (filter: TeamFilter) => void;
   repCount?: number;
@@ -105,7 +105,7 @@ export const ReportsTeamFilter = ({
           </button>
 
           {/* MGMT Groups - only for Area Directors */}
-          {accessLevel === 'area_director' && mgmtGroups.length > 0 && (
+          {(accessLevel === 'area_director' || accessLevel === 'corporate') && mgmtGroups.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
                 Management Groups

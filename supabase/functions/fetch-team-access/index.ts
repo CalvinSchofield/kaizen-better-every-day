@@ -50,6 +50,13 @@ Deno.serve(async (req) => {
     // Use database function to determine if user is Area Director
     const { data: isAreaDirector } = await supabase.rpc('is_area_director', { _user_id: user.id });
 
+    // Check if user is corporate (can see all offices)
+    const { data: isCorporate } = await supabase.rpc('is_corporate', { _user_id: user.id });
+
+    // Get user's office assignments
+    const { data: userOfficeIds } = await supabase.rpc('get_user_office_ids', { _user_id: user.id });
+    const officeIds: string[] = userOfficeIds || [];
+
     // Fetch all mgmt_groups
     const { data: mgmtGroupsRaw } = await supabase
       .from('mgmt_groups')
@@ -240,8 +247,12 @@ Deno.serve(async (req) => {
       accessLevel = 'team_lead';
     }
 
-    // Area director overrides everything
-    if (isAreaDirector) {
+    // Corporate overrides everything
+    if (isCorporate) {
+      accessLevel = 'corporate';
+    }
+    // Area director overrides team/mgmt roles
+    else if (isAreaDirector || officeIds.length > 0) {
       accessLevel = 'area_director';
     }
 
@@ -520,8 +531,8 @@ Deno.serve(async (req) => {
       directRecruitIds.add(recruit.id);
     }
 
-    if (accessLevel === 'area_director') {
-      // Area directors see ALL reps INCLUDING themselves
+    if (accessLevel === 'corporate') {
+      // Corporate sees ALL reps across all offices
       for (const rep of repsData) {
         if (rep.user_id) accessibleUserIds.push(rep.user_id);
         accessibleReps.push({
@@ -529,7 +540,89 @@ Deno.serve(async (req) => {
           isDirectRecruit: directRecruitIds.has(rep.id),
         });
       }
-      console.log(`Area director has access to ${accessibleReps.length} reps (including self)`);
+      console.log(`Corporate user has access to ${accessibleReps.length} reps (all offices)`);
+
+    } else if (accessLevel === 'area_director') {
+      // Area directors see reps scoped to their office(s)
+      // Get all team IDs and mgmt group IDs in user's offices
+      const officeTeamIds = new Set<string>();
+      const officeMgmtGroupIds = new Set<string>();
+      
+      if (officeIds.length > 0) {
+        // Get teams in the AD's office(s)
+        const { data: officeTeams } = await supabase
+          .from('teams')
+          .select('id')
+          .in('office_id', officeIds);
+        for (const t of (officeTeams || [])) officeTeamIds.add(t.id);
+        
+        // Get mgmt groups in the AD's office(s)
+        const { data: officeMgmtGroups } = await supabase
+          .from('mgmt_groups')
+          .select('id')
+          .in('office_id', officeIds);
+        for (const g of (officeMgmtGroups || [])) officeMgmtGroupIds.add(g.id);
+        
+        // Also include teams linked to those mgmt groups
+        for (const tmg of teamMgmtGroups) {
+          if (officeMgmtGroupIds.has(tmg.mgmt_group_id)) {
+            officeTeamIds.add(tmg.team_id);
+          }
+        }
+      }
+      
+      const addedIds = new Set<string>();
+      
+      // Add self
+      addedIds.add(currentUserRepId);
+      if (repData.user_id) accessibleUserIds.push(repData.user_id);
+      accessibleReps.push({ ...buildRepData(repData), isDirectRecruit: false });
+      
+      for (const rep of repsData) {
+        if (addedIds.has(rep.id)) continue;
+        
+        // If office scoping is active, check if rep belongs to an office team
+        if (officeIds.length > 0) {
+          const teamInfo = getRepTeamInfo(rep);
+          const inOffice = (teamInfo.teamId && officeTeamIds.has(teamInfo.teamId)) ||
+                           (teamInfo.mgmtGroupId && officeMgmtGroupIds.has(teamInfo.mgmtGroupId));
+          
+          if (!inOffice) {
+            // Also check recruiter downline - AD sees their own recruiter tree too
+            // Skip for now, handled below
+            continue;
+          }
+        }
+        
+        addedIds.add(rep.id);
+        if (rep.user_id) accessibleUserIds.push(rep.user_id);
+        accessibleReps.push({
+          ...buildRepData(rep),
+          isDirectRecruit: directRecruitIds.has(rep.id),
+        });
+      }
+      
+      // Also include recruiter downline (cross-office recruits the AD recruited directly)
+      const downlineRecruits = getDownlineRecruits(user.id, addedIds);
+      for (const recruit of downlineRecruits) {
+        const matchingRep = repsData.find(r => r.id === recruit.id);
+        if (matchingRep) {
+          if (matchingRep.user_id && !accessibleUserIds.includes(matchingRep.user_id)) {
+            accessibleUserIds.push(matchingRep.user_id);
+          }
+          accessibleReps.push({
+            ...buildRepData(matchingRep),
+            isDirectRecruit: directRecruitIds.has(matchingRep.id),
+          });
+        } else {
+          accessibleReps.push({
+            ...buildRecruitAsRepData(recruit),
+            isDirectRecruit: directRecruitIds.has(recruit.id),
+          });
+        }
+      }
+      
+      console.log(`Area director has access to ${accessibleReps.length} reps (${officeIds.length} offices, ${officeTeamIds.size} teams, ${downlineRecruits.length} from recruiter tree)`);
 
     } else if (accessLevel === 'mgmt_group_lead') {
       // Get all mgmt groups this user leads

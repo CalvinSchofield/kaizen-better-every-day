@@ -211,7 +211,7 @@ export const RecruitDetailDrawer = ({
     queryFn: async () => {
       if (!recruit) return null;
       const accessLevel = teamAccess?.accessLevel;
-      const isLeaderOfLeaders = accessLevel === 'mgmt_group_lead' || accessLevel === 'area_director';
+      const isLeaderOfLeaders = accessLevel === 'mgmt_group_lead' || accessLevel === 'area_director' || accessLevel === 'corporate';
       const currentUserName = stripEmojis(currentUserRep?.name || '')?.toLowerCase()?.trim();
       
       // For leader-of-leaders, contact the team leader; otherwise contact the recruiter
@@ -239,7 +239,7 @@ export const RecruitDetailDrawer = ({
     staleTime: 5 * 60 * 1000,
   });
 
-  const isLeaderOfLeaders = teamAccess?.accessLevel === 'mgmt_group_lead' || teamAccess?.accessLevel === 'area_director';
+  const isLeaderOfLeaders = teamAccess?.accessLevel === 'mgmt_group_lead' || teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'corporate';
 
   // Recruit rep data - match by email first, then by name for ghost reps
   const { data: recruitRepData } = useQuery({

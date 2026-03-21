@@ -12,24 +12,33 @@
 6. **ShareInviteLinkButton** — drawer on My Group page header for leaders to generate/copy/share their unique invite link via Web Share API or clipboard
 7. **RLS policies** on `invite_codes` — public read (for validation), authenticated CRUD scoped to own codes
 
-### How it works:
-- Leader opens My Group → taps "Invite Rep" → gets a unique link like `kaizen.app/auth?invite=ABC123`
-- New rep opens link → signs up → sees onboarding form (name, phone, year) → "Join My Team" → auto-creates recruit+rep records linked to the inviter
-- If the email matches a ghost rep, it claims that existing record instead of creating a duplicate
-- The recruiting tree builds itself organically
+## Phase 2: Multi-Office Support ✅ IMPLEMENTED
 
-## Phase 2: Multi-Office Support (NEXT)
+### What was built:
+1. **`offices` table** — `id`, `name`, `location`, `created_at`, `updated_at`, `created_by`
+2. **`office_staff` table** — `office_id`, `user_id`, `role` (area_director, corporate, etc.) with unique constraint
+3. **`office_id` column** added to `teams` and `mgmt_groups` tables
+4. **Security definer functions**: `is_office_staff()`, `is_corporate()`, `get_user_office_ids()`
+5. **RLS policies** on offices/office_staff — viewable by authenticated, manageable by corporate/AD
+6. **`fetch-team-access` updated**:
+   - New `corporate` access level — sees ALL reps across all offices
+   - `area_director` now scoped to their office(s) — only sees teams/groups/reps in assigned offices + their recruiter downline
+   - Office IDs resolved via `get_user_office_ids()` function
+7. **`useTeamAccess` type** updated to include `'corporate'`
+8. **All 15+ components** updated to treat `corporate` alongside `area_director` for permissions
+9. **Data migration**: Default office created, both current ADs assigned, all existing teams/groups linked
+
+### How office scoping works:
+- Area Directors are assigned to offices via `office_staff` table
+- Teams and MGMT groups have `office_id` linking them to an office
+- `fetch-team-access` queries the AD's office IDs, then only returns reps whose team/group belongs to those offices
+- AD also gets their recruiter downline (even if cross-office)
+- Corporate role bypasses all office scoping and sees everything
+
+## Phase 3: Expanded Role Hierarchy (NEXT)
 
 ### TODO:
-- Create `offices` table
-- Create `office_staff` table (replaces `area_directors` concept)
-- Add `office_id` to `teams` and `mgmt_groups`
-- Update `fetch-team-access` for office awareness
-- Corporate role sees all offices
-
-## Phase 3: Expanded Role Hierarchy (LATER)
-
-### TODO:
-- Expand roles: assistant_manager, regional, sr_regional, partner, divisional, corporate
+- Expand roles: assistant_manager, regional, sr_regional, partner, divisional
 - Permission matrix per role
 - My Group access for assistant managers (downline-based)
+- Corporate admin panel for office/AD management

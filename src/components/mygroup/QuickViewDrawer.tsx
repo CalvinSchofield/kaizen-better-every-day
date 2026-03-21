@@ -70,7 +70,7 @@ export const QuickViewDrawer = ({
   }, [open, initialTab, unreadCount]);
 
   // Show org/goals tabs for leaders with downline access (AD, MGMT Lead, Team Lead)
-  const canViewOrg = teamAccess?.accessLevel === 'area_director' || 
+  const canViewOrg = teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'corporate' || 
                      teamAccess?.accessLevel === 'mgmt_group_lead' || 
                      teamAccess?.accessLevel === 'team_lead';
   const canViewGoals = canViewOrg || teamAccess?.accessLevel === 'recruiter';

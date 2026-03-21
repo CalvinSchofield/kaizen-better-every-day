@@ -901,7 +901,7 @@ const MyGroup = () => {
           <Search className="h-4 w-4" />
         </Button>
       )}
-      {(teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'mgmt_group_lead') && (
+      {(teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'corporate' || teamAccess?.accessLevel === 'mgmt_group_lead') && (
         <Button 
           variant={selectedTeamFilter ? 'default' : 'ghost'} 
           size="icon" 

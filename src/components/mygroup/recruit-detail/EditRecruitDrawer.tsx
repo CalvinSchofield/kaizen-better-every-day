@@ -173,7 +173,7 @@ export const EditRecruitDrawer = ({
     const allTeams = teamAccess.teams || [];
     
     // Area directors see all teams
-    if (teamAccess.accessLevel === 'area_director') {
+    if (teamAccess.accessLevel === 'area_director' || teamAccess.accessLevel === 'corporate') {
       return allTeams;
     }
     
