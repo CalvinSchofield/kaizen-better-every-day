@@ -644,6 +644,7 @@ const TrackWithLayout = () => {
       // DON'T call clearLocalEntry - let the invalidation refetch the real finalized data from DB
       // This prevents the bug where navigating away and back shows zeros/unfinalized state
       clearBackup();
+      clearCounterQueue();
       setSyncStatus('synced');
       toast.success('Entry saved!');
       
