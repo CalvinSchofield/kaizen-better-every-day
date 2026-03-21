@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,17 +24,16 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-import { Building2, Users, Shield, Plus, Trash2, Search } from "lucide-react";
+import { Building2, Users, Shield, Plus, Trash2, Search, Globe, GitBranch } from "lucide-react";
 import { hasMinAccess, getRoleLabel, ASSIGNABLE_ROLES, type AccessLevel } from "@/utils/roleHierarchy";
 
 const Admin = () => {
   const navigate = useNavigate();
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
-  const queryClient = useQueryClient();
 
-  // Redirect if not corporate
+  // team_lead+ can access admin panel
   useEffect(() => {
-    if (!accessLoading && teamAccess && !hasMinAccess(teamAccess.accessLevel, 'corporate')) {
+    if (!accessLoading && teamAccess && !hasMinAccess(teamAccess.accessLevel, 'team_lead')) {
       navigate('/');
       toast.error("You don't have access to admin settings");
     }
@@ -44,51 +43,299 @@ const Admin = () => {
     return <Layout><div className="p-6 text-center text-muted-foreground">Loading...</div></Layout>;
   }
 
-  if (!hasMinAccess(teamAccess.accessLevel, 'corporate')) {
+  if (!hasMinAccess(teamAccess.accessLevel, 'team_lead')) {
     return null;
   }
+
+  const isCorporate = hasMinAccess(teamAccess.accessLevel, 'corporate');
+  const isRegionalPlus = hasMinAccess(teamAccess.accessLevel, 'regional');
 
   return (
     <Layout>
       <div className="p-4 space-y-4 pb-24">
         <div>
-          <h1 className="text-2xl font-bold">Admin Panel</h1>
-          <p className="text-sm text-muted-foreground">Manage offices, staff, and roles</p>
+          <h1 className="text-2xl font-bold">Organization</h1>
+          <p className="text-sm text-muted-foreground">
+            Manage your {isCorporate ? 'organization' : 'team structure'}
+          </p>
         </div>
 
-        <Tabs defaultValue="offices">
+        <Tabs defaultValue={isRegionalPlus ? "regions" : "offices"}>
           <TabsList className="w-full">
+            {isRegionalPlus && (
+              <TabsTrigger value="regions" className="flex-1 gap-1.5">
+                <Globe className="h-4 w-4" />
+                Regions
+              </TabsTrigger>
+            )}
             <TabsTrigger value="offices" className="flex-1 gap-1.5">
               <Building2 className="h-4 w-4" />
               Offices
             </TabsTrigger>
-            <TabsTrigger value="roles" className="flex-1 gap-1.5">
-              <Shield className="h-4 w-4" />
-              Roles
-            </TabsTrigger>
+            {isCorporate && (
+              <TabsTrigger value="roles" className="flex-1 gap-1.5">
+                <Shield className="h-4 w-4" />
+                Roles
+              </TabsTrigger>
+            )}
           </TabsList>
 
+          {isRegionalPlus && (
+            <TabsContent value="regions" className="mt-4">
+              <RegionsTab accessLevel={teamAccess.accessLevel} />
+            </TabsContent>
+          )}
+
           <TabsContent value="offices" className="mt-4">
-            <OfficesTab />
+            <OfficesTab accessLevel={teamAccess.accessLevel} />
           </TabsContent>
 
-          <TabsContent value="roles" className="mt-4">
-            <RolesTab />
-          </TabsContent>
+          {isCorporate && (
+            <TabsContent value="roles" className="mt-4">
+              <RolesTab />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </Layout>
   );
 };
 
+// ============ REGIONS TAB ============
+
+const RegionsTab = ({ accessLevel }: { accessLevel: AccessLevel }) => {
+  const queryClient = useQueryClient();
+  const [newRegionName, setNewRegionName] = useState("");
+  const [assignDrawerOpen, setAssignDrawerOpen] = useState(false);
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
+  const [officeSearch, setOfficeSearch] = useState("");
+
+  const isCorporate = hasMinAccess(accessLevel, 'corporate');
+
+  const { data: regions = [], isLoading } = useQuery({
+    queryKey: ['admin-regions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('regions')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: offices = [] } = useQuery({
+    queryKey: ['admin-offices'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('offices')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: allReps = [] } = useQuery({
+    queryKey: ['admin-all-reps'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('reps')
+        .select('id, user_id, name, email');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const getRepName = (userId: string) => {
+    const rep = allReps.find(r => r.user_id === userId);
+    return rep?.name || userId.slice(0, 8);
+  };
+
+  const createRegion = useMutation({
+    mutationFn: async () => {
+      if (!newRegionName.trim()) throw new Error('Name required');
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from('regions').insert({
+        name: newRegionName.trim(),
+        lead_user_id: user?.id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-regions'] });
+      setNewRegionName("");
+      toast.success("Region created");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteRegion = useMutation({
+    mutationFn: async (regionId: string) => {
+      // First unlink offices from this region
+      const { error: unlinkError } = await supabase
+        .from('offices')
+        .update({ region_id: null })
+        .eq('region_id', regionId);
+      if (unlinkError) throw unlinkError;
+      const { error } = await supabase.from('regions').delete().eq('id', regionId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-regions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-offices'] });
+      toast.success("Region deleted");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const assignOfficeToRegion = useMutation({
+    mutationFn: async ({ officeId, regionId }: { officeId: string; regionId: string | null }) => {
+      const { error } = await supabase
+        .from('offices')
+        .update({ region_id: regionId })
+        .eq('id', officeId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-offices'] });
+      toast.success("Office assignment updated");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const unassignedOffices = offices.filter(o => {
+    const officeData = o as any;
+    return !officeData.region_id;
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Create region */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Create Region</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Input
+            placeholder="Region name (e.g. Lead Region)"
+            value={newRegionName}
+            onChange={(e) => setNewRegionName(e.target.value)}
+          />
+          <Button
+            onClick={() => createRegion.mutate()}
+            disabled={!newRegionName.trim() || createRegion.isPending}
+            className="w-full"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Region
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Region list */}
+      {isLoading ? (
+        <p className="text-muted-foreground text-sm text-center">Loading regions...</p>
+      ) : regions.length === 0 ? (
+        <p className="text-muted-foreground text-sm text-center py-8">No regions defined yet</p>
+      ) : (
+        regions.map((region) => {
+          const regionOffices = offices.filter((o: any) => o.region_id === region.id);
+          return (
+            <Card key={region.id}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-primary" />
+                      {region.name}
+                    </CardTitle>
+                    {region.lead_user_id && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Led by {getRepName(region.lead_user_id)}
+                      </p>
+                    )}
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => deleteRegion.mutate(region.id)} className="text-destructive h-8 w-8">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Offices in this region */}
+                {regionOffices.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Offices</p>
+                    {regionOffices.map((office) => (
+                      <div key={office.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-sm font-medium">{office.name}</span>
+                          {office.location && <span className="text-xs text-muted-foreground">• {office.location}</span>}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-muted-foreground"
+                          onClick={() => assignOfficeToRegion.mutate({ officeId: office.id, regionId: null })}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No offices assigned</p>
+                )}
+
+                {/* Assign offices */}
+                {unassignedOffices.length > 0 && (
+                  <Drawer>
+                    <DrawerTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Assign Office
+                      </Button>
+                    </DrawerTrigger>
+                    <DrawerContent className="px-4 pb-8">
+                      <DrawerHeader className="px-0">
+                        <DrawerTitle>Assign Office to {region.name}</DrawerTitle>
+                      </DrawerHeader>
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                        {unassignedOffices.map((office) => (
+                          <button
+                            key={office.id}
+                            className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors"
+                            onClick={() => {
+                              assignOfficeToRegion.mutate({ officeId: office.id, regionId: region.id });
+                            }}
+                          >
+                            <p className="text-sm font-medium">{office.name}</p>
+                            {office.location && <p className="text-xs text-muted-foreground">{office.location}</p>}
+                          </button>
+                        ))}
+                      </div>
+                    </DrawerContent>
+                  </Drawer>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })
+      )}
+    </div>
+  );
+};
+
 // ============ OFFICES TAB ============
 
-const OfficesTab = () => {
+const OfficesTab = ({ accessLevel }: { accessLevel: AccessLevel }) => {
   const queryClient = useQueryClient();
   const [newOfficeName, setNewOfficeName] = useState("");
   const [newOfficeLocation, setNewOfficeLocation] = useState("");
 
-  // Fetch offices
+  const canCreateOffices = hasMinAccess(accessLevel, 'regional');
+
   const { data: offices = [], isLoading } = useQuery({
     queryKey: ['admin-offices'],
     queryFn: async () => {
@@ -101,7 +348,6 @@ const OfficesTab = () => {
     },
   });
 
-  // Fetch office staff
   const { data: officeStaff = [] } = useQuery({
     queryKey: ['admin-office-staff'],
     queryFn: async () => {
@@ -113,7 +359,6 @@ const OfficesTab = () => {
     },
   });
 
-  // Fetch reps for staff name resolution
   const { data: allReps = [] } = useQuery({
     queryKey: ['admin-all-reps'],
     queryFn: async () => {
@@ -164,34 +409,34 @@ const OfficesTab = () => {
 
   return (
     <div className="space-y-4">
-      {/* Create office */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Create Office</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Input
-            placeholder="Office name"
-            value={newOfficeName}
-            onChange={(e) => setNewOfficeName(e.target.value)}
-          />
-          <Input
-            placeholder="Location (optional)"
-            value={newOfficeLocation}
-            onChange={(e) => setNewOfficeLocation(e.target.value)}
-          />
-          <Button
-            onClick={() => createOffice.mutate()}
-            disabled={!newOfficeName.trim() || createOffice.isPending}
-            className="w-full"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create Office
-          </Button>
-        </CardContent>
-      </Card>
+      {canCreateOffices && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Create Office</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Input
+              placeholder="Office name"
+              value={newOfficeName}
+              onChange={(e) => setNewOfficeName(e.target.value)}
+            />
+            <Input
+              placeholder="Location (optional)"
+              value={newOfficeLocation}
+              onChange={(e) => setNewOfficeLocation(e.target.value)}
+            />
+            <Button
+              onClick={() => createOffice.mutate()}
+              disabled={!newOfficeName.trim() || createOffice.isPending}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create Office
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Office list */}
       {isLoading ? (
         <p className="text-muted-foreground text-sm text-center">Loading offices...</p>
       ) : offices.length === 0 ? (
@@ -206,7 +451,8 @@ const OfficesTab = () => {
               staff={staff}
               allReps={allReps}
               getRepName={getRepName}
-              onDelete={() => deleteOffice.mutate(office.id)}
+              onDelete={canCreateOffices ? () => deleteOffice.mutate(office.id) : undefined}
+              canManageStaff={canCreateOffices}
             />
           );
         })
@@ -220,10 +466,11 @@ interface OfficeCardProps {
   staff: any[];
   allReps: any[];
   getRepName: (userId: string) => string;
-  onDelete: () => void;
+  onDelete?: () => void;
+  canManageStaff: boolean;
 }
 
-const OfficeCard = ({ office, staff, allReps, getRepName, onDelete }: OfficeCardProps) => {
+const OfficeCard = ({ office, staff, allReps, getRepName, onDelete, canManageStaff }: OfficeCardProps) => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRepUserId, setSelectedRepUserId] = useState<string | null>(null);
@@ -278,13 +525,14 @@ const OfficeCard = ({ office, staff, allReps, getRepName, onDelete }: OfficeCard
               <p className="text-xs text-muted-foreground">{office.location}</p>
             )}
           </div>
-          <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive h-8 w-8">
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {onDelete && (
+            <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive h-8 w-8">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Current staff */}
         {staff.length > 0 ? (
           <div className="space-y-2">
             {staff.map((s) => (
@@ -295,14 +543,16 @@ const OfficeCard = ({ office, staff, allReps, getRepName, onDelete }: OfficeCard
                     {s.role.replace('_', ' ')}
                   </Badge>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-destructive"
-                  onClick={() => removeStaff.mutate(s.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {canManageStaff && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive"
+                    onClick={() => removeStaff.mutate(s.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -310,73 +560,74 @@ const OfficeCard = ({ office, staff, allReps, getRepName, onDelete }: OfficeCard
           <p className="text-xs text-muted-foreground">No staff assigned</p>
         )}
 
-        {/* Add staff drawer */}
-        <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-          <DrawerTrigger asChild>
-            <Button variant="outline" size="sm" className="w-full">
-              <Plus className="h-4 w-4 mr-2" />
-              Assign Staff
-            </Button>
-          </DrawerTrigger>
-          <DrawerContent className="px-4 pb-8">
-            <DrawerHeader className="px-0">
-              <DrawerTitle>Assign Staff to {office.name}</DrawerTitle>
-            </DrawerHeader>
-            <div className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search reps by name..."
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setSelectedRepUserId(null);
-                  }}
-                  className="pl-10"
-                />
-              </div>
-
-              {filteredReps.length > 0 && (
-                <div className="max-h-[200px] overflow-y-auto space-y-1 border rounded-lg p-2">
-                  {filteredReps.slice(0, 20).map((rep) => (
-                    <button
-                      key={rep.id}
-                      onClick={() => {
-                        setSelectedRepUserId(rep.user_id);
-                        setSearchQuery(rep.name);
-                      }}
-                      className={`w-full text-left p-2 rounded text-sm transition-colors ${
-                        selectedRepUserId === rep.user_id
-                          ? 'bg-primary/10 text-primary'
-                          : 'hover:bg-muted'
-                      }`}
-                    >
-                      {rep.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <Select value={staffRole} onValueChange={setStaffRole}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="area_director">Area Director</SelectItem>
-                  <SelectItem value="corporate">Corporate</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Button
-                className="w-full"
-                disabled={!selectedRepUserId || addStaff.isPending}
-                onClick={() => addStaff.mutate()}
-              >
-                Assign
+        {canManageStaff && (
+          <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+            <DrawerTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full">
+                <Plus className="h-4 w-4 mr-2" />
+                Assign Staff
               </Button>
-            </div>
-          </DrawerContent>
-        </Drawer>
+            </DrawerTrigger>
+            <DrawerContent className="px-4 pb-8">
+              <DrawerHeader className="px-0">
+                <DrawerTitle>Assign Staff to {office.name}</DrawerTitle>
+              </DrawerHeader>
+              <div className="space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search reps by name..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setSelectedRepUserId(null);
+                    }}
+                    className="pl-10"
+                  />
+                </div>
+
+                {filteredReps.length > 0 && (
+                  <div className="max-h-[200px] overflow-y-auto space-y-1 border rounded-lg p-2">
+                    {filteredReps.slice(0, 20).map((rep) => (
+                      <button
+                        key={rep.id}
+                        onClick={() => {
+                          setSelectedRepUserId(rep.user_id);
+                          setSearchQuery(rep.name);
+                        }}
+                        className={`w-full text-left p-2 rounded text-sm transition-colors ${
+                          selectedRepUserId === rep.user_id
+                            ? 'bg-primary/10 text-primary'
+                            : 'hover:bg-muted'
+                        }`}
+                      >
+                        {rep.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <Select value={staffRole} onValueChange={setStaffRole}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="area_director">Area Director</SelectItem>
+                    <SelectItem value="corporate">Corporate</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  className="w-full"
+                  disabled={!selectedRepUserId || addStaff.isPending}
+                  onClick={() => addStaff.mutate()}
+                >
+                  Assign
+                </Button>
+              </div>
+            </DrawerContent>
+          </Drawer>
+        )}
       </CardContent>
     </Card>
   );
@@ -391,7 +642,6 @@ const RolesTab = () => {
   const [selectedRole, setSelectedRole] = useState<string>("assistant_manager");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Fetch existing user roles
   const { data: userRoles = [] } = useQuery({
     queryKey: ['admin-user-roles'],
     queryFn: async () => {
@@ -404,7 +654,6 @@ const RolesTab = () => {
     },
   });
 
-  // Fetch reps
   const { data: allReps = [] } = useQuery({
     queryKey: ['admin-all-reps'],
     queryFn: async () => {
@@ -460,7 +709,6 @@ const RolesTab = () => {
 
   return (
     <div className="space-y-4">
-      {/* Assign role drawer */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
         <DrawerTrigger asChild>
           <Button className="w-full">
@@ -531,7 +779,6 @@ const RolesTab = () => {
         </DrawerContent>
       </Drawer>
 
-      {/* Current roles list */}
       {userRoles.length === 0 ? (
         <p className="text-muted-foreground text-sm text-center py-8">No explicit roles assigned yet</p>
       ) : (
