@@ -35,10 +35,57 @@
 - AD also gets their recruiter downline (even if cross-office)
 - Corporate role bypasses all office scoping and sees everything
 
-## Phase 3: Expanded Role Hierarchy (NEXT)
+## Phase 3: Expanded Role Hierarchy ✅ IMPLEMENTED
 
-### TODO:
-- Expand roles: assistant_manager, regional, sr_regional, partner, divisional
-- Permission matrix per role
-- My Group access for assistant managers (downline-based)
-- Corporate admin panel for office/AD management
+### What was built:
+1. **`user_roles` table** — stores explicit role assignments with `user_id`, `role` (app_role enum), `assigned_by`, unique constraint on (user_id, role)
+2. **`app_role` enum** — `assistant_manager`, `regional`, `sr_regional`, `partner`, `divisional`, `corporate`
+3. **`has_role()` function** — security definer to check if user has a specific role
+4. **`has_min_role()` function** — security definer to check if user has a role at or above a given level
+5. **Updated `is_corporate()` function** — now checks both `office_staff` AND `user_roles` tables
+6. **Role hierarchy utility** (`src/utils/roleHierarchy.ts`):
+   - `AccessLevel` type: `none → recruiter → assistant_manager → team_lead → mgmt_group_lead → area_director → regional → sr_regional → partner → divisional → corporate`
+   - `hasMinAccess()`, `isLeader()`, `canManageTeam()`, `canManageBlitzes()`, `canFilterByTeam()`, `isGlobalAccess()`, `getRoleLabel()`
+7. **Updated `fetch-team-access` edge function**:
+   - Checks `user_roles` table for explicit role assignments
+   - Assistant manager auto-detected: 3+ selling recruits in downline
+   - Regional+ roles get global access (see all reps, like corporate)
+   - Role priority: explicit roles > structural roles (team/mgmt lead) > dynamic roles (recruiter)
+8. **Corporate Admin Panel** (`/admin`):
+   - **Offices tab**: Create/delete offices, assign/remove staff (area directors, corporate roles)
+   - **Roles tab**: Assign/remove explicit roles to any rep (assistant_manager through corporate)
+   - Access restricted to corporate users only
+9. **All 10+ component types updated** to use centralized `AccessLevel` type from `roleHierarchy.ts`
+10. **Key permission checks updated** to use `hasMinAccess()` and `canFilterByTeam()` utilities
+
+### How role detection works (priority order):
+1. Check `user_roles` table for explicit assignments (corporate, regional, etc.)
+2. Check `office_staff` for area_director
+3. Check `mgmt_groups.lead_user_id` for mgmt_group_lead
+4. Check `teams.lead_user_id` for team_lead
+5. Dynamic: 3+ selling recruits → assistant_manager
+6. Dynamic: any selling recruits → recruiter
+7. Highest role wins
+
+### Permission matrix:
+```text
+Role               | My Group | Reports | Blitzes | Admin | Scope
+─────────────────────────────────────────────────────────────────────
+Rep                | Own only | Self    | View    | No    | Self
+Recruiter          | Downline | Self    | View    | No    | Recruits
+Asst Manager       | Downline | Team    | View    | No    | Recruits
+Team Lead          | Team     | Team    | Manage  | No    | Team
+MGMT Lead          | Groups   | Groups  | Manage  | No    | MGMT Groups
+Area Director      | Office   | Office  | Manage  | No    | Office
+Regional+          | All      | All     | Manage  | No    | Everything
+Corporate          | All      | All     | Manage  | Yes   | Everything
+```
+
+## Phase 4: Next Steps (TODO)
+
+### What to build next:
+- **Recruiter reassignment UI**: Allow upline to reassign recruiters within their downline
+- **Office management UI for regionals**: Regionals should be able to create/manage offices and assign ADs
+- **Role-specific feature gating**: Fine-tune which features each role can create (e.g., assistant managers can create incentives but not blitzes)
+- **Organizational hierarchy visualization**: Show the full org chart across offices
+- **Invite link improvements**: Rate limiting, approval workflow, invite analytics
