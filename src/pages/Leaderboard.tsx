@@ -13,6 +13,7 @@ import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardP
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useHeader } from "@/contexts/HeaderContext";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Filter } from "lucide-react";
@@ -36,53 +37,57 @@ const LeaderboardSkeleton = () => (
 );
 
 const Leaderboard = () => {
-  const [timeFilter, setTimeFilter] = useState<TimeFilter | null>(null);
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('live');
   const [smartFilter, setSmartFilter] = useState<SmartFilterState>(DEFAULT_FILTER_STATE);
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [customDateRange, setCustomDateRange] = useState<CustomDateRange | undefined>(undefined);
   const [watchlistDrawerOpen, setWatchlistDrawerOpen] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
-  const [isUserInitialized, setIsUserInitialized] = useState(false);
+  const { userId: currentUserId } = useCurrentUserId();
   const { setCustomRightContent } = useHeader();
 
   useSalesRealtime();
   const { watchedUserIds } = useWatchlist();
-  const { availablePresets, autoSelectedPreset, isLoading: presetsLoading } = useAvailableLeaderboardPresets();
+  const { availablePresets } = useAvailableLeaderboardPresets();
 
   useEffect(() => {
-    if (!presetsLoading && timeFilter === null) {
-      setTimeFilter(autoSelectedPreset);
-    }
-  }, [presetsLoading, autoSelectedPreset, timeFilter]);
+    let isMounted = true;
 
-  useEffect(() => {
-    const fetchUser = async () => {
+    const fetchCurrentUserYear = async () => {
+      if (!currentUserId) {
+        if (!isMounted) return;
+        setSmartFilter((prev) =>
+          prev.yearFilters.length === 0 ? prev : { ...prev, yearFilters: [] }
+        );
+        return;
+      }
+
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setCurrentUserId(user.id);
-          const { data: repData } = await supabase
-            .from('reps')
-            .select('year')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          if (repData) {
-            setCurrentUserYear(repData.year);
-            setSmartFilter(prev => ({
-              ...prev,
-              yearFilters: repData.year === 'Rookie' ? ['Rookie'] : [],
-            }));
-          }
-        }
+        const { data: repData } = await supabase
+          .from('reps')
+          .select('year')
+          .eq('user_id', currentUserId)
+          .maybeSingle();
+
+        if (!isMounted) return;
+
+        const rookieOnlyFilter = repData?.year === 'Rookie' ? ['Rookie'] : [];
+        setSmartFilter((prev) => {
+          const unchanged =
+            prev.yearFilters.length === rookieOnlyFilter.length &&
+            prev.yearFilters.every((value, index) => value === rookieOnlyFilter[index]);
+          return unchanged ? prev : { ...prev, yearFilters: rookieOnlyFilter };
+        });
       } catch (err) {
         console.error('[Leaderboard] Failed to fetch user/rep data:', err);
-      } finally {
-        setIsUserInitialized(true);
       }
     };
-    fetchUser();
-  }, []);
+
+    fetchCurrentUserYear();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUserId]);
 
   // Inject filter icon into header
   useEffect(() => {
@@ -121,18 +126,16 @@ const Leaderboard = () => {
   const { data: streakData } = useAwardStreaks(filterByYear);
 
   const hasCachedLeaderboard = !!expandedLeaderboard || !!todayLeaderboard;
-  const isInitializing = !isUserInitialized || presetsLoading || timeFilter === null;
+  const isLive = timeFilter === 'live';
+  const currentDateRange = getDateRange(timeFilter, timeFilter === 'custom' ? customDateRange : undefined);
 
-  if (isInitializing && !hasCachedLeaderboard) {
+  if (!hasCachedLeaderboard && (isLive ? todayLoading : isLoading)) {
     return (
       <Layout>
         <LeaderboardSkeleton />
       </Layout>
     );
   }
-
-  const isLive = timeFilter === 'live';
-  const currentDateRange = timeFilter ? getDateRange(timeFilter, timeFilter === 'custom' ? customDateRange : undefined) : undefined;
 
   // Helper to filter any rankings object by watchlist user IDs
   const filterRankingsByWatchlist = (rankings: any): any => {
