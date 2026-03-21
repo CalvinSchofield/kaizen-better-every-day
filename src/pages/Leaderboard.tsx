@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { LeaderboardHeroBanner } from "@/components/leaderboard/LeaderboardHeroBanner";
 import { LeaderboardFilters, TimeFilter } from "@/components/leaderboard/LeaderboardFilters";
@@ -44,10 +45,21 @@ const Leaderboard = () => {
   const [watchlistDrawerOpen, setWatchlistDrawerOpen] = useState(false);
   const { userId: currentUserId } = useCurrentUserId();
   const { setCustomRightContent } = useHeader();
+  const queryClient = useQueryClient();
 
   useSalesRealtime();
   const { watchedUserIds } = useWatchlist();
   const { availablePresets } = useAvailableLeaderboardPresets();
+
+  // Catch in-flight counter queue events: re-fetch after a short delay on mount
+  // so the leaderboard reflects taps that were still being processed when the user navigated here
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'] });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let isMounted = true;
