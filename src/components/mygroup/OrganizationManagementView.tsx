@@ -32,6 +32,7 @@ import { EditTeamDrawer } from "./org/EditTeamDrawer";
 import { EditRepOrgDrawer } from "./org/EditRepOrgDrawer";
 import { CreateEntityDrawer } from "./org/CreateEntityDrawer";
 import { hasMinAccess, type AccessLevel } from "@/utils/roleHierarchy";
+import { PendingOrgRequests } from "./org/PendingOrgRequests";
 import { getCleanName } from "@/utils/nameUtils";
 import { cn } from "@/lib/utils";
 
