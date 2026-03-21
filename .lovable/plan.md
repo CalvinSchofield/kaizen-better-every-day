@@ -1,55 +1,80 @@
-## Invite System Overhaul — Step-by-Step Plan
+## Cascading Onboarding — Each Level Onboards the Next
 
-You've identified several interconnected problems. Here's my recommended approach, broken into phases we can tackle one at a time.
+### The Core Insight
 
----
+A Regional should NOT send one link to 200 people. A rookie should NOT have to pick their recruiter from a dropdown. Instead, onboarding cascades down the chain naturally:
 
-### Problem 1: Reps Can't Share Invite Links
+```text
+Regional sends link to 3 Sr Managers
+  → Each Sr Manager sends link to 2-3 MGMT Group Leads
+    → Each MGMT Lead sends link to 3-4 Team Leads
+      → Each Team Lead sends link to 5-10 reps
+        → Each rep sends link to their personal recruits
+```
 
-Currently, the "Invite Rep" button only appears on the My Group page, which requires leadership access. A rookie who wants to invite a friend has no way to do it.
+**Why this works:**
 
-**Fix:** Move the invite link capability to the Add Recruit page (which all reps can access). When a non-leader rep generates an invite, the link auto-sets them as the recruiter. The existing Share button on My Group stays for leaders.
+- Nobody picks from a confusing list — whoever sent you the link IS your recruiter
+- Rookies just enter name/phone/year (the simplest possible form)
+- Each leader only onboards the people they directly manage (3-10 people, not 200)
+- The org structure builds itself as each level signs up and starts inviting down
 
-- Add a "Share Invite Link" option on the Add Recruit page for all reps
-- The invite code stores the rep's `user_id` as `inviter_user_id` so the recruiter relationship is automatic
+### The Flow
 
----
+**Step 1 — You invite your Sr Manager**
 
-### Problem 2: Approval Workflow for Invite Signups
+- Send him your invite link
+- He signs up (name/phone/year — that's it)
+- You approve him, assign his role (Sr Manager) and MGMT group **** PROBLEM what if I send this to my divisional? Am I only able to approve his role/change his role this one time because of the problem where he doesn't have app access, I created it, and I'm the only one that is able to get him app access?
 
-Right now, when someone signs up via invite link, they're immediately created as a recruit/rep with no review. Leaders should be able to verify that the new signup entered correct information (year, recruiter, name, etc.).
+**Step 2 — Sr Manager invites his MGMT Group Leads**
 
-**Database changes:**
+- He now has an account with Sr Manager access
+- He creates his org structure (MGMT groups, teams) in the Org tab
+- He sends HIS invite link to his 2-3 MGMT Group Leads
+- He approves them, assigns their roles
 
-- Add `approval_status` column to `recruits` table (`pending`, `approved`, `rejected`, default `pending` for invite signups, `approved` for manual leader-created recruits)
-- Add `approved_by_user_id` and `approved_at` columns
+**Step 3 — Each MGMT Group Lead invites their Team Leads**
 
-**Edge function changes (`process-invite-signup`):**
+- Same pattern repeats down
 
-- Set `approval_status = 'pending'` on invite-created recruits instead of making them immediately active
-- Send push notifications to the inviter and their upline (up to MGMT group lead) that a new signup needs review
+**Step 4 — Team Leads invite their reps**
 
-**Frontend changes:**
+- Reps get the simplest signup: name, phone, year. Done.
 
-- New "Pending Approvals" section on My Group page (badge count on tab or category)
-- Each pending signup shows the info they entered (name, phone, year) with Approve / Edit / Reject actions
-- Approve: sets `approval_status = 'approved'`, activates the recruit in the pipeline
-- Edit: opens the recruit detail drawer so the leader can correct info before approving
-- Reject: sets `approval_status = 'rejected'`, user sees an "Access Pending" screen
+### What Needs to Change
 
-**Access control:**
+#### 1. Remove the recruiter/team picker from signup
 
-- Pending recruits are blocked from app access (similar to inactive reps) until approved. The only thing I want them to be able to access is the team info page if they are in MY group directly (Calvin Schofield MGMT or Quinn Gleed MGMT). Otherwise let's show them This website: [https://www.smarthomepros.com](https://www.smarthomepros.com/?inviteId=fdb85236-b069-46ec-9db6-797d24dfbe10)
-- The `ProtectedRoute` / setup flow checks approval status and shows a "Waiting for approval" screen
-- Approvers: the inviter + anyone in their upline up to MGMT group lead
+Rookies don't need it. Nobody needs it. The invite link already knows who sent it — that person is the recruiter. Team/MGMT group are resolved from the inviter's position.
 
----
+Keep the signup form as: **name, phone, year** — nothing else.
 
-### Problem 3: Onboarding a Leader Without Making Them a Recruit
+#### 2. Add role assignment to the approval flow
 
-Currently there's no way to create an account for an Area Director, Regional, etc. without them flowing through the recruit pipeline. They need to exist as a rep with a role assignment, not as someone's recruit.
+This is the critical missing piece. When a leader approves someone, they need to be able to assign a role (Team Lead, Manager, MGMT Group Lead, etc.) right there. Without this, the newly approved leader can't send their own invites with proper access.
 
-**This is a separate workflow — "Admin Onboard Leader":**
+**Changes to `PendingApprovalsSection` and `EditRecruitDrawer`:**
 
-- New section in the Admin panel (which you already have access to) for creating leader accounts
-- You enter their
+- Add a "Role" dropdown (from `ASSIGNABLE_ROLES`) visible to `mgmt_group_lead+` users
+- On approval, if a role is selected, insert into `user_roles` table
+- Also allow assigning the person to a specific team/MGMT group during approval
+
+#### 3. Auto-resolve team/MGMT group from inviter
+
+Update `process-invite-signup` to automatically inherit the inviter's team and MGMT group. If the inviter is a Team Lead, the new signup goes to that team. If they're a MGMT Group Lead, they go to that MGMT group (team TBD by approver).
+
+This already partially works — just make sure it's reliable and the approver can override it.
+
+#### 4. Post-approval onboarding prompt
+
+After a leader approves someone AND assigns them a leadership role, show a prompt: "Send [Name] their invite link so they can start onboarding their team." This guides the cascade.
+
+### File Changes
+
+
+| File                                                          | Change                                                 |
+| ------------------------------------------------------------- | ------------------------------------------------------ |
+| `src/components/mygroup/PendingApprovalsSection.tsx`          | Add role selector dropdown on approval                 |
+| `src/components/mygroup/recruit-detail/EditRecruitDrawer.tsx` | Add role assignment field for `mgmt_group_lead+`       |
+| `supabase/functions/process-invite-signup/index.ts`           | Ensure team/MGMT group auto-resolution from inviter is |
