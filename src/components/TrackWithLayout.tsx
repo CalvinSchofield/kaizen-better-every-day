@@ -362,10 +362,11 @@ const TrackWithLayout = () => {
       const userId = getCurrentUserId();
       if (!userId) return;
       const todayDate = getTodayDate();
+      const entryToSync = latestEntryRef.current ?? entry;
 
       const { data: serverRow, error } = await supabase
         .from('daily_entries')
-        .select('doors_knocked, decision_makers, pitches, transitions, presentations, closes, is_finalized, updated_at')
+        .select('doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, sales_log, is_finalized, updated_at')
         .eq('user_id', userId)
         .eq('entry_date', todayDate)
         .maybeSingle();
@@ -376,29 +377,87 @@ const TrackWithLayout = () => {
         return;
       }
 
+      const localTotals = {
+        doors_knocked: Number(entryToSync.doors_knocked) || 0,
+        decision_makers: Number(entryToSync.decision_makers) || 0,
+        pitches: Number(entryToSync.pitches) || 0,
+        transitions: Number(entryToSync.transitions) || 0,
+        presentations: Number(entryToSync.presentations) || 0,
+        closes: Number(entryToSync.closes) || 0,
+        fp_plus: Number(entryToSync.fp_plus) || 0,
+        prmr: Number(entryToSync.prmr) || 0,
+        upgrade_prmr: Number((entryToSync as any).upgrade_prmr) || 0,
+      };
+
       const localTotal =
-        (entry.doors_knocked || 0) +
-        (entry.decision_makers || 0) +
-        (entry.pitches || 0) +
-        (entry.transitions || 0) +
-        (entry.presentations || 0) +
-        (entry.closes || 0);
+        localTotals.doors_knocked +
+        localTotals.decision_makers +
+        localTotals.pitches +
+        localTotals.transitions +
+        localTotals.presentations +
+        localTotals.closes;
+
+      const localSales = Array.isArray(entryToSync.sales_log) ? entryToSync.sales_log : [];
 
       if (!serverRow) {
         // No server row yet — if we have local activity, it hasn't synced
-        setSyncStatus(localTotal > 0 ? 'pending' : 'synced');
+        setSyncStatus(localTotal > 0 || localSales.length > 0 ? 'pending' : 'synced');
         return;
       }
 
-      const serverTotal =
-        (serverRow.doors_knocked || 0) +
-        (serverRow.decision_makers || 0) +
-        (serverRow.pitches || 0) +
-        (serverRow.transitions || 0) +
-        (serverRow.presentations || 0) +
-        (serverRow.closes || 0);
+      const serverTotals = {
+        doors_knocked: Number(serverRow.doors_knocked) || 0,
+        decision_makers: Number(serverRow.decision_makers) || 0,
+        pitches: Number(serverRow.pitches) || 0,
+        transitions: Number(serverRow.transitions) || 0,
+        presentations: Number(serverRow.presentations) || 0,
+        closes: Number(serverRow.closes) || 0,
+        fp_plus: Number((serverRow as any).fp_plus) || 0,
+        prmr: Number((serverRow as any).prmr) || 0,
+        upgrade_prmr: Number((serverRow as any).upgrade_prmr) || 0,
+      };
 
-      if (serverTotal > localTotal) {
+      const serverTotal =
+        serverTotals.doors_knocked +
+        serverTotals.decision_makers +
+        serverTotals.pitches +
+        serverTotals.transitions +
+        serverTotals.presentations +
+        serverTotals.closes;
+
+      const serverSales = Array.isArray((serverRow as any).sales_log)
+        ? ((serverRow as any).sales_log as Sale[])
+        : [];
+
+      const hasDifferentNumber = (localValue: number, serverValue: number, epsilon = 0): boolean =>
+        Math.abs(localValue - serverValue) > epsilon;
+
+      const localAheadInCoreFields =
+        localTotals.doors_knocked > serverTotals.doors_knocked ||
+        localTotals.decision_makers > serverTotals.decision_makers ||
+        localTotals.pitches > serverTotals.pitches ||
+        localTotals.transitions > serverTotals.transitions ||
+        localTotals.presentations > serverTotals.presentations ||
+        localTotals.closes > serverTotals.closes ||
+        hasDifferentNumber(localTotals.fp_plus, serverTotals.fp_plus, 0.01) && localTotals.fp_plus > serverTotals.fp_plus ||
+        hasDifferentNumber(localTotals.prmr, serverTotals.prmr, 0.01) && localTotals.prmr > serverTotals.prmr ||
+        hasDifferentNumber(localTotals.upgrade_prmr, serverTotals.upgrade_prmr, 0.01) && localTotals.upgrade_prmr > serverTotals.upgrade_prmr;
+
+      const localSaleIds = new Set(localSales.map((sale) => sale.id));
+      const missingServerSales = localSales.filter(
+        (sale) => !serverSales.some((serverSale) => serverSale.id === sale.id)
+      );
+
+      const serverAhead =
+        serverTotals.doors_knocked > localTotals.doors_knocked ||
+        serverTotals.decision_makers > localTotals.decision_makers ||
+        serverTotals.pitches > localTotals.pitches ||
+        serverTotals.transitions > localTotals.transitions ||
+        serverTotals.presentations > localTotals.presentations ||
+        serverTotals.closes > localTotals.closes ||
+        serverSales.some((serverSale) => !localSaleIds.has(serverSale.id));
+
+      if (serverAhead || serverTotal > localTotal) {
         // If another device (or server-side safety merge) is ahead, force-refresh
         // local Track cache so UI reflects true server totals immediately.
         queryClient.invalidateQueries({
@@ -407,19 +466,26 @@ const TrackWithLayout = () => {
         });
       }
 
-      if (serverTotal >= localTotal) {
+      const isInParity = !localAheadInCoreFields && missingServerSales.length === 0;
+
+      if (isInParity) {
         setSyncStatus('synced');
         return;
       }
 
-      console.warn('[TrackSync] Server behind local:', { serverTotal, localTotal });
+      console.warn('[TrackSync] Server behind local:', {
+        serverTotal,
+        localTotal,
+        missingSales: missingServerSales.length,
+      });
       setSyncStatus('pending');
 
       const now = Date.now();
+      const localHasUnsyncedData = localTotal > 0 || localSales.length > 0;
       const shouldAttemptAutoResync =
-        !entry.is_finalized &&
+        !entryToSync.is_finalized &&
         !serverRow.is_finalized &&
-        localTotal > 0 &&
+        localHasUnsyncedData &&
         !autoResyncInFlightRef.current &&
         now - lastAutoResyncAttemptRef.current > 15000;
 
@@ -432,22 +498,22 @@ const TrackWithLayout = () => {
 
       try {
         await updateCounter({
-          doors_knocked: entry.doors_knocked || 0,
-          decision_makers: entry.decision_makers || 0,
-          pitches: entry.pitches || 0,
-          transitions: entry.transitions || 0,
-          presentations: entry.presentations || 0,
-          closes: entry.closes || 0,
-          fp_plus: entry.fp_plus || 0,
-          prmr: entry.prmr || 0,
+          doors_knocked: entryToSync.doors_knocked || 0,
+          decision_makers: entryToSync.decision_makers || 0,
+          pitches: entryToSync.pitches || 0,
+          transitions: entryToSync.transitions || 0,
+          presentations: entryToSync.presentations || 0,
+          closes: entryToSync.closes || 0,
+          fp_plus: entryToSync.fp_plus || 0,
+          prmr: entryToSync.prmr || 0,
           
-          work_start_time: entry.work_start_time ?? null,
-          work_end_time: entry.work_end_time ?? null,
-          break_periods: entry.break_periods || [],
-          counter_timestamps: entry.counter_timestamps || {},
-          custom_counters: entry.custom_counters || {},
-          timezone: entry.timezone ?? null,
-          sales_log: entry.sales_log || [],
+          work_start_time: entryToSync.work_start_time ?? null,
+          work_end_time: entryToSync.work_end_time ?? null,
+          break_periods: entryToSync.break_periods || [],
+          counter_timestamps: entryToSync.counter_timestamps || {},
+          custom_counters: entryToSync.custom_counters || {},
+          timezone: entryToSync.timezone ?? null,
+          sales_log: entryToSync.sales_log || [],
         });
 
         setTimeout(() => {
