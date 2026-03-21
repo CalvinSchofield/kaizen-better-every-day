@@ -1,9 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import { Users, Building, Building2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { AccessLevel } from "@/utils/roleHierarchy";
 
 interface ScopeBadgeProps {
-  accessLevel: 'corporate' | 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
+  accessLevel: AccessLevel;
   selectedCount: number;
   totalCount: number;
   scopeLabel: string;
