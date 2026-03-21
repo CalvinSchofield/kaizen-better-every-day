@@ -18,6 +18,7 @@ export interface CounterEvent {
 const QUEUE_KEY_PREFIX = 'counter-queue-';
 const MAX_RETRIES = 10;
 const BASE_DELAY_MS = 1000;
+const RETRY_PAUSE_MS = 10000;
 
 function getQueueKey(userId: string): string {
   return `${QUEUE_KEY_PREFIX}${userId}`;
@@ -69,7 +70,7 @@ export function usePendingCounterQueue(userId: string | null) {
 
   // Process queue: send events one at a time
   const processQueue = useCallback(async () => {
-    if (!userId || processingRef.current || !navigator.onLine) return;
+    if (!userId || processingRef.current) return;
     
     processingRef.current = true;
     if (mountedRef.current) setIsProcessing(true);
@@ -150,8 +151,14 @@ export function usePendingCounterQueue(userId: string | null) {
           retryCountRef.current++;
           
           if (retryCountRef.current >= MAX_RETRIES) {
-            // Give up on this event after max retries - keep it in queue but stop processing
-            console.error('[CounterQueue] Max retries reached, pausing');
+            // Pause briefly, then auto-resume processing. This prevents permanent stuck queues.
+            console.error('[CounterQueue] Max retries reached, pausing briefly');
+            if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current);
+            retryTimerRef.current = window.setTimeout(() => {
+              retryTimerRef.current = null;
+              retryCountRef.current = 0;
+              if (mountedRef.current) void processQueue();
+            }, RETRY_PAUSE_MS);
             break;
           }
 
@@ -177,6 +184,13 @@ export function usePendingCounterQueue(userId: string | null) {
   // Push a new event to the queue and start processing
   const pushEvent = useCallback((event: CounterEvent) => {
     if (!userId) return;
+
+    // If queue was paused from prior failures, reset and retry on the next user action.
+    retryCountRef.current = 0;
+    if (retryTimerRef.current) {
+      window.clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
     
     const queue = loadQueue(userId);
     queue.push(event);
@@ -190,17 +204,25 @@ export function usePendingCounterQueue(userId: string | null) {
   // Resume processing on online/visibility events
   useEffect(() => {
     if (!userId) return;
+    mountedRef.current = true;
 
     const handleResume = () => {
       refreshQueueLength();
       void processQueue();
     };
 
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') handleResume();
+    };
+
     window.addEventListener('online', handleResume);
     window.addEventListener('focus', handleResume);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') handleResume();
-    });
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    // Safety net: if anything pauses unexpectedly, keep trying while queue has items.
+    const intervalId = window.setInterval(() => {
+      if (loadQueue(userId).length > 0) void processQueue();
+    }, 10000);
 
     // Process any leftover events from previous session
     const queue = loadQueue(userId);
@@ -215,6 +237,8 @@ export function usePendingCounterQueue(userId: string | null) {
       if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current);
       window.removeEventListener('online', handleResume);
       window.removeEventListener('focus', handleResume);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.clearInterval(intervalId);
     };
   }, [userId, processQueue, refreshQueueLength]);
 

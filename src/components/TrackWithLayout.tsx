@@ -638,7 +638,7 @@ const TrackWithLayout = () => {
         pitches: entry.pitches || 0,
         transitions: entry.transitions || 0,
         presentations: entry.presentations || 0,
-        closes: salesLog.length,
+        closes: fundedSales.length,
         fp_plus: fpPlus,
         prmr: totalPrmr,
         upgrade_prmr: upgradePrmrTotal || null,
@@ -1227,7 +1227,7 @@ const TrackWithLayout = () => {
     // Calculate fp_plus and prmr from the updated sales_log
     const { fp, prmr: totalPrmr } = calculateFromSalesLog(updatedSalesLog);
     const upgradePrmr = updatedSalesLog
-      .filter(s => s.type === 'upgrade' && s.install_status !== 'never_installed')
+      .filter(s => s.type === 'upgrade' && s.install_status !== 'never_installed' && s.install_status !== 'cancelled')
       .reduce((sum, s) => sum + (s.prmr || 0), 0);
     
     // Increment closes and add sale to log with recalculated totals
@@ -1368,7 +1368,7 @@ const TrackWithLayout = () => {
     // Calculate fp_plus and prmr from the updated sales_log
     const { fp, prmr: totalPrmr } = calculateFromSalesLog(updatedSalesLog);
     const upgradePrmr = updatedSalesLog
-      .filter(s => s.type === 'upgrade' && s.install_status !== 'never_installed')
+      .filter(s => s.type === 'upgrade' && s.install_status !== 'never_installed' && s.install_status !== 'cancelled')
       .reduce((sum, s) => sum + (s.prmr || 0), 0);
     
     // Build updates with recalculated totals

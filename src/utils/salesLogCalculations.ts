@@ -3,7 +3,7 @@
  * Used for live data calculation when entries are unfinalized.
  * 
  * Logic:
- * - Skips sales with install_status === 'never_installed'
+ * - Skips sales with install_status === 'never_installed' or 'cancelled'
  * - Pending (scheduled out) sales are INCLUDED in totals to reward activity
  *   but tracked separately for visual distinction
  * - FP: 1 for 'fp' type, PRMR/85 for 'upgrade' type
@@ -25,11 +25,15 @@ export const calculateFromSalesLog = (salesLog: any[]): {
   let pendingPrmr = 0;
   
   for (const sale of salesLog) {
-    // Skip sales that were never installed
-    if (sale.install_status === 'never_installed') continue;
+    const status = typeof sale.install_status === 'string'
+      ? sale.install_status.toLowerCase().trim()
+      : '';
+
+    // Skip unfunded sales
+    if (status === 'never_installed' || status === 'cancelled' || status === 'canceled') continue;
     
     const salePrmr = Number(sale.prmr) || 0;
-    const isPending = sale.install_status === 'pending';
+    const isPending = status === 'pending';
     
     prmr += salePrmr;
     if (isPending) pendingPrmr += salePrmr;
