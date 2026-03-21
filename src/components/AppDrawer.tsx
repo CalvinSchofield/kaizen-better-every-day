@@ -355,6 +355,13 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                 );
               }
               
+              // Organization - team lead and above
+              if (teamAccess?.accessLevel && canManageTeam(teamAccess.accessLevel)) {
+                teamItems.push(
+                  <DrawerItem key="org-chart" to="/org-chart" icon={GitBranch} label="Organization" onClick={() => { hapticLight(); setOpen(false); }} />
+                );
+              }
+              
               return teamItems.length > 0 ? (
                 <DrawerSection label="Team">{teamItems}</DrawerSection>
               ) : null;
