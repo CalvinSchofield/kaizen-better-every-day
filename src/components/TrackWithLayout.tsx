@@ -978,15 +978,35 @@ const TrackWithLayout = () => {
       break_periods: updates.break_periods ?? latestEntry.break_periods,
       counter_timestamps: updates.counter_timestamps ?? latestEntry.counter_timestamps,
     } as typeof latestEntry;
+
+    const syncedEntry = latestEntryRef.current;
+    const syncPayload = {
+      doors_knocked: syncedEntry.doors_knocked || 0,
+      decision_makers: syncedEntry.decision_makers || 0,
+      pitches: syncedEntry.pitches || 0,
+      transitions: syncedEntry.transitions || 0,
+      presentations: syncedEntry.presentations || 0,
+      closes: syncedEntry.closes || 0,
+      fp_plus: syncedEntry.fp_plus || 0,
+      prmr: syncedEntry.prmr || 0,
+      upgrade_prmr: syncedEntry.upgrade_prmr ?? null,
+      work_start_time: syncedEntry.work_start_time ?? null,
+      work_end_time: syncedEntry.work_end_time ?? null,
+      break_periods: syncedEntry.break_periods || [],
+      counter_timestamps: syncedEntry.counter_timestamps || {},
+      custom_counters: syncedEntry.custom_counters || {},
+      timezone: syncedEntry.timezone ?? null,
+      sales_log: syncedEntry.sales_log || [],
+    };
     
     // Immediately call updateCounter for instant optimistic UI update
     try {
-      await updateCounter(updates);
+      await updateCounter(syncPayload);
       // Keep pending until server verification confirms parity
       setSyncStatus('pending');
       setTimeout(() => {
         void verifyServerSync();
-      }, 1500);
+      }, 1000);
     } catch (error: any) {
       // PROTECTION: If entry was finalized between checks, show friendly message
       if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
