@@ -1109,6 +1109,24 @@ const TrackWithLayout = () => {
       counter_timestamps: updates.counter_timestamps ?? latestEntry.counter_timestamps,
     } as typeof latestEntry;
 
+    // DURABLE QUEUE: Push an atomic counter event instead of a full snapshot.
+    // This survives app restarts, offline periods, and auth expiry.
+    const counterEvent: CounterEvent = {
+      id: crypto.randomUUID(),
+      field,
+      delta: isAdding ? 1 : -1,
+      timestampValue: isAdding ? new Date().toISOString() : null,
+      entryDate: getTodayDate(),
+      workStartTime: updates.work_start_time ?? null,
+      timezone: updates.timezone ?? null,
+      breakPeriods: updates.break_periods ?? null,
+      createdAt: new Date().toISOString(),
+    };
+
+    pushCounterEvent(counterEvent);
+
+    // ALSO fire the legacy snapshot path for optimistic cache update
+    // (the durable queue handles persistence; this keeps the React Query cache fresh)
     const syncedEntry = latestEntryRef.current;
     const syncPayload = {
       doors_knocked: syncedEntry.doors_knocked || 0,
@@ -1129,12 +1147,12 @@ const TrackWithLayout = () => {
       sales_log: syncedEntry.sales_log || [],
     };
     
-    // Queue latest full snapshot; only one network write runs at a time.
-    // This guarantees last tap wins and prevents out-of-order regressions.
+    // Optimistic cache update via mutation (fire-and-forget, durable queue is the safety net)
     pendingUpdateRef.current = syncPayload;
     void flushCounterSyncQueue();
   }, [
     flushCounterSyncQueue,
+    pushCounterEvent,
     isSaveInProgress,
     savedThisSession,
     salesLoggerEnabled,
