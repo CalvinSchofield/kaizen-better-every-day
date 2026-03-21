@@ -700,9 +700,15 @@ export default function AddRecruit() {
       <div className="px-4 py-6 max-w-md mx-auto">
         {/* Toggle for reps only */}
         {!isLeader && (
-          <div className="flex gap-2 mb-4">
-            <Button variant={!showMySuggestions ? 'default' : 'outline'} size="sm" onClick={() => setShowMySuggestions(false)}>Add Someone</Button>
-            <Button variant={showMySuggestions ? 'default' : 'outline'} size="sm" onClick={() => setShowMySuggestions(true)}>My Suggestions ({mySuggestions?.length || 0})</Button>
+          <div className="space-y-3 mb-4">
+            <div className="flex gap-2">
+              <Button variant={!showMySuggestions ? 'default' : 'outline'} size="sm" onClick={() => setShowMySuggestions(false)}>Add Someone</Button>
+              <Button variant={showMySuggestions ? 'default' : 'outline'} size="sm" onClick={() => setShowMySuggestions(true)}>My Suggestions ({mySuggestions?.length || 0})</Button>
+            </div>
+            <div className="flex items-center gap-2 bg-muted/50 rounded-lg p-3">
+              <p className="text-sm text-muted-foreground flex-1">Know someone who'd be great? Send them your invite link!</p>
+              <ShareInviteLinkButton />
+            </div>
           </div>
         )}
 
