@@ -27,7 +27,9 @@ export const SalesLoggerCard = ({
   const goalPaceData = useGoalPaceCalculator();
   
   // Filter funded sales for totals
-  const fundedSales = salesLog.filter(s => s.install_status !== 'cancelled');
+  const fundedSales = salesLog.filter(
+    s => s.install_status !== 'cancelled' && s.install_status !== 'never_installed'
+  );
   const cancelledSales = salesLog.filter(s => s.install_status === 'cancelled');
   
   const fpSales = fundedSales.filter(s => s.type === 'fp');
