@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+import { withTimeout } from "@/utils/withTimeout";
 
 interface LiveRepData {
   userId: string;
@@ -99,18 +100,26 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
       }
 
       // Fetch reps with their info including team_leader, year, phone, and id
-      const { data: repsData, error: repsError } = await supabase
-        .from("reps")
-        .select("id, user_id, name, timezone, team_leader, year, phone")
-        .in("user_id", filteredUserIds);
+      const { data: repsData, error: repsError } = await withTimeout(
+        supabase
+          .from("reps")
+          .select("id, user_id, name, timezone, team_leader, year, phone")
+          .in("user_id", filteredUserIds),
+        12000,
+        "Timed out loading reps"
+      );
 
       if (repsError) throw repsError;
 
       // Fetch season_config for summer start dates
-      const { data: seasonConfigs } = await supabase
-        .from("season_config")
-        .select("user_id, personal_summer_start")
-        .in("user_id", filteredUserIds);
+      const { data: seasonConfigs } = await withTimeout(
+        supabase
+          .from("season_config")
+          .select("user_id, personal_summer_start")
+          .in("user_id", filteredUserIds),
+        12000,
+        "Timed out loading season config"
+      );
 
       const repsMap = new Map(repsData?.map(r => [r.user_id, r]) || []);
       const seasonConfigMap = new Map(seasonConfigs?.map(c => [c.user_id, c]) || []);
@@ -120,12 +129,16 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
       fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
       const fourteenDaysAgoStr = fourteenDaysAgo.toISOString().split('T')[0];
 
-      const { data: entries, error } = await supabase
-        .from("daily_entries")
-        .select("*, sales_log, counter_timestamps")
-        .in("user_id", filteredUserIds)
-        .gte("entry_date", fourteenDaysAgoStr)
-        .order("entry_date", { ascending: false });
+      const { data: entries, error } = await withTimeout(
+        supabase
+          .from("daily_entries")
+          .select("*, sales_log, counter_timestamps")
+          .in("user_id", filteredUserIds)
+          .gte("entry_date", fourteenDaysAgoStr)
+          .order("entry_date", { ascending: false }),
+        15000,
+        "Timed out loading live entries"
+      );
 
       if (error) throw error;
 
@@ -383,5 +396,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
     staleTime: 30000,
     refetchInterval: 60000,
     enabled: userIds.length > 0,
+    retry: 1,
+    retryDelay: 2000,
   });
 };
