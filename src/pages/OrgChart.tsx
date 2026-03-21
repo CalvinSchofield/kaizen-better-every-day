@@ -228,6 +228,58 @@ const OrgChart = () => {
       .filter(Boolean) as TreeNode[];
   }, [fullTree, stageFilters, showWithAppAccess]);
 
+  // Build a lookup for full recruit data
+  const recruitLookup = useMemo(() => {
+    if (!treeData) return new Map<string, Recruit>();
+    const map = new Map<string, Recruit>();
+    const { recruits, reps, teams, mgmtGroups } = treeData;
+    const repMap = new Map(reps.map(r => [r.user_id, r]));
+    const teamMap = new Map(teams.map(t => [t.id, t]));
+    const mgMap = new Map(mgmtGroups.map(mg => [mg.id, mg]));
+
+    recruits.forEach((r) => {
+      const recruitRep = reps.find(
+        rep => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
+      );
+      const recruiterRep = r.recruiter_user_id ? repMap.get(r.recruiter_user_id) : null;
+      const team = r.team_id ? teamMap.get(r.team_id) : null;
+      const mg = r.mgmt_group_id ? mgMap.get(r.mgmt_group_id) : null;
+
+      map.set(r.id, {
+        id: r.id,
+        name: r.name,
+        phone: r.phone || recruitRep?.phone || "",
+        email: r.email || recruitRep?.email || "",
+        stage: r.stage || "",
+        recruiterId: null,
+        recruiterName: recruiterRep?.name || null,
+        recruiterUserId: r.recruiter_user_id || null,
+        teamName: team?.name || null,
+        teamId: r.team_id || null,
+        mgmtGroupId: r.mgmt_group_id || null,
+        mgmtGroupName: mg?.name || null,
+        year: r.year || recruitRep?.year || "",
+        location: r.location || null,
+        recruitmentSource: r.recruitment_source || null,
+        lastContact: r.last_contact || null,
+        nextAction: r.next_action || null,
+        nextActionDue: r.next_action_due || null,
+        createdAt: r.created_at || "",
+        phase1Complete: r.ramp_phase_1_complete || false,
+        phase2Complete: r.ramp_phase_2_complete || false,
+        phase3Complete: r.ramp_phase_3_complete || false,
+        phase4Complete: r.ramp_phase_4_complete || false,
+        onboardingComplete: r.onboarding_complete || false,
+        trainingsComplete: r.trainings_complete || false,
+        slackJoined: r.slack_joined || false,
+        ipadAssigned: r.ipad_assigned || false,
+        blitzReady: r.blitz_ready || false,
+        profilePhotoUrl: recruitRep?.profile_photo_url || null,
+      });
+    });
+    return map;
+  }, [treeData]);
+
   // Drawer state
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [drawerRecruit, setDrawerRecruit] = useState<Recruit | null>(null);
@@ -237,36 +289,40 @@ const OrgChart = () => {
     (node: { id: string; name: string; userId: string | null; stage: string | null } | null) => {
       setSelectedNodeId(node?.id || null);
       if (node) {
-        // Build a minimal Recruit object from tree data
-        const recruit: Recruit = {
-          id: node.id,
-          name: node.name,
-          phone: "",
-          email: "",
-          stage: node.stage || "",
-          recruiterId: null,
-          recruiterName: null,
-          recruiterUserId: null,
-          teamName: null,
-          teamId: null,
-          mgmtGroupId: null,
-          mgmtGroupName: null,
-          year: "",
-          location: null,
-          recruitmentSource: null,
-          lastContact: null,
-          nextAction: null,
-          nextActionDue: null,
-          createdAt: "",
-        };
-        setDrawerRecruit(recruit);
+        const fullRecruit = recruitLookup.get(node.id);
+        if (fullRecruit) {
+          setDrawerRecruit(fullRecruit);
+        } else {
+          // Fallback minimal recruit if not found in lookup
+          setDrawerRecruit({
+            id: node.id,
+            name: node.name,
+            phone: "",
+            email: "",
+            stage: node.stage || "",
+            recruiterId: null,
+            recruiterName: null,
+            recruiterUserId: null,
+            teamName: null,
+            teamId: null,
+            mgmtGroupId: null,
+            mgmtGroupName: null,
+            year: "",
+            location: null,
+            recruitmentSource: null,
+            lastContact: null,
+            nextAction: null,
+            nextActionDue: null,
+            createdAt: "",
+          });
+        }
         setDrawerOpen(true);
       } else {
         setDrawerOpen(false);
         setDrawerRecruit(null);
       }
     },
-    []
+    [recruitLookup]
   );
 
   const toggleStageFilter = (stage: string) => {
