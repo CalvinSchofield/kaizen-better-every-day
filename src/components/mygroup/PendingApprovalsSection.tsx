@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, XCircle, Pencil, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { hapticSuccess } from "@/utils/haptics";
+import { getRoleLabel } from "@/utils/roleHierarchy";
 import { getCleanName } from "@/utils/nameUtils";
 import {
   Drawer,
