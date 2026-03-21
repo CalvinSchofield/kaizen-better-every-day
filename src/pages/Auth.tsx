@@ -235,14 +235,16 @@ const Auth = () => {
         }
 
         const redirectUrl = `${window.location.origin}/`;
+        const signupMetadata: Record<string, string> = { name };
+        if (inviteCode) {
+          signupMetadata.invite_code = inviteCode;
+        }
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             emailRedirectTo: redirectUrl,
-            data: {
-              name: name,
-            },
+            data: signupMetadata,
           },
         });
 
