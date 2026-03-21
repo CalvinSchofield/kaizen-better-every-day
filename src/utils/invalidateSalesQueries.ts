@@ -77,6 +77,17 @@ export const invalidateAllSalesQueries = (
 };
 
 /**
+ * Realtime-safe version: invalidates everything EXCEPT daily-entry
+ * to prevent overwriting optimistic counter state during active Track sessions.
+ * The durable counter queue manages daily-entry cache independently.
+ */
+export const invalidateSalesQueriesForRealtime = (queryClient: QueryClient) => {
+  REALTIME_SAFE_KEYS.forEach(key => {
+    queryClient.invalidateQueries({ queryKey: [key], refetchType: 'all' });
+  });
+};
+
+/**
  * Clear localStorage caches for sales-dependent instant-loading hooks.
  * Call alongside invalidateAllSalesQueries for complete cache busting.
  */

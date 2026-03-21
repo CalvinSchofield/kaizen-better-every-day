@@ -1,18 +1,18 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { invalidateAllSalesQueries } from "@/utils/invalidateSalesQueries";
+import { invalidateSalesQueriesForRealtime } from "@/utils/invalidateSalesQueries";
 
 /**
  * Centralized realtime subscription for sales data changes.
- * Subscribes to daily_entries changes and invalidates all sales-dependent queries.
- * Adds visibility/online refresh guards for native connection recoveries.
+ * Subscribes to daily_entries changes and invalidates all sales-dependent queries
+ * EXCEPT daily-entry (managed by the durable counter queue during active tracking).
  */
 export const useSalesRealtime = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const invalidate = () => invalidateAllSalesQueries(queryClient);
+    const invalidate = () => invalidateSalesQueriesForRealtime(queryClient);
     const channelName = `sales-realtime-updates-${Math.random().toString(36).slice(2)}`;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let reconnectTimer: number | null = null;
