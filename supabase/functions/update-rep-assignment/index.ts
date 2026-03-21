@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify user is area director
+    // Verify user is team_lead or above
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
@@ -35,10 +35,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if user is area director
-    const { data: isAD } = await supabase.rpc('is_area_director', { _user_id: user.id });
-    if (!isAD) {
-      return new Response(JSON.stringify({ error: 'Access denied. Area Director only.' }), {
+    // Check if user has team_lead+ access (team_lead, mgmt_group_lead, area_director, or explicit role)
+    const [
+      { data: isTL },
+      { data: isMGL },
+      { data: isAD },
+      { data: hasExplicitRole },
+    ] = await Promise.all([
+      supabase.rpc('is_team_lead', { _user_id: user.id }),
+      supabase.rpc('is_mgmt_group_lead', { _user_id: user.id }),
+      supabase.rpc('is_area_director', { _user_id: user.id }),
+      supabase.rpc('has_min_role', { _user_id: user.id, _min_role: 'regional' }),
+    ]);
+
+    if (!isTL && !isMGL && !isAD && !hasExplicitRole) {
+      return new Response(JSON.stringify({ error: 'Access denied. Team Lead or above required.' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
