@@ -396,11 +396,11 @@ const RolesTab = () => {
     queryKey: ['admin-user-roles'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('user_roles')
+        .from('user_roles' as any)
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return data as any[];
     },
   });
 
