@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Sale } from "@/hooks/useDailyEntry";
 import { X, Ban } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useFocusTier } from "@/hooks/useFocusTier";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
