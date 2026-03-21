@@ -239,7 +239,7 @@ export const RecruitDetailDrawer = ({
     staleTime: 5 * 60 * 1000,
   });
 
-  const isLeaderOfLeaders = teamAccess?.accessLevel === 'mgmt_group_lead' || teamAccess?.accessLevel === 'area_director' || accessLevel === 'corporate';
+  const isLeaderOfLeaders = teamAccess?.accessLevel === 'mgmt_group_lead' || teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'corporate';
 
   // Recruit rep data - match by email first, then by name for ghost reps
   const { data: recruitRepData } = useQuery({

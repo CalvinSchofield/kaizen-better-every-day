@@ -127,7 +127,7 @@ export const SummerAvailabilityView = () => {
     const options: { value: string; label: string; type: 'team' | 'group' }[] = [];
     
     // Add management groups (for area directors and mgmt group leads)
-    if (teamAccess?.accessLevel === 'area_director' || accessLevel === 'corporate' || teamAccess?.accessLevel === 'mgmt_group_lead') {
+    if (teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'corporate' || teamAccess?.accessLevel === 'mgmt_group_lead') {
       teamAccess?.mgmtGroups?.forEach(group => {
         options.push({ value: `group-${group.id}`, label: group.name, type: 'group' });
       });
