@@ -29,7 +29,7 @@ interface TeamFilterSheetProps {
   mgmtGroups: MgmtGroup[];
   selectedFilter: string | null;
   onFilterChange: (filter: string | null) => void;
-  accessLevel: 'corporate' | 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'recruiter' | 'none';
+  accessLevel: AccessLevel;
   recruitCounts?: Record<string, number>;
   totalRecruits?: number;
 }
