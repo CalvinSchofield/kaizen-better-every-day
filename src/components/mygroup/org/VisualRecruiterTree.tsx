@@ -93,6 +93,7 @@ function layoutNodes(
     x: cx,
     y: cy,
     childCount: node.children.length,
+    totalDescendants: countDescendants(node),
   });
 
   if (node.children.length === 0) return;
