@@ -21,7 +21,7 @@ export type AccessLevel =
   | 'recruiter'
   | 'none';
 
-const ROLE_HIERARCHY: AccessLevel[] = [
+export const ROLE_HIERARCHY: AccessLevel[] = [
   'none',
   'recruiter',
   'assistant_manager',
