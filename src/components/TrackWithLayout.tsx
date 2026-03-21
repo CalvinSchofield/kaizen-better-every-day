@@ -1826,6 +1826,7 @@ const TrackWithLayout = () => {
                 custom_counters: {},
                 is_finalized: false,
               };
+              clearCounterQueue();
               setIsResetSheetOpen(false);
             },
             onError: () => {
