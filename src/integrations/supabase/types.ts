@@ -946,6 +946,7 @@ export type Database = {
           id: string
           lead_user_id: string | null
           name: string
+          office_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -953,6 +954,7 @@ export type Database = {
           id?: string
           lead_user_id?: string | null
           name: string
+          office_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -960,6 +962,7 @@ export type Database = {
           id?: string
           lead_user_id?: string | null
           name?: string
+          office_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -969,6 +972,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "reps"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "mgmt_groups_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1095,6 +1105,68 @@ export type Database = {
           notification_type?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      office_staff: {
+        Row: {
+          created_at: string
+          id: string
+          office_id: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          office_id: string
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          office_id?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_staff_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offices: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          location: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location?: string | null
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2102,6 +2174,7 @@ export type Database = {
           id: string
           lead_user_id: string | null
           name: string
+          office_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2109,6 +2182,7 @@ export type Database = {
           id?: string
           lead_user_id?: string | null
           name: string
+          office_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2116,6 +2190,7 @@ export type Database = {
           id?: string
           lead_user_id?: string | null
           name?: string
+          office_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -2125,6 +2200,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "reps"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "teams_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2245,6 +2327,7 @@ export type Database = {
         Returns: boolean
       }
       get_accessible_team_ids: { Args: { _user_id: string }; Returns: string[] }
+      get_user_office_ids: { Args: { _user_id: string }; Returns: string[] }
       is_area_director: { Args: { _user_id: string }; Returns: boolean }
       is_challenge_participant: {
         Args: { _challenge_id: string; _user_id: string }
@@ -2254,6 +2337,7 @@ export type Database = {
         Args: { _challenge_id: string; _user_id: string }
         Returns: boolean
       }
+      is_corporate: { Args: { _user_id: string }; Returns: boolean }
       is_incentive_eligible: {
         Args: { _incentive_id: string; _user_id: string }
         Returns: boolean
@@ -2263,6 +2347,10 @@ export type Database = {
         Returns: boolean
       }
       is_mgmt_group_lead: { Args: { _user_id: string }; Returns: boolean }
+      is_office_staff: {
+        Args: { _office_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_team_lead: { Args: { _user_id: string }; Returns: boolean }
       normalize_name: { Args: { raw_name: string }; Returns: string }
       normalize_stage: { Args: { raw_stage: string }; Returns: string }
