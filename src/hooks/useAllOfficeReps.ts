@@ -6,9 +6,8 @@ const normalizeStage = (stage: string | null | undefined): string | null => {
   if (!stage) return null;
   const lower = stage.toLowerCase().trim();
   
-  // Map various stage formats to canonical forms
   if (lower.includes('signed')) return 'signed';
-  if (lower.includes('shadow')) return 'shadow_complete'; // Matches "Shadow ✅", "Shadow Complete ✅", etc.
+  if (lower.includes('shadow')) return 'shadow_complete';
   if (lower.includes('sold') && (lower.includes('5+') || lower.includes('5)') || lower.includes('💰'))) return 'sold_5_plus';
   if (lower.includes('sold')) return 'sold';
   if (lower.includes('evaluating')) return 'evaluating';
@@ -34,6 +33,23 @@ interface OfficeRep {
   mgmtGroupName?: string | null;
 }
 
+const CACHE_KEY = 'all-office-reps-cache';
+
+/** Load cached data for instant hydration */
+const getCachedData = (): OfficeRep[] | undefined => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      // Use cache if less than 10 minutes old
+      if (Date.now() - timestamp < 10 * 60 * 1000) {
+        return data as OfficeRep[];
+      }
+    }
+  } catch { /* ignore */ }
+  return undefined;
+};
+
 /**
  * Fetches all office reps that can participate in competitions.
  * Unlike useTeamAccess which scopes to downline, this returns everyone
@@ -43,132 +59,125 @@ export const useAllOfficeReps = () => {
   return useQuery({
     queryKey: ['all-office-reps'],
     queryFn: async () => {
-      // Fetch all reps with their team info
-      const { data: reps, error: repsError } = await supabase
-        .from('reps')
-        .select('id, user_id, name, phone, year, stage')
-        .not('user_id', 'is', null);
-
-      if (repsError) throw repsError;
-
-      // Debug logging for rep filtering
-      console.log('[useAllOfficeReps] Total reps fetched:', reps?.length || 0);
-      
-      // Log stages for debugging
-      const stageCounts: Record<string, number> = {};
-      reps?.forEach(rep => {
-        const stage = rep.stage || 'null';
-        stageCounts[stage] = (stageCounts[stage] || 0) + 1;
+      // Race against a timeout to prevent infinite loading on slow networks
+      const TIMEOUT_MS = 10000;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('all-office-reps timeout')), TIMEOUT_MS);
       });
-      console.log('[useAllOfficeReps] Stage distribution:', stageCounts);
 
-      // Fetch teams for names
-      const { data: teams, error: teamsError } = await supabase
-        .from('teams')
-        .select('id, name, lead_user_id');
+      const fetchPromise = (async () => {
+        // Fetch all data in parallel instead of sequentially
+        const [repsResult, teamsResult, teamMgmtResult, mgmtResult] = await Promise.all([
+          supabase
+            .from('reps')
+            .select('id, user_id, name, phone, year, stage')
+            .not('user_id', 'is', null)
+            .limit(5000),
+          supabase
+            .from('teams')
+            .select('id, name, lead_user_id')
+            .limit(500),
+          supabase
+            .from('team_mgmt_groups')
+            .select('team_id, mgmt_group_id')
+            .limit(500),
+          supabase
+            .from('mgmt_groups')
+            .select('id, name, lead_user_id')
+            .limit(500),
+        ]);
 
-      if (teamsError) throw teamsError;
+        if (repsResult.error) throw repsResult.error;
+        if (teamsResult.error) throw teamsResult.error;
+        if (teamMgmtResult.error) throw teamMgmtResult.error;
+        if (mgmtResult.error) throw mgmtResult.error;
 
-      // Fetch team_mgmt_groups for mapping
-      const { data: teamMgmtGroups, error: tmgError } = await supabase
-        .from('team_mgmt_groups')
-        .select('team_id, mgmt_group_id');
+        const reps = repsResult.data || [];
+        const teams = teamsResult.data || [];
+        const teamMgmtGroups = teamMgmtResult.data || [];
+        const mgmtGroups = mgmtResult.data || [];
 
-      if (tmgError) throw tmgError;
+        // Build team lead -> team map
+        const teamByLeadUserId = new Map(
+          teams.map(t => [t.lead_user_id, { id: t.id, name: t.name }])
+        );
 
-      // Fetch mgmt_groups for names
-      const { data: mgmtGroups, error: mgError } = await supabase
-        .from('mgmt_groups')
-        .select('id, name, lead_user_id');
+        // Build team -> mgmt group map
+        const teamToMgmt = new Map(
+          teamMgmtGroups.map(tmg => [tmg.team_id, tmg.mgmt_group_id])
+        );
 
-      if (mgError) throw mgError;
+        // Build mgmt group map by id
+        const mgmtById = new Map(
+          mgmtGroups.map(mg => [mg.id, { id: mg.id, name: mg.name }])
+        );
 
-      // Build team lead -> team map
-      const teamByLeadUserId = new Map(
-        teams?.map(t => [t.lead_user_id, { id: t.id, name: t.name }]) || []
-      );
+        // For each rep, try to find their team
+        const findTeamForRep = (userId: string): { teamId: string; teamName: string } | null => {
+          const team = teamByLeadUserId.get(userId);
+          return team ? { teamId: team.id, teamName: team.name } : null;
+        };
 
-      // Build team -> mgmt group map
-      const teamToMgmt = new Map(
-        teamMgmtGroups?.map(tmg => [tmg.team_id, tmg.mgmt_group_id]) || []
-      );
-
-      // Build mgmt group map by id
-      const mgmtById = new Map(
-        mgmtGroups?.map(mg => [mg.id, { id: mg.id, name: mg.name }]) || []
-      );
-
-      // Build rep -> team mapping by tracing through team_leader
-      const repByUserId = new Map(reps?.map(r => [r.user_id, r]) || []);
-      
-      // For each rep, try to find their team
-      const findTeamForRep = (userId: string, visited = new Set<string>()): { teamId: string; teamName: string } | null => {
-        if (visited.has(userId)) return null;
-        visited.add(userId);
-        
-        // Check if this user is a team lead
-        const team = teamByLeadUserId.get(userId);
-        if (team) {
-          return { teamId: team.id, teamName: team.name };
-        }
-        
-        // Otherwise, look at their team_leader field - but we don't have it here
-        // We'll rely on RLS/team_access for proper team assignment
-        return null;
-      };
-
-      // Filter to active stages using proper normalization and map to standard format
-      const filteredOutReps: Array<{ name: string; stage: string | null; normalized: string | null }> = [];
-      
-      const officeReps: OfficeRep[] = (reps || [])
-        .filter(rep => {
-          if (!rep.user_id) return false;
-          const normalizedStage = normalizeStage(rep.stage);
-          const isActive = normalizedStage && ACTIVE_STAGES.includes(normalizedStage);
-          
-          // Track filtered out reps for debugging
-          if (!isActive) {
-            filteredOutReps.push({ name: rep.name, stage: rep.stage, normalized: normalizedStage });
-          }
-          
-          return isActive;
-        })
-        .map(rep => {
-          // Try to determine team from lead status
-          const teamInfo = findTeamForRep(rep.user_id!);
-          
-          // Determine mgmt group
-          let mgmtGroupInfo: { id: string; name: string } | null = null;
-          if (teamInfo) {
-            const mgmtGroupId = teamToMgmt.get(teamInfo.teamId);
-            if (mgmtGroupId) {
-              mgmtGroupInfo = mgmtById.get(mgmtGroupId) || null;
+        // Filter to active stages and map to standard format
+        const officeReps: OfficeRep[] = reps
+          .filter(rep => {
+            if (!rep.user_id) return false;
+            const normalizedStage = normalizeStage(rep.stage);
+            return normalizedStage && ACTIVE_STAGES.includes(normalizedStage);
+          })
+          .map(rep => {
+            const teamInfo = findTeamForRep(rep.user_id!);
+            
+            let mgmtGroupInfo: { id: string; name: string } | null = null;
+            if (teamInfo) {
+              const mgmtGroupId = teamToMgmt.get(teamInfo.teamId);
+              if (mgmtGroupId) {
+                mgmtGroupInfo = mgmtById.get(mgmtGroupId) || null;
+              }
             }
-          }
 
-          return {
-            id: rep.id,
-            userId: rep.user_id!,
-            name: rep.name,
-            phone: rep.phone,
-            year: rep.year,
-            stage: rep.stage,
-            teamId: teamInfo?.teamId || null,
-            teamName: teamInfo?.teamName || null,
-            mgmtGroupId: mgmtGroupInfo?.id || null,
-            mgmtGroupName: mgmtGroupInfo?.name || null,
-          };
-        });
+            return {
+              id: rep.id,
+              userId: rep.user_id!,
+              name: rep.name,
+              phone: rep.phone,
+              year: rep.year,
+              stage: rep.stage,
+              teamId: teamInfo?.teamId || null,
+              teamName: teamInfo?.teamName || null,
+              mgmtGroupId: mgmtGroupInfo?.id || null,
+              mgmtGroupName: mgmtGroupInfo?.name || null,
+            };
+          });
 
-      // Log debugging info
-      console.log('[useAllOfficeReps] Active reps after filtering:', officeReps.length);
-      if (filteredOutReps.length > 0) {
-        console.log('[useAllOfficeReps] Filtered out reps:', filteredOutReps);
+        // Cache the result
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            data: officeReps,
+            timestamp: Date.now(),
+          }));
+        } catch { /* storage full, ignore */ }
+
+        return officeReps;
+      })();
+
+      try {
+        return await Promise.race([fetchPromise, timeoutPromise]);
+      } catch (error: any) {
+        console.warn('[useAllOfficeReps] Fetch failed or timed out:', error?.message);
+        // Fall back to cache on timeout/error
+        const cached = getCachedData();
+        if (cached) {
+          console.log('[useAllOfficeReps] Returning cached data as fallback');
+          return cached;
+        }
+        throw error;
       }
-
-      return officeReps;
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    placeholderData: getCachedData(),
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 };
-
