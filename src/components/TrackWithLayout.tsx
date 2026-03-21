@@ -152,8 +152,8 @@ const TrackWithLayout = () => {
   // Pending sales queue for bulletproof sale saving
   const { queueSale, processQueue } = usePendingSalesQueue(userId);
   
-  // Competitor nudge for early save motivation
-  const { competitor: competitorNudge, loading: competitorLoading } = useCompetitorNudge();
+  // Durable counter queue for bulletproof counter persistence
+  const { pushEvent: pushCounterEvent, queueLength: counterQueueLength, isProcessing: isCounterProcessing, clearQueue: clearCounterQueue } = usePendingCounterQueue(userId);
   
   // Serialize counter sync writes so rapid taps can never arrive out-of-order on the server
   const pendingUpdateRef = useRef<Partial<DailyEntry> | null>(null);
