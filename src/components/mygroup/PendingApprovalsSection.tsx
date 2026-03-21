@@ -325,6 +325,27 @@ export const PendingApprovalsSection = () => {
           </div>
         </DrawerContent>
       </Drawer>
+
+      {/* Post-approval leadership prompt */}
+      <Drawer open={!!leadershipPrompt} onOpenChange={(open) => !open && setLeadershipPrompt(null)}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>🎉 Role Assigned!</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 pb-8 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              <strong>{leadershipPrompt?.name}</strong> has been assigned the <strong>{leadershipPrompt?.role}</strong> role. 
+              They can now manage their org structure and send invite links to their downline.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              💡 <strong>Next step:</strong> Let {leadershipPrompt?.name} know they can go to the <strong>Organization</strong> tab to set up their teams, then share their invite link with their people.
+            </p>
+            <Button className="w-full" onClick={() => setLeadershipPrompt(null)}>
+              Got it
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };
