@@ -247,6 +247,7 @@ const Compete = () => {
   const [activeTab, setActiveTab] = useState<'active' | 'history'>(
     searchParams.get('tab') === 'history' ? 'history' : 'active'
   );
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   
   const { data: challenges, isLoading: loadingChallenges } = useMyActiveChallenges();
   const { data: incentives, isLoading: loadingIncentives } = useMyActiveIncentives();
@@ -287,8 +288,15 @@ const Compete = () => {
   };
 
   const hasCachedData = !!challenges || !!incentives;
-  const isInitialLoading = (loadingChallenges || loadingIncentives || loadingUser) && !hasCachedData;
+  const isInitialLoading = !loadingTimedOut && (loadingChallenges || loadingIncentives || loadingUser) && !hasCachedData;
   const hasActiveContent = activeChallenges.length > 0 || pendingChallenges.length > 0 || activeIncentives.length > 0;
+
+  // Safety timeout: force-render after 5s to prevent infinite skeleton
+  useEffect(() => {
+    if (!isInitialLoading) return;
+    const timer = setTimeout(() => setLoadingTimedOut(true), 5000);
+    return () => clearTimeout(timer);
+  }, [isInitialLoading]);
 
   if (isInitialLoading) {
     return <Layout><CompeteSkeleton /></Layout>;
