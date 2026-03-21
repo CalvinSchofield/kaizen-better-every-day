@@ -1632,7 +1632,7 @@ const TrackWithLayout = () => {
         onReset={() => setIsResetSheetOpen(true)}
         isSaving={isFinalizing}
         isResetting={isResetting}
-        syncIndicator={<SyncIndicator status={syncStatus} />}
+        syncIndicator={<SyncIndicator status={syncStatus} pendingCount={counterQueueLength} />}
         isEntryFinalized={entry.is_finalized || savedThisSession}
         onViewRecap={handleViewRecap}
         hasWorkStarted={!!entry.work_start_time}
