@@ -43,8 +43,8 @@ export const ReportsTeamFilter = ({
   onFilterChange,
   repCount,
 }: ReportsTeamFilterProps) => {
-  // Only show for area directors and mgmt group leads
-  if (accessLevel !== 'area_director' && accessLevel !== 'mgmt_group_lead') {
+  // Only show for users with team filter access (mgmt_group_lead+)
+  if (!canFilterByTeam(accessLevel)) {
     return null;
   }
 
