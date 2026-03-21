@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { LeaderboardHeroBanner } from "@/components/leaderboard/LeaderboardHeroBanner";
 import { LeaderboardFilters, TimeFilter } from "@/components/leaderboard/LeaderboardFilters";
