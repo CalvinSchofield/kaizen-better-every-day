@@ -1137,33 +1137,13 @@ const TrackWithLayout = () => {
 
     pushCounterEvent(counterEvent);
 
-    // ALSO fire the legacy snapshot path for optimistic cache update
-    // (the durable queue handles persistence; this keeps the React Query cache fresh)
-    const syncedEntry = latestEntryRef.current;
-    const syncPayload = {
-      doors_knocked: syncedEntry.doors_knocked || 0,
-      decision_makers: syncedEntry.decision_makers || 0,
-      pitches: syncedEntry.pitches || 0,
-      transitions: syncedEntry.transitions || 0,
-      presentations: syncedEntry.presentations || 0,
-      closes: syncedEntry.closes || 0,
-      fp_plus: syncedEntry.fp_plus || 0,
-      prmr: syncedEntry.prmr || 0,
-      upgrade_prmr: (syncedEntry as any).upgrade_prmr ?? null,
-      work_start_time: syncedEntry.work_start_time ?? null,
-      work_end_time: syncedEntry.work_end_time ?? null,
-      break_periods: syncedEntry.break_periods || [],
-      counter_timestamps: syncedEntry.counter_timestamps || {},
-      custom_counters: syncedEntry.custom_counters || {},
-      timezone: syncedEntry.timezone ?? null,
-      sales_log: syncedEntry.sales_log || [],
-    };
-    
-    // Optimistic cache update via mutation (fire-and-forget, durable queue is the safety net)
-    pendingUpdateRef.current = syncPayload;
-    void flushCounterSyncQueue();
+    // INSTANT UI: Directly update React Query cache — no mutation needed.
+    // The durable queue handles server persistence; this keeps the UI snappy.
+    queryClient.setQueryData(['daily-entry', getTodayDate()], (old: any) => {
+      if (!old) return latestEntryRef.current;
+      return { ...old, ...latestEntryRef.current };
+    });
   }, [
-    flushCounterSyncQueue,
     pushCounterEvent,
     isSaveInProgress,
     savedThisSession,
@@ -1174,6 +1154,7 @@ const TrackWithLayout = () => {
     pendingPostFinalizationSale,
     pendingCloseIncrement,
     navigate,
+    queryClient,
   ]);
 
   // Sales logger handlers
