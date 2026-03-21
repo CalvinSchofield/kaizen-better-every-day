@@ -141,7 +141,7 @@ export const SmartFilterDrawer = ({
   };
 
   const isDraftDirty = JSON.stringify(draft) !== JSON.stringify(DEFAULT_FILTER_STATE);
-  const hasTeamAccess = accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead';
+  const hasTeamAccess = accessLevel === 'area_director' || accessLevel === 'corporate' || accessLevel === 'mgmt_group_lead';
 
   const yearOptions = ['Rookie', 'Sophomore', 'Vet'];
 
@@ -292,7 +292,7 @@ export const SmartFilterDrawer = ({
                 />
 
                 {/* MGMT Groups */}
-                {accessLevel === 'area_director' && filteredMgmtGroups.map((group) => {
+                {accessLevel === 'area_director' || accessLevel === 'corporate' && filteredMgmtGroups.map((group) => {
                   const isSelected = draft.teamFilter !== 'all' && 
                     draft.teamFilter.type === 'mgmt_group' && 
                     draft.teamFilter.id === group.id;
@@ -324,7 +324,7 @@ export const SmartFilterDrawer = ({
                         ...prev,
                         teamFilter: { type: 'team', id: team.id, name: team.name },
                       }))}
-                      indented={accessLevel === 'area_director'}
+                      indented={accessLevel === 'area_director' || accessLevel === 'corporate'}
                     />
                   );
                 })}

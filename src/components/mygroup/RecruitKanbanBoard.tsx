@@ -186,7 +186,7 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
 
   // Determine if filters should be shown (MGMT+ or 20+ recruits)
   const accessLevel = teamAccess?.accessLevel || 'none';
-  const showFilters = accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead' || recruits.length >= 20;
+  const showFilters = accessLevel === 'area_director' || accessLevel === 'corporate' || accessLevel === 'mgmt_group_lead' || recruits.length >= 20;
 
   // Get unique teams from recruits
   const uniqueTeams = useMemo(() => {

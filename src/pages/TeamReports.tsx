@@ -255,7 +255,7 @@ const TeamReports = () => {
       }
     }
     
-    if (accessData.accessLevel === 'area_director') {
+    if (accessData.accessLevel === 'area_director' || accessLevel === 'corporate') {
       for (const mgmt of accessData.mgmtGroups || []) {
         const mgmtUserIds = accessData.accessibleReps
           ?.filter((r: any) => r.mgmtGroupName === mgmt.name)

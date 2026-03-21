@@ -303,7 +303,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   
   // Default to highest access level available
   const getDefaultScope = useCallback((): 'you' | 'team' | 'mgmt' | 'office' => {
-    if (accessLevel === 'area_director') return 'office';
+    if (accessLevel === 'area_director' || accessLevel === 'corporate') return 'office';
     if (accessLevel === 'mgmt_group_lead') return 'mgmt';
     if (accessLevel === 'team_lead') return 'team';
     return 'you';
@@ -917,7 +917,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
 
   // Get available scope options based on access level
   const getScopeOptions = () => {
-    if (accessLevel === 'area_director') {
+    if (accessLevel === 'area_director' || accessLevel === 'corporate') {
       return [
         { value: 'you', label: 'You' },
         { value: 'team', label: 'Team' },
@@ -945,11 +945,11 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     setAttendanceScope(newScope);
     
     // Reset secondary selectors when scope changes
-    if (newScope === 'mgmt' && accessLevel === 'area_director') {
+    if (newScope === 'mgmt' && accessLevel === 'area_director' || accessLevel === 'corporate') {
       // For ADs, require selecting a MGMT group
       setSelectedMgmtGroupId(mgmtGroups && mgmtGroups.length > 0 ? mgmtGroups[0].id : null);
       setSelectedTeamId(null);
-    } else if (newScope === 'team' && (accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead')) {
+    } else if (newScope === 'team' && (accessLevel === 'area_director' || accessLevel === 'corporate' || accessLevel === 'mgmt_group_lead')) {
       // For ADs and MGMT leads, require selecting a team
       setSelectedTeamId(teams && teams.length > 0 ? teams[0].id : null);
       setSelectedMgmtGroupId(null);
@@ -960,8 +960,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   };
   
   // Check if we need secondary selectors
-  const needsMgmtGroupSelector = attendanceScope === 'mgmt' && accessLevel === 'area_director';
-  const needsTeamSelector = attendanceScope === 'team' && (accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead');
+  const needsMgmtGroupSelector = attendanceScope === 'mgmt' && accessLevel === 'area_director' || accessLevel === 'corporate';
+  const needsTeamSelector = attendanceScope === 'team' && (accessLevel === 'area_director' || accessLevel === 'corporate' || accessLevel === 'mgmt_group_lead');
 
   // Simplified personal view for non-leaders OR when scope is 'you'
   // Use accessLevel instead of propIsTeamLead to properly check leader status
@@ -1243,7 +1243,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                         // - Only for MGMT/AD with multiple teams
                         // - AND when no specific team is selected (selectedTeamId is null)
                         const hasMultipleTeams = (teams?.length || 0) > 1;
-                        const isMultiTeamLeader = (accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead') && hasMultipleTeams;
+                        const isMultiTeamLeader = (accessLevel === 'area_director' || accessLevel === 'corporate' || accessLevel === 'mgmt_group_lead') && hasMultipleTeams;
                         const shouldGroupByTeam = isMultiTeamLeader && !selectedTeamId;
                         
                         // Render a single member row
@@ -1406,7 +1406,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                         ) : (
                           (() => {
                             // Group members by team for MGMT and AD views
-                            const shouldGroupByTeam = accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead';
+                            const shouldGroupByTeam = accessLevel === 'area_director' || accessLevel === 'corporate' || accessLevel === 'mgmt_group_lead';
                             
                             if (shouldGroupByTeam) {
                               // Group by team
