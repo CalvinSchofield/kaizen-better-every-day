@@ -50,6 +50,13 @@ Deno.serve(async (req) => {
     // Use database function to determine if user is Area Director
     const { data: isAreaDirector } = await supabase.rpc('is_area_director', { _user_id: user.id });
 
+    // Check if user is corporate (can see all offices)
+    const { data: isCorporate } = await supabase.rpc('is_corporate', { _user_id: user.id });
+
+    // Get user's office assignments
+    const { data: userOfficeIds } = await supabase.rpc('get_user_office_ids', { _user_id: user.id });
+    const officeIds: string[] = userOfficeIds || [];
+
     // Fetch all mgmt_groups
     const { data: mgmtGroupsRaw } = await supabase
       .from('mgmt_groups')
