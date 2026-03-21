@@ -35,6 +35,7 @@ import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendatio
 import UpcomingTeamEventsCard from "@/components/mygroup/UpcomingTeamEventsCard";
 // AddRecruitDrawer replaced by /add-recruit page route
 import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsCard";
+import { PendingApprovalsSection } from "@/components/mygroup/PendingApprovalsSection";
 import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
 import { EditSuggestionDrawer } from "@/components/mygroup/EditSuggestionDrawer";
 import { AssignedTasksDrawer } from "@/components/mygroup/AssignedTasksDrawer";
@@ -1059,6 +1060,9 @@ const MyGroup = () => {
                 heroTodayItem={todayScheduledItem}
               />
             </div>
+
+            {/* Pending Approvals - invite signups needing review */}
+            <PendingApprovalsSection />
 
             {/* Pending Suggestions */}
             {pendingSuggestions.length > 0 && (

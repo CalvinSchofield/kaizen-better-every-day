@@ -8,6 +8,7 @@ const corsHeaders = {
 /**
  * Called after a user signs up with an invite code.
  * Creates the recruit + rep records and links them to the inviter.
+ * Sets approval_status = 'pending' so a leader must approve before full access.
  */
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -57,14 +58,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check expiry
     if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
       return new Response(JSON.stringify({ error: 'This invite code has expired' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Check max uses
     if (invite.max_uses && invite.uses_count >= invite.max_uses) {
       return new Response(JSON.stringify({ error: 'This invite code has reached its maximum uses' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -89,7 +88,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existingRep) {
-      // Already has a rep record - just link user_id if needed
       if (!existingRep.user_id) {
         await supabase
           .from('reps')
@@ -97,22 +95,32 @@ Deno.serve(async (req) => {
           .eq('id', existingRep.id);
       }
 
-      // Increment invite code usage
+      // Also update recruit approval_status to pending if it exists
+      await supabase
+        .from('recruits')
+        .update({ approval_status: 'pending' })
+        .eq('id', existingRep.id)
+        .eq('approval_status', 'approved'); // Only if not already pending
+
       await supabase
         .from('invite_codes')
         .update({ uses_count: invite.uses_count + 1 })
         .eq('id', invite.id);
 
+      // Send notification to inviter about pending approval
+      await notifyUplineOfPendingApproval(supabase, invite.inviter_user_id, finalName, existingRep.id);
+
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'Existing account linked',
         repId: existingRep.id,
+        pendingApproval: true,
       }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // 4. Create recruit record (this auto-creates rep via trigger)
+    // 4. Create recruit record with approval_status = 'pending'
     const recruitData: Record<string, unknown> = {
       name: finalName,
       email: user.email,
@@ -123,6 +131,7 @@ Deno.serve(async (req) => {
       team_id: invite.team_id || null,
       mgmt_group_id: invite.mgmt_group_id || null,
       invite_code_used: inviteCode,
+      approval_status: 'pending',
     };
 
     const { data: newRecruit, error: recruitError } = await supabase
@@ -133,11 +142,11 @@ Deno.serve(async (req) => {
 
     if (recruitError) {
       console.error('Error creating recruit:', recruitError);
-      // If duplicate, try to find and link existing
       if (recruitError.message?.includes('Duplicate') || recruitError.message?.includes('duplicate')) {
         return new Response(JSON.stringify({ 
           success: true, 
           message: 'Account already exists in the system',
+          pendingApproval: true,
         }), {
           status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -146,8 +155,6 @@ Deno.serve(async (req) => {
     }
 
     // 5. Ensure the rep record exists and is linked to this user
-    // The auto_create_rep_from_recruit trigger should have created it,
-    // but we need to make sure user_id is set
     const { data: createdRep } = await supabase
       .from('reps')
       .select('id, user_id')
@@ -169,7 +176,6 @@ Deno.serve(async (req) => {
         })
         .eq('id', createdRep.id);
     } else if (!createdRep) {
-      // Trigger didn't fire (stage wasn't matching) - create rep manually
       await supabase
         .from('reps')
         .insert({
@@ -192,23 +198,27 @@ Deno.serve(async (req) => {
       .update({ uses_count: invite.uses_count + 1 })
       .eq('id', invite.id);
 
-    // 7. Log activity on the recruit
+    // 7. Log activity
     await supabase
       .from('recruit_activities')
       .insert({
         recruit_id: newRecruit.id,
         activity_type: 'note',
         logged_by_user_id: invite.inviter_user_id,
-        notes: `Joined via invite link from ${inviterRep?.name || 'recruiter'}`,
+        notes: `Joined via invite link from ${inviterRep?.name || 'recruiter'} — pending approval`,
       });
 
-    console.log(`[process-invite-signup] Created recruit+rep for ${finalName} via invite code ${inviteCode}`);
+    // 8. Notify inviter and upline
+    await notifyUplineOfPendingApproval(supabase, invite.inviter_user_id, finalName, newRecruit.id);
+
+    console.log(`[process-invite-signup] Created recruit+rep for ${finalName} via invite code ${inviteCode} (pending approval)`);
 
     return new Response(JSON.stringify({ 
       success: true, 
       recruitId: newRecruit.id,
       inviterName: inviterRep?.name,
       teamId: invite.team_id,
+      pendingApproval: true,
     }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -222,3 +232,90 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+/**
+ * Send push notifications to the inviter and their upline (up to MGMT group lead)
+ * about a new signup that needs approval.
+ */
+async function notifyUplineOfPendingApproval(
+  supabase: ReturnType<typeof createClient>,
+  inviterUserId: string,
+  newRepName: string,
+  recruitId: string,
+) {
+  try {
+    // Collect user IDs to notify: inviter + upline
+    const notifyUserIds = new Set<string>();
+    notifyUserIds.add(inviterUserId);
+
+    // Find inviter's team lead
+    const { data: inviterTeams } = await supabase
+      .from('teams')
+      .select('lead_user_id')
+      .eq('lead_user_id', inviterUserId)
+      .maybeSingle();
+
+    // If inviter IS the team lead, find their MGMT group lead
+    // If inviter is NOT a team lead, find who leads their team
+    const { data: inviterRep } = await supabase
+      .from('reps')
+      .select('id')
+      .eq('user_id', inviterUserId)
+      .maybeSingle();
+
+    if (inviterRep) {
+      // Find the recruit record for the inviter to get their team
+      const { data: inviterRecruit } = await supabase
+        .from('recruits')
+        .select('team_id, mgmt_group_id')
+        .eq('id', inviterRep.id)
+        .maybeSingle();
+
+      if (inviterRecruit?.team_id) {
+        // Add team lead
+        const { data: team } = await supabase
+          .from('teams')
+          .select('lead_user_id')
+          .eq('id', inviterRecruit.team_id)
+          .maybeSingle();
+        if (team?.lead_user_id) notifyUserIds.add(team.lead_user_id);
+      }
+
+      if (inviterRecruit?.mgmt_group_id) {
+        // Add MGMT group lead
+        const { data: mgmt } = await supabase
+          .from('mgmt_groups')
+          .select('lead_user_id')
+          .eq('id', inviterRecruit.mgmt_group_id)
+          .maybeSingle();
+        if (mgmt?.lead_user_id) notifyUserIds.add(mgmt.lead_user_id);
+      }
+    }
+
+    // Send push notifications to all collected user IDs
+    for (const userId of notifyUserIds) {
+      const { data: tokens } = await supabase
+        .from('apns_device_tokens')
+        .select('device_token')
+        .eq('user_id', userId);
+
+      if (tokens && tokens.length > 0) {
+        try {
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              userId,
+              title: 'New Signup Needs Approval',
+              body: `${newRepName} signed up via invite link and needs your approval.`,
+              data: { type: 'pending_approval', recruitId },
+            },
+          });
+        } catch (e) {
+          console.error(`Failed to notify ${userId}:`, e);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error notifying upline:', error);
+    // Non-fatal — don't fail the signup
+  }
+}

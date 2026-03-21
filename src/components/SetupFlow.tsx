@@ -55,9 +55,11 @@ const SetupFlow = () => {
 
       toast({
         title: "Welcome to Kaizen! 🎉",
-        description: data?.inviterName 
-          ? `You've been added to ${data.inviterName}'s team.`
-          : "Your account has been set up.",
+        description: data?.pendingApproval 
+          ? "Your signup is being reviewed by your team leader."
+          : data?.inviterName 
+            ? `You've been added to ${data.inviterName}'s team.`
+            : "Your account has been set up.",
       });
 
       // Now continue with normal setup flow
