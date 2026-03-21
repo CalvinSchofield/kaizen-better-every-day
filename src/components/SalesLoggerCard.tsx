@@ -23,8 +23,8 @@ export const SalesLoggerCard = ({
 }: SalesLoggerCardProps) => {
   const { efpModeEnabled } = useEfpMode();
   const { goals } = useRepGoals();
-  const { totalFP: cumulativeFP, totalEFP: cumulativeEFP, knockingDays } = usePreseasonFP();
-  const { plannedDays } = usePlannedDays();
+  const { totalFP: cumulativeFP, totalEFP: cumulativeEFP } = usePreseasonFP();
+  const goalPaceData = useGoalPaceCalculator();
   
   // Filter funded sales for totals
   const fundedSales = salesLog.filter(s => s.install_status !== 'cancelled');
@@ -47,65 +47,16 @@ export const SalesLoggerCard = ({
   const currentProgress = efpModeEnabled ? (cumulativeEFP || 0) : (cumulativeFP || 0);
   
   // Get focus tier for summer mode
-  const { focusTier, fundedFocusTierGoal, allTiers, isUserSummerStarted } = useFocusTier(currentProgress);
+  const { focusTier, isUserSummerStarted } = useFocusTier(currentProgress);
   
   // Check if goals are set up
   const goalsSetUp = goals?.setup_complete === true;
   
-  // Calculate daily goal based on TOTAL season knocking days (worked + future planned)
-  // Use the SAME formula as salesPaceCalculator: dailyGoal = fundedGoal / totalDays
-  const dailyGoal = (() => {
-    if (!goalsSetUp || !plannedDays) return 0;
-    
-    const today = startOfDay(new Date());
-    const todayStr = format(today, 'yyyy-MM-dd');
-    
-    // Determine season end based on preseason vs summer
-    const seasonEndStr = isUserSummerStarted ? SUMMER_END : PRESEASON_END;
-    const seasonEndDate = parseISO(seasonEndStr);
-    
-    // Future planned days (after today, within season)
-    const futurePlannedDays = plannedDays.filter(d => {
-      const date = parseISO(d.planned_date);
-      return d.planned_date > todayStr && !isAfter(date, seasonEndDate);
-    }).length;
-    
-    // Total days = already worked + future planned (same as salesPaceCalculator)
-    const totalDays = (knockingDays || 0) + futurePlannedDays;
-    
-    if (totalDays <= 0) return 0;
-    
-    if (isUserSummerStarted) {
-      // Summer: use focus tier goal
-      return fundedFocusTierGoal / totalDays;
-    } else {
-      // Preseason: use preseason goal with cancel rate buffer
-      const cancelRate = goals?.cancel_rate || 0;
-      const preseasonGoal = goals?.preseason_fp_goal || 0;
-      const fundedPreseasonGoal = cancelRate > 0 && cancelRate < 1 
-        ? preseasonGoal / (1 - cancelRate) 
-        : preseasonGoal;
-      const conversionFactor = efpModeEnabled ? (goals?.avg_prmr_per_fp || 85) / 85 : 1;
-      return (fundedPreseasonGoal * conversionFactor) / totalDays;
-    }
-  })();
+  // Use the UNIFIED daily goal from useGoalPaceCalculator (same as DailyMissionCard)
+  const dailyGoal = goalPaceData.hasGoals ? Math.round(goalPaceData.dailyNeeded * 10) / 10 : 0;
 
-  // Calculate must-do daily goal for minimum threshold confetti
-  const mustDoDailyGoal = (() => {
-    if (!goalsSetUp || !plannedDays || !isUserSummerStarted) return dailyGoal;
-    
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const seasonEndStr = '2026-09-27';
-    
-    const futurePlanned = plannedDays.filter(d => 
-      d.planned_date >= todayStr && d.planned_date <= seasonEndStr
-    ).length;
-    
-    if (futurePlanned === 0) return 0;
-    
-    const mustDoFunded = allTiers?.mustDo?.funded || 0;
-    return mustDoFunded / futurePlanned;
-  })();
+  // For must-do confetti threshold during summer, use the must-do tier's daily needed
+  const mustDoDailyGoal = dailyGoal;
 
   // Today's progress in the relevant metric
   const todaysProgress = efpModeEnabled ? totalEFP : totalFPPlus;
