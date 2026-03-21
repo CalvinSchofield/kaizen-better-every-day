@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useRef, useState } from "react";
+import { useMemo, useCallback } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,8 @@ export interface TreeNode {
   userId: string | null;
   stage: string | null;
   profilePhotoUrl?: string | null;
+  role?: string | null;
+  year?: string | null;
   children: TreeNode[];
 }
 
@@ -24,6 +26,8 @@ interface PositionedNode {
   userId: string | null;
   stage: string | null;
   profilePhotoUrl?: string | null;
+  role?: string | null;
+  year?: string | null;
   x: number;
   y: number;
   childCount: number;
@@ -38,25 +42,22 @@ interface Line {
 
 // ── Layout Constants ───────────────────────────────────
 
-const NODE_RADIUS = 26;
+const NODE_RADIUS = 30;
 const NODE_DIAMETER = NODE_RADIUS * 2;
-const H_GAP = 18;
-const V_GAP = 90;
-const LABEL_HEIGHT = 34;
+const H_GAP = 24;
+const V_GAP = 80;
+const LABEL_HEIGHT = 48;
 const NODE_TOTAL_H = NODE_DIAMETER + LABEL_HEIGHT;
 
 // ── Layout Algorithm ───────────────────────────────────
 
 function computeSubtreeWidth(node: TreeNode): number {
-  if (node.children.length === 0) return NODE_DIAMETER;
+  if (node.children.length === 0) return NODE_DIAMETER + H_GAP;
   const childrenWidth = node.children.reduce(
     (sum, child) => sum + computeSubtreeWidth(child),
     0
   );
-  return Math.max(
-    NODE_DIAMETER,
-    childrenWidth + (node.children.length - 1) * H_GAP
-  );
+  return Math.max(NODE_DIAMETER + H_GAP, childrenWidth);
 }
 
 function layoutNodes(
@@ -76,6 +77,8 @@ function layoutNodes(
     userId: node.userId,
     stage: node.stage,
     profilePhotoUrl: node.profilePhotoUrl,
+    role: node.role,
+    year: node.year,
     x: cx,
     y: cy,
     childCount: node.children.length,
@@ -83,7 +86,6 @@ function layoutNodes(
 
   if (node.children.length === 0) return;
 
-  // Position children
   let childOffset = offsetX;
   const childY = (depth + 1) * (NODE_TOTAL_H + V_GAP) + NODE_RADIUS;
   const junctionY = cy + NODE_RADIUS + (V_GAP + LABEL_HEIGHT) / 2;
@@ -102,7 +104,7 @@ function layoutNodes(
     lines.push({ x1: childCx, y1: junctionY, x2: childCx, y2: childY - NODE_RADIUS });
 
     layoutNodes(child, depth + 1, childOffset, nodes, lines);
-    childOffset += childW + H_GAP;
+    childOffset += childW;
   });
 
   // Horizontal line across junction
@@ -121,7 +123,7 @@ function layoutForest(roots: TreeNode[]) {
   roots.forEach((root) => {
     const w = computeSubtreeWidth(root);
     layoutNodes(root, 0, offset, nodes, lines);
-    offset += w + H_GAP * 3;
+    offset += w + H_GAP * 2;
   });
 
   const totalWidth = offset;
@@ -136,10 +138,10 @@ function layoutForest(roots: TreeNode[]) {
 function getStageRing(stage: string | null): string {
   if (!stage) return "border-border";
   const s = stage.toLowerCase();
-  if (s.includes("5+")) return "border-purple-500 ring-2 ring-purple-200";
-  if (s.includes("sold")) return "border-green-500 ring-2 ring-green-200";
-  if (s.includes("shadow")) return "border-blue-500 ring-2 ring-blue-200";
-  if (s.includes("signed")) return "border-amber-500 ring-2 ring-amber-200";
+  if (s.includes("5+")) return "border-purple-500 ring-2 ring-purple-300/40";
+  if (s.includes("sold")) return "border-green-500 ring-2 ring-green-300/40";
+  if (s.includes("shadow")) return "border-blue-500 ring-2 ring-blue-300/40";
+  if (s.includes("signed")) return "border-amber-500 ring-2 ring-amber-300/40";
   if (s.includes("evaluating")) return "border-slate-400";
   return "border-border";
 }
@@ -172,7 +174,7 @@ export const VisualRecruiterTree = ({
     [roots]
   );
 
-  const PADDING = 40;
+  const PADDING = 60;
   const svgWidth = totalWidth + PADDING * 2;
   const svgHeight = totalHeight + PADDING * 2;
 
@@ -191,50 +193,32 @@ export const VisualRecruiterTree = ({
 
   return (
     <div className="relative rounded-xl border bg-card overflow-hidden">
-      {/* Zoom controls */}
       <TransformWrapper
         initialScale={Math.min(1, 380 / svgWidth)}
-        minScale={0.15}
-        maxScale={2}
+        minScale={0.1}
+        maxScale={2.5}
         centerOnInit
         limitToBounds={false}
       >
         {({ zoomIn, zoomOut, resetTransform }) => (
           <>
             <div className="absolute top-2 right-2 z-10 flex gap-1">
-              <Button
-                variant="secondary"
-                size="icon"
-                className="h-7 w-7 shadow-sm"
-                onClick={() => zoomIn()}
-              >
+              <Button variant="secondary" size="icon" className="h-7 w-7 shadow-sm" onClick={() => zoomIn()}>
                 <ZoomIn className="h-3.5 w-3.5" />
               </Button>
-              <Button
-                variant="secondary"
-                size="icon"
-                className="h-7 w-7 shadow-sm"
-                onClick={() => zoomOut()}
-              >
+              <Button variant="secondary" size="icon" className="h-7 w-7 shadow-sm" onClick={() => zoomOut()}>
                 <ZoomOut className="h-3.5 w-3.5" />
               </Button>
-              <Button
-                variant="secondary"
-                size="icon"
-                className="h-7 w-7 shadow-sm"
-                onClick={() => resetTransform()}
-              >
+              <Button variant="secondary" size="icon" className="h-7 w-7 shadow-sm" onClick={() => resetTransform()}>
                 <Maximize2 className="h-3.5 w-3.5" />
               </Button>
             </div>
 
             <TransformComponent
-              wrapperStyle={{ width: "100%", height: "60vh", minHeight: 300 }}
+              wrapperStyle={{ width: "100%", height: "70vh", minHeight: 350 }}
             >
-              <div
-                style={{ width: svgWidth, height: svgHeight, position: "relative" }}
-              >
-                {/* SVG lines */}
+              <div style={{ width: svgWidth, height: svgHeight, position: "relative" }}>
+                {/* SVG connector lines */}
                 <svg
                   width={svgWidth}
                   height={svgHeight}
@@ -260,61 +244,74 @@ export const VisualRecruiterTree = ({
                   const initials = getInitials(cleanName);
                   const isSelected = selectedNodeId === node.id;
                   const isGhost = !node.userId;
+                  const firstName = cleanName.split(" ")[0];
+                  const lastName = cleanName.split(" ").slice(1).join(" ");
 
                   return (
                     <div
                       key={node.id}
                       className="absolute flex flex-col items-center cursor-pointer group"
                       style={{
-                        left: node.x + PADDING - NODE_RADIUS,
+                        left: node.x + PADDING - NODE_RADIUS - 16,
                         top: node.y + PADDING - NODE_RADIUS,
-                        width: NODE_DIAMETER,
+                        width: NODE_DIAMETER + 32,
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleNodeClick(node);
                       }}
                     >
+                      {/* Avatar circle */}
                       <div
                         className={cn(
-                          "rounded-full border-2 transition-all duration-200",
+                          "rounded-full border-[2.5px] transition-all duration-200 shadow-sm",
                           getStageRing(node.stage),
-                          isSelected &&
-                            "!border-primary !ring-4 !ring-primary/20 scale-110",
-                          isGhost && "opacity-70"
+                          isSelected && "!border-primary !ring-4 !ring-primary/20 scale-110",
+                          isGhost && "opacity-60"
                         )}
                       >
-                        <Avatar
-                          className={cn(
-                            "h-[48px] w-[48px]",
-                            getStageColor(node.stage)
-                          )}
-                        >
+                        <Avatar className={cn("h-[56px] w-[56px]", getStageColor(node.stage))}>
                           <AvatarImage src={node.profilePhotoUrl || undefined} />
-                          <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
+                          <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
                             {initials}
                           </AvatarFallback>
                         </Avatar>
                       </div>
 
-                      {/* Name label */}
+                      {/* Name */}
                       <span
                         className={cn(
-                          "text-[10px] leading-tight text-center font-medium mt-1 max-w-[72px] truncate",
+                          "text-[11px] leading-tight text-center font-semibold mt-1.5 max-w-[92px] truncate",
                           isSelected ? "text-primary" : "text-foreground"
                         )}
                       >
-                        {cleanName.split(" ")[0]}
+                        {firstName}
                       </span>
-                      <span className="text-[9px] text-muted-foreground leading-tight truncate max-w-[72px]">
-                        {cleanName.split(" ").slice(1).join(" ")}
-                      </span>
+                      {lastName && (
+                        <span className="text-[10px] text-muted-foreground leading-tight truncate max-w-[92px]">
+                          {lastName}
+                        </span>
+                      )}
+
+                      {/* Role/Title badge */}
+                      {node.role && (
+                        <span className="text-[9px] text-primary/80 font-medium leading-tight mt-0.5 truncate max-w-[92px] italic">
+                          {node.role}
+                        </span>
+                      )}
+
+                      {/* Year */}
+                      {node.year && (
+                        <span className="text-[9px] text-muted-foreground leading-tight truncate max-w-[92px]">
+                          {node.year}
+                        </span>
+                      )}
 
                       {/* Child count badge */}
                       {node.childCount > 0 && (
                         <Badge
                           variant="secondary"
-                          className="absolute -bottom-1 -right-2 h-4 min-w-4 px-1 text-[9px] font-bold"
+                          className="absolute -bottom-1 -right-1 h-4 min-w-4 px-1 text-[9px] font-bold"
                         >
                           {node.childCount}
                         </Badge>
