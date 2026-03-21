@@ -319,13 +319,13 @@ export const VisualRecruiterTree = ({
                         </span>
                       )}
 
-                      {/* Child count badge */}
-                      {node.childCount > 0 && (
+                      {/* Total downline count badge */}
+                      {node.totalDescendants > 0 && (
                         <Badge
                           variant="secondary"
                           className="absolute -bottom-1 -right-1 h-4 min-w-4 px-1 text-[9px] font-bold"
                         >
-                          {node.childCount}
+                          {node.totalDescendants}
                         </Badge>
                       )}
                     </div>
