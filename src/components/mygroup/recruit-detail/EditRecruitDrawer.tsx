@@ -445,11 +445,12 @@ export const EditRecruitDrawer = ({
       watchOutNotes: watchOutNotes.trim(),
     });
 
-    // If a role was selected, insert into user_roles and handle relationship flip
+    // If a role was selected, insert into user_roles
+    // Role assignment is SEPARATE from org placement — assigning a role just gives
+    // them the right access level. Where they fit in the org tree is determined by
+    // their upline leader assigning them to the correct structure.
     if (selectedRole && canAssignRoles) {
       try {
-        // Look up recruit's user_id — try reps table first (by name/phone match), 
-        // then check if recruit record has a linked user via invite_code_used
         let recruitUserId: string | null = null;
         
         const { data: repData } = await supabase
@@ -478,51 +479,18 @@ export const EditRecruitDrawer = ({
             });
           }
           
-          // RELATIONSHIP FLIP: If the assigned role is higher than the approver's role,
-          // flip the recruiter relationship (this person is actually our upline)
+          // Clear the recruiter_user_id on higher-role recruits so they don't appear
+          // as "recruited by" the person who merely gave them app access.
+          // Their actual org placement is handled separately by their upline leader.
           const selectedRoleIndex = ROLE_HIERARCHY.indexOf(selectedRole as AccessLevel);
           const approverRoleIndex = ROLE_HIERARCHY.indexOf(accessLevel);
           
-          if (selectedRoleIndex > approverRoleIndex && currentUserId) {
-            console.log(`[EditRecruitDrawer] Relationship flip: ${selectedRole} > ${accessLevel}`);
-            
-            // 1. Clear recruiter_user_id on the upline's recruit record
+          if (selectedRoleIndex > approverRoleIndex) {
+            console.log(`[EditRecruitDrawer] Clearing recruiter for higher-role signup: ${selectedRole} > ${accessLevel}`);
             await supabase
               .from('recruits')
               .update({ recruiter_user_id: null })
               .eq('id', recruit.id);
-            
-            // 2. Set the approver's recruiter_user_id to point to the new upline
-            // Find approver's rep record
-            const { data: approverRep } = await supabase
-              .from('reps')
-              .select('id')
-              .eq('user_id', currentUserId)
-              .maybeSingle();
-            
-            if (approverRep) {
-              // Find approver's recruit record (if they have one)
-              const { data: approverRecruit } = await supabase
-                .from('recruits')
-                .select('id')
-                .eq('recruiter_user_id', currentUserId)
-                .limit(1);
-              
-              // Update the reps table to set the approver's team_leader to the new upline
-              // This ensures the org tree correctly flows through the new upline
-              await supabase
-                .from('reps')
-                .update({ team_leader: recruit.name })
-                .eq('user_id', currentUserId);
-            }
-            
-            // Log the flip as an activity
-            await supabase.from('recruit_activities').insert({
-              recruit_id: recruit.id,
-              activity_type: 'note' as any,
-              logged_by_user_id: currentUserId,
-              notes: `Relationship flipped: assigned as ${getRoleLabel(selectedRole as AccessLevel)} (upline of approver)`,
-            });
           }
         }
       } catch (e) {
