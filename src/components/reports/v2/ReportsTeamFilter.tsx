@@ -9,7 +9,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
-
+import { canFilterByTeam, type AccessLevel } from "@/utils/roleHierarchy";
 interface Team {
   id: string;
   name: string;
