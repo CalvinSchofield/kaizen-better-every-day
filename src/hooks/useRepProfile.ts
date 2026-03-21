@@ -104,18 +104,26 @@ export const useRepProfile = (userId: string | null) => {
     queryFn: async (): Promise<RepProfileData | null> => {
       if (!userId) return null;
 
-      // Fetch rep info and daily entries in parallel
-      const [repResult, entriesResult] = await Promise.all([
-        supabase
-          .from('reps')
-          .select('name, year, profile_photo_url, phone, team_leader, recruiter, efp_mode_enabled, updated_at')
-          .eq('user_id', userId)
-          .maybeSingle(),
-        supabase
-          .from('daily_entries')
-          .select('entry_date, fp_plus, prmr, sales_log, doors_knocked, presentations, transitions, upgrade_prmr')
-          .eq('user_id', userId)
-          .gte('entry_date', SEASON_START),
+      // Fetch rep info and daily entries in parallel with a safety timeout
+      const PROFILE_TIMEOUT_MS = 8000;
+      const fetchData = Promise.all([
+          supabase
+            .from('reps')
+            .select('name, year, profile_photo_url, phone, team_leader, recruiter, efp_mode_enabled, updated_at')
+            .eq('user_id', userId)
+            .maybeSingle(),
+          supabase
+            .from('daily_entries')
+            .select('entry_date, fp_plus, prmr, sales_log, doors_knocked, presentations, transitions, upgrade_prmr')
+            .eq('user_id', userId)
+            .gte('entry_date', SEASON_START),
+      ]);
+
+      const [repResult, entriesResult] = await Promise.race([
+        fetchData,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Profile load timeout')), PROFILE_TIMEOUT_MS)
+        ),
       ]);
 
       const rep = repResult.data;
@@ -219,5 +227,8 @@ export const useRepProfile = (userId: string | null) => {
     },
     enabled: !!userId,
     staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    retryDelay: 2000,
   });
 };
