@@ -60,6 +60,15 @@ const Profile = () => {
   const { isWatching, toggleWatchlist } = useWatchlist();
 
   const { data: profile, isLoading } = useRepProfile(userId || currentUserId || null);
+
+  // Safety timeout: force past loading skeleton after 6 seconds
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  useEffect(() => {
+    if (!isLoading) { setLoadingTimedOut(false); return; }
+    const timer = setTimeout(() => setLoadingTimedOut(true), 6000);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+
   const { data: teamAccess } = useTeamAccess();
   const isDownline = !isOwnProfile && !!userId && !!teamAccess?.accessibleUserIds?.includes(userId);
   const downlineGoalPace = useGoalPaceCalculatorForUser(isDownline ? userId : null);
@@ -125,7 +134,7 @@ const Profile = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !loadingTimedOut) {
     return (
       <div className="flex flex-col">
         <Skeleton className="w-full aspect-[4/3]" />
@@ -142,10 +151,18 @@ const Profile = () => {
     );
   }
 
-  if (!profile) {
+  if (!profile && !isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <p className="text-muted-foreground">Profile not found.</p>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-muted-foreground">Loading profile…</p>
       </div>
     );
   }
