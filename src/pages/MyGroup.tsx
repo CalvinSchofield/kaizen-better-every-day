@@ -36,6 +36,7 @@ import UpcomingTeamEventsCard from "@/components/mygroup/UpcomingTeamEventsCard"
 // AddRecruitDrawer replaced by /add-recruit page route
 import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsCard";
 import { PendingApprovalsSection } from "@/components/mygroup/PendingApprovalsSection";
+import { PendingOrgRequests } from "@/components/mygroup/org/PendingOrgRequests";
 import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
 import { EditSuggestionDrawer } from "@/components/mygroup/EditSuggestionDrawer";
 import { AssignedTasksDrawer } from "@/components/mygroup/AssignedTasksDrawer";
