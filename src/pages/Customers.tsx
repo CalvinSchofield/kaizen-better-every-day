@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, List, Map, Users, ArrowUpDown, ChevronDown, Plus, Lock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -59,6 +59,16 @@ const Customers = () => {
   const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
   const { addSale, isAddingSale } = useAddSaleToEntry();
   useSalesRealtime();
+
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  
+  // Safety timeout: force-render after 5s to prevent infinite skeleton
+  useEffect(() => {
+    if (!isLoading) return;
+    setLoadingTimedOut(false);
+    const timer = setTimeout(() => setLoadingTimedOut(true), 5000);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   if (isPreBlitzRookie) {
     return (
@@ -227,7 +237,7 @@ const Customers = () => {
             </div>
 
             {/* Customer List */}
-            {isLoading ? (
+            {isLoading && !loadingTimedOut ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-36 w-full rounded-xl" />
