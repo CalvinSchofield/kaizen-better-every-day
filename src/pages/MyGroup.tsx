@@ -1061,6 +1061,9 @@ const MyGroup = () => {
               />
             </div>
 
+            {/* Pending Approvals - invite signups needing review */}
+            <PendingApprovalsSection />
+
             {/* Pending Suggestions */}
             {pendingSuggestions.length > 0 && (
               <PendingSuggestionsCard suggestions={pendingSuggestions} />
