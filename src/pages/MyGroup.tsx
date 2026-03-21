@@ -42,6 +42,7 @@ import { LogOneOnOneDrawer } from "@/components/mygroup/LogOneOnOneDrawer";
 import { RescheduleActivityDrawer } from "@/components/mygroup/RescheduleActivityDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataLoadError } from "@/components/mygroup/DataLoadError";
+import { ShareInviteLinkButton } from "@/components/mygroup/ShareInviteLinkButton";
 import Layout from "@/components/Layout";
 import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, startOfToday } from "date-fns";
 import { toast } from "sonner";
@@ -880,6 +881,7 @@ const MyGroup = () => {
   // Simplified header - just filter button for higher-level leaders
   const headerControls = (
     <div className="flex items-center gap-2">
+      {isLeader && <ShareInviteLinkButton />}
       {activeFilterName && (
         <Badge 
           variant="secondary" 

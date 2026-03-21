@@ -856,6 +856,60 @@ export type Database = {
         }
         Relationships: []
       }
+      invite_codes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          inviter_user_id: string
+          is_active: boolean
+          max_uses: number | null
+          mgmt_group_id: string | null
+          team_id: string | null
+          uses_count: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          inviter_user_id: string
+          is_active?: boolean
+          max_uses?: number | null
+          mgmt_group_id?: string | null
+          team_id?: string | null
+          uses_count?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          inviter_user_id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          mgmt_group_id?: string | null
+          team_id?: string | null
+          uses_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invite_codes_mgmt_group_id_fkey"
+            columns: ["mgmt_group_id"]
+            isOneToOne: false
+            referencedRelation: "mgmt_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_codes_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leader_interactions: {
         Row: {
           created_at: string
@@ -1497,6 +1551,7 @@ export type Database = {
           created_at: string | null
           email: string | null
           id: string
+          invite_code_used: string | null
           ipad_assigned: boolean | null
           last_contact: string | null
           location: string | null
@@ -1529,6 +1584,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          invite_code_used?: string | null
           ipad_assigned?: boolean | null
           last_contact?: string | null
           location?: string | null
@@ -1561,6 +1617,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          invite_code_used?: string | null
           ipad_assigned?: boolean | null
           last_contact?: string | null
           location?: string | null
@@ -1790,6 +1847,7 @@ export type Database = {
           email: string | null
           id: string
           intro_seen: boolean | null
+          invite_code_used: string | null
           ipad_assigned: boolean | null
           last_nudge_time: string | null
           me_vs_me_enabled: boolean | null
@@ -1849,6 +1907,7 @@ export type Database = {
           email?: string | null
           id?: string
           intro_seen?: boolean | null
+          invite_code_used?: string | null
           ipad_assigned?: boolean | null
           last_nudge_time?: string | null
           me_vs_me_enabled?: boolean | null
@@ -1908,6 +1967,7 @@ export type Database = {
           email?: string | null
           id?: string
           intro_seen?: boolean | null
+          invite_code_used?: string | null
           ipad_assigned?: boolean | null
           last_nudge_time?: string | null
           me_vs_me_enabled?: boolean | null

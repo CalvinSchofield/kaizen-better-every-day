@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { UserX, Mail, LogOut } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 
@@ -16,10 +19,61 @@ const SetupFlow = () => {
   const [userName, setUserName] = useState<string | null>(null);
   const [isRequestingAccess, setIsRequestingAccess] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  
+  // Invite-based onboarding state
+  const [showInviteOnboarding, setShowInviteOnboarding] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteName, setInviteName] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviteYear, setInviteYear] = useState("Rookie");
+  const [isProcessingInvite, setIsProcessingInvite] = useState(false);
 
   useEffect(() => {
     runSetup();
   }, []);
+
+  const processInviteSignup = async () => {
+    setIsProcessingInvite(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase.functions.invoke('process-invite-signup', {
+        body: {
+          inviteCode,
+          name: inviteName || userName,
+          phone: invitePhone || null,
+          year: inviteYear,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: "Welcome to Kaizen! 🎉",
+        description: data?.inviterName 
+          ? `You've been added to ${data.inviterName}'s team.`
+          : "Your account has been set up.",
+      });
+
+      // Now continue with normal setup flow
+      setShowInviteOnboarding(false);
+      await runSetup();
+    } catch (error: any) {
+      console.error('Invite processing error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to process invite. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingInvite(false);
+    }
+  };
 
   const runSetup = async () => {
     try {
@@ -28,6 +82,9 @@ const SetupFlow = () => {
       
       setUserEmail(user.email || null);
       setUserName(user.user_metadata?.name || null);
+
+      // Check for invite code (from sessionStorage or user metadata)
+      const storedInviteCode = sessionStorage.getItem('kaizen-invite-code') || user.user_metadata?.invite_code;
 
       // Step 1: Check rep profile in Supabase
       setStatusText("Loading your profile...");
@@ -39,10 +96,20 @@ const SetupFlow = () => {
         .maybeSingle();
 
       if (!existingRep) {
-        // No rep found - user needs to be added by admin
+        // No rep found - check if they have an invite code
+        if (storedInviteCode) {
+          setInviteCode(storedInviteCode);
+          setInviteName(user.user_metadata?.name || '');
+          setShowInviteOnboarding(true);
+          return;
+        }
+        // No invite code either - user needs to be added by admin
         setNotInSystem(true);
         return;
       }
+      
+      // Clear invite code from session storage since we're past that point
+      sessionStorage.removeItem('kaizen-invite-code');
 
       // Cache rep data
       const repData = existingRep;
@@ -319,6 +386,96 @@ const SetupFlow = () => {
     }
   };
 
+  // Show invite-based onboarding form
+  if (showInviteOnboarding) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-8 pb-8">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">🎉</span>
+              </div>
+              <h2 className="text-xl font-bold mb-2">Welcome to Kaizen!</h2>
+              <p className="text-sm text-muted-foreground">
+                Let's get your profile set up. Just a few quick questions.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="invite-name">Full Name</Label>
+                <Input
+                  id="invite-name"
+                  placeholder="First and Last Name"
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  disabled={isProcessingInvite}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="invite-phone">Phone Number</Label>
+                <Input
+                  id="invite-phone"
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  value={invitePhone}
+                  onChange={(e) => setInvitePhone(e.target.value)}
+                  disabled={isProcessingInvite}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="invite-year">Experience Level</Label>
+                <Select value={inviteYear} onValueChange={setInviteYear} disabled={isProcessingInvite}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your experience" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Rookie">Rookie (1st year)</SelectItem>
+                    <SelectItem value="Sophomore">Sophomore (2nd year)</SelectItem>
+                    <SelectItem value="Vet">Vet (3+ years)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {userEmail && (
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Signed in as:</p>
+                  <p className="text-sm font-medium">{userEmail}</p>
+                </div>
+              )}
+
+              <Button
+                onClick={processInviteSignup}
+                disabled={isProcessingInvite || !inviteName.trim()}
+                className="w-full"
+                size="lg"
+              >
+                {isProcessingInvite ? "Setting up your account..." : "Join My Team →"}
+              </Button>
+
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  sessionStorage.removeItem('kaizen-invite-code');
+                  await supabase.auth.signOut();
+                  navigate('/auth');
+                }}
+                className="w-full text-muted-foreground"
+                size="sm"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Show "Not in System" request access screen
   if (notInSystem) {
     return (
@@ -326,12 +483,12 @@ const SetupFlow = () => {
         <Card className="w-full max-w-md">
           <CardContent className="pt-8 pb-8">
             <div className="text-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-4">
-                <UserX className="w-8 h-8 text-orange-500" />
+              <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+                <UserX className="w-8 h-8 text-destructive" />
               </div>
               <h2 className="text-xl font-bold mb-2">Account Not Found</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                Your account isn't set up in our system yet. Please contact your team leader to get added.
+                Your account isn't set up in our system yet. Please contact your team leader to get added, or ask them for an invite link.
               </p>
               {userEmail && (
                 <div className="bg-muted/50 rounded-lg p-3 mb-4">
@@ -345,8 +502,8 @@ const SetupFlow = () => {
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
                 <h3 className="font-medium text-sm mb-2">What to do:</h3>
                 <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                  <li>Contact your team leader or recruiter</li>
-                  <li>Ask them to add your email to the system</li>
+                  <li>Ask your recruiter for their invite link</li>
+                  <li>Or contact your team leader to get added</li>
                   <li>Once added, come back and try again</li>
                 </ol>
               </div>

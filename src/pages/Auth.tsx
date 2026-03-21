@@ -23,6 +23,18 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
+  // Capture invite code from URL
+  const inviteCode = searchParams.get('invite');
+  
+  // If invite code present, default to signup mode
+  useEffect(() => {
+    if (inviteCode) {
+      setIsLogin(false);
+      // Store invite code in sessionStorage so SetupFlow can use it
+      sessionStorage.setItem('kaizen-invite-code', inviteCode);
+    }
+  }, [inviteCode]);
+
   // Check if PWA is installed
   const isPWA = isPWAInstalled();
   
@@ -223,14 +235,16 @@ const Auth = () => {
         }
 
         const redirectUrl = `${window.location.origin}/`;
+        const signupMetadata: Record<string, string> = { name };
+        if (inviteCode) {
+          signupMetadata.invite_code = inviteCode;
+        }
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             emailRedirectTo: redirectUrl,
-            data: {
-              name: name,
-            },
+            data: signupMetadata,
           },
         });
 
@@ -349,12 +363,14 @@ const Auth = () => {
             <span className="text-3xl font-bold text-primary">K</span>
           </div>
           <CardTitle className="text-2xl font-bold">
-            {isLogin ? "Welcome Back" : "Join Kaizen"}
+            {isLogin ? "Welcome Back" : inviteCode ? "You've Been Invited!" : "Join Kaizen"}
           </CardTitle>
           <CardDescription>
             {isLogin
               ? "Log in to continue your sales journey"
-              : "Create your account to get started"}
+              : inviteCode
+                ? "Create your account to join your team"
+                : "Create your account to get started"}
           </CardDescription>
         </CardHeader>
         <CardContent>
