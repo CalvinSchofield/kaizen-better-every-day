@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Recruit } from "@/hooks/useGroupRecruits";
-import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, type AccessLevel } from "@/utils/roleHierarchy";
+import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, ROLE_HIERARCHY, type AccessLevel } from "@/utils/roleHierarchy";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import {
   Drawer,
   DrawerContent,
@@ -45,6 +46,8 @@ interface EditRecruitDrawerProps {
   onSuccess?: (assignedRole?: string) => void;
   /** When true, show role assignment dropdown (for pending approval flow) */
   showRoleAssignment?: boolean;
+  /** When true, this is a one-time bootstrap approval (allows assigning higher roles) */
+  isBootstrapApproval?: boolean;
 }
 
 // Format phone number as user types
@@ -77,9 +80,11 @@ export const EditRecruitDrawer = ({
   recruit,
   onSuccess,
   showRoleAssignment = false,
+  isBootstrapApproval = false,
 }: EditRecruitDrawerProps) => {
   const queryClient = useQueryClient();
   const { data: teamAccess } = useTeamAccess();
+  const { userId: currentUserId } = useCurrentUserId();
   
   // Role assignment state
   const [selectedRole, setSelectedRole] = useState<string>('');
@@ -440,10 +445,13 @@ export const EditRecruitDrawer = ({
       watchOutNotes: watchOutNotes.trim(),
     });
 
-    // If a role was selected, insert into user_roles
-    // We need the recruit's user_id - get it from the reps table
+    // If a role was selected, insert into user_roles and handle relationship flip
     if (selectedRole && canAssignRoles) {
       try {
+        // Look up recruit's user_id — try reps table first (by name/phone match), 
+        // then check if recruit record has a linked user via invite_code_used
+        let recruitUserId: string | null = null;
+        
         const { data: repData } = await supabase
           .from('reps')
           .select('user_id')
@@ -451,18 +459,69 @@ export const EditRecruitDrawer = ({
           .maybeSingle();
         
         if (repData?.user_id) {
+          recruitUserId = repData.user_id;
+        }
+        
+        if (recruitUserId) {
           // Check if role already exists
           const { data: existing } = await supabase
             .from('user_roles' as any)
             .select('id')
-            .eq('user_id', repData.user_id)
+            .eq('user_id', recruitUserId)
             .eq('role', selectedRole)
             .maybeSingle();
           
           if (!existing) {
             await supabase.from('user_roles' as any).insert({
-              user_id: repData.user_id,
+              user_id: recruitUserId,
               role: selectedRole,
+            });
+          }
+          
+          // RELATIONSHIP FLIP: If the assigned role is higher than the approver's role,
+          // flip the recruiter relationship (this person is actually our upline)
+          const selectedRoleIndex = ROLE_HIERARCHY.indexOf(selectedRole as AccessLevel);
+          const approverRoleIndex = ROLE_HIERARCHY.indexOf(accessLevel);
+          
+          if (selectedRoleIndex > approverRoleIndex && currentUserId) {
+            console.log(`[EditRecruitDrawer] Relationship flip: ${selectedRole} > ${accessLevel}`);
+            
+            // 1. Clear recruiter_user_id on the upline's recruit record
+            await supabase
+              .from('recruits')
+              .update({ recruiter_user_id: null })
+              .eq('id', recruit.id);
+            
+            // 2. Set the approver's recruiter_user_id to point to the new upline
+            // Find approver's rep record
+            const { data: approverRep } = await supabase
+              .from('reps')
+              .select('id')
+              .eq('user_id', currentUserId)
+              .maybeSingle();
+            
+            if (approverRep) {
+              // Find approver's recruit record (if they have one)
+              const { data: approverRecruit } = await supabase
+                .from('recruits')
+                .select('id')
+                .eq('recruiter_user_id', currentUserId)
+                .limit(1);
+              
+              // Update the reps table to set the approver's team_leader to the new upline
+              // This ensures the org tree correctly flows through the new upline
+              await supabase
+                .from('reps')
+                .update({ team_leader: recruit.name })
+                .eq('user_id', currentUserId);
+            }
+            
+            // Log the flip as an activity
+            await supabase.from('recruit_activities').insert({
+              recruit_id: recruit.id,
+              activity_type: 'note' as any,
+              logged_by_user_id: currentUserId,
+              notes: `Relationship flipped: assigned as ${getRoleLabel(selectedRole as AccessLevel)} (upline of approver)`,
             });
           }
         }
@@ -764,13 +823,22 @@ export const EditRecruitDrawer = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">No role (regular rep)</SelectItem>
-                  {ASSIGNABLE_ROLES.map((role) => (
-                    <SelectItem key={role} value={role}>{getRoleLabel(role)}</SelectItem>
-                  ))}
+                  {ASSIGNABLE_ROLES
+                    .filter((role) => {
+                      // During bootstrap approval, allow assigning ANY role (even above yours)
+                      if (isBootstrapApproval) return true;
+                      // Otherwise, only show roles below the approver's level
+                      return ROLE_HIERARCHY.indexOf(role) < ROLE_HIERARCHY.indexOf(accessLevel);
+                    })
+                    .map((role) => (
+                      <SelectItem key={role} value={role}>{getRoleLabel(role)}</SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
-                Assign a leadership role so they can manage their org
+                {isBootstrapApproval 
+                  ? "Bootstrap mode: you can assign any role (including your upline)" 
+                  : "Assign a leadership role so they can manage their org"}
               </p>
             </div>
           )}

@@ -43,6 +43,7 @@ export const PendingApprovalsSection = () => {
   const [editingRecruit, setEditingRecruit] = useState<PendingRecruit | null>(null);
   const [rejectConfirmId, setRejectConfirmId] = useState<string | null>(null);
   const [leadershipPrompt, setLeadershipPrompt] = useState<{ name: string; role: string } | null>(null);
+  const [showReassignPrompt, setShowReassignPrompt] = useState(false);
 
   // Fetch pending recruits that this user can approve
   const { data: pendingRecruits = [], isLoading } = useQuery({
@@ -163,6 +164,10 @@ export const PendingApprovalsSection = () => {
   const handleApproveAll = async () => {
     for (const recruit of pendingRecruits) {
       await approveMutation.mutateAsync(recruit.id);
+    }
+    // After batch approval, prompt for recruiter reassignment
+    if (pendingRecruits.length > 1) {
+      setShowReassignPrompt(true);
     }
   };
 
@@ -285,6 +290,7 @@ export const PendingApprovalsSection = () => {
           onOpenChange={(open) => !open && setEditingRecruit(null)}
           recruit={toRecruitShape(editingRecruit)}
           showRoleAssignment={true}
+          isBootstrapApproval={true}
           onSuccess={(assignedRole) => {
             queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
             queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
@@ -341,6 +347,25 @@ export const PendingApprovalsSection = () => {
               💡 <strong>Next step:</strong> Let {leadershipPrompt?.name} know they can go to the <strong>Organization</strong> tab to set up their teams, then share their invite link with their people.
             </p>
             <Button className="w-full" onClick={() => setLeadershipPrompt(null)}>
+              Got it
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
+      {/* Post-batch approval: recruiter reassignment prompt */}
+      <Drawer open={showReassignPrompt} onOpenChange={(open) => !open && setShowReassignPrompt(false)}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>📋 Recruiter Reassignment</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 pb-8 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              You just approved multiple signups. Some of these reps may have different direct recruiters.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              💡 <strong>Next step:</strong> Go to the <strong>Recruiter Tree</strong> in the Organization tab to reassign anyone who has a different direct recruiter than you.
+            </p>
+            <Button className="w-full" onClick={() => setShowReassignPrompt(false)}>
               Got it
             </Button>
           </div>
