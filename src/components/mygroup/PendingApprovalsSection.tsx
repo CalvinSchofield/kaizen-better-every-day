@@ -168,19 +168,23 @@ export const PendingApprovalsSection = () => {
   const toRecruitShape = (pr: PendingRecruit): Recruit => ({
     id: pr.id,
     name: pr.name,
-    email: pr.email,
-    phone: pr.phone,
-    stage: pr.stage,
+    email: pr.email || '',
+    phone: pr.phone || '',
+    stage: pr.stage || '',
+    year: pr.year || '',
     location: pr.location,
     recruitmentSource: pr.recruitment_source,
+    recruiterId: null,
+    recruiterName: null,
     recruiterUserId: pr.recruiter_user_id,
     teamId: pr.team_id,
+    teamName: null,
     mgmtGroupId: pr.mgmt_group_id,
+    mgmtGroupName: null,
     lastContact: null,
     nextAction: null,
     nextActionDue: null,
-    createdAt: pr.created_at,
-    updatedAt: null,
+    createdAt: pr.created_at || '',
     onboardingComplete: false,
     trainingsComplete: false,
     slackJoined: false,
@@ -190,8 +194,7 @@ export const PendingApprovalsSection = () => {
     phase4Complete: false,
     blitzReady: false,
     ipadAssigned: false,
-    inviteCodeUsed: pr.invite_code_used,
-  } as Recruit);
+  });
 
   if (isLoading || pendingRecruits.length === 0) return null;
 
