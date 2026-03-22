@@ -169,7 +169,7 @@ export const AssignToOfficeDrawer = ({
           .in("id", ids.teamIds);
       }
 
-      await Promise.all(updates);
+      
       
       queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
       toast.success(`Assigned to ${selectedOffice?.name}`);
