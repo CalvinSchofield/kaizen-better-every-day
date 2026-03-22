@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { UserPlus, Link2, Loader2, Copy, Check, Share2 } from "lucide-react";
+import { UserPlus, Share2, Loader2, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { useToast } from "@/hooks/use-toast";
 import { hapticSuccess } from "@/utils/haptics";
+import { APP_BASE_URL, INVITE_SHARE_MESSAGE } from "@/utils/constants";
 
 const generateShortCode = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -31,7 +32,7 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
   const navigate = useNavigate();
   const { userId } = useCurrentUserId();
   const { toast } = useToast();
-  const [showInviteLink, setShowInviteLink] = useState(false);
+  const [showShareView, setShowShareView] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -41,10 +42,9 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
     navigate('/add-recruit');
   };
 
-  const handleInviteRep = async () => {
-    setShowInviteLink(true);
-    if (inviteLink) return; // Already generated
-    if (!userId) return;
+  const generateOrGetInviteLink = async (): Promise<string | null> => {
+    if (inviteLink) return inviteLink;
+    if (!userId) return null;
     setIsGenerating(true);
 
     try {
@@ -58,8 +58,9 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
         .maybeSingle();
 
       if (existing) {
-        setInviteLink(`${window.location.origin}/auth?invite=${existing.code}`);
-        return;
+        const link = `${APP_BASE_URL}/auth?invite=${existing.code}`;
+        setInviteLink(link);
+        return link;
       }
 
       const code = generateShortCode();
@@ -73,29 +74,55 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
           .from('invite_codes')
           .insert({ code: retryCode, inviter_user_id: userId, is_active: true });
         if (retryError) throw retryError;
-        setInviteLink(`${window.location.origin}/auth?invite=${retryCode}`);
-      } else {
-        setInviteLink(`${window.location.origin}/auth?invite=${code}`);
+        const link = `${APP_BASE_URL}/auth?invite=${retryCode}`;
+        setInviteLink(link);
+        return link;
       }
+      const link = `${APP_BASE_URL}/auth?invite=${code}`;
+      setInviteLink(link);
+      return link;
     } catch (error) {
       console.error('Error generating invite link:', error);
       toast({ title: "Error", description: "Failed to generate invite link.", variant: "destructive" });
+      return null;
     } finally {
       setIsGenerating(false);
     }
   };
 
+  const handleShareKaizen = async () => {
+    setShowShareView(true);
+    const link = await generateOrGetInviteLink();
+    if (!link) return;
+
+    // Immediately open native share sheet if available
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Kaizen',
+          text: INVITE_SHARE_MESSAGE,
+          url: link,
+        });
+        hapticSuccess();
+      } catch {
+        // User cancelled — stay on share view so they can copy instead
+      }
+    }
+  };
+
   const handleCopy = async () => {
-    if (!inviteLink) return;
+    const link = inviteLink || (await generateOrGetInviteLink());
+    if (!link) return;
+    const fullText = `${INVITE_SHARE_MESSAGE}\n\n${link}`;
     try {
-      await navigator.clipboard.writeText(inviteLink);
+      await navigator.clipboard.writeText(fullText);
       setCopied(true);
       hapticSuccess();
-      toast({ title: "Link copied!", description: "Share this link with your recruits to get them on Kaizen." });
+      toast({ title: "Copied!", description: "Share message and link copied to clipboard." });
       setTimeout(() => setCopied(false), 2000);
     } catch {
       const textarea = document.createElement('textarea');
-      textarea.value = inviteLink;
+      textarea.value = fullText;
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand('copy');
@@ -106,18 +133,19 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
     }
   };
 
-  const handleShare = async () => {
-    if (!inviteLink) return;
+  const handleShareAgain = async () => {
+    const link = inviteLink || (await generateOrGetInviteLink());
+    if (!link) return;
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Join Kaizen',
-          text: 'Join my team on Kaizen — the app to track and improve your sales performance.',
-          url: inviteLink,
+          title: 'Kaizen',
+          text: INVITE_SHARE_MESSAGE,
+          url: link,
         });
         hapticSuccess();
       } catch {
-        // User cancelled
+        // cancelled
       }
     } else {
       handleCopy();
@@ -127,8 +155,7 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
   const handleClose = (isOpen: boolean) => {
     onOpenChange(isOpen);
     if (!isOpen) {
-      // Reset to initial view after closing
-      setTimeout(() => setShowInviteLink(false), 300);
+      setTimeout(() => setShowShareView(false), 300);
     }
   };
 
@@ -136,10 +163,10 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
     <Drawer open={open} onOpenChange={handleClose}>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>{showInviteLink ? "Invite to Sign Up" : "Add a Rep"}</DrawerTitle>
+          <DrawerTitle>{showShareView ? "Share Kaizen" : "Add a Rep"}</DrawerTitle>
         </DrawerHeader>
         <div className="p-4 pb-8 space-y-3">
-          {!showInviteLink ? (
+          {!showShareView ? (
             <>
               <button
                 onClick={handleAddToPipeline}
@@ -151,22 +178,22 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                 <div>
                   <p className="font-medium text-sm">Add to Pipeline</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Add someone you're reaching out to, evaluating, or tracking
+                    Track someone you're reaching out to or evaluating
                   </p>
                 </div>
               </button>
 
               <button
-                onClick={handleInviteRep}
+                onClick={handleShareKaizen}
                 className="w-full flex items-center gap-4 p-4 rounded-xl bg-card border border-border hover:bg-accent/50 transition-colors text-left"
               >
                 <div className="h-11 w-11 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Link2 className="h-5 w-5 text-primary" />
+                  <Share2 className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-medium text-sm">Send Invite Link</p>
+                  <p className="font-medium text-sm">Share Kaizen</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    They're on board — send a signup link to auto-connect them
+                    Send your invite link — they'll auto-connect to you on signup
                   </p>
                 </div>
               </button>
@@ -174,29 +201,24 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
           ) : (
             <>
               <p className="text-sm text-muted-foreground">
-                Share this link with your rep. When they sign up, they'll automatically be linked to you.
+                {INVITE_SHARE_MESSAGE}
               </p>
               {isGenerating ? (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : inviteLink ? (
-                <div className="space-y-3">
-                  <div className="bg-muted rounded-lg p-3 break-all">
-                    <p className="text-sm font-mono">{inviteLink}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={handleCopy} variant="outline" className="flex-1 gap-2">
-                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      {copied ? "Copied!" : "Copy Link"}
-                    </Button>
-                    <Button onClick={handleShare} className="flex-1 gap-2">
-                      <Share2 className="h-4 w-4" />
-                      Share
-                    </Button>
-                  </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Button onClick={handleCopy} variant="outline" className="flex-1 gap-2">
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {copied ? "Copied!" : "Copy"}
+                  </Button>
+                  <Button onClick={handleShareAgain} className="flex-1 gap-2">
+                    <Share2 className="h-4 w-4" />
+                    Share
+                  </Button>
                 </div>
-              ) : null}
+              )}
             </>
           )}
         </div>

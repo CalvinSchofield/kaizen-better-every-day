@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Share2, Copy, Check, Loader2 } from "lucide-react";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { hapticSuccess } from "@/utils/haptics";
+import { APP_BASE_URL, INVITE_SHARE_MESSAGE } from "@/utils/constants";
 import {
   Drawer,
   DrawerContent,
@@ -35,7 +36,6 @@ export const ShareInviteLinkButton = () => {
     setIsGenerating(true);
 
     try {
-      // Check if user already has an active invite code
       const { data: existing } = await supabase
         .from('invite_codes')
         .select('code')
@@ -46,43 +46,28 @@ export const ShareInviteLinkButton = () => {
         .maybeSingle();
 
       if (existing) {
-        const link = `${window.location.origin}/auth?invite=${existing.code}`;
-        setInviteLink(link);
+        setInviteLink(`${APP_BASE_URL}/auth?invite=${existing.code}`);
         return;
       }
 
-      // Generate new invite code
       const code = generateShortCode();
       const { error } = await supabase
         .from('invite_codes')
-        .insert({
-          code,
-          inviter_user_id: userId,
-          is_active: true,
-        });
+        .insert({ code, inviter_user_id: userId, is_active: true });
 
       if (error) {
-        // Code collision - try once more
         const retryCode = generateShortCode();
         const { error: retryError } = await supabase
           .from('invite_codes')
-          .insert({
-            code: retryCode,
-            inviter_user_id: userId,
-            is_active: true,
-          });
+          .insert({ code: retryCode, inviter_user_id: userId, is_active: true });
         if (retryError) throw retryError;
-        setInviteLink(`${window.location.origin}/auth?invite=${retryCode}`);
+        setInviteLink(`${APP_BASE_URL}/auth?invite=${retryCode}`);
       } else {
-        setInviteLink(`${window.location.origin}/auth?invite=${code}`);
+        setInviteLink(`${APP_BASE_URL}/auth?invite=${code}`);
       }
     } catch (error) {
       console.error('Error generating invite link:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate invite link.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to generate invite link.", variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }
@@ -90,19 +75,16 @@ export const ShareInviteLinkButton = () => {
 
   const handleCopy = async () => {
     if (!inviteLink) return;
+    const fullText = `${INVITE_SHARE_MESSAGE}\n\n${inviteLink}`;
     try {
-      await navigator.clipboard.writeText(inviteLink);
+      await navigator.clipboard.writeText(fullText);
       setCopied(true);
       hapticSuccess();
-      toast({
-        title: "Link copied!",
-        description: "Share this link with your recruits to get them on Kaizen.",
-      });
+      toast({ title: "Copied!", description: "Share message and link copied to clipboard." });
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for mobile
       const textarea = document.createElement('textarea');
-      textarea.value = inviteLink;
+      textarea.value = fullText;
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand('copy');
@@ -118,13 +100,13 @@ export const ShareInviteLinkButton = () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Join Kaizen',
-          text: 'Join my team on Kaizen — the app to track and improve your sales performance.',
+          title: 'Kaizen',
+          text: INVITE_SHARE_MESSAGE,
           url: inviteLink,
         });
         hapticSuccess();
       } catch {
-        // User cancelled share
+        // User cancelled
       }
     } else {
       handleCopy();
@@ -139,16 +121,16 @@ export const ShareInviteLinkButton = () => {
       <DrawerTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <Share2 className="h-4 w-4" />
-          Invite Rep
+          Share Kaizen
         </Button>
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>Invite a Rep to Kaizen</DrawerTitle>
+          <DrawerTitle>Share Kaizen</DrawerTitle>
         </DrawerHeader>
         <div className="p-4 pb-8 space-y-4">
           <p className="text-sm text-muted-foreground">
-            Share this link with anyone you want to add to your team. When they sign up, they'll automatically be linked to you as their recruiter.
+            {INVITE_SHARE_MESSAGE}
           </p>
 
           {isGenerating ? (
@@ -156,20 +138,15 @@ export const ShareInviteLinkButton = () => {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : inviteLink ? (
-            <div className="space-y-3">
-              <div className="bg-muted rounded-lg p-3 break-all">
-                <p className="text-sm font-mono">{inviteLink}</p>
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleCopy} variant="outline" className="flex-1 gap-2">
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  {copied ? "Copied!" : "Copy Link"}
-                </Button>
-                <Button onClick={handleShare} className="flex-1 gap-2">
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </Button>
-              </div>
+            <div className="flex gap-2">
+              <Button onClick={handleCopy} variant="outline" className="flex-1 gap-2">
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? "Copied!" : "Copy"}
+              </Button>
+              <Button onClick={handleShare} className="flex-1 gap-2">
+                <Share2 className="h-4 w-4" />
+                Share
+              </Button>
             </div>
           ) : null}
         </div>
