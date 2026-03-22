@@ -2371,6 +2371,7 @@ export type Database = {
           lead_user_id: string | null
           name: string
           office_id: string | null
+          region_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2379,6 +2380,7 @@ export type Database = {
           lead_user_id?: string | null
           name: string
           office_id?: string | null
+          region_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2387,6 +2389,7 @@ export type Database = {
           lead_user_id?: string | null
           name?: string
           office_id?: string | null
+          region_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -2402,6 +2405,13 @@ export type Database = {
             columns: ["office_id"]
             isOneToOne: false
             referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sr_mgmt_groups_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
         ]

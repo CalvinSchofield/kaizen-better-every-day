@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
 const PARENT_RELATIONSHIP: Record<string, { table: string; label: string; field: string }> = {
   team:          { table: 'mgmt_groups',    label: 'MGMT Group',    field: '__junction__' },
   mgmt_group:    { table: 'sr_mgmt_groups', label: 'Sr MGMT Group', field: 'sr_mgmt_group_id' },
-  sr_mgmt_group: { table: 'offices',        label: 'Office',        field: 'office_id' },
+  sr_mgmt_group: { table: 'regions',         label: 'Region',        field: 'region_id' },
   office:        { table: 'regions',         label: 'Region',        field: 'region_id' },
   region:        { table: 'sr_regions',      label: 'Sr Region',     field: 'sr_region_id' },
   sr_region:     { table: 'partners',        label: 'Partnership',   field: 'partner_id' },
@@ -143,10 +143,11 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, p
           break;
         }
         case 'sr_mgmt_group': {
+          // Sr MGMT Group's lineage parent is Region (not Office — Office is a non-lineage bucket)
           const { data } = await supabase
-            .from('sr_mgmt_groups').select('office_id')
+            .from('sr_mgmt_groups').select('region_id')
             .eq('lead_user_id', leadUserId).maybeSingle();
-          if (data?.office_id) foundParentId = data.office_id;
+          if (data?.region_id) foundParentId = data.region_id;
           break;
         }
         case 'region': {
@@ -239,10 +240,11 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, p
           break;
         }
         case "sr_mgmt_group": {
+          // Region is the lineage parent; office_id is a separate non-lineage bucket
           const { error } = await supabase.from("sr_mgmt_groups").insert({
             name: name.trim(),
             lead_user_id: finalLeadUserId || null,
-            office_id: finalParentId,
+            region_id: finalParentId,
           });
           if (error) throw error;
           break;
