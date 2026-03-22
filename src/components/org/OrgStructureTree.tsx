@@ -73,7 +73,7 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
     });
   }, []);
 
-  const { data: orgData, isLoading } = useQuery({
+  const { data: orgData, isLoading, isError } = useQuery({
     queryKey: ["org-structure-data"],
     queryFn: async () => {
       const [regionsRes, officesRes, mgmtGroupsRes, teamsRes, teamMgmtRes, officeStaffRes, repsRes, recruitsRes] = await Promise.all([
@@ -98,6 +98,7 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
       };
     },
     staleTime: 1000 * 60 * 2,
+    retry: 1,
   });
 
   // Action states
