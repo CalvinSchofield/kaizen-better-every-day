@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -150,7 +151,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
     queryFn: async () => {
       if (!teamAccess?.accessibleUserIds?.length) return [] as Array<{ user_id: string; planned_date: string }>;
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) return [];
 
       const { data, error } = await supabase.functions.invoke('fetch-downline-planned-days', {

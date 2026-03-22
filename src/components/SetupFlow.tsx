@@ -36,7 +36,7 @@ const SetupFlow = () => {
   const processInviteSignup = async () => {
     setIsProcessingInvite(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const { data, error } = await supabase.functions.invoke('process-invite-signup', {

@@ -181,7 +181,7 @@ const RookieBlitzCard = ({ rookie, blitzes }: RookieBlitzCardProps) => {
         ? rookie.committedBlitzes.filter(id => id !== blitzId)
         : [...rookie.committedBlitzes, blitzId];
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {

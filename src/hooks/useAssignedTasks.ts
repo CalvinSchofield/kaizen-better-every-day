@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { Recruit } from "./useGroupRecruits";
 
 export interface AssignedTask {
@@ -23,7 +24,7 @@ export const useAssignedTasks = (recruits: Recruit[]) => {
   return useQuery({
     queryKey: ['assigned-tasks'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session?.user) return [];
 
       // Fetch tasks assigned to current user that are pending
@@ -68,7 +69,7 @@ export const useCompleteTask = () => {
 
   return useMutation({
     mutationFn: async ({ taskId, notes }: { taskId: string; notes?: string }) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session?.user) throw new Error('Not authenticated');
 
       // Update the task status

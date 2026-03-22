@@ -286,7 +286,7 @@ export const useDailyEntry = (date?: string) => {
     queryFn: async () => {
       // PERF FIX: Use getSession() (reads local cache, instant) instead of getUser() (network call).
       // HydrationGate already verified auth. Only fall back to refreshSession if no session.
-      let { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session?.user) {
         // Session cache miss — try refresh once
         const { data: refreshData } = await supabase.auth.refreshSession();
@@ -429,7 +429,7 @@ export const useDailyEntry = (date?: string) => {
     mutationKey: ['update-counter', entryDate],
     mutationFn: async (updates: Partial<DailyEntry>) => {
       // PERF FIX: Use getSession() (local cache) instead of getUser() (network call)
-      let { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session?.user) {
         console.warn('[useDailyEntry] Session expired during mutation — attempting refresh');
         const { data: refreshData } = await supabase.auth.refreshSession();

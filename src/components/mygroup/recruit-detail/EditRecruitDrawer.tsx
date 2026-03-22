@@ -429,7 +429,7 @@ export const EditRecruitDrawer = ({
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async (updates: Record<string, any>) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const { data, error } = await supabase.functions.invoke('update-recruit-properties', {

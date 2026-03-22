@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1047,7 +1048,7 @@ export default function Settings() {
                         try {
                           // If there's no APNs token stored, calling the APNs sender will return non-2xx.
                           // So we check first and skip APNs when there's no token yet.
-                          const { data: { session } } = await supabase.auth.getSession();
+                          const { session } = await getSessionSafe();
                           const currentUserId = session?.user?.id;
                           const { count, error: countErr } = await supabase
                             .from('apns_device_tokens')

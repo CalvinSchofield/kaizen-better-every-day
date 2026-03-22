@@ -3,6 +3,7 @@ import { useTodayLeaderboard } from "./useTodayLeaderboard";
 import { useWeeklyLeaderboard } from "./useWeeklyLeaderboard";
 import { useWatchlist } from "./useWatchlist";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useQuery } from "@tanstack/react-query";
 
 interface CompetitorNudge {
@@ -37,7 +38,7 @@ export const useCompetitorNudge = (): UseCompetitorNudgeResult => {
   const { data: currentUserId } = useQuery({
     queryKey: ["current-user-id-nudge"],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       return session?.user?.id || null;
     },
     staleTime: Infinity,

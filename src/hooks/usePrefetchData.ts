@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getSessionSafe } from "@/utils/authSession";
 
 /**
  * Prefetches critical data on app load for a snappy experience.
@@ -21,7 +22,7 @@ export const usePrefetchData = (userId: string | undefined) => {
     const prefetchAll = async () => {
       // PERF FIX: Use getSession() (local cache) instead of getSession() network call.
       // Auth is already verified by HydrationGate, so we just need the token.
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) return;
 
       // PHASE 1: Critical data for initial render (immediate)

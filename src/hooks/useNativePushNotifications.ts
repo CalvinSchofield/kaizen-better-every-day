@@ -273,7 +273,7 @@ export function useNativePushNotifications() {
     if (!isNative) return false;
     try {
       try { await PushNotifications.unregister(); } catch {}
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (session?.user) {
         await supabase.from('apns_device_tokens').delete().eq('user_id', session.user.id);
       }

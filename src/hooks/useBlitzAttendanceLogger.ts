@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -22,7 +23,7 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
   const { data: processedBlitzIds = [] } = useQuery({
     queryKey: ['processed-blitz-ids'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) return [];
 
       const { data } = await supabase
@@ -39,7 +40,7 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
 
   const logBlitzAttendance = useCallback(async (blitz: BlitzEvent) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) return { success: false, error: 'Not authenticated' };
 
       const { data, error } = await supabase.functions.invoke('log-blitz-attendance', {

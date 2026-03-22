@@ -264,7 +264,7 @@ export const LiveLeaderboard = ({
   // Finalize entry mutation (admin only)
   const finalizeEntryMutation = useMutation({
     mutationFn: async ({ entryId, userId }: { entryId: string; userId: string }) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
       
       // Use edge function to bypass RLS

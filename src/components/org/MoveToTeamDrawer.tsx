@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -103,7 +104,7 @@ export const MoveToTeamDrawer = ({ open, onOpenChange, repId, repName, teams }: 
   const handleMove = async (team: TeamOption, shouldUpdateRecruiter: boolean) => {
     setMovingTo(team.id);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error("Not authenticated");
 
       // Resolve mgmt_group_id from team_mgmt_groups

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import {
   Drawer,
   DrawerContent,
@@ -36,7 +37,7 @@ export const DeleteRecruitConfirmDrawer = ({
   const deleteMutation = useMutation({
     mutationFn: async () => {
       // Use edge function with service role to bypass RLS
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error("Not authenticated");
 
       const { error } = await supabase.functions.invoke("delete-recruit", {

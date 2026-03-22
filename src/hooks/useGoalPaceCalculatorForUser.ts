@@ -14,6 +14,7 @@ import { parseLocalDate } from '@/utils/dateUtils';
 import { calculateGoalPace, GoalPaceData, GoalPaceInput } from './useGoalPaceCalculator';
 import type { TimeframeData } from './useGoalPaceCalculator';
 import type { FocusTier } from './useFocusTier';
+import { getSessionSafe } from "@/utils/authSession";
 
 const SEASON_START = '2025-09-28';
 const PRESEASON_END = '2026-04-11';
@@ -77,7 +78,7 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
     queryKey: ['downline-planned-days-unified', userId],
     queryFn: async () => {
       if (!userId) return [];
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) return [];
       
       const { data } = await supabase.functions.invoke('fetch-downline-planned-days', {

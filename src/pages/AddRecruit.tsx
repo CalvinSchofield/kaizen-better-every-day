@@ -333,7 +333,7 @@ export default function AddRecruit() {
       cautionNotes?: string;
       recruiterUserId?: string;
     }) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
       const { data, error } = await withTimeout(
         supabase.functions.invoke('create-recruit', {
