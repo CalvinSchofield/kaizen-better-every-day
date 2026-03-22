@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { X, ShieldCheck, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,6 @@ import {
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
-  DrawerFooter,
 } from "@/components/ui/drawer";
 import {
   Select,
@@ -28,6 +27,7 @@ interface Rep {
   userId: string | null;
   name: string;
   repId?: string;
+  mgmtGroupId?: string | null;
 }
 
 interface MgmtGroup {
@@ -51,8 +51,10 @@ export const CreateEntityDrawer = ({
   allGroups = [],
 }: CreateEntityDrawerProps) => {
   const [name, setName] = useState("");
-  const [step, setStep] = useState<"details" | "lead">("details");
+  const [step, setStep] = useState<"name" | "lead" | "group">("name");
   const [leadSearch, setLeadSearch] = useState("");
+  const [selectedLeadUserId, setSelectedLeadUserId] = useState<string | null>(null);
+  const [selectedLeadName, setSelectedLeadName] = useState<string | null>(null);
   const [mgmtGroupId, setMgmtGroupId] = useState("__none__");
   const { data: teamAccess } = useTeamAccess();
   const submitRequest = useSubmitOrgRequest();
@@ -67,12 +69,46 @@ export const CreateEntityDrawer = ({
     return allReps.filter(r => getCleanName(r.name).toLowerCase().includes(q)).slice(0, 20);
   }, [allReps, leadSearch]);
 
+  // When a leader is selected, auto-fill their MGMT group
+  useEffect(() => {
+    if (selectedLeadUserId && mode === "team") {
+      const leadRep = allReps.find(r => r.userId === selectedLeadUserId);
+      if (leadRep?.mgmtGroupId) {
+        setMgmtGroupId(leadRep.mgmtGroupId);
+      }
+    }
+  }, [selectedLeadUserId, allReps, mode]);
+
+  const handleSelectLead = (userId: string | null, repName?: string) => {
+    setSelectedLeadUserId(userId);
+    setSelectedLeadName(repName || null);
+    if (mode === "team" && allGroups.length > 0) {
+      // Auto-fill mgmt group from leader's current group
+      if (userId) {
+        const leadRep = allReps.find(r => r.userId === userId);
+        if (leadRep?.mgmtGroupId) {
+          setMgmtGroupId(leadRep.mgmtGroupId);
+        } else {
+          setMgmtGroupId("__none__");
+        }
+      } else {
+        setMgmtGroupId("__none__");
+      }
+      setStep("group");
+    } else {
+      // No groups to assign, submit directly
+      handleSubmit(userId);
+    }
+  };
+
   const handleSubmit = async (leadUserId?: string | null) => {
     if (!name.trim()) return;
 
+    const finalLeadUserId = leadUserId !== undefined ? leadUserId : selectedLeadUserId;
+
     const requestData: Record<string, any> = {
       name: name.trim(),
-      leadUserId: leadUserId || null,
+      leadUserId: finalLeadUserId || null,
     };
 
     if (mode === "team" && mgmtGroupId !== "__none__") {
@@ -92,8 +128,10 @@ export const CreateEntityDrawer = ({
 
   const resetState = () => {
     setName("");
-    setStep("details");
+    setStep("name");
     setLeadSearch("");
+    setSelectedLeadUserId(null);
+    setSelectedLeadName(null);
     setMgmtGroupId("__none__");
   };
 
@@ -121,7 +159,8 @@ export const CreateEntityDrawer = ({
             </div>
           )}
 
-          {step === "details" && (
+          {/* Step 1: Name */}
+          {step === "name" && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
@@ -133,25 +172,6 @@ export const CreateEntityDrawer = ({
                 />
               </div>
 
-              {mode === "team" && allGroups.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Management Group (optional)</Label>
-                  <Select value={mgmtGroupId} onValueChange={setMgmtGroupId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select group" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">No group assigned</SelectItem>
-                      {allGroups.map((group) => (
-                        <SelectItem key={group.id} value={group.id}>
-                          {group.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
               <Button
                 onClick={() => setStep("lead")}
                 disabled={!name.trim()}
@@ -162,13 +182,14 @@ export const CreateEntityDrawer = ({
             </>
           )}
 
+          {/* Step 2: Leader */}
           {step === "lead" && (
             <>
               <p className="text-sm text-muted-foreground">Who leads "{name.trim()}"?</p>
               <Button
                 variant="outline"
                 className="w-full text-muted-foreground"
-                onClick={() => handleSubmit(null)}
+                onClick={() => handleSelectLead(null)}
                 disabled={submitRequest.isPending}
               >
                 Skip — Assign leader later
@@ -189,7 +210,7 @@ export const CreateEntityDrawer = ({
                   filteredReps.map((rep, idx) => (
                     <button
                       key={rep.userId || `ghost-${idx}`}
-                      onClick={() => handleSubmit(rep.userId)}
+                      onClick={() => handleSelectLead(rep.userId, getCleanName(rep.name))}
                       disabled={submitRequest.isPending}
                       className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors flex items-center justify-between"
                     >
@@ -205,7 +226,56 @@ export const CreateEntityDrawer = ({
                   <p className="text-sm text-center text-muted-foreground py-4">No results</p>
                 )}
               </div>
-              <Button variant="outline" className="w-full" onClick={() => setStep("details")}>
+              <Button variant="outline" className="w-full" onClick={() => setStep("name")}>
+                ← Back
+              </Button>
+            </>
+          )}
+
+          {/* Step 3: MGMT Group assignment (team mode only) */}
+          {step === "group" && (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {selectedLeadName 
+                  ? `Assign "${name.trim()}" (led by ${selectedLeadName}) to a Management Group`
+                  : `Assign "${name.trim()}" to a Management Group`
+                }
+              </p>
+
+              {selectedLeadUserId && mgmtGroupId !== "__none__" && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-accent/50 border border-border/50">
+                  <p className="text-xs text-muted-foreground">
+                    Auto-selected based on {selectedLeadName}'s current group. You can change it below.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Management Group</Label>
+                <Select value={mgmtGroupId} onValueChange={setMgmtGroupId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No group assigned</SelectItem>
+                    {allGroups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                onClick={() => handleSubmit()}
+                disabled={submitRequest.isPending}
+                className="w-full"
+              >
+                {submitRequest.isPending ? "Creating..." : "Create Team"}
+              </Button>
+
+              <Button variant="outline" className="w-full" onClick={() => setStep("lead")}>
                 ← Back
               </Button>
             </>
