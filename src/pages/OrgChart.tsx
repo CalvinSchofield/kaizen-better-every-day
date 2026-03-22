@@ -153,8 +153,7 @@ const OrgChart = () => {
         profilePhotoUrl: rep?.profile_photo_url,
         role: roleMap.get(userId) || null,
         year: rep?.year || recruitRecord?.year || null,
-        groupName: orgLabelMaps.groupNameByUserId.get(userId) || (recruitRecord ? orgLabelMaps.groupNameByRecruitId.get(recruitRecord.id) : null) || null,
-        teamName: orgLabelMaps.teamNameByUserId.get(userId) || (recruitRecord ? orgLabelMaps.teamNameByRecruitId.get(recruitRecord.id) : null) || null,
+        isAreaDirector: areaDirectorSet.has(userId),
         children,
       };
     };
