@@ -604,7 +604,37 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         </div>
       )}
 
-      <div className="space-y-1">
+      {/* Onboarding guidance for new leaders */}
+      {canManageTeams && orgData && (() => {
+        const hasTeams = orgData.teams.length > 0;
+        const hasMgmtGroups = orgData.mgmtGroups.length > 0;
+        const hasOffices = orgData.offices.length > 0;
+        const showGuide = !hasTeams || !hasMgmtGroups;
+        if (!showGuide) return null;
+        return (
+          <div className="mb-4 p-3 rounded-lg border border-primary/20 bg-primary/5">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div className="text-sm space-y-1">
+                <p className="font-medium text-foreground">Build your org structure</p>
+                {hasMinAccess(accessLevel, "area_director") && !hasMgmtGroups && hasOffices && (
+                  <p className="text-muted-foreground">1. Tap an office → create MGMT Groups</p>
+                )}
+                {!hasTeams && hasMgmtGroups && (
+                  <p className="text-muted-foreground">{hasMgmtGroups ? "1" : "2"}. Long-press a MGMT Group → Create Team</p>
+                )}
+                {hasTeams && (
+                  <p className="text-muted-foreground">Long-press a team → Assign Reps</p>
+                )}
+                {!hasTeams && !hasMgmtGroups && (
+                  <p className="text-muted-foreground">Long-press a rep → Move to Team</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
         {tree.map((node) => (
           <OrgNodeCard
             key={node.id}
