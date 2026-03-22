@@ -279,9 +279,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
 
   // Wait for fresh data — don't render with stale placeholder data
   // This prevents flashing incorrect roles before real data arrives
-  const isTeamAccessStale = accessLoading || (!teamAccess && !accessLoading);
-  
-  if (isTeamAccessStale || isLoading) {
+  if (accessLoading || isTeamAccessPlaceholder || isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-48 w-full rounded-xl" />
