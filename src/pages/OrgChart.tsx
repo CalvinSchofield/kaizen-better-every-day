@@ -101,9 +101,12 @@ const OrgChart = () => {
     const { recruits, reps } = treeData;
     const repMap = new Map(reps.map((r) => [r.user_id, r]));
     const recruitsByRecruiter = new Map<string, typeof recruits>();
-    // Only include recruits in active stages (Signed, Shadow, Sold, Sold 5+)
+    // Team leads also see pipeline stages (Reached Out, Evaluating)
+    const visibleStages = accessLevel === "team_lead"
+      ? [...SIGNED_PLUS_STAGES, STAGES.REACHED_OUT, STAGES.EVALUATING]
+      : [...SIGNED_PLUS_STAGES];
     const activeRecruits = recruits.filter(r => 
-      r.stage && SIGNED_PLUS_STAGES.some(s => s.toLowerCase() === r.stage!.toLowerCase())
+      r.stage && visibleStages.some(s => s.toLowerCase() === r.stage!.toLowerCase())
     );
 
     activeRecruits.forEach((r) => {
