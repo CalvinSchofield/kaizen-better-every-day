@@ -21,6 +21,7 @@ export const useLongPress = ({
   const start = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
       isLongPressRef.current = false;
+      movedRef.current = false;
 
       // Store start position for movement detection
       if ('touches' in e) {
