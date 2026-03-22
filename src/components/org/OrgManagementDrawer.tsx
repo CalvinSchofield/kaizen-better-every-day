@@ -495,11 +495,13 @@ interface ConfigureOfficeDrawerProps {
   currentMgmtGroups: Array<{ id: string; name: string; lead_user_id: string | null }>;
   allMgmtGroups: Array<{ id: string; name: string; office_id: string | null; lead_user_id: string | null }>;
   allReps: Array<{ user_id: string; name: string }>;
+  /** Whether user has full management rights (regional+). ADs can only rename. */
+  canFullManage?: boolean;
 }
 
 export const ConfigureOfficeDrawer = ({
   open, onOpenChange, officeId, officeName, officeLocation,
-  currentStaff, currentMgmtGroups, allMgmtGroups, allReps,
+  currentStaff, currentMgmtGroups, allMgmtGroups, allReps, canFullManage = false,
 }: ConfigureOfficeDrawerProps) => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
