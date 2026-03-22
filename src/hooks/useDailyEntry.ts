@@ -286,17 +286,12 @@ export const useDailyEntry = (date?: string) => {
     queryFn: async () => {
       // PERF FIX: Use getSession() (reads local cache, instant) instead of getUser() (network call).
       // HydrationGate already verified auth. Only fall back to refreshSession if no session.
-      const { session } = await getSessionSafe();
-      if (!session?.user) {
-        // Session cache miss — try refresh once
-        const { data: refreshData } = await supabase.auth.refreshSession();
-        session = refreshData?.session ?? null;
-        if (!session?.user) {
-          console.error('[useDailyEntry] Auth session expired - could not refresh');
-          throw new Error('AUTH_SESSION_EXPIRED');
-        }
-        console.log('[useDailyEntry] Auth session refreshed successfully');
+      const { session: resolvedSession } = await getSessionSafe();
+      if (!resolvedSession?.user) {
+        console.error('[useDailyEntry] Auth session expired - could not refresh');
+        throw new Error('AUTH_SESSION_EXPIRED');
       }
+      const session = resolvedSession;
       const activeUser = session.user;
 
       const { data, error } = await supabase
@@ -431,13 +426,7 @@ export const useDailyEntry = (date?: string) => {
       // PERF FIX: Use getSession() (local cache) instead of getUser() (network call)
       const { session } = await getSessionSafe();
       if (!session?.user) {
-        console.warn('[useDailyEntry] Session expired during mutation — attempting refresh');
-        const { data: refreshData } = await supabase.auth.refreshSession();
-        session = refreshData?.session ?? null;
-        if (!session?.user) {
-          throw new Error('AUTH_SESSION_EXPIRED');
-        }
-        console.log('[useDailyEntry] Session refreshed successfully during mutation');
+        throw new Error('AUTH_SESSION_EXPIRED');
       }
       const user = session.user;
 
