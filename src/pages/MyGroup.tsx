@@ -1165,10 +1165,10 @@ const MyGroup = () => {
         )}
       </div>
 
-      {/* Floating Add Button */}
-      <FloatingAddButton 
-        visible={(isLeader || (mySuggestions && mySuggestions.length > 0)) ?? false}
-        onClick={() => navigateTo('/add-recruit')}
+      {/* Add Recruit Action Sheet */}
+      <AddRecruitActionSheet
+        open={addActionSheetOpen}
+        onOpenChange={setAddActionSheetOpen}
       />
 
       {/* Drawers */}
