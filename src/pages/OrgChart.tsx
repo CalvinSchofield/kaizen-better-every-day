@@ -63,28 +63,52 @@ const OrgChart = () => {
     staleTime: 1000 * 60 * 2,
   });
 
-  // Build role map: userId -> highest title only (Area Director > MGMT Group Lead > Team Lead)
+  // Build role map: userId -> { title, roleColor }
   // Also track area directors separately for the special display treatment
   const { roleMap, areaDirectorSet } = useMemo(() => {
-    if (!treeData) return { roleMap: new Map<string, string>(), areaDirectorSet: new Set<string>() };
-    const map = new Map<string, string>();
+    if (!treeData) return { roleMap: new Map<string, { title: string; color: RoleColor }>(), areaDirectorSet: new Set<string>() };
+    const map = new Map<string, { title: string; color: RoleColor }>();
     const adSet = new Set<string>();
 
     // Lowest priority first — higher roles overwrite
     treeData.teams.forEach((t) => {
-      if (t.lead_user_id) map.set(t.lead_user_id, "Team Lead");
+      if (t.lead_user_id) map.set(t.lead_user_id, { title: "Team Lead", color: "team_lead" });
     });
     treeData.mgmtGroups.forEach((mg) => {
-      if (mg.lead_user_id) map.set(mg.lead_user_id, "MGMT Group Lead");
+      if (mg.lead_user_id) map.set(mg.lead_user_id, { title: "MGMT Group Lead", color: "mgmt_group" });
     });
     treeData.officeStaff.forEach((s) => {
       if (s.role === "area_director") {
         adSet.add(s.user_id);
-        // Don't overwrite the org title — we'll show Area Director separately above it
+        // If they don't already have a higher org title, set area_director color
+        if (!map.has(s.user_id)) {
+          map.set(s.user_id, { title: "Area Director", color: "area_director" });
+        } else {
+          // Keep their org title but upgrade color to area_director
+          const existing = map.get(s.user_id)!;
+          map.set(s.user_id, { title: existing.title, color: "area_director" });
+        }
       }
     });
 
     return { roleMap: map, areaDirectorSet: adSet };
+  }, [treeData]);
+
+  // Build a set of userIds that are team leads (for label node insertion logic)
+  const teamLeadUserIds = useMemo(() => {
+    if (!treeData) return new Set<string>();
+    const s = new Set<string>();
+    treeData.teams.forEach((t) => { if (t.lead_user_id) s.add(t.lead_user_id); });
+    treeData.mgmtGroups.forEach((mg) => { if (mg.lead_user_id) s.add(mg.lead_user_id); });
+    return s;
+  }, [treeData]);
+
+  // Map userId -> team name they lead (for label nodes)
+  const userTeamNameMap = useMemo(() => {
+    if (!treeData) return new Map<string, string>();
+    const m = new Map<string, string>();
+    treeData.teams.forEach((t) => { if (t.lead_user_id) m.set(t.lead_user_id, t.name); });
+    return m;
   }, [treeData]);
 
   // Build full unfiltered tree first
