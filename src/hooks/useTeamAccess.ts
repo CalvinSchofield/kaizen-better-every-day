@@ -56,7 +56,7 @@ export const useTeamAccess = () => {
   const query = useQuery({
     queryKey: ['team-access'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
 
       if (!session) {
         throw new Error('Not authenticated');
