@@ -46,6 +46,176 @@ function countTotalDescendants(node: OrgNode): number {
   return count;
 }
 
+// --- Delete Confirmation Drawer with reassignment preview ---
+interface DeleteConfirmationDrawerProps {
+  deleteTarget: { id: string; name: string; type: string } | null;
+  onClose: () => void;
+  onConfirm: () => void;
+  isDeleting: boolean;
+  canDirectManage: boolean;
+  orgData: {
+    teams: { id: string; name: string; lead_user_id: string | null }[];
+    recruits: { id: string; name: string; recruiter_user_id: string | null; stage: string | null; team_id: string | null; mgmt_group_id: string | null }[];
+    reps: { user_id: string; name: string; stage: string | null }[];
+    mgmtGroups: { id: string; name: string; lead_user_id: string | null }[];
+  } | undefined;
+}
+
+const DeleteConfirmationDrawer = ({
+  deleteTarget, onClose, onConfirm, isDeleting, canDirectManage, orgData,
+}: DeleteConfirmationDrawerProps) => {
+  const reassignmentInfo = useMemo(() => {
+    if (!deleteTarget || !orgData) return null;
+
+    const isTeam = deleteTarget.type === "team";
+    const entityLabel = isTeam ? "team" : "group";
+
+    // Find the leader of the entity being deleted
+    let leaderUserId: string | null = null;
+    let leaderName: string | null = null;
+    if (isTeam) {
+      const team = orgData.teams.find(t => t.id === deleteTarget.id);
+      leaderUserId = team?.lead_user_id || null;
+    } else {
+      const mg = orgData.mgmtGroups.find(g => g.id === deleteTarget.id);
+      leaderUserId = mg?.lead_user_id || null;
+    }
+    if (leaderUserId) {
+      const rep = orgData.reps.find(r => r.user_id === leaderUserId);
+      leaderName = rep ? getCleanName(rep.name) : null;
+    }
+
+    // Count active recruits in this entity
+    const fieldKey = isTeam ? "team_id" : "mgmt_group_id";
+    const entityRecruits = orgData.recruits.filter(r => r[fieldKey] === deleteTarget.id);
+    const activeRecruits = entityRecruits.filter(r =>
+      r.stage && SIGNED_PLUS_STAGES.some(s => s.toLowerCase() === r.stage!.toLowerCase())
+    );
+
+    // Find where they'll go — trace the team leader's recruiter to find the parent team
+    let destinationTeamName: string | null = null;
+    if (isTeam && leaderUserId) {
+      // Find leader's recruit record to get their recruiter
+      const leaderRep = orgData.reps.find(r => r.user_id === leaderUserId);
+      if (leaderRep) {
+        const leaderRecruit = orgData.recruits.find(
+          r => getCleanName(r.name).toLowerCase() === getCleanName(leaderRep.name).toLowerCase()
+        );
+        if (leaderRecruit?.recruiter_user_id) {
+          // Find the recruiter's team
+          const parentTeam = orgData.teams.find(t => t.lead_user_id === leaderRecruit.recruiter_user_id);
+          if (parentTeam && parentTeam.id !== deleteTarget.id) {
+            const parentLeadRep = orgData.reps.find(r => r.user_id === parentTeam.lead_user_id);
+            destinationTeamName = parentLeadRep ? getCleanName(parentLeadRep.name) + "'s team" : parentTeam.name;
+          } else {
+            // Trace further up
+            let traceUserId = leaderRecruit.recruiter_user_id;
+            const visited = new Set<string>();
+            while (traceUserId && !visited.has(traceUserId)) {
+              visited.add(traceUserId);
+              const traceTeam = orgData.teams.find(t => t.lead_user_id === traceUserId && t.id !== deleteTarget.id);
+              if (traceTeam) {
+                const traceRep = orgData.reps.find(r => r.user_id === traceTeam.lead_user_id);
+                destinationTeamName = traceRep ? getCleanName(traceRep.name) + "'s team" : traceTeam.name;
+                break;
+              }
+              const traceRep = orgData.reps.find(r => r.user_id === traceUserId);
+              if (!traceRep) break;
+              const traceRecruit = orgData.recruits.find(
+                r => getCleanName(r.name).toLowerCase() === getCleanName(traceRep.name).toLowerCase()
+              );
+              traceUserId = traceRecruit?.recruiter_user_id || null;
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      entityLabel,
+      leaderName,
+      activeCount: activeRecruits.length,
+      totalCount: entityRecruits.length,
+      destinationTeamName,
+    };
+  }, [deleteTarget, orgData]);
+
+  return (
+    <Drawer open={!!deleteTarget} onOpenChange={(open) => !open && onClose()}>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>
+            {canDirectManage ? "Delete" : "Request Deletion of"} {deleteTarget?.type === "team" ? "Team" : deleteTarget?.type === "mgmt_group" ? "MGMT Group" : "Item"}
+          </DrawerTitle>
+        </DrawerHeader>
+        <div className="px-4 pb-6 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {canDirectManage
+              ? `Are you sure you want to dissolve the "${deleteTarget?.name}" ${reassignmentInfo?.entityLabel || "team"}?`
+              : `Submit a request to dissolve the "${deleteTarget?.name}" ${reassignmentInfo?.entityLabel || "team"}? Needs upline approval.`}
+          </p>
+
+          {/* Reassignment preview */}
+          {reassignmentInfo && (reassignmentInfo.leaderName || reassignmentInfo.activeCount > 0) && (
+            <div className="bg-muted/50 rounded-xl p-4 space-y-3 border border-border/50">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">What happens</p>
+              
+              {reassignmentInfo.leaderName && (
+                <div className="flex items-center gap-2 text-sm">
+                  <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span>
+                    <span className="font-medium">{reassignmentInfo.leaderName}</span>
+                    {reassignmentInfo.destinationTeamName ? (
+                      <span className="text-muted-foreground">
+                        {" "}moves to{" "}
+                        <span className="font-medium text-foreground">{reassignmentInfo.destinationTeamName}</span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground"> loses team lead role</span>
+                    )}
+                  </span>
+                </div>
+              )}
+
+              {reassignmentInfo.activeCount > 0 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span>
+                    <span className="font-medium">{reassignmentInfo.activeCount} active rep{reassignmentInfo.activeCount !== 1 ? "s" : ""}</span>
+                    <span className="text-muted-foreground">
+                      {reassignmentInfo.destinationTeamName ? (
+                        <> will follow to <span className="font-medium text-foreground">{reassignmentInfo.destinationTeamName}</span></>
+                      ) : (
+                        <> will be unassigned</>
+                      )}
+                    </span>
+                  </span>
+                </div>
+              )}
+
+              {reassignmentInfo.destinationTeamName && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                  <ArrowRight className="h-3 w-3 shrink-0" />
+                  <span>Recruiter relationships stay intact</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button variant="destructive" className="flex-1" onClick={onConfirm} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : canDirectManage ? "Delete" : "Submit Request"}
+            </Button>
+          </div>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+};
+
 interface OrgStructureTreeProps {
   accessLevel?: AccessLevel;
 }
