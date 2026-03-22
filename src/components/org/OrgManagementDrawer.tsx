@@ -208,6 +208,7 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
                   <p className="text-sm text-center text-muted-foreground py-4">No results</p>
                 )}
               </div>
+              </ScrollArea>
               <Button variant="outline" className="w-full" onClick={() => setStep("name")}>
                 ← Back
               </Button>
