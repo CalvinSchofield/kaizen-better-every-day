@@ -264,8 +264,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const { data: orgData, isLoading, isError } = useQuery({
     queryKey: ["org-structure-data"],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [regionsRes, officesRes, mgmtGroupsRes, teamsRes, teamMgmtRes, officeStaffRes, repsRes, recruitsRes] = await Promise.all([
+      const [regionsRes, officesRes, mgmtGroupsRes, teamsRes, teamMgmtRes, officeStaffRes, repsRes, recruitsRes, srMgmtGroupsRes, srRegionsRes, partnersRes, divisionsRes] = await Promise.all([
         supabase.from("regions").select("*").order("name"),
         supabase.from("offices").select("*").order("name"),
         supabase.from("mgmt_groups").select("*").order("name"),
@@ -274,6 +273,10 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         supabase.from("office_staff").select("*"),
         supabase.from("reps").select("user_id, name, year, profile_photo_url, stage"),
         supabase.from("recruits").select("id, name, recruiter_user_id, stage, year, team_id, mgmt_group_id, phone, email, location, recruitment_source, last_contact, next_action, next_action_due, created_at").limit(5000),
+        supabase.from("sr_mgmt_groups").select("*").order("name"),
+        supabase.from("sr_regions").select("*").order("name"),
+        supabase.from("partners").select("*").order("name"),
+        supabase.from("divisions").select("*").order("name"),
       ]);
       return {
         regions: regionsRes.data || [],
@@ -284,6 +287,10 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         officeStaff: officeStaffRes.data || [],
         reps: repsRes.data || [],
         recruits: recruitsRes.data || [],
+        srMgmtGroups: srMgmtGroupsRes.data || [],
+        srRegions: srRegionsRes.data || [],
+        partners: partnersRes.data || [],
+        divisions: divisionsRes.data || [],
       };
     },
     staleTime: 1000 * 60 * 2,
