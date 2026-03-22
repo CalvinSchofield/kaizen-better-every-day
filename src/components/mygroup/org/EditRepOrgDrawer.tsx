@@ -270,7 +270,9 @@ export const EditRepOrgDrawer = ({
       toast({ title: "Rep updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["team-access"] });
       queryClient.invalidateQueries({ queryKey: ["org-structure"] });
+      queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
       queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
+      queryClient.invalidateQueries({ queryKey: ["recruiter-tree-data"] });
       queryClient.invalidateQueries({ queryKey: ["recruit-blitzes", rep.id] });
       onOpenChange(false);
     } catch (err) {
