@@ -307,6 +307,12 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const [moveRepTarget, setMoveRepTarget] = useState<{ id: string; name: string } | null>(null);
   const [bulkAssignTarget, setBulkAssignTarget] = useState<{ id: string; name: string } | null>(null);
   const [moveTeamTarget, setMoveTeamTarget] = useState<{ id: string; name: string; leadUserId: string | null } | null>(null);
+  const [moveEntityTarget, setMoveEntityTarget] = useState<{
+    entityType: "mgmt_group" | "sr_mgmt_group" | "region" | "sr_region" | "partner";
+    id: string;
+    name: string;
+    leadUserId: string | null;
+  } | null>(null);
 
   // Management drawers
   const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team" | "mgmt_group"; parentId?: string; parentName?: string } | null>(null);
