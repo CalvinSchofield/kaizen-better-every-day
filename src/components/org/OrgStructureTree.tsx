@@ -1154,8 +1154,9 @@ const OrgNodeCard = ({ node, depth, onLongPressAction, onTap, canManage }: OrgNo
   const hasChildren = node.children.length > 0;
   const Icon = typeIcons[node.type];
   const isRep = node.type === "rep";
-  const isInteractive = isRep || ((node.type === "office" || node.type === "region") && canManage);
-  const isLongPressable = node.type === "team" || node.type === "mgmt_group" || (node.type === "rep" && canManage) || ((node.type === "office" || node.type === "region") && canManage);
+  const managedTypes: OrgNodeType[] = ["division", "partner", "sr_region", "region", "sr_mgmt_group", "office", "mgmt_group", "team"];
+  const isInteractive = isRep || (managedTypes.includes(node.type) && canManage);
+  const isLongPressable = (managedTypes.includes(node.type) && canManage) || (isRep && canManage);
 
   const totalReps = useMemo(() => {
     if (isRep) return 0;
