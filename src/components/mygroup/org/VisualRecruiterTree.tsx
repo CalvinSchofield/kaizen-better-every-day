@@ -1,11 +1,13 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { getCleanName, getInitials } from "@/utils/nameUtils";
+import { YearBadge } from "@/components/leaderboard/YearBadge";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -17,8 +19,7 @@ export interface TreeNode {
   profilePhotoUrl?: string | null;
   role?: string | null;
   year?: string | null;
-  groupName?: string | null;
-  teamName?: string | null;
+  isAreaDirector?: boolean;
   children: TreeNode[];
 }
 
@@ -30,8 +31,7 @@ interface PositionedNode {
   profilePhotoUrl?: string | null;
   role?: string | null;
   year?: string | null;
-  groupName?: string | null;
-  teamName?: string | null;
+  isAreaDirector?: boolean;
   x: number;
   y: number;
   childCount: number;
@@ -66,10 +66,10 @@ function countDescendants(node: TreeNode): number {
 
 // ── Layout Algorithm ───────────────────────────────────
 
-function computeSubtreeWidth(node: TreeNode): number {
-  if (node.children.length === 0) return NODE_DIAMETER + H_GAP;
+function computeSubtreeWidth(node: TreeNode, collapsedIds: Set<string>): number {
+  if (node.children.length === 0 || collapsedIds.has(node.id)) return NODE_DIAMETER + H_GAP;
   const childrenWidth = node.children.reduce(
-    (sum, child) => sum + computeSubtreeWidth(child),
+    (sum, child) => sum + computeSubtreeWidth(child, collapsedIds),
     0
   );
   return Math.max(NODE_DIAMETER + H_GAP, childrenWidth);
@@ -80,9 +80,10 @@ function layoutNodes(
   depth: number,
   offsetX: number,
   nodes: PositionedNode[],
-  lines: Line[]
+  lines: Line[],
+  collapsedIds: Set<string>
 ): void {
-  const subtreeW = computeSubtreeWidth(node);
+  const subtreeW = computeSubtreeWidth(node, collapsedIds);
   const cx = offsetX + subtreeW / 2;
   const cy = depth * (NODE_TOTAL_H + V_GAP) + NODE_RADIUS;
 
@@ -94,38 +95,34 @@ function layoutNodes(
     profilePhotoUrl: node.profilePhotoUrl,
     role: node.role,
     year: node.year,
-    groupName: node.groupName,
-    teamName: node.teamName,
+    isAreaDirector: node.isAreaDirector,
     x: cx,
     y: cy,
     childCount: node.children.length,
     totalDescendants: countDescendants(node),
   });
 
-  if (node.children.length === 0) return;
+  if (node.children.length === 0 || collapsedIds.has(node.id)) return;
 
   let childOffset = offsetX;
   const childY = (depth + 1) * (NODE_TOTAL_H + V_GAP) + NODE_RADIUS;
   const junctionY = cy + NODE_RADIUS + (V_GAP + LABEL_HEIGHT) / 2;
 
-  // Vertical line from parent down to junction
   lines.push({ x1: cx, y1: cy + NODE_RADIUS, x2: cx, y2: junctionY });
 
   const childPositions: number[] = [];
 
   node.children.forEach((child) => {
-    const childW = computeSubtreeWidth(child);
+    const childW = computeSubtreeWidth(child, collapsedIds);
     const childCx = childOffset + childW / 2;
     childPositions.push(childCx);
 
-    // Vertical line from junction down to child
     lines.push({ x1: childCx, y1: junctionY, x2: childCx, y2: childY - NODE_RADIUS });
 
-    layoutNodes(child, depth + 1, childOffset, nodes, lines);
+    layoutNodes(child, depth + 1, childOffset, nodes, lines, collapsedIds);
     childOffset += childW;
   });
 
-  // Horizontal line across junction
   if (childPositions.length > 1) {
     const leftmost = Math.min(...childPositions);
     const rightmost = Math.max(...childPositions);
@@ -133,14 +130,14 @@ function layoutNodes(
   }
 }
 
-function layoutForest(roots: TreeNode[]) {
+function layoutForest(roots: TreeNode[], collapsedIds: Set<string>) {
   const nodes: PositionedNode[] = [];
   const lines: Line[] = [];
   let offset = 0;
 
   roots.forEach((root) => {
-    const w = computeSubtreeWidth(root);
-    layoutNodes(root, 0, offset, nodes, lines);
+    const w = computeSubtreeWidth(root, collapsedIds);
+    layoutNodes(root, 0, offset, nodes, lines, collapsedIds);
     offset += w + H_GAP * 2;
   });
 
@@ -187,9 +184,24 @@ export const VisualRecruiterTree = ({
   selectedNodeId,
   onSelectNode,
 }: VisualRecruiterTreeProps) => {
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+
+  const toggleCollapse = useCallback((nodeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
+
   const { nodes, lines, totalWidth, totalHeight } = useMemo(
-    () => layoutForest(roots),
-    [roots]
+    () => layoutForest(roots, collapsedIds),
+    [roots, collapsedIds]
   );
 
   const PADDING = 60;
@@ -235,123 +247,143 @@ export const VisualRecruiterTree = ({
             <TransformComponent
               wrapperStyle={{ width: "100%", height: "70vh", minHeight: 350 }}
             >
-              <div style={{ width: svgWidth, height: svgHeight, position: "relative" }}>
+              <motion.div
+                layout
+                transition={{ type: "spring", stiffness: 300, damping: 25, mass: 0.8 }}
+                style={{ width: svgWidth, height: svgHeight, position: "relative" }}
+              >
                 {/* SVG connector lines */}
-                <svg
+                <motion.svg
+                  layout
                   width={svgWidth}
                   height={svgHeight}
                   className="absolute inset-0"
                   style={{ pointerEvents: "none" }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25, mass: 0.8 }}
                 >
-                  {lines.map((line, i) => (
-                    <line
-                      key={i}
-                      x1={line.x1 + PADDING}
-                      y1={line.y1 + PADDING}
-                      x2={line.x2 + PADDING}
-                      y2={line.y2 + PADDING}
-                      className="stroke-border"
-                      strokeWidth={1.5}
-                    />
-                  ))}
-                </svg>
+                  <AnimatePresence>
+                    {lines.map((line, i) => (
+                      <motion.line
+                        key={`${line.x1}-${line.y1}-${line.x2}-${line.y2}-${i}`}
+                        initial={{ opacity: 0 }}
+                        animate={{
+                          x1: line.x1 + PADDING,
+                          y1: line.y1 + PADDING,
+                          x2: line.x2 + PADDING,
+                          y2: line.y2 + PADDING,
+                          opacity: 1,
+                        }}
+                        exit={{ opacity: 0 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 25, mass: 0.8 }}
+                        className="stroke-border"
+                        strokeWidth={1.5}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </motion.svg>
 
                 {/* Nodes */}
-                {nodes.map((node) => {
-                  const cleanName = getCleanName(node.name);
-                  const initials = getInitials(cleanName);
-                  const isSelected = selectedNodeId === node.id;
-                  const isGhost = !node.userId;
-                  const firstName = cleanName.split(" ")[0];
-                  const lastName = cleanName.split(" ").slice(1).join(" ");
+                <AnimatePresence>
+                  {nodes.map((node) => {
+                    const cleanName = getCleanName(node.name);
+                    const initials = getInitials(cleanName);
+                    const isSelected = selectedNodeId === node.id;
+                    const isGhost = !node.userId;
+                    const isCollapsed = collapsedIds.has(node.id);
 
-                  return (
-                    <div
-                      key={node.id}
-                      className="absolute flex flex-col items-center cursor-pointer group"
-                      style={{
-                        left: node.x + PADDING - NODE_RADIUS - 16,
-                        top: node.y + PADDING - NODE_RADIUS,
-                        width: NODE_DIAMETER + 32,
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleNodeClick(node);
-                      }}
-                    >
-                      {/* Avatar circle */}
-                      <div
-                        className={cn(
-                          "rounded-full border-[2.5px] transition-all duration-200 shadow-sm",
-                          getStageRing(node.stage),
-                          isSelected && "!border-primary !ring-4 !ring-primary/20 scale-110",
-                          isGhost && "opacity-60"
-                        )}
+                    return (
+                      <motion.div
+                        key={node.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.5 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 25, mass: 0.8 }}
+                        className="absolute flex flex-col items-center cursor-pointer group"
+                        style={{
+                          left: node.x + PADDING - NODE_RADIUS - 16,
+                          top: node.y + PADDING - NODE_RADIUS,
+                          width: NODE_DIAMETER + 32,
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleNodeClick(node);
+                        }}
                       >
-                        <Avatar className={cn("h-[56px] w-[56px]", getStageColor(node.stage))}>
-                          <AvatarImage src={node.profilePhotoUrl || undefined} />
-                          <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
-                            {initials}
-                          </AvatarFallback>
-                        </Avatar>
-                      </div>
-
-                      {/* Name */}
-                      <span
-                        className={cn(
-                          "text-[11px] leading-tight text-center font-semibold mt-1.5 max-w-[92px] truncate",
-                          isSelected ? "text-primary" : "text-foreground"
-                        )}
-                      >
-                        {firstName}
-                      </span>
-                      {lastName && (
-                        <span className="text-[10px] text-muted-foreground leading-tight truncate max-w-[92px]">
-                          {lastName}
-                        </span>
-                      )}
-
-                      {/* Role/Title badge */}
-                      {node.role && (
-                        <span className="text-[9px] text-primary/80 font-medium leading-tight mt-0.5 truncate max-w-[92px] italic">
-                          {node.role}
-                        </span>
-                      )}
-
-                      {/* MGMT Group name pill */}
-                      {node.groupName && (
-                        <span className="text-[8px] leading-tight mt-0.5 px-1.5 py-[1px] rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold truncate max-w-[92px]">
-                          {node.groupName}
-                        </span>
-                      )}
-
-                      {/* Team name pill */}
-                      {node.teamName && (
-                        <span className="text-[8px] leading-tight mt-0.5 px-1.5 py-[1px] rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-medium truncate max-w-[92px]">
-                          {node.teamName}
-                        </span>
-                      )}
-
-                      {/* Year */}
-                      {node.year && (
-                        <span className="text-[9px] text-muted-foreground leading-tight truncate max-w-[92px]">
-                          {node.year}
-                        </span>
-                      )}
-
-                      {/* Total downline count badge */}
-                      {node.totalDescendants > 0 && (
-                        <Badge
-                          variant="secondary"
-                          className="absolute -bottom-1 -right-1 h-4 min-w-4 px-1 text-[9px] font-bold"
+                        {/* Avatar circle */}
+                        <div
+                          className={cn(
+                            "rounded-full border-[2.5px] transition-all duration-200 shadow-sm",
+                            getStageRing(node.stage),
+                            isSelected && "!border-primary !ring-4 !ring-primary/20 scale-110",
+                            isGhost && "opacity-60"
+                          )}
                         >
-                          {node.totalDescendants}
-                        </Badge>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                          <Avatar className={cn("h-[56px] w-[56px]", getStageColor(node.stage))}>
+                            <AvatarImage src={node.profilePhotoUrl || undefined} />
+                            <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
+                              {initials}
+                            </AvatarFallback>
+                          </Avatar>
+                        </div>
+
+                        {/* Name */}
+                        <span
+                          className={cn(
+                            "text-[11px] leading-tight text-center font-semibold mt-1.5 max-w-[92px] truncate",
+                            isSelected ? "text-primary" : "text-foreground"
+                          )}
+                        >
+                          {cleanName.split(" ")[0]}
+                        </span>
+                        {cleanName.split(" ").length > 1 && (
+                          <span className="text-[10px] text-muted-foreground leading-tight truncate max-w-[92px]">
+                            {cleanName.split(" ").slice(1).join(" ")}
+                          </span>
+                        )}
+
+                        {/* Year badge */}
+                        {node.year && (
+                          <YearBadge year={node.year} className="mt-0.5 scale-90" />
+                        )}
+
+                        {/* Area Director label (only for ADs, shown above org title) */}
+                        {node.isAreaDirector && (
+                          <span className="text-[9px] text-amber-600 dark:text-amber-400 font-bold leading-tight mt-0.5 truncate max-w-[92px]">
+                            Area Director
+                          </span>
+                        )}
+
+                        {/* Highest org title */}
+                        {node.role && (
+                          <span className="text-[9px] text-primary/80 font-medium leading-tight mt-0.5 truncate max-w-[92px] italic">
+                            {node.role}
+                          </span>
+                        )}
+
+                        {/* Collapsible descendant count badge */}
+                        {node.totalDescendants > 0 && (
+                          <motion.div
+                            whileTap={{ scale: 0.85 }}
+                            className="absolute -bottom-1 -right-1"
+                            onClick={(e) => toggleCollapse(node.id, e)}
+                          >
+                            <Badge
+                              variant={isCollapsed ? "default" : "secondary"}
+                              className={cn(
+                                "h-5 min-w-5 px-1.5 text-[9px] font-bold cursor-pointer transition-colors",
+                                isCollapsed && "bg-primary text-primary-foreground"
+                              )}
+                            >
+                              {isCollapsed ? `+${node.totalDescendants}` : node.totalDescendants}
+                            </Badge>
+                          </motion.div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </motion.div>
             </TransformComponent>
           </>
         )}
