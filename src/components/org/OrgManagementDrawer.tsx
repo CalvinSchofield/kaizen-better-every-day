@@ -924,31 +924,40 @@ export const ConfigureOfficeDrawer = ({
                 ← Back
               </Button>
               <p className="text-sm font-medium">Assign Area Director</p>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                  autoFocus
-                />
-              </div>
-              {filteredReps.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Showing leaders in your downline (Team Lead+), sorted by hierarchy
+              </p>
+              {eligibleADCandidates.length > 6 && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                    autoFocus
+                  />
+                </div>
+              )}
+              {filteredADCandidates.length > 0 ? (
                 <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                  {filteredReps.map((rep) => (
+                  {filteredADCandidates.map((rep) => (
                     <button
                       key={rep.user_id}
                       onClick={() => addStaff.mutate(rep.user_id)}
-                      className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors"
+                      className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors flex items-center justify-between"
                     >
                       <p className="text-sm font-medium">{getCleanName(rep.name)}</p>
+                      <Badge variant="outline" className="text-[10px] shrink-0">
+                        {rep.orgRole.label}
+                      </Badge>
                     </button>
                   ))}
                 </div>
-              )}
-              {searchQuery.trim() && filteredReps.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">No results</p>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {searchQuery.trim() ? "No matching leaders found" : "No eligible leaders in your downline"}
+                </p>
               )}
             </div>
           )}
