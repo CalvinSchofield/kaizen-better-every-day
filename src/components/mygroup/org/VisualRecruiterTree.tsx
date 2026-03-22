@@ -30,6 +30,8 @@ interface PositionedNode {
   profilePhotoUrl?: string | null;
   role?: string | null;
   year?: string | null;
+  groupName?: string | null;
+  teamName?: string | null;
   x: number;
   y: number;
   childCount: number;
