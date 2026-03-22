@@ -47,8 +47,8 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
   } | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentAuthUserId(data.user?.id || null);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentAuthUserId(session?.user?.id || null);
     });
   }, []);
 

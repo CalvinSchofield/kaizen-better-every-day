@@ -717,7 +717,7 @@ export const useSubmitSuggestion = () => {
       teamLeaderUserId: string;
       suggestedByName: string;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
@@ -1202,7 +1202,7 @@ export const useMySuggestions = () => {
   return useQuery({
     queryKey: ['my-suggestions'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
@@ -1235,7 +1235,7 @@ export const useUpdateMySuggestion = () => {
       relationship?: string;
       notes?: string;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
@@ -1288,7 +1288,7 @@ export const useDeleteMySuggestion = () => {
 
   return useMutation({
     mutationFn: async (suggestionId: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase

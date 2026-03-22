@@ -801,7 +801,7 @@ const Home = () => {
   const handleSetupNudge = async () => {
     setIsNudging(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user?.email) throw new Error('No user email found');
 
       const { error } = await supabase.functions.invoke('send-setup-nudge-email', {

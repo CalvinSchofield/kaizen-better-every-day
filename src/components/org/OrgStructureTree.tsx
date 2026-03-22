@@ -240,8 +240,8 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const canDirectManage = canManageTeams && isBootstrapping;
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const uid = data.user?.id || null;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const uid = session?.user?.id || null;
       setCurrentUserId(uid);
       if (uid) {
         // Derive access level from DB directly as fallback
