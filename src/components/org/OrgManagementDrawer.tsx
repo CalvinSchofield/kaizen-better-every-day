@@ -484,24 +484,122 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, p
 // CONFIGURE OFFICE DRAWER
 // ==========================================
 
+interface OrgDataForAD {
+  divisions?: Array<{ id: string; lead_user_id: string | null }>;
+  partners?: Array<{ id: string; lead_user_id: string | null; division_id: string | null }>;
+  srRegions?: Array<{ id: string; lead_user_id: string | null; partner_id: string | null }>;
+  regions?: Array<{ id: string; lead_user_id: string | null; sr_region_id: string | null }>;
+  srMgmtGroups?: Array<{ id: string; lead_user_id: string | null; region_id: string | null }>;
+  mgmtGroups?: Array<{ id: string; lead_user_id: string | null; sr_mgmt_group_id: string | null; office_id: string | null }>;
+  teams?: Array<{ id: string; lead_user_id: string | null }>;
+  teamMgmt?: Array<{ team_id: string; mgmt_group_id: string }>;
+}
+
+type AccessLevelForAD = string;
+
+const ROLE_HIERARCHY_ORDER: AccessLevelForAD[] = [
+  'none', 'recruiter', 'assistant_manager', 'team_lead', 'manager',
+  'senior_manager', 'mgmt_group_lead', 'area_director', 'regional',
+  'sr_regional', 'partner', 'divisional', 'corporate',
+];
+
+/** Determine a user's highest org role from the structure data */
+const getUserOrgRole = (userId: string, orgData: OrgDataForAD): { role: AccessLevelForAD; label: string; rank: number } => {
+  if (orgData.divisions?.some(d => d.lead_user_id === userId)) return { role: 'divisional', label: 'Divisional', rank: 11 };
+  if (orgData.partners?.some(p => p.lead_user_id === userId)) return { role: 'partner', label: 'Partner', rank: 10 };
+  if (orgData.srRegions?.some(sr => sr.lead_user_id === userId)) return { role: 'sr_regional', label: 'Sr. Regional', rank: 9 };
+  if (orgData.regions?.some(r => r.lead_user_id === userId)) return { role: 'regional', label: 'Regional', rank: 8 };
+  if (orgData.srMgmtGroups?.some(sg => sg.lead_user_id === userId)) return { role: 'senior_manager', label: 'Sr. Manager', rank: 5 };
+  if (orgData.mgmtGroups?.some(mg => mg.lead_user_id === userId)) return { role: 'mgmt_group_lead', label: 'MGMT Lead', rank: 6 };
+  if (orgData.teams?.some(t => t.lead_user_id === userId)) return { role: 'team_lead', label: 'Team Lead', rank: 3 };
+  return { role: 'recruiter', label: 'Recruiter', rank: 1 };
+};
+
+/** Get all downline leader user IDs from org structure for a given user */
+const getDownlineUserIds = (orgData: OrgDataForAD, currentUserId: string, accessLevel: AccessLevelForAD): Set<string> => {
+  const result = new Set<string>();
+
+  // Corporate sees everyone
+  if (accessLevel === 'corporate') {
+    orgData.divisions?.forEach(d => d.lead_user_id && result.add(d.lead_user_id));
+    orgData.partners?.forEach(p => p.lead_user_id && result.add(p.lead_user_id));
+    orgData.srRegions?.forEach(sr => sr.lead_user_id && result.add(sr.lead_user_id));
+    orgData.regions?.forEach(r => r.lead_user_id && result.add(r.lead_user_id));
+    orgData.srMgmtGroups?.forEach(sg => sg.lead_user_id && result.add(sg.lead_user_id));
+    orgData.mgmtGroups?.forEach(mg => mg.lead_user_id && result.add(mg.lead_user_id));
+    orgData.teams?.forEach(t => t.lead_user_id && result.add(t.lead_user_id));
+    result.delete(currentUserId);
+    return result;
+  }
+
+  // Cascade down from what the user leads
+  const divisionIds = new Set((orgData.divisions || []).filter(d => d.lead_user_id === currentUserId).map(d => d.id));
+
+  const partnerIds = new Set([
+    ...(orgData.partners || []).filter(p => p.lead_user_id === currentUserId).map(p => p.id),
+    ...(orgData.partners || []).filter(p => p.division_id && divisionIds.has(p.division_id)).map(p => p.id),
+  ]);
+  (orgData.partners || []).filter(p => partnerIds.has(p.id) && p.lead_user_id).forEach(p => result.add(p.lead_user_id!));
+
+  const srRegionIds = new Set([
+    ...(orgData.srRegions || []).filter(sr => sr.lead_user_id === currentUserId).map(sr => sr.id),
+    ...(orgData.srRegions || []).filter(sr => sr.partner_id && partnerIds.has(sr.partner_id)).map(sr => sr.id),
+  ]);
+  (orgData.srRegions || []).filter(sr => srRegionIds.has(sr.id) && sr.lead_user_id).forEach(sr => result.add(sr.lead_user_id!));
+
+  const regionIds = new Set([
+    ...(orgData.regions || []).filter(r => r.lead_user_id === currentUserId).map(r => r.id),
+    ...(orgData.regions || []).filter(r => r.sr_region_id && srRegionIds.has(r.sr_region_id)).map(r => r.id),
+  ]);
+  (orgData.regions || []).filter(r => regionIds.has(r.id) && r.lead_user_id).forEach(r => result.add(r.lead_user_id!));
+
+  const srMgmtIds = new Set([
+    ...(orgData.srMgmtGroups || []).filter(sg => sg.lead_user_id === currentUserId).map(sg => sg.id),
+    ...(orgData.srMgmtGroups || []).filter(sg => sg.region_id && regionIds.has(sg.region_id)).map(sg => sg.id),
+  ]);
+  (orgData.srMgmtGroups || []).filter(sg => srMgmtIds.has(sg.id) && sg.lead_user_id).forEach(sg => result.add(sg.lead_user_id!));
+
+  const mgmtIds = new Set([
+    ...(orgData.mgmtGroups || []).filter(mg => mg.lead_user_id === currentUserId).map(mg => mg.id),
+    ...(orgData.mgmtGroups || []).filter(mg => mg.sr_mgmt_group_id && srMgmtIds.has(mg.sr_mgmt_group_id)).map(mg => mg.id),
+  ]);
+  (orgData.mgmtGroups || []).filter(mg => mgmtIds.has(mg.id) && mg.lead_user_id).forEach(mg => result.add(mg.lead_user_id!));
+
+  const teamMgmtGroupTeamIds = (orgData.teamMgmt || []).filter(tm => mgmtIds.has(tm.mgmt_group_id)).map(tm => tm.team_id);
+  const teamIds = new Set([
+    ...(orgData.teams || []).filter(t => t.lead_user_id === currentUserId).map(t => t.id),
+    ...teamMgmtGroupTeamIds,
+  ]);
+  (orgData.teams || []).filter(t => teamIds.has(t.id) && t.lead_user_id).forEach(t => result.add(t.lead_user_id!));
+
+  result.delete(currentUserId);
+  return result;
+};
+
 interface ConfigureOfficeDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   officeId: string;
   officeName: string;
   officeLocation?: string | null;
-  // Data from parent
   currentStaff: Array<{ id: string; user_id: string; role: string }>;
   currentMgmtGroups: Array<{ id: string; name: string; lead_user_id: string | null }>;
   allMgmtGroups: Array<{ id: string; name: string; office_id: string | null; lead_user_id: string | null }>;
   allReps: Array<{ user_id: string; name: string }>;
   /** Whether user has full management rights (regional+). ADs can only rename. */
   canFullManage?: boolean;
+  /** Full org structure data for computing eligible AD candidates */
+  orgData?: OrgDataForAD | null;
+  /** Current user ID for downline scoping */
+  currentUserId?: string;
+  /** Current user's access level */
+  accessLevel?: AccessLevelForAD;
 }
 
 export const ConfigureOfficeDrawer = ({
   open, onOpenChange, officeId, officeName, officeLocation,
   currentStaff, currentMgmtGroups, allMgmtGroups, allReps, canFullManage = false,
+  orgData, currentUserId, accessLevel,
 }: ConfigureOfficeDrawerProps) => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");

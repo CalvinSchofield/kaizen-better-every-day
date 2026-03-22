@@ -1392,6 +1392,9 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           allMgmtGroups={orgData?.mgmtGroups || []}
           allReps={orgData?.reps?.map((r) => ({ user_id: r.user_id, name: r.name })) || []}
           canFullManage={canManageOffices}
+          orgData={orgData}
+          currentUserId={currentUserId || undefined}
+          accessLevel={accessLevel}
         />
       )}
 
