@@ -45,7 +45,7 @@ import { LogOneOnOneDrawer } from "@/components/mygroup/LogOneOnOneDrawer";
 import { RescheduleActivityDrawer } from "@/components/mygroup/RescheduleActivityDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataLoadError } from "@/components/mygroup/DataLoadError";
-import { ShareInviteLinkButton } from "@/components/mygroup/ShareInviteLinkButton";
+import { AddRecruitActionSheet } from "@/components/mygroup/AddRecruitActionSheet";
 import Layout from "@/components/Layout";
 import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, startOfToday } from "date-fns";
 import { toast } from "sonner";
