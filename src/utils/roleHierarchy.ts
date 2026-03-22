@@ -145,3 +145,17 @@ export const canCreateEntityType = (level: AccessLevel, entityType: string): boo
   const effectiveLevel = level === 'area_director' ? 'mgmt_group_lead' : level;
   return allowedLevels.includes(effectiveLevel);
 };
+
+/**
+ * Check if a role assignment is a "large jump" — 2+ levels above the approver.
+ * Returns { isLargeJump, levelDiff } for UI warning purposes.
+ */
+export const getRoleJumpInfo = (
+  approverLevel: AccessLevel,
+  targetRole: AccessLevel
+): { isLargeJump: boolean; levelDiff: number } => {
+  const approverIndex = ROLE_HIERARCHY.indexOf(approverLevel);
+  const targetIndex = ROLE_HIERARCHY.indexOf(targetRole);
+  const levelDiff = targetIndex - approverIndex;
+  return { isLargeJump: levelDiff >= 2, levelDiff };
+};

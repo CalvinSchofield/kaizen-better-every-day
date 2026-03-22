@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Recruit } from "@/hooks/useGroupRecruits";
-import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, ROLE_HIERARCHY, getAssignableRoles, type AccessLevel } from "@/utils/roleHierarchy";
+import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, ROLE_HIERARCHY, getAssignableRoles, getRoleJumpInfo, type AccessLevel } from "@/utils/roleHierarchy";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import {
@@ -35,9 +35,19 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface EditRecruitDrawerProps {
   open: boolean;
@@ -88,8 +98,15 @@ export const EditRecruitDrawer = ({
   
   // Role assignment state
   const [selectedRole, setSelectedRole] = useState<string>('');
+  const [showRoleConfirm, setShowRoleConfirm] = useState(false);
   const accessLevel = (teamAccess?.accessLevel || 'none') as AccessLevel;
   const canAssignRoles = showRoleAssignment && hasMinAccess(accessLevel, 'mgmt_group_lead');
+  
+  // Compute role jump warning info
+  const roleJumpInfo = useMemo(() => {
+    if (!selectedRole) return null;
+    return getRoleJumpInfo(accessLevel, selectedRole as AccessLevel);
+  }, [selectedRole, accessLevel]);
   
   // Track if form has been initialized for this drawer open session
   const [formInitialized, setFormInitialized] = useState(false);
@@ -424,7 +441,17 @@ export const EditRecruitDrawer = ({
     },
   });
 
+  // Gate: if a role is selected, show confirmation first
+  const handleSaveClick = () => {
+    if (selectedRole && canAssignRoles) {
+      setShowRoleConfirm(true);
+      return;
+    }
+    handleSave();
+  };
+
   const handleSave = async () => {
+    setShowRoleConfirm(false);
     const cleanPhone = phone.replace(/\D/g, '');
     
     // Find the recruiter name from the user ID
@@ -885,7 +912,7 @@ export const EditRecruitDrawer = ({
               Cancel
             </Button>
             <Button 
-              onClick={handleSave}
+              onClick={handleSaveClick}
               disabled={updateMutation.isPending || !name.trim()}
               className="flex-1"
             >
@@ -901,6 +928,40 @@ export const EditRecruitDrawer = ({
           </div>
         </DrawerFooter>
       </DrawerContent>
+
+      {/* Role Assignment Confirmation Dialog */}
+      <AlertDialog open={showRoleConfirm} onOpenChange={setShowRoleConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {roleJumpInfo?.isLargeJump && (
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+              )}
+              Confirm Role Assignment
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left space-y-2">
+              <p>
+                You're about to assign <strong>{name}</strong> the role of{' '}
+                <strong>{getRoleLabel(selectedRole as AccessLevel)}</strong>.
+              </p>
+              <p className="text-muted-foreground">
+                This will give them management access at that level.
+              </p>
+              {roleJumpInfo?.isLargeJump && (
+                <p className="text-amber-600 dark:text-amber-400 font-medium">
+                  ⚠️ This role is {roleJumpInfo.levelDiff} levels above your own — please double-check this is correct.
+                </p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go Back</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSave}>
+              Yes, Assign {getRoleLabel(selectedRole as AccessLevel)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Drawer>
   );
 };
