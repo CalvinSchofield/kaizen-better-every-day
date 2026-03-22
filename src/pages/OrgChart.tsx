@@ -3,27 +3,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, GitBranch, Filter } from "lucide-react";
+import { Users, GitBranch } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
 import { VisualRecruiterTree, type TreeNode, type RoleColor } from "@/components/mygroup/org/VisualRecruiterTree";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrgStructureTree } from "@/components/org/OrgStructureTree";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { STAGES, SIGNED_PLUS_STAGES, PRIMARY_STAGES, EXIT_STAGES } from "@/utils/stageConstants";
+import { SIGNED_PLUS_STAGES } from "@/utils/stageConstants";
 import type { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 
-// Default active stages for the tree
-const DEFAULT_STAGE_FILTERS = new Set(
-  SIGNED_PLUS_STAGES.map(s => s.toLowerCase())
-);
-
-const ALL_FILTER_STAGES = [...PRIMARY_STAGES, ...EXIT_STAGES];
 
 const OrgChart = () => {
   const queryClient = useQueryClient();
@@ -36,9 +24,6 @@ const OrgChart = () => {
     });
   }, []);
 
-  // Filter state
-  const [stageFilters, setStageFilters] = useState<Set<string>>(DEFAULT_STAGE_FILTERS);
-  const [showWithAppAccess, setShowWithAppAccess] = useState<boolean | null>(null); // null = show all
 
   const { data: treeData, isLoading } = useQuery({
     queryKey: ["org-chart-full-tree"],
@@ -261,47 +246,6 @@ const OrgChart = () => {
     return rootNodes.sort((a, b) => b.children.length - a.children.length);
   }, [treeData, teamAccess, currentAuthUserId, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap]);
 
-  // Filter tree based on stage filters
-  const filteredTree = useMemo(() => {
-    if (!fullTree) return null;
-
-    const filterNode = (node: TreeNode): TreeNode | null => {
-      // Label nodes always pass if they have filtered children
-      if (node.isLabelNode) {
-        const filteredChildren = node.children.map(filterNode).filter(Boolean) as TreeNode[];
-        return filteredChildren.length > 0 ? { ...node, children: filteredChildren } : null;
-      }
-
-      // Recursively filter children
-      const filteredChildren = node.children
-        .map(filterNode)
-        .filter(Boolean) as TreeNode[];
-
-      // Check if this node passes the filter
-      const stageMatch = node.stage
-        ? stageFilters.has(node.stage.toLowerCase())
-        : false;
-      
-      const appAccessMatch = showWithAppAccess === null
-        ? true
-        : showWithAppAccess
-          ? !!node.userId
-          : !node.userId;
-
-      // Keep node if it passes filters OR has children that pass
-      const nodePassesFilter = stageMatch && appAccessMatch;
-      
-      if (nodePassesFilter || filteredChildren.length > 0) {
-        return { ...node, children: filteredChildren };
-      }
-
-      return null;
-    };
-
-    return fullTree
-      .map(filterNode)
-      .filter(Boolean) as TreeNode[];
-  }, [fullTree, stageFilters, showWithAppAccess]);
 
   // Build a lookup for full recruit data
   const recruitLookup = useMemo(() => {
@@ -400,20 +344,7 @@ const OrgChart = () => {
     [recruitLookup]
   );
 
-  const toggleStageFilter = (stage: string) => {
-    setStageFilters(prev => {
-      const next = new Set(prev);
-      const key = stage.toLowerCase();
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
 
-  const activeFilterCount = stageFilters.size + (showWithAppAccess !== null ? 1 : 0);
 
   if (accessLoading || isLoading) {
     return (
@@ -439,129 +370,15 @@ const OrgChart = () => {
         </TabsList>
 
         <TabsContent value="tree" className="mt-3 space-y-3">
-          {/* Filter bar */}
-          <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Filter className="h-3.5 w-3.5" />
-                  Filters
-                  {activeFilterCount > 0 && (
-                    <Badge variant="secondary" className="h-4 min-w-4 px-1 text-[10px]">
-                      {activeFilterCount}
-                    </Badge>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-64 p-3 space-y-3">
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Stages</p>
-                  <div className="space-y-1.5">
-                    {ALL_FILTER_STAGES.map((stage) => (
-                      <div key={stage} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`stage-${stage}`}
-                          checked={stageFilters.has(stage.toLowerCase())}
-                          onCheckedChange={() => toggleStageFilter(stage)}
-                        />
-                        <Label htmlFor={`stage-${stage}`} className="text-xs cursor-pointer">
-                          {stage}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">App Access</p>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="access-all"
-                        checked={showWithAppAccess === null}
-                        onCheckedChange={() => setShowWithAppAccess(null)}
-                      />
-                      <Label htmlFor="access-all" className="text-xs cursor-pointer">All</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="access-yes"
-                        checked={showWithAppAccess === true}
-                        onCheckedChange={() => setShowWithAppAccess(showWithAppAccess === true ? null : true)}
-                      />
-                      <Label htmlFor="access-yes" className="text-xs cursor-pointer">Has app account</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="access-no"
-                        checked={showWithAppAccess === false}
-                        onCheckedChange={() => setShowWithAppAccess(showWithAppAccess === false ? null : false)}
-                      />
-                      <Label htmlFor="access-no" className="text-xs cursor-pointer">No app account</Label>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex-1 text-xs h-7"
-                    onClick={() => {
-                      setStageFilters(new Set(ALL_FILTER_STAGES.map(s => s.toLowerCase())));
-                      setShowWithAppAccess(null);
-                    }}
-                  >
-                    Select All
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex-1 text-xs h-7"
-                    onClick={() => {
-                      setStageFilters(DEFAULT_STAGE_FILTERS);
-                      setShowWithAppAccess(null);
-                    }}
-                  >
-                    Reset
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {/* Active filter chips */}
-            <div className="flex flex-wrap gap-1 overflow-hidden">
-              {stageFilters.size > 0 && stageFilters.size <= 4 && (
-                Array.from(stageFilters).map((s) => {
-                  const stage = ALL_FILTER_STAGES.find(st => st.toLowerCase() === s);
-                  return stage ? (
-                    <Badge key={s} variant="outline" className="text-[10px] h-5 px-1.5">
-                      {stage}
-                    </Badge>
-                  ) : null;
-                })
-              )}
-              {stageFilters.size > 4 && (
-                <Badge variant="outline" className="text-[10px] h-5 px-1.5">
-                  {stageFilters.size} stages
-                </Badge>
-              )}
-            </div>
-          </div>
-
-          {!filteredTree || filteredTree.length === 0 ? (
+          {!fullTree || fullTree.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <GitBranch className="h-12 w-12 mx-auto mb-2 opacity-50" />
               <p>No recruiter tree found</p>
-              <p className="text-sm">Try adjusting your filters</p>
+              <p className="text-sm">Recruiting relationships will appear here</p>
             </div>
           ) : (
             <VisualRecruiterTree
-              roots={filteredTree}
+              roots={fullTree}
               selectedNodeId={selectedNodeId}
               onSelectNode={handleSelectNode}
             />
