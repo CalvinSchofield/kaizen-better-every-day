@@ -1,50 +1,104 @@
+# Secure Role Assignment and Org Creation Permissions
 
+## Problem Summary
 
-## Problem
+Three issues need addressing:
 
-There are two related issues:
-
-1. **No way to move reps between teams/MGMT groups from the Structure tab.** Currently, tapping a rep opens the RecruitDetailDrawer, which has an Edit flow (EditRecruitDrawer) where you can change Team and Recruiter — but this is buried and not obvious for bulk org setup.
-
-2. **New leaders (like Gunnar) won't know how to build their org.** The Structure tab has create/delete actions but lacks a guided onboarding flow and the ability to reassign reps to different teams/MGMT groups in bulk.
+1. **Role assignment is wide open**: The pending approval drawer passes `isBootstrapApproval={true}` for ALL approvals, letting any MGMT Lead+ assign ANY role (including Corporate/Divisional). A rookie who invites a friend could have their MGMT Lead assign that friend as "Divisional" — no guardrails.
+2. **RLS blocks non-corporate leaders**: The new hierarchy tables (sr_mgmt_groups, sr_regions, partners, divisions) only allow `is_corporate()` to insert/update/delete. A Sr Regional assigned that role can't actually create their own sr_region or regions inside it.
+3. **Create buttons only show for Regional+**: The top-level "Create" buttons are gated by `canManageRegions` (regional+). Mid-level leaders (Sr MGMT Group leads, Senior Managers) can't create entities at their own level through long-press context menus either without the right access checks.
 
 ## Plan
 
-### 1. Add "Move to Team" action to long-press menu on rep nodes
+### 1. Restrict Role Assignment to Downline-Only (Security Fix)
 
-Currently, long-press only works on team/mgmt_group nodes. Extend it so long-pressing a **rep** node in the Structure tab opens an action sheet with:
-- **"Edit Details"** — opens the existing RecruitDetailDrawer
-- **"Move to Team..."** — opens a picker to select a new team (updates `team_id` and auto-resolves `mgmt_group_id` from `team_mgmt_groups`)
+**File**: `src/components/mygroup/recruit-detail/EditRecruitDrawer.tsx`
 
-This gives leaders a fast way to reassign individual reps without navigating into edit forms.
+- Remove unconditional `isBootstrapApproval` behavior
+- Change the role filter logic:
+  - **Normal flow**: Approver can only assign roles **strictly below** their own access level (already works: `ROLE_HIERARCHY.indexOf(role) < ROLE_HIERARCHY.indexOf(accessLevel)`)
+  - **Bootstrap flow** (inviting your upline): Only allowed when the approver explicitly initiated an "upward invite" — detect this by checking if the recruit's `recruiter_user_id` matches the current user AND the recruit has no existing role. Keep the bootstrap flag but only pass it from PendingApprovalsSection when the inviter IS the current user.
 
-**File:** `src/components/org/OrgStructureTree.tsx`
+**File**: `src/components/mygroup/PendingApprovalsSection.tsx`
 
-### 2. Add "Move to MGMT Group" on long-press for teams
+- Change `isBootstrapApproval` from always-true to conditional: only true when the current user is the direct inviter (recruiter_user_id matches) AND the current user's access level is below the role being assigned. This preserves upward onboarding while preventing lateral/downward abuse.
 
-When long-pressing a **team** node, add a "Move to MGMT Group..." option alongside the existing "Create Team" and "Delete" actions. This opens a picker showing available MGMT groups and moves the team (updates `team_mgmt_groups`).
+### 2. Update RLS Policies for Hierarchy Tables (Database Migration)
 
-**File:** `src/components/org/OrgStructureTree.tsx`
+Add policies so leaders can manage entities at their own level:
 
-### 3. Add bulk "Assign Reps" action on team nodes
+```sql
+-- Sr MGMT Groups: area_director+ can manage (they house mgmt_groups)
+CREATE POLICY "Area directors can manage sr_mgmt_groups"
+  ON public.sr_mgmt_groups FOR ALL TO authenticated
+  USING (public.is_area_director(auth.uid()))
+  WITH CHECK (public.is_area_director(auth.uid()));
 
-When long-pressing a team node, add an **"Assign Reps"** option that opens a multi-select drawer showing all signed+ reps that are either unassigned or in a different team. Leaders can check multiple reps and assign them all to that team at once. This uses the existing `update-rep-assignment` edge function.
+-- Regions: regional+ can manage
+-- (regions table already has policies, but may need INSERT for sr_regional+)
 
-**Files:** `src/components/org/OrgStructureTree.tsx`, new `src/components/org/BulkAssignRepsDrawer.tsx`
+-- Sr Regions: sr_regional+ (use is_corporate OR lead_user_id match)
+CREATE POLICY "Sr regional leads can manage their sr_regions"
+  ON public.sr_regions FOR ALL TO authenticated
+  USING (lead_user_id = auth.uid())
+  WITH CHECK (lead_user_id = auth.uid());
 
-### 4. Add empty-state guidance for new leaders
+-- Partners: partner leads can manage
+CREATE POLICY "Partner leads can manage their partners"
+  ON public.partners FOR ALL TO authenticated
+  USING (lead_user_id = auth.uid())
+  WITH CHECK (lead_user_id = auth.uid());
 
-When a leader opens the Structure tab and their org is mostly empty (no teams under their MGMT group, or no MGMT groups under their office), show a step-by-step callout:
-1. "Create MGMT Groups under your office" (if AD)
-2. "Create Teams under your MGMT Group" (if MGL)
-3. "Long-press a team to assign reps"
+-- Divisions: divisional leads can manage
+CREATE POLICY "Division leads can manage their divisions"
+  ON public.divisions FOR ALL TO authenticated
+  USING (lead_user_id = auth.uid())
+  WITH CHECK (lead_user_id = auth.uid());
+```
 
-**File:** `src/components/org/OrgStructureTree.tsx`
+Also add broader insert policies so higher-level leaders can create child entities (e.g., a partner lead needs to create sr_regions under their partnership).
+
+### 3. Tiered Create Button Visibility
+
+**File**: `src/components/org/OrgStructureTree.tsx`
+
+Instead of one `canManageRegions` gate showing ALL create buttons, show level-appropriate buttons:
+
+
+| Access Level                                                                                                                                                                                                                                                                                                                             | Can Create                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| mgmt_group_lead                                                                                                                                                                                                                                                                                                                          | Teams (via long-press on their MGMT group) |
+| senior_manager ****WRONG: area directors should not have access to all this that a sr manager has. Area director is a role or job title that has nothing to do with lineage and should not have this ability to create MGMT groups, sr mgmt groups etc. their ability to create stuff has nothing to do with them Being an area director | MGMT Groups, Sr MGMT Groups, Teams         |
+| regional                                                                                                                                                                                                                                                                                                                                 | + Offices, Refions                         |
+| sr_regional                                                                                                                                                                                                                                                                                                                              | + Sr Regions                               |
+| partner                                                                                                                                                                                                                                                                                                                                  | + Partnerships                             |
+| divisional                                                                                                                                                                                                                                                                                                                               | + Divisions                                |
+| corporate                                                                                                                                                                                                                                                                                                                                | Everything                                 |
+
+
+Each level sees create buttons for their level and below. Long-press context menus already handle child creation (e.g., long-press Division → Create Partnership), so the top-level buttons just need tiered gating.
+
+### 4. Who Can Assign Roles — Summary
+
+
+| Approver Level                                                                                                          | Can Assign Roles                                  |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| MGMT Group Lead                                                                                                         | Recruiter, Assistant Manager, Team Lead           |
+| Senior Manager                                                                                                          | + Manager                                         |
+| Area Director+ ****WRONG: area directors don't get any capabilities related to lineage like this. It's just a job title | __                                                |
+| Regional                                                                                                                | +sr manager                                       |
+| Sr Regional                                                                                                             | + Regional                                        |
+| Partner                                                                                                                 | + Sr Regional                                     |
+| Divisional                                                                                                              | + Partner                                         |
+| Corporate                                                                                                               | All roles                                         |
+| **Bootstrap (upward invite)**                                                                                           | Any role (one-time, only when you're the inviter) |
+
+
+This ensures a rookie can't assign their friend as Divisional, because rookies have no access level and can't even see the role assignment UI (`canAssignRoles` requires mgmt_group_lead+).
 
 ### Technical Details
 
-- **Move to Team picker:** A simple Drawer with a searchable list of teams the current user has access to. On selection, calls `supabase.functions.invoke('update-rep-assignment', { body: { repId, teamId } })` and also updates `mgmt_group_id` based on the `team_mgmt_groups` mapping.
-- **Move Team to MGMT Group:** Updates `team_mgmt_groups` junction table — deletes old row, inserts new row.
-- **Bulk Assign:** Loops through selected rep IDs calling the same `update-rep-assignment` function, then invalidates queries.
-- **Long-press on reps:** Extend `isLongPressable` to include `rep` type, and add rep-specific actions in the action sheet Drawer.
-
+- The `canAssignRoles` check already requires `mgmt_group_lead+`, so regular reps/recruiters never see role assignment — the concern is really about mid-level leaders over-assigning
+- Bootstrap approval is legitimate for the "invite your boss" flow but should be scoped to the inviter only
+- RLS changes ensure server-side enforcement matches UI permissions
+- No changes needed to the edge function approval chain — it already works correctly
