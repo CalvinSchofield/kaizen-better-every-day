@@ -63,57 +63,28 @@ const OrgChart = () => {
     staleTime: 1000 * 60 * 2,
   });
 
-  // Build role map: userId -> title
-  const roleMap = useMemo(() => {
-    if (!treeData) return new Map<string, string>();
+  // Build role map: userId -> highest title only (Area Director > MGMT Group Lead > Team Lead)
+  // Also track area directors separately for the special display treatment
+  const { roleMap, areaDirectorSet } = useMemo(() => {
+    if (!treeData) return { roleMap: new Map<string, string>(), areaDirectorSet: new Set<string>() };
     const map = new Map<string, string>();
+    const adSet = new Set<string>();
 
+    // Lowest priority first — higher roles overwrite
     treeData.teams.forEach((t) => {
-      if (t.lead_user_id) map.set(t.lead_user_id, `Team Lead — ${t.name}`);
+      if (t.lead_user_id) map.set(t.lead_user_id, "Team Lead");
     });
     treeData.mgmtGroups.forEach((mg) => {
-      if (mg.lead_user_id) map.set(mg.lead_user_id, `MGMT Group Lead — ${mg.name}`);
+      if (mg.lead_user_id) map.set(mg.lead_user_id, "MGMT Group Lead");
     });
     treeData.officeStaff.forEach((s) => {
-      if (s.role === "area_director") map.set(s.user_id, "Area Director");
-    });
-
-    return map;
-  }, [treeData]);
-
-  // Build maps: userId -> groupName, userId/recruitId -> teamName
-  const orgLabelMaps = useMemo(() => {
-    if (!treeData) return { groupNameByUserId: new Map<string, string>(), teamNameByUserId: new Map<string, string>(), teamNameByRecruitId: new Map<string, string>(), groupNameByRecruitId: new Map<string, string>() };
-
-    const groupNameByUserId = new Map<string, string>();
-    const teamNameByUserId = new Map<string, string>();
-    const teamNameByRecruitId = new Map<string, string>();
-    const groupNameByRecruitId = new Map<string, string>();
-
-    // MGMT Group leads get their group name
-    treeData.mgmtGroups.forEach((mg) => {
-      if (mg.lead_user_id) groupNameByUserId.set(mg.lead_user_id, mg.name);
-    });
-
-    // Team leads get their team name
-    treeData.teams.forEach((t) => {
-      if (t.lead_user_id) teamNameByUserId.set(t.lead_user_id, t.name);
-    });
-
-    // Map team_id -> team name, mgmt_group_id -> group name for recruits
-    const teamMap = new Map(treeData.teams.map(t => [t.id, t.name]));
-    const mgmtMap = new Map(treeData.mgmtGroups.map(mg => [mg.id, mg.name]));
-
-    treeData.recruits.forEach((r) => {
-      if (r.team_id && teamMap.has(r.team_id)) {
-        teamNameByRecruitId.set(r.id, teamMap.get(r.team_id)!);
-      }
-      if (r.mgmt_group_id && mgmtMap.has(r.mgmt_group_id)) {
-        groupNameByRecruitId.set(r.id, mgmtMap.get(r.mgmt_group_id)!);
+      if (s.role === "area_director") {
+        adSet.add(s.user_id);
+        // Don't overwrite the org title — we'll show Area Director separately above it
       }
     });
 
-    return { groupNameByUserId, teamNameByUserId, teamNameByRecruitId, groupNameByRecruitId };
+    return { roleMap: map, areaDirectorSet: adSet };
   }, [treeData]);
 
   // Build full unfiltered tree first
@@ -166,8 +137,7 @@ const OrgChart = () => {
             profilePhotoUrl: null,
             role: null,
             year: r.year,
-            groupName: orgLabelMaps.groupNameByRecruitId.get(r.id) || null,
-            teamName: orgLabelMaps.teamNameByRecruitId.get(r.id) || null,
+            isAreaDirector: false,
             children: [],
           });
         }
@@ -183,8 +153,7 @@ const OrgChart = () => {
         profilePhotoUrl: rep?.profile_photo_url,
         role: roleMap.get(userId) || null,
         year: rep?.year || recruitRecord?.year || null,
-        groupName: orgLabelMaps.groupNameByUserId.get(userId) || (recruitRecord ? orgLabelMaps.groupNameByRecruitId.get(recruitRecord.id) : null) || null,
-        teamName: orgLabelMaps.teamNameByUserId.get(userId) || (recruitRecord ? orgLabelMaps.teamNameByRecruitId.get(recruitRecord.id) : null) || null,
+        isAreaDirector: areaDirectorSet.has(userId),
         children,
       };
     };
@@ -229,7 +198,7 @@ const OrgChart = () => {
     }
 
     return rootNodes.sort((a, b) => b.children.length - a.children.length);
-  }, [treeData, teamAccess, currentAuthUserId, roleMap, orgLabelMaps]);
+  }, [treeData, teamAccess, currentAuthUserId, roleMap, areaDirectorSet]);
 
   // Filter tree based on stage filters
   const filteredTree = useMemo(() => {
