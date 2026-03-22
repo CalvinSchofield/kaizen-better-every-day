@@ -14,8 +14,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { GoalTier, GOAL_TIER_CONFIG, SummerTier } from '@/config/goalTiers';
 import { cn } from '@/lib/utils';
 import { useGoalPaceCalculatorForUser } from '@/hooks/useGoalPaceCalculatorForUser';
-import {
 import { getSessionSafe } from "@/utils/authSession";
+import {
   Drawer,
   DrawerContent,
   DrawerHeader,

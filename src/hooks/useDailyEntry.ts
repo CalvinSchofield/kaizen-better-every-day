@@ -426,13 +426,7 @@ export const useDailyEntry = (date?: string) => {
       // PERF FIX: Use getSession() (local cache) instead of getUser() (network call)
       const { session } = await getSessionSafe();
       if (!session?.user) {
-        console.warn('[useDailyEntry] Session expired during mutation — attempting refresh');
-        const { data: refreshData } = await supabase.auth.refreshSession();
-        session = refreshData?.session ?? null;
-        if (!session?.user) {
-          throw new Error('AUTH_SESSION_EXPIRED');
-        }
-        console.log('[useDailyEntry] Session refreshed successfully during mutation');
+        throw new Error('AUTH_SESSION_EXPIRED');
       }
       const user = session.user;
 
