@@ -243,7 +243,7 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                   <div>
                     <p className="font-medium text-sm">Invite a Leader</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      For peers or upline — won't auto-nest them under you
+                      Help other leaders get started on Kaizen
                     </p>
                   </div>
                 </button>
