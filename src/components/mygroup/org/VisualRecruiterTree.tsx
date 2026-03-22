@@ -94,6 +94,8 @@ function layoutNodes(
     profilePhotoUrl: node.profilePhotoUrl,
     role: node.role,
     year: node.year,
+    groupName: node.groupName,
+    teamName: node.teamName,
     x: cx,
     y: cy,
     childCount: node.children.length,
