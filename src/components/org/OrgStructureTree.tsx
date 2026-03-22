@@ -53,12 +53,24 @@ interface OrgStructureTreeProps {
 export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps) => {
   const queryClient = useQueryClient();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(false);
   const canManageOffices = hasMinAccess(accessLevel, "regional");
   const canManageRegions = hasMinAccess(accessLevel, "regional");
   const canManageTeams = hasMinAccess(accessLevel, "mgmt_group_lead");
+  // Bootstrap = leader with no active upline; can self-serve until upline onboards
+  const canDirectManage = canManageTeams && isBootstrapping;
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id || null));
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id || null;
+      setCurrentUserId(uid);
+      if (uid) {
+        // Check if user's upline has onboarded — if not, they're bootstrapping
+        supabase.rpc("has_active_upline", { _user_id: uid }).then(({ data: hasUpline }) => {
+          setIsBootstrapping(!hasUpline);
+        });
+      }
+    });
   }, []);
 
   const { data: orgData, isLoading } = useQuery({
