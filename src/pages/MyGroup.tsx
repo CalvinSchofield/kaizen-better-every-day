@@ -60,25 +60,8 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 
-// Floating Add Button with scroll hide
-const FloatingAddButton = ({ visible, onClick }: { visible: boolean; onClick: () => void }) => {
-  const isScrollVisible = useScrollDirection(100);
-  
-  if (!visible) return null;
-  
-  return (
-    <Button
-      data-tour="group-add-recruit"
-      className={`fixed right-4 h-14 w-14 rounded-full shadow-lg z-40 transition-all duration-300 ${
-        isScrollVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
-      }`}
-      style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom) + 1.5rem)' }}
-      onClick={onClick}
-    >
-      <Plus className="h-6 w-6" />
-    </Button>
-  );
-};
+
+
 
 const MyGroup = () => {
   const location = useLocation();
