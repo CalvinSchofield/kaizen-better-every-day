@@ -508,7 +508,7 @@ export const ConfigureOfficeDrawer = ({
   const [activeSection, setActiveSection] = useState<"overview" | "add-ad" | "add-group" | "rename">("overview");
   const [editName, setEditName] = useState(officeName);
   const [editLocation, setEditLocation] = useState(officeLocation || "");
-  const [activeSection, setActiveSection] = useState<"overview" | "add-ad" | "add-group">("overview");
+  
 
   const getRepName = (userId: string) => {
     const rep = allReps.find((r) => r.user_id === userId);
