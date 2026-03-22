@@ -648,6 +648,17 @@ export const ConfigureOfficeDrawer = ({
         <div className="px-4 pb-6 space-y-4 max-h-[60vh] overflow-y-auto">
           {activeSection === "overview" && (
             <>
+              {/* Rename button — available to ADs and Regional+ */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2"
+                onClick={() => { setEditName(officeName); setEditLocation(officeLocation || ""); setActiveSection("rename"); }}
+              >
+                <Pencil className="h-4 w-4" />
+                Rename Office
+              </Button>
+
               {/* Area Directors */}
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -658,29 +669,33 @@ export const ConfigureOfficeDrawer = ({
                     {currentStaff.map((s) => (
                       <div key={s.id} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50">
                         <span className="text-sm font-medium">{getRepName(s.user_id)}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive"
-                          onClick={() => removeStaff.mutate(s.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {canFullManage && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => removeStaff.mutate(s.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">No area directors assigned</p>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full mt-2"
-                  onClick={() => setActiveSection("add-ad")}
-                >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Assign Area Director
-                </Button>
+                {canFullManage && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={() => setActiveSection("add-ad")}
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Assign Area Director
+                  </Button>
+                )}
               </div>
 
               <Separator />
@@ -702,21 +717,23 @@ export const ConfigureOfficeDrawer = ({
                             </span>
                           )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive"
-                          onClick={() => unassignGroup.mutate(mg.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {canFullManage && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => unassignGroup.mutate(mg.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">No groups assigned</p>
                 )}
-                {availableGroups.length > 0 && (
+                {canFullManage && availableGroups.length > 0 && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -729,22 +746,63 @@ export const ConfigureOfficeDrawer = ({
                 )}
               </div>
 
-              <Separator />
-
-              {/* Delete */}
-              <Button
-                variant="ghost"
-                className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => {
-                  if (confirm(`Delete ${officeName}? Groups will be unlinked.`)) {
-                    deleteOffice.mutate();
-                  }
-                }}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Office
-              </Button>
+              {/* Delete — Regional+ only */}
+              {canFullManage && (
+                <>
+                  <Separator />
+                  <Button
+                    variant="ghost"
+                    className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => {
+                      if (confirm(`Delete ${officeName}? Groups will be unlinked.`)) {
+                        deleteOffice.mutate();
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Office
+                  </Button>
+                </>
+              )}
             </>
+          )}
+
+          {activeSection === "rename" && (
+            <div className="space-y-4">
+              <Button variant="ghost" size="sm" onClick={() => setActiveSection("overview")}>
+                ← Back
+              </Button>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="office-name" className="text-sm font-medium">Office Name</Label>
+                  <Input
+                    id="office-name"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="e.g. Houston Office"
+                    className="mt-1"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="office-location" className="text-sm font-medium">Location</Label>
+                  <Input
+                    id="office-location"
+                    value={editLocation}
+                    onChange={(e) => setEditLocation(e.target.value)}
+                    placeholder="e.g. Houston, TX"
+                    className="mt-1"
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  disabled={!editName.trim() || renameOffice.isPending}
+                  onClick={() => renameOffice.mutate({ name: editName.trim(), location: editLocation.trim() })}
+                >
+                  {renameOffice.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </div>
           )}
 
           {activeSection === "add-ad" && (
