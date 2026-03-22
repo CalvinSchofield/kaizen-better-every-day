@@ -95,7 +95,7 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
 
   // Management drawers
-  const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region"; parentId?: string; parentName?: string } | null>(null);
+  const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team"; parentId?: string; parentName?: string } | null>(null);
   const [configOffice, setConfigOffice] = useState<string | null>(null);
   const [configRegion, setConfigRegion] = useState<string | null>(null);
 
