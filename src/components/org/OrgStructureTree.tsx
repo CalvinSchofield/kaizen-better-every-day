@@ -21,7 +21,7 @@ import type { Recruit } from "@/hooks/useGroupRecruits";
 import type { AccessLevel } from "@/utils/roleHierarchy";
 import { hasMinAccess } from "@/utils/roleHierarchy";
 
-type OrgNodeType = "region" | "office" | "mgmt_group" | "team" | "recruiter_group" | "rep";
+type OrgNodeType = "division" | "partner" | "sr_region" | "region" | "sr_mgmt_group" | "office" | "mgmt_group" | "team" | "recruiter_group" | "rep";
 
 interface OrgNode {
   id: string;
