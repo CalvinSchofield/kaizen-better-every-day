@@ -126,7 +126,7 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
 
   return (
     <Drawer open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetState(); }}>
-      <DrawerContent>
+      <DrawerContent className="max-h-[85vh]">
         <DrawerHeader>
           <DrawerTitle>
             Create {typeLabel}
