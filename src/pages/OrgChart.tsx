@@ -162,12 +162,54 @@ const OrgChart = () => {
             role: null,
             year: r.year,
             isAreaDirector: false,
+            roleColor: "none",
             children: [],
           });
         }
       });
 
-      children.sort((a, b) => b.children.length - a.children.length);
+      // Insert a label node if this leader has both sub-leaders and non-leader direct recruits
+      const roleInfo = roleMap.get(userId);
+      const hasRole = !!roleInfo;
+      
+      if (hasRole && children.length > 1) {
+        const leaderChildren: TreeNode[] = [];
+        const plainChildren: TreeNode[] = [];
+        
+        children.forEach((c) => {
+          const childIsLeader = c.userId && teamLeadUserIds.has(c.userId);
+          if (childIsLeader) {
+            leaderChildren.push(c);
+          } else {
+            plainChildren.push(c);
+          }
+        });
+        
+        if (leaderChildren.length > 0 && plainChildren.length > 0) {
+          // Get the team name this person leads, or fallback
+          const teamName = userTeamNameMap.get(userId);
+          const labelName = teamName 
+            ? `${teamName}` 
+            : `${getCleanName(rep?.name || "Unknown")} Team`;
+          
+          const labelNode: TreeNode = {
+            id: `label-${userId}`,
+            name: labelName,
+            userId: null,
+            stage: null,
+            profilePhotoUrl: null,
+            role: null,
+            year: null,
+            isAreaDirector: false,
+            roleColor: roleInfo.color,
+            isLabelNode: true,
+            children: plainChildren,
+          };
+          
+          children = [...leaderChildren, labelNode];
+          children.sort((a, b) => b.children.length - a.children.length);
+        }
+      }
 
       return {
         id: recruitRecord?.id || userId,
@@ -175,9 +217,10 @@ const OrgChart = () => {
         userId,
         stage: recruitRecord?.stage || rep?.stage || null,
         profilePhotoUrl: rep?.profile_photo_url,
-        role: roleMap.get(userId) || null,
+        role: roleInfo?.title || null,
         year: rep?.year || recruitRecord?.year || null,
         isAreaDirector: areaDirectorSet.has(userId),
+        roleColor: roleInfo?.color || "none",
         children,
       };
     };
