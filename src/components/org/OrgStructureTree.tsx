@@ -1126,6 +1126,18 @@ const OrgNodeCard = ({ node, depth, onLongPressAction, onTap, canManage }: OrgNo
             {totalReps} {totalReps === 1 ? "rep" : "reps"}
           </Badge>
         )}
+
+        {isLongPressable && (
+          <button
+            className="ml-auto p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              onLongPressAction(node);
+            }}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {expanded && hasChildren && (
