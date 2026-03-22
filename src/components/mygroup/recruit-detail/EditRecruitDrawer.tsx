@@ -470,6 +470,18 @@ export const EditRecruitDrawer = ({
   };
 
   const handleSave = async () => {
+    // For lateral invites, validate required fields
+    if (isLateralApproval) {
+      if (!recruiterUserId) {
+        toast.error('Recruiter is required for lateral invites');
+        return;
+      }
+      if (!selectedTeamId) {
+        toast.error('Team is required for lateral invites');
+        return;
+      }
+    }
+
     setShowRoleConfirm(false);
     const cleanPhone = phone.replace(/\D/g, '');
     
