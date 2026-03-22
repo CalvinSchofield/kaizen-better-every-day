@@ -16,6 +16,7 @@ import { CreateDrawer, ConfigureOfficeDrawer, ConfigureRegionDrawer } from "./Or
 import { BulkAssignRepsDrawer } from "./BulkAssignRepsDrawer";
 import { MoveToTeamDrawer } from "./MoveToTeamDrawer";
 import { MoveTeamToMgmtDrawer } from "./MoveTeamToMgmtDrawer";
+import { MoveEntityDrawer } from "./MoveEntityDrawer";
 import type { Recruit } from "@/hooks/useGroupRecruits";
 import type { AccessLevel } from "@/utils/roleHierarchy";
 import { hasMinAccess } from "@/utils/roleHierarchy";
