@@ -18,8 +18,8 @@ import { cn } from "@/lib/utils";
 interface CreateDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  type: "office" | "region";
-  parentId?: string; // region_id when creating office under a region
+  type: "office" | "region" | "team";
+  parentId?: string; // region_id when creating office, mgmt_group_id when creating team
   parentName?: string;
 }
 
@@ -27,6 +27,8 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
+
+  const typeLabel = type === "office" ? "Office" : type === "region" ? "Region" : "Team";
 
   const create = useMutation({
     mutationFn: async () => {
@@ -41,12 +43,26 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
           created_by: user?.id,
         });
         if (error) throw error;
-      } else {
+      } else if (type === "region") {
         const { error } = await supabase.from("regions").insert({
           name: name.trim(),
           lead_user_id: user?.id,
         });
         if (error) throw error;
+      } else if (type === "team") {
+        // Create team and link to mgmt group
+        const { data: team, error: teamError } = await supabase.from("teams").insert({
+          name: name.trim(),
+          lead_user_id: user?.id,
+        }).select("id").single();
+        if (teamError) throw teamError;
+        if (parentId && team) {
+          const { error: linkError } = await supabase.from("team_mgmt_groups").insert({
+            team_id: team.id,
+            mgmt_group_id: parentId,
+          });
+          if (linkError) throw linkError;
+        }
       }
     },
     onSuccess: () => {
@@ -54,7 +70,7 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
       setName("");
       setLocation("");
       onOpenChange(false);
-      toast.success(`${type === "office" ? "Office" : "Region"} created`);
+      toast.success(`${typeLabel} created`);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -64,13 +80,13 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>
-            Create {type === "office" ? "Office" : "Region"}
+            Create {typeLabel}
             {parentName && <span className="text-muted-foreground font-normal"> in {parentName}</span>}
           </DrawerTitle>
         </DrawerHeader>
         <div className="px-4 pb-6 space-y-3">
           <Input
-            placeholder={type === "office" ? "Office name" : "Region name"}
+            placeholder={`${typeLabel} name`}
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
@@ -88,7 +104,7 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
             className="w-full"
           >
             <Plus className="h-4 w-4 mr-2" />
-            {create.isPending ? "Creating..." : `Create ${type === "office" ? "Office" : "Region"}`}
+            {create.isPending ? "Creating..." : `Create ${typeLabel}`}
           </Button>
         </div>
       </DrawerContent>

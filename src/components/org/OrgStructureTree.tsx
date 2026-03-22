@@ -55,6 +55,7 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const canManageOffices = hasMinAccess(accessLevel, "regional");
   const canManageRegions = hasMinAccess(accessLevel, "regional");
+  const canManageTeams = hasMinAccess(accessLevel, "mgmt_group_lead");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id || null));
@@ -94,30 +95,46 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
 
   // Management drawers
-  const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region"; parentId?: string; parentName?: string } | null>(null);
+  const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team"; parentId?: string; parentName?: string } | null>(null);
   const [configOffice, setConfigOffice] = useState<string | null>(null);
   const [configRegion, setConfigRegion] = useState<string | null>(null);
 
-  const handleDeleteTeam = useCallback(async () => {
+  const handleDeleteDirect = useCallback(async () => {
     if (!deleteTarget || !currentUserId) return;
     setIsDeleting(true);
     try {
-      const { error } = await supabase.from("org_change_requests").insert({
-        request_type: `delete_${deleteTarget.type}`,
-        requested_by: currentUserId,
-        request_data: { target_id: deleteTarget.id, target_name: deleteTarget.name, target_type: deleteTarget.type },
-        status: "pending",
-      });
-      if (error) throw error;
-      toast.success(`Deletion request submitted for "${deleteTarget.name}".`);
+      const canDirectDelete = hasMinAccess(accessLevel, "area_director");
+      if (canDirectDelete) {
+        // Direct delete — area director+ has RLS permission
+        if (deleteTarget.type === "team") {
+          // Remove team_mgmt_groups linkage first
+          await supabase.from("team_mgmt_groups").delete().eq("team_id", deleteTarget.id);
+          const { error } = await supabase.from("teams").delete().eq("id", deleteTarget.id);
+          if (error) throw error;
+        } else if (deleteTarget.type === "mgmt_group") {
+          const { error } = await supabase.from("mgmt_groups").delete().eq("id", deleteTarget.id);
+          if (error) throw error;
+        }
+        toast.success(`"${deleteTarget.name}" deleted.`);
+      } else {
+        // Submit approval request
+        const { error } = await supabase.from("org_change_requests").insert({
+          request_type: `delete_${deleteTarget.type}`,
+          requested_by: currentUserId,
+          request_data: { target_id: deleteTarget.id, target_name: deleteTarget.name, target_type: deleteTarget.type },
+          status: "pending",
+        });
+        if (error) throw error;
+        toast.success(`Deletion request submitted for "${deleteTarget.name}".`);
+      }
       queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
     } catch (err: any) {
-      toast.error(err.message || "Failed to submit request");
+      toast.error(err.message || "Failed to delete");
     } finally {
       setIsDeleting(false);
       setDeleteTarget(null);
     }
-  }, [deleteTarget, currentUserId, queryClient]);
+  }, [deleteTarget, currentUserId, queryClient, accessLevel]);
 
   const handleRepTap = useCallback((node: OrgNode) => {
     if (!node.recruitData) return;
@@ -409,19 +426,37 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
             <DrawerTitle>{actionTarget?.name}</DrawerTitle>
           </DrawerHeader>
           <div className="px-4 pb-6 space-y-2">
-            <Button
-              variant="destructive"
-              className="w-full justify-start gap-2"
-              onClick={() => {
-                if (actionTarget) {
-                  setDeleteTarget(actionTarget);
-                  setActionTarget(null);
-                }
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-              Request Deletion
-            </Button>
+            {/* Add team under mgmt group */}
+            {actionTarget?.type === "mgmt_group" && canManageTeams && (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  if (actionTarget) {
+                    setCreateDrawer({ type: "team", parentId: actionTarget.id, parentName: actionTarget.name });
+                    setActionTarget(null);
+                  }
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Create Team
+              </Button>
+            )}
+            {canManageTeams && (
+              <Button
+                variant="destructive"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  if (actionTarget) {
+                    setDeleteTarget(actionTarget);
+                    setActionTarget(null);
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                {hasMinAccess(accessLevel, "area_director") ? "Delete" : "Request Deletion"}
+              </Button>
+            )}
           </div>
         </DrawerContent>
       </Drawer>
@@ -430,15 +465,17 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Request Deletion</AlertDialogTitle>
+            <AlertDialogTitle>{hasMinAccess(accessLevel, "area_director") ? "Delete" : "Request Deletion"}</AlertDialogTitle>
             <AlertDialogDescription>
-              Submit a request to delete "{deleteTarget?.name}"? Needs upline approval.
+              {hasMinAccess(accessLevel, "area_director")
+                ? `Are you sure you want to delete "${deleteTarget?.name}"?`
+                : `Submit a request to delete "${deleteTarget?.name}"? Needs upline approval.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTeam} disabled={isDeleting}>
-              {isDeleting ? "Submitting..." : "Submit Request"}
+            <AlertDialogAction onClick={handleDeleteDirect} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : hasMinAccess(accessLevel, "area_director") ? "Delete" : "Submit Request"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
