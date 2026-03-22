@@ -227,7 +227,7 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                 <div>
                   <p className="font-medium text-sm">Share Kaizen</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Send your invite link — they'll auto-connect to you on signup
+                    Send the app to your recruits
                   </p>
                 </div>
               </button>
