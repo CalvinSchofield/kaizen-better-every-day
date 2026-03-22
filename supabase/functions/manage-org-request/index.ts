@@ -71,10 +71,15 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Check if user is corporate (can bypass approval)
+      // Check if user is corporate (can always bypass approval)
       const { data: isCorp } = await supabase.rpc('is_corporate', { _user_id: user.id });
-      if (isCorp) {
-        // Corporate: execute directly
+
+      // Check if user is bootstrapping (leader with no active upline)
+      const { data: hasUpline } = await supabase.rpc('has_active_upline', { _user_id: user.id });
+      const isBootstrapping = !hasUpline;
+
+      if (isCorp || isBootstrapping) {
+        // Corporate or bootstrapping leader: execute directly
         const result = await executeOrgChange(supabase, requestType, requestData);
         return new Response(JSON.stringify({ success: true, directExecution: true, ...result }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

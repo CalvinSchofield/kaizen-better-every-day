@@ -53,12 +53,24 @@ interface OrgStructureTreeProps {
 export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps) => {
   const queryClient = useQueryClient();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(false);
   const canManageOffices = hasMinAccess(accessLevel, "regional");
   const canManageRegions = hasMinAccess(accessLevel, "regional");
   const canManageTeams = hasMinAccess(accessLevel, "mgmt_group_lead");
+  // Bootstrap = leader with no active upline; can self-serve until upline onboards
+  const canDirectManage = canManageTeams && isBootstrapping;
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id || null));
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id || null;
+      setCurrentUserId(uid);
+      if (uid) {
+        // Check if user's upline has onboarded — if not, they're bootstrapping
+        supabase.rpc("has_active_upline", { _user_id: uid }).then(({ data: hasUpline }) => {
+          setIsBootstrapping(!hasUpline);
+        });
+      }
+    });
   }, []);
 
   const { data: orgData, isLoading } = useQuery({
@@ -103,8 +115,8 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
     if (!deleteTarget || !currentUserId) return;
     setIsDeleting(true);
     try {
-      const canDirectDelete = hasMinAccess(accessLevel, "area_director");
-      if (canDirectDelete) {
+      const canDirect = canManageTeams && isBootstrapping;
+      if (canDirect) {
         // Direct delete — area director+ has RLS permission
         if (deleteTarget.type === "team") {
           // Remove team_mgmt_groups linkage first
@@ -454,7 +466,7 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
                 }}
               >
                 <Trash2 className="h-4 w-4" />
-                {hasMinAccess(accessLevel, "area_director") ? "Delete" : "Request Deletion"}
+                {canDirectManage ? "Delete" : "Request Deletion"}
               </Button>
             )}
           </div>
@@ -465,9 +477,9 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{hasMinAccess(accessLevel, "area_director") ? "Delete" : "Request Deletion"}</AlertDialogTitle>
+            <AlertDialogTitle>{canDirectManage ? "Delete" : "Request Deletion"}</AlertDialogTitle>
             <AlertDialogDescription>
-              {hasMinAccess(accessLevel, "area_director")
+              {canDirectManage
                 ? `Are you sure you want to delete "${deleteTarget?.name}"?`
                 : `Submit a request to delete "${deleteTarget?.name}"? Needs upline approval.`}
             </AlertDialogDescription>
@@ -475,7 +487,7 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteDirect} disabled={isDeleting}>
-              {isDeleting ? "Deleting..." : hasMinAccess(accessLevel, "area_director") ? "Delete" : "Submit Request"}
+              {isDeleting ? "Deleting..." : canDirectManage ? "Delete" : "Submit Request"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
