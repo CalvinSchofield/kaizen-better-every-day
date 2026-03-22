@@ -103,9 +103,11 @@ export const DetailsTab = ({
 }: DetailsTabProps) => {
   const queryClient = useQueryClient();
   const { data: teamAccess } = useTeamAccess();
+  const { userId: currentUserId } = useCurrentUserId();
   const recruitFirstName = getFirstName(recruit.name);
   const isRookie = recruitRepData && (recruitRepData.year === 'Rookie' || !recruitRepData.year);
   const hasCompletedOnboarding = recruitRepData?.onboarding_complete === true;
+  const accessLevel = (teamAccess?.accessLevel || 'none') as AccessLevel;
   
   // Fetch additional recruit details for the new fields
   const { data: recruitDetails } = useQuery({
@@ -113,15 +115,105 @@ export const DetailsTab = ({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('recruits')
-        .select('significant_other_name, watch_out_notes')
+        .select('significant_other_name, watch_out_notes, recruiter_user_id')
         .eq('id', recruit.id)
         .maybeSingle();
       
       if (error) throw error;
       return data;
     },
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 30 * 1000,
   });
+
+  // Fetch recruit's current role from user_roles (if they have an app account)
+  const { data: recruitRole } = useQuery({
+    queryKey: ['recruit-role', recruit.id],
+    queryFn: async () => {
+      // First get the user_id from reps table
+      const { data: repData } = await supabase
+        .from('reps')
+        .select('user_id')
+        .eq('id', recruit.id)
+        .maybeSingle();
+      
+      if (!repData?.user_id) return null;
+      
+      const { data: roleData } = await supabase
+        .from('user_roles' as any)
+        .select('id, role, user_id')
+        .eq('user_id', repData.user_id)
+        .maybeSingle();
+      
+      return roleData ? { ...roleData, recruitUserId: repData.user_id } : null;
+    },
+    enabled: !!recruitRepData,
+    staleTime: 30 * 1000,
+  });
+
+  // Role edit state
+  const [editingRole, setEditingRole] = useState(false);
+  const [newRole, setNewRole] = useState<string>('');
+  const [showRoleChangeConfirm, setShowRoleChangeConfirm] = useState(false);
+  const [showRoleRemoveConfirm, setShowRoleRemoveConfirm] = useState(false);
+
+  // Can this user edit the recruit's role?
+  const isOriginalInviter = recruitDetails?.recruiter_user_id === currentUserId;
+  const canEditRole = recruitRole && (
+    isOriginalInviter || hasMinAccess(accessLevel, 'mgmt_group_lead')
+  );
+
+  // Determine assignable roles for editing
+  const editableRoles = useMemo(() => {
+    if (isOriginalInviter) return ASSIGNABLE_ROLES; // Bootstrap authority
+    return getAssignableRoles(accessLevel);
+  }, [accessLevel, isOriginalInviter]);
+
+  const roleJumpInfo = useMemo(() => {
+    if (!newRole) return null;
+    return getRoleJumpInfo(accessLevel, newRole as AccessLevel);
+  }, [newRole, accessLevel]);
+
+  // Role update mutation
+  const updateRoleMutation = useMutation({
+    mutationFn: async ({ action, role }: { action: 'update' | 'remove'; role?: string }) => {
+      if (!recruitRole?.recruitUserId) throw new Error('No user ID');
+      
+      if (action === 'remove') {
+        await supabase
+          .from('user_roles' as any)
+          .delete()
+          .eq('user_id', recruitRole.recruitUserId)
+          .eq('id', recruitRole.id);
+      } else if (role) {
+        await supabase
+          .from('user_roles' as any)
+          .update({ role })
+          .eq('user_id', recruitRole.recruitUserId)
+          .eq('id', recruitRole.id);
+      }
+    },
+    onSuccess: (_, variables) => {
+      const msg = variables.action === 'remove' 
+        ? `Role removed from ${recruitFirstName}`
+        : `${recruitFirstName}'s role updated to ${getRoleLabel(variables.role as AccessLevel)}`;
+      toast.success(msg);
+      queryClient.invalidateQueries({ queryKey: ['recruit-role', recruit.id] });
+      queryClient.invalidateQueries({ queryKey: ['team-access'] });
+      setEditingRole(false);
+      setNewRole('');
+    },
+    onError: () => toast.error('Failed to update role'),
+  });
+
+  const handleRoleChangeConfirm = () => {
+    setShowRoleChangeConfirm(false);
+    updateRoleMutation.mutate({ action: 'update', role: newRole });
+  };
+
+  const handleRoleRemoveConfirm = () => {
+    setShowRoleRemoveConfirm(false);
+    updateRoleMutation.mutate({ action: 'remove' });
+  };
   
   // Check if user has leader access (can edit)
   const canEdit = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
