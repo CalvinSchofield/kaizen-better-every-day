@@ -310,21 +310,30 @@ export const VisualRecruiterTree = ({
                           handleNodeClick(node);
                         }}
                       >
-                        {/* Avatar circle */}
-                        <div
-                          className={cn(
-                            "rounded-full border-[2.5px] transition-all duration-200 shadow-sm",
-                            getStageRing(node.stage),
-                            isSelected && "!border-primary !ring-4 !ring-primary/20 scale-110",
-                            isGhost && "opacity-60"
+                        {/* Avatar circle with year badge overlay */}
+                        <div className="relative">
+                          <div
+                            className={cn(
+                              "rounded-full border-[2.5px] transition-all duration-200 shadow-sm",
+                              getStageRing(node.stage),
+                              isSelected && "!border-primary !ring-4 !ring-primary/20 scale-110",
+                              isGhost && "opacity-60"
+                            )}
+                          >
+                            <Avatar className={cn("h-[56px] w-[56px]", getStageColor(node.stage))}>
+                              <AvatarImage src={node.profilePhotoUrl || undefined} />
+                              <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
+                                {initials}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+
+                          {/* Year badge - bottom right of avatar */}
+                          {node.year && (
+                            <div className="absolute -bottom-1 -right-1">
+                              <YearBadge year={node.year} className="!w-4 !h-4 !text-[8px] shadow-sm" />
+                            </div>
                           )}
-                        >
-                          <Avatar className={cn("h-[56px] w-[56px]", getStageColor(node.stage))}>
-                            <AvatarImage src={node.profilePhotoUrl || undefined} />
-                            <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
-                              {initials}
-                            </AvatarFallback>
-                          </Avatar>
                         </div>
 
                         {/* Name */}
@@ -340,11 +349,6 @@ export const VisualRecruiterTree = ({
                           <span className="text-[10px] text-muted-foreground leading-tight truncate max-w-[92px]">
                             {cleanName.split(" ").slice(1).join(" ")}
                           </span>
-                        )}
-
-                        {/* Year badge */}
-                        {node.year && (
-                          <YearBadge year={node.year} className="mt-0.5 scale-90" />
                         )}
 
                         {/* Area Director label (only for ADs, shown above org title) */}
