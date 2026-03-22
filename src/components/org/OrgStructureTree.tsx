@@ -635,6 +635,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         );
       })()}
 
+      <div className="space-y-1">
         {tree.map((node) => (
           <OrgNodeCard
             key={node.id}
@@ -642,7 +643,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
             depth={0}
             onLongPressAction={handleLongPress}
             onTap={handleNodeTap}
-            canManage={canManageOffices}
+            canManage={canManageTeams}
           />
         ))}
       </div>
