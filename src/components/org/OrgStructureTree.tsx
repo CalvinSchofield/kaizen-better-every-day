@@ -235,6 +235,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const canManageOffices = hasMinAccess(accessLevel, "regional");
   const canManageRegions = hasMinAccess(accessLevel, "regional");
   const canManageTeams = hasMinAccess(accessLevel, "mgmt_group_lead");
+  const isAD = accessLevel === "area_director";
   // Bootstrap = leader with no active upline; can self-serve until upline onboards
   const canDirectManage = canManageTeams && isBootstrapping;
 
@@ -534,20 +535,29 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
     } as Recruit);
   }, []);
 
+  const canConfigureOffice = useCallback((nodeId: string): boolean => {
+    if (canManageOffices) return true;
+    // ADs can configure their own offices
+    if (isAD && currentUserId && orgData) {
+      return orgData.officeStaff.some((s: any) => s.office_id === nodeId && s.user_id === currentUserId);
+    }
+    return false;
+  }, [canManageOffices, isAD, currentUserId, orgData]);
+
   const handleNodeTap = useCallback((node: OrgNode) => {
     if (node.type === "rep") {
       handleRepTap(node);
-    } else if (node.type === "office" && canManageOffices) {
+    } else if (node.type === "office" && canConfigureOffice(node.id)) {
       setConfigOffice(node.id);
     } else if (node.type === "region" && canManageRegions && node.id !== "unassigned") {
       setConfigRegion(node.id);
     }
-  }, [handleRepTap, canManageOffices, canManageRegions]);
+  }, [handleRepTap, canConfigureOffice, canManageRegions]);
 
   const handleLongPress = useCallback((node: OrgNode) => {
     const actionableTypes = ["rep", "team", "mgmt_group", "sr_mgmt_group", "region", "sr_region", "partner", "division", "office"];
     if (actionableTypes.includes(node.type)) {
-      if (node.type === "office" && canManageOffices) {
+      if (node.type === "office" && canConfigureOffice(node.id)) {
         setConfigOffice(node.id);
       } else if (node.type === "region" && canManageRegions && node.id !== "unassigned") {
         setConfigRegion(node.id);
@@ -555,7 +565,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         setActionTarget({ id: node.id, name: node.name, type: node.type });
       }
     }
-  }, [canManageOffices, canManageRegions]);
+  }, [canConfigureOffice, canManageRegions]);
 
   const tree = useMemo(() => {
     if (!orgData) return [];
@@ -973,14 +983,9 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
       }));
     topNodes.push(...unassignedSrMgmtGroups);
 
-    // Add unassigned offices (not in a region)
+    // Add unassigned offices (not in a region) — show directly as top-level nodes
     const unassignedOffices = officeNodes(null);
-    if (unassignedOffices.length > 0) {
-      topNodes.push({
-        id: "unassigned-offices", name: "Unassigned Offices", type: "office" as const,
-        children: unassignedOffices,
-      });
-    }
+    topNodes.push(...unassignedOffices);
 
     // Add unassigned mgmt_groups (not in any sr_mgmt_group or office)
     const unassignedMgmtGroups = mgmtGroups
@@ -1386,6 +1391,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           currentMgmtGroups={configOfficeData.groups}
           allMgmtGroups={orgData?.mgmtGroups || []}
           allReps={orgData?.reps?.map((r) => ({ user_id: r.user_id, name: r.name })) || []}
+          canFullManage={canManageOffices}
         />
       )}
 

@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2, Search, Building2, Users, Globe, UserPlus } from "lucide-react";
+import { Plus, Trash2, Search, Building2, Users, Globe, UserPlus, Pencil } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
 import { cn } from "@/lib/utils";
 
@@ -495,15 +495,20 @@ interface ConfigureOfficeDrawerProps {
   currentMgmtGroups: Array<{ id: string; name: string; lead_user_id: string | null }>;
   allMgmtGroups: Array<{ id: string; name: string; office_id: string | null; lead_user_id: string | null }>;
   allReps: Array<{ user_id: string; name: string }>;
+  /** Whether user has full management rights (regional+). ADs can only rename. */
+  canFullManage?: boolean;
 }
 
 export const ConfigureOfficeDrawer = ({
   open, onOpenChange, officeId, officeName, officeLocation,
-  currentStaff, currentMgmtGroups, allMgmtGroups, allReps,
+  currentStaff, currentMgmtGroups, allMgmtGroups, allReps, canFullManage = false,
 }: ConfigureOfficeDrawerProps) => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeSection, setActiveSection] = useState<"overview" | "add-ad" | "add-group">("overview");
+  const [activeSection, setActiveSection] = useState<"overview" | "add-ad" | "add-group" | "rename">("overview");
+  const [editName, setEditName] = useState(officeName);
+  const [editLocation, setEditLocation] = useState(officeLocation || "");
+  
 
   const getRepName = (userId: string) => {
     const rep = allReps.find((r) => r.user_id === userId);
@@ -593,21 +598,31 @@ export const ConfigureOfficeDrawer = ({
     onError: (e: any) => toast.error(e.message),
   });
 
+  const renameOffice = useMutation({
+    mutationFn: async ({ name, location }: { name: string; location: string }) => {
+      const { error } = await supabase.from("offices").update({ name, location: location || null }).eq("id", officeId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
+      setActiveSection("overview");
+      toast.success("Office updated");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const deleteOffice = useMutation({
     mutationFn: async () => {
-      // Unlink groups first
       const { error: unlinkErr } = await supabase
         .from("mgmt_groups")
         .update({ office_id: null })
         .eq("office_id", officeId);
       if (unlinkErr) throw unlinkErr;
-      // Remove staff
       const { error: staffErr } = await supabase
         .from("office_staff")
         .delete()
         .eq("office_id", officeId);
       if (staffErr) throw staffErr;
-      // Delete office
       const { error } = await supabase.from("offices").delete().eq("id", officeId);
       if (error) throw error;
     },
@@ -633,6 +648,17 @@ export const ConfigureOfficeDrawer = ({
         <div className="px-4 pb-6 space-y-4 max-h-[60vh] overflow-y-auto">
           {activeSection === "overview" && (
             <>
+              {/* Rename button — available to ADs and Regional+ */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2"
+                onClick={() => { setEditName(officeName); setEditLocation(officeLocation || ""); setActiveSection("rename"); }}
+              >
+                <Pencil className="h-4 w-4" />
+                Rename Office
+              </Button>
+
               {/* Area Directors */}
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -643,29 +669,33 @@ export const ConfigureOfficeDrawer = ({
                     {currentStaff.map((s) => (
                       <div key={s.id} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50">
                         <span className="text-sm font-medium">{getRepName(s.user_id)}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive"
-                          onClick={() => removeStaff.mutate(s.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {canFullManage && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => removeStaff.mutate(s.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">No area directors assigned</p>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full mt-2"
-                  onClick={() => setActiveSection("add-ad")}
-                >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Assign Area Director
-                </Button>
+                {canFullManage && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={() => setActiveSection("add-ad")}
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Assign Area Director
+                  </Button>
+                )}
               </div>
 
               <Separator />
@@ -687,21 +717,23 @@ export const ConfigureOfficeDrawer = ({
                             </span>
                           )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive"
-                          onClick={() => unassignGroup.mutate(mg.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {canFullManage && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => unassignGroup.mutate(mg.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">No groups assigned</p>
                 )}
-                {availableGroups.length > 0 && (
+                {canFullManage && availableGroups.length > 0 && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -714,22 +746,63 @@ export const ConfigureOfficeDrawer = ({
                 )}
               </div>
 
-              <Separator />
-
-              {/* Delete */}
-              <Button
-                variant="ghost"
-                className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => {
-                  if (confirm(`Delete ${officeName}? Groups will be unlinked.`)) {
-                    deleteOffice.mutate();
-                  }
-                }}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Office
-              </Button>
+              {/* Delete — Regional+ only */}
+              {canFullManage && (
+                <>
+                  <Separator />
+                  <Button
+                    variant="ghost"
+                    className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => {
+                      if (confirm(`Delete ${officeName}? Groups will be unlinked.`)) {
+                        deleteOffice.mutate();
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Office
+                  </Button>
+                </>
+              )}
             </>
+          )}
+
+          {activeSection === "rename" && (
+            <div className="space-y-4">
+              <Button variant="ghost" size="sm" onClick={() => setActiveSection("overview")}>
+                ← Back
+              </Button>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="office-name" className="text-sm font-medium">Office Name</Label>
+                  <Input
+                    id="office-name"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="e.g. Houston Office"
+                    className="mt-1"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="office-location" className="text-sm font-medium">Location</Label>
+                  <Input
+                    id="office-location"
+                    value={editLocation}
+                    onChange={(e) => setEditLocation(e.target.value)}
+                    placeholder="e.g. Houston, TX"
+                    className="mt-1"
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  disabled={!editName.trim() || renameOffice.isPending}
+                  onClick={() => renameOffice.mutate({ name: editName.trim(), location: editLocation.trim() })}
+                >
+                  {renameOffice.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </div>
           )}
 
           {activeSection === "add-ad" && (
