@@ -217,16 +217,15 @@ const OrgChart = () => {
     };
 
     const rootNodes: TreeNode[] = [];
-    const accessLevel = teamAccess?.accessLevel;
 
     if (
-      accessLevel === "area_director" ||
       accessLevel === "corporate" ||
       accessLevel === "regional" ||
       accessLevel === "sr_regional" ||
       accessLevel === "partner" ||
       accessLevel === "divisional"
     ) {
+      // Global viewers: show all root recruiters
       const recruitedUserIds = new Set<string>();
       recruits.forEach((r) => {
         const recruitRep = reps.find(
@@ -247,16 +246,73 @@ const OrgChart = () => {
         }
       });
     } else if (currentAuthUserId) {
+      // Personal downline first
       const node = buildNode(currentAuthUserId);
-      if (node) {
-        if (node.children.length > 0) {
-          rootNodes.push(node);
+      if (node && node.children.length > 0) {
+        rootNodes.push(node);
+      }
+
+      // Area Directors: also show office-scoped reps not in their downline
+      if (accessLevel === "area_director") {
+        // Find offices this AD is assigned to
+        const adOfficeIds = new Set(
+          treeData.officeStaff
+            .filter(s => s.user_id === currentAuthUserId && s.role === "area_director")
+            .map(s => s.office_id)
+        );
+
+        if (adOfficeIds.size > 0) {
+          // Find MGMT groups in those offices
+          const officeMgmtGroupIds = new Set(
+            treeData.mgmtGroups
+              .filter(mg => mg.office_id && adOfficeIds.has(mg.office_id))
+              .map(mg => mg.id)
+          );
+
+          // Find teams in those MGMT groups
+          const officeTeamIds = new Set(
+            treeData.teamMgmt
+              .filter(tm => officeMgmtGroupIds.has(tm.mgmt_group_id))
+              .map(tm => tm.team_id)
+          );
+
+          // Collect all user IDs already in the downline tree
+          const downlineUserIds = new Set<string>();
+          const collectUserIds = (n: TreeNode) => {
+            if (n.userId) downlineUserIds.add(n.userId);
+            n.children.forEach(collectUserIds);
+          };
+          rootNodes.forEach(collectUserIds);
+
+          // Find office MGMT group leads not already in downline
+          const officeLeaderUserIds = new Set<string>();
+          treeData.mgmtGroups.forEach(mg => {
+            if (mg.lead_user_id && officeMgmtGroupIds.has(mg.id) && !downlineUserIds.has(mg.lead_user_id)) {
+              officeLeaderUserIds.add(mg.lead_user_id);
+            }
+          });
+          // Find office team leads not already in downline
+          treeData.teams.forEach(t => {
+            if (t.lead_user_id && officeTeamIds.has(t.id) && !downlineUserIds.has(t.lead_user_id)) {
+              officeLeaderUserIds.add(t.lead_user_id);
+            }
+          });
+
+          // Build trees for each office leader not already in downline
+          officeLeaderUserIds.forEach(leaderId => {
+            if (!downlineUserIds.has(leaderId)) {
+              const officeNode = buildNode(leaderId);
+              if (officeNode && officeNode.children.length > 0) {
+                rootNodes.push(officeNode);
+              }
+            }
+          });
         }
       }
     }
 
     return rootNodes.sort((a, b) => b.children.length - a.children.length);
-  }, [treeData, teamAccess, currentAuthUserId, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap]);
+  }, [treeData, teamAccess, currentAuthUserId, accessLevel, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap]);
 
 
   // Build a lookup for full recruit data
