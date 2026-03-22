@@ -316,6 +316,11 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
     name: string;
     leadUserId: string | null;
   } | null>(null);
+  const [assignToOfficeTarget, setAssignToOfficeTarget] = useState<{
+    id: string;
+    name: string;
+    type: "sr_mgmt_group" | "mgmt_group" | "team";
+  } | null>(null);
 
   // Management drawers
   const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team" | "mgmt_group" | "sr_mgmt_group" | "sr_region" | "partner" | "division"; parentId?: string; parentName?: string; parentType?: string } | null>(null);
