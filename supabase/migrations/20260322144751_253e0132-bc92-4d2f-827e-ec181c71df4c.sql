@@ -1,0 +1,1 @@
+ALTER TABLE public.reps ADD COLUMN office_id UUID REFERENCES public.offices(id);

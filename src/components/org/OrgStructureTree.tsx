@@ -273,7 +273,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         supabase.from("teams").select("*").order("name"),
         supabase.from("team_mgmt_groups").select("*"),
         supabase.from("office_staff").select("*"),
-        supabase.from("reps").select("user_id, name, year, profile_photo_url, stage"),
+        supabase.from("reps").select("user_id, name, year, profile_photo_url, stage, office_id"),
         supabase.from("recruits").select("id, name, recruiter_user_id, stage, year, team_id, mgmt_group_id, phone, email, location, recruitment_source, last_contact, next_action, next_action_due, created_at").limit(5000),
         supabase.from("sr_mgmt_groups").select("*").order("name"),
         supabase.from("sr_regions").select("*").order("name"),
@@ -758,56 +758,147 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
     if (groupByOffice) {
       const officeTopNodes: OrgNode[] = [];
 
+      // Resolve effective office_id for each team: team.office_id > mgmt_group.office_id
+      const getTeamOfficeId = (team: any): string | null => {
+        if (team.office_id) return team.office_id;
+        const tmLink = teamMgmt.find(tm => tm.team_id === team.id);
+        if (tmLink) {
+          const mg = mgmtGroups.find(m => m.id === tmLink.mgmt_group_id);
+          if (mg?.office_id) return mg.office_id;
+        }
+        return null;
+      };
+
+      // Build a map: officeId -> { srMgmtGroups, mgmtGroups, teams, reps (directly assigned) }
+      const officeEntities = new Map<string, {
+        srMgmtGroupIds: Set<string>;
+        mgmtGroupIds: Set<string>;
+        teamIds: Set<string>;
+        repUserIds: Set<string>;
+      }>();
+
+      const ensureOffice = (officeId: string) => {
+        if (!officeEntities.has(officeId)) {
+          officeEntities.set(officeId, { srMgmtGroupIds: new Set(), mgmtGroupIds: new Set(), teamIds: new Set(), repUserIds: new Set() });
+        }
+        return officeEntities.get(officeId)!;
+      };
+
+      // 1. Sr MGMT Groups with office_id
+      srMgmtGroups.forEach((smg: any) => {
+        if (smg.office_id) ensureOffice(smg.office_id).srMgmtGroupIds.add(smg.id);
+      });
+
+      // 2. MGMT Groups with office_id
+      mgmtGroups.forEach((mg) => {
+        if (mg.office_id) ensureOffice(mg.office_id).mgmtGroupIds.add(mg.id);
+      });
+
+      // 3. Teams with office_id (direct or inherited from mgmt group)
+      teams.forEach((t: any) => {
+        const officeId = getTeamOfficeId(t);
+        if (officeId) ensureOffice(officeId).teamIds.add(t.id);
+      });
+
+      // 4. Individual reps with office_id
+      reps.forEach((r: any) => {
+        if (r.office_id) ensureOffice(r.office_id).repUserIds.add(r.user_id);
+      });
+
+      // For each office, build a hierarchical tree
       offices.forEach((o: any) => {
         const staff = officeStaff.filter((s) => s.office_id === o.id);
         const adNames = staff.map((s) => `${getRepName(s.user_id)} (AD)`).join(", ");
-
-        // Find all MGMT groups assigned to this office
-        const officeMgmtGroups = mgmtGroups.filter((mg) => mg.office_id === o.id);
-
-        // Group MGMT groups by sr_mgmt_group
-        const mgmtBySrMgmt = new Map<string, typeof mgmtGroups>();
-        const directMgmt: typeof mgmtGroups = [];
-
-        officeMgmtGroups.forEach((mg) => {
-          if (mg.sr_mgmt_group_id) {
-            const existing = mgmtBySrMgmt.get(mg.sr_mgmt_group_id) || [];
-            existing.push(mg);
-            mgmtBySrMgmt.set(mg.sr_mgmt_group_id, existing);
-          } else {
-            directMgmt.push(mg);
-          }
-        });
+        const entities = officeEntities.get(o.id);
 
         const officeChildren: OrgNode[] = [];
 
-        // Add Sr MGMT Group intermediate nodes
-        mgmtBySrMgmt.forEach((mgs, srMgmtId) => {
-          const srMgmt = srMgmtGroups.find((s: any) => s.id === srMgmtId);
-          if (srMgmt) {
-            officeChildren.push({
-              id: srMgmt.id, name: srMgmt.name, type: "sr_mgmt_group" as const,
-              role: (srMgmt as any).lead_user_id ? `Led by ${getRepName((srMgmt as any).lead_user_id)}` : undefined,
-              leadUserId: (srMgmt as any).lead_user_id,
-              children: mgs.map((mg) => ({
-                id: mg.id, name: mg.name, type: "mgmt_group" as const,
-                role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
-                leadUserId: mg.lead_user_id,
-                children: teamNodes(mg.id, mg.name),
-              })),
+        if (entities) {
+          // Collect all MGMT groups in this office (directly assigned or via sr_mgmt_group)
+          const officeMgmtGroupIds = new Set(entities.mgmtGroupIds);
+          
+          // Also include MGMT groups under Sr MGMT Groups assigned to this office
+          entities.srMgmtGroupIds.forEach(srId => {
+            mgmtGroups.filter(mg => mg.sr_mgmt_group_id === srId).forEach(mg => {
+              officeMgmtGroupIds.add(mg.id);
             });
-          }
-        });
-
-        // Add direct MGMT groups (no sr_mgmt_group)
-        directMgmt.forEach((mg) => {
-          officeChildren.push({
-            id: mg.id, name: mg.name, type: "mgmt_group" as const,
-            role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
-            leadUserId: mg.lead_user_id,
-            children: teamNodes(mg.id, mg.name),
           });
-        });
+
+          // Group MGMT groups by sr_mgmt_group for intermediate nodes
+          const mgmtBySrMgmt = new Map<string, typeof mgmtGroups>();
+          const directMgmt: typeof mgmtGroups = [];
+
+          officeMgmtGroupIds.forEach(mgId => {
+            const mg = mgmtGroups.find(m => m.id === mgId);
+            if (!mg) return;
+            if (mg.sr_mgmt_group_id) {
+              const existing = mgmtBySrMgmt.get(mg.sr_mgmt_group_id) || [];
+              existing.push(mg);
+              mgmtBySrMgmt.set(mg.sr_mgmt_group_id, existing);
+            } else {
+              directMgmt.push(mg);
+            }
+          });
+
+          // Add Sr MGMT Group intermediate nodes
+          mgmtBySrMgmt.forEach((mgs, srMgmtId) => {
+            const srMgmt = srMgmtGroups.find((s: any) => s.id === srMgmtId);
+            if (srMgmt) {
+              officeChildren.push({
+                id: srMgmt.id, name: srMgmt.name, type: "sr_mgmt_group" as const,
+                role: (srMgmt as any).lead_user_id ? `Led by ${getRepName((srMgmt as any).lead_user_id)}` : undefined,
+                leadUserId: (srMgmt as any).lead_user_id,
+                children: mgs.map((mg) => ({
+                  id: mg.id, name: mg.name, type: "mgmt_group" as const,
+                  role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
+                  leadUserId: mg.lead_user_id,
+                  children: teamNodes(mg.id, mg.name),
+                })),
+              });
+            }
+          });
+
+          // Add direct MGMT groups
+          directMgmt.forEach((mg) => {
+            officeChildren.push({
+              id: mg.id, name: mg.name, type: "mgmt_group" as const,
+              role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
+              leadUserId: mg.lead_user_id,
+              children: teamNodes(mg.id, mg.name),
+            });
+          });
+
+          // Add teams directly assigned to this office but whose MGMT group isn't in this office
+          entities.teamIds.forEach(tId => {
+            // Check if team is already shown under a MGMT group above
+            const tmLink = teamMgmt.find(tm => tm.team_id === tId);
+            const alreadyShown = tmLink && officeMgmtGroupIds.has(tmLink.mgmt_group_id);
+            if (!alreadyShown) {
+              const t = teams.find(team => team.id === tId);
+              if (t) {
+                const mgLink = tmLink ? mgmtGroups.find(m => m.id === tmLink.mgmt_group_id) : null;
+                officeChildren.push({
+                  id: t.id, name: t.name, type: "team" as const,
+                  role: t.lead_user_id ? `Led by ${getRepName(t.lead_user_id)}` : undefined,
+                  children: buildTeamMembers(t.lead_user_id, t.name, t.id, mgLink?.id || null, mgLink?.name || null),
+                });
+              }
+            }
+          });
+
+          // Add individual reps directly assigned to this office
+          entities.repUserIds.forEach(userId => {
+            const rep = repMap.get(userId);
+            if (rep) {
+              officeChildren.push({
+                id: `rep-office-${userId}`, name: getCleanName(rep.name), type: "rep" as const,
+                year: rep.year,
+                hasAppAccess: true,
+                children: [],
+              });
+            }
+          });
+        }
 
         officeTopNodes.push({
           id: o.id, name: o.name, type: "office" as const,
@@ -817,18 +908,29 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         });
       });
 
-      // Add unassigned MGMT groups (no office)
-      const unassignedMgmt = mgmtGroups.filter((mg) => !mg.office_id);
+      // Unassigned bucket: MGMT groups, teams, and reps with no office
+      const assignedMgmtIds = new Set<string>();
+      const assignedTeamIds = new Set<string>();
+      const assignedRepIds = new Set<string>();
+      officeEntities.forEach(e => {
+        e.mgmtGroupIds.forEach(id => assignedMgmtIds.add(id));
+        e.srMgmtGroupIds.forEach(srId => {
+          mgmtGroups.filter(mg => mg.sr_mgmt_group_id === srId).forEach(mg => assignedMgmtIds.add(mg.id));
+        });
+        e.teamIds.forEach(id => assignedTeamIds.add(id));
+        e.repUserIds.forEach(id => assignedRepIds.add(id));
+      });
+
+      const unassignedMgmt = mgmtGroups.filter(mg => !assignedMgmtIds.has(mg.id));
       if (unassignedMgmt.length > 0) {
-        const unassignedChildren: OrgNode[] = unassignedMgmt.map((mg) => ({
-          id: mg.id, name: mg.name, type: "mgmt_group" as const,
-          role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
-          leadUserId: mg.lead_user_id,
-          children: teamNodes(mg.id, mg.name),
-        }));
         officeTopNodes.push({
           id: "no-office", name: "No Office Assigned", type: "office" as const,
-          children: unassignedChildren,
+          children: unassignedMgmt.map(mg => ({
+            id: mg.id, name: mg.name, type: "mgmt_group" as const,
+            role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
+            leadUserId: mg.lead_user_id,
+            children: teamNodes(mg.id, mg.name),
+          })),
         });
       }
 
