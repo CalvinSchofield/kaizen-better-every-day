@@ -17,6 +17,8 @@ export interface TreeNode {
   profilePhotoUrl?: string | null;
   role?: string | null;
   year?: string | null;
+  groupName?: string | null;
+  teamName?: string | null;
   children: TreeNode[];
 }
 
@@ -28,6 +30,8 @@ interface PositionedNode {
   profilePhotoUrl?: string | null;
   role?: string | null;
   year?: string | null;
+  groupName?: string | null;
+  teamName?: string | null;
   x: number;
   y: number;
   childCount: number;
@@ -90,6 +94,8 @@ function layoutNodes(
     profilePhotoUrl: node.profilePhotoUrl,
     role: node.role,
     year: node.year,
+    groupName: node.groupName,
+    teamName: node.teamName,
     x: cx,
     y: cy,
     childCount: node.children.length,
@@ -309,6 +315,20 @@ export const VisualRecruiterTree = ({
                       {node.role && (
                         <span className="text-[9px] text-primary/80 font-medium leading-tight mt-0.5 truncate max-w-[92px] italic">
                           {node.role}
+                        </span>
+                      )}
+
+                      {/* MGMT Group name pill */}
+                      {node.groupName && (
+                        <span className="text-[8px] leading-tight mt-0.5 px-1.5 py-[1px] rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold truncate max-w-[92px]">
+                          {node.groupName}
+                        </span>
+                      )}
+
+                      {/* Team name pill */}
+                      {node.teamName && (
+                        <span className="text-[8px] leading-tight mt-0.5 px-1.5 py-[1px] rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-medium truncate max-w-[92px]">
+                          {node.teamName}
                         </span>
                       )}
 
