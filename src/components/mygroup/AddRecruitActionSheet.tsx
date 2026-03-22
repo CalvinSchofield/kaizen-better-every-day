@@ -9,6 +9,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { useToast } from "@/hooks/use-toast";
 import { hapticSuccess } from "@/utils/haptics";
