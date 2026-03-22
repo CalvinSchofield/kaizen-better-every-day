@@ -118,6 +118,7 @@ const MyGroup = () => {
   const [undoBannerMessage, setUndoBannerMessage] = useState<string | null>(null);
   const [goalsPaceDrawerOpen, setGoalsPaceDrawerOpen] = useState(false);
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
+  const [addActionSheetOpen, setAddActionSheetOpen] = useState(false);
   const [logOneOnOneOpen, setLogOneOnOneOpen] = useState(false);
   const [logOneOnOneRepUserId, setLogOneOnOneRepUserId] = useState<string | null>(null);
   const [logOneOnOneRepName, setLogOneOnOneRepName] = useState<string>('');
