@@ -491,6 +491,63 @@ export const DetailsTab = ({
         recruitRepData={recruitRepData}
         queryClient={queryClient}
       />
+
+      {/* 6. ROLE MANAGEMENT - Show if recruit has a role */}
+      {recruitRole && canEditRole && (
+        <div className="bg-muted/50 border border-border rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Assigned Role</p>
+              <p className="font-semibold text-sm">{getRoleLabel((recruitRole as any).role as AccessLevel)}</p>
+            </div>
+            {!editingRole ? (
+              <div className="flex gap-1.5">
+                <Button size="sm" variant="outline" onClick={() => { setEditingRole(true); setNewRole((recruitRole as any).role); }}>
+                  <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                </Button>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setShowRoleRemoveConfirm(true)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <Button size="sm" variant="ghost" onClick={() => { setEditingRole(false); setNewRole(''); }}>
+                Cancel
+              </Button>
+            )}
+          </div>
+          {editingRole && (
+            <div className="mt-3 space-y-2">
+              <Select value={newRole || "__none__"} onValueChange={(v) => setNewRole(v === "__none__" ? "" : v)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No role (regular rep)</SelectItem>
+                  {editableRoles.map((role) => (
+                    <SelectItem key={role} value={role}>{getRoleLabel(role)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {roleJumpInfo?.isLargeJump && newRole && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  ⚠️ This role is {roleJumpInfo.levelDiff} levels above yours
+                </p>
+              )}
+              <Button 
+                size="sm" 
+                className="w-full"
+                disabled={!newRole || newRole === (recruitRole as any).role || updateRoleMutation.isPending}
+                onClick={() => {
+                  if (!newRole) return;
+                  if (newRole !== (recruitRole as any).role) setShowRoleChangeConfirm(true);
+                }}
+              >
+                {updateRoleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update Role'}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Edit Recruit Drawer */}
       <EditRecruitDrawer
@@ -513,6 +570,55 @@ export const DetailsTab = ({
           onDeleted={onDeleted}
         />
       )}
+
+      {/* Role Change Confirmation */}
+      <AlertDialog open={showRoleChangeConfirm} onOpenChange={setShowRoleChangeConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {roleJumpInfo?.isLargeJump && <AlertTriangle className="h-5 w-5 text-amber-500" />}
+              Change Role
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left space-y-2">
+              <p>
+                Change <strong>{recruit.name}</strong>'s role from{' '}
+                <strong>{getRoleLabel((recruitRole as any)?.role as AccessLevel)}</strong> to{' '}
+                <strong>{getRoleLabel(newRole as AccessLevel)}</strong>?
+              </p>
+              {roleJumpInfo?.isLargeJump && (
+                <p className="text-amber-600 dark:text-amber-400 font-medium">
+                  ⚠️ This role is {roleJumpInfo.levelDiff} levels above yours — double-check this is correct.
+                </p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRoleChangeConfirm}>
+              Yes, Change Role
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Role Remove Confirmation */}
+      <AlertDialog open={showRoleRemoveConfirm} onOpenChange={setShowRoleRemoveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Role</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove <strong>{recruit.name}</strong>'s{' '}
+              <strong>{getRoleLabel((recruitRole as any)?.role as AccessLevel)}</strong> role? They'll become a regular rep with no management access.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRoleRemoveConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remove Role
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
