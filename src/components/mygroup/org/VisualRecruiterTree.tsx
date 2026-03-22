@@ -17,6 +17,8 @@ export interface TreeNode {
   profilePhotoUrl?: string | null;
   role?: string | null;
   year?: string | null;
+  groupName?: string | null;
+  teamName?: string | null;
   children: TreeNode[];
 }
 
