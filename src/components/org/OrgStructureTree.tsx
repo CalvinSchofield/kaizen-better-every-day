@@ -93,6 +93,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const { data: orgData, isLoading, isError } = useQuery({
     queryKey: ["org-structure-data"],
     queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [regionsRes, officesRes, mgmtGroupsRes, teamsRes, teamMgmtRes, officeStaffRes, repsRes, recruitsRes] = await Promise.all([
         supabase.from("regions").select("*").order("name"),
         supabase.from("offices").select("*").order("name"),
