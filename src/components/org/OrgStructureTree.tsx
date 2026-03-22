@@ -18,6 +18,7 @@ import { BulkAssignRepsDrawer } from "./BulkAssignRepsDrawer";
 import { MoveToTeamDrawer } from "./MoveToTeamDrawer";
 import { MoveTeamToMgmtDrawer } from "./MoveTeamToMgmtDrawer";
 import { MoveEntityDrawer } from "./MoveEntityDrawer";
+import { AssignToOfficeDrawer } from "./AssignToOfficeDrawer";
 import type { Recruit } from "@/hooks/useGroupRecruits";
 import type { AccessLevel } from "@/utils/roleHierarchy";
 import { hasMinAccess, canCreateEntityType } from "@/utils/roleHierarchy";
@@ -314,6 +315,11 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
     id: string;
     name: string;
     leadUserId: string | null;
+  } | null>(null);
+  const [assignToOfficeTarget, setAssignToOfficeTarget] = useState<{
+    id: string;
+    name: string;
+    type: "sr_mgmt_group" | "mgmt_group" | "team";
   } | null>(null);
 
   // Management drawers
@@ -1218,8 +1224,13 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
                   }}
                 >
                   <ArrowRightLeft className="h-4 w-4" />
-                  Move to MGMT Group...
+                   Move to MGMT Group...
                 </Button>
+                {orgData && orgData.offices.length > 0 && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setAssignToOfficeTarget({ id: actionTarget.id, name: actionTarget.name, type: "team" }); setActionTarget(null); } }}>
+                    <Building2 className="h-4 w-4" /> Assign to Office...
+                  </Button>
+                )}
               </>
             )}
 
@@ -1236,14 +1247,28 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
                     <ArrowRightLeft className="h-4 w-4" /> Move to Sr MGMT Group...
                   </Button>
                 )}
+                {orgData && orgData.offices.length > 0 && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setAssignToOfficeTarget({ id: actionTarget.id, name: actionTarget.name, type: "mgmt_group" }); setActionTarget(null); } }}>
+                    <Building2 className="h-4 w-4" /> Assign to Office...
+                  </Button>
+                )}
               </>
             )}
 
             {/* Sr MGMT group actions */}
-            {actionTarget?.type === "sr_mgmt_group" && canManageTeams && canCreateEntityType(accessLevel, "mgmt_group") && (
-              <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name, parentType: "sr_mgmt_group" }); setActionTarget(null); } }}>
-                <Plus className="h-4 w-4" /> Create MGMT Group
-              </Button>
+            {actionTarget?.type === "sr_mgmt_group" && canManageTeams && (
+              <>
+                {canCreateEntityType(accessLevel, "mgmt_group") && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name, parentType: "sr_mgmt_group" }); setActionTarget(null); } }}>
+                    <Plus className="h-4 w-4" /> Create MGMT Group
+                  </Button>
+                )}
+                {orgData && orgData.offices.length > 0 && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setAssignToOfficeTarget({ id: actionTarget.id, name: actionTarget.name, type: "sr_mgmt_group" }); setActionTarget(null); } }}>
+                    <Building2 className="h-4 w-4" /> Assign to Office...
+                  </Button>
+                )}
+              </>
             )}
 
             {/* Office actions */}
@@ -1472,6 +1497,24 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           />
         );
       })()}
+
+      {/* Assign to office drawer */}
+      {assignToOfficeTarget && orgData && (
+        <AssignToOfficeDrawer
+          open={!!assignToOfficeTarget}
+          onOpenChange={(open) => !open && setAssignToOfficeTarget(null)}
+          entity={assignToOfficeTarget}
+          offices={orgData.offices.map((o: any) => ({ id: o.id, name: o.name, location: o.location }))}
+          orgData={{
+            srMgmtGroups: orgData.srMgmtGroups,
+            mgmtGroups: orgData.mgmtGroups,
+            teams: orgData.teams,
+            teamMgmt: orgData.teamMgmt,
+            reps: orgData.reps,
+            recruits: orgData.recruits,
+          }}
+        />
+      )}
     </>
   );
 };
