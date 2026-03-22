@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Globe, Building2, Users, User, ChevronDown, ChevronRight, UserPlus, Trash2, Plus, ArrowRightLeft, FileEdit, Info, ArrowRight } from "lucide-react";
+import { Globe, Building2, Users, User, ChevronDown, ChevronRight, UserPlus, Trash2, Plus, ArrowRightLeft, FileEdit, Info, ArrowRight, MoreHorizontal } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
 import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
@@ -1125,6 +1125,18 @@ const OrgNodeCard = ({ node, depth, onLongPressAction, onTap, canManage }: OrgNo
           <Badge variant="outline" className="text-xs ml-auto shrink-0">
             {totalReps} {totalReps === 1 ? "rep" : "reps"}
           </Badge>
+        )}
+
+        {isLongPressable && (
+          <button
+            className="ml-auto p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              onLongPressAction(node);
+            }}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
         )}
       </div>
 
