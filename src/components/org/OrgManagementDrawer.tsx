@@ -598,21 +598,31 @@ export const ConfigureOfficeDrawer = ({
     onError: (e: any) => toast.error(e.message),
   });
 
+  const renameOffice = useMutation({
+    mutationFn: async ({ name, location }: { name: string; location: string }) => {
+      const { error } = await supabase.from("offices").update({ name, location: location || null }).eq("id", officeId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
+      setActiveSection("overview");
+      toast.success("Office updated");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const deleteOffice = useMutation({
     mutationFn: async () => {
-      // Unlink groups first
       const { error: unlinkErr } = await supabase
         .from("mgmt_groups")
         .update({ office_id: null })
         .eq("office_id", officeId);
       if (unlinkErr) throw unlinkErr;
-      // Remove staff
       const { error: staffErr } = await supabase
         .from("office_staff")
         .delete()
         .eq("office_id", officeId);
       if (staffErr) throw staffErr;
-      // Delete office
       const { error } = await supabase.from("offices").delete().eq("id", officeId);
       if (error) throw error;
     },
