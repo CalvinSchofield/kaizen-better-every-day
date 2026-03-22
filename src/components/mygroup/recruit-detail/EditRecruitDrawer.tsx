@@ -441,7 +441,17 @@ export const EditRecruitDrawer = ({
     },
   });
 
+  // Gate: if a role is selected, show confirmation first
+  const handleSaveClick = () => {
+    if (selectedRole && canAssignRoles) {
+      setShowRoleConfirm(true);
+      return;
+    }
+    handleSave();
+  };
+
   const handleSave = async () => {
+    setShowRoleConfirm(false);
     const cleanPhone = phone.replace(/\D/g, '');
     
     // Find the recruiter name from the user ID
