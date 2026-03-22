@@ -763,30 +763,14 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
       </Drawer>
 
       {/* Delete confirmation drawer */}
-      <Drawer open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>
-              {canDirectManage ? "Delete" : "Request Deletion of"} {deleteTarget?.type === "team" ? "Team" : deleteTarget?.type === "mgmt_group" ? "MGMT Group" : "Item"}
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="px-4 pb-6 space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {canDirectManage
-                ? `Are you sure you want to dissolve the "${deleteTarget?.name}" ${deleteTarget?.type === "team" ? "team" : "group"}? All reps and recruits will be unassigned and can be reassigned to another ${deleteTarget?.type === "team" ? "team" : "group"}.`
-                : `Submit a request to dissolve the "${deleteTarget?.name}" ${deleteTarget?.type === "team" ? "team" : "group"}? Needs upline approval. Members will be unassigned.`}
-            </p>
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setDeleteTarget(null)}>
-                Cancel
-              </Button>
-              <Button variant="destructive" className="flex-1" onClick={handleDeleteDirect} disabled={isDeleting}>
-                {isDeleting ? "Deleting..." : canDirectManage ? "Delete" : "Submit Request"}
-              </Button>
-            </div>
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <DeleteConfirmationDrawer
+        deleteTarget={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteDirect}
+        isDeleting={isDeleting}
+        canDirectManage={canDirectManage}
+        orgData={orgData}
+      />
 
       {/* Create drawer */}
       <CreateDrawer
