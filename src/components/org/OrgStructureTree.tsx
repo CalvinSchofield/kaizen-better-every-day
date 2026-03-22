@@ -804,27 +804,39 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
 
   return (
     <>
-      {/* Create buttons for Regional+ */}
-      {canManageRegions && (
+      {/* Tiered create buttons based on access level */}
+      {canManageTeams && (
         <div className="flex flex-wrap gap-2 mb-3">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "division" })}>
-            <Plus className="h-3.5 w-3.5" /> Division
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "partner" })}>
-            <Plus className="h-3.5 w-3.5" /> Partnership
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "sr_region" })}>
-            <Plus className="h-3.5 w-3.5" /> Sr Region
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "region" })}>
-            <Plus className="h-3.5 w-3.5" /> Region
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "office" })}>
-            <Plus className="h-3.5 w-3.5" /> Office
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "sr_mgmt_group" })}>
-            <Plus className="h-3.5 w-3.5" /> Sr MGMT Group
-          </Button>
+          {canCreateEntityType(accessLevel, "division") && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "division" })}>
+              <Plus className="h-3.5 w-3.5" /> Division
+            </Button>
+          )}
+          {canCreateEntityType(accessLevel, "partner") && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "partner" })}>
+              <Plus className="h-3.5 w-3.5" /> Partnership
+            </Button>
+          )}
+          {canCreateEntityType(accessLevel, "sr_region") && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "sr_region" })}>
+              <Plus className="h-3.5 w-3.5" /> Sr Region
+            </Button>
+          )}
+          {canCreateEntityType(accessLevel, "region") && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "region" })}>
+              <Plus className="h-3.5 w-3.5" /> Region
+            </Button>
+          )}
+          {canCreateEntityType(accessLevel, "office") && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "office" })}>
+              <Plus className="h-3.5 w-3.5" /> Office
+            </Button>
+          )}
+          {canCreateEntityType(accessLevel, "sr_mgmt_group") && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "sr_mgmt_group" })}>
+              <Plus className="h-3.5 w-3.5" /> Sr MGMT Group
+            </Button>
+          )}
         </div>
       )}
 
