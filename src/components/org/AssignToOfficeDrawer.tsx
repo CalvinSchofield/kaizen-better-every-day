@@ -153,31 +153,20 @@ export const AssignToOfficeDrawer = ({
       const ids = collectIds(downlineTree, excludedIds);
 
       // Batch update all included entities
-      const updates: Promise<any>[] = [];
-
       if (ids.srMgmtGroupIds.length > 0) {
-        updates.push(
-          supabase.from("sr_mgmt_groups")
-            .update({ office_id: selectedOfficeId })
-            .in("id", ids.srMgmtGroupIds)
-            .select()
-        );
+        await supabase.from("sr_mgmt_groups")
+          .update({ office_id: selectedOfficeId })
+          .in("id", ids.srMgmtGroupIds);
       }
       if (ids.mgmtGroupIds.length > 0) {
-        updates.push(
-          supabase.from("mgmt_groups")
-            .update({ office_id: selectedOfficeId })
-            .in("id", ids.mgmtGroupIds)
-            .select()
-        );
+        await supabase.from("mgmt_groups")
+          .update({ office_id: selectedOfficeId })
+          .in("id", ids.mgmtGroupIds);
       }
       if (ids.teamIds.length > 0) {
-        updates.push(
-          supabase.from("teams")
-            .update({ office_id: selectedOfficeId } as any)
-            .in("id", ids.teamIds)
-            .select()
-        );
+        await supabase.from("teams")
+          .update({ office_id: selectedOfficeId } as any)
+          .in("id", ids.teamIds);
       }
 
       await Promise.all(updates);
