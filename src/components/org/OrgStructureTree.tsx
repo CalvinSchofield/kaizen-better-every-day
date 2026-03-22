@@ -301,7 +301,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const [moveTeamTarget, setMoveTeamTarget] = useState<{ id: string; name: string } | null>(null);
 
   // Management drawers
-  const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team"; parentId?: string; parentName?: string } | null>(null);
+  const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team" | "mgmt_group"; parentId?: string; parentName?: string } | null>(null);
   const [configOffice, setConfigOffice] = useState<string | null>(null);
   const [configRegion, setConfigRegion] = useState<string | null>(null);
 
@@ -909,6 +909,23 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
               >
                 <Plus className="h-4 w-4" />
                 Create Team
+              </Button>
+            )}
+
+            {/* Office actions */}
+            {actionTarget?.type === "office" && canManageTeams && (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  if (actionTarget) {
+                    setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name });
+                    setActionTarget(null);
+                  }
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Create MGMT Group
               </Button>
             )}
 
