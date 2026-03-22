@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Globe, Building2, Users, User, ChevronDown, ChevronRight, UserPlus, Trash2, Plus } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
+import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -93,6 +94,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const { data: orgData, isLoading, isError } = useQuery({
     queryKey: ["org-structure-data"],
     queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [regionsRes, officesRes, mgmtGroupsRes, teamsRes, teamMgmtRes, officeStaffRes, repsRes, recruitsRes] = await Promise.all([
         supabase.from("regions").select("*").order("name"),
         supabase.from("offices").select("*").order("name"),
@@ -274,7 +276,8 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
       if (visited.has(recruiterId)) return [];
       visited.add(recruiterId);
 
-      const directRecruits = recruitsByRecruiter.get(recruiterId) || [];
+      const directRecruits = (recruitsByRecruiter.get(recruiterId) || [])
+        .filter((r) => isStageIn(r.stage, [...SIGNED_PLUS_STAGES]));
       if (directRecruits.length === 0) return [];
 
       const bySubRecruiter = new Map<string, { recruit: typeof recruits[0]; subChildren: OrgNode[] }>();

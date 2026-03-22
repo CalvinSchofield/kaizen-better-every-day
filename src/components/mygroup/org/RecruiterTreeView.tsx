@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { useQuery } from "@tanstack/react-query";
 import { Users, List, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,8 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       visited.add(userId);
 
       const rep = repMap.get(userId);
-      const recruiterRecruits = recruitsByRecruiter.get(userId) || [];
+      const recruiterRecruits = (recruitsByRecruiter.get(userId) || [])
+        .filter((r) => isStageIn(r.stage, [...SIGNED_PLUS_STAGES]));
       const repName = rep?.name || "";
       const recruitByName = new Map(recruits.map((r) => [getCleanName(r.name).toLowerCase(), r]));
       const recruitRecord = recruitByName.get(getCleanName(repName).toLowerCase());
