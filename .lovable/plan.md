@@ -1,41 +1,50 @@
 
 
-## Plan: Fix Recruiter Data + Enhance Recruiter Tree with Org Structure Labels
+## Problem
 
-### Part 1 — Data Fix
+There are two related issues:
 
-Both Quinn Gleed and Calvin Schofield have `recruiter_user_id` set to Calvin's user ID (`843dac61...`) in the `recruits` table. Since their actual recruiter (Gunnar Bramwell) has no app account yet, both records should be set to `null` until Gunnar onboards.
+1. **No way to move reps between teams/MGMT groups from the Structure tab.** Currently, tapping a rep opens the RecruitDetailDrawer, which has an Edit flow (EditRecruitDrawer) where you can change Team and Recruiter — but this is buried and not obvious for bulk org setup.
 
-**Action:** Use the insert tool to run:
-```sql
-UPDATE recruits SET recruiter_user_id = NULL
-WHERE id IN (
-  'e4391452-5901-4d2c-91d6-c8e40a87aaa7',  -- Quinn Gleed
-  '3aebae30-f1cf-484c-b240-71468a285e01'   -- Calvin Schofield
-);
-```
+2. **New leaders (like Gunnar) won't know how to build their org.** The Structure tab has create/delete actions but lacks a guided onboarding flow and the ability to reassign reps to different teams/MGMT groups in bulk.
 
-This will remove both from appearing as each other's recruits in the tree. When Gunnar creates his account and his invite chain is established, their `recruiter_user_id` will be set correctly.
+## Plan
 
----
+### 1. Add "Move to Team" action to long-press menu on rep nodes
 
-### Part 2 — Enhance the Recruiter Tree Tab with Org Structure Context
+Currently, long-press only works on team/mgmt_group nodes. Extend it so long-pressing a **rep** node in the Structure tab opens an action sheet with:
+- **"Edit Details"** — opens the existing RecruitDetailDrawer
+- **"Move to Team..."** — opens a picker to select a new team (updates `team_id` and auto-resolves `mgmt_group_id` from `team_mgmt_groups`)
 
-Keep both tabs (Recruiter Tree + Structure), but overlay formal organizational labels onto the recruiter tree so you can see where MGMT Groups and Teams sit within the lineage.
+This gives leaders a fast way to reassign individual reps without navigating into edit forms.
 
-**Changes to `OrgChart.tsx` and `VisualRecruiterTree.tsx`:**
+**File:** `src/components/org/OrgStructureTree.tsx`
 
-1. **Annotate tree nodes with their formal org role**: The existing `roleMap` already tags Team Leads, MGMT Group Leads, and Area Directors. Extend this to also include the **name of the entity** they lead (e.g., "Quinn Gleed MGMT" instead of just "MGMT Group Lead").
+### 2. Add "Move to MGMT Group" on long-press for teams
 
-2. **Add visual grouping indicators on the tree**: When a node is a MGMT Group Lead or Team Lead, render a subtle background boundary or colored label beneath their avatar showing their group/team name. This makes it visually clear which branch of the recruiter tree corresponds to which formal group.
+When long-pressing a **team** node, add a "Move to MGMT Group..." option alongside the existing "Create Team" and "Delete" actions. This opens a picker showing available MGMT groups and moves the team (updates `team_mgmt_groups`).
 
-3. **Show team membership badges on leaf nodes**: For recruits who belong to a formal team, show a small team badge (e.g., "Team Alpha") below their name so you can see the formal structure overlaid on the organic recruiting chain.
+**File:** `src/components/org/OrgStructureTree.tsx`
 
-**Technical details:**
+### 3. Add bulk "Assign Reps" action on team nodes
 
-- In `OrgChart.tsx` `roleMap` builder (lines 67-82): look up the team/mgmt group name for each lead and combine it with the role label, e.g. `"Quinn Gleed MGMT"` or `"Team Bravo Lead"`.
-- In `VisualRecruiterTree.tsx`: add a new optional `teamName` or `groupName` field to `TreeNode`. Render it as a small pill/badge beneath the role label (lines 308-313).
-- Pass `team_id` and `mgmt_group_id` data through the tree nodes so leaf recruits also show their team affiliation.
+When long-pressing a team node, add an **"Assign Reps"** option that opens a multi-select drawer showing all signed+ reps that are either unassigned or in a different team. Leaders can check multiple reps and assign them all to that team at once. This uses the existing `update-rep-assignment` edge function.
 
-This approach preserves the recruiting lineage as the primary structure while making it immediately obvious how formal teams and MGMT groups map onto it.
+**Files:** `src/components/org/OrgStructureTree.tsx`, new `src/components/org/BulkAssignRepsDrawer.tsx`
+
+### 4. Add empty-state guidance for new leaders
+
+When a leader opens the Structure tab and their org is mostly empty (no teams under their MGMT group, or no MGMT groups under their office), show a step-by-step callout:
+1. "Create MGMT Groups under your office" (if AD)
+2. "Create Teams under your MGMT Group" (if MGL)
+3. "Long-press a team to assign reps"
+
+**File:** `src/components/org/OrgStructureTree.tsx`
+
+### Technical Details
+
+- **Move to Team picker:** A simple Drawer with a searchable list of teams the current user has access to. On selection, calls `supabase.functions.invoke('update-rep-assignment', { body: { repId, teamId } })` and also updates `mgmt_group_id` based on the `team_mgmt_groups` mapping.
+- **Move Team to MGMT Group:** Updates `team_mgmt_groups` junction table — deletes old row, inserts new row.
+- **Bulk Assign:** Loops through selected rep IDs calling the same `update-rep-assignment` function, then invalidates queries.
+- **Long-press on reps:** Extend `isLongPressable` to include `rep` type, and add rep-specific actions in the action sheet Drawer.
 
