@@ -265,7 +265,7 @@ const OrgChart = () => {
     }
 
     return rootNodes.sort((a, b) => b.children.length - a.children.length);
-  }, [treeData, teamAccess, currentAuthUserId, roleMap, areaDirectorSet]);
+  }, [treeData, teamAccess, currentAuthUserId, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap]);
 
   // Filter tree based on stage filters
   const filteredTree = useMemo(() => {
