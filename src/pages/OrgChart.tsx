@@ -97,7 +97,12 @@ const OrgChart = () => {
     const { recruits, reps } = treeData;
     const repMap = new Map(reps.map((r) => [r.user_id, r]));
     const recruitsByRecruiter = new Map<string, typeof recruits>();
-    recruits.forEach((r) => {
+    // Only include recruits in active stages (Signed, Shadow, Sold, Sold 5+)
+    const activeRecruits = recruits.filter(r => 
+      r.stage && SIGNED_PLUS_STAGES.some(s => s.toLowerCase() === r.stage!.toLowerCase())
+    );
+
+    activeRecruits.forEach((r) => {
       if (r.recruiter_user_id) {
         const existing = recruitsByRecruiter.get(r.recruiter_user_id) || [];
         existing.push(r);
