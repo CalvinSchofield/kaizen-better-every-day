@@ -14,6 +14,7 @@ export const useLongPress = ({
 }: UseLongPressOptions) => {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressRef = useRef(false);
+  const movedRef = useRef(false);
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
   const lastTouchTimeRef = useRef(0);
 
