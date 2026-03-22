@@ -137,15 +137,19 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
       if (canDirect) {
         // Direct delete — area director+ has RLS permission
         if (deleteTarget.type === "team") {
-          // Remove team_mgmt_groups linkage first
+          // Unassign recruits from this team first to avoid FK violation
+          await supabase.from("recruits").update({ team_id: null }).eq("team_id", deleteTarget.id);
+          // Remove team_mgmt_groups linkage
           await supabase.from("team_mgmt_groups").delete().eq("team_id", deleteTarget.id);
           const { error } = await supabase.from("teams").delete().eq("id", deleteTarget.id);
           if (error) throw error;
         } else if (deleteTarget.type === "mgmt_group") {
+          // Unassign recruits from this mgmt group first
+          await supabase.from("recruits").update({ mgmt_group_id: null }).eq("mgmt_group_id", deleteTarget.id);
           const { error } = await supabase.from("mgmt_groups").delete().eq("id", deleteTarget.id);
           if (error) throw error;
         }
-        toast.success(`"${deleteTarget.name}" deleted.`);
+        toast.success(`"${deleteTarget.name}" ${deleteTarget.type === "team" ? "team" : "group"} dissolved. Members are now unassigned.`);
       } else {
         // Submit approval request
         const { error } = await supabase.from("org_change_requests").insert({
@@ -506,11 +510,13 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{canDirectManage ? "Delete" : "Request Deletion"}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {canDirectManage ? "Delete" : "Request Deletion of"} {deleteTarget?.type === "team" ? "Team" : deleteTarget?.type === "mgmt_group" ? "MGMT Group" : "Item"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {canDirectManage
-                ? `Are you sure you want to delete "${deleteTarget?.name}"?`
-                : `Submit a request to delete "${deleteTarget?.name}"? Needs upline approval.`}
+                ? `Are you sure you want to dissolve the "${deleteTarget?.name}" ${deleteTarget?.type === "team" ? "team" : "group"}? All reps and recruits will be unassigned and can be reassigned to another ${deleteTarget?.type === "team" ? "team" : "group"}.`
+                : `Submit a request to dissolve the "${deleteTarget?.name}" ${deleteTarget?.type === "team" ? "team" : "group"}? Needs upline approval. Members will be unassigned.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -14,12 +14,14 @@ export const useLongPress = ({
 }: UseLongPressOptions) => {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressRef = useRef(false);
+  const movedRef = useRef(false);
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
   const lastTouchTimeRef = useRef(0);
 
   const start = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
       isLongPressRef.current = false;
+      movedRef.current = false;
 
       // Store start position for movement detection
       if ('touches' in e) {
@@ -48,13 +50,14 @@ export const useLongPress = ({
     (e: React.TouchEvent | React.MouseEvent) => {
       cancel();
 
-      if (!isLongPressRef.current) {
-        // It was a tap, not a long press
+      if (!isLongPressRef.current && !movedRef.current) {
+        // It was a tap, not a long press or scroll
         hapticSelection();
         onTap?.();
       }
 
       startPosRef.current = null;
+      movedRef.current = false;
     },
     [cancel, onTap]
   );
@@ -78,6 +81,7 @@ export const useLongPress = ({
 
       if (dx > 10 || dy > 10) {
         cancel();
+        movedRef.current = true;
       }
     },
     [cancel]
