@@ -25,13 +25,26 @@ const Auth = () => {
 
   // Capture invite code from URL
   const inviteCode = searchParams.get('invite');
+  const [isLateralInvite, setIsLateralInvite] = useState(false);
   
-  // If invite code present, default to signup mode
+  // If invite code present, default to signup mode and check invite type
   useEffect(() => {
     if (inviteCode) {
       setIsLogin(false);
-      // Store invite code in sessionStorage so SetupFlow can use it
       sessionStorage.setItem('kaizen-invite-code', inviteCode);
+      
+      // Look up invite type
+      supabase
+        .from('invite_codes')
+        .select('invite_type')
+        .eq('code', inviteCode)
+        .eq('is_active', true)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.invite_type === 'lateral') {
+            setIsLateralInvite(true);
+          }
+        });
     }
   }, [inviteCode]);
 
@@ -402,7 +415,9 @@ const Auth = () => {
               />
               {!isLogin && (
                 <p className="text-xs text-muted-foreground">
-                  Use the same email from your onboarding process
+                  {isLateralInvite 
+                    ? "Use your Vivint email address" 
+                    : "Use the same email from your onboarding process"}
                 </p>
               )}
             </div>
