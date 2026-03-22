@@ -34,8 +34,8 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
   const [reps, setReps] = useState<{ id: string; user_id: string | null; name: string }[]>([]);
   const [loadingReps, setLoadingReps] = useState(false);
 
-  const typeLabel = type === "office" ? "Office" : type === "region" ? "Region" : type === "mgmt_group" ? "MGMT Group" : "Team";
-  const needsLeader = type === "team" || type === "mgmt_group";
+  const typeLabel = type === "office" ? "Office" : type === "region" ? "Region" : type === "mgmt_group" ? "MGMT Group" : type === "sr_mgmt_group" ? "Sr MGMT Group" : type === "sr_region" ? "Sr Region" : type === "partner" ? "Partnership" : type === "division" ? "Division" : "Team";
+  const needsLeader = type !== "office";
 
   // Load all reps including ghost reps
   const loadReps = async () => {
