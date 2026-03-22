@@ -1226,7 +1226,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
                   <ArrowRightLeft className="h-4 w-4" />
                    Move to MGMT Group...
                 </Button>
-                {orgData && orgData.offices.length > 0 && (
+                {canManageOffices && orgData && orgData.offices.length > 0 && (
                   <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setAssignToOfficeTarget({ id: actionTarget.id, name: actionTarget.name, type: "team" }); setActionTarget(null); } }}>
                     <Building2 className="h-4 w-4" /> Assign to Office...
                   </Button>
@@ -1247,7 +1247,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
                     <ArrowRightLeft className="h-4 w-4" /> Move to Sr MGMT Group...
                   </Button>
                 )}
-                {orgData && orgData.offices.length > 0 && (
+                {canManageOffices && orgData && orgData.offices.length > 0 && (
                   <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setAssignToOfficeTarget({ id: actionTarget.id, name: actionTarget.name, type: "mgmt_group" }); setActionTarget(null); } }}>
                     <Building2 className="h-4 w-4" /> Assign to Office...
                   </Button>
@@ -1263,7 +1263,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
                     <Plus className="h-4 w-4" /> Create MGMT Group
                   </Button>
                 )}
-                {orgData && orgData.offices.length > 0 && (
+                {canManageOffices && orgData && orgData.offices.length > 0 && (
                   <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setAssignToOfficeTarget({ id: actionTarget.id, name: actionTarget.name, type: "sr_mgmt_group" }); setActionTarget(null); } }}>
                     <Building2 className="h-4 w-4" /> Assign to Office...
                   </Button>
