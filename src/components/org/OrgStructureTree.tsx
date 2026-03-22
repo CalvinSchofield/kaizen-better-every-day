@@ -770,6 +770,17 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
     const unassignedRegions = regionNodes(null);
     topNodes.push(...unassignedRegions);
 
+    // Add unassigned sr_mgmt_groups (not in any region)
+    const unassignedSrMgmtGroups = srMgmtGroups
+      .filter((smg: any) => !smg.region_id)
+      .map((smg: any) => ({
+        id: smg.id, name: smg.name, type: "sr_mgmt_group" as const,
+        role: smg.lead_user_id ? `Led by ${getRepName(smg.lead_user_id)}` : undefined,
+        leadUserId: smg.lead_user_id,
+        children: mgmtNodesForSrMgmt(smg.id),
+      }));
+    topNodes.push(...unassignedSrMgmtGroups);
+
     // Add unassigned offices (not in a region)
     const unassignedOffices = officeNodes(null);
     if (unassignedOffices.length > 0) {
@@ -778,6 +789,17 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         children: unassignedOffices,
       });
     }
+
+    // Add unassigned mgmt_groups (not in any sr_mgmt_group or office)
+    const unassignedMgmtGroups = mgmtGroups
+      .filter((mg) => !mg.sr_mgmt_group_id && !mg.office_id)
+      .map((mg) => ({
+        id: mg.id, name: mg.name, type: "mgmt_group" as const,
+        role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
+        leadUserId: mg.lead_user_id,
+        children: teamNodes(mg.id, mg.name),
+      }));
+    topNodes.push(...unassignedMgmtGroups);
 
     return topNodes;
   }, [orgData]);
