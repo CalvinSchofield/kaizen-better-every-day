@@ -143,10 +143,11 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, p
           break;
         }
         case 'sr_mgmt_group': {
+          // Sr MGMT Group's lineage parent is Region (not Office — Office is a non-lineage bucket)
           const { data } = await supabase
-            .from('sr_mgmt_groups').select('office_id')
+            .from('sr_mgmt_groups').select('region_id')
             .eq('lead_user_id', leadUserId).maybeSingle();
-          if (data?.office_id) foundParentId = data.office_id;
+          if (data?.region_id) foundParentId = data.region_id;
           break;
         }
         case 'region': {
