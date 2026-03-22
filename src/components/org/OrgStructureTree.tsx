@@ -18,6 +18,7 @@ import { BulkAssignRepsDrawer } from "./BulkAssignRepsDrawer";
 import { MoveToTeamDrawer } from "./MoveToTeamDrawer";
 import { MoveTeamToMgmtDrawer } from "./MoveTeamToMgmtDrawer";
 import { MoveEntityDrawer } from "./MoveEntityDrawer";
+import { AssignToOfficeDrawer } from "./AssignToOfficeDrawer";
 import type { Recruit } from "@/hooks/useGroupRecruits";
 import type { AccessLevel } from "@/utils/roleHierarchy";
 import { hasMinAccess, canCreateEntityType } from "@/utils/roleHierarchy";
