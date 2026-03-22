@@ -55,6 +55,7 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const canManageOffices = hasMinAccess(accessLevel, "regional");
   const canManageRegions = hasMinAccess(accessLevel, "regional");
+  const canManageTeams = hasMinAccess(accessLevel, "mgmt_group_lead");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id || null));
