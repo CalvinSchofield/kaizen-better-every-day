@@ -620,14 +620,29 @@ export const ConfigureOfficeDrawer = ({
     (mg) => !mg.office_id && mg.id !== officeId
   );
 
-  const filteredReps = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase();
+  // Compute eligible AD candidates: downline members who are at least team_lead, sorted by hierarchy
+  const eligibleADCandidates = useMemo(() => {
+    if (!orgData || !currentUserId || !accessLevel) return [];
+    
+    const downlineIds = getDownlineUserIds(orgData, currentUserId, accessLevel);
+    
     return allReps
-      .filter((r) => getCleanName(r.name).toLowerCase().includes(q))
+      .filter((r) => r.user_id && downlineIds.has(r.user_id))
       .filter((r) => !currentStaff.some((s) => s.user_id === r.user_id))
-      .slice(0, 15);
-  }, [searchQuery, allReps, currentStaff]);
+      .map((r) => {
+        const orgRole = getUserOrgRole(r.user_id, orgData);
+        return { ...r, orgRole };
+      })
+      // Only show team_lead+ (rank >= 3)
+      .filter((r) => r.orgRole.rank >= 3)
+      .sort((a, b) => b.orgRole.rank - a.orgRole.rank);
+  }, [orgData, currentUserId, accessLevel, allReps, currentStaff]);
+
+  const filteredADCandidates = useMemo(() => {
+    if (!searchQuery.trim()) return eligibleADCandidates;
+    const q = searchQuery.toLowerCase();
+    return eligibleADCandidates.filter((r) => getCleanName(r.name).toLowerCase().includes(q));
+  }, [searchQuery, eligibleADCandidates]);
 
   const addStaff = useMutation({
     mutationFn: async (userId: string) => {
