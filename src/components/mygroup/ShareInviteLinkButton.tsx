@@ -37,6 +37,9 @@ export const ShareInviteLinkButton = () => {
     setIsGenerating(true);
 
     try {
+      const { session } = await getSessionSafe();
+      if (!session) return;
+
       const { data: existing } = await supabase
         .from('invite_codes')
         .select('code')
