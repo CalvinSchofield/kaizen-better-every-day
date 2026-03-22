@@ -96,11 +96,15 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, p
 
   const loadParentEntities = async () => {
     if (!parentRel) return;
-    const { data } = await supabase
-      .from(parentRel.table)
-      .select("id, name")
-      .order("name");
-    setParentEntities(data || []);
+    let entities: { id: string; name: string }[] = [];
+    
+    const fetchEntities = async (table: string) => {
+      const { data } = await supabase.from(table as any).select("id, name").order("name");
+      return (data as any[] || []).map((d: any) => ({ id: d.id, name: d.name }));
+    };
+
+    entities = await fetchEntities(parentRel.table);
+    setParentEntities(entities);
   };
 
   /** Try to auto-fill the parent based on the leader's current placement */
