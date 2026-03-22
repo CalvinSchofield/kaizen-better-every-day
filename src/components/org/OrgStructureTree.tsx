@@ -1057,7 +1057,11 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           onOpenChange={(open) => !open && setMoveTeamTarget(null)}
           teamId={moveTeamTarget.id}
           teamName={moveTeamTarget.name}
-          mgmtGroups={orgData.mgmtGroups.map((mg) => ({ id: mg.id, name: mg.name }))}
+          teamLeadUserId={moveTeamTarget.leadUserId}
+          mgmtGroups={orgData.mgmtGroups.map((mg) => {
+            const leadRep = mg.lead_user_id ? orgData.reps.find(r => r.user_id === mg.lead_user_id) : null;
+            return { id: mg.id, name: mg.name, leadUserId: mg.lead_user_id, leadName: leadRep?.name || null };
+          })}
         />
       )}
     </>
