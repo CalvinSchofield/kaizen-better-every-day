@@ -185,7 +185,8 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
                   autoFocus
                 />
               </div>
-              <div className="space-y-1 max-h-[300px] overflow-y-auto">
+              <ScrollArea className="max-h-[40vh]">
+              <div className="space-y-1.5 pr-1">
                 {loadingReps ? (
                   <p className="text-sm text-center text-muted-foreground py-4">Loading...</p>
                 ) : filteredReps.length > 0 ? (
