@@ -415,7 +415,9 @@ const Auth = () => {
               />
               {!isLogin && (
                 <p className="text-xs text-muted-foreground">
-                  Use the same email from your onboarding process
+                  {isLateralInvite 
+                    ? "Use your Vivint email address" 
+                    : "Use the same email from your onboarding process"}
                 </p>
               )}
             </div>
