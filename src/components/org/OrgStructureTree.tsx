@@ -891,6 +891,26 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
             <DrawerTitle>{actionTarget?.name}</DrawerTitle>
           </DrawerHeader>
           <div className="px-4 pb-6 space-y-2">
+            {/* Create menu — triggered by top-level Create button */}
+            {actionTarget?.type === "__create__" && (() => {
+              type CreateType = "division" | "partner" | "sr_region" | "region" | "office" | "sr_mgmt_group" | "mgmt_group" | "team";
+              const options: { type: CreateType; label: string }[] = ([
+                { type: "division", label: "Division" },
+                { type: "partner", label: "Partnership" },
+                { type: "sr_region", label: "Sr Region" },
+                { type: "region", label: "Region" },
+                { type: "office", label: "Office" },
+                { type: "sr_mgmt_group", label: "Sr MGMT Group" },
+                { type: "mgmt_group", label: "MGMT Group" },
+                { type: "team", label: "Team" },
+              ] as { type: CreateType; label: string }[]).filter(opt => canCreateEntityType(accessLevel, opt.type));
+              return options.map(opt => (
+                <Button key={opt.type} variant="outline" className="w-full justify-start gap-2" onClick={() => { setCreateDrawer({ type: opt.type }); setActionTarget(null); }}>
+                  <Plus className="h-4 w-4" /> {opt.label}
+                </Button>
+              ));
+            })()}
+
             {/* Rep actions */}
             {actionTarget?.type === "rep" && (
               <>
