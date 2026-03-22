@@ -510,11 +510,13 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{canDirectManage ? "Delete" : "Request Deletion"}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {canDirectManage ? "Delete" : "Request Deletion of"} {deleteTarget?.type === "team" ? "Team" : deleteTarget?.type === "mgmt_group" ? "MGMT Group" : "Item"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {canDirectManage
-                ? `Are you sure you want to delete "${deleteTarget?.name}"?`
-                : `Submit a request to delete "${deleteTarget?.name}"? Needs upline approval.`}
+                ? `Are you sure you want to dissolve the "${deleteTarget?.name}" ${deleteTarget?.type === "team" ? "team" : "group"}? All reps and recruits will be unassigned and can be reassigned to another ${deleteTarget?.type === "team" ? "team" : "group"}.`
+                : `Submit a request to dissolve the "${deleteTarget?.name}" ${deleteTarget?.type === "team" ? "team" : "group"}? Needs upline approval. Members will be unassigned.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
