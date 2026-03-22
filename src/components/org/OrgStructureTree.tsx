@@ -956,35 +956,78 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
 
             {/* MGMT group actions */}
             {actionTarget?.type === "mgmt_group" && canManageTeams && (
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => {
-                  if (actionTarget) {
-                    setCreateDrawer({ type: "team", parentId: actionTarget.id, parentName: actionTarget.name });
-                    setActionTarget(null);
-                  }
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                Create Team
+              <>
+                <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "team", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                  <Plus className="h-4 w-4" /> Create Team
+                </Button>
+                {orgData && orgData.srMgmtGroups.length > 0 && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { const mg = orgData.mgmtGroups.find(g => g.id === actionTarget.id); setMoveEntityTarget({ entityType: "mgmt_group", id: actionTarget.id, name: actionTarget.name, leadUserId: mg?.lead_user_id || null }); setActionTarget(null); } }}>
+                    <ArrowRightLeft className="h-4 w-4" /> Move to Sr MGMT Group...
+                  </Button>
+                )}
+              </>
+            )}
+
+            {/* Sr MGMT group actions */}
+            {actionTarget?.type === "sr_mgmt_group" && canManageTeams && (
+              <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                <Plus className="h-4 w-4" /> Create MGMT Group
               </Button>
             )}
 
             {/* Office actions */}
             {actionTarget?.type === "office" && canManageTeams && (
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => {
-                  if (actionTarget) {
-                    setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name });
-                    setActionTarget(null);
-                  }
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                Create MGMT Group
+              <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                <Plus className="h-4 w-4" /> Create MGMT Group
+              </Button>
+            )}
+
+            {/* Region actions */}
+            {actionTarget?.type === "region" && canManageRegions && (
+              <>
+                <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "office", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                  <Plus className="h-4 w-4" /> Create Office
+                </Button>
+                {orgData && orgData.srRegions.length > 0 && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { const r = orgData.regions.find(rg => rg.id === actionTarget.id); setMoveEntityTarget({ entityType: "region", id: actionTarget.id, name: actionTarget.name, leadUserId: r?.lead_user_id || null }); setActionTarget(null); } }}>
+                    <ArrowRightLeft className="h-4 w-4" /> Move to Sr Region...
+                  </Button>
+                )}
+              </>
+            )}
+
+            {/* Sr Region actions */}
+            {actionTarget?.type === "sr_region" && canManageRegions && (
+              <>
+                <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "region", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                  <Plus className="h-4 w-4" /> Create Region
+                </Button>
+                {orgData && orgData.partners.length > 0 && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { const sr = orgData.srRegions.find(s => s.id === actionTarget.id); setMoveEntityTarget({ entityType: "sr_region", id: actionTarget.id, name: actionTarget.name, leadUserId: sr?.lead_user_id || null }); setActionTarget(null); } }}>
+                    <ArrowRightLeft className="h-4 w-4" /> Move to Partnership...
+                  </Button>
+                )}
+              </>
+            )}
+
+            {/* Partner actions */}
+            {actionTarget?.type === "partner" && canManageRegions && (
+              <>
+                <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "sr_region", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                  <Plus className="h-4 w-4" /> Create Sr Region
+                </Button>
+                {orgData && orgData.divisions.length > 0 && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { const p = orgData.partners.find(pt => pt.id === actionTarget.id); setMoveEntityTarget({ entityType: "partner", id: actionTarget.id, name: actionTarget.name, leadUserId: p?.lead_user_id || null }); setActionTarget(null); } }}>
+                    <ArrowRightLeft className="h-4 w-4" /> Move to Division...
+                  </Button>
+                )}
+              </>
+            )}
+
+            {/* Division actions */}
+            {actionTarget?.type === "division" && canManageRegions && (
+              <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "partner", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                <Plus className="h-4 w-4" /> Create Partnership
               </Button>
             )}
 
