@@ -298,7 +298,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   // New drawer states
   const [moveRepTarget, setMoveRepTarget] = useState<{ id: string; name: string } | null>(null);
   const [bulkAssignTarget, setBulkAssignTarget] = useState<{ id: string; name: string } | null>(null);
-  const [moveTeamTarget, setMoveTeamTarget] = useState<{ id: string; name: string } | null>(null);
+  const [moveTeamTarget, setMoveTeamTarget] = useState<{ id: string; name: string; leadUserId: string | null } | null>(null);
 
   // Management drawers
   const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team" | "mgmt_group"; parentId?: string; parentName?: string } | null>(null);
@@ -884,7 +884,8 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
                   className="w-full justify-start gap-2"
                   onClick={() => {
                     if (actionTarget) {
-                      setMoveTeamTarget({ id: actionTarget.id, name: actionTarget.name });
+                      const team = orgData?.teams.find(t => t.id === actionTarget.id);
+                      setMoveTeamTarget({ id: actionTarget.id, name: actionTarget.name, leadUserId: team?.lead_user_id || null });
                       setActionTarget(null);
                     }
                   }}
@@ -1021,7 +1022,8 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           teams={orgData.teams.map((t) => {
             const tmg = orgData.teamMgmt.find((tm) => tm.team_id === t.id);
             const mg = tmg ? orgData.mgmtGroups.find((g) => g.id === tmg.mgmt_group_id) : null;
-            return { id: t.id, name: t.name, mgmtGroupName: mg?.name };
+            const leadRep = t.lead_user_id ? orgData.reps.find(r => r.user_id === t.lead_user_id) : null;
+            return { id: t.id, name: t.name, mgmtGroupName: mg?.name, leadUserId: t.lead_user_id, leadName: leadRep?.name || null };
           })}
         />
       )}
@@ -1055,7 +1057,11 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           onOpenChange={(open) => !open && setMoveTeamTarget(null)}
           teamId={moveTeamTarget.id}
           teamName={moveTeamTarget.name}
-          mgmtGroups={orgData.mgmtGroups.map((mg) => ({ id: mg.id, name: mg.name }))}
+          teamLeadUserId={moveTeamTarget.leadUserId}
+          mgmtGroups={orgData.mgmtGroups.map((mg) => {
+            const leadRep = mg.lead_user_id ? orgData.reps.find(r => r.user_id === mg.lead_user_id) : null;
+            return { id: mg.id, name: mg.name, leadUserId: mg.lead_user_id, leadName: leadRep?.name || null };
+          })}
         />
       )}
     </>
