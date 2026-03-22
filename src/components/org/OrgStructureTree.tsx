@@ -550,7 +550,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
 
   const tree = useMemo(() => {
     if (!orgData) return [];
-    const { regions = [], offices = [], mgmtGroups = [], teams = [], teamMgmt = [], officeStaff = [], reps = [], recruits = [] } = orgData;
+    const { regions = [], offices = [], mgmtGroups = [], teams = [], teamMgmt = [], officeStaff = [], reps = [], recruits = [], srMgmtGroups = [], srRegions = [], partners = [], divisions = [] } = orgData;
     const repMap = new Map(reps.map((r) => [r.user_id, r]));
     const getRepName = (userId: string | null) => {
       if (!userId) return "Unassigned";
