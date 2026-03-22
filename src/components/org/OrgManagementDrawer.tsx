@@ -18,8 +18,8 @@ import { cn } from "@/lib/utils";
 interface CreateDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  type: "office" | "region" | "team";
-  parentId?: string; // region_id when creating office, mgmt_group_id when creating team
+  type: "office" | "region" | "team" | "mgmt_group";
+  parentId?: string; // region_id when creating office, office_id for mgmt_group, mgmt_group_id for team
   parentName?: string;
 }
 
@@ -29,16 +29,17 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
   const [location, setLocation] = useState("");
   const [step, setStep] = useState<"name" | "lead">("name");
   const [leadSearch, setLeadSearch] = useState("");
-  const [selectedLead, setSelectedLead] = useState<{ userId: string; name: string } | null>(null);
-  const [reps, setReps] = useState<{ user_id: string; name: string }[]>([]);
+  const [selectedLead, setSelectedLead] = useState<{ userId: string | null; repId: string; name: string } | null>(null);
+  const [reps, setReps] = useState<{ id: string; user_id: string | null; name: string }[]>([]);
   const [loadingReps, setLoadingReps] = useState(false);
 
-  const typeLabel = type === "office" ? "Office" : type === "region" ? "Region" : "Team";
+  const typeLabel = type === "office" ? "Office" : type === "region" ? "Region" : type === "mgmt_group" ? "MGMT Group" : "Team";
+  const needsLeader = type === "team" || type === "mgmt_group";
 
-  // Load reps when entering lead selection step for teams
+  // Load all reps including ghost reps
   const loadReps = async () => {
     setLoadingReps(true);
-    const { data } = await supabase.from("reps").select("user_id, name").order("name").limit(2000);
+    const { data } = await supabase.from("reps").select("id, user_id, name").order("name").limit(2000);
     setReps(data || []);
     setLoadingReps(false);
   };
@@ -50,20 +51,15 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
   }, [reps, leadSearch]);
 
   const handleNameNext = () => {
-    if (type === "team") {
+    if (needsLeader) {
       setStep("lead");
       loadReps();
-      // Try to auto-match by name
-      const q = name.trim().toLowerCase();
-      if (q) {
-        // Will be matched when reps load
-      }
     } else {
       handleCreate();
     }
   };
 
-  const handleCreate = async (leadUserId?: string) => {
+  const handleCreate = async (leadUserId?: string | null, leadRepId?: string) => {
     if (!name.trim()) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -82,6 +78,16 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
           lead_user_id: user?.id,
         });
         if (error) throw error;
+      } else if (type === "mgmt_group") {
+        const { error } = await supabase.from("mgmt_groups").insert({
+          name: name.trim(),
+          lead_user_id: leadUserId || null,
+          office_id: parentId || null,
+        });
+        if (error) throw error;
+        if (!leadUserId && leadRepId) {
+          toast.info("Leader will be auto-assigned when they create an account");
+        }
       } else if (type === "team") {
         const { data: team, error: teamError } = await supabase.from("teams").insert({
           name: name.trim(),
@@ -94,6 +100,9 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
             mgmt_group_id: parentId,
           });
           if (linkError) throw linkError;
+        }
+        if (!leadUserId && leadRepId) {
+          toast.info("Leader will be auto-assigned when they create an account");
         }
       }
 
@@ -145,7 +154,7 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
                 disabled={!name.trim()}
                 className="w-full"
               >
-                {type === "team" ? "Next — Choose Team Lead" : (
+                {needsLeader ? "Next — Choose Leader" : (
                   <>
                     <Plus className="h-4 w-4 mr-2" />
                     Create {typeLabel}
@@ -157,7 +166,15 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
 
           {step === "lead" && (
             <>
-              <p className="text-sm text-muted-foreground">Who leads the "{name.trim()}" team?</p>
+              <p className="text-sm text-muted-foreground">Who leads "{name.trim()}"?</p>
+              <Button
+                variant="outline"
+                className="w-full text-muted-foreground"
+                onClick={() => handleCreate(null)}
+              >
+                Skip — Assign leader later
+              </Button>
+              <Separator />
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -174,11 +191,16 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
                 ) : filteredReps.length > 0 ? (
                   filteredReps.map((rep) => (
                     <button
-                      key={rep.user_id}
-                      onClick={() => handleCreate(rep.user_id)}
-                      className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors"
+                      key={rep.id}
+                      onClick={() => handleCreate(rep.user_id, rep.id)}
+                      className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors flex items-center justify-between"
                     >
                       <p className="text-sm font-medium">{getCleanName(rep.name)}</p>
+                      {!rep.user_id && (
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground shrink-0">
+                          No account yet
+                        </Badge>
+                      )}
                     </button>
                   ))
                 ) : (
