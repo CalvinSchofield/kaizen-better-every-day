@@ -133,7 +133,7 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
             {parentName && <span className="text-muted-foreground font-normal"> in {parentName}</span>}
           </DrawerTitle>
         </DrawerHeader>
-        <div className="px-4 pb-6 space-y-3">
+        <div className="px-4 pb-6 space-y-3 overflow-y-auto flex-1">
           {step === "name" && (
             <>
               <Input
