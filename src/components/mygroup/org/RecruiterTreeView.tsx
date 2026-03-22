@@ -34,7 +34,7 @@ interface RecruiterTreeViewProps {
 }
 
 export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewProps) => {
-  const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
+  const { data: teamAccess, isLoading: accessLoading, isPlaceholderData: isTeamAccessPlaceholder } = useTeamAccess();
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [reassignOpen, setReassignOpen] = useState(false);
@@ -154,12 +154,14 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       accessLevel === "partner" ||
       accessLevel === "divisional"
     ) {
+      // Track which userIds are someone else's recruit (i.e. have a recruiter)
       const recruitedUserIds = new Set<string>();
       recruits.forEach((r) => {
+        if (!r.recruiter_user_id) return;
         const recruitRep = reps.find(
           (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
         );
-        if (recruitRep?.user_id && r.recruiter_user_id) {
+        if (recruitRep?.user_id && recruitRep.user_id !== r.recruiter_user_id) {
           recruitedUserIds.add(recruitRep.user_id);
         }
       });
@@ -275,7 +277,9 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
     [canReassign, findRecruiterUserId, onEditRep, treeData]
   );
 
-  if (accessLoading || isLoading) {
+  // Wait for fresh data — don't render with stale placeholder data
+  // This prevents flashing incorrect roles before real data arrives
+  if (accessLoading || isTeamAccessPlaceholder || isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-48 w-full rounded-xl" />
