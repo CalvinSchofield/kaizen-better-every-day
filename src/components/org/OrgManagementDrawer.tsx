@@ -505,6 +505,9 @@ export const ConfigureOfficeDrawer = ({
 }: ConfigureOfficeDrawerProps) => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeSection, setActiveSection] = useState<"overview" | "add-ad" | "add-group" | "rename">("overview");
+  const [editName, setEditName] = useState(officeName);
+  const [editLocation, setEditLocation] = useState(officeLocation || "");
   const [activeSection, setActiveSection] = useState<"overview" | "add-ad" | "add-group">("overview");
 
   const getRepName = (userId: string) => {
