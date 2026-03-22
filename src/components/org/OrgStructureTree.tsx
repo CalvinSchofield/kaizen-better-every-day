@@ -804,41 +804,40 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
 
   return (
     <>
-      {/* Tiered create buttons based on access level */}
-      {canManageTeams && (
-        <div className="flex flex-wrap gap-2 mb-3">
-          {canCreateEntityType(accessLevel, "division") && (
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "division" })}>
-              <Plus className="h-3.5 w-3.5" /> Division
+      {/* Single "Create" button with drawer menu showing available entity types */}
+      {canManageTeams && (() => {
+        const createOptions: { type: "division" | "partner" | "sr_region" | "region" | "office" | "sr_mgmt_group" | "mgmt_group" | "team"; label: string }[] = [
+          { type: "division", label: "Division" },
+          { type: "partner", label: "Partnership" },
+          { type: "sr_region", label: "Sr Region" },
+          { type: "region", label: "Region" },
+          { type: "office", label: "Office" },
+          { type: "sr_mgmt_group", label: "Sr MGMT Group" },
+          { type: "mgmt_group", label: "MGMT Group" },
+          { type: "team", label: "Team" },
+        ].filter(opt => canCreateEntityType(accessLevel, opt.type));
+        
+        if (createOptions.length === 0) return null;
+        
+        // If only one option, show a direct button
+        if (createOptions.length === 1) {
+          return (
+            <div className="mb-3">
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: createOptions[0].type })}>
+                <Plus className="h-3.5 w-3.5" /> Create {createOptions[0].label}
+              </Button>
+            </div>
+          );
+        }
+        
+        return (
+          <div className="mb-3">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setActionTarget({ id: "__create__", name: "Create", type: "__create__" })}>
+              <Plus className="h-3.5 w-3.5" /> Create
             </Button>
-          )}
-          {canCreateEntityType(accessLevel, "partner") && (
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "partner" })}>
-              <Plus className="h-3.5 w-3.5" /> Partnership
-            </Button>
-          )}
-          {canCreateEntityType(accessLevel, "sr_region") && (
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "sr_region" })}>
-              <Plus className="h-3.5 w-3.5" /> Sr Region
-            </Button>
-          )}
-          {canCreateEntityType(accessLevel, "region") && (
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "region" })}>
-              <Plus className="h-3.5 w-3.5" /> Region
-            </Button>
-          )}
-          {canCreateEntityType(accessLevel, "office") && (
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "office" })}>
-              <Plus className="h-3.5 w-3.5" /> Office
-            </Button>
-          )}
-          {canCreateEntityType(accessLevel, "sr_mgmt_group") && (
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "sr_mgmt_group" })}>
-              <Plus className="h-3.5 w-3.5" /> Sr MGMT Group
-            </Button>
-          )}
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {/* Onboarding guidance for new leaders */}
       {canManageTeams && orgData && (() => {
