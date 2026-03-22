@@ -1,0 +1,1 @@
+DELETE FROM teams WHERE id = 'dcaddf6f-df21-488f-868b-fdeeaa9e748f';
