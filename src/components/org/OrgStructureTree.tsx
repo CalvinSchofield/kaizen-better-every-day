@@ -235,6 +235,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const canManageOffices = hasMinAccess(accessLevel, "regional");
   const canManageRegions = hasMinAccess(accessLevel, "regional");
   const canManageTeams = hasMinAccess(accessLevel, "mgmt_group_lead");
+  const isAD = accessLevel === "area_director";
   // Bootstrap = leader with no active upline; can self-serve until upline onboards
   const canDirectManage = canManageTeams && isBootstrapping;
 
