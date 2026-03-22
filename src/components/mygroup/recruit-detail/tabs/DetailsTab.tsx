@@ -144,7 +144,7 @@ export const DetailsTab = ({
         .eq('user_id', repData.user_id)
         .maybeSingle();
       
-      return roleData ? { ...roleData, recruitUserId: repData.user_id } : null;
+      return roleData ? { id: (roleData as any).id, role: (roleData as any).role, user_id: (roleData as any).user_id, recruitUserId: repData.user_id } : null;
     },
     enabled: !!recruitRepData,
     staleTime: 30 * 1000,
