@@ -466,7 +466,7 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
                 }}
               >
                 <Trash2 className="h-4 w-4" />
-                {hasMinAccess(accessLevel, "area_director") ? "Delete" : "Request Deletion"}
+                {canDirectManage ? "Delete" : "Request Deletion"}
               </Button>
             )}
           </div>
