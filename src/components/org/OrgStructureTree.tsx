@@ -227,6 +227,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(false);
   const [derivedAccessLevel, setDerivedAccessLevel] = useState<AccessLevel>("none");
+  const [groupByOffice, setGroupByOffice] = useState(false);
 
   // Use prop if provided, otherwise use self-derived access level
   const accessLevel: AccessLevel = propAccessLevel !== "none" ? propAccessLevel : derivedAccessLevel;
