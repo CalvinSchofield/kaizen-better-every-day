@@ -315,22 +315,56 @@ const OrgChart = () => {
   }, [treeData, teamAccess, currentAuthUserId, accessLevel, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap]);
 
 
-  // Build a lookup for full recruit data
+  // Build a lookup for full recruit data — cross-references current org structure
   const recruitLookup = useMemo(() => {
     if (!treeData) return new Map<string, Recruit>();
     const map = new Map<string, Recruit>();
-    const { recruits, reps, teams, mgmtGroups } = treeData;
+    const { recruits, reps, teams, mgmtGroups, teamMgmt } = treeData;
     const repMap = new Map(reps.map(r => [r.user_id, r]));
     const teamMap = new Map(teams.map(t => [t.id, t]));
     const mgMap = new Map(mgmtGroups.map(mg => [mg.id, mg]));
+
+    // Build reverse lookup: userId -> team they lead
+    const userLeadsTeam = new Map<string, typeof teams[0]>();
+    teams.forEach(t => { if (t.lead_user_id) userLeadsTeam.set(t.lead_user_id, t); });
+
+    // Build reverse lookup: teamId -> mgmtGroupId
+    const teamToMgmt = new Map<string, string>();
+    teamMgmt.forEach(tm => teamToMgmt.set(tm.team_id, tm.mgmt_group_id));
 
     recruits.forEach((r) => {
       const recruitRep = reps.find(
         rep => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
       );
       const recruiterRep = r.recruiter_user_id ? repMap.get(r.recruiter_user_id) : null;
-      const team = r.team_id ? teamMap.get(r.team_id) : null;
-      const mg = r.mgmt_group_id ? mgMap.get(r.mgmt_group_id) : null;
+
+      // Cross-reference current org structure for team/MGMT info
+      let resolvedTeamName: string | null = null;
+      let resolvedTeamId: string | null = r.team_id || null;
+      let resolvedMgmtGroupId: string | null = r.mgmt_group_id || null;
+      let resolvedMgmtGroupName: string | null = null;
+
+      // If this person is a team lead, use their team's MGMT group context
+      if (recruitRep?.user_id) {
+        const ledTeam = userLeadsTeam.get(recruitRep.user_id);
+        if (ledTeam) {
+          resolvedTeamId = ledTeam.id;
+          resolvedTeamName = ledTeam.name;
+          const mgmtId = teamToMgmt.get(ledTeam.id);
+          if (mgmtId) {
+            resolvedMgmtGroupId = mgmtId;
+            resolvedMgmtGroupName = mgMap.get(mgmtId)?.name || null;
+          }
+        }
+      }
+
+      // Fallback to recruit record's team/mgmt
+      if (!resolvedTeamName && resolvedTeamId) {
+        resolvedTeamName = teamMap.get(resolvedTeamId)?.name || null;
+      }
+      if (!resolvedMgmtGroupName && resolvedMgmtGroupId) {
+        resolvedMgmtGroupName = mgMap.get(resolvedMgmtGroupId)?.name || null;
+      }
 
       map.set(r.id, {
         id: r.id,
@@ -341,10 +375,10 @@ const OrgChart = () => {
         recruiterId: null,
         recruiterName: recruiterRep?.name || null,
         recruiterUserId: r.recruiter_user_id || null,
-        teamName: team?.name || null,
-        teamId: r.team_id || null,
-        mgmtGroupId: r.mgmt_group_id || null,
-        mgmtGroupName: mg?.name || null,
+        teamName: resolvedTeamName,
+        teamId: resolvedTeamId,
+        mgmtGroupId: resolvedMgmtGroupId,
+        mgmtGroupName: resolvedMgmtGroupName,
         year: r.year || recruitRep?.year || "",
         location: r.location || null,
         recruitmentSource: r.recruitment_source || null,
