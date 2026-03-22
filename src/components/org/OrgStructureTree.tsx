@@ -884,7 +884,8 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
                   className="w-full justify-start gap-2"
                   onClick={() => {
                     if (actionTarget) {
-                      setMoveTeamTarget({ id: actionTarget.id, name: actionTarget.name });
+                      const team = orgData?.teams.find(t => t.id === actionTarget.id);
+                      setMoveTeamTarget({ id: actionTarget.id, name: actionTarget.name, leadUserId: team?.lead_user_id || null });
                       setActionTarget(null);
                     }
                   }}
