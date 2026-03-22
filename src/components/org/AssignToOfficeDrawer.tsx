@@ -160,6 +160,7 @@ export const AssignToOfficeDrawer = ({
           supabase.from("sr_mgmt_groups")
             .update({ office_id: selectedOfficeId })
             .in("id", ids.srMgmtGroupIds)
+            .select()
         );
       }
       if (ids.mgmtGroupIds.length > 0) {
@@ -167,6 +168,7 @@ export const AssignToOfficeDrawer = ({
           supabase.from("mgmt_groups")
             .update({ office_id: selectedOfficeId })
             .in("id", ids.mgmtGroupIds)
+            .select()
         );
       }
       if (ids.teamIds.length > 0) {
@@ -174,6 +176,7 @@ export const AssignToOfficeDrawer = ({
           supabase.from("teams")
             .update({ office_id: selectedOfficeId } as any)
             .in("id", ids.teamIds)
+            .select()
         );
       }
 
