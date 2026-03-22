@@ -80,6 +80,8 @@ export const BulkAssignRepsDrawer = ({
       toast.success(`Assigned ${successCount} rep${successCount !== 1 ? "s" : ""} to ${targetTeamName}`);
       queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
       queryClient.invalidateQueries({ queryKey: ["team-access"] });
+      queryClient.invalidateQueries({ queryKey: ["recruiter-tree-data"] });
+      queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
       setSelected(new Set());
       onOpenChange(false);
     } catch (err: any) {

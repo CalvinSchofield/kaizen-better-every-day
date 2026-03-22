@@ -112,7 +112,10 @@ export const useRespondToOrgRequest = () => {
       toast({ title: msg });
       queryClient.invalidateQueries({ queryKey: ["org-change-requests"] });
       queryClient.invalidateQueries({ queryKey: ["org-structure"] });
+      queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
       queryClient.invalidateQueries({ queryKey: ["team-access"] });
+      queryClient.invalidateQueries({ queryKey: ["recruiter-tree-data"] });
+      queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
     },
     onError: (err: any) => {
       toast({

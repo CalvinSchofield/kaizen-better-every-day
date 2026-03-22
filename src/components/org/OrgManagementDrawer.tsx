@@ -316,6 +316,8 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, p
 
       queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
       queryClient.invalidateQueries({ queryKey: ["org-structure"] });
+      queryClient.invalidateQueries({ queryKey: ["recruiter-tree-data"] });
+      queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
       resetState();
       onOpenChange(false);
       toast.success(`${typeLabel} created`);
