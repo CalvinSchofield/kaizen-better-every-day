@@ -20,7 +20,7 @@ import { useLeaderInteractions } from "@/hooks/useLeaderInteractions";
 import { useTotalUnreadCount } from "@/hooks/useActivitySocial";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid, Search } from "lucide-react";
+import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid, Search, UserPlus, Link2 } from "lucide-react";
 import { TodaysFocusHero, OverdueScheduledItem, TodayScheduledItem } from "@/components/mygroup/TodaysFocusHero";
 import { NeedsAttentionChips } from "@/components/mygroup/NeedsAttentionChips";
 import { NeedsAttentionDrawer } from "@/components/mygroup/NeedsAttentionDrawer";
