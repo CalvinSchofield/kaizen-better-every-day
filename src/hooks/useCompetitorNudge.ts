@@ -37,10 +37,8 @@ export const useCompetitorNudge = (): UseCompetitorNudgeResult => {
   const { data: currentUserId } = useQuery({
     queryKey: ["current-user-id-nudge"],
     queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      return user?.id || null;
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.user?.id || null;
     },
     staleTime: Infinity,
   });
