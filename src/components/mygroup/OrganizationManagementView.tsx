@@ -212,9 +212,21 @@ export const OrganizationManagementView = () => {
 
     const unassignedTeams = teamsData.filter((t) => !t.mgmtGroupId);
 
+    // Build rep list with mgmt group info for CreateEntityDrawer
+    const repToMgmtGroup = new Map<string, string>();
+    // Map reps to their mgmt group via recruit records or accessible reps
+    if (teamAccess?.accessibleReps) {
+      for (const ar of teamAccess.accessibleReps) {
+        if (ar.userId && ar.mgmtGroupId) {
+          repToMgmtGroup.set(ar.userId, ar.mgmtGroupId);
+        }
+      }
+    }
+
     const allReps = orgData.reps.map((r) => ({
       userId: r.user_id,
       name: r.name,
+      mgmtGroupId: r.user_id ? repToMgmtGroup.get(r.user_id) || null : null,
     }));
 
     // Build office context
