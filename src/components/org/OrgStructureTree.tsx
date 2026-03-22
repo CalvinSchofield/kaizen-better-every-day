@@ -1074,11 +1074,13 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
 // ==========================================
 
 const typeIcons: Record<OrgNodeType, any> = {
+  division: Globe, partner: Globe, sr_region: Globe, sr_mgmt_group: Users,
   region: Globe, office: Building2, mgmt_group: Users,
   team: Users, recruiter_group: UserPlus, rep: User,
 };
 
 const typeColors: Record<OrgNodeType, string> = {
+  division: "text-purple-500", partner: "text-pink-500", sr_region: "text-red-500", sr_mgmt_group: "text-orange-500",
   region: "text-primary", office: "text-amber-500", mgmt_group: "text-blue-500",
   team: "text-green-500", recruiter_group: "text-purple-500", rep: "text-muted-foreground",
 };
