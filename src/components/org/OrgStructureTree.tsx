@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Globe, Building2, Users, User, ChevronDown, ChevronRight, UserPlus, Trash2, Plus, ArrowRightLeft, FileEdit, Info } from "lucide-react";
+import { Globe, Building2, Users, User, ChevronDown, ChevronRight, UserPlus, Trash2, Plus, ArrowRightLeft, FileEdit, Info, ArrowRight } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
 import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
