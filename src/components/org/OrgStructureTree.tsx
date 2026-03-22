@@ -137,11 +137,15 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
       if (canDirect) {
         // Direct delete — area director+ has RLS permission
         if (deleteTarget.type === "team") {
-          // Remove team_mgmt_groups linkage first
+          // Unassign recruits from this team first to avoid FK violation
+          await supabase.from("recruits").update({ team_id: null }).eq("team_id", deleteTarget.id);
+          // Remove team_mgmt_groups linkage
           await supabase.from("team_mgmt_groups").delete().eq("team_id", deleteTarget.id);
           const { error } = await supabase.from("teams").delete().eq("id", deleteTarget.id);
           if (error) throw error;
         } else if (deleteTarget.type === "mgmt_group") {
+          // Unassign recruits from this mgmt group first
+          await supabase.from("recruits").update({ mgmt_group_id: null }).eq("mgmt_group_id", deleteTarget.id);
           const { error } = await supabase.from("mgmt_groups").delete().eq("id", deleteTarget.id);
           if (error) throw error;
         }
