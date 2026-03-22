@@ -80,7 +80,7 @@ const SetupFlow = () => {
 
   const runSetup = async () => {
     try {
-      const { user } = await getSessionSafe();
+      const { session, user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
       
       setUserEmail(user.email || null);
