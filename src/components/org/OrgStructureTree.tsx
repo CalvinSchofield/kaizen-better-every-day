@@ -1017,11 +1017,18 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
             )}
 
             {/* Region actions */}
-            {actionTarget?.type === "region" && canCreateEntityType(accessLevel, "office") && (
+            {actionTarget?.type === "region" && (
               <>
-                <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "office", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
-                  <Plus className="h-4 w-4" /> Create Office
-                </Button>
+                {canCreateEntityType(accessLevel, "sr_mgmt_group") && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "sr_mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                    <Plus className="h-4 w-4" /> Create Sr MGMT Group
+                  </Button>
+                )}
+                {canCreateEntityType(accessLevel, "office") && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "office", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                    <Plus className="h-4 w-4" /> Create Office
+                  </Button>
+                )}
                 {orgData && orgData.srRegions.length > 0 && (
                   <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { const r = orgData.regions.find(rg => rg.id === actionTarget.id); setMoveEntityTarget({ entityType: "region", id: actionTarget.id, name: actionTarget.name, leadUserId: r?.lead_user_id || null }); setActionTarget(null); } }}>
                     <ArrowRightLeft className="h-4 w-4" /> Move to Sr Region...
