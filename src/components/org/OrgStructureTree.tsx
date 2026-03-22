@@ -315,7 +315,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   } | null>(null);
 
   // Management drawers
-  const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team" | "mgmt_group"; parentId?: string; parentName?: string } | null>(null);
+  const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team" | "mgmt_group" | "sr_mgmt_group" | "sr_region" | "partner" | "division"; parentId?: string; parentName?: string } | null>(null);
   const [configOffice, setConfigOffice] = useState<string | null>(null);
   const [configRegion, setConfigRegion] = useState<string | null>(null);
 
