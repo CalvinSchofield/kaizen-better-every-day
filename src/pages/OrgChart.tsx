@@ -344,20 +344,7 @@ const OrgChart = () => {
     [recruitLookup]
   );
 
-  const toggleStageFilter = (stage: string) => {
-    setStageFilters(prev => {
-      const next = new Set(prev);
-      const key = stage.toLowerCase();
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
 
-  const activeFilterCount = stageFilters.size + (showWithAppAccess !== null ? 1 : 0);
 
   if (accessLoading || isLoading) {
     return (
