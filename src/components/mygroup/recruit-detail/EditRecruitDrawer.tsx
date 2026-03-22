@@ -153,6 +153,25 @@ export const EditRecruitDrawer = ({
     staleTime: 0, // Always fetch fresh data when opening
   });
 
+  // Check if this recruit came from a lateral invite
+  const { data: isLateralInvite } = useQuery({
+    queryKey: ['recruit-invite-type', recruit.id],
+    queryFn: async () => {
+      if (!recruitDetails?.invite_code_used) return false;
+      const { data } = await supabase
+        .from('invite_codes')
+        .select('invite_type')
+        .eq('code', recruitDetails.invite_code_used)
+        .maybeSingle();
+      return data?.invite_type === 'lateral';
+    },
+    enabled: open && !!recruitDetails?.invite_code_used,
+    staleTime: Infinity,
+  });
+
+  // For lateral invites during approval, recruiter/team/group are REQUIRED
+  const isLateralApproval = isLateralInvite && showRoleAssignment;
+
   // Fetch property options from Supabase
   const { data: notionOptions, isLoading: optionsLoading } = useQuery({
     queryKey: ['property-options-extended'],
