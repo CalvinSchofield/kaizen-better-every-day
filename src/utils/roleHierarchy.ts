@@ -120,23 +120,28 @@ export const getAssignableRoles = (approverLevel: AccessLevel): AccessLevel[] =>
 
 /**
  * Tiered create permissions — what org entities each level can create.
- * Area Director is excluded from lineage creation abilities.
+ * Area Director is NOT a lineage role and grants no creation ability.
+ * Uses explicit mappings rather than hierarchy comparison because
+ * mgmt_group_lead sits above senior_manager in the hierarchy but
+ * should have FEWER creation privileges (only teams).
  */
 export const canCreateEntityType = (level: AccessLevel, entityType: string): boolean => {
-  // Area director has NO lineage creation ability
-  const effectiveLevel = level === 'area_director' ? 'mgmt_group_lead' : level;
-  
-  const requiredLevel: Record<string, AccessLevel> = {
-    team: 'mgmt_group_lead',
-    mgmt_group: 'senior_manager',
-    sr_mgmt_group: 'senior_manager',
-    office: 'regional',
-    region: 'regional',
-    sr_region: 'sr_regional',
-    partner: 'partner',
-    division: 'divisional',
+  // Define which entity types each level can create
+  const creatable: Record<string, AccessLevel[]> = {
+    team: ['mgmt_group_lead', 'senior_manager', 'regional', 'sr_regional', 'partner', 'divisional', 'corporate'],
+    mgmt_group: ['senior_manager', 'regional', 'sr_regional', 'partner', 'divisional', 'corporate'],
+    sr_mgmt_group: ['senior_manager', 'regional', 'sr_regional', 'partner', 'divisional', 'corporate'],
+    office: ['regional', 'sr_regional', 'partner', 'divisional', 'corporate'],
+    region: ['regional', 'sr_regional', 'partner', 'divisional', 'corporate'],
+    sr_region: ['sr_regional', 'partner', 'divisional', 'corporate'],
+    partner: ['partner', 'divisional', 'corporate'],
+    division: ['divisional', 'corporate'],
   };
-  const required = requiredLevel[entityType];
-  if (!required) return false;
-  return hasMinAccess(effectiveLevel, required);
+
+  const allowedLevels = creatable[entityType];
+  if (!allowedLevels) return false;
+
+  // Area director gets NO lineage creation ability — treat as mgmt_group_lead
+  const effectiveLevel = level === 'area_director' ? 'mgmt_group_lead' : level;
+  return allowedLevels.includes(effectiveLevel);
 };
