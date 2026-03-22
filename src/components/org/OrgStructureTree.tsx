@@ -139,8 +139,83 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
       if (canDirect) {
         // Direct delete — area director+ has RLS permission
         if (deleteTarget.type === "team") {
-          // Unassign recruits from this team first to avoid FK violation
-          await supabase.from("recruits").update({ team_id: null }).eq("team_id", deleteTarget.id);
+          // Reassign orphaned recruits to their recruiter's team instead of nullifying
+          const { data: orphanedRecruits } = await supabase
+            .from("recruits")
+            .select("id, recruiter_user_id")
+            .eq("team_id", deleteTarget.id);
+
+          if (orphanedRecruits && orphanedRecruits.length > 0) {
+            // For each orphaned recruit, trace their recruiter chain to find the nearest team
+            const recruiterUserIds = [...new Set(
+              orphanedRecruits
+                .map(r => r.recruiter_user_id)
+                .filter((id): id is string => !!id)
+            )];
+
+            // Find teams led by the recruiters (or their upline)
+            const { data: allRecruits } = await supabase
+              .from("recruits")
+              .select("id, name, recruiter_user_id, team_id")
+              .limit(5000);
+            const { data: allTeams } = await supabase
+              .from("teams")
+              .select("id, lead_user_id");
+            const { data: allReps } = await supabase
+              .from("reps")
+              .select("user_id, name");
+
+            const teamByLeader = new Map<string, string>();
+            (allTeams || []).forEach(t => {
+              if (t.lead_user_id) teamByLeader.set(t.lead_user_id, t.id);
+            });
+
+            const repNameToRep = new Map<string, { user_id: string }>();
+            (allReps || []).forEach(r => {
+              if (r.user_id) repNameToRep.set(getCleanName(r.name).toLowerCase(), { user_id: r.user_id });
+            });
+
+            const recruitByName = new Map<string, typeof allRecruits extends (infer T)[] | null ? T : never>();
+            (allRecruits || []).forEach(r => {
+              recruitByName.set(getCleanName(r.name).toLowerCase(), r);
+            });
+
+            // Trace up recruiter chain to find nearest team lead
+            const findParentTeamId = (recruiterUserId: string, visited = new Set<string>()): string | null => {
+              if (visited.has(recruiterUserId)) return null;
+              visited.add(recruiterUserId);
+
+              // If this recruiter leads a team (that isn't the one being dissolved), use it
+              const teamId = teamByLeader.get(recruiterUserId);
+              if (teamId && teamId !== deleteTarget.id) return teamId;
+
+              // Otherwise trace up: find this user's recruit record to get their recruiter
+              const rep = (allReps || []).find(r => r.user_id === recruiterUserId);
+              if (!rep) return null;
+              const recruitRecord = recruitByName.get(getCleanName(rep.name).toLowerCase());
+              if (!recruitRecord?.recruiter_user_id) return null;
+
+              return findParentTeamId(recruitRecord.recruiter_user_id, visited);
+            };
+
+            // Build a map of recruiter -> parent team
+            const recruiterToTeam = new Map<string, string | null>();
+            recruiterUserIds.forEach(rid => {
+              recruiterToTeam.set(rid, findParentTeamId(rid));
+            });
+
+            // Reassign each orphan to their recruiter's parent team
+            for (const recruit of orphanedRecruits) {
+              const parentTeamId = recruit.recruiter_user_id
+                ? recruiterToTeam.get(recruit.recruiter_user_id) ?? null
+                : null;
+              await supabase
+                .from("recruits")
+                .update({ team_id: parentTeamId })
+                .eq("id", recruit.id);
+            }
+          }
+
           // Remove team_mgmt_groups linkage
           await supabase.from("team_mgmt_groups").delete().eq("team_id", deleteTarget.id);
           const { error } = await supabase.from("teams").delete().eq("id", deleteTarget.id);
@@ -151,7 +226,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           const { error } = await supabase.from("mgmt_groups").delete().eq("id", deleteTarget.id);
           if (error) throw error;
         }
-        toast.success(`"${deleteTarget.name}" ${deleteTarget.type === "team" ? "team" : "group"} dissolved. Members are now unassigned.`);
+        toast.success(`"${deleteTarget.name}" dissolved. Members reassigned to parent team.`);
       } else {
         // Submit approval request
         const { error } = await supabase.from("org_change_requests").insert({
