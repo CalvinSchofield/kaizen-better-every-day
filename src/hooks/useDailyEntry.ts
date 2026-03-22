@@ -667,7 +667,7 @@ export const useDailyEntry = (date?: string) => {
         console.warn('[finalizeEntry] refetchQueries timed out or failed, proceeding anyway');
       }
       
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       // BULLETPROOF: Use safe upsert RPC for finalization to prevent data overwrites
@@ -740,7 +740,7 @@ export const useDailyEntry = (date?: string) => {
     },
     onSuccess: async (_, variables) => {
       // Clear localStorage caches that might have stale data
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (user) {
         clearPreseasonFPCache(user.id);
       }
@@ -783,7 +783,7 @@ export const useDailyEntry = (date?: string) => {
   // Reset entry for new day
   const resetEntryMutation = useMutation({
     mutationFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const resetTimestamp = new Date().toISOString();

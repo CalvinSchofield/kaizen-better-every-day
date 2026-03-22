@@ -19,7 +19,7 @@ const OrgChart = () => {
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => { const data = { user: session?.user ?? null };
       setCurrentAuthUserId(data.user?.id || null);
     });
   }, []);

@@ -15,7 +15,7 @@ export const useRecruitActivitiesRealtime = (recruitNotionIds: string[]) => {
 
   // Fetch current user ID once on mount
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => { const data = { user: session?.user ?? null };
       currentUserIdRef.current = data.user?.id || null;
     });
   }, []);
