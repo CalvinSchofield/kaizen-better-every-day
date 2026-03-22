@@ -2172,6 +2172,7 @@ export type Database = {
           me_vs_me_enabled: boolean | null
           name: string
           nudge_leader: boolean | null
+          office_id: string | null
           onboarding_complete: boolean | null
           pages_toured: Json | null
           path_to_pro_progress: number | null
@@ -2232,6 +2233,7 @@ export type Database = {
           me_vs_me_enabled?: boolean | null
           name: string
           nudge_leader?: boolean | null
+          office_id?: string | null
           onboarding_complete?: boolean | null
           pages_toured?: Json | null
           path_to_pro_progress?: number | null
@@ -2292,6 +2294,7 @@ export type Database = {
           me_vs_me_enabled?: boolean | null
           name?: string
           nudge_leader?: boolean | null
+          office_id?: string | null
           onboarding_complete?: boolean | null
           pages_toured?: Json | null
           path_to_pro_progress?: number | null
@@ -2326,7 +2329,15 @@ export type Database = {
           watched_videos?: Json | null
           year?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "reps_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       season_config: {
         Row: {
