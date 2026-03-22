@@ -81,6 +81,7 @@ export const useLongPress = ({
 
       if (dx > 10 || dy > 10) {
         cancel();
+        movedRef.current = true;
       }
     },
     [cancel]
