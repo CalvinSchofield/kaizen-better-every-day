@@ -822,9 +822,7 @@ export const useUpdateRecruitStage = () => {
         throw new Error("Either recruitId or recruitNotionId is required");
       }
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error("Not authenticated");
 
       // Route stage changes through edge function that handles both ID types
