@@ -383,6 +383,18 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
     return <div className="animate-pulse space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-10 bg-muted rounded-lg" />)}</div>;
   }
 
+  if (isError) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <Globe className="h-12 w-12 mx-auto mb-2 opacity-50" />
+        <p>Failed to load org structure</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => queryClient.invalidateQueries({ queryKey: ["org-structure-data"] })}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (tree.length === 0 && !canManageRegions) {
     return (
       <div className="text-center py-12 text-muted-foreground">
