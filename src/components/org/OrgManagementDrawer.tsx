@@ -240,10 +240,11 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, p
           break;
         }
         case "sr_mgmt_group": {
+          // Region is the lineage parent; office_id is a separate non-lineage bucket
           const { error } = await supabase.from("sr_mgmt_groups").insert({
             name: name.trim(),
             lead_user_id: finalLeadUserId || null,
-            office_id: finalParentId,
+            region_id: finalParentId,
           });
           if (error) throw error;
           break;
