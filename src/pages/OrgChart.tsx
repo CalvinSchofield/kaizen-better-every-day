@@ -12,12 +12,6 @@ import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
 import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import type { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 
-// Default active stages for the tree
-const DEFAULT_STAGE_FILTERS = new Set(
-  SIGNED_PLUS_STAGES.map(s => s.toLowerCase())
-);
-
-const ALL_FILTER_STAGES = [...PRIMARY_STAGES, ...EXIT_STAGES];
 
 const OrgChart = () => {
   const queryClient = useQueryClient();
