@@ -50,13 +50,14 @@ export const useLongPress = ({
     (e: React.TouchEvent | React.MouseEvent) => {
       cancel();
 
-      if (!isLongPressRef.current) {
-        // It was a tap, not a long press
+      if (!isLongPressRef.current && !movedRef.current) {
+        // It was a tap, not a long press or scroll
         hapticSelection();
         onTap?.();
       }
 
       startPosRef.current = null;
+      movedRef.current = false;
     },
     [cancel, onTap]
   );
