@@ -885,7 +885,9 @@ const MyGroup = () => {
   // Simplified header - just filter button for higher-level leaders
   const headerControls = (
     <div className="flex items-center gap-2">
-      {isLeader && <ShareInviteLinkButton />}
+      <Button variant="ghost" size="icon" onClick={() => setAddActionSheetOpen(true)}>
+        <Plus className="h-5 w-5" />
+      </Button>
       {activeFilterName && (
         <Badge 
           variant="secondary" 
