@@ -149,7 +149,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           const { error } = await supabase.from("mgmt_groups").delete().eq("id", deleteTarget.id);
           if (error) throw error;
         }
-        toast.success(`"${deleteTarget.name}" deleted.`);
+        toast.success(`"${deleteTarget.name}" ${deleteTarget.type === "team" ? "team" : "group"} dissolved. Members are now unassigned.`);
       } else {
         // Submit approval request
         const { error } = await supabase.from("org_change_requests").insert({
