@@ -80,14 +80,8 @@ const OrgChart = () => {
     treeData.officeStaff.forEach((s) => {
       if (s.role === "area_director") {
         adSet.add(s.user_id);
-        // If they don't already have a higher org title, set area_director color
-        if (!map.has(s.user_id)) {
-          map.set(s.user_id, { title: "Area Director", color: "area_director" });
-        } else {
-          // Keep their org title but upgrade color to area_director
-          const existing = map.get(s.user_id)!;
-          map.set(s.user_id, { title: existing.title, color: "area_director" });
-        }
+        // Area Director is an office-level role, NOT part of the recruiter tree hierarchy.
+        // Don't set any color or title — their recruiter tree role (Team Lead, MGMT Group Lead, etc.) takes precedence.
       }
     });
 
