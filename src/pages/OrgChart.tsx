@@ -166,6 +166,8 @@ const OrgChart = () => {
             profilePhotoUrl: null,
             role: null,
             year: r.year,
+            groupName: orgLabelMaps.groupNameByRecruitId.get(r.id) || null,
+            teamName: orgLabelMaps.teamNameByRecruitId.get(r.id) || null,
             children: [],
           });
         }
