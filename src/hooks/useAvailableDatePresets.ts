@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { startOfWeek, startOfMonth, subDays, subMonths, endOfMonth, format, endOfWeek } from 'date-fns';
+import { getSessionSafe } from "@/utils/authSession";
 
 // Preseason dates - fixed constants
 export const PRESEASON_START = new Date('2025-09-28');
@@ -27,7 +28,7 @@ export const useDataBoundary = () => {
     // v3 busts persisted cache from older non-serializable shapes (Set/Date)
     queryKey: ['data-boundary-v3'],
     queryFn: async (): Promise<DataBoundary> => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) {
         return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: [] };
       }

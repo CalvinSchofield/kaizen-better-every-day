@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTodayWorkStatus } from './useTodayWorkStatus';
+import { getSessionSafe } from "@/utils/authSession";
 
 const GLOBAL_SUMMER_START = new Date('2026-04-12');
 const GLOBAL_SUMMER_END = new Date('2026-09-27');
@@ -94,7 +95,7 @@ export const useAppMode = (repData?: any) => {
     retry: 1,
     initialData: getCachedSeasonConfig() ?? undefined,
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return null;
 
       const { data, error } = await supabase
@@ -178,7 +179,7 @@ export const useAppMode = (repData?: any) => {
   // Toggle knocking mode
   const toggleModeMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase

@@ -27,6 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { formatBlitzDate } from "@/utils/blitzDateUtils";
 import { toast } from "sonner";
 
@@ -1000,7 +1001,7 @@ export const CalendarView = ({
                             onClick={async () => {
                               setSavingSummerDates(true);
                               try {
-                                const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+                                const { user } = await getSessionSafe();
                                 if (!user) throw new Error('Not authenticated');
                                 await supabase
                                   .from('season_config')

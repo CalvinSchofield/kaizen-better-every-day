@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Sale } from '@/hooks/useDailyEntry';
 import { toast } from 'sonner';
 import { invalidateAllSalesQueries } from '@/utils/invalidateSalesQueries';
+import { getSessionSafe } from "@/utils/authSession";
 
 interface AddSaleParams {
   entryDate: string;  // YYYY-MM-DD
@@ -24,8 +25,7 @@ export const useAddSaleToEntry = () => {
   const addSaleMutation = useMutation({
     mutationFn: async ({ entryDate, sale, saleTimestamp }: AddSaleParams) => {
       // PERF FIX: Use getSession() (local cache) instead of getUser() (network call)
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // Create the new sale with ID and timestamp

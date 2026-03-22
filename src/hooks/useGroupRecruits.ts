@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useTeamAccess } from "./useTeamAccess";
 import { useEffect, useCallback } from "react";
 import { toast } from "sonner";
@@ -717,7 +718,7 @@ export const useSubmitSuggestion = () => {
       teamLeaderUserId: string;
       suggestedByName: string;
     }) => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
@@ -1202,7 +1203,7 @@ export const useMySuggestions = () => {
   return useQuery({
     queryKey: ['my-suggestions'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
@@ -1235,7 +1236,7 @@ export const useUpdateMySuggestion = () => {
       relationship?: string;
       notes?: string;
     }) => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
@@ -1288,7 +1289,7 @@ export const useDeleteMySuggestion = () => {
 
   return useMutation({
     mutationFn: async (suggestionId: string) => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase

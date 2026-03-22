@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -679,7 +680,7 @@ const Goals = () => {
                   monday_night_lights_goal: data.mnlGoal,
                 });
 
-                const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+                const { user } = await getSessionSafe();
                 if (user) {
                   await supabase
                     .from('season_config')

@@ -14,6 +14,7 @@ import { format, parseISO } from 'date-fns';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { getSessionSafe } from "@/utils/authSession";
 
 interface QuickEditGoalsDrawerProps {
   open: boolean;
@@ -103,7 +104,7 @@ export const QuickEditGoalsDrawer = ({
 
       // Save summer dates if changed
       if (datesChanged) {
-        const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+        const { user } = await getSessionSafe();
         if (user) {
           await supabase
             .from('season_config')

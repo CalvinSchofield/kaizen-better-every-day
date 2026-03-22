@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { startOfWeek, subWeeks, startOfMonth, subMonths, format, isAfter, isBefore, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { getSessionSafe } from "@/utils/authSession";
 
 interface RecapState {
   weekRecapAvailable: boolean;
@@ -41,7 +42,7 @@ export function useRecapState(): RecapState {
 
   useEffect(() => {
     const loadState = async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return;
       
       setUserId(user.id);

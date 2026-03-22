@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sale } from './useDailyEntry';
+import { getSessionSafe } from "@/utils/authSession";
 
 interface CanceledStats {
   canceledFpCount: number;
@@ -15,7 +16,7 @@ export const useCanceledStats = (startDate?: string, endDate?: string) => {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['canceled-stats', startDate, endDate],
     queryFn: async (): Promise<CanceledStats> => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) {
         return {
           canceledFpCount: 0,

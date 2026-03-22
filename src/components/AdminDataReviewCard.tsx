@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { getSessionSafe } from "@/utils/authSession";
 
 // Helper to get the suggested end time from counter timestamps (in rep's timezone)
 const getSuggestedEndTime = (issue: DataIssue): { time: string; formatted: string } | null => {
@@ -322,7 +323,7 @@ export const AdminDataReviewCard = () => {
     setIsFixingEndTime(true);
     setFixingIssueId(issue.id);
     try {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase.functions.invoke('update-rep-entry', {
@@ -364,7 +365,7 @@ export const AdminDataReviewCard = () => {
     setIsFixingEndTime(true);
     setFixingIssueId(issue.id);
     try {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // Add 24 hours to the end time
@@ -407,7 +408,7 @@ export const AdminDataReviewCard = () => {
     setIsFixingEndTime(true);
     setFixingIssueId(issue.id);
     try {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase.functions.invoke('update-rep-entry', {
@@ -469,7 +470,7 @@ export const AdminDataReviewCard = () => {
     setIsFixingEndTime(true);
     setFixingIssueId(issue.id);
     try {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { field, count, timestamps: rapidTimestamps } = issue.rapidTapInfo;

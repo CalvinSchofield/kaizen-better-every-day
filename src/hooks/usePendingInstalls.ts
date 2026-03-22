@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Sale } from './useDailyEntry';
 import { toast } from 'sonner';
 import { invalidateAllSalesQueries } from '@/utils/invalidateSalesQueries';
+import { getSessionSafe } from "@/utils/authSession";
 
 interface PendingSale extends Sale {
   entryId: string;
@@ -24,7 +25,7 @@ export const usePendingInstalls = (options?: { includeAllPending?: boolean }) =>
   const { data: pendingSales = [], isLoading } = useQuery({
     queryKey: ['pending-installs', options?.includeAllPending ? 'all' : 'due'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return [];
 
       const todayDate = getTodayDate();

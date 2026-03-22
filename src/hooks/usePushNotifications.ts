@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getSessionSafe } from "@/utils/authSession";
 
 // Convert base64 to Uint8Array for VAPID key
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -105,7 +106,7 @@ export function usePushNotifications() {
       }
 
       // Get current user
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) {
         throw new Error('User not authenticated');
       }
@@ -148,7 +149,7 @@ export function usePushNotifications() {
         await subscription.unsubscribe();
 
         // Get current user
-        const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+        const { user } = await getSessionSafe();
         if (user) {
           // Remove from database
           await supabase

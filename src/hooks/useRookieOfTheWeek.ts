@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { getWeekStartDateString } from "@/utils/timezoneUtils";
 import { isRepActive } from "@/utils/repStatusUtils";
 
@@ -49,7 +50,7 @@ export const useRookieOfTheWeek = () => {
   const { data: currentUserId } = useQuery({
     queryKey: ['current-user-id'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       return user?.id || null;
     },
     staleTime: Infinity,

@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { useRepData } from "@/hooks/useRepData";
 import { checkRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -801,7 +802,7 @@ const Home = () => {
   const handleSetupNudge = async () => {
     setIsNudging(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user?.email) throw new Error('No user email found');
 
       const { error } = await supabase.functions.invoke('send-setup-nudge-email', {

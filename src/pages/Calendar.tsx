@@ -5,6 +5,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { parseLocalDate } from "@/utils/dateUtils";
 import { Calendar as CalendarIcon, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,7 +50,7 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
   const { data: entries = [] } = useQuery({
     queryKey: ['all-daily-entries'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return [];
 
       const { data, error } = await supabase
@@ -68,7 +69,7 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
   const { data: seasonConfig } = useQuery({
     queryKey: ['season-config'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return null;
 
       const { data, error } = await supabase

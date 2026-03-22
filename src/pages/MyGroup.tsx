@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { hasMinAccess, canFilterByTeam } from "@/utils/roleHierarchy";
 import { useGroupRecruits, useMySuggestions, useDeleteMySuggestion, RecruitSuggestion, Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
@@ -141,7 +142,7 @@ const MyGroup = () => {
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-rep-team'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return null;
       
       const { data } = await supabase

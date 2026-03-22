@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, ROLE_HIERARCHY, getAssignableRoles, getRoleJumpInfo, type AccessLevel } from "@/utils/roleHierarchy";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
@@ -207,7 +208,7 @@ export const EditRecruitDrawer = ({
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-rep-for-edit'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return null;
       const { data } = await supabase
         .from('reps')
