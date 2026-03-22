@@ -273,7 +273,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         supabase.from("teams").select("*").order("name"),
         supabase.from("team_mgmt_groups").select("*"),
         supabase.from("office_staff").select("*"),
-        supabase.from("reps").select("user_id, name, year, profile_photo_url, stage"),
+        supabase.from("reps").select("user_id, name, year, profile_photo_url, stage, office_id"),
         supabase.from("recruits").select("id, name, recruiter_user_id, stage, year, team_id, mgmt_group_id, phone, email, location, recruitment_source, last_contact, next_action, next_action_due, created_at").limit(5000),
         supabase.from("sr_mgmt_groups").select("*").order("name"),
         supabase.from("sr_regions").select("*").order("name"),
