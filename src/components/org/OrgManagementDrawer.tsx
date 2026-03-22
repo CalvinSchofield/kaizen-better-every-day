@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2, Search, Building2, Users, Globe, UserPlus } from "lucide-react";
+import { Plus, Trash2, Search, Building2, Users, Globe, UserPlus, Pencil } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
 import { cn } from "@/lib/utils";
 
