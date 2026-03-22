@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Globe, Building2, Users, User, ChevronDown, ChevronRight, UserPlus, Trash2, Plus } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
+import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
