@@ -23,7 +23,9 @@ export const useAddSaleToEntry = () => {
 
   const addSaleMutation = useMutation({
     mutationFn: async ({ entryDate, sale, saleTimestamp }: AddSaleParams) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      // PERF FIX: Use getSession() (local cache) instead of getUser() (network call)
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       // Create the new sale with ID and timestamp

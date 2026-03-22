@@ -427,17 +427,18 @@ export const useDailyEntry = (date?: string) => {
   const updateCounterMutation = useMutation({
     mutationKey: ['update-counter', entryDate],
     mutationFn: async (updates: Partial<DailyEntry>) => {
-      // FIX: Try getUser first, then attempt session refresh before giving up
-      let user = (await supabase.auth.getUser()).data.user;
-      if (!user) {
+      // PERF FIX: Use getSession() (local cache) instead of getUser() (network call)
+      let { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
         console.warn('[useDailyEntry] Session expired during mutation — attempting refresh');
         const { data: refreshData } = await supabase.auth.refreshSession();
-        user = refreshData?.user ?? null;
-        if (!user) {
+        session = refreshData?.session ?? null;
+        if (!session?.user) {
           throw new Error('AUTH_SESSION_EXPIRED');
         }
         console.log('[useDailyEntry] Session refreshed successfully during mutation');
       }
+      const user = session.user;
 
       // Use the safe upsert function that merges sales_log instead of overwriting
       // This prevents iPad/phone sync issues where stale cache overwrites sales

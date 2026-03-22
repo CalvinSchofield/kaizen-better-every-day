@@ -9,26 +9,22 @@ interface HydrationGateProps {
  * Global hydration gate that shows a brief splash on cold app launch
  * until auth is ready and persisted cache can be used.
  * 
- * This prevents per-page skeleton/wizard flashes by ensuring:
- * 1. We have a VERIFIED userId (not just cached, which could be stale)
- * 2. React Query persistence has restored
- * 
- * CRITICAL FIX: We now wait for authVerified to be true, not just canUseCachedData.
- * This prevents the issue where a stale cached userId causes the app to render
- * with empty/wrong data when the actual Supabase session is expired.
+ * PERF FIX: If we have a cached userId, render immediately and verify
+ * auth in the background. ProtectedRoute will catch truly expired sessions.
+ * This prevents the 1-4s block on native/TestFlight where getUser() is slow.
  */
 export const HydrationGate = ({ children }: HydrationGateProps) => {
-  const { userId, authVerified } = useCurrentUserId();
+  const { userId, authVerified, canUseCachedData } = useCurrentUserId();
   
-  // CRITICAL: Wait for auth to be verified before rendering
-  // This prevents stale cached userId from causing empty data display
-  // The verification is quick (<200ms) so the UX impact is minimal
-  if (authVerified) {
+  // PERF: Render immediately if we have a cached userId OR auth is verified.
+  // On native, getUser() can take 1-4s. If we have a cached userId, render
+  // optimistically - ProtectedRoute will redirect to /auth if session is truly expired.
+  if (canUseCachedData || authVerified) {
     return <>{children}</>;
   }
   
-  // Brief splash while determining user identity
-  // This should only show for < 200ms on cold launch
+  // Brief splash only when we have NO cached userId and auth hasn't resolved yet.
+  // This should only happen on very first app install (no cache exists).
   return (
     <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
       <div className="flex flex-col items-center gap-3">

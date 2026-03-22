@@ -126,7 +126,9 @@ export const useSaleUpdate = () => {
   // Delete sale mutation - removes sale entirely from sales_log
   const deleteSaleMutation = useMutation({
     mutationFn: async ({ entryId, entryDate, saleId }: DeleteSaleParams) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      // PERF FIX: Use getSession() (local cache) instead of getUser() (network call)
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const { data: entry, error: fetchError } = await supabase
