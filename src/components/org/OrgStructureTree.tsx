@@ -675,8 +675,9 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         }));
     };
 
-    const mgmtNodes = (officeId: string): OrgNode[] =>
-      mgmtGroups.filter((mg) => mg.office_id === officeId).map((mg) => {
+    // MGMT Groups under a Sr MGMT Group (lineage parent)
+    const mgmtNodesForSrMgmt = (srMgmtGroupId: string): OrgNode[] =>
+      mgmtGroups.filter((mg) => mg.sr_mgmt_group_id === srMgmtGroupId).map((mg) => {
         const teamChildren = teamNodes(mg.id, mg.name);
         return {
           id: mg.id, name: mg.name, type: "mgmt_group" as const,
@@ -686,6 +687,27 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         };
       });
 
+    // MGMT Groups directly under an Office (no sr_mgmt_group)
+    const mgmtNodesForOffice = (officeId: string): OrgNode[] =>
+      mgmtGroups.filter((mg) => mg.office_id === officeId && !mg.sr_mgmt_group_id).map((mg) => {
+        const teamChildren = teamNodes(mg.id, mg.name);
+        return {
+          id: mg.id, name: mg.name, type: "mgmt_group" as const,
+          role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
+          leadUserId: mg.lead_user_id,
+          children: teamChildren,
+        };
+      });
+
+    // Sr MGMT Groups under a Region (lineage)
+    const srMgmtGroupNodes = (regionId: string): OrgNode[] =>
+      srMgmtGroups.filter((smg: any) => smg.region_id === regionId).map((smg: any) => ({
+        id: smg.id, name: smg.name, type: "sr_mgmt_group" as const,
+        role: smg.lead_user_id ? `Led by ${getRepName(smg.lead_user_id)}` : undefined,
+        leadUserId: smg.lead_user_id,
+        children: mgmtNodesForSrMgmt(smg.id),
+      }));
+
     const officeNodes = (regionId: string | null): OrgNode[] =>
       offices.filter((o: any) => (regionId ? o.region_id === regionId : !o.region_id)).map((o) => {
         const staff = officeStaff.filter((s) => s.office_id === o.id);
@@ -694,7 +716,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           id: o.id, name: o.name, type: "office" as const,
           role: adNames || undefined,
           location: o.location,
-          children: mgmtNodes(o.id),
+          children: mgmtNodesForOffice(o.id),
         };
       });
 
@@ -703,7 +725,8 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         id: r.id, name: r.name, type: "region" as const,
         role: r.lead_user_id ? `Led by ${getRepName(r.lead_user_id)}` : undefined,
         leadUserId: r.lead_user_id,
-        children: officeNodes(r.id),
+        // Region children: Sr MGMT Groups (lineage) + Offices (non-lineage buckets)
+        children: [...srMgmtGroupNodes(r.id), ...officeNodes(r.id)],
       }));
 
     const srRegionNodes = (partnerId: string | null): OrgNode[] =>
