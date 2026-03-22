@@ -617,14 +617,88 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         ))}
       </div>
 
-      {/* Long-press action sheet for teams/mgmt_groups */}
+      {/* Long-press action sheet */}
       <Drawer open={!!actionTarget} onOpenChange={(open) => !open && setActionTarget(null)}>
         <DrawerContent>
           <DrawerHeader>
             <DrawerTitle>{actionTarget?.name}</DrawerTitle>
           </DrawerHeader>
           <div className="px-4 pb-6 space-y-2">
-            {/* Add team under mgmt group */}
+            {/* Rep actions */}
+            {actionTarget?.type === "rep" && (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => {
+                    if (actionTarget) {
+                      // Find the node to open detail drawer
+                      const findNode = (nodes: OrgNode[]): OrgNode | null => {
+                        for (const n of nodes) {
+                          if (n.id === actionTarget.id) return n;
+                          const found = findNode(n.children);
+                          if (found) return found;
+                        }
+                        return null;
+                      };
+                      const node = findNode(tree);
+                      if (node) handleRepTap(node);
+                      setActionTarget(null);
+                    }
+                  }}
+                >
+                  <FileEdit className="h-4 w-4" />
+                  Edit Details
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => {
+                    if (actionTarget) {
+                      setMoveRepTarget({ id: actionTarget.id, name: actionTarget.name });
+                      setActionTarget(null);
+                    }
+                  }}
+                >
+                  <ArrowRightLeft className="h-4 w-4" />
+                  Move to Team...
+                </Button>
+              </>
+            )}
+
+            {/* Team actions */}
+            {actionTarget?.type === "team" && canManageTeams && (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => {
+                    if (actionTarget) {
+                      setBulkAssignTarget({ id: actionTarget.id, name: actionTarget.name });
+                      setActionTarget(null);
+                    }
+                  }}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Assign Reps
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => {
+                    if (actionTarget) {
+                      setMoveTeamTarget({ id: actionTarget.id, name: actionTarget.name });
+                      setActionTarget(null);
+                    }
+                  }}
+                >
+                  <ArrowRightLeft className="h-4 w-4" />
+                  Move to MGMT Group...
+                </Button>
+              </>
+            )}
+
+            {/* MGMT group actions */}
             {actionTarget?.type === "mgmt_group" && canManageTeams && (
               <Button
                 variant="outline"
@@ -640,7 +714,9 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
                 Create Team
               </Button>
             )}
-            {canManageTeams && (
+
+            {/* Delete for team/mgmt_group */}
+            {(actionTarget?.type === "team" || actionTarget?.type === "mgmt_group") && canManageTeams && (
               <Button
                 variant="destructive"
                 className="w-full justify-start gap-2"
