@@ -460,8 +460,18 @@ export const EditRecruitDrawer = ({
     },
   });
 
-  // Gate: if a role is selected, show confirmation first
+  // Gate: validate lateral requirements, then role confirmation
   const handleSaveClick = () => {
+    if (isLateralApproval) {
+      if (!recruiterUserId) {
+        toast.error('Recruiter is required for lateral invites');
+        return;
+      }
+      if (!selectedTeamId) {
+        toast.error('Team is required for lateral invites');
+        return;
+      }
+    }
     if (selectedRole && canAssignRoles) {
       setShowRoleConfirm(true);
       return;
