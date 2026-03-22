@@ -24,7 +24,7 @@ export const usePendingInstalls = (options?: { includeAllPending?: boolean }) =>
   const { data: pendingSales = [], isLoading } = useQuery({
     queryKey: ['pending-installs', options?.includeAllPending ? 'all' : 'due'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return [];
 
       const todayDate = getTodayDate();

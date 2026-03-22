@@ -155,7 +155,7 @@ const RegionsTab = ({ accessLevel }: { accessLevel: AccessLevel }) => {
   const createRegion = useMutation({
     mutationFn: async () => {
       if (!newRegionName.trim()) throw new Error('Name required');
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       const { error } = await supabase.from('regions').insert({
         name: newRegionName.trim(),
         lead_user_id: user?.id,
@@ -373,7 +373,7 @@ const OfficesTab = ({ accessLevel }: { accessLevel: AccessLevel }) => {
   const createOffice = useMutation({
     mutationFn: async () => {
       if (!newOfficeName.trim()) throw new Error('Name required');
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       const { error } = await supabase.from('offices').insert({
         name: newOfficeName.trim(),
         location: newOfficeLocation.trim() || null,

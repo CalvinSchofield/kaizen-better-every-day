@@ -105,7 +105,7 @@ export function usePushNotifications() {
       }
 
       // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) {
         throw new Error('User not authenticated');
       }
@@ -148,7 +148,7 @@ export function usePushNotifications() {
         await subscription.unsubscribe();
 
         // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
         if (user) {
           // Remove from database
           await supabase

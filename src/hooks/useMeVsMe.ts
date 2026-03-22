@@ -13,7 +13,7 @@ export const useMeVsMe = () => {
   // Toggle Me vs Me enabled status
   const toggleMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase
@@ -33,7 +33,7 @@ export const useMeVsMe = () => {
   const { data: dataSummary, isLoading: summaryLoading } = useQuery({
     queryKey: ['historical-data-summary'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return null;
 
       // Get count by year and season type
@@ -89,7 +89,7 @@ export const useMeVsMe = () => {
   // Delete all historical data
   const deleteAllMutation = useMutation({
     mutationFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase

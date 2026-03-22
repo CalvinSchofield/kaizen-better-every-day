@@ -322,7 +322,7 @@ export const AdminDataReviewCard = () => {
     setIsFixingEndTime(true);
     setFixingIssueId(issue.id);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase.functions.invoke('update-rep-entry', {
@@ -364,7 +364,7 @@ export const AdminDataReviewCard = () => {
     setIsFixingEndTime(true);
     setFixingIssueId(issue.id);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       // Add 24 hours to the end time
@@ -407,7 +407,7 @@ export const AdminDataReviewCard = () => {
     setIsFixingEndTime(true);
     setFixingIssueId(issue.id);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase.functions.invoke('update-rep-entry', {
@@ -469,7 +469,7 @@ export const AdminDataReviewCard = () => {
     setIsFixingEndTime(true);
     setFixingIssueId(issue.id);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const { field, count, timestamps: rapidTimestamps } = issue.rapidTapInfo;

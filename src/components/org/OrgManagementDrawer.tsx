@@ -217,7 +217,7 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, p
     const finalParentId = selectedParentId !== "__none__" ? selectedParentId : parentId || null;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
 
       switch (type) {
         case "office": {

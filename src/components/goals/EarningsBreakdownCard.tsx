@@ -67,7 +67,7 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
   const { data: seasonConfig } = useQuery({
     queryKey: ['earnings-season-config', repData?.user_id],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return null;
       
       const { data, error } = await supabase
@@ -87,7 +87,7 @@ export const EarningsBreakdownCard = ({ externalOpen }: { externalOpen?: boolean
   const { data: salesData, isLoading } = useQuery({
     queryKey: ['earnings-breakdown-data', repData?.user_id],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return null;
       
       const { data: entries, error } = await supabase

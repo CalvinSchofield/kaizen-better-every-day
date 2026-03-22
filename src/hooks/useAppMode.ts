@@ -94,7 +94,7 @@ export const useAppMode = (repData?: any) => {
     retry: 1,
     initialData: getCachedSeasonConfig() ?? undefined,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return null;
 
       const { data, error } = await supabase
@@ -178,7 +178,7 @@ export const useAppMode = (repData?: any) => {
   // Toggle knocking mode
   const toggleModeMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase

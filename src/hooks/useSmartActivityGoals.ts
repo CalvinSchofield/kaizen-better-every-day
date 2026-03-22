@@ -59,7 +59,7 @@ export function useSmartActivityGoals({
   const { data: conversionData, isLoading } = useQuery({
     queryKey: ['smart-activity-goals-conversion-v2', efpModeEnabled],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const userEmail = user.email?.toLowerCase() ?? null;

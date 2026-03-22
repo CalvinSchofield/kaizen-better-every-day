@@ -59,7 +59,7 @@ export const useWeeklyComparison = (enabled: boolean = true) => {
   const { data: entries, isLoading } = useQuery({
     queryKey: ['weekly-comparison', format(thisWeekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return [];
 
       const { data, error } = await supabase
@@ -85,7 +85,7 @@ export const useWeeklyComparison = (enabled: boolean = true) => {
   const { data: streakEntries } = useQuery({
     queryKey: ['current-streak', format(now, 'yyyy-MM-dd')],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return [];
 
       // Fetch last 14 days to calculate streak

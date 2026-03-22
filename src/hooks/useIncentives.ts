@@ -162,7 +162,7 @@ export const useIncentives = (filter: 'active' | 'history' = 'active') => {
   return useQuery({
     queryKey: ['incentives', filter],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const statusFilter = filter === 'active' ? ['active'] : ['completed', 'cancelled'];
@@ -215,7 +215,7 @@ export const useMyActiveIncentives = () => {
   return useQuery({
     queryKey: ['my-active-incentives'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
 
       // If auth isn't ready yet (or user is signed out), treat as "no incentives".
       if (!user) return [];
@@ -333,7 +333,7 @@ export const useCreateIncentive = () => {
 
   return useMutation({
     mutationFn: async (input: CreateIncentiveInput) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       // Create incentive
@@ -419,7 +419,7 @@ export const useUpdateIncentive = () => {
 
   return useMutation({
     mutationFn: async (input: UpdateIncentiveInput) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       // Verify user is the creator
@@ -490,7 +490,7 @@ export const useCancelIncentive = () => {
 
   return useMutation({
     mutationFn: async (incentiveId: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       // Verify user is the creator and incentive hasn't been claimed

@@ -10,7 +10,7 @@ export const useActiveCompetitionCount = (dateRange?: DateRange) => {
   return useQuery({
     queryKey: ["active-competition-count", dateRange?.start, dateRange?.end],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return { challenges: 0, incentives: 0, total: 0 };
 
       if (dateRange) {

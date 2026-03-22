@@ -49,7 +49,7 @@ export const useAdminDataReview = () => {
   // Check if admin
   useEffect(() => {
     const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       setIsAdmin(user?.email === ADMIN_EMAIL);
       if (user?.email === ADMIN_EMAIL) {
         setAdminUserId(user.id);

@@ -122,7 +122,7 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
   const { data: allSales = [], isLoading } = useQuery({
     queryKey: ['all-sales-for-insights', dateRange.start.toISOString(), dateRange.end.toISOString()],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return [];
 
       const { data, error } = await supabase
