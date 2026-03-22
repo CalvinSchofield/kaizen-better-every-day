@@ -28,7 +28,7 @@ export const VetLeaderboardCard = ({ isOnActiveBlitz }: VetLeaderboardCardProps)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => { const data = { user: session?.user ?? null };
       setCurrentUserId(data.user?.id || null);
     });
   }, []);

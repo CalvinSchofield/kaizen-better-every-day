@@ -198,7 +198,7 @@ export const RecruitDetailDrawer = ({
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-rep-for-drawer'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return null;
       const { data } = await supabase.from('reps').select('id, name, team_leader, recruiter').eq('user_id', user.id).maybeSingle();
       return data;

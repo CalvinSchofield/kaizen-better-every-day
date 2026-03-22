@@ -82,9 +82,9 @@ export const useTeamAccess = () => {
       }
 
       try {
-        // Add timeout for mobile networks - 12 second timeout (reduced from 20)
+        // PERF FIX: Reduced timeout from 12s to 8s for native — fail fast and serve stale cache
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Request timeout')), 12000);
+          setTimeout(() => reject(new Error('Request timeout')), 8000);
         });
 
         const fetchPromise = supabase.functions.invoke('fetch-team-access', {

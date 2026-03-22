@@ -112,7 +112,7 @@ const TrackWithLayout = () => {
     let mounted = true;
     const checkAuth = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
         if (mounted) {
           if (!user) {
             // Try to refresh before marking unhealthy
@@ -257,7 +257,7 @@ const TrackWithLayout = () => {
   // Check for ALL unsaved work from previous days on mount
   useEffect(() => {
     const checkPreviousDayWork = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return;
 
       // Use local timezone to prevent timezone-related date mismatches

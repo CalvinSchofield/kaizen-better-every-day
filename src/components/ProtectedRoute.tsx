@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { User } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { usePrefetchData } from "@/hooks/usePrefetchData";
 import { PushNotificationInitializer } from "./PushNotificationInitializer";
@@ -10,49 +9,30 @@ import { isRepActive } from "@/utils/repStatusUtils";
 import InactiveAccountScreen from "./InactiveAccountScreen";
 import PendingApprovalScreen from "./PendingApprovalScreen";
 import { useQuery } from "@tanstack/react-query";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  // PERF FIX: Use shared useCurrentUserId instead of independent getSession + onAuthStateChange.
+  // This eliminates a redundant auth network call and duplicate listener.
+  const { userId, authVerified } = useCurrentUserId();
 
   // Prefetch critical data once authenticated
-  usePrefetchData(user?.id);
+  usePrefetchData(userId ?? undefined);
 
+  // Update timezone when user is authenticated
   useEffect(() => {
-    const updateTimezone = async (userId: string) => {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      await supabase
-        .from('reps')
-        .update({ timezone })
-        .eq('user_id', userId);
-    };
-
-    // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-      if (session?.user) {
-        updateTimezone(session.user.id);
-      }
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-      if (session?.user) {
-        updateTimezone(session.user.id);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    if (!userId) return;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    supabase
+      .from('reps')
+      .update({ timezone })
+      .eq('user_id', userId)
+      .then(() => {});
+  }, [userId]);
 
   // Get rep data to check stage - only runs when user is authenticated
   const { repData, loading: repLoading } = useRepData();
@@ -61,7 +41,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { data: recruitApproval } = useQuery({
     queryKey: ['recruit-approval-status', repData?.id],
     enabled: !!repData?.id,
-    staleTime: 30 * 1000, // Check every 30s
+    staleTime: 30 * 1000,
     refetchInterval: 30 * 1000,
     queryFn: async () => {
       if (!repData?.id) return null;
@@ -93,7 +73,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     },
   });
 
-  if (loading) {
+  if (!authVerified) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -102,7 +82,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (!user) {
+  if (!userId) {
     return <Navigate to="/auth" replace />;
   }
 

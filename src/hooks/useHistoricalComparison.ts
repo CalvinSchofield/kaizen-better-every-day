@@ -79,7 +79,7 @@ export const useHistoricalComparison = ({
   const { data: historicalEntries, isLoading: loadingHistorical } = useQuery({
     queryKey: ['historical-entries', comparisonYear, currentSeasonInfo?.type, currentSeasonInfo?.week, endSeasonInfo?.week],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return [];
       
       if (!currentSeasonInfo || !endSeasonInfo) return [];
@@ -110,7 +110,7 @@ export const useHistoricalComparison = ({
   const { data: currentEntries, isLoading: loadingCurrent } = useQuery({
     queryKey: ['current-entries-comparison', startDate.toISOString(), endDate.toISOString()],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return [];
       
       const { data, error } = await supabase
@@ -201,7 +201,7 @@ export const useHistoricalComparison = ({
   const { data: hasHistoricalData } = useQuery({
     queryKey: ['has-historical-data', comparisonYear],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return false;
       
       const { count, error } = await supabase
@@ -235,7 +235,7 @@ export const useHistoricalCumulativeData = (comparisonYear: number, enabled: boo
   return useQuery({
     queryKey: ['historical-cumulative', comparisonYear, targetSeasonType],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return [];
       
       // Only fetch data for the matching season type (preseason vs preseason, summer vs summer)

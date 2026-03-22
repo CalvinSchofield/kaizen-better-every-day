@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCurrentUserId } from "./useCurrentUserId";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JsonField = any;
@@ -70,7 +71,6 @@ const getRepCacheKey = (userId: string) => `rep-data-cache-${userId}`;
 
 // Helper to clear all rep data caches (for logout)
 export const clearAllRepCaches = () => {
-  // Clear any rep-data-cache keys
   const keysToRemove: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -81,82 +81,18 @@ export const clearAllRepCaches = () => {
   keysToRemove.forEach(key => localStorage.removeItem(key));
 };
 
-// Helper to get initial userId synchronously from localStorage
-const getStoredUserId = (): string | null => {
-  try {
-    return localStorage.getItem('kaizen-current-user-id');
-  } catch {
-    return null;
-  }
-};
-
-// Helper to store userId for synchronous access
-const storeUserId = (userId: string | null) => {
-  try {
-    if (userId) {
-      localStorage.setItem('kaizen-current-user-id', userId);
-    } else {
-      localStorage.removeItem('kaizen-current-user-id');
-    }
-  } catch {
-    // Ignore storage errors
-  }
-};
-
 export const useRepData = () => {
   const queryClient = useQueryClient();
-  // Initialize with stored userId for instant access (prevents flicker)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(getStoredUserId);
-  const [authChecked, setAuthChecked] = useState(false);
-
-  // Get current user ID on mount and listen for auth changes
-  useEffect(() => {
-    let isMounted = true;
-    
-    const getCurrentUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (isMounted) {
-        const userId = user?.id ?? null;
-        setCurrentUserId(userId);
-        storeUserId(userId);
-        setAuthChecked(true);
-      }
-    };
-    getCurrentUser();
-
-    // Listen for auth changes to update currentUserId
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      const newUserId = session?.user?.id ?? null;
-      
-      // If user changed, clear old user's cache
-      if (currentUserId && newUserId && currentUserId !== newUserId) {
-        console.log('User changed, clearing old cache');
-        clearAllRepCaches();
-        queryClient.clear();
-      }
-      
-      if (isMounted) {
-        setCurrentUserId(newUserId);
-        storeUserId(newUserId);
-        setAuthChecked(true);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, [currentUserId, queryClient]);
-
-  // NOTE: initialData from localStorage removed to prevent stale data display.
-  // React Query in-memory cache handles instant navigation between pages.
+  // PERF FIX: Use shared useCurrentUserId instead of independent auth check.
+  // This eliminates a redundant getUser() network call + duplicate onAuthStateChange listener.
+  const { userId: currentUserId, isReady: authChecked } = useCurrentUserId();
 
   const { data: repData, isLoading: loading } = useQuery({
     queryKey: ['rep-data', currentUserId],
-    enabled: !!currentUserId, // Only run when we have a user ID
-    staleTime: 1 * 60 * 1000, // 1 minute - more responsive to changes
-    gcTime: 30 * 60 * 1000, // 30 minutes - keep in cache
-    refetchOnWindowFocus: true, // Refresh when app comes back to foreground
+    enabled: !!currentUserId,
+    staleTime: 1 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: true,
     retry: 1,
     queryFn: async () => {
       if (!currentUserId) return null;
@@ -171,22 +107,16 @@ export const useRepData = () => {
 
       if (error) throw error;
 
-      // CRITICAL: Validate fetched data belongs to current user
       if (data && data.user_id !== currentUserId) {
-        console.error('SECURITY: Fetched rep data does not match current user!', {
-          fetchedUserId: data.user_id,
-          currentUserId
-        });
+        console.error('SECURITY: Fetched rep data does not match current user!');
         return null;
       }
 
-      // If no rep data exists, user needs to be added by admin
       if (!data) {
         console.log("No rep data found - user needs to be added by admin");
         return null;
       }
 
-      // Cache the data for offline access with user ID
       localStorage.setItem(cacheKey, JSON.stringify({
         data,
         timestamp: Date.now(),
@@ -199,15 +129,12 @@ export const useRepData = () => {
 
   const refetch = async () => {
     if (!currentUserId) return;
-    // Refetch the data from database
     await queryClient.invalidateQueries({ queryKey: ['rep-data', currentUserId] });
   };
 
   useEffect(() => {
     if (!currentUserId) return;
 
-    // Set up realtime subscription to instantly reflect database changes
-    // CRITICAL: Filter to only process changes for the CURRENT USER
     const channel = supabase
       .channel(`reps-changes-${currentUserId}`)
       .on(
@@ -216,25 +143,19 @@ export const useRepData = () => {
           event: "*",
           schema: "public",
           table: "reps",
-          filter: `user_id=eq.${currentUserId}` // Only listen to current user's changes
+          filter: `user_id=eq.${currentUserId}`
         },
         (payload) => {
           if (payload.eventType === "UPDATE" || payload.eventType === "INSERT") {
             const newData = payload.new as RepData;
-            
-            // CRITICAL: Double-check the data belongs to current user
             if (newData.user_id === currentUserId) {
               queryClient.setQueryData(['rep-data', currentUserId], newData);
-              
-              // Update cache
               const cacheKey = getRepCacheKey(currentUserId);
               localStorage.setItem(cacheKey, JSON.stringify({
                 data: newData,
                 timestamp: Date.now(),
                 userId: currentUserId
               }));
-            } else {
-              console.warn('Received realtime update for different user, ignoring');
             }
           }
         }
@@ -246,8 +167,6 @@ export const useRepData = () => {
     };
   }, [queryClient, currentUserId]);
 
-  // isInitializing: true when we don't have a stored userId AND auth hasn't been checked yet
-  // If we have a stored userId, we can render immediately with cached data
   const isInitializing = !currentUserId && !authChecked;
 
   return { repData: repData ?? null, loading, isInitializing, refetch };

@@ -22,7 +22,7 @@ export function useRecapMeVsMeComparison(period: 'week' | 'month') {
   return useQuery({
     queryKey: ['recap-me-vs-me', period],
     queryFn: async (): Promise<{ comparison: MeVsMeComparisonData | null; comparisonYear: number; hasHistoricalData: boolean }> => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return { comparison: null, comparisonYear: 0, hasHistoricalData: false };
 
       const now = new Date();

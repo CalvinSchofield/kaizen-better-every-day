@@ -106,7 +106,7 @@ export const usePendingSalesQueue = (userId: string | null) => {
   }, [loadQueue, saveQueue]);
 
   const ensureAuthenticatedUser = async (expectedUserId: string) => {
-    let user = (await supabase.auth.getUser()).data.user;
+    let user = (await supabase.auth.getSession()).data.session?.user ?? null;
 
     if (!user) {
       const { data: refreshData } = await supabase.auth.refreshSession();

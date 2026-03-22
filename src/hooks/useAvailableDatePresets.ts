@@ -27,7 +27,7 @@ export const useDataBoundary = () => {
     // v3 busts persisted cache from older non-serializable shapes (Set/Date)
     queryKey: ['data-boundary-v3'],
     queryFn: async (): Promise<DataBoundary> => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) {
         return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: [] };
       }

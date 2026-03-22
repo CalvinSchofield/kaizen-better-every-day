@@ -59,7 +59,7 @@ export const useEffortThresholds = ({ teamId, mgmtGroupId }: UseEffortThresholds
 
   const upsertMutation = useMutation({
     mutationFn: async (updates: Partial<EffortThresholds>) => {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: { session: userSession } } = await supabase.auth.getSession(); const userData = { user: userSession?.user ?? null };
       if (!userData.user) throw new Error('Not authenticated');
 
       const record = {

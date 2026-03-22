@@ -79,7 +79,7 @@ const SetupFlow = () => {
 
   const runSetup = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
       
       setUserEmail(user.email || null);
@@ -124,7 +124,7 @@ const SetupFlow = () => {
       // Run ALL data fetches in parallel for maximum speed
       setStatusText("Loading app data...");
       
-      const { data: { session } } = await supabase.auth.getSession();
+      // session already available from above
 
       await Promise.all([
         // Competitors - load from Supabase

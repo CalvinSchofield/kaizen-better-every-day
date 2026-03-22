@@ -29,7 +29,7 @@ export const useCustomerData = (
   const { data: allSales = [], isLoading } = useQuery({
     queryKey: ['customer-sales'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return [];
 
       const { data, error } = await supabase
@@ -79,7 +79,7 @@ export const useCustomerData = (
       newStatus: 'installed' | 'pending' | 'cancelled' | 'never_installed';
       scheduledInstallDate?: string;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       // Fetch the entry
@@ -160,7 +160,7 @@ export const useCustomerData = (
       entryDate: string; 
       updates: Partial<Sale>;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       // Fetch the entry
@@ -219,7 +219,7 @@ export const useCustomerData = (
   // Mutation to delete a sale entirely
   const deleteSaleMutation = useMutation({
     mutationFn: async ({ saleId, entryDate }: { saleId: string; entryDate: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const { data: entry, error: fetchError } = await supabase

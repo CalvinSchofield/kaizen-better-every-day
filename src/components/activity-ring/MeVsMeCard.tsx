@@ -37,7 +37,7 @@ export const MeVsMeCard = ({
   const { data: comparison } = useQuery({
     queryKey: ['historical-comparison-full', entryDate, efpModeEnabled],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return null;
 
       const today = entryDate ? parseISO(entryDate) : new Date();

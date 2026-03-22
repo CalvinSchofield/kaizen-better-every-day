@@ -198,7 +198,7 @@ export default function AddRecruit() {
   const { data: currentRep } = useQuery<CurrentRepIdentity | null>({
     queryKey: ['current-rep-for-suggestion'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return null;
       const base: CurrentRepIdentity = { authUserId: user.id, authEmail: user.email ?? null };
       const { data: byUserId } = await supabase.from('reps').select('id, name, team_leader, user_id, email').eq('user_id', user.id).maybeSingle();

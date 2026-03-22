@@ -105,7 +105,7 @@ export const useChallenges = (filter: 'active' | 'pending' | 'history' = 'active
   return useQuery({
     queryKey: ['challenges', filter],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       // Build status filter based on tab
@@ -208,7 +208,7 @@ export const useMyActiveChallenges = () => {
   return useQuery({
     queryKey: ['my-active-challenges'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
 
       // If auth isn't ready yet (or user is signed out), treat as "no challenges".
       if (!user) return [];
@@ -289,7 +289,7 @@ export const useCreateChallenge = () => {
 
   return useMutation({
     mutationFn: async (input: CreateChallengeInput) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       // Validation: Prevent self-challenges
@@ -460,7 +460,7 @@ export const useRespondToChallenge = () => {
 
   return useMutation({
     mutationFn: async ({ challengeId, accept }: { challengeId: string; accept: boolean }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       // Get current user's participant record
@@ -671,7 +671,7 @@ export const useVoidChallenge = () => {
 
   return useMutation({
     mutationFn: async (challengeId: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       // Verify the user is the creator

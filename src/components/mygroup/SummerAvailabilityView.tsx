@@ -88,7 +88,7 @@ export const SummerAvailabilityView = () => {
   const { data: currentUserData } = useQuery({
     queryKey: ['current-user-summer'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return null;
       
       const [repResult, configResult] = await Promise.all([

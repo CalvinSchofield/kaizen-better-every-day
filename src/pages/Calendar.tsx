@@ -49,7 +49,7 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
   const { data: entries = [] } = useQuery({
     queryKey: ['all-daily-entries'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return [];
 
       const { data, error } = await supabase
@@ -68,7 +68,7 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
   const { data: seasonConfig } = useQuery({
     queryKey: ['season-config'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return null;
 
       const { data, error } = await supabase

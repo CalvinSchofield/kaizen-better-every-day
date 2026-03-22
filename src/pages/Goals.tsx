@@ -679,7 +679,7 @@ const Goals = () => {
                   monday_night_lights_goal: data.mnlGoal,
                 });
 
-                const { data: { user } } = await supabase.auth.getUser();
+                const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
                 if (user) {
                   await supabase
                     .from('season_config')

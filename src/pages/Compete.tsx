@@ -259,7 +259,7 @@ const Compete = () => {
   const { data: currentUser, isLoading: loadingUser } = useQuery({
     queryKey: ['current-user-id'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       return user?.id || null;
     },
     staleTime: Infinity,

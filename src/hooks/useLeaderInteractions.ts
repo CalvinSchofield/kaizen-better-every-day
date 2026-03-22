@@ -27,7 +27,7 @@ export const useLeaderInteractions = ({ enabled = true, repUserIds }: UseLeaderI
   const { data: interactions, isLoading } = useQuery({
     queryKey: ['leader-interactions', repUserIds],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return [];
 
       let query = supabase
@@ -98,7 +98,7 @@ export const useLeaderInteractions = ({ enabled = true, repUserIds }: UseLeaderI
       notes?: string;
       date?: string;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase

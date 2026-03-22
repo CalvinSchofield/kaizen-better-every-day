@@ -23,7 +23,7 @@ export const useDismissedRecruits = () => {
   useEffect(() => {
     const loadFromDatabase = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
         if (!user) {
           setIsLoaded(true);
           return;
@@ -105,7 +105,7 @@ export const useDismissedRecruits = () => {
     const syncToDatabase = async () => {
       isSyncing.current = true;
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
         if (!user) return;
 
         const idsArray = [...dismissedIds];
@@ -162,7 +162,7 @@ export const useDismissedRecruits = () => {
     
     // Also clear in database
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (user) {
         await supabase
           .from('reps')

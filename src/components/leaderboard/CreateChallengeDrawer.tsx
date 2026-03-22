@@ -84,7 +84,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-timezone'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
       if (!user) return null;
       const { data } = await supabase
         .from('reps')
