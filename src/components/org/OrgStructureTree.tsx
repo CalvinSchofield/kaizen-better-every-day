@@ -806,7 +806,8 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
     <>
       {/* Single "Create" button with drawer menu showing available entity types */}
       {canManageTeams && (() => {
-        const createOptions: { type: "division" | "partner" | "sr_region" | "region" | "office" | "sr_mgmt_group" | "mgmt_group" | "team"; label: string }[] = [
+        type CreateType = "division" | "partner" | "sr_region" | "region" | "office" | "sr_mgmt_group" | "mgmt_group" | "team";
+        const createOptions: { type: CreateType; label: string }[] = ([
           { type: "division", label: "Division" },
           { type: "partner", label: "Partnership" },
           { type: "sr_region", label: "Sr Region" },
