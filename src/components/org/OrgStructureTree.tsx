@@ -315,7 +315,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   } | null>(null);
 
   // Management drawers
-  const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team" | "mgmt_group" | "sr_mgmt_group" | "sr_region" | "partner" | "division"; parentId?: string; parentName?: string } | null>(null);
+  const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team" | "mgmt_group" | "sr_mgmt_group" | "sr_region" | "partner" | "division"; parentId?: string; parentName?: string; parentType?: string } | null>(null);
   const [configOffice, setConfigOffice] = useState<string | null>(null);
   const [configRegion, setConfigRegion] = useState<string | null>(null);
 
@@ -1004,14 +1004,14 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
 
             {/* Sr MGMT group actions */}
             {actionTarget?.type === "sr_mgmt_group" && canManageTeams && canCreateEntityType(accessLevel, "mgmt_group") && (
-              <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+              <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name, parentType: "sr_mgmt_group" }); setActionTarget(null); } }}>
                 <Plus className="h-4 w-4" /> Create MGMT Group
               </Button>
             )}
 
             {/* Office actions */}
             {actionTarget?.type === "office" && canManageTeams && canCreateEntityType(accessLevel, "mgmt_group") && (
-              <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+              <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name, parentType: "office" }); setActionTarget(null); } }}>
                 <Plus className="h-4 w-4" /> Create MGMT Group
               </Button>
             )}
@@ -1102,6 +1102,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         type={createDrawer?.type || "office"}
         parentId={createDrawer?.parentId}
         parentName={createDrawer?.parentName}
+        parentType={createDrawer?.parentType}
       />
 
       {/* Configure office drawer */}
