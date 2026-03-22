@@ -55,6 +55,9 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(false);
   const [derivedAccessLevel, setDerivedAccessLevel] = useState<AccessLevel>("none");
+
+  // Use prop if provided, otherwise use self-derived access level
+  const accessLevel: AccessLevel = propAccessLevel !== "none" ? propAccessLevel : derivedAccessLevel;
   const canManageOffices = hasMinAccess(accessLevel, "regional");
   const canManageRegions = hasMinAccess(accessLevel, "regional");
   const canManageTeams = hasMinAccess(accessLevel, "mgmt_group_lead");
@@ -66,6 +69,19 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
       const uid = data.user?.id || null;
       setCurrentUserId(uid);
       if (uid) {
+        // Derive access level from DB directly as fallback
+        Promise.all([
+          supabase.from("area_directors").select("id").eq("user_id", uid).maybeSingle(),
+          supabase.from("mgmt_groups").select("id").eq("lead_user_id", uid).maybeSingle(),
+          supabase.from("teams").select("id").eq("lead_user_id", uid).maybeSingle(),
+          supabase.from("office_staff").select("role").eq("user_id", uid).maybeSingle(),
+        ]).then(([adRes, mgmtRes, teamRes, staffRes]) => {
+          if (staffRes.data?.role === "corporate") setDerivedAccessLevel("corporate");
+          else if (adRes.data) setDerivedAccessLevel("area_director");
+          else if (mgmtRes.data) setDerivedAccessLevel("mgmt_group_lead");
+          else if (teamRes.data) setDerivedAccessLevel("team_lead");
+        });
+
         // Check if user's upline has onboarded — if not, they're bootstrapping
         supabase.rpc("has_active_upline", { _user_id: uid }).then(({ data: hasUpline }) => {
           setIsBootstrapping(!hasUpline);
