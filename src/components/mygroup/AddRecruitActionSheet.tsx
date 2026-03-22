@@ -79,23 +79,17 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
       }
 
       const code = generateShortCode();
-      const insertData: Record<string, unknown> = {
-        code,
-        inviter_user_id: userId,
-        is_active: true,
-        invite_type: type,
-      };
 
       const { error } = await supabase
         .from('invite_codes')
-        .insert(insertData);
+        .insert({ code, inviter_user_id: userId, is_active: true, invite_type: type });
 
       if (error) {
         // Retry with a different code on collision
         const retryCode = generateShortCode();
         const { error: retryError } = await supabase
           .from('invite_codes')
-          .insert({ ...insertData, code: retryCode });
+          .insert({ code: retryCode, inviter_user_id: userId, is_active: true, invite_type: type });
         if (retryError) throw retryError;
         const link = `${APP_BASE_URL}/auth?invite=${retryCode}`;
         if (type === 'lateral') setLateralInviteLink(link);
