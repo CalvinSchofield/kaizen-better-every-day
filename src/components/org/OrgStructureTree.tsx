@@ -306,7 +306,11 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
       // Stop recursion at boundaries of OTHER team leads (not this one)
       const stopLeads = new Set([...allTeamLeadIds, ...allMgmtLeadIds]);
       stopLeads.delete(teamLeadUserId);
-      return buildRecruiterSubtree(teamLeadUserId, teamName, teamId, mgmtGroupId, mgmtGroupName, stopLeads, new Set());
+      const directRecruits = recruitsByRecruiter.get(teamLeadUserId) || [];
+      console.log(`[OrgTree] Building team "${teamName}" lead=${teamLeadUserId}, directRecruits=${directRecruits.length}, stopLeads=${stopLeads.size}`);
+      const result = buildRecruiterSubtree(teamLeadUserId, teamName, teamId, mgmtGroupId, mgmtGroupName, stopLeads, new Set());
+      console.log(`[OrgTree] Team "${teamName}" produced ${result.length} children: ${result.map(c => `${c.type}:${c.name}`).join(', ')}`);
+      return result;
     };
 
     const teamNodes = (mgmtGroupId: string, mgmtGroupName: string): OrgNode[] => {
