@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Recruit } from "@/hooks/useGroupRecruits";
-import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, ROLE_HIERARCHY, type AccessLevel } from "@/utils/roleHierarchy";
+import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, ROLE_HIERARCHY, getAssignableRoles, type AccessLevel } from "@/utils/roleHierarchy";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import {
