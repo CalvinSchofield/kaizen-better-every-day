@@ -973,14 +973,9 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
       }));
     topNodes.push(...unassignedSrMgmtGroups);
 
-    // Add unassigned offices (not in a region)
+    // Add unassigned offices (not in a region) — show directly as top-level nodes
     const unassignedOffices = officeNodes(null);
-    if (unassignedOffices.length > 0) {
-      topNodes.push({
-        id: "unassigned-offices", name: "Unassigned Offices", type: "office" as const,
-        children: unassignedOffices,
-      });
-    }
+    topNodes.push(...unassignedOffices);
 
     // Add unassigned mgmt_groups (not in any sr_mgmt_group or office)
     const unassignedMgmtGroups = mgmtGroups
