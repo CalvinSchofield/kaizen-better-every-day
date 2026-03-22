@@ -283,23 +283,20 @@ export const useDailyEntry = (date?: string) => {
     // This prevents a stale local backup from masking cross-device sales on /track.
     initialDataUpdatedAt: initialData ? 0 : undefined,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        // CRITICAL: Don't silently return null - this causes PreWorkingState flash
-        // and prevents mutations from saving. Try to refresh the session first.
+      // PERF FIX: Use getSession() (reads local cache, instant) instead of getUser() (network call).
+      // HydrationGate already verified auth. Only fall back to refreshSession if no session.
+      let { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        // Session cache miss — try refresh once
         const { data: refreshData } = await supabase.auth.refreshSession();
-        if (!refreshData?.user) {
-          // Truly not authenticated - throw to trigger retry, not return null
-          // which would overwrite active tracking state with empty defaults
+        session = refreshData?.session ?? null;
+        if (!session?.user) {
           console.error('[useDailyEntry] Auth session expired - could not refresh');
           throw new Error('AUTH_SESSION_EXPIRED');
         }
-        // Session refreshed successfully
         console.log('[useDailyEntry] Auth session refreshed successfully');
       }
-      
-      const activeUser = (await supabase.auth.getUser()).data.user;
-      if (!activeUser) throw new Error('AUTH_SESSION_EXPIRED');
+      const activeUser = session.user;
 
       const { data, error } = await supabase
         .from('daily_entries')
