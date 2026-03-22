@@ -272,6 +272,12 @@ const OrgChart = () => {
     if (!fullTree) return null;
 
     const filterNode = (node: TreeNode): TreeNode | null => {
+      // Label nodes always pass if they have filtered children
+      if (node.isLabelNode) {
+        const filteredChildren = node.children.map(filterNode).filter(Boolean) as TreeNode[];
+        return filteredChildren.length > 0 ? { ...node, children: filteredChildren } : null;
+      }
+
       // Recursively filter children
       const filteredChildren = node.children
         .map(filterNode)
@@ -292,7 +298,6 @@ const OrgChart = () => {
       const nodePassesFilter = stageMatch && appAccessMatch;
       
       if (nodePassesFilter || filteredChildren.length > 0) {
-        // If node itself doesn't pass but children do, still show it as a connector
         return { ...node, children: filteredChildren };
       }
 
