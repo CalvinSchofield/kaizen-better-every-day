@@ -674,6 +674,38 @@ export type Database = {
         }
         Relationships: []
       }
+      divisions: {
+        Row: {
+          created_at: string | null
+          id: string
+          lead_user_id: string | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "divisions_lead_user_id_fkey"
+            columns: ["lead_user_id"]
+            isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       effort_thresholds: {
         Row: {
           created_at: string
@@ -977,6 +1009,7 @@ export type Database = {
           lead_user_id: string | null
           name: string
           office_id: string | null
+          sr_mgmt_group_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -985,6 +1018,7 @@ export type Database = {
           lead_user_id?: string | null
           name: string
           office_id?: string | null
+          sr_mgmt_group_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -993,6 +1027,7 @@ export type Database = {
           lead_user_id?: string | null
           name?: string
           office_id?: string | null
+          sr_mgmt_group_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1008,6 +1043,13 @@ export type Database = {
             columns: ["office_id"]
             isOneToOne: false
             referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mgmt_groups_sr_mgmt_group_id_fkey"
+            columns: ["sr_mgmt_group_id"]
+            isOneToOne: false
+            referencedRelation: "sr_mgmt_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -1332,6 +1374,48 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      partners: {
+        Row: {
+          created_at: string | null
+          division_id: string | null
+          id: string
+          lead_user_id: string | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          division_id?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          division_id?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partners_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partners_lead_user_id_fkey"
+            columns: ["lead_user_id"]
+            isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       personal_recaps: {
         Row: {
@@ -1866,6 +1950,7 @@ export type Database = {
           id: string
           lead_user_id: string | null
           name: string
+          sr_region_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1873,6 +1958,7 @@ export type Database = {
           id?: string
           lead_user_id?: string | null
           name: string
+          sr_region_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1880,6 +1966,7 @@ export type Database = {
           id?: string
           lead_user_id?: string | null
           name?: string
+          sr_region_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1889,6 +1976,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "reps"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "regions_sr_region_id_fkey"
+            columns: ["sr_region_id"]
+            isOneToOne: false
+            referencedRelation: "sr_regions"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2269,6 +2363,90 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      sr_mgmt_groups: {
+        Row: {
+          created_at: string | null
+          id: string
+          lead_user_id: string | null
+          name: string
+          office_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name: string
+          office_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name?: string
+          office_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sr_mgmt_groups_lead_user_id_fkey"
+            columns: ["lead_user_id"]
+            isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "sr_mgmt_groups_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sr_regions: {
+        Row: {
+          created_at: string | null
+          id: string
+          lead_user_id: string | null
+          name: string
+          partner_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name: string
+          partner_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name?: string
+          partner_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sr_regions_lead_user_id_fkey"
+            columns: ["lead_user_id"]
+            isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "sr_regions_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tags: {
         Row: {
