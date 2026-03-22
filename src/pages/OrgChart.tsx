@@ -9,13 +9,7 @@ import { VisualRecruiterTree, type TreeNode, type RoleColor } from "@/components
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrgStructureTree } from "@/components/org/OrgStructureTree";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { STAGES, SIGNED_PLUS_STAGES, PRIMARY_STAGES, EXIT_STAGES } from "@/utils/stageConstants";
+import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import type { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 
 // Default active stages for the tree
