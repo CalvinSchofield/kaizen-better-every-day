@@ -806,24 +806,24 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
     <>
       {/* Create buttons for Regional+ */}
       {canManageRegions && (
-        <div className="flex gap-2 mb-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setCreateDrawer({ type: "region" })}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Region
+        <div className="flex flex-wrap gap-2 mb-3">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "division" })}>
+            <Plus className="h-3.5 w-3.5" /> Division
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setCreateDrawer({ type: "office" })}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Office
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "partner" })}>
+            <Plus className="h-3.5 w-3.5" /> Partnership
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "sr_region" })}>
+            <Plus className="h-3.5 w-3.5" /> Sr Region
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "region" })}>
+            <Plus className="h-3.5 w-3.5" /> Region
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "office" })}>
+            <Plus className="h-3.5 w-3.5" /> Office
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "sr_mgmt_group" })}>
+            <Plus className="h-3.5 w-3.5" /> Sr MGMT Group
           </Button>
         </div>
       )}
