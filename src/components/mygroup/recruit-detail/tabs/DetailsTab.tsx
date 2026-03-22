@@ -45,6 +45,25 @@ import { STAGES, EXIT_STAGES as EXIT_STAGE_LIST } from "@/utils/stageConstants";
 import { EditRecruitDrawer } from "../EditRecruitDrawer";
 import { DeleteRecruitConfirmDrawer } from "../DeleteRecruitConfirmDrawer";
 import { cn } from "@/lib/utils";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import { getRoleLabel, hasMinAccess, ASSIGNABLE_ROLES, ROLE_HIERARCHY, getAssignableRoles, getRoleJumpInfo, type AccessLevel } from "@/utils/roleHierarchy";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Select as RoleSelect,
+  SelectContent as RoleSelectContent,
+  SelectItem as RoleSelectItem,
+  SelectTrigger as RoleSelectTrigger,
+  SelectValue as RoleSelectValue,
+} from "@/components/ui/select";
 
 interface DetailsTabProps {
   recruit: Recruit;
