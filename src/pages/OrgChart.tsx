@@ -24,9 +24,6 @@ const OrgChart = () => {
     });
   }, []);
 
-  // Filter state
-  const [stageFilters, setStageFilters] = useState<Set<string>>(DEFAULT_STAGE_FILTERS);
-  const [showWithAppAccess, setShowWithAppAccess] = useState<boolean | null>(null); // null = show all
 
   const { data: treeData, isLoading } = useQuery({
     queryKey: ["org-chart-full-tree"],
