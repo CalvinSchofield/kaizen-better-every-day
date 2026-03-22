@@ -99,26 +99,42 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
   const [configOffice, setConfigOffice] = useState<string | null>(null);
   const [configRegion, setConfigRegion] = useState<string | null>(null);
 
-  const handleDeleteTeam = useCallback(async () => {
+  const handleDeleteDirect = useCallback(async () => {
     if (!deleteTarget || !currentUserId) return;
     setIsDeleting(true);
     try {
-      const { error } = await supabase.from("org_change_requests").insert({
-        request_type: `delete_${deleteTarget.type}`,
-        requested_by: currentUserId,
-        request_data: { target_id: deleteTarget.id, target_name: deleteTarget.name, target_type: deleteTarget.type },
-        status: "pending",
-      });
-      if (error) throw error;
-      toast.success(`Deletion request submitted for "${deleteTarget.name}".`);
+      const canDirectDelete = hasMinAccess(accessLevel, "area_director");
+      if (canDirectDelete) {
+        // Direct delete — area director+ has RLS permission
+        if (deleteTarget.type === "team") {
+          // Remove team_mgmt_groups linkage first
+          await supabase.from("team_mgmt_groups").delete().eq("team_id", deleteTarget.id);
+          const { error } = await supabase.from("teams").delete().eq("id", deleteTarget.id);
+          if (error) throw error;
+        } else if (deleteTarget.type === "mgmt_group") {
+          const { error } = await supabase.from("mgmt_groups").delete().eq("id", deleteTarget.id);
+          if (error) throw error;
+        }
+        toast.success(`"${deleteTarget.name}" deleted.`);
+      } else {
+        // Submit approval request
+        const { error } = await supabase.from("org_change_requests").insert({
+          request_type: `delete_${deleteTarget.type}`,
+          requested_by: currentUserId,
+          request_data: { target_id: deleteTarget.id, target_name: deleteTarget.name, target_type: deleteTarget.type },
+          status: "pending",
+        });
+        if (error) throw error;
+        toast.success(`Deletion request submitted for "${deleteTarget.name}".`);
+      }
       queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
     } catch (err: any) {
-      toast.error(err.message || "Failed to submit request");
+      toast.error(err.message || "Failed to delete");
     } finally {
       setIsDeleting(false);
       setDeleteTarget(null);
     }
-  }, [deleteTarget, currentUserId, queryClient]);
+  }, [deleteTarget, currentUserId, queryClient, accessLevel]);
 
   const handleRepTap = useCallback((node: OrgNode) => {
     if (!node.recruitData) return;
