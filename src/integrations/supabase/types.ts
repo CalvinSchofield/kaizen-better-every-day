@@ -924,10 +924,13 @@ export type Database = {
           created_at: string
           expires_at: string | null
           id: string
+          invite_type: string
           inviter_user_id: string
           is_active: boolean
           max_uses: number | null
           mgmt_group_id: string | null
+          target_mgmt_group_id: string | null
+          target_team_id: string | null
           team_id: string | null
           uses_count: number
         }
@@ -936,10 +939,13 @@ export type Database = {
           created_at?: string
           expires_at?: string | null
           id?: string
+          invite_type?: string
           inviter_user_id: string
           is_active?: boolean
           max_uses?: number | null
           mgmt_group_id?: string | null
+          target_mgmt_group_id?: string | null
+          target_team_id?: string | null
           team_id?: string | null
           uses_count?: number
         }
@@ -948,10 +954,13 @@ export type Database = {
           created_at?: string
           expires_at?: string | null
           id?: string
+          invite_type?: string
           inviter_user_id?: string
           is_active?: boolean
           max_uses?: number | null
           mgmt_group_id?: string | null
+          target_mgmt_group_id?: string | null
+          target_team_id?: string | null
           team_id?: string | null
           uses_count?: number
         }
@@ -961,6 +970,20 @@ export type Database = {
             columns: ["mgmt_group_id"]
             isOneToOne: false
             referencedRelation: "mgmt_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_codes_target_mgmt_group_id_fkey"
+            columns: ["target_mgmt_group_id"]
+            isOneToOne: false
+            referencedRelation: "mgmt_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_codes_target_team_id_fkey"
+            columns: ["target_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {

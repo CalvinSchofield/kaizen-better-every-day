@@ -153,6 +153,25 @@ export const EditRecruitDrawer = ({
     staleTime: 0, // Always fetch fresh data when opening
   });
 
+  // Check if this recruit came from a lateral invite
+  const { data: isLateralInvite } = useQuery({
+    queryKey: ['recruit-invite-type', recruit.id],
+    queryFn: async () => {
+      if (!recruitDetails?.invite_code_used) return false;
+      const { data } = await supabase
+        .from('invite_codes')
+        .select('invite_type')
+        .eq('code', recruitDetails.invite_code_used)
+        .maybeSingle();
+      return data?.invite_type === 'lateral';
+    },
+    enabled: open && !!recruitDetails?.invite_code_used,
+    staleTime: Infinity,
+  });
+
+  // For lateral invites during approval, recruiter/team/group are REQUIRED
+  const isLateralApproval = isLateralInvite && showRoleAssignment;
+
   // Fetch property options from Supabase
   const { data: notionOptions, isLoading: optionsLoading } = useQuery({
     queryKey: ['property-options-extended'],
@@ -441,8 +460,18 @@ export const EditRecruitDrawer = ({
     },
   });
 
-  // Gate: if a role is selected, show confirmation first
+  // Gate: validate lateral requirements, then role confirmation
   const handleSaveClick = () => {
+    if (isLateralApproval) {
+      if (!recruiterUserId) {
+        toast.error('Recruiter is required for lateral invites');
+        return;
+      }
+      if (!selectedTeamId) {
+        toast.error('Team is required for lateral invites');
+        return;
+      }
+    }
     if (selectedRole && canAssignRoles) {
       setShowRoleConfirm(true);
       return;
@@ -569,6 +598,15 @@ export const EditRecruitDrawer = ({
         </DrawerHeader>
         
         <div className="overflow-y-auto px-4 pb-4 space-y-4">
+          {/* Lateral Invite Banner */}
+          {isLateralApproval && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2.5 text-sm space-y-1">
+              <p className="font-medium text-amber-700 dark:text-amber-300">⚠️ Lateral Invite</p>
+              <p className="text-xs text-muted-foreground">
+                This person joined via a lateral invite. Recruiter, Team, and MGMT Group were not auto-assigned — you must set them manually below.
+              </p>
+            </div>
+          )}
           {/* Name */}
           <div>
             <Label>Name</Label>
