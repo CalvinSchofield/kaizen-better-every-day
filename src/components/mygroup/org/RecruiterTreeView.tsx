@@ -154,12 +154,14 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       accessLevel === "partner" ||
       accessLevel === "divisional"
     ) {
+      // Track which userIds are someone else's recruit (i.e. have a recruiter)
       const recruitedUserIds = new Set<string>();
       recruits.forEach((r) => {
+        if (!r.recruiter_user_id) return;
         const recruitRep = reps.find(
           (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
         );
-        if (recruitRep?.user_id && r.recruiter_user_id) {
+        if (recruitRep?.user_id && recruitRep.user_id !== r.recruiter_user_id) {
           recruitedUserIds.add(recruitRep.user_id);
         }
       });
