@@ -129,6 +129,11 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const [actionTarget, setActionTarget] = useState<{ id: string; name: string; type: string } | null>(null);
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
 
+  // New drawer states
+  const [moveRepTarget, setMoveRepTarget] = useState<{ id: string; name: string } | null>(null);
+  const [bulkAssignTarget, setBulkAssignTarget] = useState<{ id: string; name: string } | null>(null);
+  const [moveTeamTarget, setMoveTeamTarget] = useState<{ id: string; name: string } | null>(null);
+
   // Management drawers
   const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team"; parentId?: string; parentName?: string } | null>(null);
   const [configOffice, setConfigOffice] = useState<string | null>(null);
