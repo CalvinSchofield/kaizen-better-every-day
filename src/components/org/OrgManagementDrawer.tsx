@@ -287,7 +287,7 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, p
               mgData.sr_mgmt_group_id = finalParentId;
             }
           }
-          const { error } = await supabase.from("mgmt_groups").insert(mgData);
+          const { error } = await supabase.from("mgmt_groups").insert(mgData as any);
           if (error) throw error;
           break;
         }
