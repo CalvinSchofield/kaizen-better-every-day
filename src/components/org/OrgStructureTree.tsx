@@ -816,7 +816,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           { type: "sr_mgmt_group", label: "Sr MGMT Group" },
           { type: "mgmt_group", label: "MGMT Group" },
           { type: "team", label: "Team" },
-        ].filter(opt => canCreateEntityType(accessLevel, opt.type));
+        ] as { type: CreateType; label: string }[]).filter(opt => canCreateEntityType(accessLevel, opt.type));
         
         if (createOptions.length === 0) return null;
         
