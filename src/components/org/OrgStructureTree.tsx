@@ -1497,6 +1497,24 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           />
         );
       })()}
+
+      {/* Assign to office drawer */}
+      {assignToOfficeTarget && orgData && (
+        <AssignToOfficeDrawer
+          open={!!assignToOfficeTarget}
+          onOpenChange={(open) => !open && setAssignToOfficeTarget(null)}
+          entity={assignToOfficeTarget}
+          offices={orgData.offices.map((o: any) => ({ id: o.id, name: o.name, location: o.location }))}
+          orgData={{
+            srMgmtGroups: orgData.srMgmtGroups,
+            mgmtGroups: orgData.mgmtGroups,
+            teams: orgData.teams,
+            teamMgmt: orgData.teamMgmt,
+            reps: orgData.reps,
+            recruits: orgData.recruits,
+          }}
+        />
+      )}
     </>
   );
 };
