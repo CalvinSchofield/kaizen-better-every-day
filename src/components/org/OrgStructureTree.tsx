@@ -487,7 +487,7 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteDirect} disabled={isDeleting}>
-              {isDeleting ? "Deleting..." : hasMinAccess(accessLevel, "area_director") ? "Delete" : "Submit Request"}
+              {isDeleting ? "Deleting..." : canDirectManage ? "Delete" : "Submit Request"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
