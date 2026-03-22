@@ -212,7 +212,7 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                 <div>
                   <p className="font-medium text-sm">Add to Pipeline</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Track someone you're reaching out to or evaluating
+                    Add someone you want to work with
                   </p>
                 </div>
               </button>
