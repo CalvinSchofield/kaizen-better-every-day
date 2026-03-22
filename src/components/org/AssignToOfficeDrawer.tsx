@@ -237,13 +237,13 @@ export const AssignToOfficeDrawer = ({
       });
 
       if (srIds.length > 0) {
-        updates.push(supabase.from("sr_mgmt_groups").update({ office_id: officeId }).in("id", srIds));
+        updates.push(supabase.from("sr_mgmt_groups").update({ office_id: officeId }).in("id", srIds).select());
       }
       if (mgIds.length > 0) {
-        updates.push(supabase.from("mgmt_groups").update({ office_id: officeId }).in("id", mgIds));
+        updates.push(supabase.from("mgmt_groups").update({ office_id: officeId }).in("id", mgIds).select());
       }
       if (tIds.length > 0) {
-        updates.push(supabase.from("teams").update({ office_id: officeId } as any).in("id", tIds));
+        updates.push(supabase.from("teams").update({ office_id: officeId } as any).in("id", tIds).select());
       }
 
       await Promise.all(updates);
