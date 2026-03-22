@@ -969,6 +969,12 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         );
       })()}
 
+      {/* Group by Office toggle */}
+      <div className="flex items-center gap-2 mb-3">
+        <Switch checked={groupByOffice} onCheckedChange={setGroupByOffice} />
+        <span className="text-xs text-muted-foreground">Group by Office</span>
+      </div>
+
       {/* Onboarding guidance for new leaders */}
       {canManageTeams && orgData && (() => {
         const hasTeams = orgData.teams.length > 0;
