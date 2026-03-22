@@ -997,7 +997,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
             )}
 
             {/* Region actions */}
-            {actionTarget?.type === "region" && canManageRegions && (
+            {actionTarget?.type === "region" && canCreateEntityType(accessLevel, "office") && (
               <>
                 <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "office", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
                   <Plus className="h-4 w-4" /> Create Office
@@ -1011,7 +1011,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
             )}
 
             {/* Sr Region actions */}
-            {actionTarget?.type === "sr_region" && canManageRegions && (
+            {actionTarget?.type === "sr_region" && canCreateEntityType(accessLevel, "region") && (
               <>
                 <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "region", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
                   <Plus className="h-4 w-4" /> Create Region
@@ -1025,7 +1025,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
             )}
 
             {/* Partner actions */}
-            {actionTarget?.type === "partner" && canManageRegions && (
+            {actionTarget?.type === "partner" && canCreateEntityType(accessLevel, "sr_region") && (
               <>
                 <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "sr_region", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
                   <Plus className="h-4 w-4" /> Create Sr Region
@@ -1039,7 +1039,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
             )}
 
             {/* Division actions */}
-            {actionTarget?.type === "division" && canManageRegions && (
+            {actionTarget?.type === "division" && canCreateEntityType(accessLevel, "partner") && (
               <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "partner", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
                 <Plus className="h-4 w-4" /> Create Partnership
               </Button>
