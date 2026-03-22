@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 interface CreateDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  type: "office" | "region" | "team" | "mgmt_group";
+  type: "office" | "region" | "team" | "mgmt_group" | "sr_mgmt_group" | "sr_region" | "partner" | "division";
   parentId?: string; // region_id when creating office, office_id for mgmt_group, mgmt_group_id for team
   parentName?: string;
 }
