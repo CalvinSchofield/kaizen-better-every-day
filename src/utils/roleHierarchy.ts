@@ -88,3 +88,55 @@ export const ASSIGNABLE_ROLES: AccessLevel[] = [
   'divisional',
   'corporate',
 ];
+
+/**
+ * Returns the highest role an approver at `approverLevel` can assign.
+ * Area Director is NOT a lineage role — it grants no extra assignment power.
+ * Bootstrap mode (upward invite) bypasses this entirely.
+ */
+export const getMaxAssignableRole = (approverLevel: AccessLevel): AccessLevel => {
+  const map: Partial<Record<AccessLevel, AccessLevel>> = {
+    mgmt_group_lead: 'team_lead',
+    senior_manager: 'manager',
+    regional: 'senior_manager',
+    sr_regional: 'regional',
+    partner: 'sr_regional',
+    divisional: 'partner',
+    corporate: 'corporate',
+  };
+  // Area director gets same as mgmt_group_lead (no lineage privilege)
+  if (approverLevel === 'area_director') return 'team_lead';
+  return map[approverLevel] || 'none';
+};
+
+/** Get roles assignable by a given access level */
+export const getAssignableRoles = (approverLevel: AccessLevel): AccessLevel[] => {
+  const maxRole = getMaxAssignableRole(approverLevel);
+  if (maxRole === 'none') return [];
+  if (maxRole === 'corporate') return ASSIGNABLE_ROLES;
+  const maxIndex = ROLE_HIERARCHY.indexOf(maxRole);
+  return ASSIGNABLE_ROLES.filter(role => ROLE_HIERARCHY.indexOf(role) <= maxIndex);
+};
+
+/**
+ * Tiered create permissions — what org entities each level can create.
+ * Area Director is excluded from lineage creation abilities.
+ */
+export const canCreateEntityType = (level: AccessLevel, entityType: string): boolean => {
+  // Area director has NO lineage creation ability
+  const effectiveLevel = level === 'area_director' ? 'mgmt_group_lead' : level;
+  
+  const requiredLevel: Record<string, AccessLevel> = {
+    team: 'mgmt_group_lead',
+    mgmt_group: 'senior_manager',
+    sr_mgmt_group: 'senior_manager',
+    office: 'regional',
+    region: 'regional',
+    sr_region: 'sr_regional',
+    partner: 'partner',
+    division: 'divisional',
+  };
+  const required = requiredLevel[entityType];
+  if (!required) return false;
+  return hasMinAccess(effectiveLevel, required);
+};

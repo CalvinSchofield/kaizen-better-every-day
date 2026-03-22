@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Recruit } from "@/hooks/useGroupRecruits";
-import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, ROLE_HIERARCHY, type AccessLevel } from "@/utils/roleHierarchy";
+import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, ROLE_HIERARCHY, getAssignableRoles, type AccessLevel } from "@/utils/roleHierarchy";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import {
@@ -791,16 +791,18 @@ export const EditRecruitDrawer = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">No role (regular rep)</SelectItem>
-                  {ASSIGNABLE_ROLES
-                    .filter((role) => {
-                      // During bootstrap approval, allow assigning ANY role (even above yours)
-                      if (isBootstrapApproval) return true;
-                      // Otherwise, only show roles below the approver's level
-                      return ROLE_HIERARCHY.indexOf(role) < ROLE_HIERARCHY.indexOf(accessLevel);
-                    })
-                    .map((role) => (
+                  {(() => {
+                    // Bootstrap: allow ALL roles (upward invite)
+                    if (isBootstrapApproval) {
+                      return ASSIGNABLE_ROLES.map((role) => (
+                        <SelectItem key={role} value={role}>{getRoleLabel(role)}</SelectItem>
+                      ));
+                    }
+                    // Normal: only roles at or below the approver's capped level
+                    return getAssignableRoles(accessLevel).map((role) => (
                       <SelectItem key={role} value={role}>{getRoleLabel(role)}</SelectItem>
-                    ))}
+                    ));
+                  })()}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
