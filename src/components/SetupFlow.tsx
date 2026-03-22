@@ -124,7 +124,7 @@ const SetupFlow = () => {
       // Run ALL data fetches in parallel for maximum speed
       setStatusText("Loading app data...");
       
-      const { data: { session } } = await supabase.auth.getSession();
+      // session already available from above
 
       await Promise.all([
         // Competitors - load from Supabase
