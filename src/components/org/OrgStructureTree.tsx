@@ -1022,7 +1022,8 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           teams={orgData.teams.map((t) => {
             const tmg = orgData.teamMgmt.find((tm) => tm.team_id === t.id);
             const mg = tmg ? orgData.mgmtGroups.find((g) => g.id === tmg.mgmt_group_id) : null;
-            return { id: t.id, name: t.name, mgmtGroupName: mg?.name };
+            const leadRep = t.lead_user_id ? orgData.reps.find(r => r.user_id === t.lead_user_id) : null;
+            return { id: t.id, name: t.name, mgmtGroupName: mg?.name, leadUserId: t.lead_user_id, leadName: leadRep?.name || null };
           })}
         />
       )}
