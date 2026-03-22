@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
 const PARENT_RELATIONSHIP: Record<string, { table: string; label: string; field: string }> = {
   team:          { table: 'mgmt_groups',    label: 'MGMT Group',    field: '__junction__' },
   mgmt_group:    { table: 'sr_mgmt_groups', label: 'Sr MGMT Group', field: 'sr_mgmt_group_id' },
-  sr_mgmt_group: { table: 'offices',        label: 'Office',        field: 'office_id' },
+  sr_mgmt_group: { table: 'regions',         label: 'Region',        field: 'region_id' },
   office:        { table: 'regions',         label: 'Region',        field: 'region_id' },
   region:        { table: 'sr_regions',      label: 'Sr Region',     field: 'sr_region_id' },
   sr_region:     { table: 'partners',        label: 'Partnership',   field: 'partner_id' },
