@@ -61,6 +61,13 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
     setIsGenerating(true);
 
     try {
+      // Ensure auth session is ready (critical for TestFlight cold starts)
+      const { session } = await getSessionSafe();
+      if (!session) {
+        toast({ title: "Error", description: "Not authenticated. Please restart the app.", variant: "destructive" });
+        return null;
+      }
+
       // Check for existing active invite of this type
       const { data: existing } = await supabase
         .from('invite_codes')
