@@ -1,91 +1,41 @@
 
-Goal: make Track counter taps (add and subtract) persist reliably and immediately to the backend, so leaderboard always matches what Calvin logs on phone.
 
-What I found in the current code
-1) Counter writes can be dropped on transient failure:
-- In `TrackWithLayout.tsx`, `flushCounterSyncQueue` clears `pendingUpdateRef` before `await updateCounter(payload)`.
-- If that mutation fails, there is no durable counter queue like sales have; recovery depends on later parity checks/focus events.
+## Plan: Fix Recruiter Data + Enhance Recruiter Tree with Org Structure Labels
 
-2) Counter sync path is mixed/inconsistent:
-- Counter cards use serialized path (`handleCounterChange` → queue flush).
-- Time/break/reset-adjacent updates still call `updateCounter(...)` directly, bypassing the same reliability guarantees.
+### Part 1 — Data Fix
 
-3) Backend merge logic currently blocks true “subtract/correction” persistence:
-- `upsert_daily_entry_safe` uses `GREATEST(...)` for counters and timestamp union merge.
-- This protects against stale overwrites, but also prevents intentional decrements and timestamp removal from persisting exactly.
+Both Quinn Gleed and Calvin Schofield have `recruiter_user_id` set to Calvin's user ID (`843dac61...`) in the `recruits` table. Since their actual recruiter (Gunnar Bramwell) has no app account yet, both records should be set to `null` until Gunnar onboards.
 
-4) Realtime invalidations can pull older server state mid-session:
-- `useSalesRealtime` invalidates broad sales keys including `daily-entry`, which can trigger refetch pressure while local writes are still reconciling.
+**Action:** Use the insert tool to run:
+```sql
+UPDATE recruits SET recruiter_user_id = NULL
+WHERE id IN (
+  'e4391452-5901-4d2c-91d6-c8e40a87aaa7',  -- Quinn Gleed
+  '3aebae30-f1cf-484c-b240-71468a285e01'   -- Calvin Schofield
+);
+```
 
-Implementation plan
-1) Add a durable pending counter queue (same resilience level as pending sales)
-- Create `usePendingCounterQueue` (localStorage-backed, per-user).
-- Each counter interaction writes an item immediately before network attempt.
-- Queue processor retries with backoff, online/focus/visibility resume, and app restart recovery.
-- Only dequeue after server acknowledgment confirms the change landed.
+This will remove both from appearing as each other's recruits in the tree. When Gunnar creates his account and his invite chain is established, their `recruiter_user_id` will be set correctly.
 
-2) Unify all Track mutations through one reliable write gateway
-- In `TrackWithLayout.tsx`, route:
-  - counter taps,
-  - decrement actions,
-  - start/end work,
-  - break start/end,
-  - manual time edits
-  through the same serialized + durable pipeline.
-- Remove bypass paths that call raw `updateCounter` directly for Track-session state changes.
+---
 
-3) Add a backend-safe counter-event RPC for atomic add/subtract
-- Introduce a dedicated RPC for counter events (increment/decrement by field) so each tap is atomic at the database layer.
-- Keep sale writes on existing sale-safe paths.
-- Use idempotency token per event (UUID) so retries never double-apply.
-- This enables true decrement persistence while staying safe under retries/network flakiness.
+### Part 2 — Enhance the Recruiter Tree Tab with Org Structure Context
 
-4) Preserve anti-data-loss protections while allowing corrections
-- Keep server safeguards that prevent stale full-snapshot overwrites.
-- Shift counter taps to event-based writes (not full snapshot overwrites for every tap).
-- Continue parity checks, but have parity auto-heal re-enqueue missing events instead of one-off blind snapshot push.
+Keep both tabs (Recruiter Tree + Structure), but overlay formal organizational labels onto the recruiter tree so you can see where MGMT Groups and Teams sit within the lineage.
 
-5) Tighten sync observability in UI
-- Extend Sync indicator states to reflect:
-  - local queued events,
-  - in-flight send,
-  - confirmed synced,
-  - auth-expired blocked state.
-- Add a small queued-count debug surface (dev-only or hidden behind long-press) for fast field diagnosis.
+**Changes to `OrgChart.tsx` and `VisualRecruiterTree.tsx`:**
 
-6) Reduce harmful refetch churn during active Track session
-- Scope/adjust invalidation behavior so active local track state is not frequently overwritten by unrelated realtime updates.
-- Keep leaderboard/report invalidations aggressive, but make `daily-entry` refresh controlled while unsynced local queue exists.
+1. **Annotate tree nodes with their formal org role**: The existing `roleMap` already tags Team Leads, MGMT Group Leads, and Area Directors. Extend this to also include the **name of the entity** they lead (e.g., "Quinn Gleed MGMT" instead of just "MGMT Group Lead").
 
-Validation plan (must pass before shipping)
-1) Tap reliability:
-- Add 10 doors with normal pacing (seconds/minutes apart) and verify DB row + leaderboard match exactly.
-2) Decrement reliability:
-- Add 3, subtract 1, confirm DB and leaderboard reflect subtraction correctly.
-3) Offline/reconnect:
-- Log counters offline, force-close app, reopen online, confirm queued events replay and match.
-4) Auth expiry:
-- Simulate expired session mid-track; verify explicit blocked state and automatic recovery after re-auth.
-5) Multi-device safety:
-- Phone + preview both active; ensure no regression/loss with interleaved updates.
-6) Timestamp parity:
-- `counter_timestamps` counts align with counter values after add/subtract cycles.
+2. **Add visual grouping indicators on the tree**: When a node is a MGMT Group Lead or Team Lead, render a subtle background boundary or colored label beneath their avatar showing their group/team name. This makes it visually clear which branch of the recruiter tree corresponds to which formal group.
 
-Technical details (implementation-focused)
-- Frontend files:
-  - `src/components/TrackWithLayout.tsx` (single write gateway + queue integration)
-  - `src/hooks/useDailyEntry.ts` (counter mutation adapter for new RPC + clearer error codes)
-  - new `src/hooks/usePendingCounterQueue.ts`
-  - `src/components/SyncIndicator.tsx` (queued/in-flight semantics)
-  - `src/hooks/useSalesRealtime.ts` / invalidation scope tuning
-- Backend:
-  - migration to add atomic counter-event RPC + idempotency support table
-  - keep existing `upsert_daily_entry_safe` for full-entry/sales/finalization flows
-- Safety:
-  - maintain RLS posture and per-user enforcement
-  - no client-side admin/auth shortcuts; server-authoritative writes only
+3. **Show team membership badges on leaf nodes**: For recruits who belong to a formal team, show a small team badge (e.g., "Team Alpha") below their name so you can see the formal structure overlaid on the organic recruiting chain.
 
-Expected outcome
-- Every Track tap is captured immediately locally, persisted durably, retried automatically, and confirmed server-side.
-- Leaderboard reflects backend truth quickly, and backend truth reliably reflects what user tracked.
-- Corrections (subtracts) now persist intentionally instead of being silently blocked by merge semantics.
+**Technical details:**
+
+- In `OrgChart.tsx` `roleMap` builder (lines 67-82): look up the team/mgmt group name for each lead and combine it with the role label, e.g. `"Quinn Gleed MGMT"` or `"Team Bravo Lead"`.
+- In `VisualRecruiterTree.tsx`: add a new optional `teamName` or `groupName` field to `TreeNode`. Render it as a small pill/badge beneath the role label (lines 308-313).
+- Pass `team_id` and `mgmt_group_id` data through the tree nodes so leaf recruits also show their team affiliation.
+
+This approach preserves the recruiting lineage as the primary structure while making it immediately obvious how formal teams and MGMT groups map onto it.
+
