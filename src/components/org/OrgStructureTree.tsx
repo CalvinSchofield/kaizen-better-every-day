@@ -174,8 +174,30 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
       return getCleanName(repMap.get(userId)?.name) || "Unknown";
     };
 
+    // Build recruiter-to-recruits map
+    const recruitsByRecruiter = new Map<string, typeof recruits>();
+    recruits.forEach((r) => {
+      if (r.recruiter_user_id) {
+        const existing = recruitsByRecruiter.get(r.recruiter_user_id) || [];
+        existing.push(r);
+        recruitsByRecruiter.set(r.recruiter_user_id, existing);
+      }
+    });
+
+    // Map recruit name -> rep (for app access detection)
+    const recruitNameToRep = new Map<string, typeof reps[0]>();
+    reps.forEach((rep) => {
+      recruitNameToRep.set(getCleanName(rep.name).toLowerCase(), rep);
+    });
+
+    // Set of all team lead user IDs (to know where to stop recursion)
+    const allTeamLeadIds = new Set<string>();
+    teams.forEach((t) => { if (t.lead_user_id) allTeamLeadIds.add(t.lead_user_id); });
+    const allMgmtLeadIds = new Set<string>();
+    mgmtGroups.forEach((mg) => { if (mg.lead_user_id) allMgmtLeadIds.add(mg.lead_user_id); });
+
     const makeRepNode = (r: typeof recruits[0], teamName: string, teamId: string, mgmtGroupId: string | null, mgmtGroupName: string | null): OrgNode => {
-      const recruitRep = reps.find((rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase());
+      const recruitRep = recruitNameToRep.get(getCleanName(r.name).toLowerCase());
       return {
         id: r.id,
         name: getCleanName(r.name),
@@ -196,34 +218,66 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
       };
     };
 
-    const buildTeamMembers = (teamId: string, teamLeadUserId: string | null, teamName: string, mgmtGroupId: string | null, mgmtGroupName: string | null): OrgNode[] => {
-      const teamRecruits = recruits.filter((r) => r.team_id === teamId);
-      if (teamRecruits.length === 0) return [];
-      const byRecruiter = new Map<string, typeof teamRecruits>();
-      const noRecruiter: typeof teamRecruits = [];
-      teamRecruits.forEach((r) => {
-        if (r.recruiter_user_id && r.recruiter_user_id !== teamLeadUserId) {
-          const existing = byRecruiter.get(r.recruiter_user_id) || [];
-          existing.push(r);
-          byRecruiter.set(r.recruiter_user_id, existing);
+    // Recursively build tree under a recruiter, stopping at other team/mgmt lead boundaries
+    const buildRecruiterSubtree = (recruiterId: string, teamName: string, teamId: string, mgmtGroupId: string | null, mgmtGroupName: string | null, stopAtLeads: Set<string>, visited: Set<string>): OrgNode[] => {
+      if (visited.has(recruiterId)) return [];
+      visited.add(recruiterId);
+
+      const directRecruits = recruitsByRecruiter.get(recruiterId) || [];
+      if (directRecruits.length === 0) return [];
+
+      const bySubRecruiter = new Map<string, { recruit: typeof recruits[0]; subChildren: OrgNode[] }>();
+      const leafRecruits: OrgNode[] = [];
+
+      directRecruits.forEach((r) => {
+        const recruitRep = recruitNameToRep.get(getCleanName(r.name).toLowerCase());
+        const recruitUserId = recruitRep?.user_id;
+
+        // If this recruit is a lead of another team/mgmt group, skip (they belong to that group)
+        if (recruitUserId && stopAtLeads.has(recruitUserId) && recruitUserId !== recruiterId) {
+          return;
+        }
+
+        // Check if this recruit has their own recruits (is a sub-recruiter)
+        if (recruitUserId && recruitsByRecruiter.has(recruitUserId)) {
+          const subChildren = buildRecruiterSubtree(recruitUserId, teamName, teamId, mgmtGroupId, mgmtGroupName, stopAtLeads, new Set(visited));
+          if (subChildren.length > 0) {
+            bySubRecruiter.set(recruitUserId, { recruit: r, subChildren });
+          } else {
+            leafRecruits.push(makeRepNode(r, teamName, teamId, mgmtGroupId, mgmtGroupName));
+          }
         } else {
-          noRecruiter.push(r);
+          leafRecruits.push(makeRepNode(r, teamName, teamId, mgmtGroupId, mgmtGroupName));
         }
       });
+
       const children: OrgNode[] = [];
-      byRecruiter.forEach((groupRecruits, recruiterId) => {
-        const recruiterRep = repMap.get(recruiterId);
-        const recruiterName = recruiterRep ? getCleanName(recruiterRep.name) : "Unknown Recruiter";
+
+      // Add recruiter group nodes for sub-recruiters
+      bySubRecruiter.forEach(({ recruit, subChildren }, subRecruiterId) => {
+        const recruiterRep = repMap.get(subRecruiterId);
+        const recruiterName = recruiterRep ? getCleanName(recruiterRep.name) : getCleanName(recruit.name);
         children.push({
-          id: `recruiter-${recruiterId}`,
+          id: `recruiter-${subRecruiterId}`,
           name: `${recruiterName}'s Recruits`,
           type: "recruiter_group",
-          role: recruiterRep?.year || undefined,
-          children: groupRecruits.map((r) => makeRepNode(r, teamName, teamId, mgmtGroupId, mgmtGroupName)),
+          role: recruiterRep?.year || recruit.year || undefined,
+          children: subChildren,
         });
       });
-      noRecruiter.forEach((r) => children.push(makeRepNode(r, teamName, teamId, mgmtGroupId, mgmtGroupName)));
+
+      // Add leaf recruits
+      children.push(...leafRecruits);
+
       return children;
+    };
+
+    const buildTeamMembers = (teamLeadUserId: string | null, teamName: string, teamId: string, mgmtGroupId: string | null, mgmtGroupName: string | null): OrgNode[] => {
+      if (!teamLeadUserId) return [];
+      // Stop recursion at boundaries of OTHER team leads (not this one)
+      const stopLeads = new Set([...allTeamLeadIds, ...allMgmtLeadIds]);
+      stopLeads.delete(teamLeadUserId);
+      return buildRecruiterSubtree(teamLeadUserId, teamName, teamId, mgmtGroupId, mgmtGroupName, stopLeads, new Set());
     };
 
     const teamNodes = (mgmtGroupId: string, mgmtGroupName: string): OrgNode[] => {
@@ -233,26 +287,18 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
         .map((t) => ({
           id: t.id, name: t.name, type: "team" as const,
           role: t.lead_user_id ? `Led by ${getRepName(t.lead_user_id)}` : undefined,
-          children: buildTeamMembers(t.id, t.lead_user_id, t.name, mgmtGroupId, mgmtGroupName),
+          children: buildTeamMembers(t.lead_user_id, t.name, t.id, mgmtGroupId, mgmtGroupName),
         }));
     };
 
     const mgmtNodes = (officeId: string): OrgNode[] =>
       mgmtGroups.filter((mg) => mg.office_id === officeId).map((mg) => {
-        const groupTeamIds = teamMgmt.filter((tm) => tm.mgmt_group_id === mg.id).map((tm) => tm.team_id);
         const teamChildren = teamNodes(mg.id, mg.name);
-        
-        // Also include recruits assigned to this mgmt group but NOT to any team within it
-        const mgmtDirectRecruits = recruits.filter((r) => 
-          r.mgmt_group_id === mg.id && (!r.team_id || !groupTeamIds.includes(r.team_id))
-        );
-        const directRepNodes = mgmtDirectRecruits.map((r) => makeRepNode(r, "", "", mg.id, mg.name));
-        
         return {
           id: mg.id, name: mg.name, type: "mgmt_group" as const,
           role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
           leadUserId: mg.lead_user_id,
-          children: [...teamChildren, ...directRepNodes],
+          children: teamChildren,
         };
       });
 
