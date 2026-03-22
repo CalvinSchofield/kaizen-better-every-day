@@ -98,8 +98,15 @@ export const EditRecruitDrawer = ({
   
   // Role assignment state
   const [selectedRole, setSelectedRole] = useState<string>('');
+  const [showRoleConfirm, setShowRoleConfirm] = useState(false);
   const accessLevel = (teamAccess?.accessLevel || 'none') as AccessLevel;
   const canAssignRoles = showRoleAssignment && hasMinAccess(accessLevel, 'mgmt_group_lead');
+  
+  // Compute role jump warning info
+  const roleJumpInfo = useMemo(() => {
+    if (!selectedRole) return null;
+    return getRoleJumpInfo(accessLevel, selectedRole as AccessLevel);
+  }, [selectedRole, accessLevel]);
   
   // Track if form has been initialized for this drawer open session
   const [formInitialized, setFormInitialized] = useState(false);
