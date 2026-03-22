@@ -34,7 +34,7 @@ interface RecruiterTreeViewProps {
 }
 
 export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewProps) => {
-  const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
+  const { data: teamAccess, isLoading: accessLoading, isPlaceholderData: isTeamAccessPlaceholder } = useTeamAccess();
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [reassignOpen, setReassignOpen] = useState(false);
