@@ -7,6 +7,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -43,7 +44,7 @@ export const EditSummerDatesDrawer = ({
 
     setIsSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const { error } = await supabase.functions.invoke('update-summer-dates', {

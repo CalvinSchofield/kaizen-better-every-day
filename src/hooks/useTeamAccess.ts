@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 
 import type { AccessLevel } from "@/utils/roleHierarchy";
 
@@ -55,7 +56,7 @@ export const useTeamAccess = () => {
   const query = useQuery({
     queryKey: ['team-access'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
 
       if (!session) {
         throw new Error('Not authenticated');

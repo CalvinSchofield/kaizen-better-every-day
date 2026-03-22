@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useRepData } from "@/hooks/useRepData";
 import { useQueryClient } from "@tanstack/react-query";
@@ -299,7 +300,7 @@ export const LeaderRookieReviewCard = () => {
     
     setIsSubmitting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
       
       const body: Record<string, any> = { rookieId: selectedRookie.id };

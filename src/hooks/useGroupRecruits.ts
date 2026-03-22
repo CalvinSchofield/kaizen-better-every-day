@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useTeamAccess } from "./useTeamAccess";
 import { useEffect, useCallback } from "react";
 import { toast } from "sonner";
@@ -153,7 +154,7 @@ export const useGroupRecruits = () => {
   const query = useQuery({
     queryKey: ['group-recruits', teamAccess?.accessLevel, teamAccess?.accessibleReps?.length],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const accessLevel = teamAccess?.accessLevel;
@@ -717,7 +718,7 @@ export const useSubmitSuggestion = () => {
       teamLeaderUserId: string;
       suggestedByName: string;
     }) => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
@@ -785,7 +786,7 @@ export const useApproveSuggestion = () => {
       action: 'approve' | 'reject';
       recruiterNotionId?: string;
     }) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const { data, error } = await supabase.functions.invoke('approve-recruit-suggestion', {
@@ -821,9 +822,7 @@ export const useUpdateRecruitStage = () => {
         throw new Error("Either recruitId or recruitNotionId is required");
       }
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error("Not authenticated");
 
       // Route stage changes through edge function that handles both ID types
@@ -921,7 +920,7 @@ export const useLogRecruitActivity = () => {
         throw new Error("Either recruitId or recruitNotionId is required");
       }
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       // Use rep_notion_page_id for backwards compatibility
@@ -1068,7 +1067,7 @@ export const useUpdateRecruitActivity = () => {
       assignedToUserId?: string | null;
       recruitId?: string;
     }) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const updateData: Record<string, any> = {};
@@ -1154,7 +1153,7 @@ export const useUpdateRecruitActivity = () => {
       }
       // Send task assignment notification when reassigning
       if (data?.assignedToUserId) {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { session } = await getSessionSafe();
         supabase.functions.invoke('send-task-assignment-notification', {
           body: {
             assignedToUserId: data.assignedToUserId,
@@ -1174,7 +1173,7 @@ export const useDeleteRecruitActivity = () => {
 
   return useMutation({
     mutationFn: async (activityId: string) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const { error } = await supabase
@@ -1202,7 +1201,7 @@ export const useMySuggestions = () => {
   return useQuery({
     queryKey: ['my-suggestions'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
@@ -1235,7 +1234,7 @@ export const useUpdateMySuggestion = () => {
       relationship?: string;
       notes?: string;
     }) => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
@@ -1288,7 +1287,7 @@ export const useDeleteMySuggestion = () => {
 
   return useMutation({
     mutationFn: async (suggestionId: string) => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase

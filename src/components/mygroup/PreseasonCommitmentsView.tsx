@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +32,7 @@ export const PreseasonCommitmentsView = () => {
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-rep'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return null;
       
       const { data } = await supabase
@@ -180,7 +181,7 @@ const RookieBlitzCard = ({ rookie, blitzes }: RookieBlitzCardProps) => {
         ? rookie.committedBlitzes.filter(id => id !== blitzId)
         : [...rookie.committedBlitzes, blitzId];
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {

@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { getCleanName, getInitials } from "@/utils/nameUtils";
@@ -89,7 +90,7 @@ export const ReassignRecruiterDrawer = ({
     if (!selectedPerson) return;
     setSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error("Not authenticated");
 
       const { error } = await supabase.functions.invoke("update-rep-assignment", {

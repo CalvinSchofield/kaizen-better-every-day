@@ -3,6 +3,7 @@ import { Camera, X, Loader2, Check } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from "react-image-crop";
@@ -223,7 +224,7 @@ export const ProfilePhotoUpload = ({
     setIsUploading(true);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // Get cropped image
@@ -298,7 +299,7 @@ export const ProfilePhotoUpload = ({
     setIsUploading(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // Remove from storage

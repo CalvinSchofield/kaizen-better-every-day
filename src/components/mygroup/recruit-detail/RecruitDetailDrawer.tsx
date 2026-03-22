@@ -5,6 +5,7 @@ import { useAssignableUsers } from "@/hooks/useAssignableUsers";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAutoStageProgression } from "@/hooks/useAutoStageProgression";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -198,7 +199,7 @@ export const RecruitDetailDrawer = ({
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-rep-for-drawer'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return null;
       const { data } = await supabase.from('reps').select('id, name, team_leader, recruiter').eq('user_id', user.id).maybeSingle();
       return data;
@@ -351,7 +352,7 @@ export const RecruitDetailDrawer = ({
       if (!recruitRepData?.user_id) return [];
       
       // For the current user's own recruits, we can use the edge function
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) return [];
       
       const { data, error } = await supabase.functions.invoke('fetch-downline-planned-days', {
@@ -546,7 +547,7 @@ export const RecruitDetailDrawer = ({
       if (updateError) throw updateError;
       
       // Also call edge function to sync
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (session) {
         await supabase.functions.invoke('update-rookie-status', {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -706,7 +707,7 @@ export const RecruitDetailDrawer = ({
     setHasPhaseError(false);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const phaseParams: Record<string, boolean> = {};
@@ -746,7 +747,7 @@ export const RecruitDetailDrawer = ({
     setHasPhaseError(false);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       // Undo this phase and all phases after it
@@ -846,7 +847,7 @@ export const RecruitDetailDrawer = ({
       else if (finalState.trainings_complete) computedOnboardingStatus = 'Required Trainings ✅';
       else if (finalState.onboarding_complete) computedOnboardingStatus = 'Onboarding ✅';
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       // Use rep ID if available, otherwise use recruit ID

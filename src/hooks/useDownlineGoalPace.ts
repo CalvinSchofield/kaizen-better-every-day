@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { calculateSalesPace } from '@/utils/salesPaceCalculator';
 import { isAfter, startOfDay, format } from 'date-fns';
 import { parseLocalDate } from '@/utils/dateUtils';
+import { getSessionSafe } from "@/utils/authSession";
 
 const SEASON_START = '2025-09-28';
 const PRESEASON_END = '2026-04-11';
@@ -29,7 +30,7 @@ export const useDownlineGoalPace = (userId: string | null) => {
     queryFn: async (): Promise<DownlineGoalPace | null> => {
       if (!userId) return null;
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) return null;
 
       // Fetch goals, season config, daily entries, and planned days in parallel

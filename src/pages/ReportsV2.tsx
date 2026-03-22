@@ -5,6 +5,7 @@ import { useReportsV2Data } from "@/hooks/useReportsV2Data";
 import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAvailableDatePresets";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { isoToMinutesInTimezone } from "@/utils/timezoneUtils";
 import { 
   RepDrillDownDrawer,
@@ -64,7 +65,7 @@ export const ReportsV2Page = () => {
   const { data: currentUserId } = useQuery({
     queryKey: ['current-user-id'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       return user?.id || null;
     },
     staleTime: Infinity,

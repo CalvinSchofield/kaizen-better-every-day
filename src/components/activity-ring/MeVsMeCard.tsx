@@ -6,6 +6,7 @@ import { useEfpMode } from "@/hooks/useEfpMode";
 import { calculateEfp } from "@/utils/efp";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { format, startOfWeek, endOfWeek, startOfMonth, parseISO, startOfYear } from "date-fns";
 
 interface MeVsMeCardProps {
@@ -37,7 +38,7 @@ export const MeVsMeCard = ({
   const { data: comparison } = useQuery({
     queryKey: ['historical-comparison-full', entryDate, efpModeEnabled],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return null;
 
       const today = entryDate ? parseISO(entryDate) : new Date();

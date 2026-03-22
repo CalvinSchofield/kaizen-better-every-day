@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useMeVsMe } from './useMeVsMe';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, format, getMonth } from 'date-fns';
 import { getSeasonInfo } from '@/utils/seasonWeekUtils';
+import { getSessionSafe } from "@/utils/authSession";
 
 interface MeVsMeComparisonData {
   fpPlus: { current: number; historical: number };
@@ -22,7 +23,7 @@ export function useRecapMeVsMeComparison(period: 'week' | 'month') {
   return useQuery({
     queryKey: ['recap-me-vs-me', period],
     queryFn: async (): Promise<{ comparison: MeVsMeComparisonData | null; comparisonYear: number; hasHistoricalData: boolean }> => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return { comparison: null, comparisonYear: 0, hasHistoricalData: false };
 
       const now = new Date();

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { clearPreseasonFPCache } from './usePreseasonFP';
 import { getInstantBackup, smartMergeEntries, getCurrentUserId } from './useTrackBackup';
+import { getSessionSafe } from "@/utils/authSession";
 
 // Helper to get backup from localStorage (kept for compatibility)
 const getBackupFromStorage = (userId: string, entryDate: string): Partial<DailyEntry> | null => {
@@ -285,7 +286,7 @@ export const useDailyEntry = (date?: string) => {
     queryFn: async () => {
       // PERF FIX: Use getSession() (reads local cache, instant) instead of getUser() (network call).
       // HydrationGate already verified auth. Only fall back to refreshSession if no session.
-      let { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session?.user) {
         // Session cache miss — try refresh once
         const { data: refreshData } = await supabase.auth.refreshSession();
@@ -428,7 +429,7 @@ export const useDailyEntry = (date?: string) => {
     mutationKey: ['update-counter', entryDate],
     mutationFn: async (updates: Partial<DailyEntry>) => {
       // PERF FIX: Use getSession() (local cache) instead of getUser() (network call)
-      let { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session?.user) {
         console.warn('[useDailyEntry] Session expired during mutation — attempting refresh');
         const { data: refreshData } = await supabase.auth.refreshSession();
@@ -667,7 +668,7 @@ export const useDailyEntry = (date?: string) => {
         console.warn('[finalizeEntry] refetchQueries timed out or failed, proceeding anyway');
       }
       
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // BULLETPROOF: Use safe upsert RPC for finalization to prevent data overwrites
@@ -740,7 +741,7 @@ export const useDailyEntry = (date?: string) => {
     },
     onSuccess: async (_, variables) => {
       // Clear localStorage caches that might have stale data
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (user) {
         clearPreseasonFPCache(user.id);
       }
@@ -783,7 +784,7 @@ export const useDailyEntry = (date?: string) => {
   // Reset entry for new day
   const resetEntryMutation = useMutation({
     mutationFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const resetTimestamp = new Date().toISOString();

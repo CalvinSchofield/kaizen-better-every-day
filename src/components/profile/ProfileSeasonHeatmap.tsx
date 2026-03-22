@@ -15,6 +15,7 @@ import { GoalTier, GOAL_TIER_CONFIG, SummerTier } from '@/config/goalTiers';
 import { cn } from '@/lib/utils';
 import { useGoalPaceCalculatorForUser } from '@/hooks/useGoalPaceCalculatorForUser';
 import {
+import { getSessionSafe } from "@/utils/authSession";
   Drawer,
   DrawerContent,
   DrawerHeader,
@@ -60,7 +61,7 @@ export const ProfileSeasonHeatmap = ({ userId, isOwnProfile }: ProfileSeasonHeat
           .eq('user_id', userId);
         return (data || []) as PlannedDay[];
       }
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) return [];
       const { data } = await supabase.functions.invoke('fetch-downline-planned-days', {
         body: { userIds: [userId] },

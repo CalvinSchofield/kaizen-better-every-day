@@ -18,6 +18,7 @@ import { Swords, Trophy, Gift, ChevronRight, Loader2, Check, X, Flame, Plus, Use
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useQuery } from "@tanstack/react-query";
 import { getInitials, getCleanName, getCleanFirstName } from "@/utils/nameUtils";
 import { hapticLight, hapticSuccess, hapticWarning } from "@/utils/haptics";
@@ -155,7 +156,7 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
   const { data: currentUser } = useQuery({
     queryKey: ['current-user-id'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       return user?.id || null;
     },
     staleTime: Infinity,

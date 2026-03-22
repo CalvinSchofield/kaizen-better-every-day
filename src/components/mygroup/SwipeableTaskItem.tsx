@@ -7,6 +7,7 @@ import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { SkipMenu } from "./SkipMenu";
 import { CalendarBadge } from "./AddToCalendarPrompt";
 
@@ -74,7 +75,7 @@ export const SwipeableTaskItem = ({
   const { data: currentUserId } = useQuery({
     queryKey: ['current-user-id'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       return user?.id || null;
     },
     staleTime: Infinity,

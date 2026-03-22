@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useParticipantPool } from "@/hooks/useParticipantPool";
 import { useCreateIncentive, IncentiveMetric, IncentiveTargetType } from "@/hooks/useIncentives";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { ParticipantPickerV2 } from "./ParticipantPickerV2";
 import { Trophy, DollarSign, ArrowRightLeft, Footprints, Loader2, Eye, EyeOff, Users, User, ChevronLeft, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -48,7 +49,7 @@ export const CreateIncentiveDrawer = ({ open, onOpenChange }: CreateIncentiveDra
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-rep-for-incentive'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return null;
       const { data } = await supabase
         .from('reps')

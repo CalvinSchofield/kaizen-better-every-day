@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -217,7 +218,7 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, p
     const finalParentId = selectedParentId !== "__none__" ? selectedParentId : parentId || null;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
 
       switch (type) {
         case "office": {

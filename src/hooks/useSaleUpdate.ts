@@ -4,6 +4,7 @@ import { Sale } from './useDailyEntry';
 import { toast } from 'sonner';
 import { hapticSuccess, hapticWarning } from '@/utils/haptics';
 import { invalidateAllSalesQueries, clearSalesLocalStorageCaches } from '@/utils/invalidateSalesQueries';
+import { getSessionSafe } from "@/utils/authSession";
 
 interface UpdateSaleParams {
   entryId: string;
@@ -46,8 +47,7 @@ export const useSaleUpdate = () => {
   const updateSaleMutation = useMutation({
     mutationFn: async ({ entryId, entryDate, saleId, updates }: UpdateSaleParams) => {
       // PERF FIX: Use getSession() (local cache) instead of getUser() (network call)
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // Fetch current entry
@@ -127,8 +127,7 @@ export const useSaleUpdate = () => {
   const deleteSaleMutation = useMutation({
     mutationFn: async ({ entryId, entryDate, saleId }: DeleteSaleParams) => {
       // PERF FIX: Use getSession() (local cache) instead of getUser() (network call)
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { data: entry, error: fetchError } = await supabase

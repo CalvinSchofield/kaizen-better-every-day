@@ -13,6 +13,7 @@ import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { getSeasonInfo } from "@/utils/seasonWeekUtils";
 import { getLearningCurvePrincipleMessage, calculatePaceContext } from "@/utils/learningCurveData";
 import { format, differenceInDays } from "date-fns";
@@ -88,7 +89,7 @@ export const PostSaveSuccessSheet = ({
     queryFn: async () => {
       if (!dayNumber || !seasonInfo) return null;
       
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return null;
       
       // Fetch all historical entries for this season type up to this day number

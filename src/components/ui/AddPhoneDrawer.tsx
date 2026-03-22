@@ -9,6 +9,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useToast } from "@/hooks/use-toast";
 
 interface AddPhoneDrawerProps {
@@ -106,7 +107,7 @@ export const AddPhoneDrawer = ({
 
     setIsSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const { error } = await supabase.functions.invoke('update-recruit-phone', {

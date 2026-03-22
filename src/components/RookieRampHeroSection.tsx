@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { RampHeroProgress } from "@/components/ramp/RampHeroProgress";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { PhaseData, PhaseId } from "@/pages/RampToBlitz";
@@ -184,7 +185,7 @@ const OnboardingStepCard = ({
   const handleMarkDone = async () => {
     setIsSubmitting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const { error } = await supabase.functions.invoke('update-rookie-status', {

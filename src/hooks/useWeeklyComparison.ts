@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useMemo } from 'react';
 import { startOfWeek, endOfWeek, subWeeks, format } from 'date-fns';
+import { getSessionSafe } from "@/utils/authSession";
 
 export interface WeeklyStats {
   doors: number;
@@ -59,7 +60,7 @@ export const useWeeklyComparison = (enabled: boolean = true) => {
   const { data: entries, isLoading } = useQuery({
     queryKey: ['weekly-comparison', format(thisWeekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return [];
 
       const { data, error } = await supabase
@@ -85,7 +86,7 @@ export const useWeeklyComparison = (enabled: boolean = true) => {
   const { data: streakEntries } = useQuery({
     queryKey: ['current-streak', format(now, 'yyyy-MM-dd')],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return [];
 
       // Fetch last 14 days to calculate streak

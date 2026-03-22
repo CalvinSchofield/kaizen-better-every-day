@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,8 +51,8 @@ export default function AddApplicant() {
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
-      const { data } = await supabase.auth.getSession();
-      return data.session;
+      const { session } = await getSessionSafe();
+      return session;
     },
   });
 
@@ -71,7 +72,7 @@ export default function AddApplicant() {
   const { data: currentUserRep } = useQuery({
     queryKey: ["current-user-rep"],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) return null;
       const { data } = await supabase
         .from("reps")
@@ -87,7 +88,7 @@ export default function AddApplicant() {
   const { data: currentUserTeamId } = useQuery({
     queryKey: ["current-user-team-id"],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) return null;
       // Find team where user is lead
       const { data: leadTeam } = await supabase
@@ -211,7 +212,7 @@ export default function AddApplicant() {
   // Create recruit mutation
   const createRecruitMutation = useMutation({
     mutationFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error("Not authenticated");
 
       // Find the team's mgmt_group_id

@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useDailyEntry } from '@/hooks/useDailyEntry';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { format } from 'date-fns';
+import { getSessionSafe } from "@/utils/authSession";
 
 interface SmartActivityGoals {
   hasEnoughData: boolean;
@@ -59,7 +60,7 @@ export function useSmartActivityGoals({
   const { data: conversionData, isLoading } = useQuery({
     queryKey: ['smart-activity-goals-conversion-v2', efpModeEnabled],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const userEmail = user.email?.toLowerCase() ?? null;

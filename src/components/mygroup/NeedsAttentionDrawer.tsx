@@ -22,6 +22,7 @@ import { BlitzCommitmentDrawer } from "./BlitzCommitmentDrawer";
 import { PhaseVerificationDrawer } from "./PhaseVerificationDrawer";
 import { AddPhoneDrawer } from "@/components/ui/AddPhoneDrawer";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -793,7 +794,7 @@ const BlitzPrepProgressItem = ({
     setHasError(false);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const phaseParams: Record<string, boolean | string> = {};
@@ -835,7 +836,7 @@ const BlitzPrepProgressItem = ({
     setHasError(false);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       // Undo this phase and all phases after it

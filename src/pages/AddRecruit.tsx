@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSubmitSuggestion, useMySuggestions } from "@/hooks/useGroupRecruits";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { withTimeout } from "@/utils/withTimeout";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { motion, AnimatePresence } from "framer-motion";
@@ -198,7 +199,7 @@ export default function AddRecruit() {
   const { data: currentRep } = useQuery<CurrentRepIdentity | null>({
     queryKey: ['current-rep-for-suggestion'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return null;
       const base: CurrentRepIdentity = { authUserId: user.id, authEmail: user.email ?? null };
       const { data: byUserId } = await supabase.from('reps').select('id, name, team_leader, user_id, email').eq('user_id', user.id).maybeSingle();
@@ -332,7 +333,7 @@ export default function AddRecruit() {
       cautionNotes?: string;
       recruiterUserId?: string;
     }) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
       const { data, error } = await withTimeout(
         supabase.functions.invoke('create-recruit', {

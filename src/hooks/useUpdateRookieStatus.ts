@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { toast } from "sonner";
 
 interface UpdateRookieStatusParams {
@@ -85,7 +86,7 @@ export const useUpdateRookieStatus = () => {
       rampPhase3Complete,
       rampPhase4Complete
     }: UpdateRookieStatusParams) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       // Wrap the API call in retry logic for network resilience

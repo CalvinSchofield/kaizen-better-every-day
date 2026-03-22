@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useCreateChallenge, ChallengeMetric, ChallengeType } from "@/hooks/useChallenges";
 import { useParticipantPool, filterAndSortReps, ParticipantRep, ScopeFilter, YearFilter } from "@/hooks/useParticipantPool";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, ChevronLeft, Loader2, Eye, EyeOff, X, CalendarIcon, CalendarCheck, Search, Building2 } from "lucide-react";
@@ -84,7 +85,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-timezone'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return null;
       const { data } = await supabase
         .from('reps')

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getSessionSafe } from "@/utils/authSession";
 
 const ADMIN_EMAIL = 'calvinjschofield@gmail.com';
 
@@ -49,7 +50,7 @@ export const useAdminDataReview = () => {
   // Check if admin
   useEffect(() => {
     const checkAdmin = async () => {
-      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user;
+      const { user } = await getSessionSafe();
       setIsAdmin(user?.email === ADMIN_EMAIL);
       if (user?.email === ADMIN_EMAIL) {
         setAdminUserId(user.id);

@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 
@@ -71,7 +72,7 @@ export const EditTeamDrawer = ({
 
     setSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error("Not authenticated");
 
       const { error } = await supabase.functions.invoke("manage-team", {
@@ -108,7 +109,7 @@ export const EditTeamDrawer = ({
   const handleDelete = async () => {
     setSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error("Not authenticated");
 
       const { data, error } = await supabase.functions.invoke("manage-team", {
