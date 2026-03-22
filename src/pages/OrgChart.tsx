@@ -189,7 +189,7 @@ const OrgChart = () => {
           // Get the team name this person leads, or fallback
           const teamName = userTeamNameMap.get(userId);
           const labelName = teamName 
-            ? `${teamName}` 
+            ? `${teamName} Team` 
             : `${getCleanName(rep?.name || "Unknown")} Team`;
           
           const labelNode: TreeNode = {
@@ -201,7 +201,7 @@ const OrgChart = () => {
             role: null,
             year: null,
             isAreaDirector: false,
-            roleColor: roleInfo.color,
+            roleColor: "team_lead",
             isLabelNode: true,
             children: plainChildren,
           };
