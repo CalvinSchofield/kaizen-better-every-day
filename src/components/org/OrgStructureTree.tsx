@@ -1165,6 +1165,34 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           })}
         />
       )}
+
+      {/* Move entity to parent group */}
+      {moveEntityTarget && orgData && (() => {
+        const getTargets = () => {
+          const mapWithLead = (items: any[]) => items.map((i: any) => {
+            const leadRep = i.lead_user_id ? orgData.reps.find(r => r.user_id === i.lead_user_id) : null;
+            return { id: i.id, name: i.name, leadUserId: i.lead_user_id, leadName: leadRep?.name || null };
+          });
+          switch (moveEntityTarget.entityType) {
+            case "mgmt_group": return mapWithLead(orgData.srMgmtGroups);
+            case "region": return mapWithLead(orgData.srRegions);
+            case "sr_region": return mapWithLead(orgData.partners);
+            case "partner": return mapWithLead(orgData.divisions);
+            default: return [];
+          }
+        };
+        return (
+          <MoveEntityDrawer
+            open={!!moveEntityTarget}
+            onOpenChange={(open) => !open && setMoveEntityTarget(null)}
+            entityType={moveEntityTarget.entityType}
+            entityId={moveEntityTarget.id}
+            entityName={moveEntityTarget.name}
+            entityLeadUserId={moveEntityTarget.leadUserId}
+            targets={getTargets()}
+          />
+        );
+      })()}
     </>
   );
 };
