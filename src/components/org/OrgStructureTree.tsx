@@ -1246,10 +1246,19 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
             )}
 
             {/* Sr MGMT group actions */}
-            {actionTarget?.type === "sr_mgmt_group" && canManageTeams && canCreateEntityType(accessLevel, "mgmt_group") && (
-              <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name, parentType: "sr_mgmt_group" }); setActionTarget(null); } }}>
-                <Plus className="h-4 w-4" /> Create MGMT Group
-              </Button>
+            {actionTarget?.type === "sr_mgmt_group" && canManageTeams && (
+              <>
+                {canCreateEntityType(accessLevel, "mgmt_group") && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name, parentType: "sr_mgmt_group" }); setActionTarget(null); } }}>
+                    <Plus className="h-4 w-4" /> Create MGMT Group
+                  </Button>
+                )}
+                {orgData && orgData.offices.length > 0 && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setAssignToOfficeTarget({ id: actionTarget.id, name: actionTarget.name, type: "sr_mgmt_group" }); setActionTarget(null); } }}>
+                    <Building2 className="h-4 w-4" /> Assign to Office...
+                  </Button>
+                )}
+              </>
             )}
 
             {/* Office actions */}
