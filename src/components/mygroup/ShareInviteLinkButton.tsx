@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Share2, Copy, Check, Loader2 } from "lucide-react";
@@ -36,6 +37,9 @@ export const ShareInviteLinkButton = () => {
     setIsGenerating(true);
 
     try {
+      const { session } = await getSessionSafe();
+      if (!session) return;
+
       const { data: existing } = await supabase
         .from('invite_codes')
         .select('code')
