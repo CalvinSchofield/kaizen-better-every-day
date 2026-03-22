@@ -27,12 +27,45 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
+  const [step, setStep] = useState<"name" | "lead">("name");
+  const [leadSearch, setLeadSearch] = useState("");
+  const [selectedLead, setSelectedLead] = useState<{ userId: string; name: string } | null>(null);
+  const [reps, setReps] = useState<{ user_id: string; name: string }[]>([]);
+  const [loadingReps, setLoadingReps] = useState(false);
 
   const typeLabel = type === "office" ? "Office" : type === "region" ? "Region" : "Team";
 
-  const create = useMutation({
-    mutationFn: async () => {
-      if (!name.trim()) throw new Error("Name required");
+  // Load reps when entering lead selection step for teams
+  const loadReps = async () => {
+    setLoadingReps(true);
+    const { data } = await supabase.from("reps").select("user_id, name").order("name").limit(2000);
+    setReps(data || []);
+    setLoadingReps(false);
+  };
+
+  const filteredReps = useMemo(() => {
+    if (!leadSearch.trim()) return reps.slice(0, 20);
+    const q = leadSearch.toLowerCase();
+    return reps.filter(r => getCleanName(r.name).toLowerCase().includes(q)).slice(0, 20);
+  }, [reps, leadSearch]);
+
+  const handleNameNext = () => {
+    if (type === "team") {
+      setStep("lead");
+      loadReps();
+      // Try to auto-match by name
+      const q = name.trim().toLowerCase();
+      if (q) {
+        // Will be matched when reps load
+      }
+    } else {
+      handleCreate();
+    }
+  };
+
+  const handleCreate = async (leadUserId?: string) => {
+    if (!name.trim()) return;
+    try {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (type === "office") {
@@ -50,10 +83,9 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
         });
         if (error) throw error;
       } else if (type === "team") {
-        // Create team and link to mgmt group
         const { data: team, error: teamError } = await supabase.from("teams").insert({
           name: name.trim(),
-          lead_user_id: user?.id,
+          lead_user_id: leadUserId || null,
         }).select("id").single();
         if (teamError) throw teamError;
         if (parentId && team) {
@@ -64,19 +96,27 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
           if (linkError) throw linkError;
         }
       }
-    },
-    onSuccess: () => {
+
       queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
-      setName("");
-      setLocation("");
+      resetState();
       onOpenChange(false);
       toast.success(`${typeLabel} created`);
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const resetState = () => {
+    setName("");
+    setLocation("");
+    setStep("name");
+    setLeadSearch("");
+    setSelectedLead(null);
+    setReps([]);
+  };
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
+    <Drawer open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetState(); }}>
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>
@@ -85,27 +125,71 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
           </DrawerTitle>
         </DrawerHeader>
         <div className="px-4 pb-6 space-y-3">
-          <Input
-            placeholder={`${typeLabel} name`}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-          />
-          {type === "office" && (
-            <Input
-              placeholder="Location (optional)"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
+          {step === "name" && (
+            <>
+              <Input
+                placeholder={`${typeLabel} name`}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoFocus
+              />
+              {type === "office" && (
+                <Input
+                  placeholder="Location (optional)"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+              )}
+              <Button
+                onClick={handleNameNext}
+                disabled={!name.trim()}
+                className="w-full"
+              >
+                {type === "team" ? "Next — Choose Team Lead" : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create {typeLabel}
+                  </>
+                )}
+              </Button>
+            </>
           )}
-          <Button
-            onClick={() => create.mutate()}
-            disabled={!name.trim() || create.isPending}
-            className="w-full"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            {create.isPending ? "Creating..." : `Create ${typeLabel}`}
-          </Button>
+
+          {step === "lead" && (
+            <>
+              <p className="text-sm text-muted-foreground">Who leads the "{name.trim()}" team?</p>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name..."
+                  value={leadSearch}
+                  onChange={(e) => setLeadSearch(e.target.value)}
+                  className="pl-10"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                {loadingReps ? (
+                  <p className="text-sm text-center text-muted-foreground py-4">Loading...</p>
+                ) : filteredReps.length > 0 ? (
+                  filteredReps.map((rep) => (
+                    <button
+                      key={rep.user_id}
+                      onClick={() => handleCreate(rep.user_id)}
+                      className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors"
+                    >
+                      <p className="text-sm font-medium">{getCleanName(rep.name)}</p>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-sm text-center text-muted-foreground py-4">No results</p>
+                )}
+              </div>
+              <Button variant="outline" className="w-full" onClick={() => setStep("name")}>
+                ← Back
+              </Button>
+            </>
+          )}
         </div>
       </DrawerContent>
     </Drawer>
