@@ -11,10 +11,6 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLongPress } from "@/hooks/useLongPress";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
 import { CreateDrawer, ConfigureOfficeDrawer, ConfigureRegionDrawer } from "./OrgManagementDrawer";
 import { BulkAssignRepsDrawer } from "./BulkAssignRepsDrawer";
