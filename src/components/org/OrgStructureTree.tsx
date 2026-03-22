@@ -477,9 +477,9 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{hasMinAccess(accessLevel, "area_director") ? "Delete" : "Request Deletion"}</AlertDialogTitle>
+            <AlertDialogTitle>{canDirectManage ? "Delete" : "Request Deletion"}</AlertDialogTitle>
             <AlertDialogDescription>
-              {hasMinAccess(accessLevel, "area_director")
+              {canDirectManage
                 ? `Are you sure you want to delete "${deleteTarget?.name}"?`
                 : `Submit a request to delete "${deleteTarget?.name}"? Needs upline approval.`}
             </AlertDialogDescription>
