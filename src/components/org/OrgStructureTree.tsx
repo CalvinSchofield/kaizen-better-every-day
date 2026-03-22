@@ -969,9 +969,11 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
             {/* MGMT group actions */}
             {actionTarget?.type === "mgmt_group" && canManageTeams && (
               <>
-                <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "team", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
-                  <Plus className="h-4 w-4" /> Create Team
-                </Button>
+                {canCreateEntityType(accessLevel, "team") && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "team", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                    <Plus className="h-4 w-4" /> Create Team
+                  </Button>
+                )}
                 {orgData && orgData.srMgmtGroups.length > 0 && (
                   <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { const mg = orgData.mgmtGroups.find(g => g.id === actionTarget.id); setMoveEntityTarget({ entityType: "mgmt_group", id: actionTarget.id, name: actionTarget.name, leadUserId: mg?.lead_user_id || null }); setActionTarget(null); } }}>
                     <ArrowRightLeft className="h-4 w-4" /> Move to Sr MGMT Group...
@@ -981,7 +983,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
             )}
 
             {/* Sr MGMT group actions */}
-            {actionTarget?.type === "sr_mgmt_group" && canManageTeams && (
+            {actionTarget?.type === "sr_mgmt_group" && canManageTeams && canCreateEntityType(accessLevel, "mgmt_group") && (
               <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
                 <Plus className="h-4 w-4" /> Create MGMT Group
               </Button>
