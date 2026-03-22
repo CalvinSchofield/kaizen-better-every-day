@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -126,14 +127,14 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
 
   return (
     <Drawer open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetState(); }}>
-      <DrawerContent>
+      <DrawerContent className="max-h-[85vh]">
         <DrawerHeader>
           <DrawerTitle>
             Create {typeLabel}
             {parentName && <span className="text-muted-foreground font-normal"> in {parentName}</span>}
           </DrawerTitle>
         </DrawerHeader>
-        <div className="px-4 pb-6 space-y-3">
+        <div className="px-4 pb-6 space-y-3 overflow-y-auto flex-1">
           {step === "name" && (
             <>
               <Input
@@ -185,7 +186,8 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
                   autoFocus
                 />
               </div>
-              <div className="space-y-1 max-h-[300px] overflow-y-auto">
+              <ScrollArea className="max-h-[40vh]">
+              <div className="space-y-1.5 pr-1">
                 {loadingReps ? (
                   <p className="text-sm text-center text-muted-foreground py-4">Loading...</p>
                 ) : filteredReps.length > 0 ? (
@@ -207,6 +209,7 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
                   <p className="text-sm text-center text-muted-foreground py-4">No results</p>
                 )}
               </div>
+              </ScrollArea>
               <Button variant="outline" className="w-full" onClick={() => setStep("name")}>
                 ← Back
               </Button>
