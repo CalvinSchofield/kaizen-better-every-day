@@ -570,7 +570,7 @@ interface OrgNodeCardProps {
 }
 
 const OrgNodeCard = ({ node, depth, onLongPressAction, onTap, canManage }: OrgNodeCardProps) => {
-  const [expanded, setExpanded] = useState(depth < 4);
+  const [expanded, setExpanded] = useState(depth < 6);
   const hasChildren = node.children.length > 0;
   const Icon = typeIcons[node.type];
   const isRep = node.type === "rep";
