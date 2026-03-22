@@ -212,7 +212,7 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                 <div>
                   <p className="font-medium text-sm">Add to Pipeline</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Track someone you're reaching out to or evaluating
+                    Add someone you want to work with
                   </p>
                 </div>
               </button>
@@ -227,7 +227,7 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                 <div>
                   <p className="font-medium text-sm">Share Kaizen</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Send your invite link — they'll auto-connect to you on signup
+                    Send the app to your recruits
                   </p>
                 </div>
               </button>
@@ -243,7 +243,7 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                   <div>
                     <p className="font-medium text-sm">Invite a Leader</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      For peers or upline — won't auto-nest them under you
+                      Help other leaders get started on Kaizen
                     </p>
                   </div>
                 </button>
