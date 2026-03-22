@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
-import { CalendarDays, Check, ChevronDown } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, X } from 'lucide-react';
 import { Sale } from '@/hooks/useDailyEntry';
 import { format, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -24,16 +24,22 @@ export const ScheduledInstallStep = ({
   onConfirm,
   isSaving = false,
 }: ScheduledInstallStepProps) => {
+  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
   const [selectedSaleIds, setSelectedSaleIds] = useState<Set<string>>(new Set());
   const [scheduledDates, setScheduledDates] = useState<Record<string, Date>>({});
   const [datePickerOpen, setDatePickerOpen] = useState<string | null>(null);
 
+  const isNeverInstalled = (sale: Sale) =>
+    sale.install_status === 'never_installed';
+
   const toggleSale = (saleId: string) => {
+    const sale = salesLog.find(s => s.id === saleId);
+    if (sale && isNeverInstalled(sale)) return;
+
     setSelectedSaleIds(prev => {
       const next = new Set(prev);
       if (next.has(saleId)) {
         next.delete(saleId);
-        // Also remove scheduled date
         setScheduledDates(d => {
           const newDates = { ...d };
           delete newDates[saleId];
@@ -41,7 +47,6 @@ export const ScheduledInstallStep = ({
         });
       } else {
         next.add(saleId);
-        // Default to tomorrow
         setScheduledDates(d => ({
           ...d,
           [saleId]: addDays(new Date(), 1),
@@ -53,21 +58,14 @@ export const ScheduledInstallStep = ({
 
   const handleDateSelect = (saleId: string, date: Date | undefined) => {
     if (!date) return;
-    // Update the date first, then close popover after a brief delay to ensure state updates
-    setScheduledDates(prev => {
-      const updated = { ...prev, [saleId]: date };
-      console.log('Date selected for sale', saleId, ':', format(date, 'MMM d, yyyy'));
-      return updated;
-    });
-    // Small delay to ensure the date state is updated before closing
-    setTimeout(() => {
-      setDatePickerOpen(null);
-    }, 50);
+    setScheduledDates(prev => ({ ...prev, [saleId]: date }));
+    setTimeout(() => setDatePickerOpen(null), 50);
   };
 
   const handleConfirm = () => {
-    // Update sales with install tracking
     const updatedSales = salesLog.map(sale => {
+      if (isNeverInstalled(sale)) return sale;
+
       if (selectedSaleIds.has(sale.id)) {
         const schedDate = scheduledDates[sale.id];
         return {
@@ -77,27 +75,25 @@ export const ScheduledInstallStep = ({
           scheduled_install_date: schedDate ? format(schedDate, 'yyyy-MM-dd') : undefined,
         };
       }
-      // Default: installed same day
       return {
         ...sale,
         installed_same_day: true,
         install_status: 'installed' as const,
       };
     });
-
     onConfirm(updatedSales);
-    // Don't close here - parent controls closing after save completes
   };
 
   const handleAllInstalled = () => {
-    // Mark all as installed same day
-    const updatedSales = salesLog.map(sale => ({
-      ...sale,
-      installed_same_day: true,
-      install_status: 'installed' as const,
-    }));
+    const updatedSales = salesLog.map(sale => {
+      if (isNeverInstalled(sale)) return sale;
+      return {
+        ...sale,
+        installed_same_day: true,
+        install_status: 'installed' as const,
+      };
+    });
     onConfirm(updatedSales);
-    // Don't close here - parent controls closing after save completes
   };
 
   return (
@@ -119,7 +115,7 @@ export const ScheduledInstallStep = ({
               onClick={handleAllInstalled}
               disabled={isSaving}
             >
-              {isSaving ? (
+              {isSaving && !showSchedulePicker ? (
                 <span className="animate-pulse">Saving...</span>
               ) : (
                 <>
@@ -130,27 +126,26 @@ export const ScheduledInstallStep = ({
             </Button>
             <Button
               variant="outline"
-              className="flex-1 h-12"
-              onClick={() => {
-                // Show sale picker if not already selected
-                if (selectedSaleIds.size === 0 && salesLog.length > 0) {
-                  toggleSale(salesLog[0].id);
-                }
-              }}
+              className={cn(
+                "flex-1 h-12",
+                showSchedulePicker && "border-amber-500 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/30"
+              )}
+              onClick={() => setShowSchedulePicker(prev => !prev)}
             >
               <CalendarDays className="h-4 w-4 mr-2" />
               Some Scheduled Out
             </Button>
           </div>
 
-          {/* Sale picker (shown when selecting scheduled sales) */}
-          {selectedSaleIds.size > 0 || salesLog.length > 1 ? (
+          {/* Sale picker - only shown after tapping "Some Scheduled Out" */}
+          {showSchedulePicker && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 Select deals that were scheduled for a later date:
               </p>
 
               {salesLog.map(sale => {
+                const neverInstalled = isNeverInstalled(sale);
                 const isSelected = selectedSaleIds.has(sale.id);
                 const schedDate = scheduledDates[sale.id];
 
@@ -158,42 +153,53 @@ export const ScheduledInstallStep = ({
                   <div
                     key={sale.id}
                     className={cn(
-                      "flex items-center justify-between p-3 rounded-lg border transition-colors cursor-pointer",
-                      isSelected
+                      "flex items-center justify-between p-3 rounded-lg border transition-colors",
+                      neverInstalled
+                        ? "opacity-40 cursor-not-allowed bg-muted/20"
+                        : "cursor-pointer",
+                      !neverInstalled && isSelected
                         ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"
-                        : "bg-muted/30 hover:bg-muted/50"
+                        : !neverInstalled && "bg-muted/30 hover:bg-muted/50"
                     )}
-                    onClick={() => toggleSale(sale.id)}
+                    onClick={() => !neverInstalled && toggleSale(sale.id)}
                   >
                     <div className="flex items-center gap-3">
                       <div
                         className={cn(
                           "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                          isSelected
-                            ? "bg-amber-500 border-amber-500"
-                            : "border-muted-foreground/30"
+                          neverInstalled
+                            ? "border-muted-foreground/20 bg-muted/30"
+                            : isSelected
+                              ? "bg-amber-500 border-amber-500"
+                              : "border-muted-foreground/30"
                         )}
                       >
-                        {isSelected && <Check className="h-3 w-3 text-white" />}
+                        {neverInstalled && <X className="h-3 w-3 text-muted-foreground/40" />}
+                        {!neverInstalled && isSelected && <Check className="h-3 w-3 text-white" />}
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant={sale.type === 'fp' ? 'default' : 'secondary'}>
                           {sale.type === 'fp' ? 'FP' : 'UP'}
                         </Badge>
-                        <span className="font-medium">${Math.round(sale.prmr)}</span>
+                        <span className={cn("font-medium", neverInstalled && "line-through")}>
+                          ${Math.round(sale.prmr)}
+                        </span>
+                        {neverInstalled && (
+                          <span className="text-[10px] text-muted-foreground">Never Installed</span>
+                        )}
                       </div>
                     </div>
 
-                    {isSelected && (
+                    {!neverInstalled && isSelected && (
                       <div onClick={(e) => e.stopPropagation()}>
                         <Popover
                           open={datePickerOpen === sale.id}
                           onOpenChange={(open) => setDatePickerOpen(open ? sale.id : null)}
                         >
                           <PopoverTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className={cn(
                                 "h-8 text-xs transition-all",
                                 schedDate && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
@@ -213,8 +219,8 @@ export const ScheduledInstallStep = ({
                               )}
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent 
-                            className="w-auto p-0" 
+                          <PopoverContent
+                            className="w-auto p-0"
                             align="end"
                             onInteractOutside={(e) => e.preventDefault()}
                           >
@@ -223,7 +229,6 @@ export const ScheduledInstallStep = ({
                               selected={schedDate}
                               onSelect={(date) => handleDateSelect(sale.id, date)}
                               disabled={(date) => {
-                                // Allow today (for same-day scheduled installs) but not past dates
                                 const today = new Date();
                                 today.setHours(0, 0, 0, 0);
                                 return date < today;
@@ -239,7 +244,6 @@ export const ScheduledInstallStep = ({
                 );
               })}
 
-              {/* Helper text when button is disabled */}
               {selectedSaleIds.size > 0 && [...selectedSaleIds].some(id => !scheduledDates[id]) && (
                 <p className="text-sm text-amber-600 dark:text-amber-400 text-center">
                   Select install dates for all scheduled sales
@@ -258,7 +262,7 @@ export const ScheduledInstallStep = ({
                 {isSaving ? 'Saving...' : 'Confirm & Save'}
               </Button>
             </div>
-          ) : null}
+          )}
         </div>
       </DrawerContent>
     </Drawer>
