@@ -5,7 +5,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, GitBranch, Filter } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
-import { VisualRecruiterTree, type TreeNode } from "@/components/mygroup/org/VisualRecruiterTree";
+import { VisualRecruiterTree, type TreeNode, type RoleColor } from "@/components/mygroup/org/VisualRecruiterTree";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrgStructureTree } from "@/components/org/OrgStructureTree";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
