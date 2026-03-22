@@ -303,7 +303,6 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
 
     const buildTeamMembers = (teamLeadUserId: string | null, teamName: string, teamId: string, mgmtGroupId: string | null, mgmtGroupName: string | null): OrgNode[] => {
       if (!teamLeadUserId) return [];
-      // Stop recursion at boundaries of OTHER team leads (not this one)
       const stopLeads = new Set([...allTeamLeadIds, ...allMgmtLeadIds]);
       stopLeads.delete(teamLeadUserId);
       return buildRecruiterSubtree(teamLeadUserId, teamName, teamId, mgmtGroupId, mgmtGroupName, stopLeads, new Set());
@@ -571,7 +570,7 @@ interface OrgNodeCardProps {
 }
 
 const OrgNodeCard = ({ node, depth, onLongPressAction, onTap, canManage }: OrgNodeCardProps) => {
-  const [expanded, setExpanded] = useState(depth < 4);
+  const [expanded, setExpanded] = useState(depth < 6);
   const hasChildren = node.children.length > 0;
   const Icon = typeIcons[node.type];
   const isRep = node.type === "rep";
