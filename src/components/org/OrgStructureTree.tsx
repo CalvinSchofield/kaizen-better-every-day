@@ -808,6 +808,54 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         }}
         initialTab="details"
       />
+
+      {/* Move rep to team drawer */}
+      {moveRepTarget && orgData && (
+        <MoveToTeamDrawer
+          open={!!moveRepTarget}
+          onOpenChange={(open) => !open && setMoveRepTarget(null)}
+          repId={moveRepTarget.id}
+          repName={moveRepTarget.name}
+          teams={orgData.teams.map((t) => {
+            const tmg = orgData.teamMgmt.find((tm) => tm.team_id === t.id);
+            const mg = tmg ? orgData.mgmtGroups.find((g) => g.id === tmg.mgmt_group_id) : null;
+            return { id: t.id, name: t.name, mgmtGroupName: mg?.name };
+          })}
+        />
+      )}
+
+      {/* Bulk assign reps to team */}
+      {bulkAssignTarget && orgData && (
+        <BulkAssignRepsDrawer
+          open={!!bulkAssignTarget}
+          onOpenChange={(open) => !open && setBulkAssignTarget(null)}
+          targetTeamId={bulkAssignTarget.id}
+          targetTeamName={bulkAssignTarget.name}
+          availableReps={orgData.recruits
+            .filter((r) => isStageIn(r.stage, [...SIGNED_PLUS_STAGES]) && r.team_id !== bulkAssignTarget.id)
+            .map((r) => {
+              const currentTeam = r.team_id ? orgData.teams.find((t) => t.id === r.team_id) : null;
+              return {
+                id: r.id,
+                name: getCleanName(r.name),
+                currentTeamName: currentTeam?.name || (r.team_id ? "Unknown Team" : null),
+                stage: r.stage,
+                year: r.year,
+              };
+            })}
+        />
+      )}
+
+      {/* Move team to MGMT group */}
+      {moveTeamTarget && orgData && (
+        <MoveTeamToMgmtDrawer
+          open={!!moveTeamTarget}
+          onOpenChange={(open) => !open && setMoveTeamTarget(null)}
+          teamId={moveTeamTarget.id}
+          teamName={moveTeamTarget.name}
+          mgmtGroups={orgData.mgmtGroups.map((mg) => ({ id: mg.id, name: mg.name }))}
+        />
+      )}
     </>
   );
 };
