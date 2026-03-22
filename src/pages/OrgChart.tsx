@@ -574,7 +574,7 @@ const OrgChart = () => {
         </TabsContent>
 
         <TabsContent value="structure" className="mt-3">
-          <OrgStructureTree />
+          <OrgStructureTree accessLevel={teamAccess?.accessLevel} />
         </TabsContent>
       </Tabs>
 

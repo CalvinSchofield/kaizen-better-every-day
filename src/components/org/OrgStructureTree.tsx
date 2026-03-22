@@ -2,26 +2,23 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { Globe, Building2, Users, User, ChevronDown, ChevronRight, UserPlus, Trash2, Pencil, MoreVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Globe, Building2, Users, User, ChevronDown, ChevronRight, UserPlus, Trash2, Plus } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLongPress } from "@/hooks/useLongPress";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
+import { CreateDrawer, ConfigureOfficeDrawer, ConfigureRegionDrawer } from "./OrgManagementDrawer";
 import type { Recruit } from "@/hooks/useGroupRecruits";
+import type { AccessLevel } from "@/utils/roleHierarchy";
+import { hasMinAccess } from "@/utils/roleHierarchy";
 
 type OrgNodeType = "region" | "office" | "mgmt_group" | "team" | "recruiter_group" | "rep";
 
@@ -33,26 +30,31 @@ interface OrgNode {
   year?: string | null;
   hasAppAccess?: boolean;
   children: OrgNode[];
-  // For rep nodes: store recruit data for drawer
   recruitData?: Partial<Recruit>;
+  // For management
+  leadUserId?: string | null;
+  location?: string | null;
 }
 
 function countTotalDescendants(node: OrgNode): number {
   if (node.children.length === 0) return 0;
   let count = 0;
   for (const child of node.children) {
-    if (child.type === "rep") {
-      count += 1;
-    } else {
-      count += countTotalDescendants(child);
-    }
+    if (child.type === "rep") count += 1;
+    else count += countTotalDescendants(child);
   }
   return count;
 }
 
-export const OrgStructureTree = () => {
+interface OrgStructureTreeProps {
+  accessLevel?: AccessLevel;
+}
+
+export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps) => {
   const queryClient = useQueryClient();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const canManageOffices = hasMinAccess(accessLevel, "regional");
+  const canManageRegions = hasMinAccess(accessLevel, "regional");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id || null));
@@ -85,15 +87,16 @@ export const OrgStructureTree = () => {
     staleTime: 1000 * 60 * 2,
   });
 
-  // Delete confirmation
+  // Action states
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; type: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Action sheet state (long-press)
   const [actionTarget, setActionTarget] = useState<{ id: string; name: string; type: string } | null>(null);
-
-  // Rep detail drawer
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
+
+  // Management drawers
+  const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region"; parentId?: string; parentName?: string } | null>(null);
+  const [configOffice, setConfigOffice] = useState<string | null>(null);
+  const [configRegion, setConfigRegion] = useState<string | null>(null);
 
   const handleDeleteTeam = useCallback(async () => {
     if (!deleteTarget || !currentUserId) return;
@@ -102,15 +105,11 @@ export const OrgStructureTree = () => {
       const { error } = await supabase.from("org_change_requests").insert({
         request_type: `delete_${deleteTarget.type}`,
         requested_by: currentUserId,
-        request_data: {
-          target_id: deleteTarget.id,
-          target_name: deleteTarget.name,
-          target_type: deleteTarget.type,
-        },
+        request_data: { target_id: deleteTarget.id, target_name: deleteTarget.name, target_type: deleteTarget.type },
         status: "pending",
       });
       if (error) throw error;
-      toast.success(`Deletion request submitted for "${deleteTarget.name}". Awaiting approval.`);
+      toast.success(`Deletion request submitted for "${deleteTarget.name}".`);
       queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
     } catch (err: any) {
       toast.error(err.message || "Failed to submit request");
@@ -146,6 +145,26 @@ export const OrgStructureTree = () => {
     } as Recruit);
   }, []);
 
+  const handleNodeTap = useCallback((node: OrgNode) => {
+    if (node.type === "rep") {
+      handleRepTap(node);
+    } else if (node.type === "office" && canManageOffices) {
+      setConfigOffice(node.id);
+    } else if (node.type === "region" && canManageRegions && node.id !== "unassigned") {
+      setConfigRegion(node.id);
+    }
+  }, [handleRepTap, canManageOffices, canManageRegions]);
+
+  const handleLongPress = useCallback((node: OrgNode) => {
+    if (node.type === "team" || node.type === "mgmt_group") {
+      setActionTarget({ id: node.id, name: node.name, type: node.type });
+    } else if (node.type === "office" && canManageOffices) {
+      setConfigOffice(node.id);
+    } else if (node.type === "region" && canManageRegions && node.id !== "unassigned") {
+      setConfigRegion(node.id);
+    }
+  }, [canManageOffices, canManageRegions]);
+
   const tree = useMemo(() => {
     if (!orgData) return [];
     const { regions, offices, mgmtGroups, teams, teamMgmt, officeStaff, reps, recruits } = orgData;
@@ -155,13 +174,33 @@ export const OrgStructureTree = () => {
       return getCleanName(repMap.get(userId)?.name) || "Unknown";
     };
 
+    const makeRepNode = (r: typeof recruits[0], teamName: string, teamId: string, mgmtGroupId: string | null, mgmtGroupName: string | null): OrgNode => {
+      const recruitRep = reps.find((rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase());
+      return {
+        id: r.id,
+        name: getCleanName(r.name),
+        type: "rep",
+        role: r.stage || undefined,
+        year: r.year,
+        hasAppAccess: !!recruitRep?.user_id,
+        children: [],
+        recruitData: {
+          id: r.id, phone: r.phone || "", email: r.email || "", stage: r.stage || "",
+          year: r.year || "", location: r.location || null, recruitmentSource: r.recruitment_source || null,
+          lastContact: r.last_contact || null, nextAction: r.next_action || null,
+          nextActionDue: r.next_action_due || null, createdAt: r.created_at || "",
+          recruiterUserId: r.recruiter_user_id || null,
+          recruiterName: r.recruiter_user_id ? getRepName(r.recruiter_user_id) : null,
+          teamName, teamId, mgmtGroupId, mgmtGroupName,
+        } as Partial<Recruit>,
+      };
+    };
+
     const buildTeamMembers = (teamId: string, teamLeadUserId: string | null, teamName: string, mgmtGroupId: string | null, mgmtGroupName: string | null): OrgNode[] => {
       const teamRecruits = recruits.filter((r) => r.team_id === teamId);
       if (teamRecruits.length === 0) return [];
-
       const byRecruiter = new Map<string, typeof teamRecruits>();
       const noRecruiter: typeof teamRecruits = [];
-
       teamRecruits.forEach((r) => {
         if (r.recruiter_user_id && r.recruiter_user_id !== teamLeadUserId) {
           const existing = byRecruiter.get(r.recruiter_user_id) || [];
@@ -171,58 +210,19 @@ export const OrgStructureTree = () => {
           noRecruiter.push(r);
         }
       });
-
       const children: OrgNode[] = [];
-
-      const makeRepNode = (r: typeof recruits[0]): OrgNode => {
-        const recruitRep = reps.find((rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase());
-        return {
-          id: r.id,
-          name: getCleanName(r.name),
-          type: "rep" as OrgNodeType,
-          role: r.stage || undefined,
-          year: r.year,
-          hasAppAccess: !!recruitRep?.user_id,
-          children: [],
-          recruitData: {
-            id: r.id,
-            phone: r.phone || "",
-            email: r.email || "",
-            stage: r.stage || "",
-            year: r.year || "",
-            location: r.location || null,
-            recruitmentSource: r.recruitment_source || null,
-            lastContact: r.last_contact || null,
-            nextAction: r.next_action || null,
-            nextActionDue: r.next_action_due || null,
-            createdAt: r.created_at || "",
-            recruiterUserId: r.recruiter_user_id || null,
-            recruiterName: r.recruiter_user_id ? getRepName(r.recruiter_user_id) : null,
-            teamName,
-            teamId: teamId,
-            mgmtGroupId: mgmtGroupId || null,
-            mgmtGroupName: mgmtGroupName || null,
-          } as Partial<Recruit>,
-        };
-      };
-
       byRecruiter.forEach((groupRecruits, recruiterId) => {
         const recruiterRep = repMap.get(recruiterId);
         const recruiterName = recruiterRep ? getCleanName(recruiterRep.name) : "Unknown Recruiter";
-
         children.push({
           id: `recruiter-${recruiterId}`,
           name: `${recruiterName}'s Recruits`,
           type: "recruiter_group",
-          role: recruiterRep ? (recruiterRep.year || undefined) : undefined,
-          children: groupRecruits.map(makeRepNode),
+          role: recruiterRep?.year || undefined,
+          children: groupRecruits.map((r) => makeRepNode(r, teamName, teamId, mgmtGroupId, mgmtGroupName)),
         });
       });
-
-      noRecruiter.forEach((r) => {
-        children.push(makeRepNode(r));
-      });
-
+      noRecruiter.forEach((r) => children.push(makeRepNode(r, teamName, teamId, mgmtGroupId, mgmtGroupName)));
       return children;
     };
 
@@ -231,54 +231,43 @@ export const OrgStructureTree = () => {
       return teams
         .filter((t) => groupTeamIds.includes(t.id))
         .map((t) => ({
-          id: t.id,
-          name: t.name,
-          type: "team" as const,
+          id: t.id, name: t.name, type: "team" as const,
           role: t.lead_user_id ? `Led by ${getRepName(t.lead_user_id)}` : undefined,
           children: buildTeamMembers(t.id, t.lead_user_id, t.name, mgmtGroupId, mgmtGroupName),
         }));
     };
 
     const mgmtNodes = (officeId: string): OrgNode[] =>
-      mgmtGroups
-        .filter((mg) => mg.office_id === officeId)
-        .map((mg) => ({
-          id: mg.id,
-          name: mg.name,
-          type: "mgmt_group" as const,
-          role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
-          children: teamNodes(mg.id, mg.name),
-        }));
+      mgmtGroups.filter((mg) => mg.office_id === officeId).map((mg) => ({
+        id: mg.id, name: mg.name, type: "mgmt_group" as const,
+        role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
+        leadUserId: mg.lead_user_id,
+        children: teamNodes(mg.id, mg.name),
+      }));
 
     const officeNodes = (regionId: string | null): OrgNode[] =>
-      offices
-        .filter((o: any) => (regionId ? o.region_id === regionId : !o.region_id))
-        .map((o) => {
-          const staff = officeStaff.filter((s) => s.office_id === o.id);
-          const adNames = staff.map((s) => `${getRepName(s.user_id)} (AD)`).join(", ");
-          return {
-            id: o.id,
-            name: o.name,
-            type: "office" as const,
-            role: adNames || undefined,
-            children: mgmtNodes(o.id),
-          };
-        });
+      offices.filter((o: any) => (regionId ? o.region_id === regionId : !o.region_id)).map((o) => {
+        const staff = officeStaff.filter((s) => s.office_id === o.id);
+        const adNames = staff.map((s) => `${getRepName(s.user_id)} (AD)`).join(", ");
+        return {
+          id: o.id, name: o.name, type: "office" as const,
+          role: adNames || undefined,
+          location: o.location,
+          children: mgmtNodes(o.id),
+        };
+      });
 
     const regionNodes: OrgNode[] = regions.map((r) => ({
-      id: r.id,
-      name: r.name,
-      type: "region" as const,
+      id: r.id, name: r.name, type: "region" as const,
       role: r.lead_user_id ? `Led by ${getRepName(r.lead_user_id)}` : undefined,
+      leadUserId: r.lead_user_id,
       children: officeNodes(r.id),
     }));
 
     const unassignedOffices = officeNodes(null);
     if (unassignedOffices.length > 0) {
       regionNodes.push({
-        id: "unassigned",
-        name: "Unassigned Offices",
-        type: "region",
+        id: "unassigned", name: "Unassigned Offices", type: "region",
         children: unassignedOffices,
       });
     }
@@ -286,11 +275,29 @@ export const OrgStructureTree = () => {
     return regionNodes;
   }, [orgData]);
 
+  // Find data for config drawers
+  const configOfficeData = useMemo(() => {
+    if (!configOffice || !orgData) return null;
+    const office = orgData.offices.find((o) => o.id === configOffice);
+    if (!office) return null;
+    const staff = orgData.officeStaff.filter((s) => s.office_id === configOffice);
+    const groups = orgData.mgmtGroups.filter((mg) => mg.office_id === configOffice);
+    return { office, staff, groups };
+  }, [configOffice, orgData]);
+
+  const configRegionData = useMemo(() => {
+    if (!configRegion || !orgData) return null;
+    const region = orgData.regions.find((r) => r.id === configRegion);
+    if (!region) return null;
+    const offices = orgData.offices.filter((o: any) => o.region_id === configRegion);
+    return { region, offices };
+  }, [configRegion, orgData]);
+
   if (isLoading) {
     return <div className="animate-pulse space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-10 bg-muted rounded-lg" />)}</div>;
   }
 
-  if (tree.length === 0) {
+  if (tree.length === 0 && !canManageRegions) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <Globe className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -301,19 +308,44 @@ export const OrgStructureTree = () => {
 
   return (
     <>
+      {/* Create buttons for Regional+ */}
+      {canManageRegions && (
+        <div className="flex gap-2 mb-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setCreateDrawer({ type: "region" })}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Region
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setCreateDrawer({ type: "office" })}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Office
+          </Button>
+        </div>
+      )}
+
       <div className="space-y-1">
         {tree.map((node) => (
           <OrgNodeCard
             key={node.id}
             node={node}
             depth={0}
-            onLongPressAction={setActionTarget}
-            onRepTap={handleRepTap}
+            onLongPressAction={handleLongPress}
+            onTap={handleNodeTap}
+            canManage={canManageOffices}
           />
         ))}
       </div>
 
-      {/* Long-press action sheet */}
+      {/* Long-press action sheet for teams/mgmt_groups */}
       <Drawer open={!!actionTarget} onOpenChange={(open) => !open && setActionTarget(null)}>
         <DrawerContent>
           <DrawerHeader>
@@ -343,7 +375,7 @@ export const OrgStructureTree = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Request Deletion</AlertDialogTitle>
             <AlertDialogDescription>
-              This will submit a request to delete "{deleteTarget?.name}". The request will need approval from your upline before it takes effect.
+              Submit a request to delete "{deleteTarget?.name}"? Needs upline approval.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -354,6 +386,44 @@ export const OrgStructureTree = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create drawer */}
+      <CreateDrawer
+        open={!!createDrawer}
+        onOpenChange={(open) => !open && setCreateDrawer(null)}
+        type={createDrawer?.type || "office"}
+        parentId={createDrawer?.parentId}
+        parentName={createDrawer?.parentName}
+      />
+
+      {/* Configure office drawer */}
+      {configOfficeData && (
+        <ConfigureOfficeDrawer
+          open={!!configOffice}
+          onOpenChange={(open) => !open && setConfigOffice(null)}
+          officeId={configOfficeData.office.id}
+          officeName={configOfficeData.office.name}
+          officeLocation={configOfficeData.office.location}
+          currentStaff={configOfficeData.staff}
+          currentMgmtGroups={configOfficeData.groups}
+          allMgmtGroups={orgData?.mgmtGroups || []}
+          allReps={orgData?.reps?.map((r) => ({ user_id: r.user_id, name: r.name })) || []}
+        />
+      )}
+
+      {/* Configure region drawer */}
+      {configRegionData && (
+        <ConfigureRegionDrawer
+          open={!!configRegion}
+          onOpenChange={(open) => !open && setConfigRegion(null)}
+          regionId={configRegionData.region.id}
+          regionName={configRegionData.region.name}
+          leadUserId={configRegionData.region.lead_user_id}
+          currentOffices={configRegionData.offices}
+          allOffices={orgData?.offices || []}
+          allReps={orgData?.reps?.map((r) => ({ user_id: r.user_id, name: r.name })) || []}
+        />
+      )}
 
       {/* Recruit detail drawer */}
       <RecruitDetailDrawer
@@ -372,37 +442,36 @@ export const OrgStructureTree = () => {
   );
 };
 
+// ==========================================
+// NODE CARD
+// ==========================================
+
 const typeIcons: Record<OrgNodeType, any> = {
-  region: Globe,
-  office: Building2,
-  mgmt_group: Users,
-  team: Users,
-  recruiter_group: UserPlus,
-  rep: User,
+  region: Globe, office: Building2, mgmt_group: Users,
+  team: Users, recruiter_group: UserPlus, rep: User,
 };
 
 const typeColors: Record<OrgNodeType, string> = {
-  region: "text-primary",
-  office: "text-amber-500",
-  mgmt_group: "text-blue-500",
-  team: "text-green-500",
-  recruiter_group: "text-purple-500",
-  rep: "text-muted-foreground",
+  region: "text-primary", office: "text-amber-500", mgmt_group: "text-blue-500",
+  team: "text-green-500", recruiter_group: "text-purple-500", rep: "text-muted-foreground",
 };
 
 interface OrgNodeCardProps {
   node: OrgNode;
   depth: number;
-  onLongPressAction: (target: { id: string; name: string; type: string }) => void;
-  onRepTap: (node: OrgNode) => void;
+  onLongPressAction: (node: OrgNode) => void;
+  onTap: (node: OrgNode) => void;
+  canManage: boolean;
 }
 
-const OrgNodeCard = ({ node, depth, onLongPressAction, onRepTap }: OrgNodeCardProps) => {
+const OrgNodeCard = ({ node, depth, onLongPressAction, onTap, canManage }: OrgNodeCardProps) => {
   const [expanded, setExpanded] = useState(depth < 2);
   const hasChildren = node.children.length > 0;
   const Icon = typeIcons[node.type];
-  const isEditable = node.type === "team" || node.type === "mgmt_group";
   const isRep = node.type === "rep";
+  const isInteractive = isRep || ((node.type === "office" || node.type === "region") && canManage);
+  const isLongPressable = node.type === "team" || node.type === "mgmt_group" || ((node.type === "office" || node.type === "region") && canManage);
+
   const totalReps = useMemo(() => {
     if (isRep) return 0;
     return countTotalDescendants(node);
@@ -410,12 +479,10 @@ const OrgNodeCard = ({ node, depth, onLongPressAction, onRepTap }: OrgNodeCardPr
 
   const longPressHandlers = useLongPress({
     delay: 400,
-    onLongPress: isEditable ? () => {
-      onLongPressAction({ id: node.id, name: node.name, type: node.type });
-    } : undefined,
+    onLongPress: isLongPressable ? () => onLongPressAction(node) : undefined,
     onTap: () => {
-      if (isRep) {
-        onRepTap(node);
+      if (isInteractive) {
+        onTap(node);
       } else if (hasChildren) {
         setExpanded(!expanded);
       }
@@ -429,27 +496,24 @@ const OrgNodeCard = ({ node, depth, onLongPressAction, onRepTap }: OrgNodeCardPr
         {...longPressHandlers}
       >
         {hasChildren ? (
-          expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          expanded
+            ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" onClick={(e) => { e.stopPropagation(); setExpanded(false); }} />
+            : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" onClick={(e) => { e.stopPropagation(); setExpanded(true); }} />
         ) : (
           <span className="w-4 shrink-0" />
         )}
         <Icon className={cn("h-4 w-4 shrink-0", typeColors[node.type])} />
         <span className={cn(
           "text-sm font-medium truncate",
-          isRep && !node.hasAppAccess && "text-muted-foreground italic"
+          isRep && !node.hasAppAccess && "text-muted-foreground italic",
+          isInteractive && "underline decoration-dotted underline-offset-2"
         )}>
           {node.name}
         </span>
 
-        {isRep && node.year && (
-          <YearBadge year={node.year} className="!w-4 !h-4 !text-[8px]" />
-        )}
-
+        {isRep && node.year && <YearBadge year={node.year} className="!w-4 !h-4 !text-[8px]" />}
         {isRep && (
-          <span className={cn(
-            "w-1.5 h-1.5 rounded-full shrink-0",
-            node.hasAppAccess ? "bg-green-500" : "bg-muted-foreground/30"
-          )} />
+          <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", node.hasAppAccess ? "bg-green-500" : "bg-muted-foreground/30")} />
         )}
 
         {node.role && <span className="text-xs text-muted-foreground truncate ml-auto">{node.role}</span>}
@@ -464,13 +528,7 @@ const OrgNodeCard = ({ node, depth, onLongPressAction, onRepTap }: OrgNodeCardPr
       {expanded && hasChildren && (
         <div className="space-y-0.5">
           {node.children.map((child) => (
-            <OrgNodeCard
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              onLongPressAction={onLongPressAction}
-              onRepTap={onRepTap}
-            />
+            <OrgNodeCard key={child.id} node={child} depth={depth + 1} onLongPressAction={onLongPressAction} onTap={onTap} canManage={canManage} />
           ))}
         </div>
       )}
