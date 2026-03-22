@@ -5,7 +5,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, GitBranch, Filter } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
-import { VisualRecruiterTree, type TreeNode } from "@/components/mygroup/org/VisualRecruiterTree";
+import { VisualRecruiterTree, type TreeNode, type RoleColor } from "@/components/mygroup/org/VisualRecruiterTree";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrgStructureTree } from "@/components/org/OrgStructureTree";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
@@ -63,28 +63,52 @@ const OrgChart = () => {
     staleTime: 1000 * 60 * 2,
   });
 
-  // Build role map: userId -> highest title only (Area Director > MGMT Group Lead > Team Lead)
+  // Build role map: userId -> { title, roleColor }
   // Also track area directors separately for the special display treatment
   const { roleMap, areaDirectorSet } = useMemo(() => {
-    if (!treeData) return { roleMap: new Map<string, string>(), areaDirectorSet: new Set<string>() };
-    const map = new Map<string, string>();
+    if (!treeData) return { roleMap: new Map<string, { title: string; color: RoleColor }>(), areaDirectorSet: new Set<string>() };
+    const map = new Map<string, { title: string; color: RoleColor }>();
     const adSet = new Set<string>();
 
     // Lowest priority first — higher roles overwrite
     treeData.teams.forEach((t) => {
-      if (t.lead_user_id) map.set(t.lead_user_id, "Team Lead");
+      if (t.lead_user_id) map.set(t.lead_user_id, { title: "Team Lead", color: "team_lead" });
     });
     treeData.mgmtGroups.forEach((mg) => {
-      if (mg.lead_user_id) map.set(mg.lead_user_id, "MGMT Group Lead");
+      if (mg.lead_user_id) map.set(mg.lead_user_id, { title: "MGMT Group Lead", color: "mgmt_group" });
     });
     treeData.officeStaff.forEach((s) => {
       if (s.role === "area_director") {
         adSet.add(s.user_id);
-        // Don't overwrite the org title — we'll show Area Director separately above it
+        // If they don't already have a higher org title, set area_director color
+        if (!map.has(s.user_id)) {
+          map.set(s.user_id, { title: "Area Director", color: "area_director" });
+        } else {
+          // Keep their org title but upgrade color to area_director
+          const existing = map.get(s.user_id)!;
+          map.set(s.user_id, { title: existing.title, color: "area_director" });
+        }
       }
     });
 
     return { roleMap: map, areaDirectorSet: adSet };
+  }, [treeData]);
+
+  // Build a set of userIds that are team leads (for label node insertion logic)
+  const teamLeadUserIds = useMemo(() => {
+    if (!treeData) return new Set<string>();
+    const s = new Set<string>();
+    treeData.teams.forEach((t) => { if (t.lead_user_id) s.add(t.lead_user_id); });
+    treeData.mgmtGroups.forEach((mg) => { if (mg.lead_user_id) s.add(mg.lead_user_id); });
+    return s;
+  }, [treeData]);
+
+  // Map userId -> team name they lead (for label nodes)
+  const userTeamNameMap = useMemo(() => {
+    if (!treeData) return new Map<string, string>();
+    const m = new Map<string, string>();
+    treeData.teams.forEach((t) => { if (t.lead_user_id) m.set(t.lead_user_id, t.name); });
+    return m;
   }, [treeData]);
 
   // Build full unfiltered tree first
@@ -112,7 +136,7 @@ const OrgChart = () => {
       const recruitByName = new Map(recruits.map((r) => [getCleanName(r.name).toLowerCase(), r]));
       const recruitRecord = recruitByName.get(getCleanName(repName).toLowerCase());
 
-      const children: TreeNode[] = [];
+      let children: TreeNode[] = [];
 
       recruiterRecruits.forEach((r) => {
         const recruitRep = reps.find(
@@ -138,12 +162,54 @@ const OrgChart = () => {
             role: null,
             year: r.year,
             isAreaDirector: false,
+            roleColor: "none",
             children: [],
           });
         }
       });
 
-      children.sort((a, b) => b.children.length - a.children.length);
+      // Insert a label node if this leader has both sub-leaders and non-leader direct recruits
+      const roleInfo = roleMap.get(userId);
+      const hasRole = !!roleInfo;
+      
+      if (hasRole && children.length > 1) {
+        const leaderChildren: TreeNode[] = [];
+        const plainChildren: TreeNode[] = [];
+        
+        children.forEach((c) => {
+          const childIsLeader = c.userId && teamLeadUserIds.has(c.userId);
+          if (childIsLeader) {
+            leaderChildren.push(c);
+          } else {
+            plainChildren.push(c);
+          }
+        });
+        
+        if (leaderChildren.length > 0 && plainChildren.length > 0) {
+          // Get the team name this person leads, or fallback
+          const teamName = userTeamNameMap.get(userId);
+          const labelName = teamName 
+            ? `${teamName}` 
+            : `${getCleanName(rep?.name || "Unknown")} Team`;
+          
+          const labelNode: TreeNode = {
+            id: `label-${userId}`,
+            name: labelName,
+            userId: null,
+            stage: null,
+            profilePhotoUrl: null,
+            role: null,
+            year: null,
+            isAreaDirector: false,
+            roleColor: roleInfo.color,
+            isLabelNode: true,
+            children: plainChildren,
+          };
+          
+          children = [...leaderChildren, labelNode];
+          children.sort((a, b) => b.children.length - a.children.length);
+        }
+      }
 
       return {
         id: recruitRecord?.id || userId,
@@ -151,9 +217,10 @@ const OrgChart = () => {
         userId,
         stage: recruitRecord?.stage || rep?.stage || null,
         profilePhotoUrl: rep?.profile_photo_url,
-        role: roleMap.get(userId) || null,
+        role: roleInfo?.title || null,
         year: rep?.year || recruitRecord?.year || null,
         isAreaDirector: areaDirectorSet.has(userId),
+        roleColor: roleInfo?.color || "none",
         children,
       };
     };
@@ -198,13 +265,19 @@ const OrgChart = () => {
     }
 
     return rootNodes.sort((a, b) => b.children.length - a.children.length);
-  }, [treeData, teamAccess, currentAuthUserId, roleMap, areaDirectorSet]);
+  }, [treeData, teamAccess, currentAuthUserId, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap]);
 
   // Filter tree based on stage filters
   const filteredTree = useMemo(() => {
     if (!fullTree) return null;
 
     const filterNode = (node: TreeNode): TreeNode | null => {
+      // Label nodes always pass if they have filtered children
+      if (node.isLabelNode) {
+        const filteredChildren = node.children.map(filterNode).filter(Boolean) as TreeNode[];
+        return filteredChildren.length > 0 ? { ...node, children: filteredChildren } : null;
+      }
+
       // Recursively filter children
       const filteredChildren = node.children
         .map(filterNode)
@@ -225,7 +298,6 @@ const OrgChart = () => {
       const nodePassesFilter = stageMatch && appAccessMatch;
       
       if (nodePassesFilter || filteredChildren.length > 0) {
-        // If node itself doesn't pass but children do, still show it as a connector
         return { ...node, children: filteredChildren };
       }
 
