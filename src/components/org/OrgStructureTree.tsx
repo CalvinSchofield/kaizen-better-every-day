@@ -302,6 +302,8 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         toast.success(`Deletion request submitted for "${deleteTarget.name}".`);
       }
       queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
+      queryClient.invalidateQueries({ queryKey: ["org-chart-full-tree"] });
+      queryClient.invalidateQueries({ queryKey: ["recruiter-tree-data"] });
     } catch (err: any) {
       toast.error(err.message || "Failed to delete");
     } finally {
