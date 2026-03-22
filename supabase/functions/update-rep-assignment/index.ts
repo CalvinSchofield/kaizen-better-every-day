@@ -55,8 +55,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { repId, teamId, recruiterUserId } = await req.json();
-    console.log('update-rep-assignment called with:', { repId, teamId, recruiterUserId });
+    const { repId, teamId, recruiterUserId, mgmtGroupId } = await req.json();
+    console.log('update-rep-assignment called with:', { repId, teamId, recruiterUserId, mgmtGroupId });
 
     if (!repId) {
       return new Response(JSON.stringify({ error: 'repId is required' }), {
@@ -74,6 +74,10 @@ Deno.serve(async (req) => {
     
     if (recruiterUserId !== undefined) {
       updates.recruiter_user_id = recruiterUserId || null;
+    }
+
+    if (mgmtGroupId !== undefined) {
+      updates.mgmt_group_id = mgmtGroupId || null;
     }
 
     if (Object.keys(updates).length === 0) {

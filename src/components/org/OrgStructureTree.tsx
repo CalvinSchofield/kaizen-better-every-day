@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Globe, Building2, Users, User, ChevronDown, ChevronRight, UserPlus, Trash2, Plus } from "lucide-react";
+import { Globe, Building2, Users, User, ChevronDown, ChevronRight, UserPlus, Trash2, Plus, ArrowRightLeft, FileEdit, Info } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
 import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
@@ -17,6 +17,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
 import { CreateDrawer, ConfigureOfficeDrawer, ConfigureRegionDrawer } from "./OrgManagementDrawer";
+import { BulkAssignRepsDrawer } from "./BulkAssignRepsDrawer";
+import { MoveToTeamDrawer } from "./MoveToTeamDrawer";
+import { MoveTeamToMgmtDrawer } from "./MoveTeamToMgmtDrawer";
 import type { Recruit } from "@/hooks/useGroupRecruits";
 import type { AccessLevel } from "@/utils/roleHierarchy";
 import { hasMinAccess } from "@/utils/roleHierarchy";
@@ -125,6 +128,11 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const [isDeleting, setIsDeleting] = useState(false);
   const [actionTarget, setActionTarget] = useState<{ id: string; name: string; type: string } | null>(null);
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
+
+  // New drawer states
+  const [moveRepTarget, setMoveRepTarget] = useState<{ id: string; name: string } | null>(null);
+  const [bulkAssignTarget, setBulkAssignTarget] = useState<{ id: string; name: string } | null>(null);
+  const [moveTeamTarget, setMoveTeamTarget] = useState<{ id: string; name: string } | null>(null);
 
   // Management drawers
   const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team"; parentId?: string; parentName?: string } | null>(null);
@@ -349,14 +357,16 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   }, [handleRepTap, canManageOffices, canManageRegions]);
 
   const handleLongPress = useCallback((node: OrgNode) => {
-    if (node.type === "team" || node.type === "mgmt_group") {
+    if (node.type === "rep" && canManageTeams) {
+      setActionTarget({ id: node.id, name: node.name, type: "rep" });
+    } else if (node.type === "team" || node.type === "mgmt_group") {
       setActionTarget({ id: node.id, name: node.name, type: node.type });
     } else if (node.type === "office" && canManageOffices) {
       setConfigOffice(node.id);
     } else if (node.type === "region" && canManageRegions && node.id !== "unassigned") {
       setConfigRegion(node.id);
     }
-  }, [canManageOffices, canManageRegions]);
+  }, [canManageOffices, canManageRegions, canManageTeams]);
 
   const tree = useMemo(() => {
     if (!orgData) return [];
@@ -594,6 +604,37 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         </div>
       )}
 
+      {/* Onboarding guidance for new leaders */}
+      {canManageTeams && orgData && (() => {
+        const hasTeams = orgData.teams.length > 0;
+        const hasMgmtGroups = orgData.mgmtGroups.length > 0;
+        const hasOffices = orgData.offices.length > 0;
+        const showGuide = !hasTeams || !hasMgmtGroups;
+        if (!showGuide) return null;
+        return (
+          <div className="mb-4 p-3 rounded-lg border border-primary/20 bg-primary/5">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div className="text-sm space-y-1">
+                <p className="font-medium text-foreground">Build your org structure</p>
+                {hasMinAccess(accessLevel, "area_director") && !hasMgmtGroups && hasOffices && (
+                  <p className="text-muted-foreground">1. Tap an office → create MGMT Groups</p>
+                )}
+                {!hasTeams && hasMgmtGroups && (
+                  <p className="text-muted-foreground">{hasMgmtGroups ? "1" : "2"}. Long-press a MGMT Group → Create Team</p>
+                )}
+                {hasTeams && (
+                  <p className="text-muted-foreground">Long-press a team → Assign Reps</p>
+                )}
+                {!hasTeams && !hasMgmtGroups && (
+                  <p className="text-muted-foreground">Long-press a rep → Move to Team</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="space-y-1">
         {tree.map((node) => (
           <OrgNodeCard
@@ -602,19 +643,93 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
             depth={0}
             onLongPressAction={handleLongPress}
             onTap={handleNodeTap}
-            canManage={canManageOffices}
+            canManage={canManageTeams}
           />
         ))}
       </div>
 
-      {/* Long-press action sheet for teams/mgmt_groups */}
+      {/* Long-press action sheet */}
       <Drawer open={!!actionTarget} onOpenChange={(open) => !open && setActionTarget(null)}>
         <DrawerContent>
           <DrawerHeader>
             <DrawerTitle>{actionTarget?.name}</DrawerTitle>
           </DrawerHeader>
           <div className="px-4 pb-6 space-y-2">
-            {/* Add team under mgmt group */}
+            {/* Rep actions */}
+            {actionTarget?.type === "rep" && (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => {
+                    if (actionTarget) {
+                      // Find the node to open detail drawer
+                      const findNode = (nodes: OrgNode[]): OrgNode | null => {
+                        for (const n of nodes) {
+                          if (n.id === actionTarget.id) return n;
+                          const found = findNode(n.children);
+                          if (found) return found;
+                        }
+                        return null;
+                      };
+                      const node = findNode(tree);
+                      if (node) handleRepTap(node);
+                      setActionTarget(null);
+                    }
+                  }}
+                >
+                  <FileEdit className="h-4 w-4" />
+                  Edit Details
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => {
+                    if (actionTarget) {
+                      setMoveRepTarget({ id: actionTarget.id, name: actionTarget.name });
+                      setActionTarget(null);
+                    }
+                  }}
+                >
+                  <ArrowRightLeft className="h-4 w-4" />
+                  Move to Team...
+                </Button>
+              </>
+            )}
+
+            {/* Team actions */}
+            {actionTarget?.type === "team" && canManageTeams && (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => {
+                    if (actionTarget) {
+                      setBulkAssignTarget({ id: actionTarget.id, name: actionTarget.name });
+                      setActionTarget(null);
+                    }
+                  }}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Assign Reps
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => {
+                    if (actionTarget) {
+                      setMoveTeamTarget({ id: actionTarget.id, name: actionTarget.name });
+                      setActionTarget(null);
+                    }
+                  }}
+                >
+                  <ArrowRightLeft className="h-4 w-4" />
+                  Move to MGMT Group...
+                </Button>
+              </>
+            )}
+
+            {/* MGMT group actions */}
             {actionTarget?.type === "mgmt_group" && canManageTeams && (
               <Button
                 variant="outline"
@@ -630,7 +745,9 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
                 Create Team
               </Button>
             )}
-            {canManageTeams && (
+
+            {/* Delete for team/mgmt_group */}
+            {(actionTarget?.type === "team" || actionTarget?.type === "mgmt_group") && canManageTeams && (
               <Button
                 variant="destructive"
                 className="w-full justify-start gap-2"
@@ -722,6 +839,54 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         }}
         initialTab="details"
       />
+
+      {/* Move rep to team drawer */}
+      {moveRepTarget && orgData && (
+        <MoveToTeamDrawer
+          open={!!moveRepTarget}
+          onOpenChange={(open) => !open && setMoveRepTarget(null)}
+          repId={moveRepTarget.id}
+          repName={moveRepTarget.name}
+          teams={orgData.teams.map((t) => {
+            const tmg = orgData.teamMgmt.find((tm) => tm.team_id === t.id);
+            const mg = tmg ? orgData.mgmtGroups.find((g) => g.id === tmg.mgmt_group_id) : null;
+            return { id: t.id, name: t.name, mgmtGroupName: mg?.name };
+          })}
+        />
+      )}
+
+      {/* Bulk assign reps to team */}
+      {bulkAssignTarget && orgData && (
+        <BulkAssignRepsDrawer
+          open={!!bulkAssignTarget}
+          onOpenChange={(open) => !open && setBulkAssignTarget(null)}
+          targetTeamId={bulkAssignTarget.id}
+          targetTeamName={bulkAssignTarget.name}
+          availableReps={orgData.recruits
+            .filter((r) => isStageIn(r.stage, [...SIGNED_PLUS_STAGES]) && r.team_id !== bulkAssignTarget.id)
+            .map((r) => {
+              const currentTeam = r.team_id ? orgData.teams.find((t) => t.id === r.team_id) : null;
+              return {
+                id: r.id,
+                name: getCleanName(r.name),
+                currentTeamName: currentTeam?.name || (r.team_id ? "Unknown Team" : null),
+                stage: r.stage,
+                year: r.year,
+              };
+            })}
+        />
+      )}
+
+      {/* Move team to MGMT group */}
+      {moveTeamTarget && orgData && (
+        <MoveTeamToMgmtDrawer
+          open={!!moveTeamTarget}
+          onOpenChange={(open) => !open && setMoveTeamTarget(null)}
+          teamId={moveTeamTarget.id}
+          teamName={moveTeamTarget.name}
+          mgmtGroups={orgData.mgmtGroups.map((mg) => ({ id: mg.id, name: mg.name }))}
+        />
+      )}
     </>
   );
 };
@@ -754,7 +919,7 @@ const OrgNodeCard = ({ node, depth, onLongPressAction, onTap, canManage }: OrgNo
   const Icon = typeIcons[node.type];
   const isRep = node.type === "rep";
   const isInteractive = isRep || ((node.type === "office" || node.type === "region") && canManage);
-  const isLongPressable = node.type === "team" || node.type === "mgmt_group" || ((node.type === "office" || node.type === "region") && canManage);
+  const isLongPressable = node.type === "team" || node.type === "mgmt_group" || (node.type === "rep" && canManage) || ((node.type === "office" || node.type === "region") && canManage);
 
   const totalReps = useMemo(() => {
     if (isRep) return 0;
