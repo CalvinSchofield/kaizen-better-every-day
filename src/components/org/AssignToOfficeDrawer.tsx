@@ -226,16 +226,14 @@ export const AssignToOfficeDrawer = ({
       });
 
       if (srIds.length > 0) {
-        updates.push(supabase.from("sr_mgmt_groups").update({ office_id: officeId }).in("id", srIds).select());
+        await supabase.from("sr_mgmt_groups").update({ office_id: officeId }).in("id", srIds);
       }
       if (mgIds.length > 0) {
-        updates.push(supabase.from("mgmt_groups").update({ office_id: officeId }).in("id", mgIds).select());
+        await supabase.from("mgmt_groups").update({ office_id: officeId }).in("id", mgIds);
       }
       if (tIds.length > 0) {
-        updates.push(supabase.from("teams").update({ office_id: officeId } as any).in("id", tIds).select());
+        await supabase.from("teams").update({ office_id: officeId } as any).in("id", tIds);
       }
-
-      await Promise.all(updates);
       queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
 
       const office = offices.find(o => o.id === officeId);
