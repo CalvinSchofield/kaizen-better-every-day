@@ -426,19 +426,37 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
             <DrawerTitle>{actionTarget?.name}</DrawerTitle>
           </DrawerHeader>
           <div className="px-4 pb-6 space-y-2">
-            <Button
-              variant="destructive"
-              className="w-full justify-start gap-2"
-              onClick={() => {
-                if (actionTarget) {
-                  setDeleteTarget(actionTarget);
-                  setActionTarget(null);
-                }
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-              Request Deletion
-            </Button>
+            {/* Add team under mgmt group */}
+            {actionTarget?.type === "mgmt_group" && canManageTeams && (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  if (actionTarget) {
+                    setCreateDrawer({ type: "team", parentId: actionTarget.id, parentName: actionTarget.name });
+                    setActionTarget(null);
+                  }
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Create Team
+              </Button>
+            )}
+            {canManageTeams && (
+              <Button
+                variant="destructive"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  if (actionTarget) {
+                    setDeleteTarget(actionTarget);
+                    setActionTarget(null);
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                {hasMinAccess(accessLevel, "area_director") ? "Delete" : "Request Deletion"}
+              </Button>
+            )}
           </div>
         </DrawerContent>
       </Drawer>
@@ -447,15 +465,17 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Request Deletion</AlertDialogTitle>
+            <AlertDialogTitle>{hasMinAccess(accessLevel, "area_director") ? "Delete" : "Request Deletion"}</AlertDialogTitle>
             <AlertDialogDescription>
-              Submit a request to delete "{deleteTarget?.name}"? Needs upline approval.
+              {hasMinAccess(accessLevel, "area_director")
+                ? `Are you sure you want to delete "${deleteTarget?.name}"?`
+                : `Submit a request to delete "${deleteTarget?.name}"? Needs upline approval.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTeam} disabled={isDeleting}>
-              {isDeleting ? "Submitting..." : "Submit Request"}
+            <AlertDialogAction onClick={handleDeleteDirect} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : hasMinAccess(accessLevel, "area_director") ? "Delete" : "Submit Request"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
