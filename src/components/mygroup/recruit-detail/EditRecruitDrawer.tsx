@@ -600,6 +600,15 @@ export const EditRecruitDrawer = ({
         </DrawerHeader>
         
         <div className="overflow-y-auto px-4 pb-4 space-y-4">
+          {/* Lateral Invite Banner */}
+          {isLateralApproval && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2.5 text-sm space-y-1">
+              <p className="font-medium text-amber-700 dark:text-amber-300">⚠️ Lateral Invite</p>
+              <p className="text-xs text-muted-foreground">
+                This person joined via a lateral invite. Recruiter, Team, and MGMT Group were not auto-assigned — you must set them manually below.
+              </p>
+            </div>
+          )}
           {/* Name */}
           <div>
             <Label>Name</Label>
