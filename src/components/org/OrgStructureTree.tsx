@@ -50,10 +50,14 @@ interface OrgStructureTreeProps {
   accessLevel?: AccessLevel;
 }
 
-export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps) => {
+export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgStructureTreeProps) => {
   const queryClient = useQueryClient();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(false);
+  const [derivedAccessLevel, setDerivedAccessLevel] = useState<AccessLevel>("none");
+
+  // Use prop if provided, otherwise use self-derived access level
+  const accessLevel: AccessLevel = propAccessLevel !== "none" ? propAccessLevel : derivedAccessLevel;
   const canManageOffices = hasMinAccess(accessLevel, "regional");
   const canManageRegions = hasMinAccess(accessLevel, "regional");
   const canManageTeams = hasMinAccess(accessLevel, "mgmt_group_lead");
@@ -65,6 +69,19 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
       const uid = data.user?.id || null;
       setCurrentUserId(uid);
       if (uid) {
+        // Derive access level from DB directly as fallback
+        Promise.all([
+          supabase.from("area_directors").select("id").eq("user_id", uid).maybeSingle(),
+          supabase.from("mgmt_groups").select("id").eq("lead_user_id", uid).maybeSingle(),
+          supabase.from("teams").select("id").eq("lead_user_id", uid).maybeSingle(),
+          supabase.from("office_staff").select("role").eq("user_id", uid).maybeSingle(),
+        ]).then(([adRes, mgmtRes, teamRes, staffRes]) => {
+          if (staffRes.data?.role === "corporate") setDerivedAccessLevel("corporate");
+          else if (adRes.data) setDerivedAccessLevel("area_director");
+          else if (mgmtRes.data) setDerivedAccessLevel("mgmt_group_lead");
+          else if (teamRes.data) setDerivedAccessLevel("team_lead");
+        });
+
         // Check if user's upline has onboarded — if not, they're bootstrapping
         supabase.rpc("has_active_upline", { _user_id: uid }).then(({ data: hasUpline }) => {
           setIsBootstrapping(!hasUpline);
@@ -73,7 +90,7 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
     });
   }, []);
 
-  const { data: orgData, isLoading } = useQuery({
+  const { data: orgData, isLoading, isError } = useQuery({
     queryKey: ["org-structure-data"],
     queryFn: async () => {
       const [regionsRes, officesRes, mgmtGroupsRes, teamsRes, teamMgmtRes, officeStaffRes, repsRes, recruitsRes] = await Promise.all([
@@ -98,6 +115,7 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
       };
     },
     staleTime: 1000 * 60 * 2,
+    retry: 1,
   });
 
   // Action states
@@ -380,6 +398,18 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
 
   if (isLoading) {
     return <div className="animate-pulse space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-10 bg-muted rounded-lg" />)}</div>;
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <Globe className="h-12 w-12 mx-auto mb-2 opacity-50" />
+        <p>Failed to load org structure</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => queryClient.invalidateQueries({ queryKey: ["org-structure-data"] })}>
+          Retry
+        </Button>
+      </div>
+    );
   }
 
   if (tree.length === 0 && !canManageRegions) {
