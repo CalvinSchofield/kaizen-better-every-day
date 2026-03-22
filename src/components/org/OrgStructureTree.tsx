@@ -16,11 +16,12 @@ import { CreateDrawer, ConfigureOfficeDrawer, ConfigureRegionDrawer } from "./Or
 import { BulkAssignRepsDrawer } from "./BulkAssignRepsDrawer";
 import { MoveToTeamDrawer } from "./MoveToTeamDrawer";
 import { MoveTeamToMgmtDrawer } from "./MoveTeamToMgmtDrawer";
+import { MoveEntityDrawer } from "./MoveEntityDrawer";
 import type { Recruit } from "@/hooks/useGroupRecruits";
 import type { AccessLevel } from "@/utils/roleHierarchy";
 import { hasMinAccess } from "@/utils/roleHierarchy";
 
-type OrgNodeType = "region" | "office" | "mgmt_group" | "team" | "recruiter_group" | "rep";
+type OrgNodeType = "division" | "partner" | "sr_region" | "region" | "sr_mgmt_group" | "office" | "mgmt_group" | "team" | "recruiter_group" | "rep";
 
 interface OrgNode {
   id: string;
@@ -263,8 +264,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const { data: orgData, isLoading, isError } = useQuery({
     queryKey: ["org-structure-data"],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [regionsRes, officesRes, mgmtGroupsRes, teamsRes, teamMgmtRes, officeStaffRes, repsRes, recruitsRes] = await Promise.all([
+      const [regionsRes, officesRes, mgmtGroupsRes, teamsRes, teamMgmtRes, officeStaffRes, repsRes, recruitsRes, srMgmtGroupsRes, srRegionsRes, partnersRes, divisionsRes] = await Promise.all([
         supabase.from("regions").select("*").order("name"),
         supabase.from("offices").select("*").order("name"),
         supabase.from("mgmt_groups").select("*").order("name"),
@@ -273,6 +273,10 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         supabase.from("office_staff").select("*"),
         supabase.from("reps").select("user_id, name, year, profile_photo_url, stage"),
         supabase.from("recruits").select("id, name, recruiter_user_id, stage, year, team_id, mgmt_group_id, phone, email, location, recruitment_source, last_contact, next_action, next_action_due, created_at").limit(5000),
+        supabase.from("sr_mgmt_groups").select("*").order("name"),
+        supabase.from("sr_regions").select("*").order("name"),
+        supabase.from("partners").select("*").order("name"),
+        supabase.from("divisions").select("*").order("name"),
       ]);
       return {
         regions: regionsRes.data || [],
@@ -283,6 +287,10 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         officeStaff: officeStaffRes.data || [],
         reps: repsRes.data || [],
         recruits: recruitsRes.data || [],
+        srMgmtGroups: srMgmtGroupsRes.data || [],
+        srRegions: srRegionsRes.data || [],
+        partners: partnersRes.data || [],
+        divisions: divisionsRes.data || [],
       };
     },
     staleTime: 1000 * 60 * 2,
@@ -299,9 +307,15 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const [moveRepTarget, setMoveRepTarget] = useState<{ id: string; name: string } | null>(null);
   const [bulkAssignTarget, setBulkAssignTarget] = useState<{ id: string; name: string } | null>(null);
   const [moveTeamTarget, setMoveTeamTarget] = useState<{ id: string; name: string; leadUserId: string | null } | null>(null);
+  const [moveEntityTarget, setMoveEntityTarget] = useState<{
+    entityType: "mgmt_group" | "sr_mgmt_group" | "region" | "sr_region" | "partner";
+    id: string;
+    name: string;
+    leadUserId: string | null;
+  } | null>(null);
 
   // Management drawers
-  const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team" | "mgmt_group"; parentId?: string; parentName?: string } | null>(null);
+  const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team" | "mgmt_group" | "sr_mgmt_group" | "sr_region" | "partner" | "division"; parentId?: string; parentName?: string } | null>(null);
   const [configOffice, setConfigOffice] = useState<string | null>(null);
   const [configRegion, setConfigRegion] = useState<string | null>(null);
 
@@ -523,20 +537,21 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   }, [handleRepTap, canManageOffices, canManageRegions]);
 
   const handleLongPress = useCallback((node: OrgNode) => {
-    if (node.type === "rep" && canManageTeams) {
-      setActionTarget({ id: node.id, name: node.name, type: "rep" });
-    } else if (node.type === "team" || node.type === "mgmt_group") {
-      setActionTarget({ id: node.id, name: node.name, type: node.type });
-    } else if (node.type === "office" && canManageOffices) {
-      setConfigOffice(node.id);
-    } else if (node.type === "region" && canManageRegions && node.id !== "unassigned") {
-      setConfigRegion(node.id);
+    const actionableTypes = ["rep", "team", "mgmt_group", "sr_mgmt_group", "region", "sr_region", "partner", "division", "office"];
+    if (actionableTypes.includes(node.type)) {
+      if (node.type === "office" && canManageOffices) {
+        setConfigOffice(node.id);
+      } else if (node.type === "region" && canManageRegions && node.id !== "unassigned") {
+        setConfigRegion(node.id);
+      } else {
+        setActionTarget({ id: node.id, name: node.name, type: node.type });
+      }
     }
-  }, [canManageOffices, canManageRegions, canManageTeams]);
+  }, [canManageOffices, canManageRegions]);
 
   const tree = useMemo(() => {
     if (!orgData) return [];
-    const { regions = [], offices = [], mgmtGroups = [], teams = [], teamMgmt = [], officeStaff = [], reps = [], recruits = [] } = orgData;
+    const { regions = [], offices = [], mgmtGroups = [], teams = [], teamMgmt = [], officeStaff = [], reps = [], recruits = [], srMgmtGroups = [], srRegions = [], partners = [], divisions = [] } = orgData;
     const repMap = new Map(reps.map((r) => [r.user_id, r]));
     const getRepName = (userId: string | null) => {
       if (!userId) return "Unassigned";
@@ -683,22 +698,65 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         };
       });
 
-    const regionNodes: OrgNode[] = regions.map((r) => ({
-      id: r.id, name: r.name, type: "region" as const,
-      role: r.lead_user_id ? `Led by ${getRepName(r.lead_user_id)}` : undefined,
-      leadUserId: r.lead_user_id,
-      children: officeNodes(r.id),
+    const regionNodes = (srRegionId: string | null): OrgNode[] =>
+      regions.filter((r: any) => (srRegionId ? r.sr_region_id === srRegionId : !r.sr_region_id)).map((r) => ({
+        id: r.id, name: r.name, type: "region" as const,
+        role: r.lead_user_id ? `Led by ${getRepName(r.lead_user_id)}` : undefined,
+        leadUserId: r.lead_user_id,
+        children: officeNodes(r.id),
+      }));
+
+    const srRegionNodes = (partnerId: string | null): OrgNode[] =>
+      srRegions.filter((sr: any) => (partnerId ? sr.partner_id === partnerId : !sr.partner_id)).map((sr) => ({
+        id: sr.id, name: sr.name, type: "sr_region" as const,
+        role: sr.lead_user_id ? `Led by ${getRepName(sr.lead_user_id)}` : undefined,
+        leadUserId: sr.lead_user_id,
+        children: regionNodes(sr.id),
+      }));
+
+    const partnerNodes = (divisionId: string | null): OrgNode[] =>
+      partners.filter((p: any) => (divisionId ? p.division_id === divisionId : !p.division_id)).map((p) => ({
+        id: p.id, name: p.name, type: "partner" as const,
+        role: p.lead_user_id ? `Led by ${getRepName(p.lead_user_id)}` : undefined,
+        leadUserId: p.lead_user_id,
+        children: srRegionNodes(p.id),
+      }));
+
+    const divisionNodes: OrgNode[] = divisions.map((d) => ({
+      id: d.id, name: d.name, type: "division" as const,
+      role: d.lead_user_id ? `Led by ${getRepName(d.lead_user_id)}` : undefined,
+      leadUserId: d.lead_user_id,
+      children: partnerNodes(d.id),
     }));
 
+    // Build the top-level tree
+    const topNodes: OrgNode[] = [];
+
+    // Add divisions
+    topNodes.push(...divisionNodes);
+
+    // Add unassigned partners (not in a division)
+    const unassignedPartners = partnerNodes(null);
+    topNodes.push(...unassignedPartners);
+
+    // Add unassigned sr_regions (not in a partner)
+    const unassignedSrRegions = srRegionNodes(null);
+    topNodes.push(...unassignedSrRegions);
+
+    // Add unassigned regions (not in an sr_region)
+    const unassignedRegions = regionNodes(null);
+    topNodes.push(...unassignedRegions);
+
+    // Add unassigned offices (not in a region)
     const unassignedOffices = officeNodes(null);
     if (unassignedOffices.length > 0) {
-      regionNodes.push({
-        id: "unassigned", name: "Unassigned Offices", type: "region",
+      topNodes.push({
+        id: "unassigned-offices", name: "Unassigned Offices", type: "office" as const,
         children: unassignedOffices,
       });
     }
 
-    return regionNodes;
+    return topNodes;
   }, [orgData]);
 
   // Find data for config drawers
@@ -748,24 +806,24 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
     <>
       {/* Create buttons for Regional+ */}
       {canManageRegions && (
-        <div className="flex gap-2 mb-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setCreateDrawer({ type: "region" })}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Region
+        <div className="flex flex-wrap gap-2 mb-3">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "division" })}>
+            <Plus className="h-3.5 w-3.5" /> Division
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setCreateDrawer({ type: "office" })}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Office
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "partner" })}>
+            <Plus className="h-3.5 w-3.5" /> Partnership
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "sr_region" })}>
+            <Plus className="h-3.5 w-3.5" /> Sr Region
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "region" })}>
+            <Plus className="h-3.5 w-3.5" /> Region
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "office" })}>
+            <Plus className="h-3.5 w-3.5" /> Office
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: "sr_mgmt_group" })}>
+            <Plus className="h-3.5 w-3.5" /> Sr MGMT Group
           </Button>
         </div>
       )}
@@ -898,35 +956,78 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
 
             {/* MGMT group actions */}
             {actionTarget?.type === "mgmt_group" && canManageTeams && (
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => {
-                  if (actionTarget) {
-                    setCreateDrawer({ type: "team", parentId: actionTarget.id, parentName: actionTarget.name });
-                    setActionTarget(null);
-                  }
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                Create Team
+              <>
+                <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "team", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                  <Plus className="h-4 w-4" /> Create Team
+                </Button>
+                {orgData && orgData.srMgmtGroups.length > 0 && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { const mg = orgData.mgmtGroups.find(g => g.id === actionTarget.id); setMoveEntityTarget({ entityType: "mgmt_group", id: actionTarget.id, name: actionTarget.name, leadUserId: mg?.lead_user_id || null }); setActionTarget(null); } }}>
+                    <ArrowRightLeft className="h-4 w-4" /> Move to Sr MGMT Group...
+                  </Button>
+                )}
+              </>
+            )}
+
+            {/* Sr MGMT group actions */}
+            {actionTarget?.type === "sr_mgmt_group" && canManageTeams && (
+              <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                <Plus className="h-4 w-4" /> Create MGMT Group
               </Button>
             )}
 
             {/* Office actions */}
             {actionTarget?.type === "office" && canManageTeams && (
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => {
-                  if (actionTarget) {
-                    setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name });
-                    setActionTarget(null);
-                  }
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                Create MGMT Group
+              <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                <Plus className="h-4 w-4" /> Create MGMT Group
+              </Button>
+            )}
+
+            {/* Region actions */}
+            {actionTarget?.type === "region" && canManageRegions && (
+              <>
+                <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "office", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                  <Plus className="h-4 w-4" /> Create Office
+                </Button>
+                {orgData && orgData.srRegions.length > 0 && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { const r = orgData.regions.find(rg => rg.id === actionTarget.id); setMoveEntityTarget({ entityType: "region", id: actionTarget.id, name: actionTarget.name, leadUserId: r?.lead_user_id || null }); setActionTarget(null); } }}>
+                    <ArrowRightLeft className="h-4 w-4" /> Move to Sr Region...
+                  </Button>
+                )}
+              </>
+            )}
+
+            {/* Sr Region actions */}
+            {actionTarget?.type === "sr_region" && canManageRegions && (
+              <>
+                <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "region", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                  <Plus className="h-4 w-4" /> Create Region
+                </Button>
+                {orgData && orgData.partners.length > 0 && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { const sr = orgData.srRegions.find(s => s.id === actionTarget.id); setMoveEntityTarget({ entityType: "sr_region", id: actionTarget.id, name: actionTarget.name, leadUserId: sr?.lead_user_id || null }); setActionTarget(null); } }}>
+                    <ArrowRightLeft className="h-4 w-4" /> Move to Partnership...
+                  </Button>
+                )}
+              </>
+            )}
+
+            {/* Partner actions */}
+            {actionTarget?.type === "partner" && canManageRegions && (
+              <>
+                <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "sr_region", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                  <Plus className="h-4 w-4" /> Create Sr Region
+                </Button>
+                {orgData && orgData.divisions.length > 0 && (
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { const p = orgData.partners.find(pt => pt.id === actionTarget.id); setMoveEntityTarget({ entityType: "partner", id: actionTarget.id, name: actionTarget.name, leadUserId: p?.lead_user_id || null }); setActionTarget(null); } }}>
+                    <ArrowRightLeft className="h-4 w-4" /> Move to Division...
+                  </Button>
+                )}
+              </>
+            )}
+
+            {/* Division actions */}
+            {actionTarget?.type === "division" && canManageRegions && (
+              <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { if (actionTarget) { setCreateDrawer({ type: "partner", parentId: actionTarget.id, parentName: actionTarget.name }); setActionTarget(null); } }}>
+                <Plus className="h-4 w-4" /> Create Partnership
               </Button>
             )}
 
@@ -1064,6 +1165,34 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           })}
         />
       )}
+
+      {/* Move entity to parent group */}
+      {moveEntityTarget && orgData && (() => {
+        const getTargets = () => {
+          const mapWithLead = (items: any[]) => items.map((i: any) => {
+            const leadRep = i.lead_user_id ? orgData.reps.find(r => r.user_id === i.lead_user_id) : null;
+            return { id: i.id, name: i.name, leadUserId: i.lead_user_id, leadName: leadRep?.name || null };
+          });
+          switch (moveEntityTarget.entityType) {
+            case "mgmt_group": return mapWithLead(orgData.srMgmtGroups);
+            case "region": return mapWithLead(orgData.srRegions);
+            case "sr_region": return mapWithLead(orgData.partners);
+            case "partner": return mapWithLead(orgData.divisions);
+            default: return [];
+          }
+        };
+        return (
+          <MoveEntityDrawer
+            open={!!moveEntityTarget}
+            onOpenChange={(open) => !open && setMoveEntityTarget(null)}
+            entityType={moveEntityTarget.entityType}
+            entityId={moveEntityTarget.id}
+            entityName={moveEntityTarget.name}
+            entityLeadUserId={moveEntityTarget.leadUserId}
+            targets={getTargets()}
+          />
+        );
+      })()}
     </>
   );
 };
@@ -1073,11 +1202,13 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
 // ==========================================
 
 const typeIcons: Record<OrgNodeType, any> = {
+  division: Globe, partner: Globe, sr_region: Globe, sr_mgmt_group: Users,
   region: Globe, office: Building2, mgmt_group: Users,
   team: Users, recruiter_group: UserPlus, rep: User,
 };
 
 const typeColors: Record<OrgNodeType, string> = {
+  division: "text-purple-500", partner: "text-pink-500", sr_region: "text-red-500", sr_mgmt_group: "text-orange-500",
   region: "text-primary", office: "text-amber-500", mgmt_group: "text-blue-500",
   team: "text-green-500", recruiter_group: "text-purple-500", rep: "text-muted-foreground",
 };
@@ -1095,8 +1226,9 @@ const OrgNodeCard = ({ node, depth, onLongPressAction, onTap, canManage }: OrgNo
   const hasChildren = node.children.length > 0;
   const Icon = typeIcons[node.type];
   const isRep = node.type === "rep";
-  const isInteractive = isRep || ((node.type === "office" || node.type === "region") && canManage);
-  const isLongPressable = node.type === "team" || node.type === "mgmt_group" || (node.type === "rep" && canManage) || ((node.type === "office" || node.type === "region") && canManage);
+  const managedTypes: OrgNodeType[] = ["division", "partner", "sr_region", "region", "sr_mgmt_group", "office", "mgmt_group", "team"];
+  const isInteractive = isRep || (managedTypes.includes(node.type) && canManage);
+  const isLongPressable = (managedTypes.includes(node.type) && canManage) || (isRep && canManage);
 
   const totalReps = useMemo(() => {
     if (isRep) return 0;

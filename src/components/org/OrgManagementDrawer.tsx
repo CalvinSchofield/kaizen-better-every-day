@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 interface CreateDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  type: "office" | "region" | "team" | "mgmt_group";
+  type: "office" | "region" | "team" | "mgmt_group" | "sr_mgmt_group" | "sr_region" | "partner" | "division";
   parentId?: string; // region_id when creating office, office_id for mgmt_group, mgmt_group_id for team
   parentName?: string;
 }
@@ -34,8 +34,8 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
   const [reps, setReps] = useState<{ id: string; user_id: string | null; name: string }[]>([]);
   const [loadingReps, setLoadingReps] = useState(false);
 
-  const typeLabel = type === "office" ? "Office" : type === "region" ? "Region" : type === "mgmt_group" ? "MGMT Group" : "Team";
-  const needsLeader = type === "team" || type === "mgmt_group";
+  const typeLabel = type === "office" ? "Office" : type === "region" ? "Region" : type === "mgmt_group" ? "MGMT Group" : type === "sr_mgmt_group" ? "Sr MGMT Group" : type === "sr_region" ? "Sr Region" : type === "partner" ? "Partnership" : type === "division" ? "Division" : "Team";
+  const needsLeader = type !== "office";
 
   // Load all reps including ghost reps
   const loadReps = async () => {
@@ -76,9 +76,41 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
       } else if (type === "region") {
         const { error } = await supabase.from("regions").insert({
           name: name.trim(),
-          lead_user_id: user?.id,
+          lead_user_id: leadUserId || user?.id,
+          sr_region_id: parentId || null,
         });
         if (error) throw error;
+      } else if (type === "sr_mgmt_group") {
+        const { error } = await supabase.from("sr_mgmt_groups").insert({
+          name: name.trim(),
+          lead_user_id: leadUserId || null,
+          office_id: parentId || null,
+        });
+        if (error) throw error;
+        if (!leadUserId && leadRepId) toast.info("Leader will be auto-assigned when they create an account");
+      } else if (type === "sr_region") {
+        const { error } = await supabase.from("sr_regions").insert({
+          name: name.trim(),
+          lead_user_id: leadUserId || null,
+          partner_id: parentId || null,
+        });
+        if (error) throw error;
+        if (!leadUserId && leadRepId) toast.info("Leader will be auto-assigned when they create an account");
+      } else if (type === "partner") {
+        const { error } = await supabase.from("partners").insert({
+          name: name.trim(),
+          lead_user_id: leadUserId || null,
+          division_id: parentId || null,
+        });
+        if (error) throw error;
+        if (!leadUserId && leadRepId) toast.info("Leader will be auto-assigned when they create an account");
+      } else if (type === "division") {
+        const { error } = await supabase.from("divisions").insert({
+          name: name.trim(),
+          lead_user_id: leadUserId || null,
+        });
+        if (error) throw error;
+        if (!leadUserId && leadRepId) toast.info("Leader will be auto-assigned when they create an account");
       } else if (type === "mgmt_group") {
         const { error } = await supabase.from("mgmt_groups").insert({
           name: name.trim(),
