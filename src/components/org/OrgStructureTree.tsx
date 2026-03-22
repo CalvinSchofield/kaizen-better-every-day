@@ -557,7 +557,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const handleLongPress = useCallback((node: OrgNode) => {
     const actionableTypes = ["rep", "team", "mgmt_group", "sr_mgmt_group", "region", "sr_region", "partner", "division", "office"];
     if (actionableTypes.includes(node.type)) {
-      if (node.type === "office" && canManageOffices) {
+      if (node.type === "office" && canConfigureOffice(node.id)) {
         setConfigOffice(node.id);
       } else if (node.type === "region" && canManageRegions && node.id !== "unassigned") {
         setConfigRegion(node.id);
@@ -565,7 +565,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         setActionTarget({ id: node.id, name: node.name, type: node.type });
       }
     }
-  }, [canManageOffices, canManageRegions]);
+  }, [canConfigureOffice, canManageRegions]);
 
   const tree = useMemo(() => {
     if (!orgData) return [];
