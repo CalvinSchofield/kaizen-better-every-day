@@ -246,47 +246,6 @@ const OrgChart = () => {
     return rootNodes.sort((a, b) => b.children.length - a.children.length);
   }, [treeData, teamAccess, currentAuthUserId, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap]);
 
-  // Filter tree based on stage filters
-  const filteredTree = useMemo(() => {
-    if (!fullTree) return null;
-
-    const filterNode = (node: TreeNode): TreeNode | null => {
-      // Label nodes always pass if they have filtered children
-      if (node.isLabelNode) {
-        const filteredChildren = node.children.map(filterNode).filter(Boolean) as TreeNode[];
-        return filteredChildren.length > 0 ? { ...node, children: filteredChildren } : null;
-      }
-
-      // Recursively filter children
-      const filteredChildren = node.children
-        .map(filterNode)
-        .filter(Boolean) as TreeNode[];
-
-      // Check if this node passes the filter
-      const stageMatch = node.stage
-        ? stageFilters.has(node.stage.toLowerCase())
-        : false;
-      
-      const appAccessMatch = showWithAppAccess === null
-        ? true
-        : showWithAppAccess
-          ? !!node.userId
-          : !node.userId;
-
-      // Keep node if it passes filters OR has children that pass
-      const nodePassesFilter = stageMatch && appAccessMatch;
-      
-      if (nodePassesFilter || filteredChildren.length > 0) {
-        return { ...node, children: filteredChildren };
-      }
-
-      return null;
-    };
-
-    return fullTree
-      .map(filterNode)
-      .filter(Boolean) as TreeNode[];
-  }, [fullTree, stageFilters, showWithAppAccess]);
 
   // Build a lookup for full recruit data
   const recruitLookup = useMemo(() => {
