@@ -115,8 +115,8 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
     if (!deleteTarget || !currentUserId) return;
     setIsDeleting(true);
     try {
-      const canDirectDelete = hasMinAccess(accessLevel, "area_director");
-      if (canDirectDelete) {
+      const canDirect = canManageTeams && isBootstrapping;
+      if (canDirect) {
         // Direct delete — area director+ has RLS permission
         if (deleteTarget.type === "team") {
           // Remove team_mgmt_groups linkage first
