@@ -426,11 +426,6 @@ const OrgChart = () => {
 
   return (
     <div className="p-4 space-y-4 pb-24">
-      <div>
-        <h1 className="text-2xl font-bold">Org Chart</h1>
-        <p className="text-sm text-muted-foreground">Organization hierarchy & recruiter tree</p>
-      </div>
-
       <Tabs defaultValue="tree" className="w-full">
         <TabsList className="w-full">
           <TabsTrigger value="tree" className="flex-1 gap-1.5">
