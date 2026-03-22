@@ -50,10 +50,11 @@ interface OrgStructureTreeProps {
   accessLevel?: AccessLevel;
 }
 
-export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps) => {
+export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgStructureTreeProps) => {
   const queryClient = useQueryClient();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(false);
+  const [derivedAccessLevel, setDerivedAccessLevel] = useState<AccessLevel>("none");
   const canManageOffices = hasMinAccess(accessLevel, "regional");
   const canManageRegions = hasMinAccess(accessLevel, "regional");
   const canManageTeams = hasMinAccess(accessLevel, "mgmt_group_lead");
