@@ -912,6 +912,23 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
               </Button>
             )}
 
+            {/* Office actions */}
+            {actionTarget?.type === "office" && canManageTeams && (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  if (actionTarget) {
+                    setCreateDrawer({ type: "mgmt_group", parentId: actionTarget.id, parentName: actionTarget.name });
+                    setActionTarget(null);
+                  }
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Create MGMT Group
+              </Button>
+            )}
+
             {/* Delete for team/mgmt_group */}
             {(actionTarget?.type === "team" || actionTarget?.type === "mgmt_group") && canManageTeams && (
               <Button
