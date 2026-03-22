@@ -76,9 +76,41 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName }:
       } else if (type === "region") {
         const { error } = await supabase.from("regions").insert({
           name: name.trim(),
-          lead_user_id: user?.id,
+          lead_user_id: leadUserId || user?.id,
+          sr_region_id: parentId || null,
         });
         if (error) throw error;
+      } else if (type === "sr_mgmt_group") {
+        const { error } = await supabase.from("sr_mgmt_groups").insert({
+          name: name.trim(),
+          lead_user_id: leadUserId || null,
+          office_id: parentId || null,
+        });
+        if (error) throw error;
+        if (!leadUserId && leadRepId) toast.info("Leader will be auto-assigned when they create an account");
+      } else if (type === "sr_region") {
+        const { error } = await supabase.from("sr_regions").insert({
+          name: name.trim(),
+          lead_user_id: leadUserId || null,
+          partner_id: parentId || null,
+        });
+        if (error) throw error;
+        if (!leadUserId && leadRepId) toast.info("Leader will be auto-assigned when they create an account");
+      } else if (type === "partner") {
+        const { error } = await supabase.from("partners").insert({
+          name: name.trim(),
+          lead_user_id: leadUserId || null,
+          division_id: parentId || null,
+        });
+        if (error) throw error;
+        if (!leadUserId && leadRepId) toast.info("Leader will be auto-assigned when they create an account");
+      } else if (type === "division") {
+        const { error } = await supabase.from("divisions").insert({
+          name: name.trim(),
+          lead_user_id: leadUserId || null,
+        });
+        if (error) throw error;
+        if (!leadUserId && leadRepId) toast.info("Leader will be auto-assigned when they create an account");
       } else if (type === "mgmt_group") {
         const { error } = await supabase.from("mgmt_groups").insert({
           name: name.trim(),
