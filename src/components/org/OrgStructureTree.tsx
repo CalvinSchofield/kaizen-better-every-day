@@ -754,6 +754,88 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
       children: partnerNodes(d.id),
     }));
 
+    // ===== GROUP BY OFFICE VIEW =====
+    if (groupByOffice) {
+      const officeTopNodes: OrgNode[] = [];
+
+      offices.forEach((o: any) => {
+        const staff = officeStaff.filter((s) => s.office_id === o.id);
+        const adNames = staff.map((s) => `${getRepName(s.user_id)} (AD)`).join(", ");
+
+        // Find all MGMT groups assigned to this office
+        const officeMgmtGroups = mgmtGroups.filter((mg) => mg.office_id === o.id);
+
+        // Group MGMT groups by sr_mgmt_group
+        const mgmtBySrMgmt = new Map<string, typeof mgmtGroups>();
+        const directMgmt: typeof mgmtGroups = [];
+
+        officeMgmtGroups.forEach((mg) => {
+          if (mg.sr_mgmt_group_id) {
+            const existing = mgmtBySrMgmt.get(mg.sr_mgmt_group_id) || [];
+            existing.push(mg);
+            mgmtBySrMgmt.set(mg.sr_mgmt_group_id, existing);
+          } else {
+            directMgmt.push(mg);
+          }
+        });
+
+        const officeChildren: OrgNode[] = [];
+
+        // Add Sr MGMT Group intermediate nodes
+        mgmtBySrMgmt.forEach((mgs, srMgmtId) => {
+          const srMgmt = srMgmtGroups.find((s: any) => s.id === srMgmtId);
+          if (srMgmt) {
+            officeChildren.push({
+              id: srMgmt.id, name: srMgmt.name, type: "sr_mgmt_group" as const,
+              role: (srMgmt as any).lead_user_id ? `Led by ${getRepName((srMgmt as any).lead_user_id)}` : undefined,
+              leadUserId: (srMgmt as any).lead_user_id,
+              children: mgs.map((mg) => ({
+                id: mg.id, name: mg.name, type: "mgmt_group" as const,
+                role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
+                leadUserId: mg.lead_user_id,
+                children: teamNodes(mg.id, mg.name),
+              })),
+            });
+          }
+        });
+
+        // Add direct MGMT groups (no sr_mgmt_group)
+        directMgmt.forEach((mg) => {
+          officeChildren.push({
+            id: mg.id, name: mg.name, type: "mgmt_group" as const,
+            role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
+            leadUserId: mg.lead_user_id,
+            children: teamNodes(mg.id, mg.name),
+          });
+        });
+
+        officeTopNodes.push({
+          id: o.id, name: o.name, type: "office" as const,
+          role: adNames || undefined,
+          location: o.location,
+          children: officeChildren,
+        });
+      });
+
+      // Add unassigned MGMT groups (no office)
+      const unassignedMgmt = mgmtGroups.filter((mg) => !mg.office_id);
+      if (unassignedMgmt.length > 0) {
+        const unassignedChildren: OrgNode[] = unassignedMgmt.map((mg) => ({
+          id: mg.id, name: mg.name, type: "mgmt_group" as const,
+          role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
+          leadUserId: mg.lead_user_id,
+          children: teamNodes(mg.id, mg.name),
+        }));
+        officeTopNodes.push({
+          id: "no-office", name: "No Office Assigned", type: "office" as const,
+          children: unassignedChildren,
+        });
+      }
+
+      return officeTopNodes;
+    }
+
+    // ===== DEFAULT HIERARCHY VIEW =====
     // Build the top-level tree
     const topNodes: OrgNode[] = [];
 
@@ -804,7 +886,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
     topNodes.push(...unassignedMgmtGroups);
 
     return topNodes;
-  }, [orgData]);
+  }, [orgData, groupByOffice]);
 
   // Find data for config drawers
   const configOfficeData = useMemo(() => {
