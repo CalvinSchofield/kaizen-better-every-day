@@ -484,24 +484,122 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, p
 // CONFIGURE OFFICE DRAWER
 // ==========================================
 
+interface OrgDataForAD {
+  divisions?: Array<{ id: string; lead_user_id: string | null }>;
+  partners?: Array<{ id: string; lead_user_id: string | null; division_id: string | null }>;
+  srRegions?: Array<{ id: string; lead_user_id: string | null; partner_id: string | null }>;
+  regions?: Array<{ id: string; lead_user_id: string | null; sr_region_id: string | null }>;
+  srMgmtGroups?: Array<{ id: string; lead_user_id: string | null; region_id: string | null }>;
+  mgmtGroups?: Array<{ id: string; lead_user_id: string | null; sr_mgmt_group_id: string | null; office_id: string | null }>;
+  teams?: Array<{ id: string; lead_user_id: string | null }>;
+  teamMgmt?: Array<{ team_id: string; mgmt_group_id: string }>;
+}
+
+type AccessLevelForAD = string;
+
+const ROLE_HIERARCHY_ORDER: AccessLevelForAD[] = [
+  'none', 'recruiter', 'assistant_manager', 'team_lead', 'manager',
+  'senior_manager', 'mgmt_group_lead', 'area_director', 'regional',
+  'sr_regional', 'partner', 'divisional', 'corporate',
+];
+
+/** Determine a user's highest org role from the structure data */
+const getUserOrgRole = (userId: string, orgData: OrgDataForAD): { role: AccessLevelForAD; label: string; rank: number } => {
+  if (orgData.divisions?.some(d => d.lead_user_id === userId)) return { role: 'divisional', label: 'Divisional', rank: 11 };
+  if (orgData.partners?.some(p => p.lead_user_id === userId)) return { role: 'partner', label: 'Partner', rank: 10 };
+  if (orgData.srRegions?.some(sr => sr.lead_user_id === userId)) return { role: 'sr_regional', label: 'Sr. Regional', rank: 9 };
+  if (orgData.regions?.some(r => r.lead_user_id === userId)) return { role: 'regional', label: 'Regional', rank: 8 };
+  if (orgData.srMgmtGroups?.some(sg => sg.lead_user_id === userId)) return { role: 'senior_manager', label: 'Sr. Manager', rank: 5 };
+  if (orgData.mgmtGroups?.some(mg => mg.lead_user_id === userId)) return { role: 'mgmt_group_lead', label: 'MGMT Lead', rank: 6 };
+  if (orgData.teams?.some(t => t.lead_user_id === userId)) return { role: 'team_lead', label: 'Team Lead', rank: 3 };
+  return { role: 'recruiter', label: 'Recruiter', rank: 1 };
+};
+
+/** Get all downline leader user IDs from org structure for a given user */
+const getDownlineUserIds = (orgData: OrgDataForAD, currentUserId: string, accessLevel: AccessLevelForAD): Set<string> => {
+  const result = new Set<string>();
+
+  // Corporate sees everyone
+  if (accessLevel === 'corporate') {
+    orgData.divisions?.forEach(d => d.lead_user_id && result.add(d.lead_user_id));
+    orgData.partners?.forEach(p => p.lead_user_id && result.add(p.lead_user_id));
+    orgData.srRegions?.forEach(sr => sr.lead_user_id && result.add(sr.lead_user_id));
+    orgData.regions?.forEach(r => r.lead_user_id && result.add(r.lead_user_id));
+    orgData.srMgmtGroups?.forEach(sg => sg.lead_user_id && result.add(sg.lead_user_id));
+    orgData.mgmtGroups?.forEach(mg => mg.lead_user_id && result.add(mg.lead_user_id));
+    orgData.teams?.forEach(t => t.lead_user_id && result.add(t.lead_user_id));
+    result.delete(currentUserId);
+    return result;
+  }
+
+  // Cascade down from what the user leads
+  const divisionIds = new Set((orgData.divisions || []).filter(d => d.lead_user_id === currentUserId).map(d => d.id));
+
+  const partnerIds = new Set([
+    ...(orgData.partners || []).filter(p => p.lead_user_id === currentUserId).map(p => p.id),
+    ...(orgData.partners || []).filter(p => p.division_id && divisionIds.has(p.division_id)).map(p => p.id),
+  ]);
+  (orgData.partners || []).filter(p => partnerIds.has(p.id) && p.lead_user_id).forEach(p => result.add(p.lead_user_id!));
+
+  const srRegionIds = new Set([
+    ...(orgData.srRegions || []).filter(sr => sr.lead_user_id === currentUserId).map(sr => sr.id),
+    ...(orgData.srRegions || []).filter(sr => sr.partner_id && partnerIds.has(sr.partner_id)).map(sr => sr.id),
+  ]);
+  (orgData.srRegions || []).filter(sr => srRegionIds.has(sr.id) && sr.lead_user_id).forEach(sr => result.add(sr.lead_user_id!));
+
+  const regionIds = new Set([
+    ...(orgData.regions || []).filter(r => r.lead_user_id === currentUserId).map(r => r.id),
+    ...(orgData.regions || []).filter(r => r.sr_region_id && srRegionIds.has(r.sr_region_id)).map(r => r.id),
+  ]);
+  (orgData.regions || []).filter(r => regionIds.has(r.id) && r.lead_user_id).forEach(r => result.add(r.lead_user_id!));
+
+  const srMgmtIds = new Set([
+    ...(orgData.srMgmtGroups || []).filter(sg => sg.lead_user_id === currentUserId).map(sg => sg.id),
+    ...(orgData.srMgmtGroups || []).filter(sg => sg.region_id && regionIds.has(sg.region_id)).map(sg => sg.id),
+  ]);
+  (orgData.srMgmtGroups || []).filter(sg => srMgmtIds.has(sg.id) && sg.lead_user_id).forEach(sg => result.add(sg.lead_user_id!));
+
+  const mgmtIds = new Set([
+    ...(orgData.mgmtGroups || []).filter(mg => mg.lead_user_id === currentUserId).map(mg => mg.id),
+    ...(orgData.mgmtGroups || []).filter(mg => mg.sr_mgmt_group_id && srMgmtIds.has(mg.sr_mgmt_group_id)).map(mg => mg.id),
+  ]);
+  (orgData.mgmtGroups || []).filter(mg => mgmtIds.has(mg.id) && mg.lead_user_id).forEach(mg => result.add(mg.lead_user_id!));
+
+  const teamMgmtGroupTeamIds = (orgData.teamMgmt || []).filter(tm => mgmtIds.has(tm.mgmt_group_id)).map(tm => tm.team_id);
+  const teamIds = new Set([
+    ...(orgData.teams || []).filter(t => t.lead_user_id === currentUserId).map(t => t.id),
+    ...teamMgmtGroupTeamIds,
+  ]);
+  (orgData.teams || []).filter(t => teamIds.has(t.id) && t.lead_user_id).forEach(t => result.add(t.lead_user_id!));
+
+  result.delete(currentUserId);
+  return result;
+};
+
 interface ConfigureOfficeDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   officeId: string;
   officeName: string;
   officeLocation?: string | null;
-  // Data from parent
   currentStaff: Array<{ id: string; user_id: string; role: string }>;
   currentMgmtGroups: Array<{ id: string; name: string; lead_user_id: string | null }>;
   allMgmtGroups: Array<{ id: string; name: string; office_id: string | null; lead_user_id: string | null }>;
   allReps: Array<{ user_id: string; name: string }>;
   /** Whether user has full management rights (regional+). ADs can only rename. */
   canFullManage?: boolean;
+  /** Full org structure data for computing eligible AD candidates */
+  orgData?: OrgDataForAD | null;
+  /** Current user ID for downline scoping */
+  currentUserId?: string;
+  /** Current user's access level */
+  accessLevel?: AccessLevelForAD;
 }
 
 export const ConfigureOfficeDrawer = ({
   open, onOpenChange, officeId, officeName, officeLocation,
   currentStaff, currentMgmtGroups, allMgmtGroups, allReps, canFullManage = false,
+  orgData, currentUserId, accessLevel,
 }: ConfigureOfficeDrawerProps) => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
@@ -522,14 +620,29 @@ export const ConfigureOfficeDrawer = ({
     (mg) => !mg.office_id && mg.id !== officeId
   );
 
-  const filteredReps = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase();
+  // Compute eligible AD candidates: downline members who are at least team_lead, sorted by hierarchy
+  const eligibleADCandidates = useMemo(() => {
+    if (!orgData || !currentUserId || !accessLevel) return [];
+    
+    const downlineIds = getDownlineUserIds(orgData, currentUserId, accessLevel);
+    
     return allReps
-      .filter((r) => getCleanName(r.name).toLowerCase().includes(q))
+      .filter((r) => r.user_id && downlineIds.has(r.user_id))
       .filter((r) => !currentStaff.some((s) => s.user_id === r.user_id))
-      .slice(0, 15);
-  }, [searchQuery, allReps, currentStaff]);
+      .map((r) => {
+        const orgRole = getUserOrgRole(r.user_id, orgData);
+        return { ...r, orgRole };
+      })
+      // Only show team_lead+ (rank >= 3)
+      .filter((r) => r.orgRole.rank >= 3)
+      .sort((a, b) => b.orgRole.rank - a.orgRole.rank);
+  }, [orgData, currentUserId, accessLevel, allReps, currentStaff]);
+
+  const filteredADCandidates = useMemo(() => {
+    if (!searchQuery.trim()) return eligibleADCandidates;
+    const q = searchQuery.toLowerCase();
+    return eligibleADCandidates.filter((r) => getCleanName(r.name).toLowerCase().includes(q));
+  }, [searchQuery, eligibleADCandidates]);
 
   const addStaff = useMutation({
     mutationFn: async (userId: string) => {
@@ -811,31 +924,40 @@ export const ConfigureOfficeDrawer = ({
                 ← Back
               </Button>
               <p className="text-sm font-medium">Assign Area Director</p>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                  autoFocus
-                />
-              </div>
-              {filteredReps.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Showing leaders in your downline (Team Lead+), sorted by hierarchy
+              </p>
+              {eligibleADCandidates.length > 6 && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                    autoFocus
+                  />
+                </div>
+              )}
+              {filteredADCandidates.length > 0 ? (
                 <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                  {filteredReps.map((rep) => (
+                  {filteredADCandidates.map((rep) => (
                     <button
                       key={rep.user_id}
                       onClick={() => addStaff.mutate(rep.user_id)}
-                      className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors"
+                      className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors flex items-center justify-between"
                     >
                       <p className="text-sm font-medium">{getCleanName(rep.name)}</p>
+                      <Badge variant="outline" className="text-[10px] shrink-0">
+                        {rep.orgRole.label}
+                      </Badge>
                     </button>
                   ))}
                 </div>
-              )}
-              {searchQuery.trim() && filteredReps.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">No results</p>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {searchQuery.trim() ? "No matching leaders found" : "No eligible leaders in your downline"}
+                </p>
               )}
             </div>
           )}
