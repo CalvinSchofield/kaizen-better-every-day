@@ -697,22 +697,65 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         };
       });
 
-    const regionNodes: OrgNode[] = regions.map((r) => ({
-      id: r.id, name: r.name, type: "region" as const,
-      role: r.lead_user_id ? `Led by ${getRepName(r.lead_user_id)}` : undefined,
-      leadUserId: r.lead_user_id,
-      children: officeNodes(r.id),
+    const regionNodes = (srRegionId: string | null): OrgNode[] =>
+      regions.filter((r: any) => (srRegionId ? r.sr_region_id === srRegionId : !r.sr_region_id)).map((r) => ({
+        id: r.id, name: r.name, type: "region" as const,
+        role: r.lead_user_id ? `Led by ${getRepName(r.lead_user_id)}` : undefined,
+        leadUserId: r.lead_user_id,
+        children: officeNodes(r.id),
+      }));
+
+    const srRegionNodes = (partnerId: string | null): OrgNode[] =>
+      srRegions.filter((sr: any) => (partnerId ? sr.partner_id === partnerId : !sr.partner_id)).map((sr) => ({
+        id: sr.id, name: sr.name, type: "sr_region" as const,
+        role: sr.lead_user_id ? `Led by ${getRepName(sr.lead_user_id)}` : undefined,
+        leadUserId: sr.lead_user_id,
+        children: regionNodes(sr.id),
+      }));
+
+    const partnerNodes = (divisionId: string | null): OrgNode[] =>
+      partners.filter((p: any) => (divisionId ? p.division_id === divisionId : !p.division_id)).map((p) => ({
+        id: p.id, name: p.name, type: "partner" as const,
+        role: p.lead_user_id ? `Led by ${getRepName(p.lead_user_id)}` : undefined,
+        leadUserId: p.lead_user_id,
+        children: srRegionNodes(p.id),
+      }));
+
+    const divisionNodes: OrgNode[] = divisions.map((d) => ({
+      id: d.id, name: d.name, type: "division" as const,
+      role: d.lead_user_id ? `Led by ${getRepName(d.lead_user_id)}` : undefined,
+      leadUserId: d.lead_user_id,
+      children: partnerNodes(d.id),
     }));
 
+    // Build the top-level tree
+    const topNodes: OrgNode[] = [];
+
+    // Add divisions
+    topNodes.push(...divisionNodes);
+
+    // Add unassigned partners (not in a division)
+    const unassignedPartners = partnerNodes(null);
+    topNodes.push(...unassignedPartners);
+
+    // Add unassigned sr_regions (not in a partner)
+    const unassignedSrRegions = srRegionNodes(null);
+    topNodes.push(...unassignedSrRegions);
+
+    // Add unassigned regions (not in an sr_region)
+    const unassignedRegions = regionNodes(null);
+    topNodes.push(...unassignedRegions);
+
+    // Add unassigned offices (not in a region)
     const unassignedOffices = officeNodes(null);
     if (unassignedOffices.length > 0) {
-      regionNodes.push({
-        id: "unassigned", name: "Unassigned Offices", type: "region",
+      topNodes.push({
+        id: "unassigned-offices", name: "Unassigned Offices", type: "office" as const,
         children: unassignedOffices,
       });
     }
 
-    return regionNodes;
+    return topNodes;
   }, [orgData]);
 
   // Find data for config drawers
