@@ -238,12 +238,23 @@ export const OrgStructureTree = ({ accessLevel = "none" }: OrgStructureTreeProps
     };
 
     const mgmtNodes = (officeId: string): OrgNode[] =>
-      mgmtGroups.filter((mg) => mg.office_id === officeId).map((mg) => ({
-        id: mg.id, name: mg.name, type: "mgmt_group" as const,
-        role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
-        leadUserId: mg.lead_user_id,
-        children: teamNodes(mg.id, mg.name),
-      }));
+      mgmtGroups.filter((mg) => mg.office_id === officeId).map((mg) => {
+        const groupTeamIds = teamMgmt.filter((tm) => tm.mgmt_group_id === mg.id).map((tm) => tm.team_id);
+        const teamChildren = teamNodes(mg.id, mg.name);
+        
+        // Also include recruits assigned to this mgmt group but NOT to any team within it
+        const mgmtDirectRecruits = recruits.filter((r) => 
+          r.mgmt_group_id === mg.id && (!r.team_id || !groupTeamIds.includes(r.team_id))
+        );
+        const directRepNodes = mgmtDirectRecruits.map((r) => makeRepNode(r, "", "", mg.id, mg.name));
+        
+        return {
+          id: mg.id, name: mg.name, type: "mgmt_group" as const,
+          role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
+          leadUserId: mg.lead_user_id,
+          children: [...teamChildren, ...directRepNodes],
+        };
+      });
 
     const officeNodes = (regionId: string | null): OrgNode[] =>
       offices.filter((o: any) => (regionId ? o.region_id === regionId : !o.region_id)).map((o) => {
@@ -465,7 +476,7 @@ interface OrgNodeCardProps {
 }
 
 const OrgNodeCard = ({ node, depth, onLongPressAction, onTap, canManage }: OrgNodeCardProps) => {
-  const [expanded, setExpanded] = useState(depth < 2);
+  const [expanded, setExpanded] = useState(depth < 4);
   const hasChildren = node.children.length > 0;
   const Icon = typeIcons[node.type];
   const isRep = node.type === "rep";
