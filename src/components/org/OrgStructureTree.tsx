@@ -221,8 +221,71 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           const { error } = await supabase.from("teams").delete().eq("id", deleteTarget.id);
           if (error) throw error;
         } else if (deleteTarget.type === "mgmt_group") {
-          // Unassign recruits from this mgmt group first
-          await supabase.from("recruits").update({ mgmt_group_id: null }).eq("mgmt_group_id", deleteTarget.id);
+          // Reassign orphaned recruits to their recruiter's MGMT group
+          const { data: orphanedRecruits } = await supabase
+            .from("recruits")
+            .select("id, recruiter_user_id")
+            .eq("mgmt_group_id", deleteTarget.id);
+
+          if (orphanedRecruits && orphanedRecruits.length > 0) {
+            const recruiterUserIds = [...new Set(
+              orphanedRecruits
+                .map(r => r.recruiter_user_id)
+                .filter((id): id is string => !!id)
+            )];
+
+            const { data: allRecruits } = await supabase
+              .from("recruits")
+              .select("id, name, recruiter_user_id, mgmt_group_id")
+              .limit(5000);
+            const { data: allMgmtGroups } = await supabase
+              .from("mgmt_groups")
+              .select("id, lead_user_id");
+            const { data: allReps } = await supabase
+              .from("reps")
+              .select("user_id, name");
+
+            const mgmtByLeader = new Map<string, string>();
+            (allMgmtGroups || []).forEach(mg => {
+              if (mg.lead_user_id) mgmtByLeader.set(mg.lead_user_id, mg.id);
+            });
+
+            const recruitByName = new Map<string, typeof allRecruits extends (infer T)[] | null ? T : never>();
+            (allRecruits || []).forEach(r => {
+              recruitByName.set(getCleanName(r.name).toLowerCase(), r);
+            });
+
+            const findParentMgmtGroupId = (recruiterUserId: string, visited = new Set<string>()): string | null => {
+              if (visited.has(recruiterUserId)) return null;
+              visited.add(recruiterUserId);
+
+              const mgmtId = mgmtByLeader.get(recruiterUserId);
+              if (mgmtId && mgmtId !== deleteTarget.id) return mgmtId;
+
+              const rep = (allReps || []).find(r => r.user_id === recruiterUserId);
+              if (!rep) return null;
+              const recruitRecord = recruitByName.get(getCleanName(rep.name).toLowerCase());
+              if (!recruitRecord?.recruiter_user_id) return null;
+
+              return findParentMgmtGroupId(recruitRecord.recruiter_user_id, visited);
+            };
+
+            const recruiterToMgmt = new Map<string, string | null>();
+            recruiterUserIds.forEach(rid => {
+              recruiterToMgmt.set(rid, findParentMgmtGroupId(rid));
+            });
+
+            for (const recruit of orphanedRecruits) {
+              const parentMgmtId = recruit.recruiter_user_id
+                ? recruiterToMgmt.get(recruit.recruiter_user_id) ?? null
+                : null;
+              await supabase
+                .from("recruits")
+                .update({ mgmt_group_id: parentMgmtId })
+                .eq("id", recruit.id);
+            }
+          }
+
           const { error } = await supabase.from("mgmt_groups").delete().eq("id", deleteTarget.id);
           if (error) throw error;
         }
@@ -239,6 +302,8 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         toast.success(`Deletion request submitted for "${deleteTarget.name}".`);
       }
       queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
+      queryClient.invalidateQueries({ queryKey: ["org-chart-full-tree"] });
+      queryClient.invalidateQueries({ queryKey: ["recruiter-tree-data"] });
     } catch (err: any) {
       toast.error(err.message || "Failed to delete");
     } finally {
