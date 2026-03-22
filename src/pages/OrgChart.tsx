@@ -136,7 +136,7 @@ const OrgChart = () => {
       const recruitByName = new Map(recruits.map((r) => [getCleanName(r.name).toLowerCase(), r]));
       const recruitRecord = recruitByName.get(getCleanName(repName).toLowerCase());
 
-      const children: TreeNode[] = [];
+      let children: TreeNode[] = [];
 
       recruiterRecruits.forEach((r) => {
         const recruitRep = reps.find(
