@@ -230,13 +230,58 @@ export const useTrackBackup = (userId: string | null, entryDate: string) => {
 };
 
 // Helper to get current user ID synchronously from localStorage
+const AUTH_TOKEN_KEY = 'sb-wjxlzcuqpoamrwumszau-auth-token';
+
+const extractUserIdFromAuthPayload = (rawValue: string | null): string | null => {
+  if (!rawValue) return null;
+
+  try {
+    const parsed = JSON.parse(rawValue);
+
+    if (parsed?.user?.id) return parsed.user.id as string;
+    if (parsed?.session?.user?.id) return parsed.session.user.id as string;
+    if (parsed?.currentSession?.user?.id) return parsed.currentSession.user.id as string;
+    if (parsed?.currentUser?.id) return parsed.currentUser.id as string;
+
+    if (Array.isArray(parsed)) {
+      for (const candidate of parsed) {
+        const nestedId =
+          candidate?.user?.id ??
+          candidate?.session?.user?.id ??
+          candidate?.currentSession?.user?.id ??
+          null;
+        if (nestedId) return nestedId as string;
+      }
+    }
+  } catch {
+    // Ignore malformed auth payloads
+  }
+
+  return null;
+};
+
 export const getCurrentUserId = (): string | null => {
   try {
-    const authData = localStorage.getItem('sb-wjxlzcuqpoamrwumszau-auth-token');
-    if (!authData) return null;
-    const parsed = JSON.parse(authData);
-    return parsed?.user?.id || null;
+    // Primary source: Supabase auth storage key
+    const fromPrimaryAuthKey = extractUserIdFromAuthPayload(localStorage.getItem(AUTH_TOKEN_KEY));
+    if (fromPrimaryAuthKey) return fromPrimaryAuthKey;
+
+    // Fallback: cached user id maintained by useCurrentUserId hook
+    const fromCachedUserId = localStorage.getItem('kaizen-current-user-id');
+    if (fromCachedUserId) return fromCachedUserId;
+
+    // Defensive fallback: scan alternate auth keys if storage key format changes in native/webview
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (!key.startsWith('sb-') || !key.endsWith('-auth-token')) continue;
+
+      const id = extractUserIdFromAuthPayload(localStorage.getItem(key));
+      if (id) return id;
+    }
   } catch {
-    return null;
+    // Ignore storage access errors
   }
+
+  return null;
 };

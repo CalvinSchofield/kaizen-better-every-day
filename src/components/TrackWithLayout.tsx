@@ -22,8 +22,9 @@ import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
 import { useSaleUpdate } from "@/hooks/useSaleUpdate";
 import { usePendingSalesQueue } from "@/hooks/usePendingSalesQueue";
 import { usePendingCounterQueue, CounterEvent } from "@/hooks/usePendingCounterQueue";
-import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
+import { useTrackBackup } from "@/hooks/useTrackBackup";
 import { useCompetitorNudge } from "@/hooks/useCompetitorNudge";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRepData } from "@/hooks/useRepData";
@@ -68,6 +69,7 @@ const TrackWithLayout = () => {
   const { repData } = useRepData();
   const { totalFP: preseasonFP } = usePreseasonFP();
   const goalPaceData = useGoalPaceCalculator();
+  const { userId: currentUserId } = useCurrentUserId();
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry, isRefreshing, isFreshDataVerified, isOfflineWithBackup } = useDailyEntry();
   const { addSale: addSaleToEntry, isAddingSale } = useAddSaleToEntry();
   const { updateSale, deleteSale: deleteSaleFromEntry, isDeleting: isDeletingSale } = useSaleUpdate();
@@ -146,7 +148,7 @@ const TrackWithLayout = () => {
   }, []);
   
   // Local backup for data recovery
-  const userId = getCurrentUserId();
+  const userId = currentUserId;
   const { saveBackup, loadBackup, clearBackup, hasUnsavedBackup } = useTrackBackup(userId, getTodayDate());
   
   // Pending sales queue for bulletproof sale saving
@@ -363,7 +365,7 @@ const TrackWithLayout = () => {
     }
 
     try {
-      const userId = getCurrentUserId();
+      const userId = currentUserId;
       if (!userId) return;
       const todayDate = getTodayDate();
       const entryToSync = latestEntryRef.current ?? entry;
@@ -531,7 +533,7 @@ const TrackWithLayout = () => {
     } catch {
       setSyncStatus('error');
     }
-  }, [entry, updateCounter, queryClient]);
+  }, [entry, updateCounter, queryClient, currentUserId]);
 
   // Sync status tracking: listen for online/offline changes + periodic server verification
   useEffect(() => {
@@ -1101,7 +1103,7 @@ const TrackWithLayout = () => {
     
     // Fire-and-forget: notify recruiter when rookie transitions
     if (field === 'transitions' && isAdding) {
-      const uid = getCurrentUserId();
+      const uid = currentUserId;
       if (uid) {
         supabase.functions.invoke('notify-recruiter-transition', {
           body: { repUserId: uid },
@@ -1155,6 +1157,7 @@ const TrackWithLayout = () => {
     pendingCloseIncrement,
     navigate,
     queryClient,
+    currentUserId,
   ]);
 
   // Sales logger handlers
@@ -1266,7 +1269,7 @@ const TrackWithLayout = () => {
       // CRITICAL: Verify sale actually landed on server — if not, retry via dedicated sale path
       setTimeout(async () => {
         try {
-          const uid = getCurrentUserId();
+          const uid = currentUserId;
           if (!uid) return;
           const { data: serverRow } = await supabase
             .from('daily_entries')
@@ -1290,7 +1293,7 @@ const TrackWithLayout = () => {
       
       console.log('[handleLogSale] Sale mutation completed successfully');
       // Fire-and-forget: notify watchlist watchers and recruiter about this sale
-      const currentUid = getCurrentUserId();
+      const currentUid = currentUserId;
       if (currentUid) {
         const salePayload = {
           sellerUserId: currentUid,
@@ -1324,7 +1327,7 @@ const TrackWithLayout = () => {
     }
     
     setPendingCloseIncrement(false);
-  }, [entry, updateCounter, pendingCloseIncrement, pendingPostFinalizationSale, addSaleToEntry, fireConfetti, queueSale, processQueue]);
+  }, [entry, updateCounter, pendingCloseIncrement, pendingPostFinalizationSale, addSaleToEntry, fireConfetti, queueSale, processQueue, currentUserId, verifyServerSync]);
 
   // Direct handler for sales from LogSale page - bypasses pendingCloseIncrement check
   // This fixes the race condition where the navigation state handler couldn't reliably
@@ -1406,7 +1409,7 @@ const TrackWithLayout = () => {
       // CRITICAL: Verify sale actually landed on server — if not, retry via dedicated sale path
       setTimeout(async () => {
         try {
-          const uid = getCurrentUserId();
+          const uid = currentUserId;
           if (!uid) return;
           const { data: serverRow } = await supabase
             .from('daily_entries')
@@ -1430,7 +1433,7 @@ const TrackWithLayout = () => {
       
       console.log('[handleLogSaleFromPage] Sale mutation completed successfully');
       // Fire-and-forget: notify recruiter about this sale
-      const currentUid = getCurrentUserId();
+      const currentUid = currentUserId;
       if (currentUid) {
         const salePayload = {
           sellerUserId: currentUid,
@@ -1461,7 +1464,7 @@ const TrackWithLayout = () => {
         processQueue();
       }
     }
-  }, [entry, updateCounter, fireConfetti, queueSale, processQueue]);
+  }, [entry, updateCounter, fireConfetti, queueSale, processQueue, currentUserId, addSaleToEntry, verifyServerSync]);
 
   const handleEditSale = useCallback((sale: Sale) => {
     setEditingSale(sale);

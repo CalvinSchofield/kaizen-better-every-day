@@ -61,6 +61,20 @@ export function usePendingCounterQueue(userId: string | null) {
   const retryTimerRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
 
+  // Resolve authenticated user for RPC calls without relying on a network-only user check.
+  // This is more resilient on native webviews where getUser() can intermittently fail.
+  const ensureAuthenticatedUserId = useCallback(async (): Promise<string | null> => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const sessionUserId = sessionData.session?.user?.id ?? null;
+    if (sessionUserId && (!userId || sessionUserId === userId)) return sessionUserId;
+
+    const { data: refreshData } = await supabase.auth.refreshSession();
+    const refreshedUserId = refreshData.session?.user?.id ?? refreshData.user?.id ?? null;
+    if (refreshedUserId && (!userId || refreshedUserId === userId)) return refreshedUserId;
+
+    return null;
+  }, [userId]);
+
   // Sync queue length from localStorage
   const refreshQueueLength = useCallback(() => {
     if (!userId) { setQueueLength(0); return; }
@@ -81,21 +95,17 @@ export function usePendingCounterQueue(userId: string | null) {
       while (queue.length > 0 && mountedRef.current) {
         const event = queue[0];
 
-        // Ensure we have a valid session
-        let user = (await supabase.auth.getUser()).data.user;
-        if (!user) {
-          const { data: refreshData } = await supabase.auth.refreshSession();
-          user = refreshData?.user ?? null;
-          if (!user) {
-            console.warn('[CounterQueue] Auth expired, pausing queue');
-            break; // Stop processing, will resume on auth change
-          }
+        // Ensure we have a valid session/user before applying the event
+        const authenticatedUserId = await ensureAuthenticatedUserId();
+        if (!authenticatedUserId) {
+          console.warn('[CounterQueue] Auth expired or mismatched user, pausing queue');
+          break; // Stop processing, will resume on auth/session change
         }
 
         try {
           const rpcResult = await Promise.race([
             supabase.rpc('apply_counter_event', {
-              p_user_id: user.id,
+              p_user_id: authenticatedUserId,
               p_entry_date: event.entryDate,
               p_field: event.field,
               p_delta: event.delta,
@@ -148,8 +158,21 @@ export function usePendingCounterQueue(userId: string | null) {
 
         } catch (err: any) {
           console.error('[CounterQueue] Failed to process event:', event.id, err?.message);
+
+          const message = String(err?.message || '');
+          if (
+            message.includes('JWT') ||
+            message.includes('session') ||
+            message.includes('not authenticated') ||
+            message.includes('401')
+          ) {
+            await supabase.auth.refreshSession().catch(() => {
+              // Ignore refresh failures here and continue with normal backoff handling
+            });
+          }
+
           retryCountRef.current++;
-          
+
           if (retryCountRef.current >= MAX_RETRIES) {
             // Pause briefly, then auto-resume processing. This prevents permanent stuck queues.
             console.error('[CounterQueue] Max retries reached, pausing briefly');
@@ -170,7 +193,7 @@ export function usePendingCounterQueue(userId: string | null) {
               resolve();
             }, delay);
           });
-          
+
           // Re-read queue in case it was modified
           queue = loadQueue(userId);
         }
@@ -182,7 +205,7 @@ export function usePendingCounterQueue(userId: string | null) {
         refreshQueueLength();
       }
     }
-  }, [userId, queryClient, refreshQueueLength]);
+  }, [userId, queryClient, refreshQueueLength, ensureAuthenticatedUserId]);
 
   // Push a new event to the queue and start processing
   const pushEvent = useCallback((event: CounterEvent) => {
