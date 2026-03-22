@@ -276,7 +276,8 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
       if (visited.has(recruiterId)) return [];
       visited.add(recruiterId);
 
-      const directRecruits = recruitsByRecruiter.get(recruiterId) || [];
+      const directRecruits = (recruitsByRecruiter.get(recruiterId) || [])
+        .filter((r) => isStageIn(r.stage, [...SIGNED_PLUS_STAGES]));
       if (directRecruits.length === 0) return [];
 
       const bySubRecruiter = new Map<string, { recruit: typeof recruits[0]; subChildren: OrgNode[] }>();
