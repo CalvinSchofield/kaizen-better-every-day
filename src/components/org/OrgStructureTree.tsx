@@ -1102,6 +1102,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         type={createDrawer?.type || "office"}
         parentId={createDrawer?.parentId}
         parentName={createDrawer?.parentName}
+        parentType={createDrawer?.parentType}
       />
 
       {/* Configure office drawer */}
