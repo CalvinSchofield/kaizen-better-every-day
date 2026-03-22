@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Globe, Building2, Users, User, ChevronDown, ChevronRight, UserPlus, Trash2, Plus } from "lucide-react";
+import { Globe, Building2, Users, User, ChevronDown, ChevronRight, UserPlus, Trash2, Plus, ArrowRightLeft, FileEdit, Info } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
 import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
@@ -17,6 +17,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
 import { CreateDrawer, ConfigureOfficeDrawer, ConfigureRegionDrawer } from "./OrgManagementDrawer";
+import { BulkAssignRepsDrawer } from "./BulkAssignRepsDrawer";
+import { MoveToTeamDrawer } from "./MoveToTeamDrawer";
+import { MoveTeamToMgmtDrawer } from "./MoveTeamToMgmtDrawer";
 import type { Recruit } from "@/hooks/useGroupRecruits";
 import type { AccessLevel } from "@/utils/roleHierarchy";
 import { hasMinAccess } from "@/utils/roleHierarchy";
