@@ -274,11 +274,13 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                     <SelectValue placeholder="Select their role..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {LATERAL_INVITE_ROLES.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {getRoleLabel(role)}
-                      </SelectItem>
-                    ))}
+                    {LATERAL_INVITE_ROLES
+                      .filter((role) => ROLE_HIERARCHY.indexOf(role) > ROLE_HIERARCHY.indexOf(accessLevel))
+                      .map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {getRoleLabel(role)}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
