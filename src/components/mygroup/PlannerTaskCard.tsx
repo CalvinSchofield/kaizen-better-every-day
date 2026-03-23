@@ -84,7 +84,7 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
     } catch (error) {
       console.error('Failed to log call:', error);
     }
-    window.location.href = `tel:${recruit.phone}`;
+    window.open(`tel:${recruit.phone}`, '_self');
   };
 
   const handleText = async (e: React.MouseEvent) => {
