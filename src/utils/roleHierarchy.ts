@@ -65,7 +65,7 @@ export const getRoleLabel = (level: AccessLevel): string => {
     assistant_manager: 'Assistant Manager',
     team_lead: 'Team Lead',
     manager: 'Manager',
-    senior_manager: 'Senior Manager',
+    senior_manager: 'Sr. MGMT Group Lead',
     mgmt_group_lead: 'MGMT Group Lead',
     area_director: 'Area Director',
     regional: 'Regional',
