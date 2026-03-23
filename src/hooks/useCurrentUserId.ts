@@ -62,7 +62,7 @@ export const useCurrentUserId = () => {
       let authResult: AuthResult;
       try {
         authResult = await Promise.race<AuthResult>([
-          supabase.auth.getUser().then(({ data }) => ({ userId: data.user?.id ?? null, timedOut: false })),
+          getSessionSafe().then(({ user }) => ({ userId: user?.id ?? null, timedOut: false })),
           new Promise<AuthResult>((resolve) =>
             setTimeout(() => resolve({ userId: cachedUserId, timedOut: true }), AUTH_READY_TIMEOUT_MS)
           ),
