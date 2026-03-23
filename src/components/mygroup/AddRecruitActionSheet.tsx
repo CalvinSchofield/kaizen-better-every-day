@@ -338,10 +338,10 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                     <Users className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium text-sm">Invite a Leader</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Help other leaders get started on Kaizen
-                    </p>
+                     <p className="font-medium text-sm">Invite a Leader</p>
+                     <p className="text-xs text-muted-foreground mt-0.5">
+                       Share with your upline
+                     </p>
                   </div>
                 </button>
               )}
