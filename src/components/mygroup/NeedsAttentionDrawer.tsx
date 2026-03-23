@@ -1182,7 +1182,7 @@ const ReadinessItem = ({
       
       // Encode the message for SMS
       const encodedMessage = encodeURIComponent(message);
-      window.open(`sms:${item.recruit.phone}?body=${encodedMessage}`;
+      window.open(`sms:${item.recruit.phone}?body=${encodedMessage}`, '_self');
     }
   };
 
@@ -1375,7 +1375,7 @@ export const NeedsAttentionDrawer = ({
     }
     
     // Open phone app
-    window.open(`tel:${recruit.phone}`;
+    window.open(`tel:${recruit.phone}`, '_self');
     
     // Open post-contact drawer to log the call outcome
     setPostContactRecruit(recruit);
@@ -1391,7 +1391,7 @@ export const NeedsAttentionDrawer = ({
     }
     
     // Open SMS app
-    window.open(`sms:${recruit.phone}`;
+    window.open(`sms:${recruit.phone}`, '_self');
     
     // Open post-contact drawer to log the text
     setPostContactRecruit(recruit);
@@ -1503,7 +1503,7 @@ export const NeedsAttentionDrawer = ({
                       onContact={(recruit) => setContactRecruit(recruit)}
                       onDirectCall={(recruit) => {
                         if (recruit.phone) {
-                          window.open(`tel:${recruit.phone}`;
+                          window.open(`tel:${recruit.phone}`, '_self');
                           setPostContactRecruit(recruit);
                           setPostContactMethod('call');
                           setPostContactOpen(true);
@@ -1511,7 +1511,7 @@ export const NeedsAttentionDrawer = ({
                       }}
                       onDirectText={(recruit) => {
                         if (recruit.phone) {
-                          window.open(`sms:${recruit.phone}`;
+                          window.open(`sms:${recruit.phone}`, '_self');
                           setPostContactRecruit(recruit);
                           setPostContactMethod('text');
                           setPostContactOpen(true);
@@ -1550,7 +1550,7 @@ export const NeedsAttentionDrawer = ({
                   onContact={(recruit) => setContactRecruit(recruit)}
                   onDirectCall={(recruit) => {
                     if (recruit.phone) {
-                      window.open(`tel:${recruit.phone}`;
+                      window.open(`tel:${recruit.phone}`, '_self');
                       setPostContactRecruit(recruit);
                       setPostContactMethod('call');
                       setPostContactOpen(true);
@@ -1558,7 +1558,7 @@ export const NeedsAttentionDrawer = ({
                   }}
                   onDirectText={(recruit) => {
                     if (recruit.phone) {
-                      window.open(`sms:${recruit.phone}`;
+                      window.open(`sms:${recruit.phone}`, '_self');
                       setPostContactRecruit(recruit);
                       setPostContactMethod('text');
                       setPostContactOpen(true);

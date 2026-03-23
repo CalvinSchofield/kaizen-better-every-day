@@ -137,9 +137,9 @@ export const AddPhoneDrawer = ({
         onPhoneSaved?.(cleanPhone);
         
         if (pendingAction === 'text') {
-          window.open(`sms:${cleanPhone}`;
+          window.open(`sms:${cleanPhone}`, '_self');
         } else if (pendingAction === 'call') {
-          window.open(`tel:${cleanPhone}`;
+          window.open(`tel:${cleanPhone}`, '_self');
         }
       }, 300);
       

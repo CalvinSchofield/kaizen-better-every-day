@@ -120,7 +120,7 @@ const InviteMemberRow = ({
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (hasPhone) {
-      window.open(`sms:${phone}`;
+      window.open(`sms:${phone}`, '_self');
       // Show post-contact drawer to log the activity
       onContactInitiated(member, 'text');
     } else {
@@ -131,7 +131,7 @@ const InviteMemberRow = ({
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (hasPhone) {
-      window.open(`tel:${phone}`;
+      window.open(`tel:${phone}`, '_self');
       // Show post-contact drawer to log the activity
       onContactInitiated(member, 'call');
     } else {
