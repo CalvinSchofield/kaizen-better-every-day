@@ -522,7 +522,7 @@ export const ReportsV2Page = () => {
         rep={selectedRep ? { ...selectedRep, effort: selectedRep.effort } : null}
         isOpen={!!selectedRepId}
         onClose={() => setSelectedRepId(null)}
-        onSendSms={(phone, message) => window.open(`sms:${phone}?body=${encodeURIComponent(message)}`)}
+        onSendSms={(phone, message) => window.open(`sms:${phone}?body=${encodeURIComponent(message)}`, '_self')}
         dateRangeStart={parseISO(dateRange.start)}
         dateRangeEnd={parseISO(dateRange.end)}
       />

@@ -84,7 +84,7 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
     } catch (error) {
       console.error('Failed to log call:', error);
     }
-    window.location.href = `tel:${recruit.phone}`;
+    window.open(`tel:${recruit.phone}`, '_self');
   };
 
   const handleText = async (e: React.MouseEvent) => {
@@ -100,7 +100,7 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
     } catch (error) {
       console.error('Failed to log text:', error);
     }
-    window.location.href = `sms:${recruit.phone}`;
+    window.open(`sms:${recruit.phone}`, '_self');
   };
 
   const handleReschedule = async (date: Date | undefined) => {

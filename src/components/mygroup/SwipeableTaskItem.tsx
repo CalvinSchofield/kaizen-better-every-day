@@ -176,14 +176,14 @@ export const SwipeableTaskItem = ({
 
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.location.href = `tel:${recruit.phone}`;
+    window.open(`tel:${recruit.phone}`, '_self');
     // Open post-contact drawer for calls, passing activity context
     onDirectCall?.(recruit, activity);
   };
 
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.location.href = `sms:${recruit.phone}`;
+    window.open(`sms:${recruit.phone}`, '_self');
     // Open post-contact drawer for texts, passing activity context
     onDirectText?.(recruit, activity);
   };

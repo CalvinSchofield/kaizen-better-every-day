@@ -371,7 +371,7 @@ export const GoalPaceDrawer = ({ open, onOpenChange, enhancedGoalPace, onRepClic
                         className="text-xs text-primary flex items-center gap-1 hover:underline"
                         onClick={(e) => {
                           e.stopPropagation();
-                          window.open(`sms:${rep.phone}?body=${encodeURIComponent("Hey! Time to set your goals 🎯")}`);
+                          window.open(`sms:${rep.phone}?body=${encodeURIComponent("Hey! Time to set your goals 🎯")}`, '_self');
                         }}
                       >
                         <MessageSquare className="w-3 h-3" />
