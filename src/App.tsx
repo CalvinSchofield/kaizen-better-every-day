@@ -74,7 +74,6 @@ const queryClient = new QueryClient({
 const App = () => {
   useSafeAreaFallback();
   useKeyboardViewport();
-  useAppResume();
 
   return (
     <PersistQueryClientProvider 
