@@ -415,7 +415,7 @@ export const RecruitDetailDrawer = ({
       setPhoneEntryOpen(true);
       return;
     }
-    window.location.href = `tel:${recruit.phone}`;
+    window.open(`tel:${recruit.phone}`;
     setTimeout(() => { 
       setPostContactMethod('call');
       setPostContactOpen(true); 
@@ -457,9 +457,9 @@ export const RecruitDetailDrawer = ({
 
     // Open SMS app (group or solo)
     if (leaderPhone && leaderPhone !== recruitPhone) {
-      window.location.href = `sms:${recruitPhone},${leaderPhone}`;
+      window.open(`sms:${recruitPhone},${leaderPhone}`;
     } else {
-      window.location.href = `sms:${recruitPhone}`;
+      window.open(`sms:${recruitPhone}`;
     }
 
     // Show PostContactDrawer for notes capture after a short delay
@@ -476,7 +476,7 @@ export const RecruitDetailDrawer = ({
       setPhoneEntryOpen(true);
       return;
     }
-    window.location.href = `sms:${contactForHelp.phone}?body=${encodeURIComponent(helpMessage)}`;
+    window.open(`sms:${contactForHelp.phone}?body=${encodeURIComponent(helpMessage)}`;
   };
 
   // Handle direct iPad assignment from FocusCard
@@ -1435,7 +1435,7 @@ export const RecruitDetailDrawer = ({
           <DrawerHeader><DrawerTitle>{phoneEntryTarget === 'recruit' ? `Add ${recruitFirstName}'s Phone` : `Add ${contactForHelp?.name}'s Phone`}</DrawerTitle></DrawerHeader>
           <div className="p-4 space-y-4">
             <Input value={newPhoneNumber} onChange={(e) => { const input = e.target.value.replace(/\D/g, '').slice(0, 10); let fmt = ''; if (input.length > 0) { fmt = '(' + input.slice(0, 3); if (input.length > 3) { fmt += ') ' + input.slice(3, 6); if (input.length > 6) fmt += '-' + input.slice(6, 10); } } setNewPhoneNumber(fmt || input); }} placeholder="(555) 123-4567" type="tel" autoFocus />
-            <Button className="w-full" onClick={() => { if (!newPhoneNumber.trim()) { toast.error('Enter phone number'); return; } const targetId = phoneEntryTarget === 'recruit' ? recruit.id : contactForHelp?.id; if (!targetId) return; savePhoneMutation.mutate({ repId: targetId, phone: newPhoneNumber.trim() }, { onSuccess: () => { setPhoneEntryOpen(false); const saved = newPhoneNumber.trim(); setNewPhoneNumber(''); if (pendingPhoneAction === 'call') window.location.href = `tel:${saved}`; else if (pendingPhoneAction === 'text') window.location.href = `sms:${saved}`; else if (pendingPhoneAction === 'ask_help') window.location.href = `sms:${saved}?body=${encodeURIComponent(helpMessage)}`; setPendingPhoneAction(null); } }); }} disabled={savePhoneMutation.isPending}>{savePhoneMutation.isPending ? 'Saving...' : 'Save & Continue'}</Button>
+            <Button className="w-full" onClick={() => { if (!newPhoneNumber.trim()) { toast.error('Enter phone number'); return; } const targetId = phoneEntryTarget === 'recruit' ? recruit.id : contactForHelp?.id; if (!targetId) return; savePhoneMutation.mutate({ repId: targetId, phone: newPhoneNumber.trim() }, { onSuccess: () => { setPhoneEntryOpen(false); const saved = newPhoneNumber.trim(); setNewPhoneNumber(''); if (pendingPhoneAction === 'call') window.open(`tel:${saved}`; else if (pendingPhoneAction === 'text') window.open(`sms:${saved}`; else if (pendingPhoneAction === 'ask_help') window.open(`sms:${saved}?body=${encodeURIComponent(helpMessage)}`; setPendingPhoneAction(null); } }); }} disabled={savePhoneMutation.isPending}>{savePhoneMutation.isPending ? 'Saving...' : 'Save & Continue'}</Button>
           </div>
         </DrawerContent>
       </Drawer>

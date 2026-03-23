@@ -171,7 +171,7 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
       "Hey! I've been thinking about my goals and I'm ready to go over them with you. When can we jump on a call?"
     );
     
-    window.location.href = `sms:${cleanPhone}?body=${message}`;
+    window.open(`sms:${cleanPhone}?body=${message}`;
   };
 
   // Check if individual goals sections have been reviewed

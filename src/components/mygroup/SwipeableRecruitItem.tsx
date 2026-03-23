@@ -95,14 +95,14 @@ export const SwipeableRecruitItem = ({
 
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.location.href = `tel:${item.recruit.phone}`;
+    window.open(`tel:${item.recruit.phone}`;
     // Open post-contact drawer for calls
     onDirectCall?.(item.recruit);
   };
 
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.location.href = `sms:${item.recruit.phone}`;
+    window.open(`sms:${item.recruit.phone}`;
     // Open post-contact drawer for texts
     onDirectText?.(item.recruit);
   };

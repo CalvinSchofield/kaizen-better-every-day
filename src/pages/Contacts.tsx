@@ -469,7 +469,7 @@ const Contacts = () => {
                                 if (contact.category === "Customer Contacts (Give to Customers Only)") {
                                   copyToClipboard(contact.phone, "Phone number");
                                 } else {
-                                  window.location.href = `tel:${contact.phone.replace(/[^0-9]/g, "")}`;
+                                  window.open(`tel:${contact.phone.replace(/[^0-9]/g, "")}`;
                                 }
                               }}
                             >

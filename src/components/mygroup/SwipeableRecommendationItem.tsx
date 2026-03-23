@@ -85,14 +85,14 @@ export const SwipeableRecommendationItem = ({
 
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.location.href = `tel:${recommendation.recruit.phone}`;
+    window.open(`tel:${recommendation.recruit.phone}`;
     // Open post-contact drawer for calls
     onDirectCall?.(recommendation.recruit);
   };
 
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.location.href = `sms:${recommendation.recruit.phone}`;
+    window.open(`sms:${recommendation.recruit.phone}`;
     // Open post-contact drawer for texts
     onDirectText?.(recommendation.recruit);
   };
