@@ -1,0 +1,1 @@
+ALTER TABLE public.invite_codes ADD COLUMN pre_assigned_role text DEFAULT NULL;
