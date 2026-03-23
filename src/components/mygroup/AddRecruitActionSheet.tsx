@@ -346,7 +346,7 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                 {currentMessage}
               </p>
               {shareType === 'lateral' && selectedRole && (
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 rounded-lg px-3 py-2">
+                <p className="text-xs text-primary bg-primary/10 rounded-lg px-3 py-2">
                   ✅ This link will auto-approve signups as <strong>{getRoleLabel(selectedRole)}</strong>. They'll set up their own org structure.
                 </p>
               )}
