@@ -634,7 +634,7 @@ const CompactMode = ({
               live={tfData.live}
               pending={tfData.pending}
               goal={tfData.goal}
-              unbufferedGoal={data.unbufferedGoal}
+              unbufferedGoal={tf === 'Y' ? data.unbufferedGoal : undefined}
               expected={tf !== 'D' ? tfData.expected : 0}
               severity={data.severity}
               height="h-2"
