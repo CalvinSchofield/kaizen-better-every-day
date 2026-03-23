@@ -146,6 +146,14 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
     const rootNodes: TreeNode[] = [];
     const accessLevel = teamAccess.accessLevel;
 
+    // Helper: collect all userIds that appear as descendants in a tree
+    const collectChildUserIds = (nodes: TreeNode[], set: Set<string>) => {
+      for (const node of nodes) {
+        if (node.userId) set.add(node.userId);
+        collectChildUserIds(node.children, set);
+      }
+    };
+
     if (
       accessLevel === "area_director" ||
       accessLevel === "corporate" ||
@@ -154,25 +162,27 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       accessLevel === "partner" ||
       accessLevel === "divisional"
     ) {
-      // Track which userIds are someone else's recruit (i.e. have a recruiter)
-      const recruitedUserIds = new Set<string>();
-      recruits.forEach((r) => {
-        if (!r.recruiter_user_id) return;
-        const recruitRep = reps.find(
-          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
-        );
-        if (recruitRep?.user_id && recruitRep.user_id !== r.recruiter_user_id) {
-          recruitedUserIds.add(recruitRep.user_id);
-        }
-      });
-
       const allRecruiterIds = new Set(
         recruits.map((r) => r.recruiter_user_id).filter(Boolean) as string[]
       );
+
+      // Build all candidate root trees first
+      const candidateRoots: TreeNode[] = [];
       allRecruiterIds.forEach((recruiterId) => {
-        if (!recruitedUserIds.has(recruiterId)) {
-          const node = buildNode(recruiterId);
-          if (node && node.children.length > 0) rootNodes.push(node);
+        const node = buildNode(recruiterId);
+        if (node && node.children.length > 0) candidateRoots.push(node);
+      });
+
+      // Collect every userId that appears as a child in ANY tree
+      const allChildUserIds = new Set<string>();
+      candidateRoots.forEach((root) => {
+        collectChildUserIds(root.children, allChildUserIds);
+      });
+
+      // Only keep roots whose userId does NOT appear as someone else's child
+      candidateRoots.forEach((root) => {
+        if (!root.userId || !allChildUserIds.has(root.userId)) {
+          rootNodes.push(root);
         }
       });
     } else if (currentAuthUserId) {
