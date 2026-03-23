@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { hapticSuccess } from "@/utils/haptics";
 import { APP_BASE_URL, INVITE_SHARE_MESSAGE } from "@/utils/constants";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { hasMinAccess, getRoleLabel, ASSIGNABLE_ROLES, type AccessLevel } from "@/utils/roleHierarchy";
+import { hasMinAccess, getRoleLabel, ROLE_HIERARCHY, ASSIGNABLE_ROLES, type AccessLevel } from "@/utils/roleHierarchy";
 
 const generateShortCode = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
