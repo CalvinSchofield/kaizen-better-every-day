@@ -80,7 +80,7 @@ export const getRoleLabel = (level: AccessLevel): string => {
 /** All assignable roles for admin panel (excludes dynamic roles) */
 export const ASSIGNABLE_ROLES: AccessLevel[] = [
   'assistant_manager',
-  'manager',
+  'mgmt_group_lead',
   'senior_manager',
   'regional',
   'sr_regional',
