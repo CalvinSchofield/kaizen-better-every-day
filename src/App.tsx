@@ -17,6 +17,7 @@ import TrackWithLayout from "./components/TrackWithLayout";
 import SetupFlow from "./components/SetupFlow";
 import { ChallengeWinListener } from "./components/ChallengeWinListener";
 import { HydrationGate } from "./components/HydrationGate";
+import { useAppResume } from "./hooks/useAppResume";
 import { HeaderProvider } from "./contexts/HeaderContext";
 import Home from "./pages/Home";
 import Training from "./pages/Training";
@@ -59,11 +60,11 @@ import { queryPersister } from "./lib/queryPersister";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 15 * 60 * 1000,
+      staleTime: 5 * 60 * 1000,
       gcTime: 60 * 60 * 1000,
-      retry: 1,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
+      retry: 2,
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
       refetchOnReconnect: true,
       networkMode: 'offlineFirst',
     },
@@ -73,6 +74,7 @@ const queryClient = new QueryClient({
 const App = () => {
   useSafeAreaFallback();
   useKeyboardViewport();
+  useAppResume();
 
   return (
     <PersistQueryClientProvider 
