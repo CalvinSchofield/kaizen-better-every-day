@@ -322,10 +322,10 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                   <Share2 className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-medium text-sm">Share Kaizen</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Send the app to your recruits
-                  </p>
+                   <p className="font-medium text-sm">Share Kaizen</p>
+                   <p className="text-xs text-muted-foreground mt-0.5">
+                     Share to your downline
+                   </p>
                 </div>
               </button>
 
