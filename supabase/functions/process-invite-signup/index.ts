@@ -86,11 +86,12 @@ Deno.serve(async (req) => {
     // For LATERAL invites, leave these NULL — approver sets them manually
     let resolvedTeamId: string | null = null;
     let resolvedMgmtGroupId: string | null = null;
-    let resolvedRecruiterUserId: string | null = null;
+    // Always set recruiter to inviter so pending approval is visible
+    // For lateral invites, the approver can reassign during approval
+    let resolvedRecruiterUserId: string | null = invite.inviter_user_id;
 
     if (!isLateralInvite) {
-      // Standard downline flow — auto-assign recruiter and org placement
-      resolvedRecruiterUserId = invite.inviter_user_id;
+      // Standard downline flow — auto-assign org placement
       resolvedTeamId = invite.team_id || null;
       resolvedMgmtGroupId = invite.mgmt_group_id || null;
 
