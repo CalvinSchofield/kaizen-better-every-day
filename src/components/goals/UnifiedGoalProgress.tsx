@@ -374,7 +374,7 @@ const FullMode = ({
             live={current.live}
             pending={current.pending}
             goal={current.goal}
-            unbufferedGoal={data.unbufferedGoal}
+            unbufferedGoal={timeframe === 'Y' ? data.unbufferedGoal : undefined}
             expected={current.expected}
             severity={data.severity}
             showExpectedMarker={data.knockingDaysCompleted >= 6}
