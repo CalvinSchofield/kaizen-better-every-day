@@ -17,6 +17,7 @@ import TrackWithLayout from "./components/TrackWithLayout";
 import SetupFlow from "./components/SetupFlow";
 import { ChallengeWinListener } from "./components/ChallengeWinListener";
 import { HydrationGate } from "./components/HydrationGate";
+import { useAppResume } from "./hooks/useAppResume";
 import { HeaderProvider } from "./contexts/HeaderContext";
 import Home from "./pages/Home";
 import Training from "./pages/Training";
