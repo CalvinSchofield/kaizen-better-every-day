@@ -363,7 +363,7 @@ const FullMode = ({
                   <span className="text-warning font-normal"> +{formatFP(current.pending)} pending</span>
                 )}
               </span>
-              <span className="text-muted-foreground">/ {formatFP(data.unbufferedGoal || current.goal)} {data.metricLabel}</span>
+              <span className="text-muted-foreground">/ {formatFP(timeframe === 'Y' ? (data.unbufferedGoal || current.goal) : current.goal)} {data.metricLabel}</span>
             </div>
           </div>
 
@@ -374,7 +374,7 @@ const FullMode = ({
             live={current.live}
             pending={current.pending}
             goal={current.goal}
-            unbufferedGoal={data.unbufferedGoal}
+            unbufferedGoal={timeframe === 'Y' ? data.unbufferedGoal : undefined}
             expected={current.expected}
             severity={data.severity}
             showExpectedMarker={data.knockingDaysCompleted >= 6}
@@ -624,7 +624,7 @@ const CompactMode = ({
                   {formatFP(Math.min(tfData.funded, tfData.actual + tfData.live))}
                   {tfData.pending > 0 && <span className="text-warning text-xs"> +{formatFP(tfData.pending)} pending</span>}
                 </span>
-                <span className="text-muted-foreground">/ {formatFP(data.unbufferedGoal || tfData.goal)} {data.metricLabel}</span>
+                <span className="text-muted-foreground">/ {formatFP(tf === 'Y' ? (data.unbufferedGoal || tfData.goal) : tfData.goal)} {data.metricLabel}</span>
                 {goalHit && <Check className="w-3.5 h-3.5 text-emerald-500" />}
               </div>
             </div>
@@ -634,7 +634,7 @@ const CompactMode = ({
               live={tfData.live}
               pending={tfData.pending}
               goal={tfData.goal}
-              unbufferedGoal={data.unbufferedGoal}
+              unbufferedGoal={tf === 'Y' ? data.unbufferedGoal : undefined}
               expected={tf !== 'D' ? tfData.expected : 0}
               severity={data.severity}
               height="h-2"
