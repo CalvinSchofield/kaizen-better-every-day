@@ -8,10 +8,11 @@ const corsHeaders = {
 /**
  * Called after a user signs up with an invite code.
  * Creates the recruit + rep records and links them to the inviter.
- * Sets approval_status = 'pending' so a leader must approve before full access.
  * 
- * For lateral invites (invite_type = 'lateral'), skips auto-recruiter/team/group
- * assignment — the approver must manually set these during approval.
+ * For DOWNLINE invites: sets approval_status = 'pending', auto-assigns org placement.
+ * For LATERAL invites WITH pre_assigned_role: auto-approves, assigns role, leaves
+ *   recruiter/team/group null — the invited leader sets up their own structure.
+ * For LATERAL invites WITHOUT pre_assigned_role: falls back to pending (legacy).
  */
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -74,6 +75,9 @@ Deno.serve(async (req) => {
     }
 
     const isLateralInvite = invite.invite_type === 'lateral';
+    const preAssignedRole = invite.pre_assigned_role || null;
+    // Auto-approve lateral invites that have a pre-assigned role
+    const shouldAutoApprove = isLateralInvite && !!preAssignedRole;
 
     // 2. Get inviter's rep record for team info
     const { data: inviterRep } = await supabase
@@ -82,13 +86,12 @@ Deno.serve(async (req) => {
       .eq('user_id', invite.inviter_user_id)
       .maybeSingle();
 
-    // 2b. For DOWNLINE invites, auto-resolve team_id and mgmt_group_id from inviter
-    // For LATERAL invites, leave these NULL — approver sets them manually
+    // 2b. Resolve org placement
     let resolvedTeamId: string | null = null;
     let resolvedMgmtGroupId: string | null = null;
-    // Always set recruiter to inviter so pending approval is visible
-    // For lateral invites, the approver can reassign during approval
-    let resolvedRecruiterUserId: string | null = invite.inviter_user_id;
+    // For lateral invites with auto-approve, don't set recruiter — the leader's
+    // actual recruiter is their upline who may not be onboarded yet
+    let resolvedRecruiterUserId: string | null = shouldAutoApprove ? null : invite.inviter_user_id;
 
     if (!isLateralInvite) {
       // Standard downline flow — auto-assign org placement
@@ -140,6 +143,7 @@ Deno.serve(async (req) => {
 
     const finalName = name || user.user_metadata?.name || user.email?.split('@')[0] || 'New Rep';
     const finalYear = year || 'Rookie';
+    const approvalStatus = shouldAutoApprove ? 'approved' : 'pending';
 
     // 3. Check if rep already exists (ghost rep claim or duplicate)
     const { data: existingRep } = await supabase
@@ -158,40 +162,58 @@ Deno.serve(async (req) => {
 
       await supabase
         .from('recruits')
-        .update({ approval_status: 'pending' })
-        .eq('id', existingRep.id)
-        .eq('approval_status', 'approved');
+        .update({ 
+          approval_status: approvalStatus,
+          ...(shouldAutoApprove ? {
+            approved_at: new Date().toISOString(),
+            approved_by_user_id: invite.inviter_user_id,
+          } : {}),
+        })
+        .eq('id', existingRep.id);
+
+      // Assign role if pre-assigned
+      if (shouldAutoApprove && preAssignedRole) {
+        await assignRole(supabase, user.id, preAssignedRole);
+      }
 
       await supabase
         .from('invite_codes')
         .update({ uses_count: invite.uses_count + 1 })
         .eq('id', invite.id);
 
-      await notifyUplineOfPendingApproval(supabase, invite.inviter_user_id, finalName, existingRep.id, isLateralInvite);
+      if (!shouldAutoApprove) {
+        await notifyUplineOfPendingApproval(supabase, invite.inviter_user_id, finalName, existingRep.id, isLateralInvite);
+      }
 
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'Existing account linked',
         repId: existingRep.id,
-        pendingApproval: true,
+        pendingApproval: !shouldAutoApprove,
         isLateralInvite,
+        autoApproved: shouldAutoApprove,
+        assignedRole: preAssignedRole,
       }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // 4. Create recruit record with approval_status = 'pending'
+    // 4. Create recruit record
     const recruitData: Record<string, unknown> = {
       name: finalName,
       email: user.email,
       phone: phone || null,
       stage: 'Signed',
       year: finalYear,
-      recruiter_user_id: resolvedRecruiterUserId, // NULL for lateral invites
-      team_id: resolvedTeamId, // NULL for lateral invites
-      mgmt_group_id: resolvedMgmtGroupId, // NULL for lateral invites
+      recruiter_user_id: resolvedRecruiterUserId,
+      team_id: resolvedTeamId,
+      mgmt_group_id: resolvedMgmtGroupId,
       invite_code_used: inviteCode,
-      approval_status: 'pending',
+      approval_status: approvalStatus,
+      ...(shouldAutoApprove ? {
+        approved_at: new Date().toISOString(),
+        approved_by_user_id: invite.inviter_user_id,
+      } : {}),
     };
 
     const { data: newRecruit, error: recruitError } = await supabase
@@ -206,7 +228,7 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ 
           success: true, 
           message: 'Account already exists in the system',
-          pendingApproval: true,
+          pendingApproval: !shouldAutoApprove,
           isLateralInvite,
         }), {
           status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -231,7 +253,6 @@ Deno.serve(async (req) => {
           name: finalName,
           phone: phone || null,
           year: finalYear,
-          // For lateral invites, don't set team_leader info from inviter
           team_leader: isLateralInvite ? null : (inviterRep?.name || null),
           team_leader_phone: isLateralInvite ? null : (inviterRep?.phone || null),
           updated_at: new Date().toISOString(),
@@ -254,6 +275,11 @@ Deno.serve(async (req) => {
         });
     }
 
+    // 5b. Assign role if pre-assigned (auto-approve path)
+    if (shouldAutoApprove && preAssignedRole) {
+      await assignRole(supabase, user.id, preAssignedRole);
+    }
+
     // 6. Increment invite code usage
     await supabase
       .from('invite_codes')
@@ -261,9 +287,11 @@ Deno.serve(async (req) => {
       .eq('id', invite.id);
 
     // 7. Log activity
-    const activityNote = isLateralInvite
-      ? `Joined via lateral invite link from ${inviterRep?.name || 'recruiter'} — pending approval (manual placement required)`
-      : `Joined via invite link from ${inviterRep?.name || 'recruiter'} — pending approval`;
+    const activityNote = shouldAutoApprove
+      ? `Joined via leader invite from ${inviterRep?.name || 'recruiter'} — auto-approved as ${preAssignedRole}`
+      : isLateralInvite
+        ? `Joined via lateral invite link from ${inviterRep?.name || 'recruiter'} — pending approval (manual placement required)`
+        : `Joined via invite link from ${inviterRep?.name || 'recruiter'} — pending approval`;
 
     await supabase
       .from('recruit_activities')
@@ -274,18 +302,22 @@ Deno.serve(async (req) => {
         notes: activityNote,
       });
 
-    // 8. Notify inviter and upline
-    await notifyUplineOfPendingApproval(supabase, invite.inviter_user_id, finalName, newRecruit.id, isLateralInvite);
+    // 8. Notify (only for pending approvals)
+    if (!shouldAutoApprove) {
+      await notifyUplineOfPendingApproval(supabase, invite.inviter_user_id, finalName, newRecruit.id, isLateralInvite);
+    }
 
-    console.log(`[process-invite-signup] Created recruit+rep for ${finalName} via ${isLateralInvite ? 'lateral' : 'downline'} invite code ${inviteCode} (pending approval)`);
+    console.log(`[process-invite-signup] Created recruit+rep for ${finalName} via ${isLateralInvite ? 'lateral' : 'downline'} invite code ${inviteCode} (${shouldAutoApprove ? 'auto-approved as ' + preAssignedRole : 'pending approval'})`);
 
     return new Response(JSON.stringify({ 
       success: true, 
       recruitId: newRecruit.id,
       inviterName: inviterRep?.name,
       teamId: resolvedTeamId,
-      pendingApproval: true,
+      pendingApproval: !shouldAutoApprove,
       isLateralInvite,
+      autoApproved: shouldAutoApprove,
+      assignedRole: preAssignedRole,
     }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -299,6 +331,47 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+/**
+ * Assign a role to a user via the user_roles table.
+ * Maps role strings to the app_role enum values.
+ */
+async function assignRole(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  role: string,
+) {
+  // Map display/config roles to app_role enum values
+  const roleMap: Record<string, string> = {
+    'assistant_manager': 'assistant_manager',
+    'team_lead': 'team_lead',
+    'manager': 'manager',
+    'senior_manager': 'senior_manager',
+    'mgmt_group_lead': 'mgmt_group_lead',
+    'area_director': 'area_director',
+    'regional': 'regional',
+    'sr_regional': 'sr_regional',
+    'partner': 'partner',
+    'divisional': 'divisional',
+    'corporate': 'corporate',
+  };
+
+  const mappedRole = roleMap[role];
+  if (!mappedRole) {
+    console.warn(`[assignRole] Unknown role: ${role}`);
+    return;
+  }
+
+  const { error } = await supabase
+    .from('user_roles')
+    .upsert({ user_id: userId, role: mappedRole }, { onConflict: 'user_id,role' });
+
+  if (error) {
+    console.error(`[assignRole] Error assigning role ${mappedRole} to ${userId}:`, error);
+  } else {
+    console.log(`[assignRole] Assigned ${mappedRole} to ${userId}`);
+  }
+}
 
 /**
  * Send push notifications to the inviter and their upline (up to MGMT group lead)

@@ -8,6 +8,13 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
@@ -15,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { hapticSuccess } from "@/utils/haptics";
 import { APP_BASE_URL, INVITE_SHARE_MESSAGE } from "@/utils/constants";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { hasMinAccess, type AccessLevel } from "@/utils/roleHierarchy";
+import { hasMinAccess, getRoleLabel, ASSIGNABLE_ROLES, type AccessLevel } from "@/utils/roleHierarchy";
 
 const generateShortCode = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -28,6 +35,20 @@ const generateShortCode = () => {
 
 const LATERAL_INVITE_MESSAGE =
   "Hey — I'm using Kaizen to manage my org. Join here and we'll get you set up with the right team 👇";
+
+/** Roles available for lateral invite pre-assignment (leadership roles only) */
+const LATERAL_INVITE_ROLES: AccessLevel[] = [
+  'assistant_manager',
+  'manager',
+  'senior_manager',
+  'mgmt_group_lead',
+  'area_director',
+  'regional',
+  'sr_regional',
+  'partner',
+  'divisional',
+  'corporate',
+];
 
 interface AddRecruitActionSheetProps {
   open: boolean;
@@ -49,55 +70,71 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Lateral invite role selection
+  const [showRolePicker, setShowRolePicker] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<AccessLevel | ''>('');
+
   const handleAddToPipeline = () => {
     onOpenChange(false);
     navigate('/add-recruit');
   };
 
-  const generateOrGetInviteLink = async (type: 'downline' | 'lateral'): Promise<string | null> => {
-    const cached = type === 'lateral' ? lateralInviteLink : inviteLink;
+  const generateOrGetInviteLink = async (type: 'downline' | 'lateral', role?: string): Promise<string | null> => {
+    // For lateral invites, always generate a new code since each has a unique role
+    const cached = type === 'lateral' ? null : inviteLink;
     if (cached) return cached;
     if (!userId) return null;
     setIsGenerating(true);
 
     try {
-      // Ensure auth session is ready (critical for TestFlight cold starts)
       const { session } = await getSessionSafe();
       if (!session) {
         toast({ title: "Error", description: "Not authenticated. Please restart the app.", variant: "destructive" });
         return null;
       }
 
-      // Check for existing active invite of this type
-      const { data: existing } = await supabase
-        .from('invite_codes')
-        .select('code')
-        .eq('inviter_user_id', userId)
-        .eq('is_active', true)
-        .eq('invite_type', type)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // For downline invites, check for existing
+      if (type !== 'lateral') {
+        const { data: existing } = await supabase
+          .from('invite_codes')
+          .select('code')
+          .eq('inviter_user_id', userId)
+          .eq('is_active', true)
+          .eq('invite_type', type)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-      if (existing) {
-        const link = `${APP_BASE_URL}/auth?invite=${existing.code}`;
-        if (type === 'lateral') setLateralInviteLink(link);
-        else setInviteLink(link);
-        return link;
+        if (existing) {
+          const link = `${APP_BASE_URL}/auth?invite=${existing.code}`;
+          setInviteLink(link);
+          return link;
+        }
       }
 
       const code = generateShortCode();
 
+      const insertData: Record<string, unknown> = {
+        code,
+        inviter_user_id: userId,
+        is_active: true,
+        invite_type: type,
+      };
+
+      // Attach role to lateral invite codes
+      if (type === 'lateral' && role) {
+        insertData.pre_assigned_role = role;
+      }
+
       const { error } = await supabase
         .from('invite_codes')
-        .insert({ code, inviter_user_id: userId, is_active: true, invite_type: type });
+        .insert(insertData);
 
       if (error) {
-        // Retry with a different code on collision
         const retryCode = generateShortCode();
         const { error: retryError } = await supabase
           .from('invite_codes')
-          .insert({ code: retryCode, inviter_user_id: userId, is_active: true, invite_type: type });
+          .insert({ ...insertData, code: retryCode });
         if (retryError) throw retryError;
         const link = `${APP_BASE_URL}/auth?invite=${retryCode}`;
         if (type === 'lateral') setLateralInviteLink(link);
@@ -134,10 +171,22 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
     }
   };
 
-  const handleInviteLeader = async () => {
+  const handleInviteLeader = () => {
+    // Show role picker first, then generate link
+    setShowRolePicker(true);
+    setSelectedRole('');
+  };
+
+  const handleConfirmRoleAndShare = async () => {
+    if (!selectedRole) {
+      toast({ title: "Select a role", description: "Choose the role for the leader you're inviting.", variant: "destructive" });
+      return;
+    }
+
+    setShowRolePicker(false);
     setShareType('lateral');
     setShowShareView(true);
-    const link = await generateOrGetInviteLink('lateral');
+    const link = await generateOrGetInviteLink('lateral', selectedRole);
     if (!link) return;
 
     if (navigator.share) {
@@ -150,7 +199,7 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
 
   const handleCopy = async () => {
     const link = (shareType === 'lateral' ? lateralInviteLink : inviteLink) 
-      || (await generateOrGetInviteLink(shareType));
+      || (await generateOrGetInviteLink(shareType, selectedRole || undefined));
     if (!link) return;
     const fullText = `${currentMessage}\n\n${link}`;
     try {
@@ -174,7 +223,7 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
 
   const handleShareAgain = async () => {
     const link = (shareType === 'lateral' ? lateralInviteLink : inviteLink) 
-      || (await generateOrGetInviteLink(shareType));
+      || (await generateOrGetInviteLink(shareType, selectedRole || undefined));
     if (!link) return;
     if (navigator.share) {
       try {
@@ -191,7 +240,9 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
     if (!isOpen) {
       setTimeout(() => {
         setShowShareView(false);
+        setShowRolePicker(false);
         setShareType('downline');
+        setSelectedRole('');
       }, 300);
     }
   };
@@ -201,14 +252,50 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>
-            {showShareView 
-              ? (shareType === 'lateral' ? "Invite a Leader" : "Share Kaizen")
-              : "Add a Rep"
+            {showRolePicker
+              ? "Invite a Leader"
+              : showShareView 
+                ? (shareType === 'lateral' ? "Invite a Leader" : "Share Kaizen")
+                : "Add a Rep"
             }
           </DrawerTitle>
         </DrawerHeader>
         <div className="p-4 pb-8 space-y-3">
-          {!showShareView ? (
+          {showRolePicker ? (
+            // Step 1 for lateral invites: Pick the role
+            <>
+              <p className="text-sm text-muted-foreground">
+                What role does this leader hold? They'll be auto-approved with this role when they sign up.
+              </p>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Role</label>
+                <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as AccessLevel)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select their role..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LATERAL_INVITE_ROLES.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {getRoleLabel(role)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                They'll land in the app ready to set up their own teams and org structure.
+                Their recruiter field will stay empty until their direct upline onboards.
+              </p>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => setShowRolePicker(false)}>
+                  Back
+                </Button>
+                <Button className="flex-1" onClick={handleConfirmRoleAndShare} disabled={!selectedRole}>
+                  Generate & Share
+                </Button>
+              </div>
+            </>
+          ) : !showShareView ? (
             <>
               <button
                 onClick={handleAddToPipeline}
@@ -262,9 +349,9 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
               <p className="text-sm text-muted-foreground">
                 {currentMessage}
               </p>
-              {shareType === 'lateral' && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2">
-                  ⚠️ This is a lateral invite — the person who signs up won't be auto-assigned under you. You'll need to manually set their recruiter, team, and group during approval.
+              {shareType === 'lateral' && selectedRole && (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 rounded-lg px-3 py-2">
+                  ✅ This link will auto-approve signups as <strong>{getRoleLabel(selectedRole)}</strong>. They'll set up their own org structure.
                 </p>
               )}
               {isGenerating ? (

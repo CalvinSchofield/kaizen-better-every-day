@@ -1029,6 +1029,9 @@ const MyGroup = () => {
               />
             </div>
 
+            {/* Pending Approvals - invite signups needing review (top priority) */}
+            <PendingApprovalsSection />
+
             {/* Week Planner Section - includes week overview, today's tasks, and recommendations */}
             {/* Pass recommendations starting from index 1 to avoid duplicating hero */}
             <div data-tour="group-week-planner">
@@ -1047,9 +1050,6 @@ const MyGroup = () => {
                 heroTodayItem={todayScheduledItem}
               />
             </div>
-
-            {/* Pending Approvals - invite signups needing review */}
-            <PendingApprovalsSection />
 
             {/* Pending Org Change Requests */}
             <PendingOrgRequests mode="approver" />
