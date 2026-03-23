@@ -84,6 +84,7 @@ const App = () => {
         buster: 'v3',
       }}
     >
+      <AppResumeHandler />
       <HydrationGate>
         <HeaderProvider>
           <TooltipProvider>
