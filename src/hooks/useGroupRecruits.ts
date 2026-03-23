@@ -948,14 +948,16 @@ export const useLogRecruitActivity = () => {
 
       if (error) throw error;
 
-      // Update last_contact on the recruit for phone_call or in_person activities
-      // Use the backdated date if provided, otherwise today
+      // Update last_contact on the recruit (fire-and-forget to avoid timeout)
       if (actualRecruitId && (activityType === 'phone_call' || activityType === 'in_person' || activityType === 'text')) {
         const contactDate = activityDate || new Date().toISOString().split('T')[0];
-        await supabase
+        supabase
           .from('recruits')
           .update({ last_contact: contactDate })
-          .eq('id', actualRecruitId);
+          .eq('id', actualRecruitId)
+          .then(({ error }) => {
+            if (error) console.error('Failed to update last_contact:', error);
+          });
       }
 
       return { ...data, recruitId, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId, activityDate };
