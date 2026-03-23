@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getSessionSafe } from '@/utils/authSession';
 import { clearAllRepCaches } from './useRepData';
 
 // Shared localStorage key (used by useRepData too)
