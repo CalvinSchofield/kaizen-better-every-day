@@ -363,7 +363,7 @@ const FullMode = ({
                   <span className="text-warning font-normal"> +{formatFP(current.pending)} pending</span>
                 )}
               </span>
-              <span className="text-muted-foreground">/ {formatFP(data.unbufferedGoal || current.goal)} {data.metricLabel}</span>
+              <span className="text-muted-foreground">/ {formatFP(timeframe === 'Y' ? (data.unbufferedGoal || current.goal) : current.goal)} {data.metricLabel}</span>
             </div>
           </div>
 
