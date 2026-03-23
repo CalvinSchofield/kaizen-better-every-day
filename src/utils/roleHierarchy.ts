@@ -97,7 +97,7 @@ export const ASSIGNABLE_ROLES: AccessLevel[] = [
 export const getMaxAssignableRole = (approverLevel: AccessLevel): AccessLevel => {
   const map: Partial<Record<AccessLevel, AccessLevel>> = {
     mgmt_group_lead: 'team_lead',
-    senior_manager: 'manager',
+    senior_manager: 'mgmt_group_lead',
     regional: 'senior_manager',
     sr_regional: 'regional',
     partner: 'sr_regional',
