@@ -60,11 +60,11 @@ import { queryPersister } from "./lib/queryPersister";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 15 * 60 * 1000,
+      staleTime: 5 * 60 * 1000,
       gcTime: 60 * 60 * 1000,
-      retry: 1,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
+      retry: 2,
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
       refetchOnReconnect: true,
       networkMode: 'offlineFirst',
     },
