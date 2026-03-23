@@ -295,6 +295,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       // MGMT groups without an office
       ungroupedByMgmt.forEach((nodes, mgmtGroupId) => {
         const mg = mgmtGroupMap.get(mgmtGroupId);
+        const dedupedNodes = dedupeGroupNodes(nodes);
         rootNodes.push({
           id: `mgmt-${mgmtGroupId}`,
           name: mg?.name || "MGMT Group",
@@ -303,7 +304,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
           profilePhotoUrl: mg?.lead_user_id ? repMap.get(mg.lead_user_id)?.profile_photo_url : null,
           isLabelNode: true,
           roleColor: "mgmt_group",
-          children: nodes.sort((a, b) => b.children.length - a.children.length),
+          children: dedupedNodes.sort((a, b) => b.children.length - a.children.length),
         });
       });
 
