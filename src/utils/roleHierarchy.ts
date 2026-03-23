@@ -27,8 +27,8 @@ export const ROLE_HIERARCHY: AccessLevel[] = [
   'assistant_manager',
   'team_lead',
   'manager',
-  'senior_manager',
   'mgmt_group_lead',
+  'senior_manager',
   'area_director',
   'regional',
   'sr_regional',
@@ -80,7 +80,7 @@ export const getRoleLabel = (level: AccessLevel): string => {
 /** All assignable roles for admin panel (excludes dynamic roles) */
 export const ASSIGNABLE_ROLES: AccessLevel[] = [
   'assistant_manager',
-  'manager',
+  'mgmt_group_lead',
   'senior_manager',
   'regional',
   'sr_regional',
@@ -97,7 +97,7 @@ export const ASSIGNABLE_ROLES: AccessLevel[] = [
 export const getMaxAssignableRole = (approverLevel: AccessLevel): AccessLevel => {
   const map: Partial<Record<AccessLevel, AccessLevel>> = {
     mgmt_group_lead: 'team_lead',
-    senior_manager: 'manager',
+    senior_manager: 'mgmt_group_lead',
     regional: 'senior_manager',
     sr_regional: 'regional',
     partner: 'sr_regional',

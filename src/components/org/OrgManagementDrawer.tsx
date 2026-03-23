@@ -502,7 +502,7 @@ type AccessLevelForAD = string;
 
 const ROLE_HIERARCHY_ORDER: AccessLevelForAD[] = [
   'none', 'recruiter', 'assistant_manager', 'team_lead', 'manager',
-  'senior_manager', 'mgmt_group_lead', 'area_director', 'regional',
+  'mgmt_group_lead', 'senior_manager', 'area_director', 'regional',
   'sr_regional', 'partner', 'divisional', 'corporate',
 ];
 
