@@ -42,11 +42,9 @@ const LATERAL_INVITE_MESSAGE =
  * only roles strictly above theirs are shown.
  */
 const LATERAL_INVITE_ROLES: AccessLevel[] = [
-  'assistant_manager',
   'team_lead',
   'mgmt_group_lead',
-  'senior_manager',
-  'area_director',
+  'senior_manager',    // Sr. MGMT Group Lead
   'regional',
   'sr_regional',
   'partner',
