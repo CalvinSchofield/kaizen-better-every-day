@@ -114,17 +114,13 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
 
       const code = generateShortCode();
 
-      const insertData: Record<string, unknown> = {
+      const insertData = {
         code,
         inviter_user_id: userId,
         is_active: true,
         invite_type: type,
+        pre_assigned_role: (type === 'lateral' && role) ? role : null,
       };
-
-      // Attach role to lateral invite codes
-      if (type === 'lateral' && role) {
-        insertData.pre_assigned_role = role;
-      }
 
       const { error } = await supabase
         .from('invite_codes')
