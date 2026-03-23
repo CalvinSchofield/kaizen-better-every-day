@@ -71,6 +71,12 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Thin component that lives inside QueryClientProvider so useQueryClient works */
+function AppResumeHandler() {
+  useAppResume();
+  return null;
+}
+
 const App = () => {
   useSafeAreaFallback();
   useKeyboardViewport();
