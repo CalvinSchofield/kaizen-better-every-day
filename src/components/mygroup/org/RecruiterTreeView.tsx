@@ -251,6 +251,13 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         }
       });
 
+      // Helper: deduplicate nodes within a group — remove any root that appears as a descendant of another root
+      const dedupeGroupNodes = (nodes: TreeNode[]): TreeNode[] => {
+        const descendantIds = new Set<string>();
+        nodes.forEach((n) => collectChildUserIds(n.children, descendantIds));
+        return nodes.filter((n) => !n.userId || !descendantIds.has(n.userId));
+      };
+
       // Build office label nodes → mgmt group label nodes → recruiter chains
       officeGroups.forEach((mgmtMap, officeId) => {
         const office = officeMap.get(officeId);
@@ -258,6 +265,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
 
         mgmtMap.forEach((nodes, mgmtGroupId) => {
           const mg = mgmtGroupMap.get(mgmtGroupId);
+          const dedupedNodes = dedupeGroupNodes(nodes);
           mgmtChildren.push({
             id: `mgmt-${mgmtGroupId}`,
             name: mg?.name || "MGMT Group",
@@ -266,7 +274,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
             profilePhotoUrl: mg?.lead_user_id ? repMap.get(mg.lead_user_id)?.profile_photo_url : null,
             isLabelNode: true,
             roleColor: "mgmt_group",
-            children: nodes.sort((a, b) => b.children.length - a.children.length),
+            children: dedupedNodes.sort((a, b) => b.children.length - a.children.length),
           });
         });
 
@@ -287,6 +295,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       // MGMT groups without an office
       ungroupedByMgmt.forEach((nodes, mgmtGroupId) => {
         const mg = mgmtGroupMap.get(mgmtGroupId);
+        const dedupedNodes = dedupeGroupNodes(nodes);
         rootNodes.push({
           id: `mgmt-${mgmtGroupId}`,
           name: mg?.name || "MGMT Group",
@@ -295,7 +304,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
           profilePhotoUrl: mg?.lead_user_id ? repMap.get(mg.lead_user_id)?.profile_photo_url : null,
           isLabelNode: true,
           roleColor: "mgmt_group",
-          children: nodes.sort((a, b) => b.children.length - a.children.length),
+          children: dedupedNodes.sort((a, b) => b.children.length - a.children.length),
         });
       });
 
