@@ -170,13 +170,9 @@ export const PostContactDrawer = ({
       const wasConnected = effectiveOutcome === 'connected';
       const outcomeLabel = wasConnected ? 'Connected' : 'No answer';
 
-      // Build combined notes when scheduling is included
+      // Build contact notes (don't merge schedule description — it goes in next_action)
       const wantsSchedule = showScheduling && scheduleDate;
       let combinedNotes = notes || `${actionLabel} ${firstName}${isCall ? ` - ${outcomeLabel}` : ''}`;
-      if (wantsSchedule && scheduleNotes) {
-        // Merge contact notes and schedule notes with a divider
-        combinedNotes = combinedNotes + '\n—\n' + scheduleNotes;
-      }
 
       // ── STEP 1: Log the contact activity (primary operation) ──
       let loggedActivity: any = null;

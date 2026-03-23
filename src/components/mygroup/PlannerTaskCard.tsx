@@ -100,7 +100,7 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
     } catch (error) {
       console.error('Failed to log text:', error);
     }
-    window.location.href = `sms:${recruit.phone}`;
+    window.open(`sms:${recruit.phone}`, '_self');
   };
 
   const handleReschedule = async (date: Date | undefined) => {
