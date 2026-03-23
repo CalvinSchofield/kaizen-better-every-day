@@ -929,6 +929,7 @@ export type Database = {
           is_active: boolean
           max_uses: number | null
           mgmt_group_id: string | null
+          pre_assigned_role: string | null
           target_mgmt_group_id: string | null
           target_team_id: string | null
           team_id: string | null
@@ -944,6 +945,7 @@ export type Database = {
           is_active?: boolean
           max_uses?: number | null
           mgmt_group_id?: string | null
+          pre_assigned_role?: string | null
           target_mgmt_group_id?: string | null
           target_team_id?: string | null
           team_id?: string | null
@@ -959,6 +961,7 @@ export type Database = {
           is_active?: boolean
           max_uses?: number | null
           mgmt_group_id?: string | null
+          pre_assigned_role?: string | null
           target_mgmt_group_id?: string | null
           target_team_id?: string | null
           team_id?: string | null
