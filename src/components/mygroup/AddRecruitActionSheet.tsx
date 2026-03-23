@@ -36,12 +36,16 @@ const generateShortCode = () => {
 const LATERAL_INVITE_MESSAGE =
   "Hey — I'm using Kaizen to manage my org. Join here and we'll get you set up with the right team 👇";
 
-/** Roles available for lateral invite pre-assignment (leadership roles only) */
+/** 
+ * Full hierarchy of lateral invite roles (upline only).
+ * Filtered at runtime based on the inviter's own access level — 
+ * only roles strictly above theirs are shown.
+ */
 const LATERAL_INVITE_ROLES: AccessLevel[] = [
   'assistant_manager',
-  'manager',
-  'senior_manager',
+  'team_lead',
   'mgmt_group_lead',
+  'senior_manager',
   'area_director',
   'regional',
   'sr_regional',
