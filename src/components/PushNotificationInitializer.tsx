@@ -3,7 +3,6 @@ import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Geolocation } from '@capacitor/geolocation';
 import { App } from '@capacitor/app';
-import { useQueryClient } from '@tanstack/react-query';
 import { useNativePushNotifications } from '@/hooks/useNativePushNotifications';
 
 /**
