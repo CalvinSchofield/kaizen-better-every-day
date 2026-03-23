@@ -923,33 +923,8 @@ export const useLogRecruitActivity = () => {
       const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
-      // Use rep_notion_page_id for backwards compatibility
-      const repIdentifier = recruitNotionId || recruitId;
-
-      // Look up the correct recruit_id from recruits table
-      // The FK on recruit_activities.recruit_id references recruits.id
-      // We need to check both notion_page_id AND id since some recruits may use Supabase ID as identifier
-      let actualRecruitId: string | null = null;
-      if (repIdentifier) {
-        // First try to find by notion_page_id
-        let { data: recruitData } = await supabase
-          .from('recruits')
-          .select('id')
-          .eq('id', repIdentifier)
-          .maybeSingle() as { data: { id: string } | null };
-        
-        // If not found by notion_page_id, try by direct id (for recruits created in Supabase)
-        if (!recruitData && recruitId) {
-          const { data: directMatch } = await supabase
-            .from('recruits')
-            .select('id')
-            .eq('id', recruitId)
-            .maybeSingle();
-          recruitData = directMatch;
-        }
-        
-        actualRecruitId = recruitData?.id || null;
-      }
+      // Use recruitId directly — it's already the Supabase UUID
+      const actualRecruitId = recruitId || recruitNotionId || null;
 
       // Build insert data, optionally overriding created_at for backdating
       const insertPayload = {
