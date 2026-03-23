@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { hapticSuccess } from "@/utils/haptics";
 import { APP_BASE_URL, INVITE_SHARE_MESSAGE } from "@/utils/constants";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { hasMinAccess, getRoleLabel, ASSIGNABLE_ROLES, type AccessLevel } from "@/utils/roleHierarchy";
+import { hasMinAccess, getRoleLabel, ROLE_HIERARCHY, ASSIGNABLE_ROLES, type AccessLevel } from "@/utils/roleHierarchy";
 
 const generateShortCode = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -36,13 +36,15 @@ const generateShortCode = () => {
 const LATERAL_INVITE_MESSAGE =
   "Hey — I'm using Kaizen to manage my org. Join here and we'll get you set up with the right team 👇";
 
-/** Roles available for lateral invite pre-assignment (leadership roles only) */
+/** 
+ * Full hierarchy of lateral invite roles (upline only).
+ * Filtered at runtime based on the inviter's own access level — 
+ * only roles strictly above theirs are shown.
+ */
 const LATERAL_INVITE_ROLES: AccessLevel[] = [
-  'assistant_manager',
-  'manager',
-  'senior_manager',
+  'team_lead',
   'mgmt_group_lead',
-  'area_director',
+  'senior_manager',    // Sr. MGMT Group Lead
   'regional',
   'sr_regional',
   'partner',
@@ -270,11 +272,13 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                     <SelectValue placeholder="Select their role..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {LATERAL_INVITE_ROLES.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {getRoleLabel(role)}
-                      </SelectItem>
-                    ))}
+                    {LATERAL_INVITE_ROLES
+                      .filter((role) => ROLE_HIERARCHY.indexOf(role) > ROLE_HIERARCHY.indexOf(accessLevel))
+                      .map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {getRoleLabel(role)}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -316,10 +320,10 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                   <Share2 className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-medium text-sm">Share Kaizen</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Send the app to your recruits
-                  </p>
+                   <p className="font-medium text-sm">Share Kaizen</p>
+                   <p className="text-xs text-muted-foreground mt-0.5">
+                     Share to your downline
+                   </p>
                 </div>
               </button>
 
@@ -332,10 +336,10 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
                     <Users className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium text-sm">Invite a Leader</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Help other leaders get started on Kaizen
-                    </p>
+                     <p className="font-medium text-sm">Invite a Leader</p>
+                     <p className="text-xs text-muted-foreground mt-0.5">
+                       Share with your upline
+                     </p>
                   </div>
                 </button>
               )}
