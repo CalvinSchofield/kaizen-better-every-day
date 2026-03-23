@@ -220,7 +220,7 @@ export const PostContactDrawer = ({
 
         loggedActivity = await withTimeout(
           logActivityMutation.mutateAsync(mutationParams),
-          15000,
+          25000,
           'Saving contact timed out — please try again'
         );
       } catch (error: any) {
