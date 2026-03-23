@@ -52,35 +52,55 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
     });
   }, []);
 
-  // Fetch recruits and reps data
+  // Fetch recruits, reps, and org structure data
   const { data: treeData, isLoading } = useQuery({
     queryKey: ["recruiter-tree-data"],
     queryFn: async () => {
-      const [recruitsRes, repsRes, teamsRes] = await Promise.all([
-        supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, phone, email, created_at, updated_at").limit(5000),
+      const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, officesRes, teamMgmtGroupsRes] = await Promise.all([
+        supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, mgmt_group_id, phone, email, created_at, updated_at").limit(5000),
         supabase.from("reps").select("user_id, name, profile_photo_url").limit(5000),
         supabase.from("teams").select("id, name").limit(500),
+        supabase.from("mgmt_groups").select("id, name, office_id, lead_user_id").limit(500),
+        supabase.from("offices").select("id, name").limit(200),
+        supabase.from("team_mgmt_groups").select("team_id, mgmt_group_id").limit(2000),
       ]);
 
       return {
         recruits: recruitsRes.data || [],
         reps: repsRes.data || [],
         teams: teamsRes.data || [],
+        mgmtGroups: mgmtGroupsRes.data || [],
+        offices: officesRes.data || [],
+        teamMgmtGroups: teamMgmtGroupsRes.data || [],
       };
     },
     staleTime: 1000 * 60 * 2,
   });
 
-  // Build tree structure
+  // Build tree structure grouped by Office → MGMT Group
   const tree = useMemo(() => {
     if (!treeData || !teamAccess || !currentAuthUserId) return null;
 
     const recruits = treeData.recruits || [];
     const reps = treeData.reps || [];
     const teams = treeData.teams || [];
+    const mgmtGroups = treeData.mgmtGroups || [];
+    const offices = treeData.offices || [];
+    const teamMgmtGroups = treeData.teamMgmtGroups || [];
 
     const repMap = new Map(reps.map((r) => [r.user_id, r]));
     const teamMap = new Map(teams.map((t) => [t.id, t.name]));
+
+    // Build team → mgmt_group lookup
+    const teamToMgmtGroup = new Map<string, string>();
+    teamMgmtGroups.forEach((tmg) => {
+      teamToMgmtGroup.set(tmg.team_id, tmg.mgmt_group_id);
+    });
+
+    // Build mgmt_group → office lookup
+    const mgmtGroupMap = new Map(mgmtGroups.map((mg) => [mg.id, mg]));
+    const officeMap = new Map(offices.map((o) => [o.id, o]));
+
     const recruitsByRecruiter = new Map<string, typeof recruits>();
     recruits.forEach((r) => {
       if (r.recruiter_user_id) {
@@ -143,6 +163,26 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       };
     };
 
+    // Helper: resolve mgmt_group_id for a recruiter userId
+    const resolveMgmtGroupId = (userId: string): string | null => {
+      // Check if they lead a mgmt group
+      const ledGroup = mgmtGroups.find((mg) => mg.lead_user_id === userId);
+      if (ledGroup) return ledGroup.id;
+      // Check their recruit record's mgmt_group_id
+      const recruitByName = new Map(recruits.map((r) => [getCleanName(r.name).toLowerCase(), r]));
+      const rep = repMap.get(userId);
+      if (rep) {
+        const recruit = recruitByName.get(getCleanName(rep.name).toLowerCase());
+        if (recruit?.mgmt_group_id) return recruit.mgmt_group_id;
+        // Try team → mgmt_group
+        if (recruit?.team_id) {
+          const mgmtGroupId = teamToMgmtGroup.get(recruit.team_id);
+          if (mgmtGroupId) return mgmtGroupId;
+        }
+      }
+      return null;
+    };
+
     const rootNodes: TreeNode[] = [];
     const accessLevel = teamAccess.accessLevel;
 
@@ -180,11 +220,88 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       });
 
       // Only keep roots whose userId does NOT appear as someone else's child
+      const trueRoots: TreeNode[] = [];
       candidateRoots.forEach((root) => {
         if (!root.userId || !allChildUserIds.has(root.userId)) {
-          rootNodes.push(root);
+          trueRoots.push(root);
         }
       });
+
+      // Group roots by office → mgmt group
+      const officeGroups = new Map<string, Map<string, TreeNode[]>>(); // officeId → mgmtGroupId → nodes
+      const ungroupedByMgmt = new Map<string, TreeNode[]>(); // mgmtGroupId → nodes (no office)
+      const fullyUngrouped: TreeNode[] = [];
+
+      trueRoots.forEach((root) => {
+        const mgmtGroupId = root.userId ? resolveMgmtGroupId(root.userId) : null;
+        if (mgmtGroupId) {
+          const mgmtGroup = mgmtGroupMap.get(mgmtGroupId);
+          const officeId = mgmtGroup?.office_id;
+          if (officeId) {
+            if (!officeGroups.has(officeId)) officeGroups.set(officeId, new Map());
+            const mgmtMap = officeGroups.get(officeId)!;
+            if (!mgmtMap.has(mgmtGroupId)) mgmtMap.set(mgmtGroupId, []);
+            mgmtMap.get(mgmtGroupId)!.push(root);
+          } else {
+            if (!ungroupedByMgmt.has(mgmtGroupId)) ungroupedByMgmt.set(mgmtGroupId, []);
+            ungroupedByMgmt.get(mgmtGroupId)!.push(root);
+          }
+        } else {
+          fullyUngrouped.push(root);
+        }
+      });
+
+      // Build office label nodes → mgmt group label nodes → recruiter chains
+      officeGroups.forEach((mgmtMap, officeId) => {
+        const office = officeMap.get(officeId);
+        const mgmtChildren: TreeNode[] = [];
+
+        mgmtMap.forEach((nodes, mgmtGroupId) => {
+          const mg = mgmtGroupMap.get(mgmtGroupId);
+          mgmtChildren.push({
+            id: `mgmt-${mgmtGroupId}`,
+            name: mg?.name || "MGMT Group",
+            userId: mg?.lead_user_id || null,
+            stage: null,
+            profilePhotoUrl: mg?.lead_user_id ? repMap.get(mg.lead_user_id)?.profile_photo_url : null,
+            isLabelNode: true,
+            roleColor: "mgmt_group",
+            children: nodes.sort((a, b) => b.children.length - a.children.length),
+          });
+        });
+
+        mgmtChildren.sort((a, b) => b.children.length - a.children.length);
+
+        rootNodes.push({
+          id: `office-${officeId}`,
+          name: office?.name || "Office",
+          userId: null,
+          stage: null,
+          profilePhotoUrl: null,
+          isLabelNode: true,
+          roleColor: "area_director",
+          children: mgmtChildren,
+        });
+      });
+
+      // MGMT groups without an office
+      ungroupedByMgmt.forEach((nodes, mgmtGroupId) => {
+        const mg = mgmtGroupMap.get(mgmtGroupId);
+        rootNodes.push({
+          id: `mgmt-${mgmtGroupId}`,
+          name: mg?.name || "MGMT Group",
+          userId: mg?.lead_user_id || null,
+          stage: null,
+          profilePhotoUrl: mg?.lead_user_id ? repMap.get(mg.lead_user_id)?.profile_photo_url : null,
+          isLabelNode: true,
+          roleColor: "mgmt_group",
+          children: nodes.sort((a, b) => b.children.length - a.children.length),
+        });
+      });
+
+      // Fully ungrouped roots
+      rootNodes.push(...fullyUngrouped.sort((a, b) => b.children.length - a.children.length));
+
     } else if (currentAuthUserId) {
       const node = buildNode(currentAuthUserId);
       if (node && node.children.length > 0) {
