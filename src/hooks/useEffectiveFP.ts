@@ -147,6 +147,7 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
       const officialFp = officialTotals?.fp_plus || 0;
       const officialPrmr = officialTotals?.prmr || 0;
       const officialKnockingDays: number | null = officialTotals?.knocking_days ?? null;
+      const officialFpSold = officialTotals?.fp_sold || 0;
 
       // Calculate effective totals
       // If we have official totals, use: official + tracked since verification
