@@ -112,10 +112,14 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
           const calculated = calculateFromSalesLog(salesLog);
           fp = calculated.fp;
           prmr = calculated.prmr;
+          totalPendingFp += calculated.pendingFp;
+          totalPendingPrmr += calculated.pendingPrmr;
           // Count FP sold (type === 'fp', excluding never_installed)
-          fpSoldCount = salesLog.filter((s: any) => 
-            s.type === 'fp' && s.install_status !== 'never_installed'
-          ).length;
+          const fpSales = salesLog.filter((s: any) => 
+            s.type === 'fp' && s.install_status !== 'never_installed' && s.install_status !== 'cancelled' && s.install_status !== 'canceled'
+          );
+          fpSoldCount = fpSales.length;
+          totalPendingFpSold += fpSales.filter((s: any) => s.install_status === 'pending').length;
         } else {
           fp = entry.fp_plus || 0;
           prmr = entry.prmr || 0;
