@@ -168,7 +168,10 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
         ? (officialKnockingDays ?? 0) + trackedKnockingDaysSinceVerification
         : totalTrackedKnockingDays;
 
-      // Calculate discrepancy (if official is set)
+      const effectiveFpSold = hasOfficialTotals
+        ? officialFpSold + trackedFpSoldSinceVerification
+        : totalTrackedFpSold;
+
       // Positive = user has untracked sales (official > tracked at verification time)
       // Negative = user over-tracked (tracked > official)
       const discrepancyAmount = hasOfficialTotals
