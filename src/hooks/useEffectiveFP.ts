@@ -98,6 +98,7 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
       let trackedFpSinceVerification = 0;
       let trackedPrmrSinceVerification = 0;
       let trackedKnockingDaysSinceVerification = 0;
+      let trackedFpSoldSinceVerification = 0;
 
       const lastVerifiedAt = officialTotals?.last_verified_at;
       const lastVerifiedDate = lastVerifiedAt ? new Date(lastVerifiedAt).toISOString().split('T')[0] : null;
