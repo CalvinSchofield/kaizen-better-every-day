@@ -1,9 +1,12 @@
 import { useState, useMemo } from "react";
-import { Search, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-react";
+import { Search, CheckCircle2, Clock, XCircle, AlertTriangle, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useCustomerData, CustomerSale } from "@/hooks/useCustomerData";
 import { format } from "date-fns";
+import { SaleDetailSheet } from "@/components/SaleDetailSheet";
+import { Sale } from "@/hooks/useDailyEntry";
+import { useRepData } from "@/hooks/useRepData";
 
 type InstallStatus = 'installed' | 'pending' | 'cancelled' | 'never_installed';
 
