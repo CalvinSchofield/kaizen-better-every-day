@@ -162,5 +162,17 @@ export const InlineCrmUpdate = () => {
         </p>
       )}
     </div>
+
+      <SaleDetailSheet
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+        sale={selectedSale as Sale | null}
+        entryDate={selectedSale?.entry_date || ''}
+        onUpdateSale={handleUpdateSale}
+        onDeleteSale={handleDeleteSale}
+        crmEnabled={repData?.crm_enabled}
+        crmDetailedEnabled={repData?.crm_detailed_enabled}
+      />
+    </div>
   );
 };
