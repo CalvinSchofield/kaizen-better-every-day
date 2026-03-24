@@ -885,7 +885,7 @@ const Goals = () => {
                 daysSinceVerification={effectiveFPData.daysSinceVerification}
                 needsVerification={effectiveFPData.needsVerification}
                 hasOfficialTotals={effectiveFPData.hasOfficialTotals}
-                onSyncClick={() => setShowCatchUpWizard(true)}
+                onSyncClick={() => setShowManualSync(true)}
                 variant="compact"
               />
             )}
