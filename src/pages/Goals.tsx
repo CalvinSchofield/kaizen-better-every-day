@@ -1137,14 +1137,28 @@ const Goals = () => {
           </SheetContent>
         </Sheet>
 
-        {/* Catch Up Wizard for syncing */}
-        <CatchUpWizard 
-          open={showCatchUpWizard} 
-          onOpenChange={(open) => setShowCatchUpWizard(open)}
-          seasonType="preseason"
-          isInitialSync={false}
-          trackedKnockingDays={workedDaysData?.knockingDays || 0}
-        />
+        {/* Manual Sync Sheet — uses same BiweeklySyncGate as the gate flow */}
+        <Sheet open={showManualSync} onOpenChange={setShowManualSync}>
+          <SheetContent side="bottom" className="h-[95dvh] rounded-t-3xl p-0 overflow-y-auto">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Sync Numbers</SheetTitle>
+            </SheetHeader>
+            {showManualSync && effectiveFPData && (
+              <BiweeklySyncGate
+                seasonType="preseason"
+                effectiveData={effectiveFPData}
+                isInitialSync={false}
+                isUserSummerStarted={isUserSummerStarted}
+                onComplete={() => {
+                  setShowManualSync(false);
+                  queryClient.invalidateQueries({ queryKey: ['effective-fp'] });
+                  queryClient.invalidateQueries({ queryKey: ['official-totals'] });
+                }}
+                onSkip={() => setShowManualSync(false)}
+              />
+            )}
+          </SheetContent>
+        </Sheet>
 
         {/* Commit/Uncommit Confirmations */}
         <Drawer open={!!confirmCommitBlitz} onOpenChange={(open) => !open && setConfirmCommitBlitz(null)}>
