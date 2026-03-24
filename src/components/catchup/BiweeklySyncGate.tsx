@@ -112,7 +112,7 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
   
   // Tracked values for prefill display — exclude pending sales to match Curator
   const trackedFp = effectiveData.effectiveFp - (effectiveData.totalPendingFp || 0);
-  const trackedFpSold = effectiveData.totalTrackedFpSold - (effectiveData.totalPendingFpSold || 0);
+  const trackedFpSold = (effectiveData.effectiveFpSold || 0) - (effectiveData.totalPendingFpSold || 0);
   const trackedPrmr = effectiveData.effectivePrmr - (effectiveData.totalPendingPrmr || 0);
   const trackedKnockingDays = effectiveData.effectiveKnockingDays;
   const hasPendingSales = (effectiveData.totalPendingFp || 0) > 0;
