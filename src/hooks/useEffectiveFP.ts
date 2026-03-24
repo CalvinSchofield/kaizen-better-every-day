@@ -26,6 +26,7 @@ export interface EffectiveFPResult {
   totalTrackedPrmr: number;
   totalTrackedKnockingDays: number;
   totalTrackedFpSold: number; // Count of type==='fp' sales (families protected)
+  effectiveFpSold: number; // Official baseline FP sold + tracked since verification
   
   // Pending (scheduled-out) sales — included in totals but not yet on Curator
   totalPendingFp: number;
