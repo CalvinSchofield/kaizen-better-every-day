@@ -397,6 +397,8 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
                 * Excludes {(effectiveData.totalPendingFp || 0).toFixed(1)} pending FP+ not yet on Curator
               </p>
             )}
+
+            {fpChoice === 'vivint' && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
