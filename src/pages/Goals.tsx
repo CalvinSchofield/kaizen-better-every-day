@@ -28,7 +28,7 @@ import { PreseasonCommitmentsCard } from "@/components/goals/PreseasonCommitment
 import { useSyncedWeeklyLogs } from "@/hooks/useSyncedWeeklyLogs";
 import { usePendingInstalls } from "@/hooks/usePendingInstalls";
 
-import { CatchUpWizard } from "@/components/catchup/CatchUpWizard";
+
 import { SyncDiscrepancyIndicator } from "@/components/catchup/SyncDiscrepancyIndicator";
 import { BiweeklySyncGate } from "@/components/catchup/BiweeklySyncGate";
 import { toast } from "sonner";
@@ -97,7 +97,7 @@ const Goals = () => {
   const [showCalculator, setShowCalculator] = useState(false);
   const [showQuickEdit, setShowQuickEdit] = useState(false);
   const [showBlitzEditor, setShowBlitzEditor] = useState(false);
-  const [showCatchUpWizard, setShowCatchUpWizard] = useState(false);
+  const [showManualSync, setShowManualSync] = useState(false);
   const [activeTier, setActiveTier] = useState<GoalTier>('preseason');
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
   const [syncGateSkipped, setSyncGateSkipped] = useState(false);
@@ -106,8 +106,7 @@ const Goals = () => {
   // Open sync wizard if navigated with openSync state (e.g. from Blitzes page)
   useEffect(() => {
     if ((location.state as any)?.openSync) {
-      setShowCatchUpWizard(true);
-      // Clear the state so it doesn't re-trigger on re-renders
+      setShowManualSync(true);
       window.history.replaceState({}, '');
     }
   }, [location.state]);
@@ -886,7 +885,7 @@ const Goals = () => {
                 daysSinceVerification={effectiveFPData.daysSinceVerification}
                 needsVerification={effectiveFPData.needsVerification}
                 hasOfficialTotals={effectiveFPData.hasOfficialTotals}
-                onSyncClick={() => setShowCatchUpWizard(true)}
+                onSyncClick={() => setShowManualSync(true)}
                 variant="compact"
               />
             )}
@@ -1039,7 +1038,7 @@ const Goals = () => {
           personalSummerStart={seasonConfig?.personal_summer_start}
           personalSummerEnd={seasonConfig?.personal_summer_end}
           repId={repData?.id}
-          onSyncClick={() => setShowCatchUpWizard(true)}
+          onSyncClick={() => setShowManualSync(true)}
           onSave={async (updates) => {
             await updateGoals(updates);
             setShowQuickEdit(false);
@@ -1138,14 +1137,28 @@ const Goals = () => {
           </SheetContent>
         </Sheet>
 
-        {/* Catch Up Wizard for syncing */}
-        <CatchUpWizard 
-          open={showCatchUpWizard} 
-          onOpenChange={(open) => setShowCatchUpWizard(open)}
-          seasonType="preseason"
-          isInitialSync={false}
-          trackedKnockingDays={workedDaysData?.knockingDays || 0}
-        />
+        {/* Manual Sync Sheet — uses same BiweeklySyncGate as the gate flow */}
+        <Sheet open={showManualSync} onOpenChange={setShowManualSync}>
+          <SheetContent side="bottom" className="h-[95dvh] rounded-t-3xl p-0 overflow-y-auto">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Sync Numbers</SheetTitle>
+            </SheetHeader>
+            {showManualSync && effectiveFPData && (
+              <BiweeklySyncGate
+                seasonType="preseason"
+                effectiveData={effectiveFPData}
+                isInitialSync={false}
+                isUserSummerStarted={isUserSummerStarted}
+                onComplete={() => {
+                  setShowManualSync(false);
+                  queryClient.invalidateQueries({ queryKey: ['effective-fp'] });
+                  queryClient.invalidateQueries({ queryKey: ['official-totals'] });
+                }}
+                onSkip={() => setShowManualSync(false)}
+              />
+            )}
+          </SheetContent>
+        </Sheet>
 
         {/* Commit/Uncommit Confirmations */}
         <Drawer open={!!confirmCommitBlitz} onOpenChange={(open) => !open && setConfirmCommitBlitz(null)}>
