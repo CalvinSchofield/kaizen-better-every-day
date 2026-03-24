@@ -138,6 +138,7 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
         if (!lastVerifiedDate || entry.entry_date > lastVerifiedDate) {
           trackedFpSinceVerification += fp;
           trackedPrmrSinceVerification += prmr;
+          trackedFpSoldSinceVerification += fpSoldCount;
           if (isKnocking) trackedKnockingDaysSinceVerification++;
         }
       }
