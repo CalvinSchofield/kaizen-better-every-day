@@ -163,22 +163,33 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       };
     };
 
+    // Build team lead → team lookup
+    const teamByLeadUserId = new Map(teams.map((t) => [t.lead_user_id, t]));
+
     // Helper: resolve mgmt_group_id for a recruiter userId
+    // Priority: 1) leads a mgmt group, 2) leads a team → team's mgmt group, 3) recruit's mgmt_group_id, 4) recruit's team → mgmt group
     const resolveMgmtGroupId = (userId: string): string | null => {
-      // Check if they lead a mgmt group
+      // 1. Check if they lead a mgmt group
       const ledGroup = mgmtGroups.find((mg) => mg.lead_user_id === userId);
       if (ledGroup) return ledGroup.id;
-      // Check their recruit record's mgmt_group_id
+      // 2. Check if they lead a team → that team's mgmt group (via team_mgmt_groups)
+      const ledTeam = teamByLeadUserId.get(userId);
+      if (ledTeam) {
+        const mgmtGroupId = teamToMgmtGroup.get(ledTeam.id);
+        if (mgmtGroupId) return mgmtGroupId;
+      }
+      // 3. Check their recruit record
       const recruitByName = new Map(recruits.map((r) => [getCleanName(r.name).toLowerCase(), r]));
       const rep = repMap.get(userId);
       if (rep) {
         const recruit = recruitByName.get(getCleanName(rep.name).toLowerCase());
-        if (recruit?.mgmt_group_id) return recruit.mgmt_group_id;
-        // Try team → mgmt_group
+        // 3a. Try team → mgmt_group first (more accurate than recruit's mgmt_group_id)
         if (recruit?.team_id) {
           const mgmtGroupId = teamToMgmtGroup.get(recruit.team_id);
           if (mgmtGroupId) return mgmtGroupId;
         }
+        // 3b. Fall back to recruit's direct mgmt_group_id
+        if (recruit?.mgmt_group_id) return recruit.mgmt_group_id;
       }
       return null;
     };
