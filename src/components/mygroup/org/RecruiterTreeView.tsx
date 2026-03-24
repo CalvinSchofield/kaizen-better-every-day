@@ -269,6 +269,12 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         return nodes.filter((n) => !n.userId || !descendantIds.has(n.userId));
       };
 
+      // Also build a global set of ALL descendant userIds for cross-group dedup
+      const globalDescendantIds = new Set<string>();
+      trueRoots.forEach((root) => {
+        collectChildUserIds(root.children, globalDescendantIds);
+      });
+
       // Build office label nodes → mgmt group label nodes → recruiter chains
       officeGroups.forEach((mgmtMap, officeId) => {
         const office = officeMap.get(officeId);
@@ -276,7 +282,9 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
 
         mgmtMap.forEach((nodes, mgmtGroupId) => {
           const mg = mgmtGroupMap.get(mgmtGroupId);
-          const dedupedNodes = dedupeGroupNodes(nodes);
+          const dedupedNodes = dedupeGroupNodes(nodes)
+            // Cross-group dedup: also remove nodes that appear as descendants in OTHER groups
+            .filter((n) => !n.userId || !globalDescendantIds.has(n.userId));
           mgmtChildren.push({
             id: `mgmt-${mgmtGroupId}`,
             name: mg?.name || "MGMT Group",
@@ -287,6 +295,22 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
             roleColor: "mgmt_group",
             children: dedupedNodes.sort((a, b) => b.children.length - a.children.length),
           });
+        });
+
+        // Add MGMT groups that belong to this office but have no roots yet
+        mgmtGroups.forEach((mg) => {
+          if (mg.office_id === officeId && !mgmtMap.has(mg.id)) {
+            mgmtChildren.push({
+              id: `mgmt-${mg.id}`,
+              name: mg.name || "MGMT Group",
+              userId: mg.lead_user_id || null,
+              stage: null,
+              profilePhotoUrl: mg.lead_user_id ? repMap.get(mg.lead_user_id)?.profile_photo_url : null,
+              isLabelNode: true,
+              roleColor: "mgmt_group",
+              children: [],
+            });
+          }
         });
 
         mgmtChildren.sort((a, b) => b.children.length - a.children.length);
@@ -303,10 +327,40 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         });
       });
 
+      // Ensure offices that have MGMT groups but no roots appear
+      mgmtGroups.forEach((mg) => {
+        if (mg.office_id && !officeGroups.has(mg.office_id)) {
+          const office = officeMap.get(mg.office_id);
+          // Check if this office was already added
+          if (!rootNodes.find((n) => n.id === `office-${mg.office_id}`)) {
+            rootNodes.push({
+              id: `office-${mg.office_id}`,
+              name: office?.name || "Office",
+              userId: null,
+              stage: null,
+              profilePhotoUrl: null,
+              isLabelNode: true,
+              roleColor: "area_director",
+              children: [{
+                id: `mgmt-${mg.id}`,
+                name: mg.name || "MGMT Group",
+                userId: mg.lead_user_id || null,
+                stage: null,
+                profilePhotoUrl: mg.lead_user_id ? repMap.get(mg.lead_user_id)?.profile_photo_url : null,
+                isLabelNode: true,
+                roleColor: "mgmt_group",
+                children: [],
+              }],
+            });
+          }
+        }
+      });
+
       // MGMT groups without an office
       ungroupedByMgmt.forEach((nodes, mgmtGroupId) => {
         const mg = mgmtGroupMap.get(mgmtGroupId);
-        const dedupedNodes = dedupeGroupNodes(nodes);
+        const dedupedNodes = dedupeGroupNodes(nodes)
+          .filter((n) => !n.userId || !globalDescendantIds.has(n.userId));
         rootNodes.push({
           id: `mgmt-${mgmtGroupId}`,
           name: mg?.name || "MGMT Group",
@@ -319,8 +373,11 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         });
       });
 
-      // Fully ungrouped roots
-      rootNodes.push(...fullyUngrouped.sort((a, b) => b.children.length - a.children.length));
+      // Fully ungrouped roots (also cross-group dedup)
+      const dedupedUngrouped = fullyUngrouped.filter(
+        (n) => !n.userId || !globalDescendantIds.has(n.userId)
+      );
+      rootNodes.push(...dedupedUngrouped.sort((a, b) => b.children.length - a.children.length));
 
     } else if (currentAuthUserId) {
       const node = buildNode(currentAuthUserId);
