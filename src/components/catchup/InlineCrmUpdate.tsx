@@ -117,28 +117,37 @@ export const InlineCrmUpdate = () => {
 
                 {/* Expanded status picker */}
                 {isExpanded && (
-                  <div className="px-3 pb-3 grid grid-cols-2 gap-2 border-t pt-3">
-                    {STATUS_OPTIONS.map(opt => {
-                      const optConfig = STATUS_CONFIG[opt];
-                      const OptIcon = optConfig.icon;
-                      const isActive = status === opt;
-                      return (
-                        <button
-                          key={opt}
-                          onClick={() => !isActive && handleStatusChange(sale, opt)}
-                          disabled={isUpdatingFunding}
-                          className={cn(
-                            "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all active:scale-[0.97]",
-                            isActive
-                              ? "bg-primary/10 border-2 border-primary text-primary"
-                              : "bg-muted/50 border-2 border-transparent"
-                          )}
-                        >
-                          <OptIcon className="h-3.5 w-3.5" />
-                          {optConfig.label}
-                        </button>
-                      );
-                    })}
+                  <div className="px-3 pb-3 border-t pt-3 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      {STATUS_OPTIONS.map(opt => {
+                        const optConfig = STATUS_CONFIG[opt];
+                        const OptIcon = optConfig.icon;
+                        const isActive = status === opt;
+                        return (
+                          <button
+                            key={opt}
+                            onClick={() => !isActive && handleStatusChange(sale, opt)}
+                            disabled={isUpdatingFunding}
+                            className={cn(
+                              "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all active:scale-[0.97]",
+                              isActive
+                                ? "bg-primary/10 border-2 border-primary text-primary"
+                                : "bg-muted/50 border-2 border-transparent"
+                            )}
+                          >
+                            <OptIcon className="h-3.5 w-3.5" />
+                            {optConfig.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={() => handleOpenDetail(sale)}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-muted/50 text-foreground hover:bg-muted transition-colors active:scale-[0.97]"
+                    >
+                      View Full Details
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 )}
               </div>
