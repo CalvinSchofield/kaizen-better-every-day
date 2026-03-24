@@ -88,7 +88,10 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
       let totalTrackedFp = 0;
       let totalTrackedPrmr = 0;
       let totalTrackedKnockingDays = 0;
-      let totalTrackedFpSold = 0; // Count of type==='fp' sales (families protected)
+      let totalTrackedFpSold = 0;
+      let totalPendingFp = 0;
+      let totalPendingPrmr = 0;
+      let totalPendingFpSold = 0;
 
       // Calculate tracked values since last verification
       let trackedFpSinceVerification = 0;
