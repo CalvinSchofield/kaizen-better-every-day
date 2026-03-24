@@ -1,7 +1,22 @@
-import { Clock, LogOut, ExternalLink } from "lucide-react";
+import { Clock, LogOut, ExternalLink, Smartphone, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { clearAllRepCaches } from "@/hooks/useRepData";
+
+const TESTFLIGHT_URL = "https://testflight.apple.com/join/MGGUFyE7";
+
+const isIOS = (): boolean => {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  if (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) return true;
+  return false;
+};
+
+const isNativeApp = (): boolean => {
+  if (typeof window === "undefined") return false;
+  return window.location.protocol === "capacitor:";
+};
 
 interface PendingApprovalScreenProps {
   repName?: string;
@@ -17,6 +32,7 @@ const PendingApprovalScreen = ({ repName, teamLeader, teamLeaderPhone, showTeamI
   };
 
   const firstName = repName?.split(' ')[0] || 'there';
+  const showAppDownload = isIOS() && !isNativeApp();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center">
@@ -44,6 +60,29 @@ const PendingApprovalScreen = ({ repName, teamLeader, teamLeaderPhone, showTeamI
               {teamLeaderPhone}
             </a>
           )}
+        </div>
+      )}
+
+      {/* Download native app prompt for iOS web users */}
+      {showAppDownload && (
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mb-6 max-w-sm w-full">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <Smartphone className="h-5 w-5 text-primary" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-sm text-foreground">Get the Kaizen App</p>
+              <p className="text-xs text-muted-foreground">Faster, smoother, with push notifications</p>
+            </div>
+          </div>
+          <Button
+            onClick={() => window.open(TESTFLIGHT_URL, "_blank", "noopener,noreferrer")}
+            size="sm"
+            className="w-full gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Download via TestFlight
+          </Button>
         </div>
       )}
 
