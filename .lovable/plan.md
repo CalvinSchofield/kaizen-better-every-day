@@ -1,48 +1,39 @@
 
 
-# TestFlight Reliability Audit & Fix Plan
+# Remove Old CatchUpWizard — Use Only BiweeklySyncGate
 
-## The Problems You're Seeing (and Why)
+## Problem
 
-### 1. App Stuck Loading After Returning from Background (Critical)
+There are two sync flows in `Goals.tsx`:
+1. **BiweeklySyncGate** — the newer full-screen flow with "Use what I've tracked" vs "Enter manually" choices. Only triggers automatically during biweekly sync windows or initial setup.
+2. **CatchUpWizard** — the older modal that just asks you to type in numbers. Still wired to manual "Sync" buttons on the page.
 
-**Root cause:** `refetchOnWindowFocus: false` in `App.tsx` line 65.
+When you tap a sync button outside the biweekly window, you get the old flow. That's what you're seeing.
 
-When the app comes back from the background, React Query does NOT refetch any data because this is explicitly disabled. The only resume handler is in `PushNotificationInitializer.tsx`, which invalidates just 5 query keys (leaderboard + daily-entry). Every other page/query stays frozen with stale or expired data.
+## Fix
 
-Meanwhile, the Supabase auth token may have expired while backgrounded. When queries eventually try to run, they fail silently with 401s, but since `retry: 1` and no resume-triggered refetch, they just stay in error/stale state forever.
+### Step 1: Replace CatchUpWizard with BiweeklySyncGate for manual syncs
 
-**Why force-closing works:** A fresh app launch triggers the full auth flow + `usePrefetchData` + all queries mount fresh.
+In `Goals.tsx`:
+- Remove the `CatchUpWizard` import and its `<CatchUpWizard>` JSX block
+- Remove `showCatchUpWizard` state
+- Replace all `onSyncClick={() => setShowCatchUpWizard(true)}` callbacks with a new handler that opens the `BiweeklySyncGate` in a full-screen overlay/sheet
+- Reuse the same `BiweeklySyncGate` component with `isInitialSync={false}` for manual syncs
 
-### 2. Auth Token Expiry During Background (Critical)
+### Step 2: Make BiweeklySyncGate work as both a gate AND a manual trigger
 
-Supabase access tokens expire after ~1 hour. If the app sits in the background for 1+ hours, on resume:
-- `getSession()` returns the cached (expired) token
-- Queries using that token get 401 errors
-- `autoRefreshToken` only fires on `visibilitychange` IF the Supabase client detects it — but in Capacitor's WKWebView, `visibilitychange` events are unreliable
-- The Capacitor `App.addListener('resume')` in `PushNotificationInitializer` doesn't refresh the session first
+Currently it renders as a full page replacement. Add an optional `mode` prop:
+- `mode="gate"` (default) — current behavior, replaces the page
+- `mode="manual"` — renders inside a Sheet/Dialog so it can be opened on demand
 
-### 3. `refetchOnMount: false` Prevents Page Navigation Refresh
+### Step 3: Clean up dead code
 
-Line 66: queries never refetch when navigating between pages. Combined with `refetchOnWindowFocus: false`, once data goes stale or errors out, there's no automatic recovery path.
+- Remove `CatchUpWizard.tsx` file entirely (or keep for reference but remove all imports)
+- Remove the `CatchUpWizard` export from `src/components/catchup/index.ts`
+- Update any other files importing `CatchUpWizard`
 
-### 4. Remaining `getUser()` Network Calls
+### Files Modified
+- `src/pages/Goals.tsx` — remove old wizard, wire sync buttons to BiweeklySyncGate
+- `src/components/catchup/BiweeklySyncGate.tsx` — add `mode` prop for manual trigger support
+- `src/components/catchup/index.ts` — remove CatchUpWizard export
 
-`useCurrentUserId.ts` still calls `supabase.auth.getUser()` (line 64) which is a network request. On resume after background, this can be slow (1-4s) or fail entirely on flaky mobile connections.
-
-### 5. Edge Function Timeouts on Mobile
-
-`useTeamAccess`, blitz functions, and other edge function calls have no mobile-specific timeout handling. On cellular connections, these can hang for 10-15s.
-
----
-
-## Fix Plan
-
-### Step 1: Add Comprehensive App Resume Handler
-
-Create a new hook `useAppResume` that:
-- Listens to both Capacitor `App.addListener('resume')` AND `document.visibilitychange`
-- On resume: (a) calls `supabase.auth.refreshSession()` to ensure a valid token, (b) invalidates ALL active queries so they refetch with fresh auth
-- Replace the partial resume handler in `PushNotificationInitializer`
-
-**Files:** New `src/hooks/useAppResume.ts`, modify `src/components/P
