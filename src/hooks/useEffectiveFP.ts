@@ -27,6 +27,11 @@ export interface EffectiveFPResult {
   totalTrackedKnockingDays: number;
   totalTrackedFpSold: number; // Count of type==='fp' sales (families protected)
   
+  // Pending (scheduled-out) sales — included in totals but not yet on Curator
+  totalPendingFp: number;
+  totalPendingPrmr: number;
+  totalPendingFpSold: number;
+  
   // Discrepancy info
   hasDiscrepancy: boolean;
   discrepancyAmount: number; // positive = untracked sales, negative = over-tracked
@@ -83,7 +88,10 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
       let totalTrackedFp = 0;
       let totalTrackedPrmr = 0;
       let totalTrackedKnockingDays = 0;
-      let totalTrackedFpSold = 0; // Count of type==='fp' sales (families protected)
+      let totalTrackedFpSold = 0;
+      let totalPendingFp = 0;
+      let totalPendingPrmr = 0;
+      let totalPendingFpSold = 0;
 
       // Calculate tracked values since last verification
       let trackedFpSinceVerification = 0;
@@ -104,10 +112,14 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
           const calculated = calculateFromSalesLog(salesLog);
           fp = calculated.fp;
           prmr = calculated.prmr;
+          totalPendingFp += calculated.pendingFp;
+          totalPendingPrmr += calculated.pendingPrmr;
           // Count FP sold (type === 'fp', excluding never_installed)
-          fpSoldCount = salesLog.filter((s: any) => 
-            s.type === 'fp' && s.install_status !== 'never_installed'
-          ).length;
+          const fpSales = salesLog.filter((s: any) => 
+            s.type === 'fp' && s.install_status !== 'never_installed' && s.install_status !== 'cancelled' && s.install_status !== 'canceled'
+          );
+          fpSoldCount = fpSales.length;
+          totalPendingFpSold += fpSales.filter((s: any) => s.install_status === 'pending').length;
         } else {
           fp = entry.fp_plus || 0;
           prmr = entry.prmr || 0;
@@ -198,6 +210,9 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
         totalTrackedPrmr,
         totalTrackedKnockingDays,
         totalTrackedFpSold,
+        totalPendingFp,
+        totalPendingPrmr,
+        totalPendingFpSold,
         hasDiscrepancy,
         discrepancyAmount,
         knockingDaysUnknown,
