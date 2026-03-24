@@ -21,8 +21,11 @@ const STATUS_OPTIONS: InstallStatus[] = ['installed', 'pending', 'cancelled', 'n
 
 export const InlineCrmUpdate = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { sales, isLoading, updateFunding, isUpdatingFunding } = useCustomerData();
+  const { sales, isLoading, updateFunding, updateSaleDetails, deleteSale, isUpdatingFunding } = useCustomerData();
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
+  const [selectedSale, setSelectedSale] = useState<CustomerSale | null>(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const { repData } = useRepData();
 
   // Search filtering (same logic as customers page)
   const filteredSales = useMemo(() => {
