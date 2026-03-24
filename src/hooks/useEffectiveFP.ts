@@ -27,6 +27,11 @@ export interface EffectiveFPResult {
   totalTrackedKnockingDays: number;
   totalTrackedFpSold: number; // Count of type==='fp' sales (families protected)
   
+  // Pending (scheduled-out) sales — included in totals but not yet on Curator
+  totalPendingFp: number;
+  totalPendingPrmr: number;
+  totalPendingFpSold: number;
+  
   // Discrepancy info
   hasDiscrepancy: boolean;
   discrepancyAmount: number; // positive = untracked sales, negative = over-tracked
