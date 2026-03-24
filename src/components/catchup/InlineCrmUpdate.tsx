@@ -45,6 +45,23 @@ export const InlineCrmUpdate = () => {
     setExpandedSaleId(null);
   };
 
+  const handleOpenDetail = (sale: CustomerSale) => {
+    setSelectedSale(sale);
+    setDetailSheetOpen(true);
+    setExpandedSaleId(null);
+  };
+
+  const handleUpdateSale = (updatedSale: Sale) => {
+    if (!selectedSale) return;
+    updateSaleDetails(selectedSale.id, selectedSale.entry_date, updatedSale);
+  };
+
+  const handleDeleteSale = (saleId: string) => {
+    if (!selectedSale) return;
+    deleteSale(saleId, selectedSale.entry_date);
+    setDetailSheetOpen(false);
+  };
+
   return (
     <div className="space-y-4">
       {/* Search input */}
