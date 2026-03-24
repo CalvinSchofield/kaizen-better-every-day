@@ -106,8 +106,7 @@ const Goals = () => {
   // Open sync wizard if navigated with openSync state (e.g. from Blitzes page)
   useEffect(() => {
     if ((location.state as any)?.openSync) {
-      setShowCatchUpWizard(true);
-      // Clear the state so it doesn't re-trigger on re-renders
+      setShowManualSync(true);
       window.history.replaceState({}, '');
     }
   }, [location.state]);
