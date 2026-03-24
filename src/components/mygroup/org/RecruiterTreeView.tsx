@@ -59,7 +59,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, officesRes, teamMgmtGroupsRes] = await Promise.all([
         supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, mgmt_group_id, phone, email, created_at, updated_at").limit(5000),
         supabase.from("reps").select("user_id, name, profile_photo_url").limit(5000),
-        supabase.from("teams").select("id, name").limit(500),
+        supabase.from("teams").select("id, name, lead_user_id").limit(500),
         supabase.from("mgmt_groups").select("id, name, office_id, lead_user_id").limit(500),
         supabase.from("offices").select("id, name").limit(200),
         supabase.from("team_mgmt_groups").select("team_id, mgmt_group_id").limit(2000),
@@ -163,22 +163,33 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       };
     };
 
+    // Build team lead → team lookup
+    const teamByLeadUserId = new Map(teams.map((t) => [t.lead_user_id, t]));
+
     // Helper: resolve mgmt_group_id for a recruiter userId
+    // Priority: 1) leads a mgmt group, 2) leads a team → team's mgmt group, 3) recruit's mgmt_group_id, 4) recruit's team → mgmt group
     const resolveMgmtGroupId = (userId: string): string | null => {
-      // Check if they lead a mgmt group
+      // 1. Check if they lead a mgmt group
       const ledGroup = mgmtGroups.find((mg) => mg.lead_user_id === userId);
       if (ledGroup) return ledGroup.id;
-      // Check their recruit record's mgmt_group_id
+      // 2. Check if they lead a team → that team's mgmt group (via team_mgmt_groups)
+      const ledTeam = teamByLeadUserId.get(userId);
+      if (ledTeam) {
+        const mgmtGroupId = teamToMgmtGroup.get(ledTeam.id);
+        if (mgmtGroupId) return mgmtGroupId;
+      }
+      // 3. Check their recruit record
       const recruitByName = new Map(recruits.map((r) => [getCleanName(r.name).toLowerCase(), r]));
       const rep = repMap.get(userId);
       if (rep) {
         const recruit = recruitByName.get(getCleanName(rep.name).toLowerCase());
-        if (recruit?.mgmt_group_id) return recruit.mgmt_group_id;
-        // Try team → mgmt_group
+        // 3a. Try team → mgmt_group first (more accurate than recruit's mgmt_group_id)
         if (recruit?.team_id) {
           const mgmtGroupId = teamToMgmtGroup.get(recruit.team_id);
           if (mgmtGroupId) return mgmtGroupId;
         }
+        // 3b. Fall back to recruit's direct mgmt_group_id
+        if (recruit?.mgmt_group_id) return recruit.mgmt_group_id;
       }
       return null;
     };
@@ -258,6 +269,12 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         return nodes.filter((n) => !n.userId || !descendantIds.has(n.userId));
       };
 
+      // Also build a global set of ALL descendant userIds for cross-group dedup
+      const globalDescendantIds = new Set<string>();
+      trueRoots.forEach((root) => {
+        collectChildUserIds(root.children, globalDescendantIds);
+      });
+
       // Build office label nodes → mgmt group label nodes → recruiter chains
       officeGroups.forEach((mgmtMap, officeId) => {
         const office = officeMap.get(officeId);
@@ -265,7 +282,9 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
 
         mgmtMap.forEach((nodes, mgmtGroupId) => {
           const mg = mgmtGroupMap.get(mgmtGroupId);
-          const dedupedNodes = dedupeGroupNodes(nodes);
+          const dedupedNodes = dedupeGroupNodes(nodes)
+            // Cross-group dedup: also remove nodes that appear as descendants in OTHER groups
+            .filter((n) => !n.userId || !globalDescendantIds.has(n.userId));
           mgmtChildren.push({
             id: `mgmt-${mgmtGroupId}`,
             name: mg?.name || "MGMT Group",
@@ -276,6 +295,22 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
             roleColor: "mgmt_group",
             children: dedupedNodes.sort((a, b) => b.children.length - a.children.length),
           });
+        });
+
+        // Add MGMT groups that belong to this office but have no roots yet
+        mgmtGroups.forEach((mg) => {
+          if (mg.office_id === officeId && !mgmtMap.has(mg.id)) {
+            mgmtChildren.push({
+              id: `mgmt-${mg.id}`,
+              name: mg.name || "MGMT Group",
+              userId: mg.lead_user_id || null,
+              stage: null,
+              profilePhotoUrl: mg.lead_user_id ? repMap.get(mg.lead_user_id)?.profile_photo_url : null,
+              isLabelNode: true,
+              roleColor: "mgmt_group",
+              children: [],
+            });
+          }
         });
 
         mgmtChildren.sort((a, b) => b.children.length - a.children.length);
@@ -292,10 +327,40 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         });
       });
 
+      // Ensure offices that have MGMT groups but no roots appear
+      mgmtGroups.forEach((mg) => {
+        if (mg.office_id && !officeGroups.has(mg.office_id)) {
+          const office = officeMap.get(mg.office_id);
+          // Check if this office was already added
+          if (!rootNodes.find((n) => n.id === `office-${mg.office_id}`)) {
+            rootNodes.push({
+              id: `office-${mg.office_id}`,
+              name: office?.name || "Office",
+              userId: null,
+              stage: null,
+              profilePhotoUrl: null,
+              isLabelNode: true,
+              roleColor: "area_director",
+              children: [{
+                id: `mgmt-${mg.id}`,
+                name: mg.name || "MGMT Group",
+                userId: mg.lead_user_id || null,
+                stage: null,
+                profilePhotoUrl: mg.lead_user_id ? repMap.get(mg.lead_user_id)?.profile_photo_url : null,
+                isLabelNode: true,
+                roleColor: "mgmt_group",
+                children: [],
+              }],
+            });
+          }
+        }
+      });
+
       // MGMT groups without an office
       ungroupedByMgmt.forEach((nodes, mgmtGroupId) => {
         const mg = mgmtGroupMap.get(mgmtGroupId);
-        const dedupedNodes = dedupeGroupNodes(nodes);
+        const dedupedNodes = dedupeGroupNodes(nodes)
+          .filter((n) => !n.userId || !globalDescendantIds.has(n.userId));
         rootNodes.push({
           id: `mgmt-${mgmtGroupId}`,
           name: mg?.name || "MGMT Group",
@@ -308,8 +373,11 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         });
       });
 
-      // Fully ungrouped roots
-      rootNodes.push(...fullyUngrouped.sort((a, b) => b.children.length - a.children.length));
+      // Fully ungrouped roots (also cross-group dedup)
+      const dedupedUngrouped = fullyUngrouped.filter(
+        (n) => !n.userId || !globalDescendantIds.has(n.userId)
+      );
+      rootNodes.push(...dedupedUngrouped.sort((a, b) => b.children.length - a.children.length));
 
     } else if (currentAuthUserId) {
       const node = buildNode(currentAuthUserId);
