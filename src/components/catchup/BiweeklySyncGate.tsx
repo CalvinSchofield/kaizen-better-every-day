@@ -497,7 +497,11 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
               />
             </div>
 
-            {prmrChoice === 'vivint' && (
+            {hasPendingSales && (
+              <p className="text-xs text-muted-foreground text-center">
+                * Excludes ${(effectiveData.totalPendingPrmr || 0).toFixed(0)} pending PRMR not yet on Curator
+              </p>
+            )}
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
