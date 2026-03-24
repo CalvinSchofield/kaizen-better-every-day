@@ -217,6 +217,7 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
         totalTrackedPrmr,
         totalTrackedKnockingDays,
         totalTrackedFpSold,
+        effectiveFpSold,
         totalPendingFp,
         totalPendingPrmr,
         totalPendingFpSold,
