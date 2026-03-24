@@ -447,7 +447,11 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
               />
             </div>
 
-            {fpSoldChoice === 'vivint' && (
+            {hasPendingSales && (effectiveData.totalPendingFpSold || 0) > 0 && (
+              <p className="text-xs text-muted-foreground text-center">
+                * Excludes {effectiveData.totalPendingFpSold} pending FP not yet on Curator
+              </p>
+            )}
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
