@@ -28,7 +28,7 @@ import { PreseasonCommitmentsCard } from "@/components/goals/PreseasonCommitment
 import { useSyncedWeeklyLogs } from "@/hooks/useSyncedWeeklyLogs";
 import { usePendingInstalls } from "@/hooks/usePendingInstalls";
 
-import { CatchUpWizard } from "@/components/catchup/CatchUpWizard";
+
 import { SyncDiscrepancyIndicator } from "@/components/catchup/SyncDiscrepancyIndicator";
 import { BiweeklySyncGate } from "@/components/catchup/BiweeklySyncGate";
 import { toast } from "sonner";
