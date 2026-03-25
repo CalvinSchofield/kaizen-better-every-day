@@ -79,6 +79,7 @@ const Home = () => {
   const queryClient = useQueryClient();
   const { hasSeenIntro, markIntroComplete } = useIntroStatus(repData?.user_id);
   const teamAccess = useTeamAccess();
+  const { segment: onboardingSegment } = useOnboardingSegment();
   const { hasGoalsAccess, goals } = useRepGoals();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
   const { hasMnlEventToday } = useMondayNightLightsEvent();
