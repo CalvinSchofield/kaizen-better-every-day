@@ -76,6 +76,7 @@ export default function Settings() {
   const { goals, updateGoals: updateRepGoals, isUpdating: isUpdatingGoals } = useRepGoals();
   const { resetIntro, markIntroComplete } = useIntroStatus(repData?.user_id);
   const teamAccess = useTeamAccess();
+  const { segment: onboardingSegment } = useOnboardingSegment();
   const { data: cumulativeData } = useCumulativeFP();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
   
