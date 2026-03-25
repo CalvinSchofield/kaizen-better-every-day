@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { UserX, Mail, LogOut } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ const SetupFlow = () => {
   const processInviteSignup = async () => {
     setIsProcessingInvite(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const { data, error } = await supabase.functions.invoke('process-invite-signup', {
@@ -55,11 +56,13 @@ const SetupFlow = () => {
 
       toast({
         title: "Welcome to Kaizen! 🎉",
-        description: data?.pendingApproval 
-          ? "Your signup is being reviewed by your team leader."
-          : data?.inviterName 
-            ? `You've been added to ${data.inviterName}'s team.`
-            : "Your account has been set up.",
+        description: data?.autoApproved
+          ? `You're set up as ${data.assignedRole ? data.assignedRole.replace(/_/g, ' ') : 'a leader'}. Head to Organization to build your structure.`
+          : data?.pendingApproval 
+            ? "Your signup is being reviewed by your team leader."
+            : data?.inviterName 
+              ? `You've been added to ${data.inviterName}'s team.`
+              : "Your account has been set up.",
       });
 
       // Now continue with normal setup flow
@@ -79,7 +82,7 @@ const SetupFlow = () => {
 
   const runSetup = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { session, user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
       
       setUserEmail(user.email || null);
@@ -124,7 +127,7 @@ const SetupFlow = () => {
       // Run ALL data fetches in parallel for maximum speed
       setStatusText("Loading app data...");
       
-      const { data: { session } } = await supabase.auth.getSession();
+      // session already available from above
 
       await Promise.all([
         // Competitors - load from Supabase

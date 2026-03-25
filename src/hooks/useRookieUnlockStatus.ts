@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { isRepActive } from "@/utils/repStatusUtils";
 
 const GLOBAL_SUMMER_START = '2026-04-12';
@@ -88,7 +89,7 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
     refetchOnWindowFocus: false,
     retry: 1,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) return null;
       const { data } = await supabase
         .from('season_config')

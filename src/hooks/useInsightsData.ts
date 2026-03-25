@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, parseISO, startOfDay, endOfDay, differenceInMinutes, startOfWeek, endOfWeek } from 'date-fns';
+import { getSessionSafe } from "@/utils/authSession";
 
 export interface InsightsData {
   // Ratios
@@ -170,7 +171,7 @@ export const useInsightsData = (
     retry: 1,
     refetchOnWindowFocus: false,
     queryFn: async (): Promise<InsightsData> => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // Fetch all finalized entries

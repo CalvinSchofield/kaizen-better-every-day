@@ -320,6 +320,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
       case "/add-applicant": return "Add Applicant";
       case "/add-recruit": return "Add Recruit";
       case "/recruiting-content": return "Recruiting";
+      case "/org-chart": return "Org Chart";
       case "/admin/blitzes": return "Manage Blitzes";
       case "/tools/competitors": return "Competitors";
       case "/tools/contacts": return "Contacts";

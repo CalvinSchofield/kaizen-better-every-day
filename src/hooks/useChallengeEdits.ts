@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useEffect } from "react";
 import { ChallengeVisibility } from "./useChallenges";
 
@@ -117,7 +118,7 @@ export const useProposeEdit = () => {
       challengeId: string;
       changes: { stakes?: string; end_date?: string; visibility?: ChallengeVisibility };
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // Get all participants for this challenge
@@ -236,7 +237,7 @@ export const useRespondToEditProposal = () => {
       proposalId: string;
       approve: boolean;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // Update approval

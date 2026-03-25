@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, format, eachWeekOfInterval, eachMonthOfInterval, parseISO } from 'date-fns';
+import { getSessionSafe } from "@/utils/authSession";
 
 export interface PastRecap {
   id: string;
@@ -42,7 +43,7 @@ export function usePastRecaps() {
   const { data: storedRecaps, isLoading: isLoadingStored } = useQuery({
     queryKey: ['past-recaps-v2'],
     queryFn: async (): Promise<PastRecap[]> => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) return [];
 
       const { data, error } = await supabase
@@ -60,7 +61,7 @@ export function usePastRecaps() {
   const { data: availablePeriods, isLoading: isLoadingPeriods } = useQuery({
     queryKey: ['available-recap-periods-v2', storedRecaps?.length ?? 0],
     queryFn: async (): Promise<AvailablePeriod[]> => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) return [];
 
       // Get all finalized entries
@@ -180,7 +181,7 @@ export function usePastRecaps() {
       total_prmr: number;
       stats_json: any;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { toast } from "@/hooks/use-toast";
 
 interface PendingApproval {
@@ -36,7 +37,7 @@ export const useOrgRequests = () => {
   return useQuery({
     queryKey: ["org-change-requests"],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) return { pendingForMe: [], myRequests: [] } as OrgRequestsData;
 
       const { data, error } = await supabase.functions.invoke("manage-org-request", {
@@ -56,7 +57,7 @@ export const useSubmitOrgRequest = () => {
 
   return useMutation({
     mutationFn: async ({ requestType, requestData }: { requestType: string; requestData: Record<string, any> }) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error("Not authenticated");
 
       const { data, error } = await supabase.functions.invoke("manage-org-request", {
@@ -92,7 +93,7 @@ export const useRespondToOrgRequest = () => {
 
   return useMutation({
     mutationFn: async ({ requestId, approved }: { requestId: string; approved: boolean }) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error("Not authenticated");
 
       const { data, error } = await supabase.functions.invoke("manage-org-request", {
@@ -112,7 +113,10 @@ export const useRespondToOrgRequest = () => {
       toast({ title: msg });
       queryClient.invalidateQueries({ queryKey: ["org-change-requests"] });
       queryClient.invalidateQueries({ queryKey: ["org-structure"] });
+      queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
       queryClient.invalidateQueries({ queryKey: ["team-access"] });
+      queryClient.invalidateQueries({ queryKey: ["recruiter-tree-data"] });
+      queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
     },
     onError: (err: any) => {
       toast({

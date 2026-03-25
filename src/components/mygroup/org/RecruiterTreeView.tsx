@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { useQuery } from "@tanstack/react-query";
 import { Users, List, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,7 @@ interface RecruiterTreeViewProps {
 }
 
 export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewProps) => {
-  const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
+  const { data: teamAccess, isLoading: accessLoading, isPlaceholderData: isTeamAccessPlaceholder } = useTeamAccess();
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [reassignOpen, setReassignOpen] = useState(false);
@@ -46,83 +47,121 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
   } | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentAuthUserId(data.user?.id || null);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentAuthUserId(session?.user?.id || null);
     });
   }, []);
 
-  // Fetch recruits and reps data
+  // Fetch recruits, reps, and org structure data
   const { data: treeData, isLoading } = useQuery({
     queryKey: ["recruiter-tree-data"],
     queryFn: async () => {
-      const [recruitsRes, repsRes, teamsRes] = await Promise.all([
-        supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, phone, email, created_at, updated_at").limit(5000),
-        supabase.from("reps").select("user_id, name, profile_photo_url").limit(5000),
-        supabase.from("teams").select("id, name").limit(500),
+      const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, officesRes, teamMgmtGroupsRes] = await Promise.all([
+        supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, mgmt_group_id, phone, email, created_at, updated_at").limit(5000),
+        supabase.from("reps").select("id, user_id, name, profile_photo_url").limit(5000),
+        supabase.from("teams").select("id, name, lead_user_id").limit(500),
+        supabase.from("mgmt_groups").select("id, name, office_id, lead_user_id").limit(500),
+        supabase.from("offices").select("id, name").limit(200),
+        supabase.from("team_mgmt_groups").select("team_id, mgmt_group_id").limit(2000),
       ]);
 
       return {
         recruits: recruitsRes.data || [],
         reps: repsRes.data || [],
         teams: teamsRes.data || [],
+        mgmtGroups: mgmtGroupsRes.data || [],
+        offices: officesRes.data || [],
+        teamMgmtGroups: teamMgmtGroupsRes.data || [],
       };
     },
     staleTime: 1000 * 60 * 2,
   });
 
-  // Build tree structure
+  // Build tree structure grouped by Office → MGMT Group
   const tree = useMemo(() => {
     if (!treeData || !teamAccess || !currentAuthUserId) return null;
 
     const recruits = treeData.recruits || [];
     const reps = treeData.reps || [];
     const teams = treeData.teams || [];
+    const mgmtGroups = treeData.mgmtGroups || [];
+    const offices = treeData.offices || [];
+    const teamMgmtGroups = treeData.teamMgmtGroups || [];
 
-    const repMap = new Map(reps.map((r) => [r.user_id, r]));
-    const teamMap = new Map(teams.map((t) => [t.id, t.name]));
-    const recruitsByRecruiter = new Map<string, typeof recruits>();
-    recruits.forEach((r) => {
-      if (r.recruiter_user_id) {
-        const existing = recruitsByRecruiter.get(r.recruiter_user_id) || [];
-        existing.push(r);
-        recruitsByRecruiter.set(r.recruiter_user_id, existing);
+    const repMap = new Map<string, (typeof reps)[number]>();
+    reps.forEach((rep) => {
+      if (rep.user_id) repMap.set(rep.user_id, rep);
+    });
+
+    const repByCleanName = new Map<string, (typeof reps)[number]>();
+    reps.forEach((rep) => {
+      const cleanName = getCleanName(rep.name).toLowerCase();
+      if (cleanName && !repByCleanName.has(cleanName)) {
+        repByCleanName.set(cleanName, rep);
       }
     });
+
+    const recruitById = new Map(recruits.map((recruit) => [recruit.id, recruit]));
+    const recruitByCleanName = new Map<string, (typeof recruits)[number]>();
+    recruits.forEach((recruit) => {
+      const cleanName = getCleanName(recruit.name).toLowerCase();
+      if (cleanName && !recruitByCleanName.has(cleanName)) {
+        recruitByCleanName.set(cleanName, recruit);
+      }
+    });
+
+    // Build team → mgmt_group lookup
+    const teamToMgmtGroup = new Map<string, string>();
+    teamMgmtGroups.forEach((tmg) => {
+      teamToMgmtGroup.set(tmg.team_id, tmg.mgmt_group_id);
+    });
+
+    // Build mgmt_group → office lookup
+    const mgmtGroupMap = new Map(mgmtGroups.map((mg) => [mg.id, mg]));
+    const officeMap = new Map(offices.map((o) => [o.id, o]));
+
+    const recruitsByRecruiter = new Map<string, typeof recruits>();
+    recruits.forEach((recruit) => {
+      if (!recruit.recruiter_user_id) return;
+      const existing = recruitsByRecruiter.get(recruit.recruiter_user_id) || [];
+      existing.push(recruit);
+      recruitsByRecruiter.set(recruit.recruiter_user_id, existing);
+    });
+
+    const getRecruitForRep = (rep: (typeof reps)[number] | undefined) => {
+      if (!rep) return undefined;
+      return recruitById.get(rep.id) || recruitByCleanName.get(getCleanName(rep.name).toLowerCase());
+    };
 
     const buildNode = (userId: string, visited = new Set<string>()): TreeNode | null => {
       if (visited.has(userId)) return null;
       visited.add(userId);
 
       const rep = repMap.get(userId);
-      const recruiterRecruits = recruitsByRecruiter.get(userId) || [];
-      const repName = rep?.name || "";
-      const recruitByName = new Map(recruits.map((r) => [getCleanName(r.name).toLowerCase(), r]));
-      const recruitRecord = recruitByName.get(getCleanName(repName).toLowerCase());
+      const recruiterRecruits = (recruitsByRecruiter.get(userId) || [])
+        .filter((recruit) => isStageIn(recruit.stage, [...SIGNED_PLUS_STAGES]));
+      const recruitRecord = getRecruitForRep(rep);
 
       const children: TreeNode[] = [];
 
-      // Children with accounts
-      recruiterRecruits.forEach((r) => {
-        const recruitRep = reps.find(
-          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
-        );
+      // Children with app accounts
+      recruiterRecruits.forEach((recruit) => {
+        const recruitRep = repByCleanName.get(getCleanName(recruit.name).toLowerCase());
         if (recruitRep?.user_id) {
           const child = buildNode(recruitRep.user_id, new Set(visited));
           if (child) children.push(child);
         }
       });
 
-      // Leaf recruits without accounts
-      recruiterRecruits.forEach((r) => {
-        const recruitRep = reps.find(
-          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
-        );
+      // Leaf recruits without app accounts
+      recruiterRecruits.forEach((recruit) => {
+        const recruitRep = repByCleanName.get(getCleanName(recruit.name).toLowerCase());
         if (!recruitRep?.user_id) {
           children.push({
-            id: r.id,
-            name: r.name,
+            id: recruit.id,
+            name: recruit.name,
             userId: null,
-            stage: r.stage,
+            stage: recruit.stage,
             profilePhotoUrl: null,
             children: [],
           });
@@ -141,36 +180,244 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       };
     };
 
+    // Build team lead → team lookup
+    const teamByLeadUserId = new Map<string, (typeof teams)[number]>();
+    teams.forEach((team) => {
+      if (team.lead_user_id) teamByLeadUserId.set(team.lead_user_id, team);
+    });
+
+    // Helper: resolve mgmt_group_id for a recruiter userId
+    // Priority: 1) leads a mgmt group, 2) leads a team → team's mgmt group,
+    // 3) recruit's team → mgmt group, 4) recruit's direct mgmt_group_id
+    const resolveMgmtGroupId = (userId: string): string | null => {
+      const ledGroup = mgmtGroups.find((group) => group.lead_user_id === userId);
+      if (ledGroup) return ledGroup.id;
+
+      const ledTeam = teamByLeadUserId.get(userId);
+      if (ledTeam) {
+        const mgmtGroupId = teamToMgmtGroup.get(ledTeam.id);
+        if (mgmtGroupId) return mgmtGroupId;
+      }
+
+      const rep = repMap.get(userId);
+      const recruit = getRecruitForRep(rep);
+      if (recruit?.team_id) {
+        const mgmtGroupId = teamToMgmtGroup.get(recruit.team_id);
+        if (mgmtGroupId) return mgmtGroupId;
+      }
+      if (recruit?.mgmt_group_id) return recruit.mgmt_group_id;
+
+      return null;
+    };
+
+    const hasUpstreamRecruiter = (userId: string) => {
+      const rep = repMap.get(userId);
+      const recruit = getRecruitForRep(rep);
+      return Boolean(recruit?.recruiter_user_id);
+    };
+
+    const createMgmtLabelNode = (mgmtGroupId: string, children: TreeNode[] = []): TreeNode => {
+      const mgmtGroup = mgmtGroupMap.get(mgmtGroupId);
+      return {
+        id: `mgmt-${mgmtGroupId}`,
+        name: mgmtGroup?.name || "MGMT Group",
+        userId: mgmtGroup?.lead_user_id || null,
+        stage: null,
+        profilePhotoUrl: mgmtGroup?.lead_user_id
+          ? repMap.get(mgmtGroup.lead_user_id)?.profile_photo_url
+          : null,
+        isLabelNode: true,
+        roleColor: "mgmt_group",
+        children: [...children].sort((a, b) => b.children.length - a.children.length),
+      };
+    };
+
+    const createOfficeLabelNode = (officeId: string, children: TreeNode[]): TreeNode => {
+      const office = officeMap.get(officeId);
+      return {
+        id: `office-${officeId}`,
+        name: office?.name || "Office",
+        userId: null,
+        stage: null,
+        profilePhotoUrl: null,
+        isLabelNode: true,
+        roleColor: "area_director",
+        children: [...children].sort((a, b) => b.children.length - a.children.length),
+      };
+    };
+
     const rootNodes: TreeNode[] = [];
     const accessLevel = teamAccess.accessLevel;
 
-    if (
-      accessLevel === "area_director" ||
-      accessLevel === "corporate" ||
-      accessLevel === "regional" ||
-      accessLevel === "sr_regional" ||
-      accessLevel === "partner" ||
-      accessLevel === "divisional"
-    ) {
-      const recruitedUserIds = new Set<string>();
-      recruits.forEach((r) => {
-        const recruitRep = reps.find(
-          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
-        );
-        if (recruitRep?.user_id && r.recruiter_user_id) {
-          recruitedUserIds.add(recruitRep.user_id);
+    // Helper: collect all userIds that appear as descendants in a tree
+    const collectChildUserIds = (nodes: TreeNode[], set: Set<string>) => {
+      for (const node of nodes) {
+        if (node.userId) set.add(node.userId);
+        collectChildUserIds(node.children, set);
+      }
+    };
+
+    const officeGroupedAccessLevels = new Set([
+      "area_director",
+      "corporate",
+      "regional",
+      "sr_regional",
+      "partner",
+      "divisional",
+      "mgmt_group_lead",
+    ]);
+
+    if (officeGroupedAccessLevels.has(accessLevel)) {
+      const allRecruiterIds = new Set(
+        recruits.map((recruit) => recruit.recruiter_user_id).filter(Boolean) as string[]
+      );
+
+      // Build all candidate root trees first
+      const candidateRoots: TreeNode[] = [];
+      allRecruiterIds.forEach((recruiterId) => {
+        const node = buildNode(recruiterId);
+        if (node && node.children.length > 0) candidateRoots.push(node);
+      });
+
+      // Collect every userId that appears as a child in ANY tree
+      const allChildUserIds = new Set<string>();
+      candidateRoots.forEach((root) => {
+        collectChildUserIds(root.children, allChildUserIds);
+      });
+
+      // Keep roots only if they are not a child anywhere and don't have an upstream recruiter
+      const trueRoots: TreeNode[] = [];
+      candidateRoots.forEach((root) => {
+        if (!root.userId) {
+          trueRoots.push(root);
+          return;
+        }
+
+        if (allChildUserIds.has(root.userId)) return;
+        if (hasUpstreamRecruiter(root.userId)) return;
+        trueRoots.push(root);
+      });
+
+      const isOfficeScopedToUser = accessLevel === "mgmt_group_lead";
+      const scopedOfficeIds = new Set<string>();
+
+      if (isOfficeScopedToUser) {
+        mgmtGroups
+          .filter((group) => group.lead_user_id === currentAuthUserId && group.office_id)
+          .forEach((group) => scopedOfficeIds.add(group.office_id!));
+
+        if (scopedOfficeIds.size === 0) {
+          const currentUserMgmtGroupId = resolveMgmtGroupId(currentAuthUserId);
+          const fallbackOfficeId = currentUserMgmtGroupId
+            ? mgmtGroupMap.get(currentUserMgmtGroupId)?.office_id
+            : null;
+          if (fallbackOfficeId) scopedOfficeIds.add(fallbackOfficeId);
+        }
+      }
+
+      // Group roots by office → mgmt group
+      const officeGroups = new Map<string, Map<string, TreeNode[]>>();
+      const ungroupedByMgmt = new Map<string, TreeNode[]>();
+      const fullyUngrouped: TreeNode[] = [];
+
+      trueRoots.forEach((root) => {
+        const mgmtGroupId = root.userId ? resolveMgmtGroupId(root.userId) : null;
+        if (!mgmtGroupId) {
+          if (!isOfficeScopedToUser) fullyUngrouped.push(root);
+          return;
+        }
+
+        const mgmtGroup = mgmtGroupMap.get(mgmtGroupId);
+        const officeId = mgmtGroup?.office_id;
+
+        if (isOfficeScopedToUser && (!officeId || !scopedOfficeIds.has(officeId))) {
+          return;
+        }
+
+        if (officeId) {
+          if (!officeGroups.has(officeId)) officeGroups.set(officeId, new Map());
+          const mgmtMap = officeGroups.get(officeId)!;
+          if (!mgmtMap.has(mgmtGroupId)) mgmtMap.set(mgmtGroupId, []);
+          mgmtMap.get(mgmtGroupId)!.push(root);
+          return;
+        }
+
+        if (!isOfficeScopedToUser) {
+          if (!ungroupedByMgmt.has(mgmtGroupId)) ungroupedByMgmt.set(mgmtGroupId, []);
+          ungroupedByMgmt.get(mgmtGroupId)!.push(root);
         }
       });
 
-      const allRecruiterIds = new Set(
-        recruits.map((r) => r.recruiter_user_id).filter(Boolean) as string[]
-      );
-      allRecruiterIds.forEach((recruiterId) => {
-        if (!recruitedUserIds.has(recruiterId)) {
-          const node = buildNode(recruiterId);
-          if (node && node.children.length > 0) rootNodes.push(node);
-        }
+      // Helper: dedupe roots within a group
+      const dedupeGroupNodes = (nodes: TreeNode[]): TreeNode[] => {
+        const descendantIds = new Set<string>();
+        nodes.forEach((node) => collectChildUserIds(node.children, descendantIds));
+        return nodes.filter((node) => !node.userId || !descendantIds.has(node.userId));
+      };
+
+      // Global cross-group dedupe
+      const globalDescendantIds = new Set<string>();
+      trueRoots.forEach((root) => {
+        collectChildUserIds(root.children, globalDescendantIds);
       });
+
+      // Build existing office nodes
+      officeGroups.forEach((mgmtMap, officeId) => {
+        const mgmtChildren: TreeNode[] = [];
+
+        mgmtMap.forEach((nodes, mgmtGroupId) => {
+          const dedupedNodes = dedupeGroupNodes(nodes)
+            .filter((node) => !node.userId || !globalDescendantIds.has(node.userId));
+          mgmtChildren.push(createMgmtLabelNode(mgmtGroupId, dedupedNodes));
+        });
+
+        // Add MGMT groups in this office that currently have no root recruiters
+        mgmtGroups.forEach((group) => {
+          if (group.office_id === officeId && !mgmtMap.has(group.id)) {
+            mgmtChildren.push(createMgmtLabelNode(group.id));
+          }
+        });
+
+        rootNodes.push(createOfficeLabelNode(officeId, mgmtChildren));
+      });
+
+      // Ensure offices with mgmt groups still render even if they had zero roots
+      const existingOfficeIds = new Set(
+        rootNodes
+          .map((node) => node.id)
+          .filter((id) => id.startsWith("office-"))
+          .map((id) => id.replace("office-", ""))
+      );
+
+      const mgmtGroupsByOffice = new Map<string, (typeof mgmtGroups)>();
+      mgmtGroups.forEach((group) => {
+        if (!group.office_id) return;
+        if (isOfficeScopedToUser && !scopedOfficeIds.has(group.office_id)) return;
+
+        const existing = mgmtGroupsByOffice.get(group.office_id) || [];
+        existing.push(group);
+        mgmtGroupsByOffice.set(group.office_id, existing);
+      });
+
+      mgmtGroupsByOffice.forEach((groups, officeId) => {
+        if (existingOfficeIds.has(officeId)) return;
+        const mgmtChildren = groups.map((group) => createMgmtLabelNode(group.id));
+        rootNodes.push(createOfficeLabelNode(officeId, mgmtChildren));
+      });
+
+      // MGMT groups without an office
+      if (!isOfficeScopedToUser) {
+        ungroupedByMgmt.forEach((nodes, mgmtGroupId) => {
+          const dedupedNodes = dedupeGroupNodes(nodes)
+            .filter((node) => !node.userId || !globalDescendantIds.has(node.userId));
+          rootNodes.push(createMgmtLabelNode(mgmtGroupId, dedupedNodes));
+        });
+
+        const dedupedUngrouped = fullyUngrouped
+          .filter((node) => !node.userId || !globalDescendantIds.has(node.userId))
+          .sort((a, b) => b.children.length - a.children.length);
+        rootNodes.push(...dedupedUngrouped);
+      }
     } else if (currentAuthUserId) {
       const node = buildNode(currentAuthUserId);
       if (node && node.children.length > 0) {
@@ -273,7 +520,9 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
     [canReassign, findRecruiterUserId, onEditRep, treeData]
   );
 
-  if (accessLoading || isLoading) {
+  // Wait for fresh data — don't render with stale placeholder data
+  // This prevents flashing incorrect roles before real data arrives
+  if (accessLoading || isTeamAccessPlaceholder || isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-48 w-full rounded-xl" />

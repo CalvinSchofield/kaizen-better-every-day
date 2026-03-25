@@ -13,6 +13,7 @@ import { Trophy, Eye, EyeOff, Pencil, Check, Clock, X, Swords, Users, Trash2, Cr
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { EditChallengeDrawer } from "./EditChallengeDrawer";
 import { ChallengeEditApprovalCard } from "./ChallengeEditApprovalCard";
 import { getInitials, getCleanName, getCleanFirstName } from "@/utils/nameUtils";
@@ -313,7 +314,7 @@ export const ChallengeDetailSheet = ({ challenge, open, onOpenChange }: Challeng
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       return user;
     },
   });

@@ -5,6 +5,7 @@ import { useAssignableUsers } from "@/hooks/useAssignableUsers";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAutoStageProgression } from "@/hooks/useAutoStageProgression";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -198,7 +199,7 @@ export const RecruitDetailDrawer = ({
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-rep-for-drawer'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) return null;
       const { data } = await supabase.from('reps').select('id, name, team_leader, recruiter').eq('user_id', user.id).maybeSingle();
       return data;
@@ -351,7 +352,7 @@ export const RecruitDetailDrawer = ({
       if (!recruitRepData?.user_id) return [];
       
       // For the current user's own recruits, we can use the edge function
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) return [];
       
       const { data, error } = await supabase.functions.invoke('fetch-downline-planned-days', {
@@ -414,7 +415,7 @@ export const RecruitDetailDrawer = ({
       setPhoneEntryOpen(true);
       return;
     }
-    window.location.href = `tel:${recruit.phone}`;
+    window.open(`tel:${recruit.phone}`, '_self');
     setTimeout(() => { 
       setPostContactMethod('call');
       setPostContactOpen(true); 
@@ -456,9 +457,9 @@ export const RecruitDetailDrawer = ({
 
     // Open SMS app (group or solo)
     if (leaderPhone && leaderPhone !== recruitPhone) {
-      window.location.href = `sms:${recruitPhone},${leaderPhone}`;
+      window.open(`sms:${recruitPhone},${leaderPhone}`, '_self');
     } else {
-      window.location.href = `sms:${recruitPhone}`;
+      window.open(`sms:${recruitPhone}`, '_self');
     }
 
     // Show PostContactDrawer for notes capture after a short delay
@@ -475,7 +476,7 @@ export const RecruitDetailDrawer = ({
       setPhoneEntryOpen(true);
       return;
     }
-    window.location.href = `sms:${contactForHelp.phone}?body=${encodeURIComponent(helpMessage)}`;
+    window.open(`sms:${contactForHelp.phone}?body=${encodeURIComponent(helpMessage)}`, '_self');
   };
 
   // Handle direct iPad assignment from FocusCard
@@ -546,7 +547,7 @@ export const RecruitDetailDrawer = ({
       if (updateError) throw updateError;
       
       // Also call edge function to sync
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (session) {
         await supabase.functions.invoke('update-rookie-status', {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -706,7 +707,7 @@ export const RecruitDetailDrawer = ({
     setHasPhaseError(false);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const phaseParams: Record<string, boolean> = {};
@@ -746,7 +747,7 @@ export const RecruitDetailDrawer = ({
     setHasPhaseError(false);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       // Undo this phase and all phases after it
@@ -846,7 +847,7 @@ export const RecruitDetailDrawer = ({
       else if (finalState.trainings_complete) computedOnboardingStatus = 'Required Trainings ✅';
       else if (finalState.onboarding_complete) computedOnboardingStatus = 'Onboarding ✅';
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       // Use rep ID if available, otherwise use recruit ID
@@ -1434,7 +1435,7 @@ export const RecruitDetailDrawer = ({
           <DrawerHeader><DrawerTitle>{phoneEntryTarget === 'recruit' ? `Add ${recruitFirstName}'s Phone` : `Add ${contactForHelp?.name}'s Phone`}</DrawerTitle></DrawerHeader>
           <div className="p-4 space-y-4">
             <Input value={newPhoneNumber} onChange={(e) => { const input = e.target.value.replace(/\D/g, '').slice(0, 10); let fmt = ''; if (input.length > 0) { fmt = '(' + input.slice(0, 3); if (input.length > 3) { fmt += ') ' + input.slice(3, 6); if (input.length > 6) fmt += '-' + input.slice(6, 10); } } setNewPhoneNumber(fmt || input); }} placeholder="(555) 123-4567" type="tel" autoFocus />
-            <Button className="w-full" onClick={() => { if (!newPhoneNumber.trim()) { toast.error('Enter phone number'); return; } const targetId = phoneEntryTarget === 'recruit' ? recruit.id : contactForHelp?.id; if (!targetId) return; savePhoneMutation.mutate({ repId: targetId, phone: newPhoneNumber.trim() }, { onSuccess: () => { setPhoneEntryOpen(false); const saved = newPhoneNumber.trim(); setNewPhoneNumber(''); if (pendingPhoneAction === 'call') window.location.href = `tel:${saved}`; else if (pendingPhoneAction === 'text') window.location.href = `sms:${saved}`; else if (pendingPhoneAction === 'ask_help') window.location.href = `sms:${saved}?body=${encodeURIComponent(helpMessage)}`; setPendingPhoneAction(null); } }); }} disabled={savePhoneMutation.isPending}>{savePhoneMutation.isPending ? 'Saving...' : 'Save & Continue'}</Button>
+            <Button className="w-full" onClick={() => { if (!newPhoneNumber.trim()) { toast.error('Enter phone number'); return; } const targetId = phoneEntryTarget === 'recruit' ? recruit.id : contactForHelp?.id; if (!targetId) return; savePhoneMutation.mutate({ repId: targetId, phone: newPhoneNumber.trim() }, { onSuccess: () => { setPhoneEntryOpen(false); const saved = newPhoneNumber.trim(); setNewPhoneNumber(''); if (pendingPhoneAction === 'call') window.open(`tel:${saved}`, '_self'); else if (pendingPhoneAction === 'text') window.open(`sms:${saved}`, '_self'); else if (pendingPhoneAction === 'ask_help') window.open(`sms:${saved}?body=${encodeURIComponent(helpMessage)}`, '_self'); setPendingPhoneAction(null); } }); }} disabled={savePhoneMutation.isPending}>{savePhoneMutation.isPending ? 'Saving...' : 'Save & Continue'}</Button>
           </div>
         </DrawerContent>
       </Drawer>

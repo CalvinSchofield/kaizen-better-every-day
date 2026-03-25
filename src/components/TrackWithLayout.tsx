@@ -26,6 +26,7 @@ import { useTrackBackup } from "@/hooks/useTrackBackup";
 import { useCompetitorNudge } from "@/hooks/useCompetitorNudge";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -112,7 +113,7 @@ const TrackWithLayout = () => {
     let mounted = true;
     const checkAuth = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { user } = await getSessionSafe();
         if (mounted) {
           if (!user) {
             // Try to refresh before marking unhealthy
@@ -257,7 +258,7 @@ const TrackWithLayout = () => {
   // Check for ALL unsaved work from previous days on mount
   useEffect(() => {
     const checkPreviousDayWork = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) return;
 
       // Use local timezone to prevent timezone-related date mismatches

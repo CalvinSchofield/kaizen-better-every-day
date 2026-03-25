@@ -22,6 +22,7 @@ import { BlitzCommitmentDrawer } from "./BlitzCommitmentDrawer";
 import { PhaseVerificationDrawer } from "./PhaseVerificationDrawer";
 import { AddPhoneDrawer } from "@/components/ui/AddPhoneDrawer";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -793,7 +794,7 @@ const BlitzPrepProgressItem = ({
     setHasError(false);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const phaseParams: Record<string, boolean | string> = {};
@@ -835,7 +836,7 @@ const BlitzPrepProgressItem = ({
     setHasError(false);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       // Undo this phase and all phases after it
@@ -1181,7 +1182,7 @@ const ReadinessItem = ({
       
       // Encode the message for SMS
       const encodedMessage = encodeURIComponent(message);
-      window.location.href = `sms:${item.recruit.phone}?body=${encodedMessage}`;
+      window.open(`sms:${item.recruit.phone}?body=${encodedMessage}`, '_self');
     }
   };
 
@@ -1374,7 +1375,7 @@ export const NeedsAttentionDrawer = ({
     }
     
     // Open phone app
-    window.location.href = `tel:${recruit.phone}`;
+    window.open(`tel:${recruit.phone}`, '_self');
     
     // Open post-contact drawer to log the call outcome
     setPostContactRecruit(recruit);
@@ -1390,7 +1391,7 @@ export const NeedsAttentionDrawer = ({
     }
     
     // Open SMS app
-    window.location.href = `sms:${recruit.phone}`;
+    window.open(`sms:${recruit.phone}`, '_self');
     
     // Open post-contact drawer to log the text
     setPostContactRecruit(recruit);
@@ -1502,7 +1503,7 @@ export const NeedsAttentionDrawer = ({
                       onContact={(recruit) => setContactRecruit(recruit)}
                       onDirectCall={(recruit) => {
                         if (recruit.phone) {
-                          window.location.href = `tel:${recruit.phone}`;
+                          window.open(`tel:${recruit.phone}`, '_self');
                           setPostContactRecruit(recruit);
                           setPostContactMethod('call');
                           setPostContactOpen(true);
@@ -1510,7 +1511,7 @@ export const NeedsAttentionDrawer = ({
                       }}
                       onDirectText={(recruit) => {
                         if (recruit.phone) {
-                          window.location.href = `sms:${recruit.phone}`;
+                          window.open(`sms:${recruit.phone}`, '_self');
                           setPostContactRecruit(recruit);
                           setPostContactMethod('text');
                           setPostContactOpen(true);
@@ -1549,7 +1550,7 @@ export const NeedsAttentionDrawer = ({
                   onContact={(recruit) => setContactRecruit(recruit)}
                   onDirectCall={(recruit) => {
                     if (recruit.phone) {
-                      window.location.href = `tel:${recruit.phone}`;
+                      window.open(`tel:${recruit.phone}`, '_self');
                       setPostContactRecruit(recruit);
                       setPostContactMethod('call');
                       setPostContactOpen(true);
@@ -1557,7 +1558,7 @@ export const NeedsAttentionDrawer = ({
                   }}
                   onDirectText={(recruit) => {
                     if (recruit.phone) {
-                      window.location.href = `sms:${recruit.phone}`;
+                      window.open(`sms:${recruit.phone}`, '_self');
                       setPostContactRecruit(recruit);
                       setPostContactMethod('text');
                       setPostContactOpen(true);

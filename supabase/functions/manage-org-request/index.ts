@@ -71,10 +71,15 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Check if user is corporate (can bypass approval)
+      // Check if user is corporate (can always bypass approval)
       const { data: isCorp } = await supabase.rpc('is_corporate', { _user_id: user.id });
-      if (isCorp) {
-        // Corporate: execute directly
+
+      // Check if user is bootstrapping (leader with no active upline)
+      const { data: hasUpline } = await supabase.rpc('has_active_upline', { _user_id: user.id });
+      const isBootstrapping = !hasUpline;
+
+      if (isCorp || isBootstrapping) {
+        // Corporate or bootstrapping leader: execute directly
         const result = await executeOrgChange(supabase, requestType, requestData);
         return new Response(JSON.stringify({ success: true, directExecution: true, ...result }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -439,7 +444,7 @@ async function executeOrgChange(
   requestType: string,
   requestData: any
 ): Promise<Record<string, any>> {
-  const { name, leadUserId, mgmtGroupId, officeId } = requestData;
+  const { name, leadUserId, mgmtGroupId, officeId, srMgmtGroupId, regionId, srRegionId, partnerId, divisionId } = requestData;
 
   switch (requestType) {
     case 'create_team': {
@@ -461,6 +466,16 @@ async function executeOrgChange(
     case 'create_mgmt_group': {
       const { data: group, error } = await supabase
         .from('mgmt_groups')
+        .insert({ name, lead_user_id: leadUserId || null, office_id: officeId || null, sr_mgmt_group_id: srMgmtGroupId || null })
+        .select()
+        .single();
+      if (error) throw error;
+      return { group };
+    }
+
+    case 'create_sr_mgmt_group': {
+      const { data: group, error } = await supabase
+        .from('sr_mgmt_groups')
         .insert({ name, lead_user_id: leadUserId || null, office_id: officeId || null })
         .select()
         .single();
@@ -468,10 +483,48 @@ async function executeOrgChange(
       return { group };
     }
 
+    case 'create_region': {
+      const { data: region, error } = await supabase
+        .from('regions')
+        .insert({ name, lead_user_id: leadUserId || null, sr_region_id: srRegionId || null })
+        .select()
+        .single();
+      if (error) throw error;
+      return { region };
+    }
+
+    case 'create_sr_region': {
+      const { data: srRegion, error } = await supabase
+        .from('sr_regions')
+        .insert({ name, lead_user_id: leadUserId || null, partner_id: partnerId || null })
+        .select()
+        .single();
+      if (error) throw error;
+      return { srRegion };
+    }
+
+    case 'create_partner': {
+      const { data: partner, error } = await supabase
+        .from('partners')
+        .insert({ name, lead_user_id: leadUserId || null, division_id: divisionId || null })
+        .select()
+        .single();
+      if (error) throw error;
+      return { partner };
+    }
+
+    case 'create_division': {
+      const { data: division, error } = await supabase
+        .from('divisions')
+        .insert({ name, lead_user_id: leadUserId || null })
+        .select()
+        .single();
+      if (error) throw error;
+      return { division };
+    }
+
     default:
-      // For higher-level org changes (region, partner, division), 
-      // we'll implement these as needed
-      console.log(`Org change type ${requestType} not yet implemented for auto-execution`);
-      return { note: `${requestType} recorded but requires manual setup` };
+      console.log(`Org change type ${requestType} not recognized`);
+      return { note: `${requestType} is not a valid org change type` };
   }
 }

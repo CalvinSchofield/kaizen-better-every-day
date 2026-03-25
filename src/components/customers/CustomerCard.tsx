@@ -22,14 +22,14 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (sale.customer_phone) {
-      window.location.href = `tel:${sale.customer_phone}`;
+      window.open(`tel:${sale.customer_phone}`, '_self');
     }
   };
 
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (sale.customer_phone) {
-      window.location.href = `sms:${sale.customer_phone}`;
+      window.open(`sms:${sale.customer_phone}`, '_self');
     }
   };
 

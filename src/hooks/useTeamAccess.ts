@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 
 import type { AccessLevel } from "@/utils/roleHierarchy";
 
@@ -55,7 +56,7 @@ export const useTeamAccess = () => {
   const query = useQuery({
     queryKey: ['team-access'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
 
       if (!session) {
         throw new Error('Not authenticated');
@@ -82,9 +83,9 @@ export const useTeamAccess = () => {
       }
 
       try {
-        // Add timeout for mobile networks - 12 second timeout (reduced from 20)
+        // PERF FIX: Reduced timeout from 12s to 8s for native — fail fast and serve stale cache
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Request timeout')), 12000);
+          setTimeout(() => reject(new Error('Request timeout')), 8000);
         });
 
         const fetchPromise = supabase.functions.invoke('fetch-team-access', {

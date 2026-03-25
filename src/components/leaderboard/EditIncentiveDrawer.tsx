@@ -11,6 +11,7 @@ import { useParticipantPool } from "@/hooks/useParticipantPool";
 import { Incentive, IncentiveVisibility, useUpdateIncentive } from "@/hooks/useIncentives";
 import { ParticipantPickerV2 } from "./ParticipantPickerV2";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { Loader2, CalendarIcon, ChevronLeft, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
@@ -37,7 +38,7 @@ export const EditIncentiveDrawer = ({ incentive, open, onOpenChange }: EditIncen
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-for-edit-incentive'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) return null;
       const { data } = await supabase
         .from('reps')

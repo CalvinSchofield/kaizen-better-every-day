@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { Plus, Trash2, GripVertical } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -114,7 +115,7 @@ export default function BlitzFormDrawer({ open, onClose, blitz, onSuccess }: Bli
 
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
 
       if (isEditing) {
         // Update blitz

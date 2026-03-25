@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { format, startOfMonth, parseISO } from "date-fns";
 import { Challenge } from "./useChallenges";
 import { Incentive } from "./useIncentives";
@@ -54,7 +55,7 @@ export const useCompetitionHistory = () => {
   return useQuery({
     queryKey: ['competition-history'],
     queryFn: async (): Promise<CompetitionHistoryData> => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // Fetch all completed/declined/voided challenges where user is a participant
@@ -418,7 +419,7 @@ export const useHeadToHeadRecord = (opponentUserId?: string) => {
     queryFn: async () => {
       if (!opponentUserId) return null;
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // Find challenges where both users are participants

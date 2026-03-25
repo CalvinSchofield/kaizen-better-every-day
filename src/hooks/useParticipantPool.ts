@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useTeamAccess } from "./useTeamAccess";
 import { useAllOfficeReps } from "./useAllOfficeReps";
 import { format } from "date-fns";
@@ -95,7 +96,7 @@ export const useParticipantPool = (options: UseParticipantPoolOptions = {}): Use
   const { data: currentUserData } = useQuery({
     queryKey: ['current-user-id-for-pool'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       return user?.id ?? null;
     },
     staleTime: Infinity,

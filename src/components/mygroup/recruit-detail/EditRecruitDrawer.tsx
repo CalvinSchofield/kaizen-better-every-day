@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { Recruit } from "@/hooks/useGroupRecruits";
-import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, ROLE_HIERARCHY, type AccessLevel } from "@/utils/roleHierarchy";
+import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, ROLE_HIERARCHY, getAssignableRoles, getRoleJumpInfo, type AccessLevel } from "@/utils/roleHierarchy";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import {
@@ -35,9 +36,19 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface EditRecruitDrawerProps {
   open: boolean;
@@ -88,8 +99,15 @@ export const EditRecruitDrawer = ({
   
   // Role assignment state
   const [selectedRole, setSelectedRole] = useState<string>('');
+  const [showRoleConfirm, setShowRoleConfirm] = useState(false);
   const accessLevel = (teamAccess?.accessLevel || 'none') as AccessLevel;
   const canAssignRoles = showRoleAssignment && hasMinAccess(accessLevel, 'mgmt_group_lead');
+  
+  // Compute role jump warning info
+  const roleJumpInfo = useMemo(() => {
+    if (!selectedRole) return null;
+    return getRoleJumpInfo(accessLevel, selectedRole as AccessLevel);
+  }, [selectedRole, accessLevel]);
   
   // Track if form has been initialized for this drawer open session
   const [formInitialized, setFormInitialized] = useState(false);
@@ -136,6 +154,25 @@ export const EditRecruitDrawer = ({
     staleTime: 0, // Always fetch fresh data when opening
   });
 
+  // Check if this recruit came from a lateral invite
+  const { data: isLateralInvite } = useQuery({
+    queryKey: ['recruit-invite-type', recruit.id],
+    queryFn: async () => {
+      if (!recruitDetails?.invite_code_used) return false;
+      const { data } = await supabase
+        .from('invite_codes')
+        .select('invite_type')
+        .eq('code', recruitDetails.invite_code_used)
+        .maybeSingle();
+      return data?.invite_type === 'lateral';
+    },
+    enabled: open && !!recruitDetails?.invite_code_used,
+    staleTime: Infinity,
+  });
+
+  // For lateral invites during approval, recruiter/team/group are REQUIRED
+  const isLateralApproval = isLateralInvite && showRoleAssignment;
+
   // Fetch property options from Supabase
   const { data: notionOptions, isLoading: optionsLoading } = useQuery({
     queryKey: ['property-options-extended'],
@@ -171,7 +208,7 @@ export const EditRecruitDrawer = ({
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-rep-for-edit'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) return null;
       const { data } = await supabase
         .from('reps')
@@ -392,7 +429,7 @@ export const EditRecruitDrawer = ({
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async (updates: Record<string, any>) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
       const { data, error } = await supabase.functions.invoke('update-recruit-properties', {
@@ -424,7 +461,27 @@ export const EditRecruitDrawer = ({
     },
   });
 
+  // Gate: validate lateral requirements, then role confirmation
+  const handleSaveClick = () => {
+    if (isLateralApproval) {
+      if (!recruiterUserId) {
+        toast.error('Recruiter is required for lateral invites');
+        return;
+      }
+      if (!selectedTeamId) {
+        toast.error('Team is required for lateral invites');
+        return;
+      }
+    }
+    if (selectedRole && canAssignRoles) {
+      setShowRoleConfirm(true);
+      return;
+    }
+    handleSave();
+  };
+
   const handleSave = async () => {
+    setShowRoleConfirm(false);
     const cleanPhone = phone.replace(/\D/g, '');
     
     // Find the recruiter name from the user ID
@@ -542,6 +599,15 @@ export const EditRecruitDrawer = ({
         </DrawerHeader>
         
         <div className="overflow-y-auto px-4 pb-4 space-y-4">
+          {/* Lateral Invite Banner */}
+          {isLateralApproval && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2.5 text-sm space-y-1">
+              <p className="font-medium text-amber-700 dark:text-amber-300">⚠️ Lateral Invite</p>
+              <p className="text-xs text-muted-foreground">
+                This person joined via a lateral invite. Recruiter, Team, and MGMT Group were not auto-assigned — you must set them manually below.
+              </p>
+            </div>
+          )}
           {/* Name */}
           <div>
             <Label>Name</Label>
@@ -791,16 +857,18 @@ export const EditRecruitDrawer = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">No role (regular rep)</SelectItem>
-                  {ASSIGNABLE_ROLES
-                    .filter((role) => {
-                      // During bootstrap approval, allow assigning ANY role (even above yours)
-                      if (isBootstrapApproval) return true;
-                      // Otherwise, only show roles below the approver's level
-                      return ROLE_HIERARCHY.indexOf(role) < ROLE_HIERARCHY.indexOf(accessLevel);
-                    })
-                    .map((role) => (
+                  {(() => {
+                    // Bootstrap: allow ALL roles (upward invite)
+                    if (isBootstrapApproval) {
+                      return ASSIGNABLE_ROLES.map((role) => (
+                        <SelectItem key={role} value={role}>{getRoleLabel(role)}</SelectItem>
+                      ));
+                    }
+                    // Normal: only roles at or below the approver's capped level
+                    return getAssignableRoles(accessLevel).map((role) => (
                       <SelectItem key={role} value={role}>{getRoleLabel(role)}</SelectItem>
-                    ))}
+                    ));
+                  })()}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
@@ -883,7 +951,7 @@ export const EditRecruitDrawer = ({
               Cancel
             </Button>
             <Button 
-              onClick={handleSave}
+              onClick={handleSaveClick}
               disabled={updateMutation.isPending || !name.trim()}
               className="flex-1"
             >
@@ -899,6 +967,40 @@ export const EditRecruitDrawer = ({
           </div>
         </DrawerFooter>
       </DrawerContent>
+
+      {/* Role Assignment Confirmation Dialog */}
+      <AlertDialog open={showRoleConfirm} onOpenChange={setShowRoleConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {roleJumpInfo?.isLargeJump && (
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+              )}
+              Confirm Role Assignment
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left space-y-2">
+              <p>
+                You're about to assign <strong>{name}</strong> the role of{' '}
+                <strong>{getRoleLabel(selectedRole as AccessLevel)}</strong>.
+              </p>
+              <p className="text-muted-foreground">
+                This will give them management access at that level.
+              </p>
+              {roleJumpInfo?.isLargeJump && (
+                <p className="text-amber-600 dark:text-amber-400 font-medium">
+                  ⚠️ This role is {roleJumpInfo.levelDiff} levels above your own — please double-check this is correct.
+                </p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go Back</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSave}>
+              Yes, Assign {getRoleLabel(selectedRole as AccessLevel)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Drawer>
   );
 };

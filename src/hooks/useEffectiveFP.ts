@@ -26,6 +26,12 @@ export interface EffectiveFPResult {
   totalTrackedPrmr: number;
   totalTrackedKnockingDays: number;
   totalTrackedFpSold: number; // Count of type==='fp' sales (families protected)
+  effectiveFpSold: number; // Official baseline FP sold + tracked since verification
+  
+  // Pending (scheduled-out) sales — included in totals but not yet on Curator
+  totalPendingFp: number;
+  totalPendingPrmr: number;
+  totalPendingFpSold: number;
   
   // Discrepancy info
   hasDiscrepancy: boolean;
@@ -83,12 +89,16 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
       let totalTrackedFp = 0;
       let totalTrackedPrmr = 0;
       let totalTrackedKnockingDays = 0;
-      let totalTrackedFpSold = 0; // Count of type==='fp' sales (families protected)
+      let totalTrackedFpSold = 0;
+      let totalPendingFp = 0;
+      let totalPendingPrmr = 0;
+      let totalPendingFpSold = 0;
 
       // Calculate tracked values since last verification
       let trackedFpSinceVerification = 0;
       let trackedPrmrSinceVerification = 0;
       let trackedKnockingDaysSinceVerification = 0;
+      let trackedFpSoldSinceVerification = 0;
 
       const lastVerifiedAt = officialTotals?.last_verified_at;
       const lastVerifiedDate = lastVerifiedAt ? new Date(lastVerifiedAt).toISOString().split('T')[0] : null;
@@ -104,10 +114,14 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
           const calculated = calculateFromSalesLog(salesLog);
           fp = calculated.fp;
           prmr = calculated.prmr;
+          totalPendingFp += calculated.pendingFp;
+          totalPendingPrmr += calculated.pendingPrmr;
           // Count FP sold (type === 'fp', excluding never_installed)
-          fpSoldCount = salesLog.filter((s: any) => 
-            s.type === 'fp' && s.install_status !== 'never_installed'
-          ).length;
+          const fpSales = salesLog.filter((s: any) => 
+            s.type === 'fp' && s.install_status !== 'never_installed' && s.install_status !== 'cancelled' && s.install_status !== 'canceled'
+          );
+          fpSoldCount = fpSales.length;
+          totalPendingFpSold += fpSales.filter((s: any) => s.install_status === 'pending').length;
         } else {
           fp = entry.fp_plus || 0;
           prmr = entry.prmr || 0;
@@ -124,6 +138,7 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
         if (!lastVerifiedDate || entry.entry_date > lastVerifiedDate) {
           trackedFpSinceVerification += fp;
           trackedPrmrSinceVerification += prmr;
+          trackedFpSoldSinceVerification += fpSoldCount;
           if (isKnocking) trackedKnockingDaysSinceVerification++;
         }
       }
@@ -132,6 +147,7 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
       const officialFp = officialTotals?.fp_plus || 0;
       const officialPrmr = officialTotals?.prmr || 0;
       const officialKnockingDays: number | null = officialTotals?.knocking_days ?? null;
+      const officialFpSold = officialTotals?.fp_sold || 0;
 
       // Calculate effective totals
       // If we have official totals, use: official + tracked since verification
@@ -152,7 +168,10 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
         ? (officialKnockingDays ?? 0) + trackedKnockingDaysSinceVerification
         : totalTrackedKnockingDays;
 
-      // Calculate discrepancy (if official is set)
+      const effectiveFpSold = hasOfficialTotals
+        ? officialFpSold + trackedFpSoldSinceVerification
+        : totalTrackedFpSold;
+
       // Positive = user has untracked sales (official > tracked at verification time)
       // Negative = user over-tracked (tracked > official)
       const discrepancyAmount = hasOfficialTotals
@@ -198,6 +217,10 @@ export const useEffectiveFP = ({ seasonType, seasonStartDate, seasonEndDate }: U
         totalTrackedPrmr,
         totalTrackedKnockingDays,
         totalTrackedFpSold,
+        effectiveFpSold,
+        totalPendingFp,
+        totalPendingPrmr,
+        totalPendingFpSold,
         hasDiscrepancy,
         discrepancyAmount,
         knockingDaysUnknown,

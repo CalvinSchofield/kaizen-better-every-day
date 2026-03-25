@@ -16,6 +16,7 @@ import { IncentiveRaceTimeline } from "@/components/competitions/IncentiveRaceTi
 import { IncentiveRecapStats } from "@/components/competitions/IncentiveRecapStats";
 import { EditIncentiveDrawer } from "./EditIncentiveDrawer";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useQuery } from "@tanstack/react-query";
 import { formatCompetitionDuration } from "@/utils/competitionDateUtils";
 import { toast } from "sonner";
@@ -47,7 +48,7 @@ export const IncentiveDetailSheet = ({ incentive: initialIncentive, open, onOpen
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       return user;
     },
   });

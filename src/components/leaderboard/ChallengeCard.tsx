@@ -8,6 +8,7 @@ import { Challenge, useRespondToChallenge, ChallengeMetric } from "@/hooks/useCh
 import { useChallengeProgress } from "@/hooks/useChallengeProgress";
 import { ChallengeDetailSheet } from "./ChallengeDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useQuery } from "@tanstack/react-query";
 import { formatFriendlyDate } from "@/utils/competitionDateUtils";
 import { toast } from "sonner";
@@ -27,7 +28,7 @@ export const ChallengeCard = ({ challenge }: ChallengeCardProps) => {
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       return user;
     },
   });

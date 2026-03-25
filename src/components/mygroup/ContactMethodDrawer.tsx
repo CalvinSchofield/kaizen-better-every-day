@@ -42,9 +42,9 @@ export const ContactMethodDrawer = ({
     
     // For call/text, open the phone/SMS first
     if (method === 'call' && recruit?.phone) {
-      window.location.href = `tel:${recruit.phone}`;
+      window.open(`tel:${recruit.phone}`, '_self');
     } else if (method === 'text' && recruit?.phone) {
-      window.location.href = `sms:${recruit.phone}`;
+      window.open(`sms:${recruit.phone}`, '_self');
     }
     
     // Close this drawer and open post-contact drawer

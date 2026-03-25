@@ -110,11 +110,12 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
 
   useEffect(() => { saveProgress(); }, [saveProgress]);
   
-  // Tracked values for prefill display
-  const trackedFp = effectiveData.effectiveFp;
-  const trackedFpSold = effectiveData.totalTrackedFpSold;
-  const trackedPrmr = effectiveData.effectivePrmr;
+  // Tracked values for prefill display — exclude pending sales to match Curator
+  const trackedFp = effectiveData.effectiveFp - (effectiveData.totalPendingFp || 0);
+  const trackedFpSold = (effectiveData.effectiveFpSold || 0) - (effectiveData.totalPendingFpSold || 0);
+  const trackedPrmr = effectiveData.effectivePrmr - (effectiveData.totalPendingPrmr || 0);
   const trackedKnockingDays = effectiveData.effectiveKnockingDays;
+  const hasPendingSales = (effectiveData.totalPendingFp || 0) > 0;
 
   // Final values based on choices
   const finalFp = fpChoice === 'tracked' ? trackedFp : (parseFloat(fpVivint) || 0);
@@ -391,6 +392,12 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
               />
             </div>
 
+            {hasPendingSales && (
+              <p className="text-xs text-muted-foreground text-center">
+                * Excludes {(effectiveData.totalPendingFp || 0).toFixed(1)} pending FP+ not yet on Curator
+              </p>
+            )}
+
             {fpChoice === 'vivint' && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -442,6 +449,12 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
               />
             </div>
 
+            {hasPendingSales && (effectiveData.totalPendingFpSold || 0) > 0 && (
+              <p className="text-xs text-muted-foreground text-center">
+                * Excludes {effectiveData.totalPendingFpSold} pending FP not yet on Curator
+              </p>
+            )}
+
             {fpSoldChoice === 'vivint' && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -487,6 +500,12 @@ export const BiweeklySyncGate = ({ seasonType, effectiveData, isInitialSync = fa
                 onSelect={() => setPrmrChoice('vivint')}
               />
             </div>
+
+            {hasPendingSales && (
+              <p className="text-xs text-muted-foreground text-center">
+                * Excludes ${(effectiveData.totalPendingPrmr || 0).toFixed(0)} pending PRMR not yet on Curator
+              </p>
+            )}
 
             {prmrChoice === 'vivint' && (
               <motion.div

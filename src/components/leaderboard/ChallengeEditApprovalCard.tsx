@@ -5,6 +5,7 @@ import { Check, X, Loader2, Clock } from "lucide-react";
 import { ChallengeEditProposal, ChallengeEditApproval, useRespondToEditProposal } from "@/hooks/useChallengeEdits";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { getInitials } from "@/utils/nameUtils";
@@ -23,7 +24,7 @@ export const ChallengeEditApprovalCard = ({
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       return user;
     },
   });

@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { PurposeDisplayCard } from "@/components/goals/PurposeDisplayCard";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { getDaysUntilBlitz, formatDaysUntilBlitz, parseDateAsLocal, formatBlitzDate } from "@/utils/blitzDateUtils";
 import { 
@@ -35,6 +35,7 @@ import {
   SelectSeparator,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { toast } from "sonner";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
@@ -45,6 +46,25 @@ import { STAGES, EXIT_STAGES as EXIT_STAGE_LIST } from "@/utils/stageConstants";
 import { EditRecruitDrawer } from "../EditRecruitDrawer";
 import { DeleteRecruitConfirmDrawer } from "../DeleteRecruitConfirmDrawer";
 import { cn } from "@/lib/utils";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import { getRoleLabel, hasMinAccess, ASSIGNABLE_ROLES, ROLE_HIERARCHY, getAssignableRoles, getRoleJumpInfo, type AccessLevel } from "@/utils/roleHierarchy";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Select as RoleSelect,
+  SelectContent as RoleSelectContent,
+  SelectItem as RoleSelectItem,
+  SelectTrigger as RoleSelectTrigger,
+  SelectValue as RoleSelectValue,
+} from "@/components/ui/select";
 
 interface DetailsTabProps {
   recruit: Recruit;
@@ -84,9 +104,11 @@ export const DetailsTab = ({
 }: DetailsTabProps) => {
   const queryClient = useQueryClient();
   const { data: teamAccess } = useTeamAccess();
+  const { userId: currentUserId } = useCurrentUserId();
   const recruitFirstName = getFirstName(recruit.name);
   const isRookie = recruitRepData && (recruitRepData.year === 'Rookie' || !recruitRepData.year);
   const hasCompletedOnboarding = recruitRepData?.onboarding_complete === true;
+  const accessLevel = (teamAccess?.accessLevel || 'none') as AccessLevel;
   
   // Fetch additional recruit details for the new fields
   const { data: recruitDetails } = useQuery({
@@ -94,15 +116,105 @@ export const DetailsTab = ({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('recruits')
-        .select('significant_other_name, watch_out_notes')
+        .select('significant_other_name, watch_out_notes, recruiter_user_id')
         .eq('id', recruit.id)
         .maybeSingle();
       
       if (error) throw error;
       return data;
     },
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 30 * 1000,
   });
+
+  // Fetch recruit's current role from user_roles (if they have an app account)
+  const { data: recruitRole } = useQuery({
+    queryKey: ['recruit-role', recruit.id],
+    queryFn: async () => {
+      // First get the user_id from reps table
+      const { data: repData } = await supabase
+        .from('reps')
+        .select('user_id')
+        .eq('id', recruit.id)
+        .maybeSingle();
+      
+      if (!repData?.user_id) return null;
+      
+      const { data: roleData } = await supabase
+        .from('user_roles' as any)
+        .select('id, role, user_id')
+        .eq('user_id', repData.user_id)
+        .maybeSingle();
+      
+      return roleData ? { id: (roleData as any).id, role: (roleData as any).role, user_id: (roleData as any).user_id, recruitUserId: repData.user_id } : null;
+    },
+    enabled: !!recruitRepData,
+    staleTime: 30 * 1000,
+  });
+
+  // Role edit state
+  const [editingRole, setEditingRole] = useState(false);
+  const [newRole, setNewRole] = useState<string>('');
+  const [showRoleChangeConfirm, setShowRoleChangeConfirm] = useState(false);
+  const [showRoleRemoveConfirm, setShowRoleRemoveConfirm] = useState(false);
+
+  // Can this user edit the recruit's role?
+  const isOriginalInviter = recruitDetails?.recruiter_user_id === currentUserId;
+  const canEditRole = recruitRole && (
+    isOriginalInviter || hasMinAccess(accessLevel, 'mgmt_group_lead')
+  );
+
+  // Determine assignable roles for editing
+  const editableRoles = useMemo(() => {
+    if (isOriginalInviter) return ASSIGNABLE_ROLES; // Bootstrap authority
+    return getAssignableRoles(accessLevel);
+  }, [accessLevel, isOriginalInviter]);
+
+  const roleJumpInfo = useMemo(() => {
+    if (!newRole) return null;
+    return getRoleJumpInfo(accessLevel, newRole as AccessLevel);
+  }, [newRole, accessLevel]);
+
+  // Role update mutation
+  const updateRoleMutation = useMutation({
+    mutationFn: async ({ action, role }: { action: 'update' | 'remove'; role?: string }) => {
+      if (!recruitRole?.recruitUserId) throw new Error('No user ID');
+      
+      if (action === 'remove') {
+        await supabase
+          .from('user_roles' as any)
+          .delete()
+          .eq('user_id', recruitRole.recruitUserId)
+          .eq('id', recruitRole.id);
+      } else if (role) {
+        await supabase
+          .from('user_roles' as any)
+          .update({ role })
+          .eq('user_id', recruitRole.recruitUserId)
+          .eq('id', recruitRole.id);
+      }
+    },
+    onSuccess: (_, variables) => {
+      const msg = variables.action === 'remove' 
+        ? `Role removed from ${recruitFirstName}`
+        : `${recruitFirstName}'s role updated to ${getRoleLabel(variables.role as AccessLevel)}`;
+      toast.success(msg);
+      queryClient.invalidateQueries({ queryKey: ['recruit-role', recruit.id] });
+      queryClient.invalidateQueries({ queryKey: ['team-access'] });
+      setEditingRole(false);
+      setNewRole('');
+    },
+    onError: () => toast.error('Failed to update role'),
+  });
+
+  const handleRoleChangeConfirm = () => {
+    setShowRoleChangeConfirm(false);
+    updateRoleMutation.mutate({ action: 'update', role: newRole });
+  };
+
+  const handleRoleRemoveConfirm = () => {
+    setShowRoleRemoveConfirm(false);
+    updateRoleMutation.mutate({ action: 'remove' });
+  };
   
   // Check if user has leader access (can edit)
   const canEdit = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
@@ -380,6 +492,63 @@ export const DetailsTab = ({
         recruitRepData={recruitRepData}
         queryClient={queryClient}
       />
+
+      {/* 6. ROLE MANAGEMENT - Show if recruit has a role */}
+      {recruitRole && canEditRole && (
+        <div className="bg-muted/50 border border-border rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Assigned Role</p>
+              <p className="font-semibold text-sm">{getRoleLabel((recruitRole as any).role as AccessLevel)}</p>
+            </div>
+            {!editingRole ? (
+              <div className="flex gap-1.5">
+                <Button size="sm" variant="outline" onClick={() => { setEditingRole(true); setNewRole((recruitRole as any).role); }}>
+                  <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                </Button>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setShowRoleRemoveConfirm(true)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <Button size="sm" variant="ghost" onClick={() => { setEditingRole(false); setNewRole(''); }}>
+                Cancel
+              </Button>
+            )}
+          </div>
+          {editingRole && (
+            <div className="mt-3 space-y-2">
+              <Select value={newRole || "__none__"} onValueChange={(v) => setNewRole(v === "__none__" ? "" : v)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No role (regular rep)</SelectItem>
+                  {editableRoles.map((role) => (
+                    <SelectItem key={role} value={role}>{getRoleLabel(role)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {roleJumpInfo?.isLargeJump && newRole && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  ⚠️ This role is {roleJumpInfo.levelDiff} levels above yours
+                </p>
+              )}
+              <Button 
+                size="sm" 
+                className="w-full"
+                disabled={!newRole || newRole === (recruitRole as any).role || updateRoleMutation.isPending}
+                onClick={() => {
+                  if (!newRole) return;
+                  if (newRole !== (recruitRole as any).role) setShowRoleChangeConfirm(true);
+                }}
+              >
+                {updateRoleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update Role'}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Edit Recruit Drawer */}
       <EditRecruitDrawer
@@ -402,6 +571,55 @@ export const DetailsTab = ({
           onDeleted={onDeleted}
         />
       )}
+
+      {/* Role Change Confirmation */}
+      <AlertDialog open={showRoleChangeConfirm} onOpenChange={setShowRoleChangeConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {roleJumpInfo?.isLargeJump && <AlertTriangle className="h-5 w-5 text-amber-500" />}
+              Change Role
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left space-y-2">
+              <p>
+                Change <strong>{recruit.name}</strong>'s role from{' '}
+                <strong>{getRoleLabel((recruitRole as any)?.role as AccessLevel)}</strong> to{' '}
+                <strong>{getRoleLabel(newRole as AccessLevel)}</strong>?
+              </p>
+              {roleJumpInfo?.isLargeJump && (
+                <p className="text-amber-600 dark:text-amber-400 font-medium">
+                  ⚠️ This role is {roleJumpInfo.levelDiff} levels above yours — double-check this is correct.
+                </p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRoleChangeConfirm}>
+              Yes, Change Role
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Role Remove Confirmation */}
+      <AlertDialog open={showRoleRemoveConfirm} onOpenChange={setShowRoleRemoveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Role</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove <strong>{recruit.name}</strong>'s{' '}
+              <strong>{getRoleLabel((recruitRole as any)?.role as AccessLevel)}</strong> role? They'll become a regular rep with no management access.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRoleRemoveConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remove Role
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
@@ -521,7 +739,7 @@ const BlitzStatusCard = ({
       
       if (supabaseError) throw supabaseError;
       
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (session) {
         await supabase.functions.invoke('update-rookie-status', {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -736,7 +954,7 @@ const BlitzCommitmentsSection = ({
     queryClient.setQueryData(['recruit-blitzes-commitments', recruit.id], newCommittedBlitzIds);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('No session');
       
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {

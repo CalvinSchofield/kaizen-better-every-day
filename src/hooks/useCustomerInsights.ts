@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sale } from '@/hooks/useDailyEntry';
 import { isWithinInterval, parseISO, differenceInDays, format, startOfWeek, endOfWeek, startOfDay, endOfDay } from 'date-fns';
+import { getSessionSafe } from "@/utils/authSession";
 
 interface SaleWithDate extends Sale {
   entry_date: string;
@@ -122,7 +123,7 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
   const { data: allSales = [], isLoading } = useQuery({
     queryKey: ['all-sales-for-insights', dateRange.start.toISOString(), dateRange.end.toISOString()],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) return [];
 
       const { data, error } = await supabase

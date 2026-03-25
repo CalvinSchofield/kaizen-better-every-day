@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { hasMinAccess, canFilterByTeam } from "@/utils/roleHierarchy";
 import { useGroupRecruits, useMySuggestions, useDeleteMySuggestion, RecruitSuggestion, Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
@@ -20,7 +20,7 @@ import { useLeaderInteractions } from "@/hooks/useLeaderInteractions";
 import { useTotalUnreadCount } from "@/hooks/useActivitySocial";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid, Search } from "lucide-react";
+import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid, Search, UserPlus, Link2 } from "lucide-react";
 import { TodaysFocusHero, OverdueScheduledItem, TodayScheduledItem } from "@/components/mygroup/TodaysFocusHero";
 import { NeedsAttentionChips } from "@/components/mygroup/NeedsAttentionChips";
 import { NeedsAttentionDrawer } from "@/components/mygroup/NeedsAttentionDrawer";
@@ -45,7 +45,7 @@ import { LogOneOnOneDrawer } from "@/components/mygroup/LogOneOnOneDrawer";
 import { RescheduleActivityDrawer } from "@/components/mygroup/RescheduleActivityDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataLoadError } from "@/components/mygroup/DataLoadError";
-import { ShareInviteLinkButton } from "@/components/mygroup/ShareInviteLinkButton";
+import { AddRecruitActionSheet } from "@/components/mygroup/AddRecruitActionSheet";
 import Layout from "@/components/Layout";
 import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, startOfToday } from "date-fns";
 import { toast } from "sonner";
@@ -60,25 +60,8 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 
-// Floating Add Button with scroll hide
-const FloatingAddButton = ({ visible, onClick }: { visible: boolean; onClick: () => void }) => {
-  const isScrollVisible = useScrollDirection(100);
-  
-  if (!visible) return null;
-  
-  return (
-    <Button
-      data-tour="group-add-recruit"
-      className={`fixed right-4 h-14 w-14 rounded-full shadow-lg z-40 transition-all duration-300 ${
-        isScrollVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
-      }`}
-      style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom) + 1.5rem)' }}
-      onClick={onClick}
-    >
-      <Plus className="h-6 w-6" />
-    </Button>
-  );
-};
+
+
 
 const MyGroup = () => {
   const location = useLocation();
@@ -118,6 +101,7 @@ const MyGroup = () => {
   const [undoBannerMessage, setUndoBannerMessage] = useState<string | null>(null);
   const [goalsPaceDrawerOpen, setGoalsPaceDrawerOpen] = useState(false);
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
+  const [addActionSheetOpen, setAddActionSheetOpen] = useState(false);
   const [logOneOnOneOpen, setLogOneOnOneOpen] = useState(false);
   const [logOneOnOneRepUserId, setLogOneOnOneRepUserId] = useState<string | null>(null);
   const [logOneOnOneRepName, setLogOneOnOneRepName] = useState<string>('');
@@ -158,7 +142,7 @@ const MyGroup = () => {
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-rep-team'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) return null;
       
       const { data } = await supabase
@@ -884,7 +868,9 @@ const MyGroup = () => {
   // Simplified header - just filter button for higher-level leaders
   const headerControls = (
     <div className="flex items-center gap-2">
-      {isLeader && <ShareInviteLinkButton />}
+      <Button variant="ghost" size="icon" onClick={() => setAddActionSheetOpen(true)}>
+        <Plus className="h-5 w-5" />
+      </Button>
       {activeFilterName && (
         <Badge 
           variant="secondary" 
@@ -1043,6 +1029,9 @@ const MyGroup = () => {
               />
             </div>
 
+            {/* Pending Approvals - invite signups needing review (top priority) */}
+            <PendingApprovalsSection />
+
             {/* Week Planner Section - includes week overview, today's tasks, and recommendations */}
             {/* Pass recommendations starting from index 1 to avoid duplicating hero */}
             <div data-tour="group-week-planner">
@@ -1061,9 +1050,6 @@ const MyGroup = () => {
                 heroTodayItem={todayScheduledItem}
               />
             </div>
-
-            {/* Pending Approvals - invite signups needing review */}
-            <PendingApprovalsSection />
 
             {/* Pending Org Change Requests */}
             <PendingOrgRequests mode="approver" />
@@ -1162,10 +1148,10 @@ const MyGroup = () => {
         )}
       </div>
 
-      {/* Floating Add Button */}
-      <FloatingAddButton 
-        visible={(isLeader || (mySuggestions && mySuggestions.length > 0)) ?? false}
-        onClick={() => navigateTo('/add-recruit')}
+      {/* Add Recruit Action Sheet */}
+      <AddRecruitActionSheet
+        open={addActionSheetOpen}
+        onOpenChange={setAddActionSheetOpen}
       />
 
       {/* Drawers */}

@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { Challenge, ChallengeMetric } from "./useChallenges";
 import { useEffect } from "react";
 import { toZonedTime } from "date-fns-tz";
@@ -147,7 +148,7 @@ export const useChallengeProgress = (challenge: Challenge | null, options?: { in
     queryFn: async () => {
       if (!challenge) return null;
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // Get all participant user IDs

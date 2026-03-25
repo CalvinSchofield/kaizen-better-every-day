@@ -7,6 +7,7 @@ import { useSeasonLeaderboard } from "@/hooks/useSeasonLeaderboard";
 import { useYTDLeaderboard } from "@/hooks/useYTDLeaderboard";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface LeaderboardCTAProps {
@@ -81,7 +82,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (user) {
         setCurrentUserId(user.id);
         

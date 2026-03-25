@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
@@ -155,7 +156,7 @@ const RegionsTab = ({ accessLevel }: { accessLevel: AccessLevel }) => {
   const createRegion = useMutation({
     mutationFn: async () => {
       if (!newRegionName.trim()) throw new Error('Name required');
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       const { error } = await supabase.from('regions').insert({
         name: newRegionName.trim(),
         lead_user_id: user?.id,
@@ -373,7 +374,7 @@ const OfficesTab = ({ accessLevel }: { accessLevel: AccessLevel }) => {
   const createOffice = useMutation({
     mutationFn: async () => {
       if (!newOfficeName.trim()) throw new Error('Name required');
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       const { error } = await supabase.from('offices').insert({
         name: newOfficeName.trim(),
         location: newOfficeLocation.trim() || null,

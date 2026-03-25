@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Sale, normalizeSale } from '@/hooks/useDailyEntry';
 import { toast } from 'sonner';
 import { invalidateAllSalesQueries, clearSalesLocalStorageCaches } from '@/utils/invalidateSalesQueries';
+import { getSessionSafe } from "@/utils/authSession";
 
 export interface CustomerSale extends Sale {
   entry_date: string;
@@ -29,7 +30,7 @@ export const useCustomerData = (
   const { data: allSales = [], isLoading } = useQuery({
     queryKey: ['customer-sales'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) return [];
 
       const { data, error } = await supabase
@@ -79,7 +80,7 @@ export const useCustomerData = (
       newStatus: 'installed' | 'pending' | 'cancelled' | 'never_installed';
       scheduledInstallDate?: string;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // Fetch the entry
@@ -160,7 +161,7 @@ export const useCustomerData = (
       entryDate: string; 
       updates: Partial<Sale>;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       // Fetch the entry
@@ -219,7 +220,7 @@ export const useCustomerData = (
   // Mutation to delete a sale entirely
   const deleteSaleMutation = useMutation({
     mutationFn: async ({ saleId, entryDate }: { saleId: string; entryDate: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { data: entry, error: fetchError } = await supabase

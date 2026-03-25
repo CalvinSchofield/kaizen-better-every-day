@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { useBlitzes } from "@/hooks/useBlitzes";
@@ -226,7 +227,7 @@ export const EditRepOrgDrawer = ({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error("Not authenticated");
 
       // Update team and recruiter
@@ -270,7 +271,9 @@ export const EditRepOrgDrawer = ({
       toast({ title: "Rep updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["team-access"] });
       queryClient.invalidateQueries({ queryKey: ["org-structure"] });
+      queryClient.invalidateQueries({ queryKey: ["org-structure-data"] });
       queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
+      queryClient.invalidateQueries({ queryKey: ["recruiter-tree-data"] });
       queryClient.invalidateQueries({ queryKey: ["recruit-blitzes", rep.id] });
       onOpenChange(false);
     } catch (err) {

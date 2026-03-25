@@ -1,0 +1,1 @@
+UPDATE recruits SET recruiter_user_id = NULL WHERE id IN ('e4391452-5901-4d2c-91d6-c8e40a87aaa7', '3aebae30-f1cf-484c-b240-71468a285e01');

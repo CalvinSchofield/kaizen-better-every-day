@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subWeeks, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { RecapStats } from './useRecapData';
+import { getSessionSafe } from "@/utils/authSession";
 
 interface DealHighlight {
   date: string;
@@ -355,7 +356,7 @@ export function useRecapDataForPeriod({
   return useQuery({
     queryKey: ['recap-data-period', periodType, periodStart.toISOString(), periodEnd.toISOString()],
     queryFn: async (): Promise<RecapStats | null> => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) return null;
 
       // Get user timezone and CRM settings

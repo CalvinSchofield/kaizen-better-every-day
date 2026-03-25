@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useQueryClient } from "@tanstack/react-query";
 import { STAGES, EXIT_STAGES as EXIT_STAGE_LIST } from "@/utils/stageConstants";
 
@@ -140,7 +141,7 @@ export const useAutoStageProgression = () => {
 
       if (newStage && newStage !== currentStage) {
         // Update stage via edge function
-        const { data: { session } } = await supabase.auth.getSession();
+        const { session } = await getSessionSafe();
         if (!session) return null;
 
         const { error } = await supabase.functions.invoke('update-recruit-stage', {

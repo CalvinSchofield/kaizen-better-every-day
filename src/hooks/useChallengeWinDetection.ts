@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useConfetti } from "./useConfetti";
 import { toast } from "sonner";
 
@@ -16,7 +17,7 @@ export const useChallengeWinDetection = () => {
   const { data: currentUserId } = useQuery({
     queryKey: ['current-user-id'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       return user?.id || null;
     },
     staleTime: Infinity,

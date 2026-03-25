@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { DEFAULT_EFFORT_THRESHOLDS, EffortThresholds } from "@/utils/effortScore";
 
 export interface EffortThresholdsRecord {
@@ -59,7 +60,7 @@ export const useEffortThresholds = ({ teamId, mgmtGroupId }: UseEffortThresholds
 
   const upsertMutation = useMutation({
     mutationFn: async (updates: Partial<EffortThresholds>) => {
-      const { data: userData } = await supabase.auth.getUser();
+      const { user: effortUser } = await getSessionSafe(); const userData = { user: effortUser };
       if (!userData.user) throw new Error('Not authenticated');
 
       const record = {

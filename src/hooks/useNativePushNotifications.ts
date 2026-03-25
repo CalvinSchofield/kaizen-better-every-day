@@ -4,6 +4,7 @@ import { PushNotifications } from '@capacitor/push-notifications';
 import { App } from '@capacitor/app';
 import { supabase } from '@/integrations/supabase/client';
 import { emitInAppNotification } from '@/components/InAppNotificationBanner';
+import { getSessionSafe } from "@/utils/authSession";
 
 type NativePushPermission = 'prompt' | 'granted' | 'denied';
 
@@ -82,8 +83,7 @@ export function useNativePushNotifications() {
   // ── Check if token exists for current user ─────────────────────────
   const refreshStoredTokenFlag = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
+      const { user } = await getSessionSafe();
       if (!user) return;
 
       const { count } = await supabase
@@ -273,7 +273,7 @@ export function useNativePushNotifications() {
     if (!isNative) return false;
     try {
       try { await PushNotifications.unregister(); } catch {}
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (session?.user) {
         await supabase.from('apns_device_tokens').delete().eq('user_id', session.user.id);
       }

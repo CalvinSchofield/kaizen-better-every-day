@@ -54,28 +54,30 @@ export const PendingApprovalsSection = () => {
     queryFn: async () => {
       if (!userId) return [];
 
-      // Get accessible team IDs for this user
-      const { data: teamIds } = await supabase
-        .rpc('get_accessible_team_ids', { _user_id: userId });
+      // Get invite codes created by this user (to find lateral invite signups)
+      const [teamIdsResult, inviteCodesResult] = await Promise.all([
+        supabase.rpc('get_accessible_team_ids', { _user_id: userId }),
+        supabase.from('invite_codes').select('code').eq('inviter_user_id', userId),
+      ]);
 
-      if (!teamIds || teamIds.length === 0) {
-        // Also check if user is directly the inviter
-        const { data: directPending } = await supabase
-          .from('recruits')
-          .select('id, name, email, phone, stage, year, recruiter_user_id, created_at, invite_code_used, team_id, mgmt_group_id, location, recruitment_source')
-          .eq('approval_status', 'pending')
-          .eq('recruiter_user_id', userId)
-          .order('created_at', { ascending: false });
+      const teamIds = teamIdsResult.data || [];
+      const myCodes = (inviteCodesResult.data || []).map(c => c.code);
 
-        return (directPending || []) as PendingRecruit[];
+      // Build OR filter parts
+      const orParts: string[] = [];
+      orParts.push(`recruiter_user_id.eq.${userId}`);
+      if (teamIds.length > 0) {
+        orParts.push(`team_id.in.(${teamIds.join(',')})`);
+      }
+      if (myCodes.length > 0) {
+        orParts.push(`invite_code_used.in.(${myCodes.join(',')})`);
       }
 
-      // Get all pending recruits in accessible teams OR where user is the inviter
       const { data } = await supabase
         .from('recruits')
         .select('id, name, email, phone, stage, year, recruiter_user_id, created_at, invite_code_used, team_id, mgmt_group_id, location, recruitment_source')
         .eq('approval_status', 'pending')
-        .or(`team_id.in.(${teamIds.join(',')}),recruiter_user_id.eq.${userId}`)
+        .or(orParts.join(','))
         .order('created_at', { ascending: false });
 
       return (data || []) as PendingRecruit[];
@@ -290,7 +292,11 @@ export const PendingApprovalsSection = () => {
           onOpenChange={(open) => !open && setEditingRecruit(null)}
           recruit={toRecruitShape(editingRecruit)}
           showRoleAssignment={true}
-          isBootstrapApproval={true}
+          isBootstrapApproval={
+            // Bootstrap only when the current user is the direct inviter
+            // This allows "invite your boss" flow while preventing abuse
+            editingRecruit.recruiter_user_id === userId
+          }
           onSuccess={(assignedRole) => {
             queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
             queryClient.invalidateQueries({ queryKey: ['group-recruits'] });

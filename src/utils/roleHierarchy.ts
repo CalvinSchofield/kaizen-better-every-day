@@ -27,8 +27,8 @@ export const ROLE_HIERARCHY: AccessLevel[] = [
   'assistant_manager',
   'team_lead',
   'manager',
-  'senior_manager',
   'mgmt_group_lead',
+  'senior_manager',
   'area_director',
   'regional',
   'sr_regional',
@@ -65,7 +65,7 @@ export const getRoleLabel = (level: AccessLevel): string => {
     assistant_manager: 'Assistant Manager',
     team_lead: 'Team Lead',
     manager: 'Manager',
-    senior_manager: 'Senior Manager',
+    senior_manager: 'Sr. MGMT Group Lead',
     mgmt_group_lead: 'MGMT Group Lead',
     area_director: 'Area Director',
     regional: 'Regional',
@@ -80,7 +80,7 @@ export const getRoleLabel = (level: AccessLevel): string => {
 /** All assignable roles for admin panel (excludes dynamic roles) */
 export const ASSIGNABLE_ROLES: AccessLevel[] = [
   'assistant_manager',
-  'manager',
+  'mgmt_group_lead',
   'senior_manager',
   'regional',
   'sr_regional',
@@ -88,3 +88,74 @@ export const ASSIGNABLE_ROLES: AccessLevel[] = [
   'divisional',
   'corporate',
 ];
+
+/**
+ * Returns the highest role an approver at `approverLevel` can assign.
+ * Area Director is NOT a lineage role — it grants no extra assignment power.
+ * Bootstrap mode (upward invite) bypasses this entirely.
+ */
+export const getMaxAssignableRole = (approverLevel: AccessLevel): AccessLevel => {
+  const map: Partial<Record<AccessLevel, AccessLevel>> = {
+    mgmt_group_lead: 'team_lead',
+    senior_manager: 'mgmt_group_lead',
+    regional: 'senior_manager',
+    sr_regional: 'regional',
+    partner: 'sr_regional',
+    divisional: 'partner',
+    corporate: 'corporate',
+  };
+  // Area director gets same as mgmt_group_lead (no lineage privilege)
+  if (approverLevel === 'area_director') return 'team_lead';
+  return map[approverLevel] || 'none';
+};
+
+/** Get roles assignable by a given access level */
+export const getAssignableRoles = (approverLevel: AccessLevel): AccessLevel[] => {
+  const maxRole = getMaxAssignableRole(approverLevel);
+  if (maxRole === 'none') return [];
+  if (maxRole === 'corporate') return ASSIGNABLE_ROLES;
+  const maxIndex = ROLE_HIERARCHY.indexOf(maxRole);
+  return ASSIGNABLE_ROLES.filter(role => ROLE_HIERARCHY.indexOf(role) <= maxIndex);
+};
+
+/**
+ * Tiered create permissions — what org entities each level can create.
+ * Area Director is NOT a lineage role and grants no creation ability.
+ * Uses explicit mappings rather than hierarchy comparison because
+ * mgmt_group_lead sits above senior_manager in the hierarchy but
+ * should have FEWER creation privileges (only teams).
+ */
+export const canCreateEntityType = (level: AccessLevel, entityType: string): boolean => {
+  // Define which entity types each level can create
+  const creatable: Record<string, AccessLevel[]> = {
+    team: ['mgmt_group_lead', 'senior_manager', 'regional', 'sr_regional', 'partner', 'divisional', 'corporate'],
+    mgmt_group: ['senior_manager', 'regional', 'sr_regional', 'partner', 'divisional', 'corporate'],
+    sr_mgmt_group: ['senior_manager', 'regional', 'sr_regional', 'partner', 'divisional', 'corporate'],
+    office: ['regional', 'sr_regional', 'partner', 'divisional', 'corporate'],
+    region: ['regional', 'sr_regional', 'partner', 'divisional', 'corporate'],
+    sr_region: ['sr_regional', 'partner', 'divisional', 'corporate'],
+    partner: ['partner', 'divisional', 'corporate'],
+    division: ['divisional', 'corporate'],
+  };
+
+  const allowedLevels = creatable[entityType];
+  if (!allowedLevels) return false;
+
+  // Area director gets NO lineage creation ability — treat as mgmt_group_lead
+  const effectiveLevel = level === 'area_director' ? 'mgmt_group_lead' : level;
+  return allowedLevels.includes(effectiveLevel);
+};
+
+/**
+ * Check if a role assignment is a "large jump" — 2+ levels above the approver.
+ * Returns { isLargeJump, levelDiff } for UI warning purposes.
+ */
+export const getRoleJumpInfo = (
+  approverLevel: AccessLevel,
+  targetRole: AccessLevel
+): { isLargeJump: boolean; levelDiff: number } => {
+  const approverIndex = ROLE_HIERARCHY.indexOf(approverLevel);
+  const targetIndex = ROLE_HIERARCHY.indexOf(targetRole);
+  const levelDiff = targetIndex - approverIndex;
+  return { isLargeJump: levelDiff >= 2, levelDiff };
+};

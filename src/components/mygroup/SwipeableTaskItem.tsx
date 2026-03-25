@@ -7,6 +7,7 @@ import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { SkipMenu } from "./SkipMenu";
 import { CalendarBadge } from "./AddToCalendarPrompt";
 
@@ -74,7 +75,7 @@ export const SwipeableTaskItem = ({
   const { data: currentUserId } = useQuery({
     queryKey: ['current-user-id'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       return user?.id || null;
     },
     staleTime: Infinity,
@@ -175,14 +176,14 @@ export const SwipeableTaskItem = ({
 
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.location.href = `tel:${recruit.phone}`;
+    window.open(`tel:${recruit.phone}`, '_self');
     // Open post-contact drawer for calls, passing activity context
     onDirectCall?.(recruit, activity);
   };
 
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.location.href = `sms:${recruit.phone}`;
+    window.open(`sms:${recruit.phone}`, '_self');
     // Open post-contact drawer for texts, passing activity context
     onDirectText?.(recruit, activity);
   };

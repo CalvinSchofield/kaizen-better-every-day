@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useMemo } from 'react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { getSessionSafe } from "@/utils/authSession";
 
 export type InteractionType = 'weekly_training' | 'monthly_review' | 'tough_conversation' | 'praise' | 'check_in' | 'team_training';
 
@@ -27,7 +28,7 @@ export const useLeaderInteractions = ({ enabled = true, repUserIds }: UseLeaderI
   const { data: interactions, isLoading } = useQuery({
     queryKey: ['leader-interactions', repUserIds],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) return [];
 
       let query = supabase
@@ -98,7 +99,7 @@ export const useLeaderInteractions = ({ enabled = true, repUserIds }: UseLeaderI
       notes?: string;
       date?: string;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase

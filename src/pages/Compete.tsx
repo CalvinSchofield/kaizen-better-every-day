@@ -21,6 +21,7 @@ import { WinStreakBadge } from "@/components/competitions/WinStreakBadge";
 import { Swords, Trophy, Gift, Loader2, Check, X, Flame, Clock, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useQuery } from "@tanstack/react-query";
 import { hapticLight, hapticSuccess, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
@@ -259,7 +260,7 @@ const Compete = () => {
   const { data: currentUser, isLoading: loadingUser } = useQuery({
     queryKey: ['current-user-id'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       return user?.id || null;
     },
     staleTime: Infinity,

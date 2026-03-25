@@ -1,0 +1,1 @@
+UPDATE mgmt_groups SET lead_user_id = NULL WHERE id = 'b5982514-6959-4709-9dc7-3f8b65d5c052';

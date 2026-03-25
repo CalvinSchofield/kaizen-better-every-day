@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import confetti from "canvas-confetti";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AddPhoneDrawer } from "@/components/ui/AddPhoneDrawer";
@@ -119,7 +120,7 @@ const InviteMemberRow = ({
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (hasPhone) {
-      window.location.href = `sms:${phone}`;
+      window.open(`sms:${phone}`, '_self');
       // Show post-contact drawer to log the activity
       onContactInitiated(member, 'text');
     } else {
@@ -130,7 +131,7 @@ const InviteMemberRow = ({
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (hasPhone) {
-      window.location.href = `tel:${phone}`;
+      window.open(`tel:${phone}`, '_self');
       // Show post-contact drawer to log the activity
       onContactInitiated(member, 'call');
     } else {
@@ -725,7 +726,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     if (!selectedRookie || !selectedStatus) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
       
       const { error } = await supabase.functions.invoke('update-rookie-status', {
@@ -774,7 +775,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     setHasPhaseError(false);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
       
       const phaseParams: Record<string, boolean | string> = {

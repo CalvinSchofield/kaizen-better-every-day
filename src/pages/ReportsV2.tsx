@@ -5,6 +5,7 @@ import { useReportsV2Data } from "@/hooks/useReportsV2Data";
 import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAvailableDatePresets";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { isoToMinutesInTimezone } from "@/utils/timezoneUtils";
 import { 
   RepDrillDownDrawer,
@@ -64,7 +65,7 @@ export const ReportsV2Page = () => {
   const { data: currentUserId } = useQuery({
     queryKey: ['current-user-id'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       return user?.id || null;
     },
     staleTime: Infinity,
@@ -521,7 +522,7 @@ export const ReportsV2Page = () => {
         rep={selectedRep ? { ...selectedRep, effort: selectedRep.effort } : null}
         isOpen={!!selectedRepId}
         onClose={() => setSelectedRepId(null)}
-        onSendSms={(phone, message) => window.open(`sms:${phone}?body=${encodeURIComponent(message)}`)}
+        onSendSms={(phone, message) => window.open(`sms:${phone}?body=${encodeURIComponent(message)}`, '_self')}
         dateRangeStart={parseISO(dateRange.start)}
         dateRangeEnd={parseISO(dateRange.end)}
       />

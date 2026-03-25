@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 
 interface DateRange {
   start: string;
@@ -10,7 +11,7 @@ export const useActiveCompetitionCount = (dateRange?: DateRange) => {
   return useQuery({
     queryKey: ["active-competition-count", dateRange?.start, dateRange?.end],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user) return { challenges: 0, incentives: 0, total: 0 };
 
       if (dateRange) {

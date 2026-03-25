@@ -12,7 +12,7 @@ export function useNotificationPreferences() {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => { const data = { user: session?.user ?? null };
       setUserId(data.user?.id || null);
     });
   }, []);

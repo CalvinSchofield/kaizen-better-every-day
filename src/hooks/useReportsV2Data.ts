@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { format, subDays, getDay } from "date-fns";
 import { ActiveRecord, detectActiveRecords, AllTimeGroupRecords } from "@/utils/teamRecordDetection";
 import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
@@ -284,7 +285,7 @@ export const useReportsV2Data = ({
       if (ytdError) throw ytdError;
 
       // Fetch all planned work days via edge function (bypasses RLS for downline)
-      const session = (await supabase.auth.getSession()).data.session;
+      const { session } = await getSessionSafe();
       const { data: plannedResult, error: plannedError } = await supabase.functions.invoke('fetch-downline-planned-days', {
         body: { userIds },
       });
