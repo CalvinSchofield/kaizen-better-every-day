@@ -157,6 +157,7 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
     hasAttendedOrOnBlitz,
     hasCompletedShadow: hasQualifyingStage,
     hasSummerStarted,
+    hasCompletedSetupAndSync,
     isUnlocked,
     isPreBlitzRookie,
   };
