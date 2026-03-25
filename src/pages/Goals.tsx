@@ -61,6 +61,7 @@ const GLOBAL_SUMMER_START = '2026-04-12';
 const SUMMER_END = '2026-09-27';
 
 const Goals = () => {
+  const navigate = useNavigate();
   const { 
     goals, 
     isLoading, 
