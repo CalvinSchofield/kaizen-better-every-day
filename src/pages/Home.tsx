@@ -31,6 +31,7 @@ import { useRepGoals } from "@/hooks/useRepGoals";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { getDaysUntilBlitz, parseDateAsLocal } from "@/utils/blitzDateUtils";
 import { RookieRampHeroSection } from "@/components/RookieRampHeroSection";
+import { SetupBanner } from "@/components/SetupBanner";
 import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
 import { hapticSuccess, hapticMedium, hapticWarning } from "@/utils/haptics";
 import type { PhaseData, PhaseId } from "@/pages/RampToBlitz";
