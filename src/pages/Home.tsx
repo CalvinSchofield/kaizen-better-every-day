@@ -987,7 +987,14 @@ const Home = () => {
       <IntroWizard
         segment={onboardingSegment}
         firstName={firstName}
-        onComplete={markIntroComplete}
+        onComplete={() => {
+          markIntroComplete();
+          // For non-preseason-rookies, chain directly to Goals (which gates on sync first)
+          // Preseason rookies go to About Team (handled inside IntroWizard) or stay on Home for ramp
+          if (onboardingSegment !== 'in-org-rookie-preseason') {
+            navigate('/goals');
+          }
+        }}
       />
     );
   }
