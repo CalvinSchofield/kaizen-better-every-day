@@ -659,7 +659,6 @@ export default function Settings() {
       .filter(c => !counterLayout.order.includes(`custom_${c.id}`))
       .map(c => ({ id: `custom_${c.id}`, emoji: c.emoji, name: c.name, isCustom: true, hidden: c.hidden }))
   ] as Array<{ id: string; emoji: string; name: string; isCustom: boolean; hidden?: boolean }>;
-  const { segment: onboardingSegment } = useOnboardingSegment();
 
   const handleShowIntro = () => {
     setShowIntroWizard(true);
