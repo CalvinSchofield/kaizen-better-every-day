@@ -81,6 +81,7 @@ function AppResumeHandler() {
 const App = () => {
   useSafeAreaFallback();
   useKeyboardViewport();
+  useAppResume();
 
   return (
     <PersistQueryClientProvider 
