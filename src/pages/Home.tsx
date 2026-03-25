@@ -10,13 +10,13 @@ import { Progress } from "@/components/ui/progress";
 import { useRepData } from "@/hooks/useRepData";
 import { checkRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { supabase } from "@/integrations/supabase/client";
-import { getSessionSafe } from "@/utils/authSession";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
-// VetHome and PostBlitzRookieHome removed - replaced by /blitzes page
+import { VetHome } from "@/components/VetHome";
+import { PostBlitzRookieHome } from "@/components/PostBlitzRookieHome";
 import { BlitzCountdown } from "@/components/BlitzCountdown";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { KnockingModeHome } from "@/components/KnockingModeHome";
@@ -805,7 +805,7 @@ const Home = () => {
   const handleSetupNudge = async () => {
     setIsNudging(true);
     try {
-      const { user } = await getSessionSafe();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) throw new Error('No user email found');
 
       const { error } = await supabase.functions.invoke('send-setup-nudge-email', {
@@ -1015,14 +1015,24 @@ const Home = () => {
     }
   }
   
-  // Redirect Vets/Sophomores to Blitzes page
+  // Check if user is a Vet or Sophomore - show VetHome instead
   if (repData.year === "Vet" || repData.year === "Sophomore") {
-    return <Navigate to="/blitzes" replace />;
+    return (
+      <>
+        <SetupBanner />
+        <VetHome repData={repData} onSync={handleSync} isSyncing={isSyncing} syncSuccess={syncSuccess} />
+      </>
+    );
   }
 
-  // Redirect unlocked rookies (attended blitz OR shadow ✅) to Blitzes page
+  // Show PostBlitzRookieHome for unlocked rookies (attended blitz OR shadow ✅)
   if (repData.year === "Rookie" && phase4Complete && isUnlocked) {
-    return <Navigate to="/blitzes" replace />;
+    return (
+      <>
+        <SetupBanner />
+        <PostBlitzRookieHome repData={repData} onSync={handleSync} isSyncing={isSyncing} syncSuccess={syncSuccess} />
+      </>
+    );
   }
   
   // Helper to check phase status - case-insensitive matching
