@@ -26,6 +26,7 @@ interface RepDataForUnlock {
  * 2. Is currently on an active blitz
  * 3. Has been marked as "Shadow ✅" (completed shadow day) or "Sold"
  * 4. Their personal summer start date has arrived (fallback: global date)
+ * 5. Has completed goals setup AND initial Vivint sync (official_totals exists)
  * 
  * NEVER unlocks inactive reps (Not Interested, Signed but Not Interested, Potential Follow Up)
  */
