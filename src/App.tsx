@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import { useSafeAreaFallback } from "./hooks/useSafeAreaFallback";
 import { useKeyboardViewport } from "./hooks/useKeyboardViewport";
+import { useAppResume } from "./hooks/useAppResume";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
 import OfflineIndicator from "./components/OfflineIndicator";
