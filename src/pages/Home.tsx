@@ -25,6 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { IntroWizard } from "@/components/IntroWizard";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
+import { useOnboardingSegment } from "@/hooks/useOnboardingSegment";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
