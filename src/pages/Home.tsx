@@ -980,29 +980,12 @@ const Home = () => {
     );
   }
 
-  // Determine user type for intro wizard
-  const getUserType = (): 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader' => {
-    const year = repData.year || "Rookie";
-    const isVetOrSoph = year === "Vet" || year === "Sophomore";
-    const committedBlitzes = (repData.committed_blitzes as any[]) || [];
-    const hasAttendedBlitz = committedBlitzes.some((blitz: any) => {
-      if (!blitz?.endDate) return false;
-      const endDate = new Date(blitz.endDate);
-      return endDate < new Date();
-    });
-    
-    if (isLeader && isVetOrSoph) return 'leader';
-    if (isVetOrSoph) return 'vet';
-    if (year === "Rookie" && phase4Complete && hasAttendedBlitz) return 'post-blitz-rookie';
-    return 'pre-blitz-rookie';
-  };
-
   // Show intro wizard for new users
   if (!hasSeenIntro && repData) {
     const firstName = repData.name?.split(' ')[0] || 'there';
     return (
       <IntroWizard
-        userType={getUserType()}
+        segment={onboardingSegment}
         firstName={firstName}
         onComplete={markIntroComplete}
       />
