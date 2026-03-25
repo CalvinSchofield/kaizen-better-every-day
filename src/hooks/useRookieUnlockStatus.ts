@@ -82,6 +82,9 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
   // Only query season_config if rookie isn't already unlocked by other means
   const needsSummerCheck = isRookie && !isInactive && !hasAttendedOrOnBlitz && !hasQualifyingStage;
 
+  // Check if rookie has completed goals setup AND initial sync (official_totals exists)
+  const needsSetupCheck = isRookie && !isInactive && !hasAttendedOrOnBlitz && !hasQualifyingStage;
+
   const { data: seasonConfig } = useQuery({
     queryKey: ['rookie-summer-check'],
     enabled: needsSummerCheck,
@@ -101,6 +104,39 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
     },
   });
 
+  const { data: setupSyncStatus } = useQuery({
+    queryKey: ['rookie-setup-sync-check'],
+    enabled: needsSetupCheck,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { setupComplete: false, hasSynced: false };
+      
+      // Check goals setup_complete
+      const { data: goals } = await supabase
+        .from('rep_goals')
+        .select('setup_complete')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      // Check if official_totals exists (initial sync done)
+      const { count } = await supabase
+        .from('official_totals')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      
+      return {
+        setupComplete: goals?.setup_complete === true,
+        hasSynced: (count ?? 0) > 0,
+      };
+    },
+  });
+
+  const hasCompletedSetupAndSync = setupSyncStatus?.setupComplete === true && setupSyncStatus?.hasSynced === true;
+
   const hasSummerStarted = useMemo(() => {
     if (!needsSummerCheck) return false;
     const start = seasonConfig?.personal_summer_start;
@@ -108,8 +144,8 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
     return new Date() >= new Date(effectiveStart + 'T00:00:00');
   }, [needsSummerCheck, seasonConfig]);
 
-  // Ultimate unlock: blitz OR qualifying stage OR summer started — but NEVER inactive
-  const isUnlocked = !isInactive && (hasAttendedOrOnBlitz || hasQualifyingStage || hasSummerStarted);
+  // Ultimate unlock: blitz OR qualifying stage OR summer started OR completed setup+sync — but NEVER inactive
+  const isUnlocked = !isInactive && (hasAttendedOrOnBlitz || hasQualifyingStage || hasSummerStarted || hasCompletedSetupAndSync);
   
   // Pre-blitz status (locked)
   const isPreBlitzRookie = isRookie && !isUnlocked;
