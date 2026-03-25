@@ -629,10 +629,30 @@ export const LeaderGoalsCard = ({
                       {getPaceText(rep)}
                     </div>
                   ) : (
-                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      No goal set
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        No goal set
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await supabase.functions.invoke('send-setup-nudge', {
+                              body: { targetUserId: rep.userId },
+                            });
+                            toast.success(`Nudge sent to ${rep.displayName}`);
+                          } catch {
+                            toast.error("Failed to send nudge");
+                          }
+                        }}
+                      >
+                        <Bell className="h-3 w-3" />
+                      </Button>
+                    </div>
                   )}
                 </div>
                 
