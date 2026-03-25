@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { IntroWizard } from "@/components/IntroWizard";
+import { useOnboardingSegment } from "@/hooks/useOnboardingSegment";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { NotificationSettings } from "@/components/NotificationSettings";
