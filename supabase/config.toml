@@ -1,11 +1,5 @@
 project_id = "wjxlzcuqpoamrwumszau"
 
-[functions.fetch-notion-property-options]
-verify_jwt = false
-
-[functions.sync-notion-reps]
-verify_jwt = false
-
 [functions.fetch-team-access]
 verify_jwt = false
 
@@ -60,13 +54,7 @@ verify_jwt = false
 [functions.update-recruit-stage]
 verify_jwt = false
 
-[functions.log-recruit-activity]
-verify_jwt = false
-
 [functions.update-recruit-phone]
-verify_jwt = false
-
-[functions.create-notion-recruit]
 verify_jwt = false
 
 [functions.log-blitz-attendance]
@@ -76,9 +64,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.fetch-assignable-users]
-verify_jwt = false
-
-[functions.migrate-notion-data]
 verify_jwt = false
 
 [functions.manage-team]
@@ -127,12 +112,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.auto-finalize-entries]
-verify_jwt = false
-
-[functions.seed-demo-data]
-verify_jwt = false
-
-[functions.cleanup-demo-data]
 verify_jwt = false
 
 [functions.send-reaction-notification]
