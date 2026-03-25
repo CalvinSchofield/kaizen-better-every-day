@@ -69,10 +69,64 @@ const queryClient = new QueryClient({
 /** Inner component that uses hooks requiring QueryClient context */
 const AppInner = () => {
   useAppResume();
+
   return (
     <HydrationGate>
       <HeaderProvider>
-        <AppRoutes />
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <OfflineIndicator />
+          <NativeAppPromo />
+          <ChallengeWinListener />
+          <BrowserRouter>
+            <ScrollToTop />
+            <Routes>
+              {/* Auth routes - no Layout */}
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/setup" element={<ProtectedRoute><SetupFlow /></ProtectedRoute>} />
+
+              {/* Pages that manage their own Layout internally */}
+              <Route path="/track" element={<ProtectedRoute><TrackWithLayout /></ProtectedRoute>} />
+              <Route path="/calendar" element={<ProtectedRoute><CalendarWithLayout /></ProtectedRoute>} />
+              <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+              <Route path="/compete" element={<ProtectedRoute><Compete /></ProtectedRoute>} />
+              <Route path="/goals" element={<ProtectedRoute><Goals /></ProtectedRoute>} />
+              <Route path="/my-group" element={<ProtectedRoute><MyGroup /></ProtectedRoute>} />
+
+              {/* All other pages wrapped in Layout for consistent nav */}
+              <Route path="/" element={<ProtectedRoute><Layout><Home /></Layout></ProtectedRoute>} />
+              <Route path="/training" element={<ProtectedRoute><Layout><Training /></Layout></ProtectedRoute>} />
+              <Route path="/tools" element={<ProtectedRoute><Layout><Tools /></Layout></ProtectedRoute>} />
+              <Route path="/tools/competitors" element={<ProtectedRoute><Layout><Competitors /></Layout></ProtectedRoute>} />
+              <Route path="/tools/contacts" element={<ProtectedRoute><Layout><Contacts /></Layout></ProtectedRoute>} />
+              <Route path="/tools/objections" element={<ProtectedRoute><Layout><Objections /></Layout></ProtectedRoute>} />
+              <Route path="/tools/product-knowledge" element={<ProtectedRoute><Layout><ProductKnowledge /></Layout></ProtectedRoute>} />
+              <Route path="/product-knowledge" element={<ProtectedRoute><Layout><ProductKnowledge /></Layout></ProtectedRoute>} />
+              <Route path="/tools/upgrades" element={<ProtectedRoute><Layout><UpgradeCheatSheet /></Layout></ProtectedRoute>} />
+              <Route path="/tools/package-builder" element={<ProtectedRoute><Layout><PackageBuilder /></Layout></ProtectedRoute>} />
+              <Route path="/insights" element={<ProtectedRoute><Layout><Insights /></Layout></ProtectedRoute>} />
+              <Route path="/team-reports" element={<ProtectedRoute><Layout><TeamReports /></Layout></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
+              <Route path="/customers" element={<ProtectedRoute><Layout><Customers /></Layout></ProtectedRoute>} />
+              <Route path="/ramp-to-blitz" element={<ProtectedRoute><Layout><RampToBlitz /></Layout></ProtectedRoute>} />
+              <Route path="/profile/:userId" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
+              <Route path="/admin/blitzes" element={<ProtectedRoute><Layout><AdminBlitzes /></Layout></ProtectedRoute>} />
+              <Route path="/recruiting-content" element={<ProtectedRoute><Layout><RecruitingContent /></Layout></ProtectedRoute>} />
+              <Route path="/about-team" element={<ProtectedRoute><Layout><AboutTeam /></Layout></ProtectedRoute>} />
+              <Route path="/add-applicant" element={<ProtectedRoute><Layout><AddApplicant /></Layout></ProtectedRoute>} />
+              <Route path="/add-recruit" element={<ProtectedRoute><Layout><AddRecruit /></Layout></ProtectedRoute>} />
+              <Route path="/reports-v2" element={<ProtectedRoute><Layout><ReportsV2 /></Layout></ProtectedRoute>} />
+              <Route path="/log-sale" element={<ProtectedRoute><Layout><LogSale /></Layout></ProtectedRoute>} />
+
+              {/* Catch-all */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
       </HeaderProvider>
     </HydrationGate>
   );
@@ -92,62 +146,6 @@ const App = () => {
       }}
     >
       <AppInner />
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <OfflineIndicator />
-            <NativeAppPromo />
-            <ChallengeWinListener />
-            <BrowserRouter>
-              <ScrollToTop />
-              <Routes>
-                {/* Auth routes - no Layout */}
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/setup" element={<ProtectedRoute><SetupFlow /></ProtectedRoute>} />
-
-                {/* Pages that manage their own Layout internally */}
-                <Route path="/track" element={<ProtectedRoute><TrackWithLayout /></ProtectedRoute>} />
-                <Route path="/calendar" element={<ProtectedRoute><CalendarWithLayout /></ProtectedRoute>} />
-                <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
-                <Route path="/compete" element={<ProtectedRoute><Compete /></ProtectedRoute>} />
-                <Route path="/goals" element={<ProtectedRoute><Goals /></ProtectedRoute>} />
-                <Route path="/my-group" element={<ProtectedRoute><MyGroup /></ProtectedRoute>} />
-
-                {/* All other pages wrapped in Layout for consistent nav */}
-                <Route path="/" element={<ProtectedRoute><Layout><Home /></Layout></ProtectedRoute>} />
-                <Route path="/training" element={<ProtectedRoute><Layout><Training /></Layout></ProtectedRoute>} />
-                <Route path="/tools" element={<ProtectedRoute><Layout><Tools /></Layout></ProtectedRoute>} />
-                <Route path="/tools/competitors" element={<ProtectedRoute><Layout><Competitors /></Layout></ProtectedRoute>} />
-                <Route path="/tools/contacts" element={<ProtectedRoute><Layout><Contacts /></Layout></ProtectedRoute>} />
-                <Route path="/tools/objections" element={<ProtectedRoute><Layout><Objections /></Layout></ProtectedRoute>} />
-                <Route path="/tools/product-knowledge" element={<ProtectedRoute><Layout><ProductKnowledge /></Layout></ProtectedRoute>} />
-                <Route path="/product-knowledge" element={<ProtectedRoute><Layout><ProductKnowledge /></Layout></ProtectedRoute>} />
-                <Route path="/tools/upgrades" element={<ProtectedRoute><Layout><UpgradeCheatSheet /></Layout></ProtectedRoute>} />
-                <Route path="/tools/package-builder" element={<ProtectedRoute><Layout><PackageBuilder /></Layout></ProtectedRoute>} />
-                <Route path="/insights" element={<ProtectedRoute><Layout><Insights /></Layout></ProtectedRoute>} />
-                <Route path="/team-reports" element={<ProtectedRoute><Layout><TeamReports /></Layout></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
-                <Route path="/customers" element={<ProtectedRoute><Layout><Customers /></Layout></ProtectedRoute>} />
-                <Route path="/ramp-to-blitz" element={<ProtectedRoute><Layout><RampToBlitz /></Layout></ProtectedRoute>} />
-                <Route path="/profile/:userId" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
-                <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
-                <Route path="/admin/blitzes" element={<ProtectedRoute><Layout><AdminBlitzes /></Layout></ProtectedRoute>} />
-                <Route path="/recruiting-content" element={<ProtectedRoute><Layout><RecruitingContent /></Layout></ProtectedRoute>} />
-                <Route path="/about-team" element={<ProtectedRoute><Layout><AboutTeam /></Layout></ProtectedRoute>} />
-                <Route path="/add-applicant" element={<ProtectedRoute><Layout><AddApplicant /></Layout></ProtectedRoute>} />
-                <Route path="/add-recruit" element={<ProtectedRoute><Layout><AddRecruit /></Layout></ProtectedRoute>} />
-                <Route path="/reports-v2" element={<ProtectedRoute><Layout><ReportsV2 /></Layout></ProtectedRoute>} />
-                <Route path="/log-sale" element={<ProtectedRoute><Layout><LogSale /></Layout></ProtectedRoute>} />
-
-                {/* Catch-all */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </HeaderProvider>
-      </HydrationGate>
     </PersistQueryClientProvider>
   );
 };
