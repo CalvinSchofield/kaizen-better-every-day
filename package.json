@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@capacitor-community/date-picker": "^7.1.0",
-    "@capacitor/app": "^8.0.1",
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/geolocation": "^8.0.0",
