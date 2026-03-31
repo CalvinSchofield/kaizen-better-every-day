@@ -78,6 +78,7 @@ export default function Insights() {
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
   const [chatOpen, setChatOpen] = useState(false);
+  const { setCustomRightContent } = useHeader();
   
   
   
