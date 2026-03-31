@@ -245,7 +245,7 @@ export const CommitmentEditorDrawer = ({
       if (error) throw error;
       
       // Invalidate planned days to trigger calendar update
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      invalidatePlannedDaysQueries(queryClient);
       toast.success(`Committed to ${blitz.name}!`);
     } catch (error) {
       console.error('Error committing to blitz:', error);
