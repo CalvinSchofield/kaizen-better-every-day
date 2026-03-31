@@ -45,6 +45,7 @@ const HOUSING_OPTIONS = [
 interface GoalSetupWizardProps {
   isRookie: boolean;
   committedBlitzIds?: string[];
+  segment?: OnboardingSegment;
   onComplete: (goals: {
     monthlyExpenses: number;
     monthsOff: number;
