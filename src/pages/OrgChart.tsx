@@ -100,6 +100,7 @@ const OrgChart = () => {
 
     const { recruits, reps } = treeData;
     const repMap = new Map(reps.map((r) => [r.user_id, r]));
+    const repById = new Map(reps.map((r: any) => [r.id, r]));
     const recruitsByRecruiter = new Map<string, typeof recruits>();
     // Team leads also see pipeline stages (Reached Out, Evaluating)
     const visibleStages = accessLevel === "team_lead"
@@ -116,6 +117,13 @@ const OrgChart = () => {
         recruitsByRecruiter.set(r.recruiter_user_id, existing);
       }
     });
+
+    // Match recruit → rep: try by id first (rep.id === recruit.id), then by name
+    const findRepForRecruit = (recruit: typeof recruits[0]) => {
+      const byId = repById.get(recruit.id);
+      if (byId?.user_id) return byId;
+      return reps.find(rep => getCleanName(rep.name).toLowerCase() === getCleanName(recruit.name).toLowerCase());
+    };
 
     const buildNode = (userId: string, visited = new Set<string>()): TreeNode | null => {
       if (visited.has(userId)) return null;
