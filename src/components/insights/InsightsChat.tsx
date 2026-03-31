@@ -188,8 +188,11 @@ export const InsightsChat = ({ isOpen, onClose }: InsightsChatProps) => {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-background flex flex-col"
-      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      className="fixed inset-x-0 top-0 z-50 bg-background flex flex-col"
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        bottom: 'calc(4rem + env(safe-area-inset-bottom))',
+      }}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 bg-background">
