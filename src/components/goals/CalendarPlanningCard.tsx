@@ -1710,8 +1710,7 @@ export const CalendarPlanningCard = ({
                         }
                         
                         toast.success(`Summer ${updateField === 'personal_summer_start' ? 'start' : 'end'} date updated to ${format(selectedDate, 'MMM d, yyyy')}!`);
-                        queryClient.invalidateQueries({ queryKey: ['season-config-for-goals'] });
-                        queryClient.invalidateQueries({ queryKey: ['season-config'] });
+                        invalidateGoalRelatedQueries(queryClient);
                         
                         // For "taking off day" case, we don't toggle the day since they're delaying start
                         // For "before start" case, we do toggle since they're starting earlier
