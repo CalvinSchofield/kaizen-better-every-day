@@ -8,12 +8,12 @@ import { toast } from 'sonner';
 type Message = { role: 'user' | 'assistant'; content: string };
 
 const SUGGESTED_PROMPTS = [
-  "How am I doing this week vs last?",
-  "What day of the week do I sell best?",
-  "Am I on pace for my season goal?",
-  "Break down my funnel — where am I losing deals?",
-  "What time of day am I most productive?",
-  "Compare my last 2 weeks",
+  "How's my week looking vs last week?",
+  "What day do I sell best on?",
+  "Am I on pace for my goal?",
+  "Where am I losing deals in my funnel?",
+  "When do I sell the most during the day?",
+  "Give me something to bring up in my 1-on-1",
 ];
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/insights-chat`;
