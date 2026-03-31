@@ -1,39 +1,72 @@
 
 
-# Remove Old CatchUpWizard — Use Only BiweeklySyncGate
+# Audit & Fix: Goal/Planned Days Changes Not Propagating
 
 ## Problem
 
-There are two sync flows in `Goals.tsx`:
-1. **BiweeklySyncGate** — the newer full-screen flow with "Use what I've tracked" vs "Enter manually" choices. Only triggers automatically during biweekly sync windows or initial setup.
-2. **CatchUpWizard** — the older modal that just asks you to type in numbers. Still wired to manual "Sync" buttons on the page.
+When you change your preseason goal (e.g. 90 → 75) or update planned work days, the new values don't propagate to all views. The root cause is **fragmented cache keys** — the same data (e.g. `season_config`) is fetched under 6+ different React Query keys, and mutations only invalidate a subset of them.
 
-When you tap a sync button outside the biweekly window, you get the old flow. That's what you're seeing.
+### Current Query Key Fragmentation
+
+The `season_config` table alone is cached under:
+- `season-config` (useAppMode, usePrefetchData)
+- `season-config-for-goals-page` (Goals.tsx)
+- `season-config-for-goals` (CalendarPlanningCard)
+- `season-config-unified` (useGoalPaceCalculator)
+- `season-config-focus-tier` (useFocusTier)
+- `season-config-whatif` (CalendarPlanningPreview)
+- `season-config` with userId (usePlannedDaysSync)
+
+When QuickEditGoalsDrawer saves summer dates, it only invalidates 3 of these. The goal pace calculator, focus tier, and calendar planning card never see the update until staleTime expires (5 minutes).
+
+Similarly, when `planned_work_days` are changed, only `planned-days` is invalidated — but `worked-days-data`, `downline-goal-pace`, `goal-pace` queries, and the heatmap all use separate keys.
 
 ## Fix
 
-### Step 1: Replace CatchUpWizard with BiweeklySyncGate for manual syncs
+### Step 1: Create a centralized invalidation utility
 
-In `Goals.tsx`:
-- Remove the `CatchUpWizard` import and its `<CatchUpWizard>` JSX block
-- Remove `showCatchUpWizard` state
-- Replace all `onSyncClick={() => setShowCatchUpWizard(true)}` callbacks with a new handler that opens the `BiweeklySyncGate` in a full-screen overlay/sheet
-- Reuse the same `BiweeklySyncGate` component with `isInitialSync={false}` for manual syncs
+Create `src/utils/goalInvalidation.ts` with a single function `invalidateGoalRelatedQueries(queryClient)` that invalidates ALL goal-dependent query keys in one call:
 
-### Step 2: Make BiweeklySyncGate work as both a gate AND a manual trigger
+- `rep-goals`
+- All `season-config*` variants (use prefix matching)
+- `planned-days`
+- `worked-days-data`
+- `effective-fp`
+- `downline-goal-pace`
+- `all-entries-unified`
+- `today-entry-unified`
+- `preseason-fp`
+- `cumulative-fp`
 
-Currently it renders as a full page replacement. Add an optional `mode` prop:
-- `mode="gate"` (default) — current behavior, replaces the page
-- `mode="manual"` — renders inside a Sheet/Dialog so it can be opened on demand
+### Step 2: Wire centralized invalidation into all mutation points
 
-### Step 3: Clean up dead code
+Replace scattered `queryClient.invalidateQueries` calls with the centralized function in:
 
-- Remove `CatchUpWizard.tsx` file entirely (or keep for reference but remove all imports)
-- Remove the `CatchUpWizard` export from `src/components/catchup/index.ts`
-- Update any other files importing `CatchUpWizard`
+- **`useRepGoals.ts`** — `updateGoals` onSuccess
+- **`QuickEditGoalsDrawer.tsx`** — after saving goals + summer dates
+- **`usePlannedDays.ts`** — all add/remove/clear onSuccess handlers
+- **`CalendarPlanningCard.tsx`** — after summer date changes
+- **`CalendarView.tsx`** — after summer date changes
+- **`Goals.tsx`** — setup wizard completion, manual sync completion, focus tier changes
+- **`usePlannedDaysSync.ts`** — after exclusion changes
+
+### Step 3: Fix the localStorage planned-days cache staleness
+
+`usePlannedDays.ts` uses a 24-hour localStorage cache as `placeholderData`. After mutations, the localStorage cache is only updated on the next successful fetch. If the app is closed before that fetch completes, the stale localStorage cache wins on next launch.
+
+Fix: Update the localStorage cache immediately inside each mutation's `onSuccess`, or clear it on mutation so the next load fetches fresh.
+
+### Step 4: Fix the infinite removeChannel stack overflow
+
+The runtime error (`Maximum call stack size exceeded` in `removeChannel`) is a recursive loop where unsubscribing from a channel triggers another unsubscribe. This is likely from a realtime subscription cleanup that re-triggers itself. Investigate and add a guard flag to prevent re-entrant cleanup.
 
 ### Files Modified
-- `src/pages/Goals.tsx` — remove old wizard, wire sync buttons to BiweeklySyncGate
-- `src/components/catchup/BiweeklySyncGate.tsx` — add `mode` prop for manual trigger support
-- `src/components/catchup/index.ts` — remove CatchUpWizard export
+- `src/utils/goalInvalidation.ts` (new) — centralized invalidation function
+- `src/hooks/useRepGoals.ts` — use centralized invalidation
+- `src/hooks/usePlannedDays.ts` — use centralized invalidation + fix localStorage cache
+- `src/components/goals/QuickEditGoalsDrawer.tsx` — use centralized invalidation
+- `src/components/goals/CalendarPlanningCard.tsx` — use centralized invalidation
+- `src/components/CalendarView.tsx` — use centralized invalidation
+- `src/pages/Goals.tsx` — use centralized invalidation at all mutation points
+- `src/hooks/usePlannedDaysSync.ts` — use centralized invalidation
 
