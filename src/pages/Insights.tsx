@@ -22,7 +22,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { AICoachFab } from '@/components/insights/AICoachFab';
+import { InsightsChat } from '@/components/insights/InsightsChat';
 import { InsightsOverviewTab } from '@/components/insights/InsightsOverviewTab';
 import { InsightsPerformanceTab } from '@/components/insights/InsightsPerformanceTab';
 import { InsightsPatternsTab } from '@/components/insights/InsightsPatternsTab';
