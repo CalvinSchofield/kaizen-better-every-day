@@ -33,6 +33,31 @@ const storeCachedUserId = (userId: string | null) => {
 };
 
 /**
+ * Clear stale app caches when session ends or user switches.
+ * Extracted to avoid duplicated logic.
+ */
+const clearStaleCaches = () => {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (
+        key.startsWith('rep-') ||
+        key.startsWith('season-config-cache-') ||
+        key.startsWith('goals-setup-') ||
+        key.startsWith('setup-status-cache:') ||
+        key === 'current-user-id'
+      )) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+  } catch {
+    // Ignore storage errors
+  }
+};
+
+/**
  * Hook to reliably get the current user ID, preventing race conditions
  * where queries might run before auth is ready.
  * 
@@ -84,24 +109,7 @@ export const useCurrentUserId = () => {
       if (cachedUserId && !newUserId) {
         console.log('[useCurrentUserId] Session invalid/expired, clearing all caches');
         clearAllRepCaches();
-        // Also clear other app caches that might cause stale UI
-        try {
-          const keysToRemove = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && (
-              key.startsWith('rep-') ||
-              key.startsWith('season-config-cache-') ||
-              key.startsWith('goals-setup-') ||
-              key === 'current-user-id' // Also clear the inconsistent key used by useAppMode
-            )) {
-              keysToRemove.push(key);
-            }
-          }
-          keysToRemove.forEach(key => localStorage.removeItem(key));
-        } catch {
-          // Ignore storage errors
-        }
+        clearStaleCaches();
       }
 
       // If user changed (e.g., different account), clear old user's caches
@@ -129,23 +137,7 @@ export const useCurrentUserId = () => {
       if (currentCached && !newUserId) {
         console.log('[useCurrentUserId] Auth change: session ended, clearing caches');
         clearAllRepCaches();
-        try {
-          const keysToRemove = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && (
-              key.startsWith('rep-') ||
-              key.startsWith('season-config-cache-') ||
-              key.startsWith('goals-setup-') ||
-              key === 'current-user-id'
-            )) {
-              keysToRemove.push(key);
-            }
-          }
-          keysToRemove.forEach(key => localStorage.removeItem(key));
-        } catch {
-          // Ignore storage errors
-        }
+        clearStaleCaches();
       }
       
       // If user changed, clear old caches
