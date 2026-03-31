@@ -15,6 +15,7 @@ import { format, parseISO, setHours, setMinutes, addDays } from "date-fns";
 import { Trash2, MapPin, Loader2, CheckCircle, Clock, Ban, Search, Pencil, Phone, User, Hash, DollarSign, Calendar, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useMapboxToken } from "@/hooks/useMapboxToken";
 import { CancellationConfirmDrawer } from "@/components/customers/CancellationConfirmDrawer";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {

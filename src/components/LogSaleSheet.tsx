@@ -18,6 +18,7 @@ import {
 import { Trash2, HelpCircle, MapPin, Clock, Loader2, Search, CalendarIcon } from "lucide-react";
 import { UpgradePrmrCalculator } from "./UpgradePrmrCalculatorV2";
 import { supabase } from "@/integrations/supabase/client";
+import { useMapboxToken } from "@/hooks/useMapboxToken";
 import { Sale } from "@/hooks/useDailyEntry";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
