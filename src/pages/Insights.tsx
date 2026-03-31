@@ -79,6 +79,21 @@ export default function Insights() {
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
   const [chatOpen, setChatOpen] = useState(false);
   const { setCustomRightContent } = useHeader();
+
+  // Put AI Coach button in the app header
+  useEffect(() => {
+    setCustomRightContent(
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setChatOpen(true)}
+        className="h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20"
+      >
+        <Sparkles className="h-5 w-5 text-primary" />
+      </Button>
+    );
+    return () => setCustomRightContent(null);
+  }, [setCustomRightContent]);
   
   
   
