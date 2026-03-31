@@ -80,6 +80,7 @@ const formatDuration = (minutes: number): string => {
 export const GoalSetupWizard = ({ 
   isRookie, 
   committedBlitzIds = [], 
+  segment,
   onComplete, 
   onCancel 
 }: GoalSetupWizardProps) => {
