@@ -15,6 +15,7 @@ interface BadgeGridProps {
 export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeGridProps) => {
   const [selectedBadge, setSelectedBadge] = useState<(UserBadge | BadgeDefinition) | null>(null);
   const [isSelectedEarned, setIsSelectedEarned] = useState(false);
+  const [selectedCount, setSelectedCount] = useState(0);
 
   // Count how many times each badge slug was earned
   const earnedCountMap = useMemo(() => {
