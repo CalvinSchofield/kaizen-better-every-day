@@ -112,11 +112,12 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
   useEffect(() => {
     preloadImages(slides);
     
-    // Pre-blitz rookies will navigate to About Team, so prefetch those images early
-    if (userType === 'pre-blitz-rookie') {
+    // In-org rookies will navigate to About Team, so prefetch those images early
+    const isRookieSegment = segment === 'in-org-rookie-preseason' || segment === 'in-org-rookie-summer';
+    if (userType === 'pre-blitz-rookie' || isRookieSegment) {
       prefetchAboutTeamImages();
     }
-  }, [userType]);
+  }, [userType, segment]);
 
   const handleNext = useCallback(() => {
     if (isLastSlide) {
