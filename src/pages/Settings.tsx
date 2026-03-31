@@ -78,6 +78,7 @@ export default function Settings() {
   const teamAccess = useTeamAccess();
   const { data: cumulativeData } = useCumulativeFP();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
+  const { segment: onboardingSegment } = useOnboardingSegment(repData);
   
   // Get user's current cumulative FP+ for minimum tier restriction
   const userCumulativeFpPlus = cumulativeData && cumulativeData.length > 0 
