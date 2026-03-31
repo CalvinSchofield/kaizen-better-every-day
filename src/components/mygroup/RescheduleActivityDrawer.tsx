@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Recruit, RecruitActivity, useUpdateRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useAssignableUsers, AssignableUser } from "@/hooks/useAssignableUsers";
 import { useActivityCalendarEvent } from "@/hooks/useActivityCalendarEvents";
-import { AddToCalendarPrompt } from "./AddToCalendarPrompt";
+import { AddToCalendarDrawer } from "./AddToCalendarPrompt";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -145,9 +145,14 @@ export const RescheduleActivityDrawer = ({
       
       // If user had this in their calendar and task is still assigned to them, show prompt to update
       if (existingCalendarEvent && !selectedAssignee) {
-        setScheduledDateString(dateOnlyString);
-        setPreviousDateString(prevDate);
-        setShowCalendarPrompt(true);
+        const savedDate = dateOnlyString;
+        const savedPrevDate = prevDate;
+        handleCloseComplete();
+        setTimeout(() => {
+          setScheduledDateString(savedDate);
+          setPreviousDateString(savedPrevDate);
+          setShowCalendarPrompt(true);
+        }, 350);
       } else {
         handleCloseComplete();
       }
@@ -311,21 +316,7 @@ export const RescheduleActivityDrawer = ({
           </div>
         </div>
 
-        {/* Calendar Prompt - shown after successful reschedule if user had it in calendar */}
-        {showCalendarPrompt && activity && scheduledDateString && (
-          <AddToCalendarPrompt
-            activityId={activity.id}
-            recruit={recruit}
-            scheduledDate={scheduledDateString}
-            notes={taskText}
-            onClose={handleCloseComplete}
-            isReschedule={true}
-            previousDate={previousDateString}
-          />
-        )}
-
-        {!showCalendarPrompt && (
-          <DrawerFooter className="border-t">
+        <DrawerFooter className="border-t">
             <Button 
               onClick={handleReschedule}
               disabled={!selectedDate || isLoading}
@@ -351,9 +342,25 @@ export const RescheduleActivityDrawer = ({
             >
               Cancel
             </Button>
-          </DrawerFooter>
-        )}
+        </DrawerFooter>
       </DrawerContent>
     </Drawer>
+
+    {recruit && activity && scheduledDateString && (
+      <AddToCalendarDrawer
+        open={showCalendarPrompt}
+        activityId={activity.id}
+        recruit={recruit}
+        scheduledDate={scheduledDateString}
+        notes={taskText}
+        onClose={() => {
+          setShowCalendarPrompt(false);
+          setScheduledDateString('');
+          setPreviousDateString(undefined);
+        }}
+        isReschedule={true}
+        previousDate={previousDateString}
+      />
+    )}
   );
 };

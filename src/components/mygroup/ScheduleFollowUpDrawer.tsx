@@ -18,7 +18,7 @@ import { useAssignableUsers, AssignableUser } from "@/hooks/useAssignableUsers";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MentionInput } from "./recruit-detail/MentionInput";
-import { AddToCalendarPrompt } from "./AddToCalendarPrompt";
+import { AddToCalendarDrawer } from "./AddToCalendarPrompt";
 import { getCleanName } from "@/utils/nameUtils";
 
 interface ScheduleFollowUpDrawerProps {
@@ -110,9 +110,14 @@ export const ScheduleFollowUpDrawer = ({
       
       // Show calendar prompt only if task is assigned to me (no assignee selected = me)
       if (result?.id && !selectedAssignee) {
-        setScheduledActivityId(result.id);
-        setScheduledDateString(dateOnlyString);
-        setShowCalendarPrompt(true);
+        const savedId = result.id;
+        const savedDate = dateOnlyString;
+        handleCloseComplete();
+        setTimeout(() => {
+          setScheduledActivityId(savedId);
+          setScheduledDateString(savedDate);
+          setShowCalendarPrompt(true);
+        }, 350);
       } else {
         handleCloseComplete();
       }
@@ -277,20 +282,9 @@ export const ScheduleFollowUpDrawer = ({
           </div>
           </div>
 
-          {/* Calendar Prompt - shown after successful scheduling */}
-          {showCalendarPrompt && scheduledActivityId && scheduledDateString && (
-            <AddToCalendarPrompt
-              activityId={scheduledActivityId}
-              recruit={recruit}
-              scheduledDate={scheduledDateString}
-              notes={notes}
-              onClose={handleCloseComplete}
-            />
-          )}
         </div>
 
-        {!showCalendarPrompt && (
-          <DrawerFooter className="border-t">
+        <DrawerFooter className="border-t">
             <Button 
               onClick={handleSchedule}
               disabled={!selectedDate || isLoading}
@@ -316,9 +310,23 @@ export const ScheduleFollowUpDrawer = ({
             >
               Cancel
             </Button>
-          </DrawerFooter>
-        )}
+        </DrawerFooter>
       </DrawerContent>
     </Drawer>
+
+    {recruit && scheduledActivityId && scheduledDateString && (
+      <AddToCalendarDrawer
+        open={showCalendarPrompt}
+        activityId={scheduledActivityId}
+        recruit={recruit}
+        scheduledDate={scheduledDateString}
+        notes={notes}
+        onClose={() => {
+          setShowCalendarPrompt(false);
+          setScheduledActivityId(null);
+          setScheduledDateString('');
+        }}
+      />
+    )}
   );
 };
