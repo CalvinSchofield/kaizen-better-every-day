@@ -119,7 +119,7 @@ export const usePlannedDaysSync = () => {
     onSuccess: () => {
       // Clear pending exclusions once saved to DB
       setPendingExclusions({});
-      queryClient.invalidateQueries({ queryKey: ['season-config', repData?.user_id] });
+      invalidateGoalRelatedQueries(queryClient);
     },
   });
 
