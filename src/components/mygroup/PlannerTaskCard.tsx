@@ -71,36 +71,38 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
   // Only show snooze for today's tasks or overdue tasks
   const showSnooze = isDueToday || isOverdue;
 
-  const handleCall = async (e: React.MouseEvent) => {
+  const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      await logActivityMutation.mutateAsync({
-        recruitId: recruit.id,
-        activityType: 'phone_call',
-        notes: 'Call attempt',
-        updateLastContact: true,
-      });
-      toast.success('Call logged');
-    } catch (error) {
-      console.error('Failed to log call:', error);
+    if (recruit.phone) {
+      window.open(`tel:${recruit.phone}`, '_self');
     }
-    window.open(`tel:${recruit.phone}`, '_self');
+    // Log in background — don't block the call intent
+    logActivityMutation.mutate({
+      recruitId: recruit.id,
+      activityType: 'phone_call',
+      notes: 'Call attempt',
+      updateLastContact: true,
+    }, {
+      onSuccess: () => toast.success('Call logged'),
+      onError: (error) => console.error('Failed to log call:', error),
+    });
   };
 
-  const handleText = async (e: React.MouseEvent) => {
+  const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      await logActivityMutation.mutateAsync({
-        recruitId: recruit.id,
-        activityType: 'phone_call',
-        notes: 'Text sent',
-        updateLastContact: true,
-      });
-      toast.success('Text logged');
-    } catch (error) {
-      console.error('Failed to log text:', error);
+    if (recruit.phone) {
+      window.location.href = `sms:${recruit.phone}`;
     }
-    window.open(`sms:${recruit.phone}`, '_self');
+    // Log in background — don't block the SMS intent
+    logActivityMutation.mutate({
+      recruitId: recruit.id,
+      activityType: 'text',
+      notes: 'Text sent',
+      updateLastContact: true,
+    }, {
+      onSuccess: () => toast.success('Text logged'),
+      onError: (error) => console.error('Failed to log text:', error),
+    });
   };
 
   const handleReschedule = async (date: Date | undefined) => {

@@ -177,25 +177,6 @@ export const PostContactDrawer = ({
       // ── STEP 1: Log the contact activity (primary operation) ──
       let loggedActivity: any = null;
       try {
-        // Refresh session before critical operation to prevent auth failures
-        const { data: { session } } = await withTimeout(
-          supabase.auth.getSession(),
-          5000,
-          'Auth check timed out — please try again'
-        );
-        if (!session) {
-          // Try refreshing
-          const { error: refreshError } = await withTimeout(
-            supabase.auth.refreshSession(),
-            8000,
-            'Session refresh timed out — please sign in again'
-          );
-          if (refreshError) {
-            toast.error('Session expired — please sign in again');
-            return;
-          }
-        }
-
         const mutationParams: Parameters<typeof logActivityMutation.mutateAsync>[0] = {
           recruitId: recruit.id,
           recruitNotionId: recruit.id,
