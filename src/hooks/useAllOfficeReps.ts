@@ -95,15 +95,27 @@ export const useAllOfficeReps = () => {
         if (teamsResult.error) throw teamsResult.error;
         if (teamMgmtResult.error) throw teamMgmtResult.error;
         if (mgmtResult.error) throw mgmtResult.error;
+        if (recruitsResult.error) throw recruitsResult.error;
 
         const reps = repsResult.data || [];
         const teams = teamsResult.data || [];
         const teamMgmtGroups = teamMgmtResult.data || [];
         const mgmtGroups = mgmtResult.data || [];
+        const recruits = recruitsResult.data || [];
 
         // Build team lead -> team map
         const teamByLeadUserId = new Map(
           teams.map(t => [t.lead_user_id, { id: t.id, name: t.name }])
+        );
+
+        // Build team by id map
+        const teamById = new Map(
+          teams.map(t => [t.id, { id: t.id, name: t.name }])
+        );
+
+        // Build recruit.id -> recruit map for formal team assignment
+        const recruitById = new Map(
+          recruits.map(r => [r.id, r])
         );
 
         // Build team -> mgmt group map
@@ -116,10 +128,35 @@ export const useAllOfficeReps = () => {
           mgmtGroups.map(mg => [mg.id, { id: mg.id, name: mg.name }])
         );
 
-        // For each rep, try to find their team
-        const findTeamForRep = (userId: string): { teamId: string; teamName: string } | null => {
-          const team = teamByLeadUserId.get(userId);
-          return team ? { teamId: team.id, teamName: team.name } : null;
+        // For each rep, find their team: first check if team lead, then check recruit record
+        const findTeamForRep = (repId: string, userId: string): { teamId: string; teamName: string } | null => {
+          // 1. Team lead?
+          const leadTeam = teamByLeadUserId.get(userId);
+          if (leadTeam) return { teamId: leadTeam.id, teamName: leadTeam.name };
+
+          // 2. Formal recruit record (rep.id = recruit.id)
+          const recruit = recruitById.get(repId);
+          if (recruit?.team_id) {
+            const team = teamById.get(recruit.team_id);
+            if (team) return { teamId: team.id, teamName: team.name };
+          }
+
+          return null;
+        };
+
+        // Find mgmt group for rep
+        const findMgmtForRep = (repId: string, teamId: string | null): { id: string; name: string } | null => {
+          // Check recruit record for direct mgmt_group_id
+          const recruit = recruitById.get(repId);
+          if (recruit?.mgmt_group_id) {
+            return mgmtById.get(recruit.mgmt_group_id) || null;
+          }
+          // Fall back to team -> mgmt group mapping
+          if (teamId) {
+            const mgmtGroupId = teamToMgmt.get(teamId);
+            if (mgmtGroupId) return mgmtById.get(mgmtGroupId) || null;
+          }
+          return null;
         };
 
         // Filter to active stages and map to standard format
@@ -130,15 +167,8 @@ export const useAllOfficeReps = () => {
             return normalizedStage && ACTIVE_STAGES.includes(normalizedStage);
           })
           .map(rep => {
-            const teamInfo = findTeamForRep(rep.user_id!);
-            
-            let mgmtGroupInfo: { id: string; name: string } | null = null;
-            if (teamInfo) {
-              const mgmtGroupId = teamToMgmt.get(teamInfo.teamId);
-              if (mgmtGroupId) {
-                mgmtGroupInfo = mgmtById.get(mgmtGroupId) || null;
-              }
-            }
+            const teamInfo = findTeamForRep(rep.id, rep.user_id!);
+            const mgmtGroupInfo = findMgmtForRep(rep.id, teamInfo?.teamId || null);
 
             return {
               id: rep.id,
