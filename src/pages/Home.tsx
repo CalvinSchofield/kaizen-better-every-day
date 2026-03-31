@@ -27,6 +27,7 @@ import { IntroWizard } from "@/components/IntroWizard";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useRepGoals } from "@/hooks/useRepGoals";
+import { useOnboardingSegment } from "@/hooks/useOnboardingSegment";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { getDaysUntilBlitz, parseDateAsLocal } from "@/utils/blitzDateUtils";
 import { RookieRampHeroSection } from "@/components/RookieRampHeroSection";
