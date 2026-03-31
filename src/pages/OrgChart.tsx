@@ -32,7 +32,7 @@ const OrgChart = () => {
     queryFn: async () => {
       const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, teamMgmtRes, officeStaffRes, officesRes] = await Promise.all([
         supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, year, phone, email, location, recruitment_source, last_contact, next_action, next_action_due, created_at, mgmt_group_id, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, onboarding_complete, trainings_complete, slack_joined, ipad_assigned, blitz_ready, spouse_name, significant_other_name, caution_notes, watch_out_notes").limit(5000),
-        supabase.from("reps").select("user_id, name, profile_photo_url, year, stage, phone, email").limit(5000),
+        supabase.from("reps").select("id, user_id, name, profile_photo_url, year, stage, phone, email").limit(5000),
         supabase.from("teams").select("id, name, lead_user_id").limit(500),
         supabase.from("mgmt_groups").select("id, name, lead_user_id, office_id").limit(500),
         supabase.from("team_mgmt_groups").select("team_id, mgmt_group_id").limit(500),
