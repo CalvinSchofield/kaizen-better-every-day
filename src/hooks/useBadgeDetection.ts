@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
   DAILY_FP_THRESHOLDS, dailyFpSlug,
+  WEEKLY_FP_THRESHOLDS, weeklyFpSlug,
+  WEEKLY_PRMR_THRESHOLDS, weeklyPrmrSlug,
+  CLUB_THRESHOLDS, clubSlug,
   SPECIAL_SLUGS,
   STREAK_FREEZE,
   SALES_STREAK_THRESHOLDS, salesStreakSlug,
@@ -11,6 +14,9 @@ import {
   PRESENTATION_STREAK_THRESHOLDS, presentationStreakSlug,
   MULTI_SALE_STREAKS,
 } from "@/utils/badgeDefinitions";
+import { startOfWeek, endOfWeek, format } from "date-fns";
+
+const SEASON_START = "2025-09-28";
 
 interface DailyEntryForBadge {
   entry_date: string;
@@ -74,7 +80,6 @@ export const useBadgeDetection = (
       });
 
       if (error) {
-        // Likely unique constraint — badge already exists
         if (error.code === '23505') return false;
         console.error("[BadgeDetection] Insert error:", error);
         return false;
@@ -120,6 +125,18 @@ export const useBadgeDetection = (
       await awardBadge(SPECIAL_SLUGS.FIRST_DOOR_MAGIC, date);
     }
 
+    // First Blood: check if this is the user's first-ever sale
+    if (closes > 0) {
+      const { count } = await supabase
+        .from("user_badges")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("badge_id", (await supabase.from("badge_definitions").select("id").eq("slug", "first_blood").maybeSingle()).data?.id || "");
+      if (count === 0) {
+        await awardBadge(SPECIAL_SLUGS.FIRST_BLOOD, date);
+      }
+    }
+
     // Night Owl: has a door timestamp after 9 PM LOCAL TIME and made a sale
     if (closes > 0 && todayEntry.counter_timestamps) {
       const doorTs = todayEntry.counter_timestamps['doors_knocked'];
@@ -157,8 +174,68 @@ export const useBadgeDetection = (
       await awardBadge(SPECIAL_SLUGS.UPGRADE_ASSASSIN, date, { value: upgradePrmr });
     }
 
+    // --- Season Club Badges (cumulative FP+ from season start) ---
+    if (date >= SEASON_START) {
+      const { data: seasonEntries } = await supabase
+        .from("daily_entries")
+        .select("fp_plus")
+        .eq("user_id", userId)
+        .gte("entry_date", SEASON_START)
+        .eq("is_finalized", true);
+
+      if (seasonEntries) {
+        const totalFp = seasonEntries.reduce((sum, e) => sum + (e.fp_plus || 0), 0);
+        // Include today's live FP even if not finalized
+        const effectiveTotal = totalFp + (todayEntry.fp_plus || 0);
+
+        for (const threshold of CLUB_THRESHOLDS) {
+          if (effectiveTotal >= threshold) {
+            // Check if already awarded (any date) - clubs are once-per-season
+            const { data: existingClub } = await supabase
+              .from("user_badges")
+              .select("id")
+              .eq("user_id", userId)
+              .eq("badge_id", (await supabase.from("badge_definitions").select("id").eq("slug", clubSlug(threshold)).maybeSingle()).data?.id || "")
+              .limit(1);
+
+            if (!existingClub || existingClub.length === 0) {
+              await awardBadge(clubSlug(threshold), date, { total: Math.round(effectiveTotal * 10) / 10 });
+            }
+          }
+        }
+      }
+    }
+
+    // --- Weekly Milestone Badges ---
+    if (date >= SEASON_START) {
+      const weekStart = format(startOfWeek(new Date(date + "T12:00:00"), { weekStartsOn: 0 }), "yyyy-MM-dd");
+      const weekEnd = format(endOfWeek(new Date(date + "T12:00:00"), { weekStartsOn: 0 }), "yyyy-MM-dd");
+
+      const { data: weekEntries } = await supabase
+        .from("daily_entries")
+        .select("fp_plus, prmr, is_finalized")
+        .eq("user_id", userId)
+        .gte("entry_date", weekStart)
+        .lte("entry_date", weekEnd);
+
+      if (weekEntries) {
+        const weeklyFp = weekEntries.reduce((sum, e) => sum + (e.fp_plus || 0), 0);
+        const weeklyPrmr = weekEntries.reduce((sum, e) => sum + (e.prmr || 0), 0);
+
+        for (const threshold of WEEKLY_FP_THRESHOLDS) {
+          if (weeklyFp >= threshold) {
+            await awardBadge(weeklyFpSlug(threshold), date, { weeklyFp: Math.round(weeklyFp * 10) / 10 });
+          }
+        }
+        for (const threshold of WEEKLY_PRMR_THRESHOLDS) {
+          if (weeklyPrmr >= threshold) {
+            await awardBadge(weeklyPrmrSlug(threshold), date, { weeklyPrmr: Math.round(weeklyPrmr) });
+          }
+        }
+      }
+    }
+
     // --- Streak detection ---
-    // Fetch recent entries for streak calculation
     const { data: recentEntries } = await supabase
       .from("daily_entries")
       .select("entry_date, closes, transitions, presentations, doors_knocked")
@@ -239,18 +316,14 @@ function calcStreak(
     const diffDays = Math.round((expectedDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
 
     if (diffDays > 1) break; // Gap too big
-    if (diffDays === 1) {
-      // This is the expected previous day — check it
-    }
 
     const val = Number(entry[field]) || 0;
     if (val >= minValue) {
       streak++;
     } else if (freezeRule) {
-      // Check freeze condition
       const freezeVal = Number(entry[freezeRule.field]) || 0;
       if (freezeVal >= freezeRule.threshold) {
-        streak++; // Frozen — streak continues
+        streak++;
       } else {
         break;
       }
