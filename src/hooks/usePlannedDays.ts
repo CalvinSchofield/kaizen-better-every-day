@@ -123,8 +123,20 @@ export const usePlannedDays = () => {
         },
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+    onSuccess: (data) => {
+      // Update localStorage cache immediately so it's never stale on app restart
+      if (userId) {
+        try {
+          const current = queryClient.getQueryData<PlannedDay[]>(['planned-days', userId]);
+          if (current) {
+            localStorage.setItem(`planned-days-cache-${userId}`, JSON.stringify({
+              data: current,
+              timestamp: Date.now()
+            }));
+          }
+        } catch {}
+      }
+      invalidatePlannedDaysQueries(queryClient);
     },
   });
 
