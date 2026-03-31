@@ -84,7 +84,7 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
   const hasAttendedOrOnBlitz = hasAttendedBlitz || isOnActiveBlitz;
 
   // Only query season_config if rookie isn't already unlocked by other means
-  const needsSummerCheck = isRookie && !isInactive && !hasAttendedOrOnBlitz && !hasQualifyingStage;
+  const needsSummerCheck = isRookie && !isInactive && !hasAttendedOrOnBlitz && !hasQualifyingStage && !hasCompletedGoalSetup;
 
   const { data: seasonConfig } = useQuery({
     queryKey: ['rookie-summer-check'],
