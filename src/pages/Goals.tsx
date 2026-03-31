@@ -14,6 +14,7 @@ import { usePersonalBenchmarks } from "@/hooks/usePersonalBenchmarks";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { useEffectiveFP } from "@/hooks/useEffectiveFP";
 import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
+import { invalidateGoalRelatedQueries } from "@/utils/goalInvalidation";
 import { GoalSetupWizard } from "@/components/goals/GoalSetupWizard";
 import { GoalHeroRing, GoalTier } from "@/components/goals/GoalHeroRing";
 import { CommitmentChips } from "@/components/goals/CommitmentChips";
