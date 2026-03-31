@@ -10,8 +10,9 @@ import { useEfpMode } from '@/hooks/useEfpMode';
 import { useCumulativeFP } from '@/hooks/useCumulativeFP';
 import { useAvailableInsightsPresets, InsightsDatePreset, PRESEASON_START, SUMMER_START } from '@/hooks/useAvailableDatePresets';
 import { useSalesRealtime } from '@/hooks/useSalesRealtime';
+import { useHeader } from '@/contexts/HeaderContext';
 
-import { Calendar as CalendarIcon, Lock, BarChart3, Sparkles, ArrowRight } from 'lucide-react';
+import { Calendar as CalendarIcon, Lock, BarChart3, Sparkles } from 'lucide-react';
 import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
 import {
   Sheet,
