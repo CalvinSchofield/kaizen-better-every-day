@@ -34,7 +34,15 @@ export const invalidateGoalRelatedQueries = (queryClient: QueryClient) => {
   queryClient.invalidateQueries({ queryKey: ['goal-pace'] });
   queryClient.invalidateQueries({ queryKey: ['downline-goal-pace'] });
   queryClient.invalidateQueries({ queryKey: ['preseason-fp'] });
+  queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
   queryClient.invalidateQueries({ queryKey: ['cumulative-fp'] });
+
+  // Entry / production queries used by goal pace calculator
+  queryClient.invalidateQueries({ queryKey: ['today-entry-unified'] });
+  queryClient.invalidateQueries({ queryKey: ['all-entries-unified'] });
+  queryClient.invalidateQueries({ queryKey: ['official-totals-pace'] });
+  queryClient.invalidateQueries({ queryKey: ['ytd-prmr-total'] });
+  queryClient.invalidateQueries({ queryKey: ['historical-summer-avg-pace'] });
 };
 
 /**
