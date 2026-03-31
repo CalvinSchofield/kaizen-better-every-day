@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { UserCheck, PhoneMissed, Loader2, CheckCircle2, ChevronDown, ChevronUp, CalendarDays, User } from "lucide-react";
-import { AddToCalendarPrompt } from "./AddToCalendarPrompt";
+import { AddToCalendarDrawer } from "./AddToCalendarPrompt";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -306,24 +306,29 @@ export const PostContactDrawer = ({
       }
       
       // ── STEP 5: Handle calendar prompt or close ──
-      if (scheduledFollowUp && newActivityId && scheduleDate && !scheduleAssignee) {
-        setScheduledActivityId(newActivityId);
-        setScheduledDateString(format(scheduleDate, 'yyyy-MM-dd'));
-        setShowCalendarPrompt(true);
-        // Don't close drawer yet - let calendar prompt handle it
+      const shouldShowCalendar = scheduledFollowUp && newActivityId && scheduleDate && !scheduleAssignee;
+      const savedScheduleDateStr = scheduleDate ? format(scheduleDate, 'yyyy-MM-dd') : null;
+
+      // Reset and close the drawer
+      setOutcome(null);
+      setNotes('');
+      setBackdateValue('');
+      setMarkTaskComplete(true);
+      setShowScheduling(false);
+      setScheduleDate(undefined);
+      setQuickDateOption(null);
+      setScheduleNotes('');
+      setScheduleMentions([]);
+      setScheduleAssignee(null);
+      onOpenChange(false);
+
+      if (shouldShowCalendar && newActivityId && savedScheduleDateStr) {
+        setTimeout(() => {
+          setScheduledActivityId(newActivityId);
+          setScheduledDateString(savedScheduleDateStr);
+          setShowCalendarPrompt(true);
+        }, 350);
       } else {
-        // Reset and close
-        setOutcome(null);
-        setNotes('');
-        setBackdateValue('');
-        setMarkTaskComplete(true);
-        setShowScheduling(false);
-        setScheduleDate(undefined);
-        setQuickDateOption(null);
-        setScheduleNotes('');
-        setScheduleMentions([]);
-        setScheduleAssignee(null);
-        onOpenChange(false);
         onComplete?.(wasConnected);
       }
     } catch (error) {
@@ -368,6 +373,7 @@ export const PostContactDrawer = ({
   const showSchedulingSection = isCall ? !!outcome : true;
 
   return (
+    <>
     <Drawer open={open} onOpenChange={handleClose}>
       <DrawerContent className="max-h-[90vh]">
         <DrawerHeader className="border-b">
@@ -663,19 +669,7 @@ export const PostContactDrawer = ({
           )}
         </div>
 
-        {/* Calendar Prompt - shown after successful scheduling */}
-        {showCalendarPrompt && scheduledActivityId && scheduledDateString && recruit && (
-          <AddToCalendarPrompt
-            activityId={scheduledActivityId}
-            recruit={recruit}
-            scheduledDate={scheduledDateString}
-            notes={scheduleNotes}
-            onClose={handleCalendarPromptClose}
-          />
-        )}
-
-        {!showCalendarPrompt && (
-          <DrawerFooter className="border-t">
+        <DrawerFooter className="border-t">
             <Button 
               onClick={handleSubmit}
               disabled={!canSubmit || isLoading}
@@ -701,9 +695,25 @@ export const PostContactDrawer = ({
             >
               Skip for now
             </Button>
-          </DrawerFooter>
-        )}
+        </DrawerFooter>
       </DrawerContent>
     </Drawer>
+
+    {recruit && scheduledActivityId && scheduledDateString && (
+      <AddToCalendarDrawer
+        open={showCalendarPrompt}
+        activityId={scheduledActivityId}
+        recruit={recruit}
+        scheduledDate={scheduledDateString}
+        notes={scheduleNotes}
+        onClose={() => {
+          setShowCalendarPrompt(false);
+          setScheduledActivityId(null);
+          setScheduledDateString(null);
+          onComplete?.(true);
+        }}
+      />
+    )}
+    </>
   );
 };
