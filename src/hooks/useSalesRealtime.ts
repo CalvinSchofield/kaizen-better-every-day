@@ -84,8 +84,10 @@ export const useSalesRealtime = () => {
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("pageshow", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
-      if (channel) {
-        supabase.removeChannel(channel);
+      const ch = channel;
+      channel = null;
+      if (ch) {
+        supabase.removeChannel(ch);
       }
     };
   }, [queryClient]);
