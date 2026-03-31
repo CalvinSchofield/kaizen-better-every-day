@@ -1023,9 +1023,7 @@ export const CalendarView = ({
                                   });
                                 }
 
-                                queryClient.invalidateQueries({ queryKey: ['season-config-for-goals-page'] });
-                                queryClient.invalidateQueries({ queryKey: ['season-config'] });
-                                queryClient.invalidateQueries({ queryKey: ['season-config-whatif'] });
+                                invalidateGoalRelatedQueries(queryClient);
                                 hapticSuccess();
                                 setSavedSummerDates(true);
                                 toast.success('Summer dates updated');

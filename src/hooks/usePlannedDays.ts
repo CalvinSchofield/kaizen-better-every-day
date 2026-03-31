@@ -295,7 +295,7 @@ export const usePlannedDays = () => {
         .eq('user_id', userId);
 
       if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      invalidatePlannedDaysQueries(queryClient);
     } catch (error) {
       // Rollback on error
       queryClient.setQueryData(['planned-days', userId], previousDays);
