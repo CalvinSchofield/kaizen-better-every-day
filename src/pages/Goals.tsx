@@ -770,8 +770,7 @@ const Goals = () => {
                 }
 
                 setShowSetupWizard(false);
-                queryClient.invalidateQueries({ queryKey: ['planned-days'] });
-                queryClient.invalidateQueries({ queryKey: ['season-config'] });
+                invalidateGoalRelatedQueries(queryClient);
                 toast.success("Goals saved!");
               } catch (error) {
                 toast.error("Failed to save goals");
