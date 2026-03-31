@@ -189,7 +189,7 @@ export const RescheduleActivityDrawer = ({
           </DrawerTitle>
         </DrawerHeader>
         
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 overflow-x-hidden">
           {/* Editable task text */}
           <div>
             <label className="text-sm font-medium mb-2 block">

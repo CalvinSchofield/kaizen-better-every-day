@@ -154,7 +154,7 @@ export const ScheduleFollowUpDrawer = ({
           </DrawerTitle>
         </DrawerHeader>
         
-        <div className="flex-1 overflow-y-auto overscroll-contain">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
           <div className="p-4 space-y-4">
           {/* Next steps - required */}
           <div>
