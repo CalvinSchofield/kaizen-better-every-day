@@ -1011,8 +1011,10 @@ const Home = () => {
     );
   }
   
-  // Use centralized unlock status (includes Shadow ✅ check)
-  const { isUnlocked, hasAttendedBlitz, isOnActiveBlitz, hasCompletedShadow } = checkRookieUnlockStatus(repData);
+  // Use centralized unlock status (includes Shadow ✅ check + goal setup unlock)
+  const { isUnlocked, hasAttendedBlitz, isOnActiveBlitz, hasCompletedShadow } = checkRookieUnlockStatus(
+    repData ? { ...repData, setup_complete: goals?.setup_complete } : null
+  );
   
   // Check if knocking mode is active - redirect to Track (which now serves as the home)
   if (isKnockingMode) {
