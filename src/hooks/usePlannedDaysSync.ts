@@ -484,7 +484,7 @@ export const usePlannedDaysSync = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['season-config', repData?.user_id] });
+      invalidateGoalRelatedQueries(queryClient);
     },
   });
 

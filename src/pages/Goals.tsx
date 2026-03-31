@@ -821,7 +821,7 @@ const Goals = () => {
         goal_review_requested_at: null,
       } as any)
       .eq('user_id', userId);
-    queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
+    invalidateGoalRelatedQueries(queryClient);
   };
 
   return (
