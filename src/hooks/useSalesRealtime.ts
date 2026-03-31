@@ -47,9 +47,11 @@ export const useSalesRealtime = () => {
           }
 
           if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-            if (channel) {
-              supabase.removeChannel(channel);
-              channel = null;
+            // Null out channel BEFORE removing to prevent recursive removeChannel calls
+            const ch = channel;
+            channel = null;
+            if (ch) {
+              supabase.removeChannel(ch);
             }
 
             clearReconnectTimer();
