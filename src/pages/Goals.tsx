@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,13 +28,14 @@ import { PreseasonCommitmentsCard } from "@/components/goals/PreseasonCommitment
 import { useSyncedWeeklyLogs } from "@/hooks/useSyncedWeeklyLogs";
 import { usePendingInstalls } from "@/hooks/usePendingInstalls";
 
-import { CatchUpWizard } from "@/components/catchup/CatchUpWizard";
+
 import { SyncDiscrepancyIndicator } from "@/components/catchup/SyncDiscrepancyIndicator";
 import { BiweeklySyncGate } from "@/components/catchup/BiweeklySyncGate";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -44,6 +45,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isBefore, parseISO, format } from "date-fns";
 import { parseDateAsLocal, formatBlitzDate } from "@/utils/blitzDateUtils";
+import { SummerCountdownHero } from "@/components/SummerCountdownHero";
 import { calculatePaceContext, getLearningCurvePrincipleMessage, calculateSuggestedStretchGoal } from "@/utils/learningCurveData";
 import { hasCompletedGoalsSetup } from "@/lib/goalsSetupCache";
 
@@ -61,7 +63,6 @@ const GLOBAL_SUMMER_START = '2026-04-12';
 const SUMMER_END = '2026-09-27';
 
 const Goals = () => {
-  const navigate = useNavigate();
   const { 
     goals, 
     isLoading, 
@@ -96,9 +97,19 @@ const Goals = () => {
   const [showCalculator, setShowCalculator] = useState(false);
   const [showQuickEdit, setShowQuickEdit] = useState(false);
   const [showBlitzEditor, setShowBlitzEditor] = useState(false);
-  const [showCatchUpWizard, setShowCatchUpWizard] = useState(false);
+  const [showManualSync, setShowManualSync] = useState(false);
   const [activeTier, setActiveTier] = useState<GoalTier>('preseason');
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
+  const [syncGateSkipped, setSyncGateSkipped] = useState(false);
+  const location = useLocation();
+
+  // Open sync wizard if navigated with openSync state (e.g. from Blitzes page)
+  useEffect(() => {
+    if ((location.state as any)?.openSync) {
+      setShowManualSync(true);
+      window.history.replaceState({}, '');
+    }
+  }, [location.state]);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
   const [showCancelRateDrawer, setShowCancelRateDrawer] = useState(false);
   const [earningsOpenTrigger, setEarningsOpenTrigger] = useState(0);
@@ -541,7 +552,15 @@ const Goals = () => {
     return () => clearTimeout(timer);
   }, [hasGoalsData, stickySetupComplete]);
 
-  if (!hasGoalsData && (!canDecideSetup || isDataLoading) && !stickySetupComplete) {
+  // Safety timeout for initial loading gate
+  const [initialLoadTimedOut, setInitialLoadTimedOut] = useState(false);
+  useEffect(() => {
+    if (hasGoalsData || stickySetupComplete) return;
+    const t = setTimeout(() => setInitialLoadTimedOut(true), 8000);
+    return () => clearTimeout(t);
+  }, [hasGoalsData, stickySetupComplete]);
+
+  if (!hasGoalsData && !initialLoadTimedOut && (!canDecideSetup || isDataLoading) && !stickySetupComplete) {
     return (
       <Layout>
         <div className="p-4 space-y-6">
@@ -610,27 +629,6 @@ const Goals = () => {
     );
   }
 
-  // Sync gate FIRST: initial setup (no official totals yet) OR biweekly sync window
-  const needsInitialSync = effectiveFPData && !effectiveFPData.hasOfficialTotals;
-  const needsBiweekly = effectiveFPData?.needsBiweeklySync && effectiveFPData?.hasOfficialTotals;
-
-  if (needsInitialSync || needsBiweekly) {
-    return (
-      <Layout>
-        <BiweeklySyncGate
-          seasonType="preseason"
-          effectiveData={effectiveFPData!}
-          isInitialSync={!!needsInitialSync}
-          isUserSummerStarted={isUserSummerStarted}
-          onComplete={() => {
-            queryClient.invalidateQueries({ queryKey: ['effective-fp'] });
-            queryClient.invalidateQueries({ queryKey: ['official-totals'] });
-          }}
-        />
-      </Layout>
-    );
-  }
-
   if ((canDecideSetup && !goals?.setup_complete && !stickySetupComplete) || showSetupWizard) {
     return (
       <Layout>
@@ -681,7 +679,7 @@ const Goals = () => {
                   monday_night_lights_goal: data.mnlGoal,
                 });
 
-                const { data: { user } } = await supabase.auth.getUser();
+                const { user } = await getSessionSafe();
                 if (user) {
                   await supabase
                     .from('season_config')
@@ -774,11 +772,6 @@ const Goals = () => {
                 queryClient.invalidateQueries({ queryKey: ['planned-days'] });
                 queryClient.invalidateQueries({ queryKey: ['season-config'] });
                 toast.success("Goals saved!");
-                
-                // After initial setup, navigate to Calendar for day planning
-                if (!goals?.setup_complete) {
-                  navigate('/calendar');
-                }
               } catch (error) {
                 toast.error("Failed to save goals");
               }
@@ -790,11 +783,91 @@ const Goals = () => {
     );
   }
 
+  // Sync gate: initial setup (no official totals yet) OR biweekly sync window
+  const needsInitialSync = effectiveFPData && !effectiveFPData.hasOfficialTotals;
+  const needsBiweekly = effectiveFPData?.needsBiweeklySync && effectiveFPData?.hasOfficialTotals;
+
+  // Don't block with sync gate if rep is actively working today
+  const isActivelyWorking = todayEntry?.work_start_time && !todayEntry?.is_finalized;
+
+  if ((needsInitialSync || needsBiweekly) && !isActivelyWorking && !syncGateSkipped) {
+    return (
+      <Layout>
+        <BiweeklySyncGate
+          seasonType="preseason"
+          effectiveData={effectiveFPData!}
+          isInitialSync={!!needsInitialSync}
+          isUserSummerStarted={isUserSummerStarted}
+          onComplete={() => {
+            queryClient.invalidateQueries({ queryKey: ['effective-fp'] });
+            queryClient.invalidateQueries({ queryKey: ['official-totals'] });
+          }}
+          onSkip={() => setSyncGateSkipped(true)}
+        />
+      </Layout>
+    );
+  }
+
   const activeGoalData = tiers[activeTier];
+
+  // Check for leader-requested goal review
+  const goalReviewRequested = (goals as any)?.goal_review_requested_by && (goals as any)?.goal_review_requested_at;
+  const handleDismissReview = async () => {
+    if (!userId) return;
+    await supabase
+      .from('rep_goals')
+      .update({
+        goal_review_requested_by: null,
+        goal_review_requested_at: null,
+      } as any)
+      .eq('user_id', userId);
+    queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
+  };
 
   return (
     <Layout>
       <div className="pb-24">
+        {/* Leader-requested goal review banner */}
+        {goalReviewRequested && (
+          <motion.div
+            className="mx-4 mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="flex items-start gap-2">
+              <div className="p-1 rounded-full bg-amber-500/20 mt-0.5">
+                <SlidersHorizontal className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Goal review suggested</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Your leader suggested reviewing your goals and plan. Tap below to update.
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      handleDismissReview();
+                      setShowSetupWizard(true);
+                    }}
+                  >
+                    Review Goals
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-muted-foreground"
+                    onClick={handleDismissReview}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
         <div className="flex items-center justify-between p-4 pb-0">
           <div className="flex items-center gap-2">
             <button 
@@ -812,7 +885,7 @@ const Goals = () => {
                 daysSinceVerification={effectiveFPData.daysSinceVerification}
                 needsVerification={effectiveFPData.needsVerification}
                 hasOfficialTotals={effectiveFPData.hasOfficialTotals}
-                onSyncClick={() => setShowCatchUpWizard(true)}
+                onSyncClick={() => setShowManualSync(true)}
                 variant="compact"
               />
             )}
@@ -890,7 +963,7 @@ const Goals = () => {
         {!isUserSummerStarted && isRookie && (
           <motion.div 
             id="goals-preseason-commitments"
-            className="px-4 pb-4"
+            className="px-4 pb-3"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
@@ -902,29 +975,37 @@ const Goals = () => {
           </motion.div>
         )}
 
-        <div 
-          id="goals-calendar-planning"
-          className="px-4 pb-4"
-        >
-          <CalendarPlanningPreview
-            goals={goals}
-            activeTier={activeTier}
-            knockingDays={workedDaysData?.knockingDays || 0}
-            currentProgress={currentProgress}
-            summerProgress={summerStatsData?.summerProgress}
-            summerKnockingDays={summerStatsData?.summerKnockingDays}
-          />
+        {/* Planning Section */}
+        <div className="px-4 space-y-3 pb-6">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium pl-1">Planning</p>
+          <div id="goals-calendar-planning">
+            <CalendarPlanningPreview
+              goals={goals}
+              activeTier={activeTier}
+              knockingDays={workedDaysData?.knockingDays || 0}
+              currentProgress={currentProgress}
+              summerProgress={summerStatsData?.summerProgress}
+              summerKnockingDays={summerStatsData?.summerKnockingDays}
+            />
+          </div>
+          {userId && repData && !isUserSummerStarted && (
+            <SummerCountdownHero
+              personalSummerStart={seasonConfig?.personal_summer_start || null}
+              personalSummerEnd={seasonConfig?.personal_summer_end || null}
+              userId={userId}
+              userName={repData.name || 'You'}
+              variant="goals-card"
+            />
+          )}
         </div>
 
-        <div className="px-4 pb-4" ref={earningsRef}>
-          <EarningsBreakdownCard externalOpen={earningsOpenTrigger > 0 ? true : undefined} key={earningsOpenTrigger} />
-        </div>
-
-        <div className="px-4 pb-4">
+        {/* Financials Section */}
+        <div className="px-4 space-y-3 pb-4">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium pl-1">Financials</p>
+          <div ref={earningsRef}>
+            <EarningsBreakdownCard externalOpen={earningsOpenTrigger > 0 ? true : undefined} key={earningsOpenTrigger} />
+          </div>
           <CanceledStatsCard />
-        </div>
-
-        <div className="px-4 pb-4">
           <PendingInstallsCard />
         </div>
 
@@ -957,7 +1038,7 @@ const Goals = () => {
           personalSummerStart={seasonConfig?.personal_summer_start}
           personalSummerEnd={seasonConfig?.personal_summer_end}
           repId={repData?.id}
-          onSyncClick={() => setShowCatchUpWizard(true)}
+          onSyncClick={() => setShowManualSync(true)}
           onSave={async (updates) => {
             await updateGoals(updates);
             setShowQuickEdit(false);
@@ -1056,14 +1137,28 @@ const Goals = () => {
           </SheetContent>
         </Sheet>
 
-        {/* Catch Up Wizard for syncing */}
-        <CatchUpWizard 
-          open={showCatchUpWizard} 
-          onOpenChange={(open) => setShowCatchUpWizard(open)}
-          seasonType="preseason"
-          isInitialSync={false}
-          trackedKnockingDays={workedDaysData?.knockingDays || 0}
-        />
+        {/* Manual Sync Sheet — uses same BiweeklySyncGate as the gate flow */}
+        <Sheet open={showManualSync} onOpenChange={setShowManualSync}>
+          <SheetContent side="bottom" className="h-[95dvh] rounded-t-3xl p-0 overflow-y-auto">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Sync Numbers</SheetTitle>
+            </SheetHeader>
+            {showManualSync && effectiveFPData && (
+              <BiweeklySyncGate
+                seasonType="preseason"
+                effectiveData={effectiveFPData}
+                isInitialSync={false}
+                isUserSummerStarted={isUserSummerStarted}
+                onComplete={() => {
+                  setShowManualSync(false);
+                  queryClient.invalidateQueries({ queryKey: ['effective-fp'] });
+                  queryClient.invalidateQueries({ queryKey: ['official-totals'] });
+                }}
+                onSkip={() => setShowManualSync(false)}
+              />
+            )}
+          </SheetContent>
+        </Sheet>
 
         {/* Commit/Uncommit Confirmations */}
         <Drawer open={!!confirmCommitBlitz} onOpenChange={(open) => !open && setConfirmCommitBlitz(null)}>

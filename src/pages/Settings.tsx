@@ -24,7 +24,6 @@ import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { IntroWizard } from "@/components/IntroWizard";
-import { useOnboardingSegment } from "@/hooks/useOnboardingSegment";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { NotificationSettings } from "@/components/NotificationSettings";
@@ -76,7 +75,6 @@ export default function Settings() {
   const { goals, updateGoals: updateRepGoals, isUpdating: isUpdatingGoals } = useRepGoals();
   const { resetIntro, markIntroComplete } = useIntroStatus(repData?.user_id);
   const teamAccess = useTeamAccess();
-  const { segment: onboardingSegment } = useOnboardingSegment();
   const { data: cumulativeData } = useCumulativeFP();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
   
@@ -660,6 +658,28 @@ export default function Settings() {
       .map(c => ({ id: `custom_${c.id}`, emoji: c.emoji, name: c.name, isCustom: true, hidden: c.hidden }))
   ] as Array<{ id: string; emoji: string; name: string; isCustom: boolean; hidden?: boolean }>;
 
+  // Determine user type for intro wizard
+  const getUserType = (): 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader' => {
+    const year = repData?.year || "Rookie";
+    const isVetOrSoph = year === "Vet" || year === "Sophomore";
+    const committedBlitzes = (repData?.committed_blitzes as any[]) || [];
+    const hasAttendedBlitz = committedBlitzes.some((blitz: any) => {
+      if (!blitz?.endDate) return false;
+      const endDate = new Date(blitz.endDate);
+      return endDate < new Date();
+    });
+    
+    // Check phase completion
+    const phase = repData?.ramp_to_blitz_phase || "Not started";
+    const phaseLower = phase.toLowerCase();
+    const phase4Complete = phaseLower.includes("phase 4") && phaseLower.includes("✅");
+    
+    if (isLeader && isVetOrSoph) return 'leader';
+    if (isVetOrSoph) return 'vet';
+    if (year === "Rookie" && phase4Complete && hasAttendedBlitz) return 'post-blitz-rookie';
+    return 'pre-blitz-rookie';
+  };
+
   const handleShowIntro = () => {
     setShowIntroWizard(true);
   };
@@ -674,7 +694,7 @@ export default function Settings() {
     const firstName = repData.name?.split(' ')[0] || 'there';
     return (
       <IntroWizard
-        segment={onboardingSegment}
+        userType={getUserType()}
         firstName={firstName}
         onComplete={handleIntroComplete}
       />
