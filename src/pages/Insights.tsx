@@ -11,7 +11,7 @@ import { useCumulativeFP } from '@/hooks/useCumulativeFP';
 import { useAvailableInsightsPresets, InsightsDatePreset, PRESEASON_START, SUMMER_START } from '@/hooks/useAvailableDatePresets';
 import { useSalesRealtime } from '@/hooks/useSalesRealtime';
 
-import { Calendar as CalendarIcon, Lock, BarChart3 } from 'lucide-react';
+import { Calendar as CalendarIcon, Lock, BarChart3, Sparkles, ArrowRight } from 'lucide-react';
 import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
 import {
   Sheet,
@@ -22,7 +22,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { AICoachFab } from '@/components/insights/AICoachFab';
+import { InsightsChat } from '@/components/insights/InsightsChat';
 import { InsightsOverviewTab } from '@/components/insights/InsightsOverviewTab';
 import { InsightsPerformanceTab } from '@/components/insights/InsightsPerformanceTab';
 import { InsightsPatternsTab } from '@/components/insights/InsightsPatternsTab';
@@ -76,6 +76,7 @@ export default function Insights() {
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
+  const [chatOpen, setChatOpen] = useState(false);
   
   
   
@@ -230,6 +231,21 @@ export default function Insights() {
     <div className="min-h-screen bg-background pb-24">
       {/* Sticky Header with Date Selector + Tabs */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50">
+        {/* AI Coach Button Row */}
+        {insights && insights.daysWorked > 0 && (
+          <div className="px-4 pt-3 pb-1">
+            <button
+              onClick={() => setChatOpen(true)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/15 transition-colors"
+            >
+              <div className="p-1.5 rounded-lg bg-primary/20 shrink-0">
+                <Sparkles className="w-4 h-4 text-primary" />
+              </div>
+              <span className="text-sm font-medium text-foreground">Talk to Your Data</span>
+              <ArrowRight className="w-4 h-4 text-muted-foreground ml-auto" />
+            </button>
+          </div>
+        )}
         {/* Date Range Buttons */}
         <div className="px-4 py-3 overflow-x-auto scrollbar-hide" data-tour="insights-date-range">
           <div className="flex gap-2">
@@ -348,8 +364,8 @@ export default function Insights() {
         )}
       </div>
 
-      {/* AI Coach Floating Button */}
-      {insights && insights.daysWorked > 0 && <AICoachFab />}
+      {/* AI Coach Chat */}
+      <InsightsChat isOpen={chatOpen} onClose={() => setChatOpen(false)} />
 
       {/* Custom Date Range Sheet */}
       <Sheet open={showCustomDialog} onOpenChange={setShowCustomDialog}>
