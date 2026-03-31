@@ -699,6 +699,8 @@ export default function Settings() {
         userType={getUserType()}
         firstName={firstName}
         onComplete={handleIntroComplete}
+        segment={onboardingSegment}
+        isLeader={!!isLeader}
       />
     );
   }
