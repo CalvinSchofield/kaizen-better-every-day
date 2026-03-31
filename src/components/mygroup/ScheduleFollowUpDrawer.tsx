@@ -145,6 +145,7 @@ export const ScheduleFollowUpDrawer = ({
   if (!recruit) return null;
 
   return (
+    <>
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85svh] flex flex-col">
         <DrawerHeader className="border-b flex-shrink-0">
@@ -328,5 +329,6 @@ export const ScheduleFollowUpDrawer = ({
         }}
       />
     )}
+    </>
   );
 };

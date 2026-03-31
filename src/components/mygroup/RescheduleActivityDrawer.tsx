@@ -180,6 +180,7 @@ export const RescheduleActivityDrawer = ({
   if (!recruit || !activity) return null;
 
   return (
+    <>
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <DrawerHeader className="border-b">
@@ -362,5 +363,6 @@ export const RescheduleActivityDrawer = ({
         previousDate={previousDateString}
       />
     )}
+    </>
   );
 };

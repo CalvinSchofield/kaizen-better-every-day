@@ -373,6 +373,7 @@ export const PostContactDrawer = ({
   const showSchedulingSection = isCall ? !!outcome : true;
 
   return (
+    <>
     <Drawer open={open} onOpenChange={handleClose}>
       <DrawerContent className="max-h-[90vh]">
         <DrawerHeader className="border-b">
@@ -713,5 +714,6 @@ export const PostContactDrawer = ({
         }}
       />
     )}
+    </>
   );
 };
