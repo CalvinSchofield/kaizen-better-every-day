@@ -336,9 +336,9 @@ const OrgChart = () => {
     const teamToMgmt = new Map<string, string>();
     teamMgmt.forEach(tm => teamToMgmt.set(tm.team_id, tm.mgmt_group_id));
 
+    const repByIdLookup = new Map(reps.map((rep: any) => [rep.id, rep]));
     recruits.forEach((r) => {
-      const repById2 = new Map(reps.map((rep: any) => [rep.id, rep]));
-      const recruitRep = repById2.get(r.id) || reps.find(
+      const recruitRep = repByIdLookup.get(r.id) || reps.find(
         rep => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
       );
       const recruiterRep = r.recruiter_user_id ? repMap.get(r.recruiter_user_id) : null;
