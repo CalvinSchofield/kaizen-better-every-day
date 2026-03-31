@@ -75,13 +75,29 @@ const getIcon = (iconName: IconName | undefined): ReactNode => {
   return icons[iconName];
 };
 
-const getSlides = (userType: UserType, firstName: string): IntroSlideConfig[] => {
+const getSlides = (userType: UserType, firstName: string, segment?: OnboardingSegment, isLeader?: boolean): IntroSlideConfig[] => {
+  // If a segment is provided, use the new segmented slide sets
+  if (segment) {
+    switch (segment) {
+      case 'outside-org':
+        return getOutsideOrgSlides(firstName);
+      case 'in-org-vet':
+        return getInOrgVetSlides(firstName, !!isLeader);
+      case 'in-org-rookie-summer':
+        // Summer rookies still see team-sell slides
+        return getPreBlitzRookieSlides(firstName);
+      case 'in-org-rookie-preseason':
+        return getPreBlitzRookieSlides(firstName);
+    }
+  }
+
+  // Legacy fallback
   if (userType === 'pre-blitz-rookie') {
     return getPreBlitzRookieSlides(firstName);
   }
   
-  const isLeader = userType === 'leader';
-  return getKnockingUserSlides(firstName, isLeader);
+  const isLeaderType = userType === 'leader';
+  return getKnockingUserSlides(firstName, isLeaderType);
 };
 
 export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProps) => {
