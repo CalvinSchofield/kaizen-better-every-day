@@ -188,10 +188,10 @@ export const InsightsChat = ({ isOpen, onClose }: InsightsChatProps) => {
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-background flex flex-col"
+      className="fixed inset-x-0 top-0 z-50 bg-background flex flex-col"
       style={{
         paddingTop: 'env(safe-area-inset-top)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
+        bottom: 'calc(var(--nav-height) + var(--nav-padding-bottom))',
       }}
     >
       {/* Header */}
