@@ -136,6 +136,84 @@ export const getPreBlitzRookieSlides = (firstName: string): IntroSlideConfig[] =
   ];
 };
 
+// For outside-org users - minimal welcome, straight to sync/goals
+export const getOutsideOrgSlides = (firstName: string): IntroSlideConfig[] => {
+  const cleanName = stripEmojis(firstName) || 'there';
+  
+  return [
+    {
+      id: 'welcome',
+      type: 'standard',
+      iconName: 'home',
+      title: `Welcome, ${cleanName}!`,
+      description: "Kaizen helps you track your sales, set goals, and stay on pace all season long.",
+      highlight: "Let's get you set up"
+    },
+    {
+      id: 'add-photo',
+      type: 'photo-upload',
+      iconName: 'camera',
+      title: "Add Your Photo",
+      description: "Upload a profile photo so teammates can recognize you on leaderboards.",
+    },
+    {
+      id: 'lets-go',
+      type: 'cta',
+      iconName: 'sparkles',
+      title: "Let's Get Started!",
+      description: "We'll sync your current numbers, set your goals, and plan your season.",
+      ctaText: "Set Up Goals",
+      showConfetti: true,
+    },
+  ];
+};
+
+// For in-org vets/sophomores - no team sell, straight to sync/goals
+export const getInOrgVetSlides = (firstName: string, isLeader: boolean): IntroSlideConfig[] => {
+  const cleanName = stripEmojis(firstName) || 'there';
+  
+  const slides: IntroSlideConfig[] = [
+    {
+      id: 'welcome',
+      type: 'standard',
+      iconName: 'home',
+      title: `Welcome back, ${cleanName}!`,
+      description: "Kaizen is your hub for tracking, insights, and team performance. Let's get you set up for this season.",
+      highlight: "Let's get started"
+    },
+    {
+      id: 'add-photo',
+      type: 'photo-upload',
+      iconName: 'camera',
+      title: "Add Your Photo",
+      description: "Upload a profile photo so teammates can recognize you on leaderboards and your team knows who you are!",
+    },
+  ];
+
+  if (isLeader) {
+    slides.push({
+      id: 'my-group',
+      type: 'standard',
+      iconName: 'users',
+      title: "My Group",
+      description: "Manage your recruiting pipeline. Track recruits, log contacts, and help them prepare for their first blitz.",
+      highlight: "Build your team"
+    });
+  }
+
+  slides.push({
+    id: 'lets-go',
+    type: 'cta',
+    iconName: 'sparkles',
+    title: "Let's Get Started!",
+    description: "We'll sync your current numbers, set your goals, and plan your season.",
+    ctaText: "Set Up Goals",
+    showConfetti: true,
+  });
+
+  return slides;
+};
+
 // For vets, post-blitz rookies, and leaders - simpler flow focused on app features
 export const getKnockingUserSlides = (firstName: string, isLeader: boolean): IntroSlideConfig[] => {
   const cleanName = stripEmojis(firstName) || 'there';
