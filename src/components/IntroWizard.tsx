@@ -52,6 +52,8 @@ interface IntroWizardProps {
   userType: UserType;
   firstName: string;
   onComplete: () => void;
+  segment?: OnboardingSegment;
+  isLeader?: boolean;
 }
 
 // Icon mapping
