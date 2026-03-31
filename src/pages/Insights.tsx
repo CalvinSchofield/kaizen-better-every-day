@@ -76,6 +76,7 @@ export default function Insights() {
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
+  const [chatOpen, setChatOpen] = useState(false);
   
   
   
