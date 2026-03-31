@@ -51,13 +51,15 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
     }).filter(c => c.items.length > 0);
   }, [allDefinitions, earnedBadges, earnedCountMap]);
 
-  const handleTap = (def: BadgeDefinition, earned: UserBadge | null) => {
+  const handleTap = (def: BadgeDefinition, earned: UserBadge | null, count: number) => {
     if (earned) {
       setSelectedBadge(earned);
       setIsSelectedEarned(true);
+      setSelectedCount(count);
     } else if (!def.isHidden || isOwnProfile) {
       setSelectedBadge(def);
       setIsSelectedEarned(false);
+      setSelectedCount(0);
     }
   };
 
