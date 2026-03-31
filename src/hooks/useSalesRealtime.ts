@@ -47,9 +47,11 @@ export const useSalesRealtime = () => {
           }
 
           if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-            if (channel) {
-              supabase.removeChannel(channel);
-              channel = null;
+            // Null out channel BEFORE removing to prevent recursive removeChannel calls
+            const ch = channel;
+            channel = null;
+            if (ch) {
+              supabase.removeChannel(ch);
             }
 
             clearReconnectTimer();
@@ -82,8 +84,10 @@ export const useSalesRealtime = () => {
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("pageshow", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
-      if (channel) {
-        supabase.removeChannel(channel);
+      const ch = channel;
+      channel = null;
+      if (ch) {
+        supabase.removeChannel(ch);
       }
     };
   }, [queryClient]);

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { usePrefetchData } from "@/hooks/usePrefetchData";
@@ -10,18 +10,36 @@ import InactiveAccountScreen from "./InactiveAccountScreen";
 import PendingApprovalScreen from "./PendingApprovalScreen";
 import { useQuery } from "@tanstack/react-query";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import { useSetupStatus } from "@/hooks/useSetupStatus";
+
+/** Routes that require Initial Sync + Goal Setup to access */
+const GATED_ROUTES = [
+  '/track',
+  '/calendar',
+  '/insights',
+  '/leaderboard',
+  '/compete',
+  '/team-reports',
+  '/reports-v2',
+  '/customers',
+  '/log-sale',
+];
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+  const location = useLocation();
   // PERF FIX: Use shared useCurrentUserId instead of independent getSession + onAuthStateChange.
   // This eliminates a redundant auth network call and duplicate listener.
   const { userId, authVerified } = useCurrentUserId();
 
   // Prefetch critical data once authenticated
   usePrefetchData(userId ?? undefined);
+
+  // Check setup status for hard gate
+  const { needsSetup, isReady: setupReady } = useSetupStatus();
 
   // Update timezone when user is authenticated
   useEffect(() => {
@@ -118,6 +136,14 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         teamLeaderPhone={repData.team_leader_phone}
       />
     );
+  }
+
+  // Hard gate: redirect to /goals if user hasn't completed setup and is on a gated route
+  if (setupReady && needsSetup && repData) {
+    const isGatedRoute = GATED_ROUTES.some(route => location.pathname.startsWith(route));
+    if (isGatedRoute) {
+      return <Navigate to="/goals" replace />;
+    }
   }
 
   return (
