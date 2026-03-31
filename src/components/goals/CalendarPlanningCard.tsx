@@ -25,6 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { CalendarIcon, Check, X } from "lucide-react";
 import { toast } from "sonner";
+import { invalidateGoalRelatedQueries, invalidatePlannedDaysQueries } from "@/utils/goalInvalidation";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
 
