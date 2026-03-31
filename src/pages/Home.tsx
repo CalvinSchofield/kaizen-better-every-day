@@ -1005,6 +1005,8 @@ const Home = () => {
         userType={getUserType()}
         firstName={firstName}
         onComplete={markIntroComplete}
+        segment={onboardingSegment}
+        isLeader={!!isLeader}
       />
     );
   }
