@@ -119,6 +119,90 @@ Deno.serve(async (req) => {
     const repsData = allReps || [];
     const recruitsData = allRecruits || [];
 
+    // === COMPUTE ACCESS LEVEL ===
+    // Determine structural roles from table relationships
+    const isTeamLeadStructural = teamsData.some(t => t.lead_user_id === user.id);
+    const isMgmtGroupLeadStructural = mgmtGroupsData.some(g => g.lead_user_id === user.id);
+    
+    // Also check for sr_mgmt_group lead
+    const { data: srMgmtGroupsRaw } = await supabase
+      .from('sr_mgmt_groups')
+      .select('id, lead_user_id')
+      .eq('lead_user_id', user.id)
+      .limit(1);
+    const isSrMgmtGroupLead = (srMgmtGroupsRaw || []).length > 0;
+
+    // Check for regional/sr_regional/partner/divisional lead
+    const { data: regionsLed } = await supabase
+      .from('regions')
+      .select('id')
+      .eq('lead_user_id', user.id)
+      .limit(1);
+    const isRegionalLead = (regionsLed || []).length > 0;
+
+    const { data: srRegionsLed } = await supabase
+      .from('sr_regions')
+      .select('id')
+      .eq('lead_user_id', user.id)
+      .limit(1);
+    const isSrRegionalLead = (srRegionsLed || []).length > 0;
+
+    const { data: partnersLed } = await supabase
+      .from('partners')
+      .select('id')
+      .eq('lead_user_id', user.id)
+      .limit(1);
+    const isPartnerLead = (partnersLed || []).length > 0;
+
+    const { data: divisionsLed } = await supabase
+      .from('divisions')
+      .select('id')
+      .eq('lead_user_id', user.id)
+      .limit(1);
+    const isDivisionalLead = (divisionsLed || []).length > 0;
+
+    // Compute effective access level — highest of explicit role, structural role, and flags wins
+    let accessLevel = highestExplicitRole;
+
+    // Structural lead roles
+    if (isTeamLeadStructural && (ROLE_WEIGHT['team_lead'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'team_lead';
+    }
+    if (isMgmtGroupLeadStructural && (ROLE_WEIGHT['mgmt_group_lead'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'mgmt_group_lead';
+    }
+    if (isSrMgmtGroupLead && (ROLE_WEIGHT['senior_manager'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'senior_manager';
+    }
+    if (isRegionalLead && (ROLE_WEIGHT['regional'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'regional';
+    }
+    if (isSrRegionalLead && (ROLE_WEIGHT['sr_regional'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'sr_regional';
+    }
+    if (isPartnerLead && (ROLE_WEIGHT['partner'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'partner';
+    }
+    if (isDivisionalLead && (ROLE_WEIGHT['divisional'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'divisional';
+    }
+
+    // DB function flags
+    if (isAreaDirector && (ROLE_WEIGHT['area_director'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'area_director';
+    }
+    if (isCorporate && (ROLE_WEIGHT['corporate'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'corporate';
+    }
+
+    // If still 'none' but has recruits, they're a recruiter
+    if (accessLevel === 'none') {
+      const hasRecruits = recruitsData.some(r => r.recruiter_user_id === user.id);
+      if (hasRecruits) accessLevel = 'recruiter';
+    }
+
+    console.log(`[fetch-team-access] User ${user.id} accessLevel=${accessLevel} (explicit=${highestExplicitRole}, teamLead=${isTeamLeadStructural}, mgmtLead=${isMgmtGroupLeadStructural}, AD=${isAreaDirector}, corp=${isCorporate})`);
+
     // HELPER: Get recursive downline recruits
     const getDownlineRecruits = (recruiterId: string, alreadyAddedIds: Set<string>, depth: number = 0): any[] => {
       if (depth > 6) return [];

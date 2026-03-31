@@ -66,8 +66,8 @@ export const useAllOfficeReps = () => {
       });
 
       const fetchPromise = (async () => {
-        // Fetch all data in parallel instead of sequentially
-        const [repsResult, teamsResult, teamMgmtResult, mgmtResult] = await Promise.all([
+        // Fetch all data in parallel including recruits for team assignment
+        const [repsResult, teamsResult, teamMgmtResult, mgmtResult, recruitsResult] = await Promise.all([
           supabase
             .from('reps')
             .select('id, user_id, name, phone, year, stage')
@@ -85,6 +85,10 @@ export const useAllOfficeReps = () => {
             .from('mgmt_groups')
             .select('id, name, lead_user_id')
             .limit(500),
+          supabase
+            .from('recruits')
+            .select('id, team_id, mgmt_group_id')
+            .limit(5000),
         ]);
 
         if (repsResult.error) throw repsResult.error;
