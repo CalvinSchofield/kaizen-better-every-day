@@ -72,14 +72,14 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
             {cat.label}
           </h4>
           <div className="flex flex-wrap gap-2">
-            {cat.items.map(({ definition: def, earned }) => {
+            {cat.items.map(({ definition: def, earned, earnedCount }) => {
               const isEarned = !!earned;
               const isHiddenAndLocked = def.isHidden && !isEarned;
 
               return (
                 <button
                   key={def.slug}
-                  onClick={() => handleTap(def, earned)}
+                  onClick={() => handleTap(def, earned, earnedCount)}
                   className={cn(
                     "relative rounded-full transition-all active:scale-90",
                     !isEarned && "opacity-30 grayscale"
@@ -95,6 +95,11 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
                       rarity={isEarned ? def.rarity : 'common'}
                       size="md"
                     />
+                  )}
+                  {earnedCount > 1 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none">
+                      {earnedCount}
+                    </span>
                   )}
                 </button>
               );
