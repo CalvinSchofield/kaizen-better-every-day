@@ -193,6 +193,9 @@ export const SmartParticipantPicker = ({
       
       // Current user is always eligible if showSelfInList
       if (showSelfInList && rep.userId === currentUserId) return true;
+
+      // Primary guard: exclude exit/inactive stages
+      if (!isRepActive(rep.stage)) return false;
       
       const normalizedStage = normalizeStage(rep.stage);
       return normalizedStage && ACTIVE_STAGES.includes(normalizedStage);

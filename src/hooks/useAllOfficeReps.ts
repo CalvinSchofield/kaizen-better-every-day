@@ -170,6 +170,8 @@ export const useAllOfficeReps = () => {
         const officeReps: OfficeRep[] = reps
           .filter(rep => {
             if (!rep.user_id) return false;
+            // Primary guard: exclude exit stages using the central utility
+            if (!isRepActive(rep.stage)) return false;
             const normalizedStage = normalizeStage(rep.stage);
             return normalizedStage && ACTIVE_STAGES.includes(normalizedStage);
           })
