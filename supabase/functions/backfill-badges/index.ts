@@ -10,6 +10,9 @@ const dailyFpSlug = (n: number) => `daily_fp_${n}`;
 const salesStreakSlug = (n: number) => `streak_sales_${n}`;
 const transitionStreakSlug = (n: number) => `streak_transition_${n}`;
 const presentationStreakSlug = (n: number) => `streak_presentation_${n}`;
+const weeklyFpSlug = (n: number) => `weekly_fp_${n}`;
+const weeklyPrmrSlug = (n: number) => `weekly_prmr_${n}`;
+const clubSlug = (n: number) => `club_${n}`;
 
 const DAILY_FP_THRESHOLDS = [2, 3, 4, 5, 6, 7, 8, 9, 10];
 const SALES_STREAK_THRESHOLDS = [3, 5, 7, 10, 14, 21];
@@ -21,6 +24,11 @@ const MULTI_SALE_STREAKS = [
   { min: 3, days: 3, slug: "streak_multi_3_3" },
   { min: 4, days: 3, slug: "streak_multi_4_3" },
 ];
+const WEEKLY_FP_THRESHOLDS = [10, 15, 20, 30, 40];
+const WEEKLY_PRMR_THRESHOLDS = [1700, 2550, 3400];
+const CLUB_THRESHOLDS = [20, 40, 60, 80, 100, 120, 140, 160, 200, 240, 300, 350, 400, 450, 500, 550, 600];
+
+const SEASON_START = "2025-09-28";
 
 interface DailyEntry {
   entry_date: string;
@@ -42,6 +50,14 @@ interface BadgeDef {
   id: string;
   slug: string;
   rookie_only: boolean | null;
+}
+
+// Get the Sunday that starts the business week for a given date
+function getWeekStart(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00");
+  const day = d.getDay(); // 0=Sun
+  d.setDate(d.getDate() - day);
+  return d.toISOString().split("T")[0];
 }
 
 Deno.serve(async (req) => {
@@ -117,7 +133,7 @@ Deno.serve(async (req) => {
       if (slugToRookieOnly.get(slug) && !rookieUserIds.has(userId)) return;
       const key = `${userId}|${badgeId}|${entryDate}`;
       if (existingSet.has(key)) return;
-      existingSet.add(key); // prevent dupes within this run
+      existingSet.add(key);
       toInsert.push({ user_id: userId, badge_id: badgeId, entry_date: entryDate, metadata });
     }
 
@@ -126,19 +142,37 @@ Deno.serve(async (req) => {
       userEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
       const isRookie = rookieUserIds.has(userId);
 
+      // ===== CUMULATIVE TRACKING FOR CLUBS =====
+      let seasonFpRunning = 0;
+      const clubsAwarded = new Set<number>();
+
+      // ===== WEEKLY TRACKING =====
+      const weeklyTotals = new Map<string, { fp: number; prmr: number; lastDate: string }>();
+
+      // ===== FIRST BLOOD =====
+      let hasFirstSale = false;
+
       for (const entry of userEntries) {
         const date = entry.entry_date;
         const fp = entry.fp_plus || 0;
+        const prmr = entry.prmr || 0;
         const closes = entry.closes || 0;
         const doors = entry.doors_knocked || 0;
         const upgradePrmr = entry.upgrade_prmr || 0;
         const salesLog = entry.sales_log;
+        const isInSeason = date >= SEASON_START;
 
         // --- Daily FP+ milestones ---
         for (const threshold of DAILY_FP_THRESHOLDS) {
           if (fp >= threshold) {
             award(userId, dailyFpSlug(threshold), date, { value: fp });
           }
+        }
+
+        // --- First Blood: first ever sale ---
+        if (!hasFirstSale && closes >= 1) {
+          hasFirstSale = true;
+          award(userId, "first_blood", date);
         }
 
         // --- First Door Magic ---
@@ -150,13 +184,11 @@ Deno.serve(async (req) => {
         if (closes > 0 && entry.counter_timestamps) {
           const doorTs = entry.counter_timestamps["doors_knocked"];
           if (doorTs && Array.isArray(doorTs)) {
-            // Use entry timezone, then rep's profile timezone, then default PST
             const tz = entry.timezone || userTimezones.get(userId) || "America/Los_Angeles";
             const hasLate = doorTs.some((ts: string) => {
               try {
                 const d = new Date(ts);
                 if (isNaN(d.getTime())) return false;
-                // Get the hour in the rep's local timezone
                 const hourStr = new Intl.DateTimeFormat("en-US", {
                   timeZone: tz,
                   hour: "numeric",
@@ -190,26 +222,53 @@ Deno.serve(async (req) => {
         if (upgradePrmr >= 85) {
           award(userId, "upgrade_assassin", date, { value: upgradePrmr });
         }
+
+        // ===== SEASON CLUB BADGES (cumulative FP+ from season start) =====
+        if (isInSeason && entry.is_finalized) {
+          seasonFpRunning += fp;
+          for (const threshold of CLUB_THRESHOLDS) {
+            if (seasonFpRunning >= threshold && !clubsAwarded.has(threshold)) {
+              clubsAwarded.add(threshold);
+              award(userId, clubSlug(threshold), date, { total: Math.round(seasonFpRunning * 10) / 10 });
+            }
+          }
+        }
+
+        // ===== WEEKLY MILESTONE BADGES =====
+        if (isInSeason && entry.is_finalized) {
+          const weekStart = getWeekStart(date);
+          const existing = weeklyTotals.get(weekStart) || { fp: 0, prmr: 0, lastDate: date };
+          existing.fp += fp;
+          existing.prmr += prmr;
+          existing.lastDate = date;
+          weeklyTotals.set(weekStart, existing);
+        }
+      }
+
+      // Award weekly badges after processing all entries (so we have full week totals)
+      for (const [_weekStart, totals] of weeklyTotals) {
+        for (const threshold of WEEKLY_FP_THRESHOLDS) {
+          if (totals.fp >= threshold) {
+            award(userId, weeklyFpSlug(threshold), totals.lastDate, { weeklyFp: Math.round(totals.fp * 10) / 10 });
+          }
+        }
+        for (const threshold of WEEKLY_PRMR_THRESHOLDS) {
+          if (totals.prmr >= threshold) {
+            award(userId, weeklyPrmrSlug(threshold), totals.lastDate, { weeklyPrmr: Math.round(totals.prmr) });
+          }
+        }
       }
 
       // --- Streak calculations ---
-      // We need to process entries in reverse chronological order for each "peak" streak
-      // But simpler: walk forward, tracking current streaks
-
-      // Sales streak (no freeze)
       let salesStreak = 0;
       let lastSalesDate: string | null = null;
-      let bestSalesStreakDate: string | null = null;
 
-      // Transition streak (freeze if 80+ doors)
       let transStreak = 0;
       let lastTransDate: string | null = null;
 
-      // Presentation streak (freeze if 2+ transitions)
       let presStreak = 0;
       let lastPresDate: string | null = null;
 
-      // Multi-sale tracking
       const multiSaleStreaks: Record<string, { streak: number; lastDate: string | null }> = {};
       for (const ms of MULTI_SALE_STREAKS) {
         multiSaleStreaks[ms.slug] = { streak: 0, lastDate: null };
@@ -235,7 +294,6 @@ Deno.serve(async (req) => {
           salesStreak = isConsecutive(lastSalesDate) ? salesStreak + 1 : 1;
           lastSalesDate = date;
         } else {
-          // Award any earned streaks before resetting
           for (const t of SALES_STREAK_THRESHOLDS) {
             if (salesStreak >= t && lastSalesDate) {
               award(userId, salesStreakSlug(t), lastSalesDate, { streak: salesStreak });
@@ -266,7 +324,6 @@ Deno.serve(async (req) => {
             transStreak = isConsecutive(lastTransDate) ? transStreak + 1 : 1;
             lastTransDate = date;
           } else if (doors >= 80) {
-            // Freeze
             transStreak = isConsecutive(lastTransDate) ? transStreak + 1 : 1;
             lastTransDate = date;
           } else {
