@@ -1,72 +1,32 @@
 
 
-# Audit & Fix: Goal/Planned Days Changes Not Propagating
+# Fix: Goal Progress Propagation + Fallback Daily Mission Average
 
-## Problem
+## Two Issues
 
-When you change your preseason goal (e.g. 90 → 75) or update planned work days, the new values don't propagate to all views. The root cause is **fragmented cache keys** — the same data (e.g. `season_config`) is fetched under 6+ different React Query keys, and mutations only invalidate a subset of them.
+### Issue 1: Goal progress bar not updating everywhere
+The centralized invalidation utility has **mismatched query keys** — it invalidates `preseason-fp` but the actual key is `preseason-fp-total`. It also misses several keys that `useGoalPaceCalculator` depends on: `today-entry-unified`, `all-entries-unified`, `official-totals-pace`, and `historical-summer-avg-pace`.
 
-### Current Query Key Fragmentation
+### Issue 2: "0 EFP" Today's Mission when no planned days remain
+When `remainingDays === 0`, `dailyNeeded` becomes 0. Instead of showing "0 EFP to stay on track", we should show the user's season-appropriate average as a fallback target.
 
-The `season_config` table alone is cached under:
-- `season-config` (useAppMode, usePrefetchData)
-- `season-config-for-goals-page` (Goals.tsx)
-- `season-config-for-goals` (CalendarPlanningCard)
-- `season-config-unified` (useGoalPaceCalculator)
-- `season-config-focus-tier` (useFocusTier)
-- `season-config-whatif` (CalendarPlanningPreview)
-- `season-config` with userId (usePlannedDaysSync)
+## Changes
 
-When QuickEditGoalsDrawer saves summer dates, it only invalidates 3 of these. The goal pace calculator, focus tier, and calendar planning card never see the update until staleTime expires (5 minutes).
+### File 1: `src/utils/goalInvalidation.ts`
+Fix mismatched keys and add missing ones:
+- `preseason-fp` → `preseason-fp-total` (actual key)
+- Add `today-entry-unified` 
+- Add `all-entries-unified`
+- Add `official-totals-pace`
+- Add `ytd-prmr-total`
+- Also add these to `invalidatePlannedDaysQueries`
 
-Similarly, when `planned_work_days` are changed, only `planned-days` is invalidated — but `worked-days-data`, `downline-goal-pace`, `goal-pace` queries, and the heatmap all use separate keys.
+### File 2: `src/components/track/DailyMissionCard.tsx`
+When `dailyGoal` is 0 (no remaining planned days) but goals exist:
+- Fall back to `data.userDailyAvg` as the display value
+- Change subtitle from "to stay on track" to "your avg — beat it today"
+- This uses the existing `userDailyAvg` from the pace calculator, which is already season-aware (computed from current season's knocking days)
 
-## Fix
-
-### Step 1: Create a centralized invalidation utility
-
-Create `src/utils/goalInvalidation.ts` with a single function `invalidateGoalRelatedQueries(queryClient)` that invalidates ALL goal-dependent query keys in one call:
-
-- `rep-goals`
-- All `season-config*` variants (use prefix matching)
-- `planned-days`
-- `worked-days-data`
-- `effective-fp`
-- `downline-goal-pace`
-- `all-entries-unified`
-- `today-entry-unified`
-- `preseason-fp`
-- `cumulative-fp`
-
-### Step 2: Wire centralized invalidation into all mutation points
-
-Replace scattered `queryClient.invalidateQueries` calls with the centralized function in:
-
-- **`useRepGoals.ts`** — `updateGoals` onSuccess
-- **`QuickEditGoalsDrawer.tsx`** — after saving goals + summer dates
-- **`usePlannedDays.ts`** — all add/remove/clear onSuccess handlers
-- **`CalendarPlanningCard.tsx`** — after summer date changes
-- **`CalendarView.tsx`** — after summer date changes
-- **`Goals.tsx`** — setup wizard completion, manual sync completion, focus tier changes
-- **`usePlannedDaysSync.ts`** — after exclusion changes
-
-### Step 3: Fix the localStorage planned-days cache staleness
-
-`usePlannedDays.ts` uses a 24-hour localStorage cache as `placeholderData`. After mutations, the localStorage cache is only updated on the next successful fetch. If the app is closed before that fetch completes, the stale localStorage cache wins on next launch.
-
-Fix: Update the localStorage cache immediately inside each mutation's `onSuccess`, or clear it on mutation so the next load fetches fresh.
-
-### Step 4: Fix the infinite removeChannel stack overflow
-
-The runtime error (`Maximum call stack size exceeded` in `removeChannel`) is a recursive loop where unsubscribing from a channel triggers another unsubscribe. This is likely from a realtime subscription cleanup that re-triggers itself. Investigate and add a guard flag to prevent re-entrant cleanup.
-
-### Files Modified
-- `src/utils/goalInvalidation.ts` (new) — centralized invalidation function
-- `src/hooks/useRepGoals.ts` — use centralized invalidation
-- `src/hooks/usePlannedDays.ts` — use centralized invalidation + fix localStorage cache
-- `src/components/goals/QuickEditGoalsDrawer.tsx` — use centralized invalidation
-- `src/components/goals/CalendarPlanningCard.tsx` — use centralized invalidation
-- `src/components/CalendarView.tsx` — use centralized invalidation
-- `src/pages/Goals.tsx` — use centralized invalidation at all mutation points
-- `src/hooks/usePlannedDaysSync.ts` — use centralized invalidation
+### File 3: `src/hooks/useGoalPaceCalculator.ts` (pure function)
+When `remainingDays === 0` and `dailyNeeded` would be 0, expose a `fallbackDailyAvg` in the day timeframe data so consumers know when they're showing a fallback. The `userDailyAvg` field already computes the correct season-specific average (preseason entries during preseason, summer entries during summer) since it divides `currentProgress / knockingDaysCompleted` and `currentProgress` is already scoped to the active season.
 
