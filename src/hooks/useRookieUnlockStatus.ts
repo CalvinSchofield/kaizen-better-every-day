@@ -16,6 +16,7 @@ interface RepDataForUnlock {
   year?: string | null;
   stage?: string | null;
   committed_blitzes?: BlitzData[] | unknown;
+  setup_complete?: boolean | null;
 }
 
 /**
