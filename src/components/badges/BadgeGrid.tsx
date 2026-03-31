@@ -121,7 +121,6 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
         isEarned={isSelectedEarned}
         earnedCount={selectedCount}
       />
-      />
     </div>
   );
 };
