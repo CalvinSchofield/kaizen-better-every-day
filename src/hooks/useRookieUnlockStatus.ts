@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
 import { isRepActive } from "@/utils/repStatusUtils";
+import { useRepGoals } from "./useRepGoals";
 
 const GLOBAL_SUMMER_START = '2026-04-12';
 
