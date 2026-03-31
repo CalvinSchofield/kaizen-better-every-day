@@ -30,6 +30,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { invalidatePlannedDaysQueries } from "@/utils/goalInvalidation";
 import { useSyncedBooks } from "@/hooks/useSyncedBooks";
 
 import { BOOKS } from "./BooksSelectionDrawer";
