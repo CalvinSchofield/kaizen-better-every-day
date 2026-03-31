@@ -82,6 +82,7 @@ const Home = () => {
   const { hasGoalsAccess, goals } = useRepGoals();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
   const { hasMnlEventToday } = useMondayNightLightsEvent();
+  const { segment: onboardingSegment } = useOnboardingSegment(repData);
   
   // Subscribe to realtime sales updates for immediate data sync
   useSalesRealtime();
