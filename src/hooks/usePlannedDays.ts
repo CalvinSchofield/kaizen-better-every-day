@@ -243,7 +243,7 @@ export const usePlannedDays = () => {
         })), { onConflict: 'user_id,planned_date' });
 
       if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      invalidatePlannedDaysQueries(queryClient);
     } catch (error) {
       // Rollback on error
       queryClient.setQueryData(['planned-days', userId], previousDays);
