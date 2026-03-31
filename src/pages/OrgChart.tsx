@@ -234,9 +234,7 @@ const OrgChart = () => {
       // Global viewers: show all root recruiters
       const recruitedUserIds = new Set<string>();
       recruits.forEach((r) => {
-        const recruitRep = reps.find(
-          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
-        );
+        const recruitRep = findRepForRecruit(r);
         if (recruitRep?.user_id && r.recruiter_user_id && r.recruiter_user_id !== recruitRep.user_id) {
           recruitedUserIds.add(recruitRep.user_id);
         }
