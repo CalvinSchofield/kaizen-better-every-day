@@ -273,8 +273,7 @@ export const InsightsChat = ({ isOpen, onClose }: InsightsChatProps) => {
 
       {/* Input */}
       <div
-        className="border-t border-border/50 bg-background px-4 py-3"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+        className="border-t border-border/50 bg-background px-4 py-3 pb-3"
       >
         <div className="flex items-end gap-2 max-w-lg mx-auto">
           <textarea
