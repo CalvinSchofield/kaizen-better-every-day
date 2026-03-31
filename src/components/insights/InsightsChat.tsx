@@ -8,12 +8,12 @@ import { toast } from 'sonner';
 type Message = { role: 'user' | 'assistant'; content: string };
 
 const SUGGESTED_PROMPTS = [
-  "How am I doing this week vs last?",
-  "What day of the week do I sell best?",
-  "Am I on pace for my season goal?",
-  "Break down my funnel — where am I losing deals?",
-  "What time of day am I most productive?",
-  "Compare my last 2 weeks",
+  "How's my week looking vs last week?",
+  "What day do I sell best on?",
+  "Am I on pace for my goal?",
+  "Where am I losing deals in my funnel?",
+  "When do I sell the most during the day?",
+  "Give me something to bring up in my 1-on-1",
 ];
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/insights-chat`;
@@ -188,8 +188,11 @@ export const InsightsChat = ({ isOpen, onClose }: InsightsChatProps) => {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-background flex flex-col"
-      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      className="fixed inset-x-0 top-0 z-50 bg-background flex flex-col"
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        bottom: 'calc(4rem + env(safe-area-inset-bottom))',
+      }}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 bg-background">
@@ -270,8 +273,7 @@ export const InsightsChat = ({ isOpen, onClose }: InsightsChatProps) => {
 
       {/* Input */}
       <div
-        className="border-t border-border/50 bg-background px-4 py-3"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+        className="border-t border-border/50 bg-background px-4 py-3 pb-3"
       >
         <div className="flex items-end gap-2 max-w-lg mx-auto">
           <textarea
