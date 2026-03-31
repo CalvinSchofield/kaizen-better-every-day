@@ -17,10 +17,13 @@ import { hapticLight, hapticSelection } from "@/utils/haptics";
 import { prefetchAboutTeamImages } from "@/hooks/useAboutTeamPrefetch";
 import { 
   getPreBlitzRookieSlides, 
-  getKnockingUserSlides, 
+  getKnockingUserSlides,
+  getOutsideOrgSlides,
+  getInOrgVetSlides,
   IntroSlideConfig,
   IconName 
 } from "@/data/introSlides";
+import type { OnboardingSegment } from "@/hooks/useOnboardingSegment";
 
 // Preload all leader and slide images on mount
 const preloadImages = (slides: IntroSlideConfig[]) => {
