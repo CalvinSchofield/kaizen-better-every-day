@@ -149,3 +149,6 @@ verify_jwt = false
 
 [functions.handle-notification-reply]
 verify_jwt = false
+
+[functions.insights-chat]
+verify_jwt = false
