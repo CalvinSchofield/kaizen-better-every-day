@@ -148,6 +148,8 @@ export const checkRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
   const stage = repData?.stage?.toLowerCase() || '';
   const hasQualifyingStage = stage.includes('shadow') || stage.includes('sold');
 
+  const hasCompletedGoalSetup = repData?.setup_complete === true;
+
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -174,11 +176,11 @@ export const checkRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
   const hasAttendedOrOnBlitz = hasAttendedBlitz || isOnActiveBlitz;
   
   // Summer check using global fallback only
-  const hasSummerStarted = isRookie && !isInactive && !hasAttendedOrOnBlitz && !hasQualifyingStage
+  const hasSummerStarted = isRookie && !isInactive && !hasAttendedOrOnBlitz && !hasQualifyingStage && !hasCompletedGoalSetup
     ? now >= new Date(GLOBAL_SUMMER_START + 'T00:00:00')
     : false;
 
-  const isUnlocked = !isInactive && (hasAttendedOrOnBlitz || hasQualifyingStage || hasSummerStarted);
+  const isUnlocked = !isInactive && (hasAttendedOrOnBlitz || hasQualifyingStage || hasSummerStarted || hasCompletedGoalSetup);
   const isPreBlitzRookie = isRookie && !isUnlocked;
 
   return {
