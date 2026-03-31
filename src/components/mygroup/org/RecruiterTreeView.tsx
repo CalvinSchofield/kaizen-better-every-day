@@ -93,6 +93,12 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       if (rep.user_id) repMap.set(rep.user_id, rep);
     });
 
+    // Id-based lookup: rep.id often equals recruit.id
+    const repByRecruitId = new Map<string, (typeof reps)[number]>();
+    reps.forEach((rep) => {
+      if (rep.id) repByRecruitId.set(rep.id, rep);
+    });
+
     const repByCleanName = new Map<string, (typeof reps)[number]>();
     reps.forEach((rep) => {
       const cleanName = getCleanName(rep.name).toLowerCase();
