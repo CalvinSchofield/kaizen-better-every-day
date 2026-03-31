@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { isNativeApp } from '@/utils/platform';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
@@ -17,6 +18,74 @@ const SUGGESTED_PROMPTS = [
 ];
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/insights-chat`;
+
+async function parseErrorResponse(resp: Response, onError: (msg: string) => void) {
+  try {
+    const body = await resp.json();
+    if (resp.status === 429) {
+      onError(body.error || 'Too many requests. Please wait a moment.');
+    } else if (resp.status === 402) {
+      onError(body.error || 'AI credits exhausted.');
+    } else {
+      onError(body.error || 'Something went wrong.');
+    }
+  } catch {
+    onError('Something went wrong.');
+  }
+}
+
+async function fetchChatResponse(messages: Message[], sessionToken: string, stream: boolean) {
+  return fetch(CHAT_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${sessionToken}`,
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    },
+    body: JSON.stringify({ messages, stream }),
+  });
+}
+
+async function requestNonStreamingChat({
+  messages,
+  sessionToken,
+  onDelta,
+  onDone,
+  onError,
+}: {
+  messages: Message[];
+  sessionToken: string;
+  onDelta: (text: string) => void;
+  onDone: () => void;
+  onError: (msg: string) => void;
+}) {
+  let resp: Response;
+
+  try {
+    resp = await fetchChatResponse(messages, sessionToken, false);
+  } catch {
+    onError('Network error. Please check your connection.');
+    return;
+  }
+
+  if (!resp.ok) {
+    await parseErrorResponse(resp, onError);
+    return;
+  }
+
+  try {
+    const body = await resp.json();
+    const content = typeof body.content === 'string' ? body.content : '';
+    if (!content.trim()) {
+      onError('Empty response');
+      return;
+    }
+    onDelta(content);
+    onDone();
+  } catch {
+    onError('Something went wrong.');
+  }
+}
 
 async function streamChat({
   messages,
@@ -35,87 +104,98 @@ async function streamChat({
     return;
   }
 
+  const sessionToken = session.access_token;
+
+  if (isNativeApp()) {
+    await requestNonStreamingChat({
+      messages,
+      sessionToken,
+      onDelta,
+      onDone,
+      onError,
+    });
+    return;
+  }
+
   let resp: Response;
   try {
-    resp = await fetch(CHAT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-      },
-      body: JSON.stringify({ messages }),
-    });
+    resp = await fetchChatResponse(messages, sessionToken, true);
   } catch {
     onError("Network error. Please check your connection.");
     return;
   }
 
   if (!resp.ok) {
-    try {
-      const body = await resp.json();
-      if (resp.status === 429) {
-        onError(body.error || "Too many requests. Please wait a moment.");
-      } else if (resp.status === 402) {
-        onError(body.error || "AI credits exhausted.");
-      } else {
-        onError(body.error || "Something went wrong.");
-      }
-    } catch {
-      onError("Something went wrong.");
-    }
+    await parseErrorResponse(resp, onError);
     return;
   }
 
-  if (!resp.body) { onError("Empty response"); return; }
+  if (!resp.body) {
+    await requestNonStreamingChat({
+      messages,
+      sessionToken,
+      onDelta,
+      onDone,
+      onError,
+    });
+    return;
+  }
 
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
-  let buffer = "";
+  let buffer = '';
   let streamDone = false;
 
-  while (!streamDone) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+  try {
+    while (!streamDone) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
 
-    let idx: number;
-    while ((idx = buffer.indexOf("\n")) !== -1) {
-      let line = buffer.slice(0, idx);
-      buffer = buffer.slice(idx + 1);
-      if (line.endsWith("\r")) line = line.slice(0, -1);
-      if (line.startsWith(":") || line.trim() === "") continue;
-      if (!line.startsWith("data: ")) continue;
-      const json = line.slice(6).trim();
-      if (json === "[DONE]") { streamDone = true; break; }
-      try {
-        const parsed = JSON.parse(json);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) onDelta(content);
-      } catch {
-        buffer = line + "\n" + buffer;
-        break;
+      let idx: number;
+      while ((idx = buffer.indexOf('\n')) !== -1) {
+        let line = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
+        if (line.endsWith('\r')) line = line.slice(0, -1);
+        if (line.startsWith(':') || line.trim() === '') continue;
+        if (!line.startsWith('data: ')) continue;
+        const json = line.slice(6).trim();
+        if (json === '[DONE]') {
+          streamDone = true;
+          break;
+        }
+        try {
+          const parsed = JSON.parse(json);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) onDelta(content);
+        } catch {
+          buffer = line + '\n' + buffer;
+          break;
+        }
       }
     }
-  }
 
-  // flush
-  if (buffer.trim()) {
-    for (let raw of buffer.split("\n")) {
-      if (!raw) continue;
-      if (raw.endsWith("\r")) raw = raw.slice(0, -1);
-      if (!raw.startsWith("data: ")) continue;
-      const json = raw.slice(6).trim();
-      if (json === "[DONE]") continue;
-      try {
-        const parsed = JSON.parse(json);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) onDelta(content);
-      } catch { /* ignore */ }
+    if (buffer.trim()) {
+      for (let raw of buffer.split('\n')) {
+        if (!raw) continue;
+        if (raw.endsWith('\r')) raw = raw.slice(0, -1);
+        if (!raw.startsWith('data: ')) continue;
+        const json = raw.slice(6).trim();
+        if (json === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(json);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) onDelta(content);
+        } catch {
+          // ignore trailing partial event
+        }
+      }
     }
-  }
 
-  onDone();
+    onDone();
+  } catch {
+    onError('Connection interrupted. Please try again.');
+  }
 }
 
 interface InsightsChatProps {
