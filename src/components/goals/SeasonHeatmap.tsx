@@ -194,10 +194,10 @@ export const SeasonHeatmap = ({
             else level = 4;
           }
         } else if (isFuture) {
-          if (isSunday || isExcluded) {
-            level = 'future-off';
-          } else if (isPlanned) {
+          if (isPlanned) {
             level = 'future-planned';
+          } else if (isSunday || isExcluded) {
+            level = 'future-off';
           } else {
             level = 'future-off';
           }
