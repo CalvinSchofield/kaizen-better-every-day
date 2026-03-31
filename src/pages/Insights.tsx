@@ -364,8 +364,8 @@ export default function Insights() {
         )}
       </div>
 
-      {/* AI Coach Floating Button */}
-      {insights && insights.daysWorked > 0 && <AICoachFab />}
+      {/* AI Coach Chat */}
+      <InsightsChat isOpen={chatOpen} onClose={() => setChatOpen(false)} />
 
       {/* Custom Date Range Sheet */}
       <Sheet open={showCustomDialog} onOpenChange={setShowCustomDialog}>
