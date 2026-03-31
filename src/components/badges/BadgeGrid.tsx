@@ -16,6 +16,13 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
   const [selectedBadge, setSelectedBadge] = useState<(UserBadge | BadgeDefinition) | null>(null);
   const [isSelectedEarned, setIsSelectedEarned] = useState(false);
 
+  // Count how many times each badge slug was earned
+  const earnedCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    earnedBadges.forEach(b => map.set(b.slug, (map.get(b.slug) || 0) + 1));
+    return map;
+  }, [earnedBadges]);
+
   const earnedSlugs = useMemo(() => new Set(earnedBadges.map(b => b.slug)), [earnedBadges]);
 
   // Group by category
@@ -38,10 +45,11 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
         items: defs.map(def => ({
           definition: def,
           earned: earned.find(e => e.slug === def.slug) || null,
+          earnedCount: earnedCountMap.get(def.slug) || 0,
         })),
       };
     }).filter(c => c.items.length > 0);
-  }, [allDefinitions, earnedBadges]);
+  }, [allDefinitions, earnedBadges, earnedCountMap]);
 
   const handleTap = (def: BadgeDefinition, earned: UserBadge | null) => {
     if (earned) {
