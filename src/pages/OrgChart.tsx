@@ -32,7 +32,7 @@ const OrgChart = () => {
     queryFn: async () => {
       const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, teamMgmtRes, officeStaffRes, officesRes] = await Promise.all([
         supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, year, phone, email, location, recruitment_source, last_contact, next_action, next_action_due, created_at, mgmt_group_id, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, onboarding_complete, trainings_complete, slack_joined, ipad_assigned, blitz_ready, spouse_name, significant_other_name, caution_notes, watch_out_notes").limit(5000),
-        supabase.from("reps").select("user_id, name, profile_photo_url, year, stage, phone, email").limit(5000),
+        supabase.from("reps").select("id, user_id, name, profile_photo_url, year, stage, phone, email").limit(5000),
         supabase.from("teams").select("id, name, lead_user_id").limit(500),
         supabase.from("mgmt_groups").select("id, name, lead_user_id, office_id").limit(500),
         supabase.from("team_mgmt_groups").select("team_id, mgmt_group_id").limit(500),
@@ -100,6 +100,7 @@ const OrgChart = () => {
 
     const { recruits, reps } = treeData;
     const repMap = new Map(reps.map((r) => [r.user_id, r]));
+    const repById = new Map(reps.map((r: any) => [r.id, r]));
     const recruitsByRecruiter = new Map<string, typeof recruits>();
     // Team leads also see pipeline stages (Reached Out, Evaluating)
     const visibleStages = accessLevel === "team_lead"
@@ -117,6 +118,13 @@ const OrgChart = () => {
       }
     });
 
+    // Match recruit → rep: try by id first (rep.id === recruit.id), then by name
+    const findRepForRecruit = (recruit: typeof recruits[0]) => {
+      const byId = repById.get(recruit.id);
+      if (byId?.user_id) return byId;
+      return reps.find(rep => getCleanName(rep.name).toLowerCase() === getCleanName(recruit.name).toLowerCase());
+    };
+
     const buildNode = (userId: string, visited = new Set<string>()): TreeNode | null => {
       if (visited.has(userId)) return null;
       visited.add(userId);
@@ -124,15 +132,15 @@ const OrgChart = () => {
       const rep = repMap.get(userId);
       const recruiterRecruits = recruitsByRecruiter.get(userId) || [];
       const repName = rep?.name || "";
+      // Find recruit record for this rep: try by id first, then by name
       const recruitByName = new Map(recruits.map((r) => [getCleanName(r.name).toLowerCase(), r]));
-      const recruitRecord = recruitByName.get(getCleanName(repName).toLowerCase());
+      const recruitRecord = ((rep as any)?.id ? recruits.find(rec => rec.id === (rep as any).id) : null)
+        || recruitByName.get(getCleanName(repName).toLowerCase());
 
       let children: TreeNode[] = [];
 
       recruiterRecruits.forEach((r) => {
-        const recruitRep = reps.find(
-          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
-        );
+        const recruitRep = findRepForRecruit(r);
         if (recruitRep?.user_id) {
           const child = buildNode(recruitRep.user_id, new Set(visited));
           if (child) children.push(child);
@@ -140,9 +148,7 @@ const OrgChart = () => {
       });
 
       recruiterRecruits.forEach((r) => {
-        const recruitRep = reps.find(
-          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
-        );
+        const recruitRep = findRepForRecruit(r);
         if (!recruitRep?.user_id) {
           children.push({
             id: r.id,
@@ -228,9 +234,7 @@ const OrgChart = () => {
       // Global viewers: show all root recruiters
       const recruitedUserIds = new Set<string>();
       recruits.forEach((r) => {
-        const recruitRep = reps.find(
-          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
-        );
+        const recruitRep = findRepForRecruit(r);
         if (recruitRep?.user_id && r.recruiter_user_id && r.recruiter_user_id !== recruitRep.user_id) {
           recruitedUserIds.add(recruitRep.user_id);
         }
@@ -332,8 +336,9 @@ const OrgChart = () => {
     const teamToMgmt = new Map<string, string>();
     teamMgmt.forEach(tm => teamToMgmt.set(tm.team_id, tm.mgmt_group_id));
 
+    const repByIdLookup = new Map(reps.map((rep: any) => [rep.id, rep]));
     recruits.forEach((r) => {
-      const recruitRep = reps.find(
+      const recruitRep = repByIdLookup.get(r.id) || reps.find(
         rep => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
       );
       const recruiterRep = r.recruiter_user_id ? repMap.get(r.recruiter_user_id) : null;

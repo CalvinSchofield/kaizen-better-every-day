@@ -93,6 +93,12 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       if (rep.user_id) repMap.set(rep.user_id, rep);
     });
 
+    // Id-based lookup: rep.id often equals recruit.id
+    const repByRecruitId = new Map<string, (typeof reps)[number]>();
+    reps.forEach((rep) => {
+      if (rep.id) repByRecruitId.set(rep.id, rep);
+    });
+
     const repByCleanName = new Map<string, (typeof reps)[number]>();
     reps.forEach((rep) => {
       const cleanName = getCleanName(rep.name).toLowerCase();
@@ -146,7 +152,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
 
       // Children with app accounts
       recruiterRecruits.forEach((recruit) => {
-        const recruitRep = repByCleanName.get(getCleanName(recruit.name).toLowerCase());
+        const recruitRep = repByRecruitId.get(recruit.id) || repByCleanName.get(getCleanName(recruit.name).toLowerCase());
         if (recruitRep?.user_id) {
           const child = buildNode(recruitRep.user_id, new Set(visited));
           if (child) children.push(child);
@@ -155,7 +161,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
 
       // Leaf recruits without app accounts
       recruiterRecruits.forEach((recruit) => {
-        const recruitRep = repByCleanName.get(getCleanName(recruit.name).toLowerCase());
+        const recruitRep = repByRecruitId.get(recruit.id) || repByCleanName.get(getCleanName(recruit.name).toLowerCase());
         if (!recruitRep?.user_id) {
           children.push({
             id: recruit.id,
