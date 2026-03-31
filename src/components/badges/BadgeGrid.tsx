@@ -119,6 +119,8 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
         onOpenChange={(open) => !open && setSelectedBadge(null)}
         badge={selectedBadge}
         isEarned={isSelectedEarned}
+        earnedCount={selectedCount}
+      />
       />
     </div>
   );
