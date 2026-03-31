@@ -35,6 +35,10 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
   
   // Inactive reps are NEVER unlocked regardless of any other condition
   const isInactive = repData?.stage ? !isRepActive(repData.stage) : false;
+
+  // Check if goals setup is complete (unlocks app after goal wizard)
+  const { goals } = useRepGoals();
+  const hasCompletedGoalSetup = goals?.setup_complete === true;
   
   const blitzes = useMemo(() => {
     if (!repData?.committed_blitzes) return [];
