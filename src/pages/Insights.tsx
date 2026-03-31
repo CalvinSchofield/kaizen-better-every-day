@@ -231,6 +231,21 @@ export default function Insights() {
     <div className="min-h-screen bg-background pb-24">
       {/* Sticky Header with Date Selector + Tabs */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50">
+        {/* AI Coach Button Row */}
+        {insights && insights.daysWorked > 0 && (
+          <div className="px-4 pt-3 pb-1">
+            <button
+              onClick={() => setChatOpen(true)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/15 transition-colors"
+            >
+              <div className="p-1.5 rounded-lg bg-primary/20 shrink-0">
+                <Sparkles className="w-4 h-4 text-primary" />
+              </div>
+              <span className="text-sm font-medium text-foreground">Talk to Your Data</span>
+              <ArrowRight className="w-4 h-4 text-muted-foreground ml-auto" />
+            </button>
+          </div>
+        )}
         {/* Date Range Buttons */}
         <div className="px-4 py-3 overflow-x-auto scrollbar-hide" data-tour="insights-date-range">
           <div className="flex gap-2">
