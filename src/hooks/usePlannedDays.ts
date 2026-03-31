@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUserId } from "./useCurrentUserId";
 import { hapticLight, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
+import { invalidatePlannedDaysQueries } from "@/utils/goalInvalidation";
 
 export interface PlannedDay {
   id: string;
