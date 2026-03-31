@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { isRepActive } from "@/utils/repStatusUtils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -41,16 +42,19 @@ interface SmartParticipantPickerProps {
 const normalizeStage = (stage: string | null | undefined): string | null => {
   if (!stage) return null;
   const lower = stage.toLowerCase().trim();
-  
+
+  // Exit stages first — prevents "Signed but Not Interested" matching 'signed'
+  if (lower.includes('not interested')) return 'not_interested';
+  if (lower.includes('follow up')) return 'follow_up';
+
   if (lower.includes('signed')) return 'signed';
-  if (lower.includes('shadow') && lower.includes('✅')) return 'shadow_complete';
   if (lower.includes('shadow')) return 'shadow_complete';
   if (lower.includes('sold') && (lower.includes('5+') || lower.includes('💰'))) return 'sold_5_plus';
   if (lower.includes('sold')) return 'sold';
   if (lower.includes('evaluating')) return 'evaluating';
   if (lower.includes('reached')) return 'reached_out';
   if (lower.includes('100')) return '100_list';
-  
+
   return lower;
 };
 
@@ -189,6 +193,9 @@ export const SmartParticipantPicker = ({
       
       // Current user is always eligible if showSelfInList
       if (showSelfInList && rep.userId === currentUserId) return true;
+
+      // Primary guard: exclude exit/inactive stages
+      if (!isRepActive(rep.stage)) return false;
       
       const normalizedStage = normalizeStage(rep.stage);
       return normalizedStage && ACTIVE_STAGES.includes(normalizedStage);

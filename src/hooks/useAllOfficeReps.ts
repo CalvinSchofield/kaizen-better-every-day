@@ -1,11 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isRepActive } from "@/utils/repStatusUtils";
 
 // Normalize stage for filtering - maps display stages to canonical forms
 const normalizeStage = (stage: string | null | undefined): string | null => {
   if (!stage) return null;
   const lower = stage.toLowerCase().trim();
-  
+
+  // Exit / terminal stages must be checked FIRST so that
+  // "Signed but Not Interested" is not mistakenly matched by the
+  // `includes('signed')` rule below.
+  if (lower.includes('not interested')) return 'not_interested';
+  if (lower.includes('follow up')) return 'follow_up';
+
   if (lower.includes('signed')) return 'signed';
   if (lower.includes('shadow')) return 'shadow_complete';
   if (lower.includes('sold') && (lower.includes('5+') || lower.includes('5)') || lower.includes('💰'))) return 'sold_5_plus';
@@ -13,7 +20,7 @@ const normalizeStage = (stage: string | null | undefined): string | null => {
   if (lower.includes('evaluating')) return 'evaluating';
   if (lower.includes('reached')) return 'reached_out';
   if (lower.includes('100')) return '100_list';
-  
+
   return lower;
 };
 
@@ -163,6 +170,8 @@ export const useAllOfficeReps = () => {
         const officeReps: OfficeRep[] = reps
           .filter(rep => {
             if (!rep.user_id) return false;
+            // Primary guard: exclude exit stages using the central utility
+            if (!isRepActive(rep.stage)) return false;
             const normalizedStage = normalizeStage(rep.stage);
             return normalizedStage && ACTIVE_STAGES.includes(normalizedStage);
           })
