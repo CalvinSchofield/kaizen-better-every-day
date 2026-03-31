@@ -112,8 +112,8 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
     return new Date() >= new Date(effectiveStart + 'T00:00:00');
   }, [needsSummerCheck, seasonConfig]);
 
-  // Ultimate unlock: blitz OR qualifying stage OR summer started — but NEVER inactive
-  const isUnlocked = !isInactive && (hasAttendedOrOnBlitz || hasQualifyingStage || hasSummerStarted);
+  // Ultimate unlock: blitz OR qualifying stage OR summer started OR goal setup complete — but NEVER inactive
+  const isUnlocked = !isInactive && (hasAttendedOrOnBlitz || hasQualifyingStage || hasSummerStarted || hasCompletedGoalSetup);
   
   // Pre-blitz status (locked)
   const isPreBlitzRookie = isRookie && !isUnlocked;
