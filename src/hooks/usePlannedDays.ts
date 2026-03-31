@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUserId } from "./useCurrentUserId";
 import { hapticLight, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
+import { invalidatePlannedDaysQueries } from "@/utils/goalInvalidation";
 
 export interface PlannedDay {
   id: string;
@@ -122,8 +123,20 @@ export const usePlannedDays = () => {
         },
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+    onSuccess: (data) => {
+      // Update localStorage cache immediately so it's never stale on app restart
+      if (userId) {
+        try {
+          const current = queryClient.getQueryData<PlannedDay[]>(['planned-days', userId]);
+          if (current) {
+            localStorage.setItem(`planned-days-cache-${userId}`, JSON.stringify({
+              data: current,
+              timestamp: Date.now()
+            }));
+          }
+        } catch {}
+      }
+      invalidatePlannedDaysQueries(queryClient);
     },
   });
 
@@ -174,7 +187,19 @@ export const usePlannedDays = () => {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      // Update localStorage cache immediately
+      if (userId) {
+        try {
+          const current = queryClient.getQueryData<PlannedDay[]>(['planned-days', userId]);
+          if (current) {
+            localStorage.setItem(`planned-days-cache-${userId}`, JSON.stringify({
+              data: current,
+              timestamp: Date.now()
+            }));
+          }
+        } catch {}
+      }
+      invalidatePlannedDaysQueries(queryClient);
     },
   });
 
@@ -218,7 +243,7 @@ export const usePlannedDays = () => {
         })), { onConflict: 'user_id,planned_date' });
 
       if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      invalidatePlannedDaysQueries(queryClient);
     } catch (error) {
       // Rollback on error
       queryClient.setQueryData(['planned-days', userId], previousDays);
@@ -246,7 +271,7 @@ export const usePlannedDays = () => {
         .in('planned_date', dates);
 
       if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      invalidatePlannedDaysQueries(queryClient);
     } catch (error) {
       // Rollback on error
       queryClient.setQueryData(['planned-days', userId], previousDays);
@@ -270,7 +295,7 @@ export const usePlannedDays = () => {
         .eq('user_id', userId);
 
       if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      invalidatePlannedDaysQueries(queryClient);
     } catch (error) {
       // Rollback on error
       queryClient.setQueryData(['planned-days', userId], previousDays);

@@ -30,6 +30,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { invalidatePlannedDaysQueries } from "@/utils/goalInvalidation";
 import { useSyncedBooks } from "@/hooks/useSyncedBooks";
 
 import { BOOKS } from "./BooksSelectionDrawer";
@@ -245,7 +246,7 @@ export const CommitmentEditorDrawer = ({
       if (error) throw error;
       
       // Invalidate planned days to trigger calendar update
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      invalidatePlannedDaysQueries(queryClient);
       toast.success(`Committed to ${blitz.name}!`);
     } catch (error) {
       console.error('Error committing to blitz:', error);
@@ -278,7 +279,7 @@ export const CommitmentEditorDrawer = ({
       if (error) throw error;
       
       // Invalidate planned days to trigger calendar update
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      invalidatePlannedDaysQueries(queryClient);
       toast.success("Uncommitted from blitz");
     } catch (error) {
       console.error('Error uncommitting from blitz:', error);

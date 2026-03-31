@@ -6,6 +6,7 @@ import { useCurrentUserId } from "./useCurrentUserId";
 import { hapticSuccess, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
 import { syncGoalsSetupFlag, hasCompletedGoalsSetup } from "@/lib/goalsSetupCache";
+import { invalidateGoalRelatedQueries } from "@/utils/goalInvalidation";
 
 export interface TrainingWeekHistory {
   week_start: string; // ISO date string (Sunday)
@@ -306,7 +307,7 @@ export const useRepGoals = () => {
     },
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
+      invalidateGoalRelatedQueries(queryClient);
     },
   });
 

@@ -4,6 +4,7 @@ import { usePlannedDays } from "./usePlannedDays";
 import { useRepData } from "./useRepData";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { invalidateGoalRelatedQueries } from "@/utils/goalInvalidation";
 
 interface CommittedBlitz {
   id: string;
@@ -118,7 +119,7 @@ export const usePlannedDaysSync = () => {
     onSuccess: () => {
       // Clear pending exclusions once saved to DB
       setPendingExclusions({});
-      queryClient.invalidateQueries({ queryKey: ['season-config', repData?.user_id] });
+      invalidateGoalRelatedQueries(queryClient);
     },
   });
 
@@ -483,7 +484,7 @@ export const usePlannedDaysSync = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['season-config', repData?.user_id] });
+      invalidateGoalRelatedQueries(queryClient);
     },
   });
 

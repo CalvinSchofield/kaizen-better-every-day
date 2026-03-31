@@ -28,6 +28,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
+import { invalidateGoalRelatedQueries } from "@/utils/goalInvalidation";
 import { formatBlitzDate } from "@/utils/blitzDateUtils";
 import { toast } from "sonner";
 
@@ -1022,9 +1023,7 @@ export const CalendarView = ({
                                   });
                                 }
 
-                                queryClient.invalidateQueries({ queryKey: ['season-config-for-goals-page'] });
-                                queryClient.invalidateQueries({ queryKey: ['season-config'] });
-                                queryClient.invalidateQueries({ queryKey: ['season-config-whatif'] });
+                                invalidateGoalRelatedQueries(queryClient);
                                 hapticSuccess();
                                 setSavedSummerDates(true);
                                 toast.success('Summer dates updated');

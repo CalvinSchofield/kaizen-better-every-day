@@ -25,6 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { CalendarIcon, Check, X } from "lucide-react";
 import { toast } from "sonner";
+import { invalidateGoalRelatedQueries, invalidatePlannedDaysQueries } from "@/utils/goalInvalidation";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
 
@@ -716,7 +717,7 @@ export const CalendarPlanningCard = ({
       if (error) throw error;
       
       // Invalidate planned days to trigger calendar update
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      invalidatePlannedDaysQueries(queryClient);
       toast.success(`Committed to ${blitz.name}!`);
     } catch (error) {
       console.error('Error committing to blitz:', error);
@@ -749,7 +750,7 @@ export const CalendarPlanningCard = ({
       if (error) throw error;
       
       // Invalidate planned days to trigger calendar update
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      invalidatePlannedDaysQueries(queryClient);
       toast.success("Uncommitted from blitz");
     } catch (error) {
       console.error('Error uncommitting from blitz:', error);
@@ -1709,8 +1710,7 @@ export const CalendarPlanningCard = ({
                         }
                         
                         toast.success(`Summer ${updateField === 'personal_summer_start' ? 'start' : 'end'} date updated to ${format(selectedDate, 'MMM d, yyyy')}!`);
-                        queryClient.invalidateQueries({ queryKey: ['season-config-for-goals'] });
-                        queryClient.invalidateQueries({ queryKey: ['season-config'] });
+                        invalidateGoalRelatedQueries(queryClient);
                         
                         // For "taking off day" case, we don't toggle the day since they're delaying start
                         // For "before start" case, we do toggle since they're starting earlier

@@ -14,6 +14,7 @@ import { usePersonalBenchmarks } from "@/hooks/usePersonalBenchmarks";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { useEffectiveFP } from "@/hooks/useEffectiveFP";
 import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
+import { invalidateGoalRelatedQueries } from "@/utils/goalInvalidation";
 import { GoalSetupWizard } from "@/components/goals/GoalSetupWizard";
 import { GoalHeroRing, GoalTier } from "@/components/goals/GoalHeroRing";
 import { CommitmentChips } from "@/components/goals/CommitmentChips";
@@ -769,8 +770,7 @@ const Goals = () => {
                 }
 
                 setShowSetupWizard(false);
-                queryClient.invalidateQueries({ queryKey: ['planned-days'] });
-                queryClient.invalidateQueries({ queryKey: ['season-config'] });
+                invalidateGoalRelatedQueries(queryClient);
                 toast.success("Goals saved!");
               } catch (error) {
                 toast.error("Failed to save goals");
@@ -821,7 +821,7 @@ const Goals = () => {
         goal_review_requested_at: null,
       } as any)
       .eq('user_id', userId);
-    queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
+    invalidateGoalRelatedQueries(queryClient);
   };
 
   return (
