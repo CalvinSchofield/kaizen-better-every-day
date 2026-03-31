@@ -121,17 +121,33 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
 
   const handleNext = useCallback(() => {
     if (isLastSlide) {
-      // Pre-blitz rookies go to About Team to learn more about the opportunity
-      if (userType === 'pre-blitz-rookie') {
-        onComplete();
+      onComplete();
+      
+      if (segment) {
+        // Segment-based routing
+        switch (segment) {
+          case 'outside-org':
+          case 'in-org-vet':
+            // Go straight to Goals (sync gate → goal setup → calendar planning)
+            navigate('/goals');
+            break;
+          case 'in-org-rookie-preseason':
+            // Show About Team, then Home for ramp
+            navigate('/about-team');
+            break;
+          case 'in-org-rookie-summer':
+            // Show About Team briefly, then Goals for sync+setup
+            navigate('/about-team');
+            break;
+        }
+      } else if (userType === 'pre-blitz-rookie') {
+        // Legacy fallback
         navigate('/about-team');
-      } else {
-        onComplete();
       }
     } else {
       setCurrentSlide(prev => prev + 1);
     }
-  }, [isLastSlide, onComplete, userType, navigate]);
+  }, [isLastSlide, onComplete, userType, segment, navigate]);
 
   const handlePrev = useCallback(() => {
     if (currentSlide > 0) {
