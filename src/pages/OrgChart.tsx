@@ -132,8 +132,10 @@ const OrgChart = () => {
       const rep = repMap.get(userId);
       const recruiterRecruits = recruitsByRecruiter.get(userId) || [];
       const repName = rep?.name || "";
+      // Find recruit record for this rep: try by id first, then by name
       const recruitByName = new Map(recruits.map((r) => [getCleanName(r.name).toLowerCase(), r]));
-      const recruitRecord = recruitByName.get(getCleanName(repName).toLowerCase());
+      const recruitRecord = ((rep as any)?.id ? recruits.find(rec => rec.id === (rep as any).id) : null)
+        || recruitByName.get(getCleanName(repName).toLowerCase());
 
       let children: TreeNode[] = [];
 
