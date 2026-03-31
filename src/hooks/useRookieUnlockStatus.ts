@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
 import { isRepActive } from "@/utils/repStatusUtils";
+import { useRepGoals } from "./useRepGoals";
 
 const GLOBAL_SUMMER_START = '2026-04-12';
 
@@ -15,6 +16,7 @@ interface RepDataForUnlock {
   year?: string | null;
   stage?: string | null;
   committed_blitzes?: BlitzData[] | unknown;
+  setup_complete?: boolean | null;
 }
 
 /**
@@ -34,6 +36,10 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
   
   // Inactive reps are NEVER unlocked regardless of any other condition
   const isInactive = repData?.stage ? !isRepActive(repData.stage) : false;
+
+  // Check if goals setup is complete (unlocks app after goal wizard)
+  const { goals } = useRepGoals();
+  const hasCompletedGoalSetup = goals?.setup_complete === true;
   
   const blitzes = useMemo(() => {
     if (!repData?.committed_blitzes) return [];
@@ -79,7 +85,7 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
   const hasAttendedOrOnBlitz = hasAttendedBlitz || isOnActiveBlitz;
 
   // Only query season_config if rookie isn't already unlocked by other means
-  const needsSummerCheck = isRookie && !isInactive && !hasAttendedOrOnBlitz && !hasQualifyingStage;
+  const needsSummerCheck = isRookie && !isInactive && !hasAttendedOrOnBlitz && !hasQualifyingStage && !hasCompletedGoalSetup;
 
   const { data: seasonConfig } = useQuery({
     queryKey: ['rookie-summer-check'],
@@ -107,8 +113,8 @@ export const useRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
     return new Date() >= new Date(effectiveStart + 'T00:00:00');
   }, [needsSummerCheck, seasonConfig]);
 
-  // Ultimate unlock: blitz OR qualifying stage OR summer started — but NEVER inactive
-  const isUnlocked = !isInactive && (hasAttendedOrOnBlitz || hasQualifyingStage || hasSummerStarted);
+  // Ultimate unlock: blitz OR qualifying stage OR summer started OR goal setup complete — but NEVER inactive
+  const isUnlocked = !isInactive && (hasAttendedOrOnBlitz || hasQualifyingStage || hasSummerStarted || hasCompletedGoalSetup);
   
   // Pre-blitz status (locked)
   const isPreBlitzRookie = isRookie && !isUnlocked;
@@ -142,6 +148,8 @@ export const checkRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
   const stage = repData?.stage?.toLowerCase() || '';
   const hasQualifyingStage = stage.includes('shadow') || stage.includes('sold');
 
+  const hasCompletedGoalSetup = repData?.setup_complete === true;
+
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -168,11 +176,11 @@ export const checkRookieUnlockStatus = (repData: RepDataForUnlock | null) => {
   const hasAttendedOrOnBlitz = hasAttendedBlitz || isOnActiveBlitz;
   
   // Summer check using global fallback only
-  const hasSummerStarted = isRookie && !isInactive && !hasAttendedOrOnBlitz && !hasQualifyingStage
+  const hasSummerStarted = isRookie && !isInactive && !hasAttendedOrOnBlitz && !hasQualifyingStage && !hasCompletedGoalSetup
     ? now >= new Date(GLOBAL_SUMMER_START + 'T00:00:00')
     : false;
 
-  const isUnlocked = !isInactive && (hasAttendedOrOnBlitz || hasQualifyingStage || hasSummerStarted);
+  const isUnlocked = !isInactive && (hasAttendedOrOnBlitz || hasQualifyingStage || hasSummerStarted || hasCompletedGoalSetup);
   const isPreBlitzRookie = isRookie && !isUnlocked;
 
   return {

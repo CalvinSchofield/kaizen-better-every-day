@@ -27,6 +27,7 @@ import { IntroWizard } from "@/components/IntroWizard";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useRepGoals } from "@/hooks/useRepGoals";
+import { useOnboardingSegment } from "@/hooks/useOnboardingSegment";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { getDaysUntilBlitz, parseDateAsLocal } from "@/utils/blitzDateUtils";
 import { RookieRampHeroSection } from "@/components/RookieRampHeroSection";
@@ -81,6 +82,7 @@ const Home = () => {
   const { hasGoalsAccess, goals } = useRepGoals();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
   const { hasMnlEventToday } = useMondayNightLightsEvent();
+  const { segment: onboardingSegment } = useOnboardingSegment(repData);
   
   // Subscribe to realtime sales updates for immediate data sync
   useSalesRealtime();
@@ -1003,12 +1005,16 @@ const Home = () => {
         userType={getUserType()}
         firstName={firstName}
         onComplete={markIntroComplete}
+        segment={onboardingSegment}
+        isLeader={!!isLeader}
       />
     );
   }
   
-  // Use centralized unlock status (includes Shadow ✅ check)
-  const { isUnlocked, hasAttendedBlitz, isOnActiveBlitz, hasCompletedShadow } = checkRookieUnlockStatus(repData);
+  // Use centralized unlock status (includes Shadow ✅ check + goal setup unlock)
+  const { isUnlocked, hasAttendedBlitz, isOnActiveBlitz, hasCompletedShadow } = checkRookieUnlockStatus(
+    repData ? { ...repData, setup_complete: goals?.setup_complete } : null
+  );
   
   // Check if knocking mode is active - redirect to Track (which now serves as the home)
   if (isKnockingMode) {

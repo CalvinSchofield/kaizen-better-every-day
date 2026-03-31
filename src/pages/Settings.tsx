@@ -25,6 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { IntroWizard } from "@/components/IntroWizard";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useOnboardingSegment } from "@/hooks/useOnboardingSegment";
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { MeVsMeSettings } from "@/components/MeVsMeSettings";
@@ -77,6 +78,7 @@ export default function Settings() {
   const teamAccess = useTeamAccess();
   const { data: cumulativeData } = useCumulativeFP();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
+  const { segment: onboardingSegment } = useOnboardingSegment(repData);
   
   // Get user's current cumulative FP+ for minimum tier restriction
   const userCumulativeFpPlus = cumulativeData && cumulativeData.length > 0 
@@ -697,6 +699,8 @@ export default function Settings() {
         userType={getUserType()}
         firstName={firstName}
         onComplete={handleIntroComplete}
+        segment={onboardingSegment}
+        isLeader={!!isLeader}
       />
     );
   }

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import type { OnboardingSegment } from "@/hooks/useOnboardingSegment";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,7 @@ const HOUSING_OPTIONS = [
 interface GoalSetupWizardProps {
   isRookie: boolean;
   committedBlitzIds?: string[];
+  segment?: OnboardingSegment;
   onComplete: (goals: {
     monthlyExpenses: number;
     monthsOff: number;
@@ -78,6 +80,7 @@ const formatDuration = (minutes: number): string => {
 export const GoalSetupWizard = ({ 
   isRookie, 
   committedBlitzIds = [], 
+  segment,
   onComplete, 
   onCancel 
 }: GoalSetupWizardProps) => {
@@ -155,11 +158,27 @@ export const GoalSetupWizard = ({
   // Has blitzes available
   const hasBlitzes = !blitzesLoading && allBlitzes.length > 0;
 
-  // Build step sequence dynamically
+  // Build step sequence dynamically based on segment
   const stepSequence = useMemo(() => {
-    if (isRookie) {
+    const isOutsideOrVet = segment === 'outside-org' || segment === 'in-org-vet';
+    
+    if (isOutsideOrVet) {
+      // Vets/outside-org: skip why, expenses, commitments
       if (isCurrentlySummer) {
-        return ['why', 'expenses', 'dates', 'goals', 'blitzes', 'review'];
+        return ['dates', 'goals', 'review'];
+      } else {
+        // Show preseason FP goal + blitzes if available, but no commitments
+        const steps = ['dates', 'goals'];
+        if (hasBlitzes) steps.push('blitzes');
+        steps.push('preseason', 'review');
+        return steps;
+      }
+    }
+    
+    if (isRookie) {
+      if (isCurrentlySummer || segment === 'in-org-rookie-summer') {
+        // Summer rookies: skip all preseason commitments/blitzes
+        return ['why', 'expenses', 'dates', 'goals', 'review'];
       } else {
         const steps = ['why', 'expenses', 'dates', 'goals', 'commitments'];
         // Always show blitzes step (shows empty state if none)
@@ -178,7 +197,7 @@ export const GoalSetupWizard = ({
         return ['dates', 'goals', 'preseason', 'review'];
       }
     }
-  }, [isRookie, isCurrentlySummer, hasBlitzes]);
+  }, [isRookie, isCurrentlySummer, hasBlitzes, segment]);
 
   const totalSteps = stepSequence.length;
   const currentStepType = stepSequence[step - 1];
