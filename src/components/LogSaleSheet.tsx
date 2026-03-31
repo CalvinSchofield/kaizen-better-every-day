@@ -134,22 +134,11 @@ export const LogSaleSheet = ({
     }
   }, [tourForceCalculatorOpen, saleType]);
 
-  // Fetch Mapbox token on mount
+  // Mapbox token from shared hook
+  const { mapboxToken: fetchedMapboxToken } = useMapboxToken();
   useEffect(() => {
-    const fetchToken = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-        if (!error && data?.token) {
-          setMapboxToken(data.token);
-        } else {
-          console.error('Failed to fetch Mapbox token:', error);
-        }
-      } catch (e) {
-        console.error('Failed to fetch Mapbox token:', e);
-      }
-    };
-    fetchToken();
-  }, []);
+    if (fetchedMapboxToken) setMapboxToken(fetchedMapboxToken);
+  }, [fetchedMapboxToken]);
 
   // Calculate time since last transition and door knock when sheet opens
   useEffect(() => {

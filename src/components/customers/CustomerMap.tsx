@@ -4,7 +4,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { MapPin, AlertCircle } from 'lucide-react';
 import { CustomerSale } from '@/hooks/useCustomerData';
 import { Skeleton } from '@/components/ui/skeleton';
-import { supabase } from '@/integrations/supabase/client';
+import { useMapboxToken } from '@/hooks/useMapboxToken';
 
 interface CustomerMapProps {
   sales: CustomerSale[];
@@ -15,31 +15,9 @@ interface CustomerMapProps {
 export const CustomerMap = ({ sales, filterType, onFilterChange }: CustomerMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
-  const [tokenError, setTokenError] = useState(false);
+  const { mapboxToken, tokenError } = useMapboxToken();
   const [isMapLoading, setIsMapLoading] = useState(true);
   const [mapReady, setMapReady] = useState(false);
-
-  // Fetch Mapbox token from edge function
-  useEffect(() => {
-    const fetchToken = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-        if (error) {
-          console.error('Failed to fetch Mapbox token:', error);
-          setTokenError(true);
-        } else if (data?.token) {
-          setMapboxToken(data.token);
-        } else {
-          setTokenError(true);
-        }
-      } catch (error) {
-        console.error('Failed to fetch Mapbox token:', error);
-        setTokenError(true);
-      }
-    };
-    fetchToken();
-  }, []);
 
   // Filter sales with valid coordinates
   const salesWithLocation = sales.filter(
