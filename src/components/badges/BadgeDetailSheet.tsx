@@ -8,9 +8,10 @@ interface BadgeDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   badge: (UserBadge | BadgeDefinition) | null;
   isEarned: boolean;
+  earnedCount?: number;
 }
 
-export const BadgeDetailSheet = ({ open, onOpenChange, badge, isEarned }: BadgeDetailSheetProps) => {
+export const BadgeDetailSheet = ({ open, onOpenChange, badge, isEarned, earnedCount = 0 }: BadgeDetailSheetProps) => {
   if (!badge) return null;
 
   const earnedAt = isEarned && 'earnedAt' in badge ? badge.earnedAt : null;
@@ -42,9 +43,16 @@ export const BadgeDetailSheet = ({ open, onOpenChange, badge, isEarned }: BadgeD
             </span>
           </div>
 
+          {isEarned && earnedCount > 1 && (
+            <p className="text-sm font-semibold text-foreground">
+              Earned {earnedCount}× 🔥
+            </p>
+          )}
+
           {isEarned && earnedAt && (
             <p className="text-xs text-primary font-medium">
-              Earned {format(parseISO(earnedAt), "MMM d, yyyy")}
+              {earnedCount > 1 ? 'Most recent: ' : 'Earned '}
+              {format(parseISO(earnedAt), "MMM d, yyyy")}
             </p>
           )}
 

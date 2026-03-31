@@ -15,6 +15,14 @@ interface BadgeGridProps {
 export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeGridProps) => {
   const [selectedBadge, setSelectedBadge] = useState<(UserBadge | BadgeDefinition) | null>(null);
   const [isSelectedEarned, setIsSelectedEarned] = useState(false);
+  const [selectedCount, setSelectedCount] = useState(0);
+
+  // Count how many times each badge slug was earned
+  const earnedCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    earnedBadges.forEach(b => map.set(b.slug, (map.get(b.slug) || 0) + 1));
+    return map;
+  }, [earnedBadges]);
 
   const earnedSlugs = useMemo(() => new Set(earnedBadges.map(b => b.slug)), [earnedBadges]);
 
@@ -38,18 +46,21 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
         items: defs.map(def => ({
           definition: def,
           earned: earned.find(e => e.slug === def.slug) || null,
+          earnedCount: earnedCountMap.get(def.slug) || 0,
         })),
       };
     }).filter(c => c.items.length > 0);
-  }, [allDefinitions, earnedBadges]);
+  }, [allDefinitions, earnedBadges, earnedCountMap]);
 
-  const handleTap = (def: BadgeDefinition, earned: UserBadge | null) => {
+  const handleTap = (def: BadgeDefinition, earned: UserBadge | null, count: number) => {
     if (earned) {
       setSelectedBadge(earned);
       setIsSelectedEarned(true);
+      setSelectedCount(count);
     } else if (!def.isHidden || isOwnProfile) {
       setSelectedBadge(def);
       setIsSelectedEarned(false);
+      setSelectedCount(0);
     }
   };
 
@@ -61,14 +72,14 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
             {cat.label}
           </h4>
           <div className="flex flex-wrap gap-2">
-            {cat.items.map(({ definition: def, earned }) => {
+            {cat.items.map(({ definition: def, earned, earnedCount }) => {
               const isEarned = !!earned;
               const isHiddenAndLocked = def.isHidden && !isEarned;
 
               return (
                 <button
                   key={def.slug}
-                  onClick={() => handleTap(def, earned)}
+                  onClick={() => handleTap(def, earned, earnedCount)}
                   className={cn(
                     "relative rounded-full transition-all active:scale-90",
                     !isEarned && "opacity-30 grayscale"
@@ -84,6 +95,11 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
                       rarity={isEarned ? def.rarity : 'common'}
                       size="md"
                     />
+                  )}
+                  {earnedCount > 1 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none">
+                      {earnedCount}
+                    </span>
                   )}
                 </button>
               );
@@ -103,6 +119,7 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
         onOpenChange={(open) => !open && setSelectedBadge(null)}
         badge={selectedBadge}
         isEarned={isSelectedEarned}
+        earnedCount={selectedCount}
       />
     </div>
   );
