@@ -140,9 +140,7 @@ const OrgChart = () => {
       let children: TreeNode[] = [];
 
       recruiterRecruits.forEach((r) => {
-        const recruitRep = reps.find(
-          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
-        );
+        const recruitRep = findRepForRecruit(r);
         if (recruitRep?.user_id) {
           const child = buildNode(recruitRep.user_id, new Set(visited));
           if (child) children.push(child);
@@ -150,9 +148,7 @@ const OrgChart = () => {
       });
 
       recruiterRecruits.forEach((r) => {
-        const recruitRep = reps.find(
-          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
-        );
+        const recruitRep = findRepForRecruit(r);
         if (!recruitRep?.user_id) {
           children.push({
             id: r.id,
