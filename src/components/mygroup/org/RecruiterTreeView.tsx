@@ -152,7 +152,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
 
       // Children with app accounts
       recruiterRecruits.forEach((recruit) => {
-        const recruitRep = repByCleanName.get(getCleanName(recruit.name).toLowerCase());
+        const recruitRep = repByRecruitId.get(recruit.id) || repByCleanName.get(getCleanName(recruit.name).toLowerCase());
         if (recruitRep?.user_id) {
           const child = buildNode(recruitRep.user_id, new Set(visited));
           if (child) children.push(child);
@@ -161,7 +161,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
 
       // Leaf recruits without app accounts
       recruiterRecruits.forEach((recruit) => {
-        const recruitRep = repByCleanName.get(getCleanName(recruit.name).toLowerCase());
+        const recruitRep = repByRecruitId.get(recruit.id) || repByCleanName.get(getCleanName(recruit.name).toLowerCase());
         if (!recruitRep?.user_id) {
           children.push({
             id: recruit.id,
