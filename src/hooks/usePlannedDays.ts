@@ -187,7 +187,19 @@ export const usePlannedDays = () => {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      // Update localStorage cache immediately
+      if (userId) {
+        try {
+          const current = queryClient.getQueryData<PlannedDay[]>(['planned-days', userId]);
+          if (current) {
+            localStorage.setItem(`planned-days-cache-${userId}`, JSON.stringify({
+              data: current,
+              timestamp: Date.now()
+            }));
+          }
+        } catch {}
+      }
+      invalidatePlannedDaysQueries(queryClient);
     },
   });
 

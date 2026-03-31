@@ -307,7 +307,7 @@ export const useRepGoals = () => {
     },
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
+      invalidateGoalRelatedQueries(queryClient);
     },
   });
 
