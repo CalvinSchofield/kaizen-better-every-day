@@ -261,9 +261,12 @@ serve(async (req) => {
     }
     const userId = claimsData.claims.sub;
 
-    const { messages } = await req.json();
+    const { messages, stream = true } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages array required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (typeof stream !== "boolean") {
+      return new Response(JSON.stringify({ error: "stream must be a boolean" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Fetch user data in parallel using service role for full access
@@ -303,7 +306,7 @@ serve(async (req) => {
           { role: "system", content: systemPrompt },
           ...messages,
         ],
-        stream: true,
+        stream,
       }),
     });
 
@@ -322,6 +325,15 @@ serve(async (req) => {
       console.error("AI gateway error:", response.status, t);
       return new Response(JSON.stringify({ error: "AI service error" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!stream) {
+      const data = await response.json();
+      const content = data?.choices?.[0]?.message?.content;
+
+      return new Response(JSON.stringify({ content }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
