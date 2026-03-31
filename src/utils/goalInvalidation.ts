@@ -55,4 +55,8 @@ export const invalidatePlannedDaysQueries = (queryClient: QueryClient) => {
   queryClient.invalidateQueries({ queryKey: ['goal-pace'] });
   queryClient.invalidateQueries({ queryKey: ['downline-goal-pace'] });
   queryClient.invalidateQueries({ queryKey: ['cumulative-fp'] });
+  queryClient.invalidateQueries({ queryKey: ['today-entry-unified'] });
+  queryClient.invalidateQueries({ queryKey: ['all-entries-unified'] });
+  queryClient.invalidateQueries({ queryKey: ['official-totals-pace'] });
+  queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
 };
