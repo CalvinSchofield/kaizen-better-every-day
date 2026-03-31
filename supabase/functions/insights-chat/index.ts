@@ -126,15 +126,76 @@ function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goal
 ## VIVINT D2D BASICS
 - Product: Home security, cameras, smart home (doorbell cams, smart locks, thermostats, etc.)
 - Schedule: Mon-Fri noon to 8-9pm, Sat 9-10am to 8-9pm. Sunday off.
+- 2026 Season: Sept 29, 2025 – Sept 27, 2026. Preseason: Sept 29 – Apr 12. Summer: Apr 13 – Aug 30. Extension: Aug 31 – Sept 27.
 - Season goals: Rookie 100+ FP, Soph 200+ FP, Vet 300+ FP. These are hard to hit — celebrate progress.
-- FP+ = New FP + (Upgrade PRMR / 85). The core metric.
-- EFP = Total PRMR / 85
-- PRMR = Planned Monthly Recurring Revenue. Company avg is $85/account. Higher = more money per deal.
-- Adders boost PRMR (extra cameras, sensors, smart devices).
+- A Rookie is someone who didn't sell 10+ FPs in a prior season.
+- FP+ = Funded new installs + (Funded Upgrade PRMR / 85) + (DTH leads closed by NIS × 0.5 if consent given). Upgrades/upsells only count if sold 90+ days after initial activation.
+- EFP = Effective Families Protected = Total PRMR / 85. NOT "Earned FP."
+- PRMR = Planned Monthly Recurring Revenue = Customer Monthly Payment − Exclusions + PRMR Adders − PRMR Reductions.
+- Company avg PRMR is $85/account. Higher PRMR = more money per deal.
 - Funnel: Doors → DMs → Pitches → Transitions (inside home) → Presentations (full demo) → Closes (signed)
 - Sales: "installed" = funded, "pending" = scheduled, "cancelled"/"never_installed" = doesn't count
 - Great close rate: 1 per 25-35 doors. Solid day: 80-120+ doors, 2-4+ closes.
-- Reps are independent contractors. Tiered pay scale based on cumulative FP+. Higher PRMR = bigger checks.
+
+## 2026 PAY SCALE (per FP+ level reached)
+| Level | Base Rate | Total Commission/FP |
+|-------|-----------|---------------------|
+| 0     | $5.76     | $490                |
+| 20    | $6.41     | $545                |
+| 40    | $6.88     | $585                |
+| 60    | $7.41     | $630                |
+| 80    | $7.88     | $670                |
+| 100   | $8.47     | $720                |
+| 120   | $8.71     | $740                |
+| 140   | $8.94     | $760                |
+| 160   | $9.18     | $780                |
+| 200   | $9.65     | $820                |
+| 220   | $9.88     | $840                |
+| 240   | $10.12    | $860                |
+| 260   | $10.35    | $880                |
+| 300   | $10.59    | $900                |
+
+- Reps are paid $4/dollar of funded PRMR upfront. Remaining commission reconciled on backend.
+- Must complete summer season to earn accelerated rate above $4.
+- Rent bonus kicks in at 60 FP+ ($3,750), increases at 200 FP+ ($5,500).
+
+## PRMR ADDERS
+- $1,799.99 Premium Kit: +$2 PRMR
+- Financed Install Fee: $199 → +$3.32, $299 → +$4.98, $399 → +$6.65
+- Upfront Install Fee: $199 → +$3.32, $299 → +$4.98, $399 → +$6.65
+- Upfront Payment: $200-499 → +$5, $500-999 → +$10, $1K-2K → +$15, $2K-3K → +$20, $3K-4K → +$25, $4K+ → +$30
+- Protection Plan: VPP ($7.99) → +$5, VPP Mobile ($27.99) → +$10, VPP Mobile+ ($32.99) → +$12
+- Install fee can be waived without deduction on: PIF accounts, upfront payment ≥$250, 36-mo loans, Pay-in-Four.
+
+## PRMR REDUCTIONS
+- Non-premium kit (<$1,799.99): −$5 PRMR (exceptions: DIY, PIF, APR>0%, credit limit <$4K, $3K+ equipment)
+- Low RMR discount: −$2 per dollar discounted below floor ($24.99 premium, $44.99 non-premium)
+- Deduction accounts (credit <650, Smart Start/DIY): −$20 PRMR
+- 3rd Look financing: −$35 PRMR (requires 25% down, min $250)
+- Hardware discounts: discount amount / 15 = PRMR reduction
+- Moves (before 2nd backend): −$35 PRMR (Smart Start/DIY excluded)
+- NIS leads closed by DTH: −$10 PRMR
+- Home Protect new subs: −$5 additional (−$10 total)
+
+## UPGRADES
+- Commission = rate × (Upgrade PRMR / 85)
+- Upgrade PRMR = New RMR − Base Service Fee
+- Base Service Fee (Legacy) = max(old RMR × 75%, $44.99)
+- Addon upgrades (no new agreement): (equipment / 60) + camera service fees = PRMR. Only counts toward FP+ if 90+ days after original install.
+
+## HOUSING (Summer)
+- Shared room: $200/wk + $35 utilities
+- Own room: $375/wk + $45 utilities
+- Married/family 1BR: $400/wk, 2BR: $425/wk, 3BR: $450/wk + $50 utilities
+- One-time cleaning: $75 (single) or $125 (family)
+
+## OTHER KEY RULES
+- Contract buyouts: rep covers 100% over $1,000. Buyout PRMR reductions based on discount tier.
+- Waived first month service: rep charged full cost unless PIF >600 credit or upfront ≥$800.
+- Customer gift cards: up to $300, rep charged 100%.
+- RIC (Retail Installment Contract): no upfront pay, commissions paid residually after Jan/Feb backend.
+- Rep Assist: rookie gets $4/PRMR upfront but account doesn't count toward their level; assisting rep gets level credit + full backend minus $4/PRMR.
+- Backend timing: 1st backend by Nov 30 (70% of deposit). 2nd backend by Feb 28 (100%).
 
 ## ${name.toUpperCase()}'S NUMBERS
 
