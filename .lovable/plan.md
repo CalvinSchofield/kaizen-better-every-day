@@ -1,122 +1,59 @@
 
+Goal: fix the two persistent org-chart mismatches by making every org view use the same placement rules instead of three different implementations.
 
-# Onboarding Flow Overhaul: Three User Segments
+What the audit found:
+1. The tabs are not using one source of truth.
+   - `src/pages/OrgChart.tsx` builds the Recruiter Tree from recruiting lineage, then manually injects office leaders for ADs.
+   - `src/components/org/OrgStructureTree.tsx` builds the Structure tab from formal org assignments (`team_mgmt_groups`, office links, etc.).
+   - `supabase/functions/fetch-team-access/index.ts` uses name-based heuristics (`team_leader`, first-token matching, recruiter-chain tracing) to infer team/MGMT placement.
+2. That mismatch explains both bugs:
+   - Misael can appear as a separate branch in one view while also living under Quinn in the formal structure.
+   - Christopher Mevs / Marek / Boonk can disappear or move between views when one path uses formal assignment and another path “guesses” placement from names or lineage.
+3. The current logic also does not consistently honor the office-assignment hierarchy:
+   `Rep office > Team office > MGMT Group office > Sr MGMT Group office`.
+   That is especially risky for Christopher Mevs MGMT because it spans multiple offices.
 
-## Problem Summary
+Implementation plan:
+1. Create one shared org-placement resolver
+   - Add a shared utility that computes, for every rep/recruit:
+     - effective office id
+     - formal team id/name
+     - formal MGMT group id/name
+     - whether they are a team lead or MGMT lead
+   - Use canonical data only: `recruits.team_id`, `recruits.mgmt_group_id`, `team_mgmt_groups`, entity lead ids, and office inheritance.
+   - Remove name-token guessing as the primary placement method.
 
-The current onboarding has only two IntroWizard paths (`pre-blitz-rookie` and `knocking-user`) and doesn't distinguish between users inside vs. outside your office. It also:
-- Shows team-selling slides (accolades, leaders, testimonials) to vets/sophomores in your org who don't need them
-- Shows the same flow to outside-org users who also don't need your team's specific content
-- Locks Calendar/Track for rookies until they complete all of Ramp to Blitz instead of unlocking after goal setup
-- Shows preseason commitment steps (training, books, MNL) to vets/sophomores who don't need them
-- Shows preseason goals/commitments when summer has already started
+2. Refactor the Recruiter Tree tab to use that resolver
+   - Update `src/pages/OrgChart.tsx` so AD office-scoped branches are grouped from canonical formal placement, not by appending “extra office leaders” as separate roots.
+   - Dedupe by formal container + user id so Misael cannot show both as his own detached branch and under Quinn.
+   - Ensure Christopher’s branch is included whenever the reps are formally in that MGMT/team scope, even if recruiting lineage is imperfect.
 
-## Proposed Segments
+3. Refactor the Structure tab to use the same resolver
+   - Update `src/components/org/OrgStructureTree.tsx` so team/member rendering and office grouping use the exact same effective office + formal placement logic as the Recruiter Tree.
+   - This keeps Quinn/Misael and Christopher/Marek/Boonk consistent across both tabs.
 
-```text
-┌─────────────────────────────────────────────────────┐
-│ Segment 1: Outside Org (any year)                   │
-│   - No team-sell slides                             │
-│   - Sync → Goals (summer-aware) → Plan Days         │
-│                                                     │
-│ Segment 2: In-Org Vet/Sophomore                     │
-│   - No team-sell slides                             │
-│   - Sync → Goals (no preseason commitments;         │
-│     preseason goal + blitzes only if pre-summer)     │
-│   → Plan Days                                       │
-│                                                     │
-│ Segment 3: In-Org Rookie                            │
-│   Preseason:                                        │
-│     - Team-sell intro → Home (Ramp Phase 1)         │
-│     - After Phase 1: Sync → Goals → Plan Days       │
-│   Summer already started:                           │
-│     - Team-sell intro → Sync → Goals (summer only)  │
-│     → Plan Days                                     │
-└─────────────────────────────────────────────────────┘
-```
+4. Fix backend access-scope logic so downstream views stay aligned
+   - Update `supabase/functions/fetch-team-access/index.ts` to stop inferring placement from first-name matches and recruiter/team-leader strings.
+   - Build `accessibleReps` from the shared formal placement model instead.
+   - This prevents the same bad grouping from leaking into drawers, filters, and any other org-related UI.
 
-## "In My Office" Determination
+5. Sweep secondary org components that still have custom tree logic
+   - Audit and align any remaining org views/components that build their own hierarchy independently, especially:
+     - `src/components/mygroup/org/RecruiterTreeView.tsx`
+     - `src/components/mygroup/OrganizationManagementView.tsx`
+   - If they stay separate, the bug will reappear elsewhere even after fixing `/org-chart`.
 
-The reps table has `office_id`. We need to check whether the user's `office_id` matches one of "your" offices (Calvin's office). Since `office_id` is on the rep record, we compare it to the office(s) that Calvin/Quinn/Christopher MGMT groups belong to. This is per-individual, not per MGMT group — Christopher Mevs MGMT may span multiple offices, so we check the rep's own `office_id`.
+Technical details:
+- Most likely direct cause of the Christopher/Misael inconsistency:
+  - `fetch-team-access` currently relies on `normalizeFirstToken(team.name)`, `rep.team_leader`, and recruiter-chain tracing.
+  - `OrgChart.tsx` AD logic adds office leaders as extra roots instead of deriving all branches from one resolved placement map.
+  - `OrgStructureTree.tsx` uses formal tables, so it can disagree with both.
+- No database schema changes are needed.
+- This should be treated as a data-resolution bug, not a visual bug.
 
-Create a new hook `useIsInMyOffice` that:
-1. Reads the current user's `office_id` from repData (already fetched via `select *`)
-2. Queries `office_staff` to get office IDs where `role = 'area_director'` and the AD's name/office matches Calvin's known office(s)
-3. Returns `isInMyOffice: boolean`
-
-Alternatively (simpler): hardcode the known office ID(s) as constants (Calvin's office), since these rarely change. The rep's `office_id` is already available.
-
-## Changes
-
-### File 1: `src/hooks/useIsInMyOffice.ts` (new)
-Create a hook that determines if the current user belongs to "your" office:
-- Query the rep's `office_id` (available from repData via `select *`)
-- Compare against known office ID(s) via a query to `office_staff` for Area Directors, or check if their MGMT group's `office_id` matches
-- Return `{ isInMyOffice, isLoading }`
-
-### File 2: `src/hooks/useRepData.ts`
-Add `office_id: string | null` to the `RepData` interface so TypeScript knows about it.
-
-### File 3: `src/data/introSlides.ts`
-- Add a new `getOutsideOrgSlides(firstName)` function — minimal welcome, photo upload, CTA that goes straight to sync
-- Add a new `getInOrgVetSlides(firstName)` — minimal welcome, photo upload, CTA to sync
-- Modify `getPreBlitzRookieSlides` to be the team-sell slides (already correct for in-org rookies)
-- The `getKnockingUserSlides` becomes the fallback for in-org vets/leaders
-
-### File 4: `src/components/IntroWizard.tsx`
-- Expand `UserType` to: `'outside-org' | 'in-org-vet' | 'in-org-rookie-preseason' | 'in-org-rookie-summer'`
-- Route `outside-org` and `in-org-vet` to complete → navigate to Goals page (which triggers sync gate → goal setup → calendar planning)
-- Route `in-org-rookie-preseason` to complete → navigate to About Team → then Home for ramp
-- Route `in-org-rookie-summer` to complete → navigate to Goals (sync → goals → plan)
-
-### File 5: `src/pages/Home.tsx`
-- Update `getUserType()` to use `isInMyOffice` hook
-- Pass the correct segment to IntroWizard
-- After intro, outside-org and in-org vets navigate to Goals for sync+setup
-
-### File 6: `src/pages/Settings.tsx`
-- Mirror the updated `getUserType()` logic
-
-### File 7: `src/components/goals/GoalSetupWizard.tsx`
-- Accept a new prop `segment` or `skipPreseasonCommitments: boolean`
-- For in-org vets/sophomores and outside-org users: skip 'why', 'expenses', 'commitments' steps
-- For all users when `isCurrentlySummer`: already skips preseason steps (verify this works for all segments)
-- For in-org vets pre-summer: show 'dates', 'goals', 'preseason' (FP goal), 'blitzes' (if available), 'review' — but NOT 'commitments' (books, training, MNL, role plays)
-
-### File 8: `src/hooks/useRookieUnlockStatus.ts`
-- Add `setup_complete` as an unlock condition: if a rookie has completed goal setup (`setup_complete = true`), they should be unlocked for Calendar/Track/Insights
-- Update both hook and pure function versions
-
-### File 9: `src/pages/Calendar.tsx` & `src/components/AppDrawer.tsx`
-- The unlock change in `useRookieUnlockStatus` will automatically unlock Calendar/Track/Insights after goal setup since `isPreBlitzRookie` will become false
-- Verify the locked-state check uses `useRookieUnlockStatus` (it does — via `isPreBlitzRookie`)
-
-### File 10: `src/pages/Goals.tsx`
-- Pass `isInMyOffice` context to GoalSetupWizard so it knows which steps to show
-- After goal setup completes, auto-navigate to calendar planning view
-
-## Unlock Logic Change (Critical Fix)
-
-Currently, rookies are locked (`isPreBlitzRookie = true`) until they attend a blitz, complete shadow, or summer starts. The user's request is to **unlock after goal setup**. 
-
-In `useRookieUnlockStatus`, add a new unlock condition:
-```
-isUnlocked = !isInactive && (hasAttendedOrOnBlitz || hasQualifyingStage || hasSummerStarted || hasCompletedGoalSetup)
-```
-
-This requires passing `setup_complete` into the hook. We can query `rep_goals.setup_complete` inside the hook (similar to how it queries `season_config`).
-
-## Summary of Flow After Changes
-
-**Outside-org user (any year):**
-IntroWizard (welcome + photo) → Goals page (sync gate → goal wizard with dates+goals only → calendar planning)
-
-**In-org vet/sophomore:**
-IntroWizard (welcome + photo) → Goals page (sync gate → goal wizard: dates, goals, preseason goal + blitzes if pre-summer → calendar planning)
-
-**In-org rookie (preseason):**
-IntroWizard (team sell + photo → About Team) → Home (Ramp Phase 1) → After Phase 1: Goals (sync → full wizard with why, expenses, commitments, etc. → calendar planning) → App unlocked
-
-**In-org rookie (summer started):**
-IntroWizard (team sell + photo) → Goals (sync → wizard: why, expenses, dates, goals → calendar planning) → App unlocked
-
+Validation after implementation:
+1. In both tabs, confirm Misael appears only inside Quinn Gleed MGMT and nowhere as a duplicate peer branch.
+2. Confirm Christopher Mevs MGMT appears consistently in both tabs.
+3. Confirm Marek and Boonk appear under Christopher’s branch in both tabs when their formal assignments say they should.
+4. Confirm split-office MGMT groups only show the reps actually assigned to the AD’s office.
+5. Re-test the Group by Office toggle and regular structure view to ensure counts and branch placement still match.
