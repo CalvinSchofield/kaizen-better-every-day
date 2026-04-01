@@ -1365,6 +1365,9 @@ const MyGroup = () => {
         }}
       />
 
+      {/* Leader onboarding tour */}
+      {isLeader && <LeaderOnboardingTour />}
+
     </Layout>
   );
 };
