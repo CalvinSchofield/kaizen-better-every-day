@@ -13,6 +13,8 @@ import {
   DrawerFooter
 } from "@/components/ui/drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AssigneeSelector } from "./AssigneeSelector";
+import { useRepData } from "@/hooks/useRepData";
 import { Recruit, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useAssignableUsers, AssignableUser } from "@/hooks/useAssignableUsers";
 import { toast } from "sonner";
