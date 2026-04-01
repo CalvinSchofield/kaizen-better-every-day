@@ -608,7 +608,23 @@ export const ReportsV2Page = () => {
         records={activeRecords}
       />
 
-      <LeaderChatFab />
+      <ChatOverlay
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        chatUrl={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/leader-insights-chat`}
+        title="Team AI Coach"
+        placeholder="Ask about your group's numbers..."
+        suggestedPrompts={[
+          "What's the team's biggest funnel dropoff this week?",
+          "Who's off pace for their goal?",
+          "What time of day are we selling the most FP?",
+          "Give me coaching priorities for today",
+          "Who has days off planned next week?",
+          "How's our group pacing this month vs last month?",
+        ]}
+        emptyStateTitle="Talk to Your Team's Data"
+        emptyStateDescription="Ask anything about your group's performance — I've got everyone's numbers ready."
+      />
     </div>
   );
 };
