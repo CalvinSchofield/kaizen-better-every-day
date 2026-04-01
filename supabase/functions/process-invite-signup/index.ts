@@ -89,6 +89,7 @@ Deno.serve(async (req) => {
     // 2b. Resolve org placement
     let resolvedTeamId: string | null = null;
     let resolvedMgmtGroupId: string | null = null;
+    let resolvedOfficeId: string | null = null;
     // For lateral invites with auto-approve, don't set recruiter — the leader's
     // actual recruiter is their upline who may not be onboarded yet
     let resolvedRecruiterUserId: string | null = shouldAutoApprove ? null : invite.inviter_user_id;
@@ -101,13 +102,14 @@ Deno.serve(async (req) => {
       if (inviterRep && (!resolvedTeamId || !resolvedMgmtGroupId)) {
         const { data: inviterRecruit } = await supabase
           .from('recruits')
-          .select('team_id, mgmt_group_id')
+          .select('team_id, mgmt_group_id, office_id')
           .eq('id', inviterRep.id)
           .maybeSingle();
 
         if (inviterRecruit) {
           if (!resolvedTeamId && inviterRecruit.team_id) resolvedTeamId = inviterRecruit.team_id;
           if (!resolvedMgmtGroupId && inviterRecruit.mgmt_group_id) resolvedMgmtGroupId = inviterRecruit.mgmt_group_id;
+          if (inviterRecruit.office_id) resolvedOfficeId = inviterRecruit.office_id;
         }
 
         if (!resolvedTeamId) {
@@ -139,6 +141,43 @@ Deno.serve(async (req) => {
           if (teamMgmt) resolvedMgmtGroupId = teamMgmt.mgmt_group_id;
         }
       }
+    }
+
+    // 2c. Resolve office_id via cascading logic: recruit > team > mgmt_group > inviter's office_staff
+    if (!resolvedOfficeId && resolvedTeamId) {
+      const { data: teamData } = await supabase
+        .from('teams')
+        .select('office_id')
+        .eq('id', resolvedTeamId)
+        .maybeSingle();
+      if (teamData?.office_id) resolvedOfficeId = teamData.office_id;
+    }
+    if (!resolvedOfficeId && resolvedMgmtGroupId) {
+      const { data: mgData } = await supabase
+        .from('mgmt_groups')
+        .select('office_id')
+        .eq('id', resolvedMgmtGroupId)
+        .maybeSingle();
+      if (mgData?.office_id) resolvedOfficeId = mgData.office_id;
+    }
+    if (!resolvedOfficeId) {
+      // Check if inviter is an Area Director — inherit their office
+      const { data: adStaff } = await supabase
+        .from('office_staff')
+        .select('office_id')
+        .eq('user_id', invite.inviter_user_id)
+        .eq('role', 'area_director')
+        .maybeSingle();
+      if (adStaff?.office_id) resolvedOfficeId = adStaff.office_id;
+    }
+    if (!resolvedOfficeId && inviterRep) {
+      // Fallback: check inviter's own recruit record for office_id
+      const { data: inviterRecruitOffice } = await supabase
+        .from('recruits')
+        .select('office_id')
+        .eq('id', inviterRep.id)
+        .maybeSingle();
+      if (inviterRecruitOffice?.office_id) resolvedOfficeId = inviterRecruitOffice.office_id;
     }
 
     const finalName = name || user.user_metadata?.name || user.email?.split('@')[0] || 'New Rep';
@@ -253,6 +292,7 @@ Deno.serve(async (req) => {
           name: finalName,
           phone: phone || null,
           year: finalYear,
+          office_id: resolvedOfficeId,
           team_leader: isLateralInvite ? null : (inviterRep?.name || null),
           team_leader_phone: isLateralInvite ? null : (inviterRep?.phone || null),
           updated_at: new Date().toISOString(),
@@ -270,6 +310,7 @@ Deno.serve(async (req) => {
           year: finalYear,
           user_id: user.id,
           invite_code_used: inviteCode,
+          office_id: resolvedOfficeId,
           team_leader: isLateralInvite ? null : (inviterRep?.name || null),
           team_leader_phone: isLateralInvite ? null : (inviterRep?.phone || null),
         });

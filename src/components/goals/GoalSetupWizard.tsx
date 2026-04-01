@@ -160,15 +160,27 @@ export const GoalSetupWizard = ({
 
   // Build step sequence dynamically based on segment
   const stepSequence = useMemo(() => {
-    const isOutsideOrVet = segment === 'outside-org' || segment === 'in-org-vet';
+    const isVet = segment === 'in-org-vet';
+    const isOutside = segment === 'outside-org';
     
-    if (isOutsideOrVet) {
-      // Vets/outside-org: skip why, expenses, commitments
+    if (isVet) {
+      // Vets: skip why, expenses, commitments
       if (isCurrentlySummer) {
         return ['dates', 'goals', 'review'];
       } else {
-        // Show preseason FP goal + blitzes if available, but no commitments
         const steps = ['dates', 'goals'];
+        if (hasBlitzes) steps.push('blitzes');
+        steps.push('preseason', 'review');
+        return steps;
+      }
+    }
+
+    if (isOutside) {
+      // Outside-org: include why & expenses, skip commitments/blitzes
+      if (isCurrentlySummer) {
+        return ['why', 'expenses', 'dates', 'goals', 'review'];
+      } else {
+        const steps = ['why', 'expenses', 'dates', 'goals'];
         if (hasBlitzes) steps.push('blitzes');
         steps.push('preseason', 'review');
         return steps;
