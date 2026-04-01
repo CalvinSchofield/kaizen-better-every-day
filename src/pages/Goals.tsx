@@ -1338,6 +1338,12 @@ const Goals = () => {
           </DrawerContent>
         </Drawer>
       </div>
+      <PageTour
+        steps={goalsTourSteps}
+        isOpen={showGoalsTour}
+        onComplete={completeGoalsTour}
+        onSkip={skipGoalsTour}
+      />
     </Layout>
   );
 };
