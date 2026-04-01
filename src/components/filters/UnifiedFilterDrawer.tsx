@@ -409,48 +409,37 @@ export const UnifiedFilterDrawer = ({
             </section>
           )}
 
-          {/* ── Quick Filters ─────────────────────────────── */}
-          <section className="space-y-3">
+          {/* ── Quick Filters (compact chips) ──────────── */}
+          <section className="space-y-2">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-0.5">
               Quick Filters
             </p>
 
-            {/* Watchlist Toggle */}
-            <button
-              onClick={() => setDraft(prev => ({
-                ...prev,
-                scope: prev.scope === 'watchlist' ? 'all' : 'watchlist',
-              }))}
-              className={cn(
-                "w-full flex items-center justify-between p-3 rounded-xl border transition-all",
-                draft.scope === 'watchlist'
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:bg-muted/30"
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "h-8 w-8 rounded-full flex items-center justify-center",
-                  draft.scope === 'watchlist' ? "bg-primary/15" : "bg-muted"
-                )}>
-                  <Eye className={cn("h-4 w-4", draft.scope === 'watchlist' ? "text-primary" : "text-muted-foreground")} />
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-medium">Watchlist Only</p>
-                  <p className="text-[11px] text-muted-foreground">{watchedUserIds.length} people watched</p>
-                </div>
-              </div>
-              <Switch checked={draft.scope === 'watchlist'} />
-            </button>
+            <div className="flex gap-1.5 flex-wrap">
+              {/* Watchlist chip */}
+              <button
+                onClick={() => setDraft(prev => ({
+                  ...prev,
+                  scope: prev.scope === 'watchlist' ? 'all' : 'watchlist',
+                }))}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                  draft.scope === 'watchlist'
+                    ? "bg-primary/10 border-primary text-primary"
+                    : "bg-secondary/30 border-transparent text-secondary-foreground hover:bg-secondary/60"
+                )}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Watchlist
+              </button>
 
-            {/* Year Filters */}
-            <div className="flex gap-2">
+              {/* Year chips */}
               {yearOptions.map((year) => (
                 <button
                   key={year}
                   onClick={() => toggleYear(year)}
                   className={cn(
-                    "flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all",
+                    "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
                     draft.yearFilters.includes(year)
                       ? "bg-primary/10 border-primary text-primary"
                       : "bg-secondary/30 border-transparent text-secondary-foreground hover:bg-secondary/60"
@@ -459,37 +448,24 @@ export const UnifiedFilterDrawer = ({
                   {year}
                 </button>
               ))}
+
+              {/* Entire Org chip (leaderboard only) */}
+              {mode === 'leaderboard' && (
+                <button
+                  onClick={() => setDraft(prev => ({ ...prev, isOrgWide: !prev.isOrgWide, selectedNodes: [] }))}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                    draft.isOrgWide
+                      ? "bg-primary/10 border-primary text-primary"
+                      : "bg-secondary/30 border-transparent text-secondary-foreground hover:bg-secondary/60"
+                  )}
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  Entire Org
+                </button>
+              )}
             </div>
           </section>
-
-          {/* ── Org-Wide Toggle (Leaderboard only) ──────── */}
-          {mode === 'leaderboard' && (
-            <section>
-              <button
-                onClick={() => setDraft(prev => ({ ...prev, isOrgWide: !prev.isOrgWide, selectedNodes: [] }))}
-                className={cn(
-                  "w-full flex items-center justify-between p-3 rounded-xl border transition-all",
-                  draft.isOrgWide
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:bg-muted/30"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "h-8 w-8 rounded-full flex items-center justify-center",
-                    draft.isOrgWide ? "bg-primary/15" : "bg-muted"
-                  )}>
-                    <Globe className={cn("h-4 w-4", draft.isOrgWide ? "text-primary" : "text-muted-foreground")} />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium">Entire Organization</p>
-                    <p className="text-[11px] text-muted-foreground">See everyone across all offices</p>
-                  </div>
-                </div>
-                <Switch checked={draft.isOrgWide} />
-              </button>
-            </section>
-          )}
 
           {/* ── Hierarchy Tree ────────────────────────────── */}
           {filteredNodes.length > 0 && !draft.isOrgWide && (
