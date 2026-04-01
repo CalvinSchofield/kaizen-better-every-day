@@ -13,10 +13,16 @@ import { SIGNED_PLUS_STAGES, STAGES } from "@/utils/stageConstants";
 import type { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 
 
+const OFFICE_GROUPED_ACCESS_LEVELS = new Set([
+  "area_director", "corporate", "regional", "sr_regional", "partner", "divisional",
+  "mgmt_group_lead", "senior_manager",
+]);
+
 const OrgChart = () => {
   const queryClient = useQueryClient();
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
+  const [groupByOffice, setGroupByOffice] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => { const data = { user: session?.user ?? null };
