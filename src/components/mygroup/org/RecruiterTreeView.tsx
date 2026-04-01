@@ -339,8 +339,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
             id: `sr-mgmt-${srMgmtGroupId}`,
             roleColor: "sr_mgmt_group",
             role: "Sr MGMT Group Leader",
-            children: [...leaderNode.children, ...siblings]
-              PLACEHOLDER_SORT,
+            children: sortByDownlineSize([...leaderNode.children, ...siblings]),
           };
         }
       }
