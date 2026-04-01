@@ -60,22 +60,30 @@ function buildSystemPrompt(
       if (hrs > 0 && hrs < 18) dowStats[dow].hours += hrs;
     }
 
-    // Weekly bucket
+    // Weekly bucket (full funnel)
     const weekStart = new Date(d);
     weekStart.setDate(d.getDate() - d.getDay());
     const wk = weekStart.toISOString().slice(0, 10);
-    if (!weeklyBuckets[wk]) weeklyBuckets[wk] = { days: 0, doors: 0, closes: 0, fp: 0, prmr: 0 };
+    if (!weeklyBuckets[wk]) weeklyBuckets[wk] = { days: 0, doors: 0, dm: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0 };
     weeklyBuckets[wk].days++;
     weeklyBuckets[wk].doors += e.doors_knocked || 0;
+    weeklyBuckets[wk].dm += e.decision_makers || 0;
+    weeklyBuckets[wk].pitches += e.pitches || 0;
+    weeklyBuckets[wk].transitions += e.transitions || 0;
+    weeklyBuckets[wk].presentations += e.presentations || 0;
     weeklyBuckets[wk].closes += e.closes || 0;
     weeklyBuckets[wk].fp += e.fp_plus || 0;
     weeklyBuckets[wk].prmr += e.prmr || 0;
 
-    // Monthly bucket
+    // Monthly bucket (full funnel)
     const mo = e.entry_date.slice(0, 7);
-    if (!monthlyBuckets[mo]) monthlyBuckets[mo] = { days: 0, doors: 0, closes: 0, fp: 0, prmr: 0 };
+    if (!monthlyBuckets[mo]) monthlyBuckets[mo] = { days: 0, doors: 0, dm: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0 };
     monthlyBuckets[mo].days++;
     monthlyBuckets[mo].doors += e.doors_knocked || 0;
+    monthlyBuckets[mo].dm += e.decision_makers || 0;
+    monthlyBuckets[mo].pitches += e.pitches || 0;
+    monthlyBuckets[mo].transitions += e.transitions || 0;
+    monthlyBuckets[mo].presentations += e.presentations || 0;
     monthlyBuckets[mo].closes += e.closes || 0;
     monthlyBuckets[mo].fp += e.fp_plus || 0;
     monthlyBuckets[mo].prmr += e.prmr || 0;
@@ -224,16 +232,26 @@ function buildSystemPrompt(
     : "";
 
   // Weekly summary (last 6 weeks)
-  const sortedWeeks = Object.entries(weeklyBuckets).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6);
+  const sortedWeeks = Object.entries(weeklyBuckets).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 8);
   const weeklySummary = sortedWeeks.map(([wk, d]) => {
     const metricVal = efpModeEnabled ? efpFromPrmr(d.prmr).toFixed(2) : d.fp.toFixed(1);
-    return `  Week of ${wk}: ${d.days} days, ${d.doors} doors, ${d.closes} closes, ${metricVal} ${primaryMetric}, $${d.prmr.toFixed(0)} PRMR`;
+    const dmRate = d.doors > 0 ? ((d.dm / d.doors) * 100).toFixed(1) : "?";
+    const pitchRate = d.dm > 0 ? ((d.pitches / d.dm) * 100).toFixed(1) : "?";
+    const transRate = d.pitches > 0 ? ((d.transitions / d.pitches) * 100).toFixed(1) : "?";
+    const presRate = d.transitions > 0 ? ((d.presentations / d.transitions) * 100).toFixed(1) : "?";
+    const closeRate = d.presentations > 0 ? ((d.closes / d.presentations) * 100).toFixed(1) : "?";
+    return `  Week of ${wk}: ${d.days}d, ${d.doors}dk, ${d.closes}cl, ${metricVal} ${primaryMetric}, $${d.prmr.toFixed(0)} PRMR | DM%=${dmRate} Pitch%=${pitchRate} Trans%=${transRate} Pres%=${presRate} Close%=${closeRate}`;
   }).join("\n");
 
-  // Monthly summary
+  // Monthly summary (with funnel)
   const monthlySummary = Object.entries(monthlyBuckets).sort((a, b) => b[0].localeCompare(a[0])).map(([mo, d]) => {
     const metricVal = efpModeEnabled ? efpFromPrmr(d.prmr).toFixed(2) : d.fp.toFixed(1);
-    return `  ${mo}: ${d.days} days, ${d.doors} doors, ${d.closes} closes, ${metricVal} ${primaryMetric}, $${d.prmr.toFixed(0)} PRMR`;
+    const dmRate = d.doors > 0 ? ((d.dm / d.doors) * 100).toFixed(1) : "?";
+    const pitchRate = d.dm > 0 ? ((d.pitches / d.dm) * 100).toFixed(1) : "?";
+    const transRate = d.pitches > 0 ? ((d.transitions / d.pitches) * 100).toFixed(1) : "?";
+    const presRate = d.transitions > 0 ? ((d.presentations / d.transitions) * 100).toFixed(1) : "?";
+    const closeRate = d.presentations > 0 ? ((d.closes / d.presentations) * 100).toFixed(1) : "?";
+    return `  ${mo}: ${d.days}d, ${d.doors}dk, ${d.closes}cl, ${metricVal} ${primaryMetric}, $${d.prmr.toFixed(0)} PRMR | DM%=${dmRate} Pitch%=${pitchRate} Trans%=${transRate} Pres%=${presRate} Close%=${closeRate}`;
   }).join("\n");
 
   // Day of week summary
@@ -293,6 +311,15 @@ function buildSystemPrompt(
 - Use emoji sparingly — one or two max per response, only when it genuinely adds something.
 - Keep responses under 150 words unless they specifically ask for a deep dive.
 - ONLY use the actual data below. Never make up numbers. If you don't have data for something, just say so.
+
+## COMPARISON RULES
+- DEFAULT: Compare against your OWN season averages (not hardcoded standards).
+- If asked "this week vs last week" — compare those two weekly buckets directly using the funnel data in Recent Weeks.
+- If asked "this month vs last month" — compare monthly buckets.
+- Weekly and monthly data includes full funnel rates (DM%, Pitch%, Trans%, Pres%, Close%) so you can identify where changes happened.
+- Day-of-week averages are available for questions like "how do I do on Mondays vs Fridays?"
+- You can derive week-over-week trends from the weekly buckets to show progression through the season.
+- If asked about "recent average" or "rolling average" or "last 2 weeks", use the most recent 14 days of data from the weekly buckets.
 
 ## IMPORTANT: METRIC PREFERENCE
 ${efpModeEnabled

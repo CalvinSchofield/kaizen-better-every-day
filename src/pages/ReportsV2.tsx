@@ -29,6 +29,7 @@ import { GoalAttentionAlerts } from "@/components/reports/v2/GoalAttentionAlerts
 import { RepTimesDrawer } from "@/components/reports/v2/RepTimesDrawer";
 import { DealAnalyticsDrawer } from "@/components/reports/v2/DealAnalyticsDrawer";
 import { SmartFilterDrawer, SmartFilterState, DEFAULT_FILTER_STATE, isFilterActive } from "@/components/filters/SmartFilterDrawer";
+import { LeaderChatFab } from "@/components/reports/v2/LeaderChat";
 import { useHeader } from "@/contexts/HeaderContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -594,6 +595,8 @@ export const ReportsV2Page = () => {
         onOpenChange={setShowRecordDrawer}
         records={activeRecords}
       />
+
+      <LeaderChatFab />
     </div>
   );
 };
