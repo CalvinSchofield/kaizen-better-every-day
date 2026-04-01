@@ -503,10 +503,33 @@ export const EditRecruitDrawer = ({
       watchOutNotes: watchOutNotes.trim(),
     });
 
+    // If saving from the pending approval flow, auto-approve
+    if (showRoleAssignment) {
+      try {
+        await supabase
+          .from('recruits')
+          .update({
+            approval_status: 'approved',
+            approved_by_user_id: currentUserId,
+            approved_at: new Date().toISOString(),
+          })
+          .eq('id', recruit.id);
+        
+        // Log approval activity
+        if (currentUserId) {
+          await supabase.from('recruit_activities').insert({
+            recruit_id: recruit.id,
+            activity_type: 'note' as any,
+            logged_by_user_id: currentUserId,
+            notes: 'Signup approved ✅',
+          });
+        }
+      } catch (e) {
+        console.error('Failed to auto-approve:', e);
+      }
+    }
+
     // If a role was selected, insert into user_roles
-    // Role assignment is SEPARATE from org placement — assigning a role just gives
-    // them the right access level. Where they fit in the org tree is determined by
-    // their upline leader assigning them to the correct structure.
     if (selectedRole && canAssignRoles) {
       try {
         let recruitUserId: string | null = null;
@@ -535,20 +558,6 @@ export const EditRecruitDrawer = ({
               user_id: recruitUserId,
               role: selectedRole,
             });
-          }
-          
-          // Clear the recruiter_user_id on higher-role recruits so they don't appear
-          // as "recruited by" the person who merely gave them app access.
-          // Their actual org placement is handled separately by their upline leader.
-          const selectedRoleIndex = ROLE_HIERARCHY.indexOf(selectedRole as AccessLevel);
-          const approverRoleIndex = ROLE_HIERARCHY.indexOf(accessLevel);
-          
-          if (selectedRoleIndex > approverRoleIndex) {
-            console.log(`[EditRecruitDrawer] Clearing recruiter for higher-role signup: ${selectedRole} > ${accessLevel}`);
-            await supabase
-              .from('recruits')
-              .update({ recruiter_user_id: null })
-              .eq('id', recruit.id);
           }
         }
       } catch (e) {
