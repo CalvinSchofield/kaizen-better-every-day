@@ -390,8 +390,8 @@ const Blitzes = () => {
     visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
   };
 
-  // Show locked state for pre-blitz rookies
-  if (isPreBlitzRookie) {
+  // Show locked state for pre-blitz rookies or anyone without goal setup
+  if (isPreBlitzRookie || needsGoalSetup) {
     return (
       <div className="min-h-screen bg-background p-4 pb-24 flex items-center justify-center">
         <Card className="w-full max-w-md border-border/40">
@@ -405,10 +405,13 @@ const Blitzes = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-foreground">Blitzes Unlock After Setup!</h2>
+              <h2 className="text-2xl font-bold text-foreground">
+                {isPreBlitzRookie ? "Blitzes Unlock After Setup!" : "Set Up Your Goals First"}
+              </h2>
               <p className="text-muted-foreground leading-relaxed">
-                Complete your goal setup first, then you'll have full access to blitz details, 
-                RSVPs, and your summer schedule right here.
+                {isPreBlitzRookie 
+                  ? "Complete your goal setup first, then you'll have full access to blitz details, RSVPs, and your summer schedule right here."
+                  : "Complete your goal setup to unlock your blitz schedule, RSVPs, and summer planning."}
               </p>
             </div>
             <div className="pt-2">
