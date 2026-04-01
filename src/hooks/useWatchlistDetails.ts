@@ -67,7 +67,7 @@ export const useWatchlistDetails = () => {
           .in("user_id", allUserIds),
         supabase
           .from("daily_entries")
-          .select("user_id, entry_date, fp_plus, prmr, doors_knocked, sales_log, is_finalized")
+          .select("user_id, entry_date, fp_plus, prmr, doors_knocked, sales_log, is_finalized, closes")
           .in("user_id", allUserIds)
           .gte("entry_date", seasonStart)
           .lte("entry_date", today),
