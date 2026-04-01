@@ -114,9 +114,6 @@ const SetupFlow = () => {
             .eq('is_active', true)
             .maybeSingle();
           setIsLateralInvite(inviteData?.invite_type === 'lateral');
-          if (inviteData?.invite_type !== 'lateral') {
-            setInviteYear('Rookie');
-          }
           setShowInviteOnboarding(true);
           return;
         }
