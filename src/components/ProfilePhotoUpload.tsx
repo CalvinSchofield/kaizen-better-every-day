@@ -295,6 +295,7 @@ export const ProfilePhotoUpload = ({
 
   const handleCropCancel = () => {
     setCropMode(false);
+    onCropModeChange?.(false);
     setImageSrc(null);
     setCrop(undefined);
   };
