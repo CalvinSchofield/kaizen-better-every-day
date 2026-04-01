@@ -424,6 +424,82 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
           .sort((a, b) => b.children.length - a.children.length);
         rootNodes.push(...dedupedUngrouped);
       }
+
+      // --- Inject orphaned reps (assigned to a group but missing from recruiter chains) ---
+      const allTreeUserIds = new Set<string>();
+      const collectAllTreeUserIds = (nodes: TreeNode[]) => {
+        for (const n of nodes) {
+          if (n.userId) allTreeUserIds.add(n.userId);
+          collectAllTreeUserIds(n.children);
+        }
+      };
+      collectAllTreeUserIds(rootNodes);
+
+      reps.forEach((rep) => {
+        if (!rep.user_id || allTreeUserIds.has(rep.user_id)) return;
+        if (globalDescendantIds.has(rep.user_id)) return;
+        const recruit = recruitById.get(rep.id);
+        if (!recruit) return;
+        if (!isStageIn(recruit.stage, [...SIGNED_PLUS_STAGES])) return;
+
+        const mgmtGroupId =
+          recruit.mgmt_group_id ||
+          (recruit.team_id ? teamToMgmtGroup.get(recruit.team_id) : null);
+        if (!mgmtGroupId) return;
+
+        if (isOfficeScopedToUser) {
+          const mg = mgmtGroupMap.get(mgmtGroupId);
+          if (!mg?.office_id || !scopedOfficeIds.has(mg.office_id)) return;
+        }
+
+        const leaf: TreeNode = {
+          id: recruit.id,
+          name: rep.name,
+          userId: rep.user_id,
+          stage: recruit.stage,
+          profilePhotoUrl: rep.profile_photo_url,
+          children: [],
+        };
+
+        // Inject into the matching MGMT label node
+        const injectInto = (nodes: TreeNode[]): boolean => {
+          for (const node of nodes) {
+            if (node.isLabelNode && node.id === `mgmt-${mgmtGroupId}`) {
+              node.children.push(leaf);
+              return true;
+            }
+            if (injectInto(node.children)) return true;
+          }
+          return false;
+        };
+        injectInto(rootNodes);
+      });
+
+      // --- Final dedup: remove person-nodes that appear as children of another person ---
+      const descendantUserIds = new Set<string>();
+      const collectPersonDescendants = (nodes: TreeNode[], parentIsPerson: boolean) => {
+        for (const n of nodes) {
+          if (parentIsPerson && n.userId) descendantUserIds.add(n.userId);
+          collectPersonDescendants(n.children, !n.isLabelNode);
+        }
+      };
+      rootNodes.forEach((r) => collectPersonDescendants(r.children, !r.isLabelNode));
+
+      const pruneDuplicates = (nodes: TreeNode[]): TreeNode[] =>
+        nodes
+          .map((n) =>
+            n.isLabelNode
+              ? { ...n, children: pruneDuplicates(n.children) }
+              : n
+          )
+          .filter(
+            (n) =>
+              n.isLabelNode || !n.userId || !descendantUserIds.has(n.userId)
+          );
+
+      const pruned = pruneDuplicates(rootNodes);
+      rootNodes.length = 0;
+      rootNodes.push(...pruned);
     } else if (currentAuthUserId) {
       const node = buildNode(currentAuthUserId);
       if (node && node.children.length > 0) {
