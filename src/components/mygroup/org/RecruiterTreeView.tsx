@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { getCleanName } from "@/utils/nameUtils";
 import { canManageTeam } from "@/utils/roleHierarchy";
-import { VisualRecruiterTree, type TreeNode } from "./VisualRecruiterTree";
+import { VisualRecruiterTree, type TreeNode, type RoleColor } from "./VisualRecruiterTree";
 import { ReassignRecruiterDrawer } from "./ReassignRecruiterDrawer";
 
 const OFFICE_GROUPED_ACCESS_LEVELS = new Set([
