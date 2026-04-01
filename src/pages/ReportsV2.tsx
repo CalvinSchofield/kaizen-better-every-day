@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { canFilterByTeam } from "@/utils/roleHierarchy";
 import { useReportsV2Data } from "@/hooks/useReportsV2Data";
 import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAvailableDatePresets";
 import { useQuery } from "@tanstack/react-query";
@@ -21,14 +20,13 @@ import {
 } from "@/components/reports/v2";
 import { RecordDetailsDrawer } from "@/components/reports/v2/RecordDetailsDrawer";
 import { CustomDateRangeDrawer } from "@/components/shared/CustomDateRangeDrawer";
-import { TeamFilter } from "@/components/reports/v2/ReportsTeamFilter";
 import { WorkingRepsDrawer } from "@/components/reports/v2/WorkingRepsDrawer";
 import { GoalPaceDrawer } from "@/components/reports/v2/GoalPaceDrawer";
 import { GoalPaceSection } from "@/components/reports/v2/GoalPaceSection";
 import { GoalAttentionAlerts } from "@/components/reports/v2/GoalAttentionAlerts";
 import { RepTimesDrawer } from "@/components/reports/v2/RepTimesDrawer";
 import { DealAnalyticsDrawer } from "@/components/reports/v2/DealAnalyticsDrawer";
-import { SmartFilterDrawer, SmartFilterState, DEFAULT_FILTER_STATE, isFilterActive } from "@/components/filters/SmartFilterDrawer";
+import { UnifiedFilterDrawer, UnifiedFilterState, DEFAULT_UNIFIED_FILTER, isUnifiedFilterActive, resolveFilteredUserIds } from "@/components/filters/UnifiedFilterDrawer";
 import { LeaderAICoachComingSoon } from '@/components/reports/LeaderAICoachComingSoon';
 import { Sparkles } from "lucide-react";
 import { useHeader } from "@/contexts/HeaderContext";
@@ -49,8 +47,7 @@ export const ReportsV2Page = () => {
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
   const [showCustomSheet, setShowCustomSheet] = useState(false);
   const [selectedRepId, setSelectedRepId] = useState<string | null>(null);
-  const [teamFilter, setTeamFilter] = useState<TeamFilter>('all');
-  const [smartFilter, setSmartFilter] = useState<SmartFilterState>(DEFAULT_FILTER_STATE);
+  const [smartFilter, setSmartFilter] = useState<UnifiedFilterState>(DEFAULT_UNIFIED_FILTER);
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [showWorkingDrawer, setShowWorkingDrawer] = useState(false);
@@ -88,66 +85,19 @@ export const ReportsV2Page = () => {
 
   const filteredUserIds = useMemo(() => {
     if (!teamAccess) return [];
-    let ids: string[] = [];
-
-    if (teamFilter === 'all') {
-      ids = allUserIds;
-    } else if (teamFilter.type === 'team') {
-      ids = teamAccess.accessibleReps
-        ?.filter(r => r.teamId === teamFilter.id)
-        .map(r => r.userId)
-        .filter((id): id is string => !!id) || [];
-    } else if (teamFilter.type === 'mgmt_group') {
-      const group = teamAccess.mgmtGroups?.find(g => g.id === teamFilter.id);
-      const teamIds = group?.teamIds || [];
-      ids = teamAccess.accessibleReps
-        ?.filter(r => r.teamId && teamIds.includes(r.teamId))
-        .map(r => r.userId)
-        .filter((id): id is string => !!id) || [];
-    } else {
-      ids = allUserIds;
-    }
-
-    // Only include the current user if viewing all reps OR if they belong to the filtered team/group
-    if (currentUserId && teamAccess.accessLevel !== 'none' && !ids.includes(currentUserId)) {
-      const shouldIncludeLeader = teamFilter === 'all' || (() => {
-        const leaderRep = teamAccess.accessibleReps?.find(r => r.userId === currentUserId);
-        if (!leaderRep) return false;
-        if (teamFilter.type === 'team') return leaderRep.teamId === teamFilter.id;
-        if (teamFilter.type === 'mgmt_group') {
-          const group = teamAccess.mgmtGroups?.find(g => g.id === teamFilter.id);
-          return leaderRep.teamId && (group?.teamIds || []).includes(leaderRep.teamId);
-        }
-        return false;
-      })();
-      if (shouldIncludeLeader) {
-        ids = [currentUserId, ...ids];
-      }
-    }
-
-    // Apply year/experience filters (Rookie, Sophomore, Vet)
-    if (smartFilter.yearFilters.length > 0 && teamAccess.accessibleReps) {
-      const allowedYears = new Set(smartFilter.yearFilters);
-      const repsInYear = new Set(
-        teamAccess.accessibleReps
-          .filter(r => r.year && allowedYears.has(r.year))
-          .map(r => r.userId)
-          .filter((id): id is string => !!id)
-      );
-      ids = ids.filter(id => repsInYear.has(id));
-    }
-
-    return ids;
-  }, [teamAccess, teamFilter, smartFilter.yearFilters, allUserIds, currentUserId]);
-
-  // Sync smart filter → team filter (must be before early returns)
-  useEffect(() => {
-    setTeamFilter(smartFilter.teamFilter);
-  }, [smartFilter.teamFilter]);
+    return resolveFilteredUserIds(
+      smartFilter,
+      teamAccess.accessibleReps || [],
+      teamAccess.mgmtGroups || [],
+      allUserIds,
+      currentUserId || null,
+      teamAccess.accessLevel || 'none',
+    );
+  }, [teamAccess, smartFilter, allUserIds, currentUserId]);
 
   // Inject filter icon into header (must be before early returns)
   useEffect(() => {
-    const active = isFilterActive(smartFilter);
+    const active = isUnifiedFilterActive(smartFilter);
     setCustomRightContent(
       <div className="flex items-center gap-1">
         <Button
@@ -386,26 +336,28 @@ export const ReportsV2Page = () => {
   return (
     <div className="p-4 space-y-5 pb-20">
       {/* Active filter badge */}
-      {isFilterActive(smartFilter) && (
+      {isUnifiedFilterActive(smartFilter) && (
         <Badge variant="secondary" className="text-xs">
           {smartFilter.scope === 'watchlist' && '👀 Watchlist'}
           {smartFilter.yearFilters.length > 0 && ` · ${smartFilter.yearFilters.join(', ')}`}
-          {smartFilter.teamFilter !== 'all' && ` · ${smartFilter.teamFilter.name}`}
+          {smartFilter.selectedNodes.length > 0 && ` · ${smartFilter.selectedNodes.map(n => n.name).join(', ')}`}
           {' '}({filteredUserIds.length} reps)
         </Badge>
       )}
 
-      {/* Smart Filter Drawer */}
-      <SmartFilterDrawer
+      {/* Unified Filter Drawer */}
+      <UnifiedFilterDrawer
         open={showFilterDrawer}
         onOpenChange={setShowFilterDrawer}
         filterState={smartFilter}
         onFilterApply={setSmartFilter}
-        teams={teamAccess.teams || []}
+        mode="reports"
+        hierarchy={teamAccess.hierarchy}
         mgmtGroups={teamAccess.mgmtGroups || []}
+        teams={teamAccess.teams || []}
+        accessibleReps={teamAccess.accessibleReps || []}
         accessLevel={teamAccess.accessLevel}
         repCount={filteredUserIds.length}
-        showTeamFilters={canFilterByTeam(teamAccess.accessLevel)}
       />
 
       {/* Date presets */}
