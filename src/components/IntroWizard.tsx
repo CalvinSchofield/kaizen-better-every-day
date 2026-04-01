@@ -160,13 +160,15 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
     onComplete();
   }, [onComplete]);
 
-  // Swipe navigation
+  // Swipe navigation - disabled during photo cropping
   const { onTouchStart, onTouchMove, onTouchEnd } = useSwipeNavigation({
     onSwipeLeft: () => {
+      if (isCropping) return;
       hapticSelection();
       handleNext();
     },
     onSwipeRight: () => {
+      if (isCropping) return;
       hapticSelection();
       handlePrev();
     },
