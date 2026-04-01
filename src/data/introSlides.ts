@@ -191,14 +191,24 @@ export const getInOrgVetSlides = (firstName: string, isLeader: boolean): IntroSl
   ];
 
   if (isLeader) {
-    slides.push({
-      id: 'my-group',
-      type: 'standard',
-      iconName: 'users',
-      title: "My Group",
-      description: "Manage your recruiting pipeline. Track recruits, log contacts, and help them prepare for their first blitz.",
-      highlight: "Build your team"
-    });
+    slides.push(
+      {
+        id: 'define-group',
+        type: 'standard',
+        iconName: 'users',
+        title: "Define Your Group",
+        description: "Your org structure may already be started. Review your teams and groups, then create any that are missing.",
+        highlight: "Build your structure"
+      },
+      {
+        id: 'invite-leaders',
+        type: 'standard',
+        iconName: 'users',
+        title: "Invite Your Leaders",
+        description: "Once your structure is set, invite your sub-leaders so they can build their own teams and start recruiting.",
+        highlight: "Grow your org"
+      }
+    );
   }
 
   slides.push({
