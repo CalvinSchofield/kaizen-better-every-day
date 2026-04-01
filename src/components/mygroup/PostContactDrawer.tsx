@@ -22,7 +22,6 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MentionInput } from "./recruit-detail/MentionInput";
 import { format, addDays, getDay, startOfDay } from "date-fns";
-import { withTimeout } from "@/utils/withTimeout";
 
 interface PostContactDrawerProps {
   open: boolean;
@@ -174,6 +173,28 @@ export const PostContactDrawer = ({
       const wantsSchedule = showScheduling && scheduleDate;
       let combinedNotes = notes || `${actionLabel} ${firstName}${isCall ? ` - ${outcomeLabel}` : ''}`;
 
+      // Capture values before resetting state
+      const savedScheduleDate = scheduleDate;
+      const savedScheduleNotes = scheduleNotes;
+      const savedScheduleAssignee = scheduleAssignee;
+      const savedScheduledActivity = scheduledActivity;
+      const savedMarkTaskComplete = markTaskComplete;
+      const savedBackdateValue = backdateValue;
+
+      // ── CLOSE DRAWER IMMEDIATELY (optimistic) ──
+      setOutcome(null);
+      setNotes('');
+      setBackdateValue('');
+      setMarkTaskComplete(true);
+      setShowScheduling(false);
+      setScheduleDate(undefined);
+      setQuickDateOption(null);
+      setScheduleNotes('');
+      setScheduleMentions([]);
+      setScheduleAssignee(null);
+      setIsLoading(false);
+      onOpenChange(false);
+
       // ── STEP 1: Log the contact activity (primary operation) ──
       let loggedActivity: any = null;
       try {
@@ -183,34 +204,29 @@ export const PostContactDrawer = ({
           activityType,
           notes: combinedNotes,
           updateLastContact: wasConnected,
-          activityDate: backdateValue || undefined,
+          activityDate: savedBackdateValue || undefined,
         };
 
         // Attach scheduling fields so the planner picks it up
-        if (wantsSchedule) {
-          const dateOnlyString = format(scheduleDate, 'yyyy-MM-dd');
-          mutationParams.nextAction = scheduleNotes || 'Follow up';
+        if (wantsSchedule && savedScheduleDate) {
+          const dateOnlyString = format(savedScheduleDate, 'yyyy-MM-dd');
+          mutationParams.nextAction = savedScheduleNotes || 'Follow up';
           mutationParams.nextActionDue = dateOnlyString;
-          // Always assign (to chosen user or self) so it appears in the planner
-          mutationParams.assignedToUserId = scheduleAssignee || undefined;
+          mutationParams.assignedToUserId = savedScheduleAssignee || undefined;
         }
 
-        loggedActivity = await withTimeout(
-          logActivityMutation.mutateAsync(mutationParams),
-          25000,
-          'Saving contact timed out — please try again'
-        );
+        loggedActivity = await logActivityMutation.mutateAsync(mutationParams);
       } catch (error: any) {
         console.error('Failed to log contact activity:', error);
-        const msg = error?.message?.includes('timed out')
-          ? 'Timed out saving — check your connection and try again'
-          : 'Failed to log contact — tap Save to retry';
+        const msg = error?.message?.includes('Not authenticated')
+          ? 'Session expired — please sign in again'
+          : 'Failed to save — please try again';
         toast.error(msg);
-        return; // Don't proceed if the primary operation failed
+        return;
       }
 
-      // ── STEP 2: Mark scheduled task complete (fire-and-forget to avoid stacking timeouts) ──
-      const taskWasCompleted = scheduledActivity && wasConnected && markTaskComplete;
+      // ── STEP 2: Mark scheduled task complete (fire-and-forget) ──
+      const taskWasCompleted = savedScheduledActivity && wasConnected && savedMarkTaskComplete;
       if (taskWasCompleted) {
         supabase
           .from('recruit_activities')
@@ -218,7 +234,7 @@ export const PostContactDrawer = ({
             assignment_status: 'completed',
             completed_at: new Date().toISOString(),
           })
-          .eq('id', scheduledActivity.id)
+          .eq('id', savedScheduledActivity.id)
           .then(({ error: completeError }) => {
             if (completeError) {
               console.error('Failed to mark task complete:', completeError);
@@ -234,8 +250,8 @@ export const PostContactDrawer = ({
       let newActivityId: string | null = null;
       let scheduledFollowUp = false;
 
-      if (wantsSchedule) {
-        const dateOnlyString = format(scheduleDate, 'yyyy-MM-dd');
+      if (wantsSchedule && savedScheduleDate) {
+        const dateOnlyString = format(savedScheduleDate, 'yyyy-MM-dd');
         newActivityId = loggedActivity?.id || null;
         scheduledFollowUp = true;
 
@@ -243,7 +259,7 @@ export const PostContactDrawer = ({
         supabase
           .from('recruits')
           .update({
-            next_action: scheduleNotes || 'Follow up',
+            next_action: savedScheduleNotes || 'Follow up',
             next_action_due: dateOnlyString,
           })
           .eq('id', recruit.id)
@@ -257,10 +273,10 @@ export const PostContactDrawer = ({
       }
       
       // ── STEP 4: Show success toast ──
-      if (taskWasCompleted && scheduledFollowUp) {
-        toast.success(`Logged contact, completed task, and scheduled follow-up for ${format(scheduleDate!, 'MMM d')}`);
-      } else if (taskWasCompleted) {
-        const taskName = scheduledActivity.next_action || 'Task';
+      if (taskWasCompleted && scheduledFollowUp && savedScheduleDate) {
+        toast.success(`Logged contact, completed task, and scheduled follow-up for ${format(savedScheduleDate, 'MMM d')}`);
+      } else if (taskWasCompleted && savedScheduledActivity) {
+        const taskName = savedScheduledActivity.next_action || 'Task';
         toast.success(`Logged contact and marked "${taskName}" complete`, {
           action: {
             label: 'Undo',
@@ -271,7 +287,7 @@ export const PostContactDrawer = ({
                   assignment_status: 'pending',
                   completed_at: null,
                 })
-                .eq('id', scheduledActivity.id);
+                .eq('id', savedScheduledActivity.id);
               
               if (undoError) {
                 toast.error('Failed to undo');
@@ -285,8 +301,8 @@ export const PostContactDrawer = ({
           },
           duration: 5000,
         });
-      } else if (scheduledFollowUp) {
-        toast.success(`Logged contact and scheduled follow-up for ${format(scheduleDate!, 'MMM d')}`);
+      } else if (scheduledFollowUp && savedScheduleDate) {
+        toast.success(`Logged contact and scheduled follow-up for ${format(savedScheduleDate, 'MMM d')}`);
       } else if (isCall) {
         toast.success(
           wasConnected 
@@ -297,22 +313,9 @@ export const PostContactDrawer = ({
         toast.success(`Logged ${method === 'text' ? 'text' : 'meeting'} with ${firstName}`);
       }
       
-      // ── STEP 5: Handle calendar prompt or close ──
-      const shouldShowCalendar = scheduledFollowUp && newActivityId && scheduleDate && !scheduleAssignee;
-      const savedScheduleDateStr = scheduleDate ? format(scheduleDate, 'yyyy-MM-dd') : null;
-
-      // Reset and close the drawer
-      setOutcome(null);
-      setNotes('');
-      setBackdateValue('');
-      setMarkTaskComplete(true);
-      setShowScheduling(false);
-      setScheduleDate(undefined);
-      setQuickDateOption(null);
-      setScheduleNotes('');
-      setScheduleMentions([]);
-      setScheduleAssignee(null);
-      onOpenChange(false);
+      // ── STEP 5: Handle calendar prompt or complete ──
+      const shouldShowCalendar = scheduledFollowUp && newActivityId && savedScheduleDate && !savedScheduleAssignee;
+      const savedScheduleDateStr = savedScheduleDate ? format(savedScheduleDate, 'yyyy-MM-dd') : null;
 
       if (shouldShowCalendar && newActivityId && savedScheduleDateStr) {
         setTimeout(() => {
@@ -325,9 +328,7 @@ export const PostContactDrawer = ({
       }
     } catch (error) {
       console.error('Unexpected error while saving post-contact activity:', error);
-      toast.error('Something went wrong while saving — please try again');
-    } finally {
-      setIsLoading(false);
+      toast.error('Something went wrong — please try again');
     }
   };
 

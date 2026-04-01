@@ -920,18 +920,29 @@ export const useLogRecruitActivity = () => {
         throw new Error("Either recruitId or recruitNotionId is required");
       }
 
-      // Use cached session to avoid network-heavy refresh on mobile
+      // Use cached session — getSession() reads from memory, no network call
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
+      if (!session) {
+        // Fallback: try refreshing session once (covers expired token on mobile)
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        if (!refreshData?.session) throw new Error('Not authenticated');
+        var activeSession = refreshData.session;
+      } else {
+        var activeSession = session;
+      }
 
       // Use recruitId directly — it's already the Supabase UUID
       const actualRecruitId = recruitId || recruitNotionId || null;
 
+      // Pre-generate an ID so we can return it immediately without needing .select()
+      const activityId = crypto.randomUUID();
+
       // Build insert data, optionally overriding created_at for backdating
       const insertPayload = {
+        id: activityId,
         recruit_id: actualRecruitId,
         activity_type: activityType as 'phone_call' | 'in_person' | 'note' | 'next_step' | 'text',
-        logged_by_user_id: session.user.id,
+        logged_by_user_id: activeSession.user.id,
         notes: notes || null,
         next_action: nextAction || null,
         next_action_due: nextActionDue || null,
@@ -940,12 +951,10 @@ export const useLogRecruitActivity = () => {
         ...(activityDate ? { created_at: `${activityDate}T12:00:00.000Z` } : {}),
       };
 
-      // Insert activity directly to Supabase
-      const { data, error } = await supabase
+      // Insert activity — skip .select().single() to avoid extra round-trip on mobile
+      const { error } = await supabase
         .from('recruit_activities')
-        .insert(insertPayload)
-        .select()
-        .single();
+        .insert(insertPayload);
 
       if (error) throw error;
 
@@ -961,7 +970,7 @@ export const useLogRecruitActivity = () => {
           });
       }
 
-      return { ...data, recruitId, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId, activityDate };
+      return { id: activityId, ...insertPayload, recruitId, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId, activityDate };
     },
     onMutate: async ({ recruitId, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId }) => {
       await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
