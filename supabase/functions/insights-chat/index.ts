@@ -121,6 +121,9 @@ function buildSystemPrompt(
           status: sale.install_status || 'unknown',
           hour,
           customerName: sale.customer_name || sale.name || undefined,
+          accountNumber: sale.customer_account_number || undefined,
+          timeToSell: sale.time_to_sell_minutes || undefined,
+          moneySpent: sale.money_spent || undefined,
         });
       }
     }
