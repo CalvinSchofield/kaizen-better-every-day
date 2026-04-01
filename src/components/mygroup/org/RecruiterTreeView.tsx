@@ -444,10 +444,11 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         collectChildUserIds(root.children, globalDescendantIds);
       });
 
-      // Helper: build MGMT group nodes from a mgmt map
+      // Helper: build MGMT group nodes from a mgmt map (skips special __sr_mgmt_direct__ key)
       const buildMgmtNodes = (mgmtMap: Map<string, TreeNode[]>): TreeNode[] => {
         const mgmtChildren: TreeNode[] = [];
         mgmtMap.forEach((nodes, mgmtGroupId) => {
+          if (mgmtGroupId === '__sr_mgmt_direct__') return; // handled separately
           const dedupedNodes = dedupeGroupNodes(nodes)
             .filter((node) => !node.userId || !globalDescendantIds.has(node.userId));
           mgmtChildren.push(createMgmtLabelNode(mgmtGroupId, dedupedNodes));
@@ -469,7 +470,13 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
                 mgmtNodes.push(createMgmtLabelNode(group.id));
               }
             });
-            officeChildren.push(createSrMgmtLabelNode(srKey, mgmtNodes));
+
+            // Add direct Sr MGMT Group leader roots (not inside any child MGMT Group)
+            const directRoots = mgmtMap.get('__sr_mgmt_direct__') || [];
+            const dedupedDirectRoots = dedupeGroupNodes(directRoots)
+              .filter((node) => !node.userId || !globalDescendantIds.has(node.userId));
+            const allSrChildren = [...mgmtNodes, ...dedupedDirectRoots];
+            officeChildren.push(createSrMgmtLabelNode(srKey, allSrChildren));
           } else {
             officeChildren.push(...mgmtNodes);
           }
