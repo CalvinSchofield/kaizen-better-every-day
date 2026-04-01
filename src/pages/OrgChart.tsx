@@ -522,8 +522,8 @@ const OrgChart = () => {
         allVisibleUserIds.add(rep.user_id);
       });
 
-      const groupedRoots = Array.from(mgmtNodes.values())
-        .map((node) => ({ ...node, children: dedupeRootNodes(node.children) }))
+      const groupedRoots = Array.from(mgmtNodes.entries())
+        .map(([mgmtGroupId, node]) => createMgmtLabelNode(mgmtGroupId, dedupeRootNodes(node.children)))
         .filter((node) => node.children.length > 0)
         .sort((a, b) => b.children.length - a.children.length);
 
