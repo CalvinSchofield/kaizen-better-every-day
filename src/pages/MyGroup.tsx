@@ -73,6 +73,18 @@ const MyGroup = () => {
   const deleteMutation = useDeleteMySuggestion();
   const { allBlitzes, allBlitzesIncludingPast, error: blitzError, refetch: refetchBlitzes, isUsingCache: blitzUsingCache } = useBlitzes();
   const { userId: currentUserId } = useCurrentUserId();
+
+  // Check if current user is a rookie (restricts "Add to Pipeline" access)
+  const { data: currentUserYear } = useQuery({
+    queryKey: ['my-rep-year', currentUserId],
+    enabled: !!currentUserId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase.from('reps').select('year').eq('user_id', currentUserId!).maybeSingle();
+      return data?.year || 'Rookie';
+    },
+  });
+  const isCurrentUserRookie = currentUserYear === 'Rookie';
   
   // UI State
   const navigateTo = useNavigate();
@@ -1163,6 +1175,7 @@ const MyGroup = () => {
       <AddRecruitActionSheet
         open={addActionSheetOpen}
         onOpenChange={setAddActionSheetOpen}
+        isRookie={isCurrentUserRookie}
       />
 
       {/* Drawers */}

@@ -27,6 +27,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { EditRecruitDrawer } from "./recruit-detail/EditRecruitDrawer";
 import { Recruit } from "@/hooks/useGroupRecruits";
+import { hasMinAccess, type AccessLevel } from "@/utils/roleHierarchy";
+
+// Only Calvin Schofield has bootstrap approval authority (can assign upward roles)
+const BOOTSTRAP_USER_ID = '843dac61-139d-4511-a057-c3bf359a9c07';
 
 interface PendingRecruit {
   id: string;
@@ -54,6 +58,21 @@ export const PendingApprovalsSection = () => {
   const [showReassignPrompt, setShowReassignPrompt] = useState(false);
   const [selectedLeaderGroup, setSelectedLeaderGroup] = useState('');
   const [isAssigningLeader, setIsAssigningLeader] = useState(false);
+
+  // Determine if the current user can approve (must NOT be a rookie, and must be at least team_lead level)
+  const accessLevel = (teamAccess?.accessLevel || 'none') as AccessLevel;
+  const { data: currentUserYear } = useQuery({
+    queryKey: ['my-rep-year-for-approval', userId],
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase.from('reps').select('year').eq('user_id', userId!).maybeSingle();
+      return data?.year || 'Rookie';
+    },
+  });
+  const isRookie = currentUserYear === 'Rookie';
+  // Rookies cannot approve. Only non-rookies who are at least team_lead level (up to mgmt_group_lead) can approve.
+  const canApprove = !isRookie && hasMinAccess(accessLevel, 'team_lead');
 
   // Fetch unled groups when leadership prompt is shown
   const { data: unleadedGroups = [] } = useQuery({
@@ -322,7 +341,7 @@ export const PendingApprovalsSection = () => {
               <h3 className="font-semibold text-sm">Pending Approvals</h3>
               <Badge variant="secondary" className="text-xs">{pendingRecruits.length}</Badge>
             </div>
-            {pendingRecruits.length > 1 && (
+            {canApprove && pendingRecruits.length > 1 && (
               <Button
                 variant="outline"
                 size="sm"
@@ -352,36 +371,44 @@ export const PendingApprovalsSection = () => {
                     )}
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setEditingRecruit(recruit)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => setRejectConfirmId(recruit.id)}
-                      disabled={rejectMutation.isPending}
-                    >
-                      <XCircle className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="h-8 gap-1"
-                      onClick={() => approveMutation.mutate(recruit.id)}
-                      disabled={approveMutation.isPending}
-                    >
-                      {approveMutation.isPending ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                      )}
-                      Approve
-                    </Button>
+                    {canApprove ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setEditingRecruit(recruit)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => setRejectConfirmId(recruit.id)}
+                          disabled={rejectMutation.isPending}
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-8 gap-1"
+                          onClick={() => approveMutation.mutate(recruit.id)}
+                          disabled={approveMutation.isPending}
+                        >
+                          {approveMutation.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          )}
+                          Approve
+                        </Button>
+                      </>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                        Awaiting leader approval
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>
@@ -398,9 +425,8 @@ export const PendingApprovalsSection = () => {
           recruit={toRecruitShape(editingRecruit)}
           showRoleAssignment={true}
           isBootstrapApproval={
-            // Bootstrap only when the current user is the direct inviter
-            // This allows "invite your boss" flow while preventing abuse
-            editingRecruit.recruiter_user_id === userId
+            // Bootstrap approval only for Calvin Schofield
+            userId === BOOTSTRAP_USER_ID
           }
           onSuccess={async (assignedRole) => {
             queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
