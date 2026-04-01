@@ -1546,6 +1546,13 @@ const TrackWithLayout = () => {
       work_start_time: now.toISOString(),
       timezone
     });
+
+    // Fire-and-forget: notify upline if rookie is knocking solo (outside blitz)
+    if (repData?.year === "Rookie") {
+      supabase.functions.invoke("notify-rookie-solo-knocking").catch(() => {
+        // Silent — notification is best-effort
+      });
+    }
   };
 
   const handleEndWork = () => {
