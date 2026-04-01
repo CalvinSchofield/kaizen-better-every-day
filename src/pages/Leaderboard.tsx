@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { LeaderboardHeroBanner } from "@/components/leaderboard/LeaderboardHeroBanner";
@@ -6,13 +6,14 @@ import { LeaderboardFilters, TimeFilter } from "@/components/leaderboard/Leaderb
 import { UnifiedRaceSection } from "@/components/leaderboard/UnifiedRaceSection";
 import { LeaderboardSpotlightRow } from "@/components/leaderboard/LeaderboardSpotlightRow";
 import { WatchlistDrawer } from "@/components/leaderboard/WatchlistDrawer";
-import { SmartFilterDrawer, SmartFilterState, DEFAULT_FILTER_STATE, isFilterActive } from "@/components/filters/SmartFilterDrawer";
+import { UnifiedFilterDrawer, UnifiedFilterState, DEFAULT_UNIFIED_FILTER, isUnifiedFilterActive, resolveFilteredUserIds } from "@/components/filters/UnifiedFilterDrawer";
 import { useExpandedLeaderboard, CustomDateRange, getDateRange } from "@/hooks/useExpandedLeaderboard";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { useWatchlist } from "@/hooks/useWatchlist";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useHeader } from "@/contexts/HeaderContext";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { supabase } from "@/integrations/supabase/client";
