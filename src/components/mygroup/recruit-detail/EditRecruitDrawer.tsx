@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getSessionSafe } from "@/utils/authSession";
+
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, ROLE_HIERARCHY, getAssignableRoles, getRoleJumpInfo, type AccessLevel } from "@/utils/roleHierarchy";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
@@ -205,7 +205,7 @@ export const EditRecruitDrawer = ({
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-rep-for-edit'],
     queryFn: async () => {
-      const { user } = await getSessionSafe();
+      const { user } = await supabase.auth.getSession().then(r => ({ session: r.data.session, user: r.data.session?.user ?? null }));
       if (!user) return null;
       const { data } = await supabase
         .from('reps')
@@ -426,7 +426,7 @@ export const EditRecruitDrawer = ({
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async (updates: Record<string, any>) => {
-      const { session } = await getSessionSafe();
+      const { session } = await supabase.auth.getSession().then(r => ({ session: r.data.session, user: r.data.session?.user ?? null }));
       if (!session) throw new Error('Not authenticated');
 
       const { data, error } = await supabase.functions.invoke('update-recruit-properties', {
