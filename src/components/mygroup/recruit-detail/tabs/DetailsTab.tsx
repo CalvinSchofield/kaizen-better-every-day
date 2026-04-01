@@ -35,9 +35,10 @@ import {
   SelectSeparator,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-// Mobile-optimized: use local session cache instead of getSessionFast
+
+// Mobile-optimized: use local session cache, no network refresh
 const getSessionFast = async () => {
-  const { data: { session } } = await (await import('@/integrations/supabase/client')).supabase.auth.getSession();
+  const { data: { session } } = await supabase.auth.getSession();
   return { session, user: session?.user ?? null };
 };
 import { toast } from "sonner";
