@@ -578,8 +578,9 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       // MGMT groups without an office
       if (!isOfficeScopedToUser) {
         ungroupedByMgmt.forEach((nodes, mgmtGroupId) => {
+          const mgLeader = mgmtGroupMap.get(mgmtGroupId)?.lead_user_id;
           const dedupedNodes = dedupeGroupNodes(nodes)
-            .filter((node) => !node.userId || !globalDescendantIds.has(node.userId));
+            .filter((node) => !node.userId || !globalDescendantIds.has(node.userId) || node.userId === mgLeader);
           rootNodes.push(createMgmtLabelNode(mgmtGroupId, dedupedNodes));
         });
 
