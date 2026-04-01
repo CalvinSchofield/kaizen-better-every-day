@@ -731,6 +731,9 @@ const OrgChart = () => {
               roots={fullTree}
               selectedNodeId={selectedNodeId}
               onSelectNode={handleSelectNode}
+              groupByOffice={groupByOffice}
+              onGroupByOfficeChange={setGroupByOffice}
+              showGroupByOfficeToggle={OFFICE_GROUPED_ACCESS_LEVELS.has(teamAccess?.accessLevel || '')}
             />
           )}
         </TabsContent>
