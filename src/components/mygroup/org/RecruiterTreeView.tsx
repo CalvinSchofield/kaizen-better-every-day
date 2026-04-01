@@ -100,6 +100,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
     const mgmtGroups = treeData.mgmtGroups || [];
     const offices = treeData.offices || [];
     const teamMgmtGroups = treeData.teamMgmtGroups || [];
+    const srMgmtGroups = treeData.srMgmtGroups || [];
 
     const repMap = new Map<string, (typeof reps)[number]>();
     reps.forEach((rep) => {
