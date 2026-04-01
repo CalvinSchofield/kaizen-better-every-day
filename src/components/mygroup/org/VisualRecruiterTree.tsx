@@ -227,12 +227,18 @@ interface VisualRecruiterTreeProps {
   roots: TreeNode[];
   selectedNodeId: string | null;
   onSelectNode: (node: PositionedNode | null) => void;
+  groupByOffice?: boolean;
+  onGroupByOfficeChange?: (value: boolean) => void;
+  showGroupByOfficeToggle?: boolean;
 }
 
 export const VisualRecruiterTree = ({
   roots,
   selectedNodeId,
   onSelectNode,
+  groupByOffice = false,
+  onGroupByOfficeChange,
+  showGroupByOfficeToggle = false,
 }: VisualRecruiterTreeProps) => {
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
