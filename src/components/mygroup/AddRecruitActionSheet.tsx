@@ -27,9 +27,11 @@ const generateShortCode = () => {
 interface AddRecruitActionSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** When true, only "Share Kaizen" is shown (rookies can't add to pipeline) */
+  isRookie?: boolean;
 }
 
-export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSheetProps) => {
+export const AddRecruitActionSheet = ({ open, onOpenChange, isRookie = false }: AddRecruitActionSheetProps) => {
   const navigate = useNavigate();
   const { userId } = useCurrentUserId();
   const { toast } = useToast();
