@@ -371,36 +371,44 @@ export const PendingApprovalsSection = () => {
                     )}
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setEditingRecruit(recruit)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => setRejectConfirmId(recruit.id)}
-                      disabled={rejectMutation.isPending}
-                    >
-                      <XCircle className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="h-8 gap-1"
-                      onClick={() => approveMutation.mutate(recruit.id)}
-                      disabled={approveMutation.isPending}
-                    >
-                      {approveMutation.isPending ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                      )}
-                      Approve
-                    </Button>
+                    {canApprove ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setEditingRecruit(recruit)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => setRejectConfirmId(recruit.id)}
+                          disabled={rejectMutation.isPending}
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-8 gap-1"
+                          onClick={() => approveMutation.mutate(recruit.id)}
+                          disabled={approveMutation.isPending}
+                        >
+                          {approveMutation.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          )}
+                          Approve
+                        </Button>
+                      </>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                        Awaiting leader approval
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>
