@@ -319,6 +319,8 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
 
   const getTotalSteps = () => 4;
 
+  const carWarsMinValid = type === 'car_wars' && carWarsTeams.filter(t => t.members.length > 0).length >= 2;
+
   return (
     <Drawer open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetForm(); }}>
       <DrawerContent className="max-h-[90vh]">
@@ -328,7 +330,9 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
               <ChevronLeft className="h-4 w-4" />
             </Button>
           )}
-          <DrawerTitle className="flex-1">New Challenge</DrawerTitle>
+          <DrawerTitle className="flex-1">
+            {type === 'car_wars' ? 'New Car Wars' : 'New Challenge'}
+          </DrawerTitle>
           <span className="text-xs text-muted-foreground">{step}/{getTotalSteps()}</span>
         </DrawerHeader>
 
@@ -336,23 +340,31 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
           {/* Step 1: Type */}
           {step === 1 && (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">Who do you want to challenge?</p>
-              <div className="grid grid-cols-2 gap-3">
+              <p className="text-sm text-muted-foreground">What type of competition?</p>
+              <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => { setType('1v1'); setStep(2); }}
                   className="p-4 rounded-xl border-2 border-border hover:border-primary transition-colors text-center"
                 >
                   <User className="h-8 w-8 mx-auto mb-2 text-primary" />
-                  <p className="font-semibold">1v1</p>
-                  <p className="text-xs text-muted-foreground">Head to head</p>
+                  <p className="font-semibold text-sm">1v1</p>
+                  <p className="text-[10px] text-muted-foreground">Head to head</p>
                 </button>
                 <button
                   onClick={() => { setType('group'); setStep(2); }}
                   className="p-4 rounded-xl border-2 border-border hover:border-primary transition-colors text-center"
                 >
                   <Users className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-                  <p className="font-semibold">Team</p>
-                  <p className="text-xs text-muted-foreground">Team vs Team</p>
+                  <p className="font-semibold text-sm">Team</p>
+                  <p className="text-[10px] text-muted-foreground">Team vs Team</p>
+                </button>
+                <button
+                  onClick={() => { setType('car_wars'); setStep(2); }}
+                  className="p-4 rounded-xl border-2 border-border hover:border-purple-500 transition-colors text-center"
+                >
+                  <Car className="h-8 w-8 mx-auto mb-2 text-purple-500" />
+                  <p className="font-semibold text-sm">Car Wars</p>
+                  <p className="text-[10px] text-muted-foreground">Multi-team</p>
                 </button>
               </div>
             </div>
