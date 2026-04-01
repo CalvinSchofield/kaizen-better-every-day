@@ -161,8 +161,9 @@ export const useWatchlistDetails = () => {
         ud.entryDates.push({ date: entry.entry_date, closes: entry.closes || 0 });
       }
 
-      // Calculate sales streak for a user from their entries
-      const calcSalesStreak = (entryDates: { date: string; closes: number }[]): number => {
+      // Calculate sales streak for a user from their entries (with protection support)
+      const calcSalesStreak = (uid: string, entryDates: { date: string; closes: number }[]): { streak: number; shieldCount: number } => {
+        const protectedSet = userProtections.get(uid) || new Set<string>();
         // Sort descending by date
         const sorted = [...entryDates].sort((a, b) => b.date.localeCompare(a.date));
         // Deduplicate by date (take max closes)
@@ -173,6 +174,7 @@ export const useWatchlistDetails = () => {
         const dates = [...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0]));
         
         let streak = 0;
+        let shieldCount = 0;
         let expectedDate = dates.length > 0 ? new Date(dates[0][0] + "T12:00:00") : null;
         
         for (const [dateStr, closes] of dates) {
@@ -184,13 +186,16 @@ export const useWatchlistDetails = () => {
           if (diffDays > 1) break;
           if (closes >= 1) {
             streak++;
+          } else if (protectedSet.has(dateStr)) {
+            streak++;
+            shieldCount++;
           } else {
             break;
           }
           expectedDate = new Date(entryDate);
           expectedDate.setDate(expectedDate.getDate() - 1);
         }
-        return streak;
+        return { streak, shieldCount };
       };
 
       // Build sparkline arrays (7 days, oldest first)
