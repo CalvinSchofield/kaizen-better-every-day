@@ -74,6 +74,9 @@ const OrgChart = () => {
     treeData.mgmtGroups.forEach((mg) => {
       if (mg.lead_user_id) map.set(mg.lead_user_id, { title: "MGMT Group Lead", color: "mgmt_group" });
     });
+    treeData.srMgmtGroups.forEach((smg: any) => {
+      if (smg.lead_user_id) map.set(smg.lead_user_id, { title: "Sr MGMT Group Leader", color: "sr_mgmt_group" });
+    });
     treeData.officeStaff.forEach((s) => {
       if (s.role === "area_director") {
         adSet.add(s.user_id);
