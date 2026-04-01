@@ -121,6 +121,9 @@ function buildSystemPrompt(
           status: sale.install_status || 'unknown',
           hour,
           customerName: sale.customer_name || sale.name || undefined,
+          accountNumber: sale.customer_account_number || undefined,
+          timeToSell: sale.time_to_sell_minutes || undefined,
+          moneySpent: sale.money_spent || undefined,
         });
       }
     }
@@ -249,16 +252,18 @@ function buildSystemPrompt(
     })
     .join("\n");
 
-  // Per-sale detail (last 50 sales for context)
-  const recentSales = allSales.slice(-50);
+  // Per-sale detail — include ALL sales so the AI can answer any customer-specific question
   let salesDetailSection = "";
-  if (recentSales.length > 0) {
-    const salesLines = recentSales.map(s => {
+  if (allSales.length > 0) {
+    const salesLines = allSales.map(s => {
       const hourStr = s.hour !== null ? `${s.hour > 12 ? s.hour - 12 : s.hour}${s.hour >= 12 ? 'pm' : 'am'}` : '?';
       const nameStr = s.customerName ? ` "${s.customerName}"` : '';
-      return `  ${s.date} ${hourStr}: ${s.type} $${s.prmr.toFixed(0)} PRMR [${s.status}]${nameStr}`;
+      const acctStr = s.accountNumber ? ` acct#${s.accountNumber}` : '';
+      const ttsStr = s.timeToSell ? ` ${s.timeToSell}min` : '';
+      const spentStr = s.moneySpent ? ` $${s.moneySpent}spent` : '';
+      return `  ${s.date} ${hourStr}: ${s.type} $${s.prmr.toFixed(0)} PRMR [${s.status}]${nameStr}${acctStr}${ttsStr}${spentStr}`;
     }).join("\n");
-    salesDetailSection = `### Recent Sales (last ${recentSales.length})\n${salesLines}`;
+    salesDetailSection = `### All Sales (${allSales.length} total)\n${salesLines}`;
   }
 
   // Upgrade analysis
