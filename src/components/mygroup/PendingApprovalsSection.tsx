@@ -136,44 +136,24 @@ export const PendingApprovalsSection = () => {
       
       if (repData.data?.user_id) {
         const repUserId = repData.data.user_id;
+        // Use raw fetch for pending_lead_recruit_id (column not yet in generated types)
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const headers = { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
 
-        // Check teams
-        const { data: pendingTeams } = await supabase
-          .from('teams')
-          .select('id, name')
-          .eq('pending_lead_recruit_id' as any, recruitId);
-        
-        for (const team of (pendingTeams || [])) {
-          await supabase
-            .from('teams')
-            .update({ lead_user_id: repUserId, pending_lead_recruit_id: null } as any)
-            .eq('id', team.id);
-        }
+        const autoAssignedNames: string[] = [];
 
-        // Check mgmt_groups
-        const { data: pendingGroups } = await supabase
-          .from('mgmt_groups')
-          .select('id, name')
-          .eq('pending_lead_recruit_id' as any, recruitId);
-        
-        for (const group of (pendingGroups || [])) {
-          await supabase
-            .from('mgmt_groups')
-            .update({ lead_user_id: repUserId, pending_lead_recruit_id: null } as any)
-            .eq('id', group.id);
-        }
-
-        // Check sr_mgmt_groups
-        const { data: pendingSrGroups } = await supabase
-          .from('sr_mgmt_groups')
-          .select('id, name')
-          .eq('pending_lead_recruit_id' as any, recruitId);
-        
-        for (const group of (pendingSrGroups || [])) {
-          await supabase
-            .from('sr_mgmt_groups')
-            .update({ lead_user_id: repUserId, pending_lead_recruit_id: null } as any)
-            .eq('id', group.id);
+        for (const table of ['teams', 'mgmt_groups', 'sr_mgmt_groups']) {
+          const res = await fetch(`${supabaseUrl}/rest/v1/${table}?pending_lead_recruit_id=eq.${recruitId}&select=id,name`, { headers });
+          const rows = await res.json();
+          for (const row of (rows || [])) {
+            await fetch(`${supabaseUrl}/rest/v1/${table}?id=eq.${row.id}`, {
+              method: 'PATCH',
+              headers: { ...headers, 'Prefer': 'return=minimal' },
+              body: JSON.stringify({ lead_user_id: repUserId, pending_lead_recruit_id: null }),
+            });
+            autoAssignedNames.push(row.name);
+          }
         }
 
         const totalAssigned = (pendingTeams?.length || 0) + (pendingGroups?.length || 0) + (pendingSrGroups?.length || 0);
