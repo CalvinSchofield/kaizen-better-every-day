@@ -47,6 +47,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DataLoadError } from "@/components/mygroup/DataLoadError";
 import { AddRecruitActionSheet } from "@/components/mygroup/AddRecruitActionSheet";
 import Layout from "@/components/Layout";
+import { LeaderOnboardingTour } from "@/components/mygroup/LeaderOnboardingTour";
 import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, startOfToday } from "date-fns";
 import { toast } from "sonner";
 import { UndoBanner } from "@/components/ui/UndoBanner";
