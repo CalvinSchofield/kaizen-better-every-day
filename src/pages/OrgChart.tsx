@@ -748,41 +748,55 @@ const OrgChart = () => {
     );
   }
 
+  const handleTourAction = useCallback((action: string) => {
+    if (action === 'switchToStructureTab') {
+      setActiveTab('structure');
+    } else if (action === 'switchToTreeTab') {
+      setActiveTab('tree');
+    }
+  }, []);
+
   return (
-    <div className="p-4 space-y-4 pb-24">
-      <Tabs defaultValue="tree" className="w-full">
-        <TabsList className="w-full">
-          <TabsTrigger value="tree" className="flex-1 gap-1.5">
-            <GitBranch className="h-3.5 w-3.5" />
-            Recruiter Tree
-          </TabsTrigger>
-          <TabsTrigger value="structure" className="flex-1 gap-1.5">
-            <Users className="h-3.5 w-3.5" />
-            Structure
-          </TabsTrigger>
-        </TabsList>
+    <div className="p-4 space-y-4 pb-24" data-tour="org-chart-page">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div data-tour="org-chart-tabs">
+          <TabsList className="w-full">
+            <TabsTrigger value="tree" className="flex-1 gap-1.5">
+              <GitBranch className="h-3.5 w-3.5" />
+              Recruiter Tree
+            </TabsTrigger>
+            <TabsTrigger value="structure" className="flex-1 gap-1.5">
+              <Users className="h-3.5 w-3.5" />
+              Structure
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="tree" className="mt-3 space-y-3">
-          {!fullTree || fullTree.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <GitBranch className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>No recruiter tree found</p>
-              <p className="text-sm">Recruiting relationships will appear here</p>
-            </div>
-          ) : (
-            <VisualRecruiterTree
-              roots={fullTree}
-              selectedNodeId={selectedNodeId}
-              onSelectNode={handleSelectNode}
-              groupByOffice={groupByOffice}
-              onGroupByOfficeChange={setGroupByOffice}
-              showGroupByOfficeToggle={OFFICE_GROUPED_ACCESS_LEVELS.has(teamAccess?.accessLevel || '')}
-            />
-          )}
+          <div data-tour="org-chart-recruiter-tree">
+            {!fullTree || fullTree.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <GitBranch className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No recruiter tree found</p>
+                <p className="text-sm">Recruiting relationships will appear here</p>
+              </div>
+            ) : (
+              <VisualRecruiterTree
+                roots={fullTree}
+                selectedNodeId={selectedNodeId}
+                onSelectNode={handleSelectNode}
+                groupByOffice={groupByOffice}
+                onGroupByOfficeChange={setGroupByOffice}
+                showGroupByOfficeToggle={OFFICE_GROUPED_ACCESS_LEVELS.has(teamAccess?.accessLevel || '')}
+              />
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="structure" className="mt-3">
-          <OrgStructureTree accessLevel={teamAccess?.accessLevel} />
+          <div data-tour="org-chart-structure-content">
+            <OrgStructureTree accessLevel={teamAccess?.accessLevel} />
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -796,11 +810,19 @@ const OrgChart = () => {
           if (!open) {
             setSelectedNodeId(null);
             setDrawerRecruit(null);
-            // Refetch tree data to reflect any changes (recruiter reassignment, stage change, etc.)
             queryClient.invalidateQueries({ queryKey: ["org-chart-full-tree"] });
           }
         }}
         initialTab="details"
+      />
+
+      {/* Org Chart Tour */}
+      <PageTour
+        steps={getOrgChartTourSteps(teamAccess?.accessLevel)}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+        onStepAction={handleTourAction}
       />
     </div>
   );
