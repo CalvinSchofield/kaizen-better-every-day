@@ -595,6 +595,8 @@ export const ReportsV2Page = () => {
         onOpenChange={setShowRecordDrawer}
         records={activeRecords}
       />
+
+      <LeaderChatFab />
     </div>
   );
 };
