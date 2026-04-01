@@ -103,6 +103,10 @@ const Blitzes = () => {
 
   // Check if user is a pre-blitz rookie (locked out of production pages)
   const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
+  
+  // Check if goals are set up (gate for all users, not just rookies)
+  const { goals } = useRepGoals();
+  const needsGoalSetup = repData && !isPreBlitzRookie && !goals?.setup_complete;
 
   const committedBlitzesArr = (repData?.committed_blitzes as any[]) || [];
 
