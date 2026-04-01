@@ -1116,7 +1116,7 @@ const Goals = () => {
         {/* Planning Section */}
         <div className="px-4 space-y-3 pb-6">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium pl-1">Planning</p>
-          <div id="goals-calendar-planning">
+          <div data-tour="goals-calendar-planning">
             <CalendarPlanningPreview
               goals={goals}
               activeTier={activeTier}
