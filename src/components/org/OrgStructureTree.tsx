@@ -1131,7 +1131,6 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           </div>
         );
       })()}
-      </div>
 
       {/* Long-press action sheet */}
       <Drawer open={!!actionTarget} onOpenChange={(open) => !open && setActionTarget(null)}>
