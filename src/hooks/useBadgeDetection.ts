@@ -400,3 +400,150 @@ function calcStreak(
 
   return streak;
 }
+
+/**
+ * Like calcStreak but also continues the streak if the date has a protection record.
+ */
+function calcStreakWithProtection(
+  entries: { entry_date: string; closes: number | null; transitions: number | null; presentations: number | null; doors_knocked: number | null }[],
+  field: 'closes' | 'transitions' | 'presentations',
+  minValue: number,
+  freezeRule: { field: 'doors_knocked' | 'transitions'; threshold: number } | null,
+  protectedDates: Set<string>
+): number {
+  if (!entries.length) return 0;
+
+  let streak = 0;
+  let expectedDate = new Date(entries[0].entry_date + 'T12:00:00');
+
+  for (const entry of entries) {
+    const entryDate = new Date(entry.entry_date + 'T12:00:00');
+    const diffDays = Math.round((expectedDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 1) break;
+
+    const val = Number(entry[field]) || 0;
+    if (val >= minValue) {
+      streak++;
+    } else if (protectedDates.has(entry.entry_date)) {
+      // Day was protected by effort
+      streak++;
+    } else if (freezeRule) {
+      const freezeVal = Number(entry[freezeRule.field]) || 0;
+      if (freezeVal >= freezeRule.threshold) {
+        streak++;
+      } else {
+        break;
+      }
+    } else {
+      break;
+    }
+
+    expectedDate = new Date(entryDate);
+    expectedDate.setDate(expectedDate.getDate() - 1);
+  }
+
+  return streak;
+}
+
+/**
+ * Detect if a rep earned streak protection on a no-sale day.
+ * Checks: season average for doors/presentations, weekly limits, then inserts protection.
+ */
+async function detectStreakProtection(
+  userId: string,
+  date: string,
+  todayEntry: { doors_knocked: number; presentations: number; entry_date: string },
+  isRookie: boolean
+) {
+  // Check if protection already exists for this date
+  const { data: existing } = await supabase
+    .from("streak_protections")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("entry_date", date)
+    .maybeSingle();
+
+  if (existing) return;
+
+  // Check weekly limit
+  const recentCount = await getRecentProtectionCount(userId);
+  const maxPerWeek = isRookie ? STREAK_PROTECTION.MAX_PER_WEEK_ROOKIE : STREAK_PROTECTION.MAX_PER_WEEK_VET;
+  if (recentCount >= maxPerWeek) return;
+
+  // Get season averages
+  const [avgDoors, avgPresentations] = await Promise.all([
+    getSeasonAverage(userId, 'doors_knocked'),
+    getSeasonAverage(userId, 'presentations'),
+  ]);
+
+  // Check minimum history — count knocking days this season
+  const todayStr = date;
+  const seasonStart = todayStr >= (SEASON_DATES.SUMMER_START_GLOBAL)
+    ? SEASON_DATES.SUMMER_START_GLOBAL
+    : SEASON_DATES.PRESEASON_START;
+
+  const { count: knockingDayCount } = await supabase
+    .from("daily_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("entry_date", seasonStart)
+    .lt("entry_date", todayStr)
+    .gt("doors_knocked", 0);
+
+  const hasEnoughHistory = (knockingDayCount || 0) >= STREAK_PROTECTION.MIN_HISTORY_DAYS;
+
+  // Calculate thresholds
+  let doorThreshold: number;
+  let presThreshold: number;
+
+  if (hasEnoughHistory) {
+    doorThreshold = Math.ceil(avgDoors * STREAK_PROTECTION.EFFORT_MULTIPLIER);
+    presThreshold = Math.ceil(avgPresentations * STREAK_PROTECTION.EFFORT_MULTIPLIER);
+  } else {
+    // Use default floors for new reps
+    if (isRookie) {
+      doorThreshold = STREAK_PROTECTION.ROOKIE_DEFAULT_DOORS;
+      presThreshold = Math.ceil(avgPresentations > 0 ? avgPresentations * STREAK_PROTECTION.EFFORT_MULTIPLIER : 999);
+    } else {
+      doorThreshold = Math.ceil(avgDoors > 0 ? avgDoors * STREAK_PROTECTION.EFFORT_MULTIPLIER : 999);
+      presThreshold = STREAK_PROTECTION.VET_DEFAULT_TRANSITIONS;
+    }
+  }
+
+  const doors = todayEntry.doors_knocked || 0;
+  const presentations = todayEntry.presentations || 0;
+
+  let method: string | null = null;
+  let baseline = 0;
+  let actual = 0;
+
+  if (doors >= doorThreshold && doorThreshold > 0) {
+    method = 'doors_150';
+    baseline = avgDoors;
+    actual = doors;
+  } else if (presentations >= presThreshold && presThreshold > 0) {
+    method = 'presentations_150';
+    baseline = avgPresentations;
+    actual = presentations;
+  }
+
+  if (!method) return;
+
+  // Insert protection
+  await supabase.from("streak_protections").insert({
+    user_id: userId,
+    entry_date: date,
+    protection_type: 'earned',
+    method,
+    baseline_value: Math.round(baseline * 10) / 10,
+    actual_value: actual,
+    streak_length: 0, // will be updated by streak calc
+  });
+
+  // Toast
+  toast({
+    title: "🛡️ Streak Protected!",
+    description: "Your effort today earned you a streak shield!",
+  });
+}
