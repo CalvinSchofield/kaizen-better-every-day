@@ -82,11 +82,14 @@ const getSlides = (userType: UserType, firstName: string, segment?: OnboardingSe
       case 'outside-org':
         return getOutsideOrgSlides(firstName);
       case 'in-org-vet':
+        // All leaders (team_lead+) get leader slides regardless of segment
         return getInOrgVetSlides(firstName, !!isLeader);
       case 'in-org-rookie-summer':
-        // Summer rookies still see team-sell slides
+        // Leaders who happen to be "rookie" year still get leader flow
+        if (isLeader) return getInOrgVetSlides(firstName, true);
         return getPreBlitzRookieSlides(firstName);
       case 'in-org-rookie-preseason':
+        if (isLeader) return getInOrgVetSlides(firstName, true);
         return getPreBlitzRookieSlides(firstName);
     }
   }
