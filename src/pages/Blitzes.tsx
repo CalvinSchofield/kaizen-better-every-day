@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, Check, X, MapPin, Wifi, Key, Moon, AlertTriangle, Swords, Users, CloudSun, Pencil } from "lucide-react";
+import { ChevronRight, Check, X, MapPin, Wifi, Key, Moon, AlertTriangle, Swords, Users, CloudSun, Pencil, Lock, Calendar as CalendarIcon } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { EditSummerDatesDrawer } from "@/components/mygroup/EditSummerDatesDrawer";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
@@ -15,6 +15,8 @@ import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { useBlitzRecapStats } from "@/hooks/useBlitzRecapStats";
 import { BlitzRecapCard } from "@/components/BlitzRecapCard";
 import { BlitzDetailDrawer } from "@/components/blitz/BlitzDetailDrawer";
+import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
+import { Card, CardContent } from "@/components/ui/card";
 
 import { formatBlitzDateRange as formatBlitzDateRangeUtil } from "@/utils/blitzDateUtils";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
