@@ -141,7 +141,42 @@ export const useWatchlistDetails = () => {
         if (entry.entry_date >= sevenDaysAgo) {
           ud.dailyFp.set(entry.entry_date, (ud.dailyFp.get(entry.entry_date) || 0) + fp);
         }
+
+        // Track for streak calculation
+        ud.entryDates.push({ date: entry.entry_date, closes: entry.closes || 0 });
       }
+
+      // Calculate sales streak for a user from their entries
+      const calcSalesStreak = (entryDates: { date: string; closes: number }[]): number => {
+        // Sort descending by date
+        const sorted = [...entryDates].sort((a, b) => b.date.localeCompare(a.date));
+        // Deduplicate by date (take max closes)
+        const byDate = new Map<string, number>();
+        for (const e of sorted) {
+          byDate.set(e.date, Math.max(byDate.get(e.date) || 0, e.closes));
+        }
+        const dates = [...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+        
+        let streak = 0;
+        let expectedDate = dates.length > 0 ? new Date(dates[0][0] + "T12:00:00") : null;
+        
+        for (const [dateStr, closes] of dates) {
+          if (!expectedDate) break;
+          const entryDate = new Date(dateStr + "T12:00:00");
+          const diffDays = Math.round(
+            (expectedDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)
+          );
+          if (diffDays > 1) break;
+          if (closes >= 1) {
+            streak++;
+          } else {
+            break;
+          }
+          expectedDate = new Date(entryDate);
+          expectedDate.setDate(expectedDate.getDate() - 1);
+        }
+        return streak;
+      };
 
       // Build sparkline arrays (7 days, oldest first)
       const buildSparkline = (dailyFp: Map<string, number>): number[] => {
