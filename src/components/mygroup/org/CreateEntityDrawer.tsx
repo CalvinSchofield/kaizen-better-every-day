@@ -177,7 +177,7 @@ export const CreateEntityDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetState(); }}>
-      <DrawerContent>
+      <DrawerContent className="max-h-[90vh]">
         <DrawerHeader className="border-b">
           <div className="flex items-center justify-between">
             <DrawerTitle>{title}</DrawerTitle>
@@ -243,7 +243,7 @@ export const CreateEntityDrawer = ({
                   autoFocus
                 />
               </div>
-              <div className="space-y-1 max-h-[300px] overflow-y-auto">
+              <div className="space-y-1 max-h-[50vh] overflow-y-auto">
                 {/* Pending recruits section */}
                 {filteredPendingRecruits.length > 0 && (
                   <>

@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
@@ -31,6 +31,7 @@ const OrgChart = () => {
   const [groupByOffice, setGroupByOffice] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("tree");
   const location = useLocation();
+  const navigate = useNavigate();
   const fromOnboarding = (location.state as any)?.fromOnboarding === true;
 
   // Tour
@@ -818,8 +819,18 @@ const OrgChart = () => {
       <PageTour
         steps={getOrgChartTourSteps(teamAccess?.accessLevel)}
         isOpen={showTour}
-        onComplete={completeTour}
-        onSkip={skipTour}
+        onComplete={async () => {
+          await completeTour();
+          if (fromOnboarding) {
+            navigate('/my-group?tab=structure', { state: { fromOnboarding: true } });
+          }
+        }}
+        onSkip={async () => {
+          await skipTour();
+          if (fromOnboarding) {
+            navigate('/my-group?tab=structure', { state: { fromOnboarding: true } });
+          }
+        }}
         onStepAction={handleTourAction}
       />
     </div>

@@ -601,11 +601,7 @@ const Goals = () => {
 
       toast.success("Got it — skipping goals and planning for now.");
       // Non-knocking leaders should go to org chart for deep onboarding tour
-      if (isRegionalPlus) {
-        navigate('/org-chart', { replace: true, state: { fromOnboarding: true } });
-      } else {
-        navigate(gatedFrom || '/', { replace: true });
-      }
+      navigate('/org-chart', { replace: true, state: { fromOnboarding: true } });
     } catch (error) {
       console.error('Error saving knocking decision:', error);
       toast.error('Failed to save your choice');
@@ -743,8 +739,8 @@ const Goals = () => {
   }
 
   if (isNonKnockingRegionalLeader && !showSetupWizard) {
-    // Non-knocking leaders should go build their org
-    return <Navigate to={gatedFrom || (isRegionalPlus ? '/my-group?tab=structure' : '/')} replace />;
+    // Non-knocking leaders should go to org chart first, then my-group
+    return <Navigate to="/org-chart" replace state={{ fromOnboarding: true }} />;
   }
 
   if (shouldShowSetupGate || showSetupWizard) {
@@ -891,20 +887,24 @@ const Goals = () => {
                 invalidateGoalRelatedQueries(queryClient);
                 toast.success("Goals saved!");
 
-                // Post-setup redirect for leaders: take them to My Group org tab
+                // Post-setup redirect for leaders: knocking? -> goals -> plan -> org-chart -> my-group
                 const { data: teamAccessCheck } = await supabase.rpc('is_team_lead', { _user_id: user.id });
                 const { data: mgmtCheck } = await supabase.rpc('is_mgmt_group_lead', { _user_id: user.id });
                 const { data: adCheck } = await supabase.rpc('is_area_director', { _user_id: user.id });
                 const isLeaderUser = teamAccessCheck || mgmtCheck || adCheck;
                 
                 if (isLeaderUser) {
-                  // Check if they've already toured my-group
+                  // Check if they've already toured org-chart
                   const { data: repCheck } = await supabase
                     .from('reps')
                     .select('pages_toured')
                     .eq('user_id', user.id)
                     .maybeSingle();
                   const pagesToured = Array.isArray(repCheck?.pages_toured) ? (repCheck.pages_toured as string[]) : [];
+                  if (!pagesToured.includes('org-chart')) {
+                    navigate('/org-chart', { replace: true, state: { fromOnboarding: true } });
+                    return;
+                  }
                   if (!pagesToured.includes('my-group')) {
                     navigate('/my-group?tab=structure', { state: { fromOnboarding: true } });
                     return;
