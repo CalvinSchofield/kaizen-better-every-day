@@ -151,14 +151,54 @@ const Leaderboard = () => {
     );
   }
 
-  // Helper to filter any rankings object by watchlist user IDs
-  const filterRankingsByWatchlist = (rankings: any): any => {
-    if (!isWatchlistMode || watchedUserIds.length === 0) return rankings;
-    const allowedIds = new Set([...watchedUserIds, ...(currentUserId ? [currentUserId] : [])]);
+  // Compute allowed user IDs from unified filter (for non-watchlist node-based filtering)
+  const filterAllowedUserIds = useMemo(() => {
+    if (!teamAccess || smartFilter.selectedNodes.length === 0) return null;
+    return new Set(resolveFilteredUserIds(
+      { ...smartFilter, scope: 'all', yearFilters: [] }, // nodes only
+      teamAccess.accessibleReps || [],
+      teamAccess.mgmtGroups || [],
+      teamAccess.accessibleUserIds || [],
+      currentUserId || null,
+      teamAccess.accessLevel || 'none',
+    ));
+  }, [teamAccess, smartFilter.selectedNodes, currentUserId]);
+
+  // Helper to filter any rankings object by filter state
+  const filterRankings = (rankings: any): any => {
+    const allowedIds = new Set<string>();
+    
+    if (isWatchlistMode && watchedUserIds.length > 0) {
+      watchedUserIds.forEach(id => allowedIds.add(id));
+      if (currentUserId) allowedIds.add(currentUserId);
+    }
+
+    // Apply node-based filtering
+    const nodeIds = filterAllowedUserIds;
+
+    // Apply year filtering
+    let yearIds: Set<string> | null = null;
+    if (smartFilter.yearFilters.length > 0 && teamAccess?.accessibleReps) {
+      const allowedYears = new Set(smartFilter.yearFilters);
+      yearIds = new Set(
+        teamAccess.accessibleReps
+          .filter(r => r.userId && allowedYears.has(r.year || ''))
+          .map(r => r.userId!)
+      );
+    }
+
+    const hasAnyFilter = (isWatchlistMode && watchedUserIds.length > 0) || nodeIds || yearIds;
+    if (!hasAnyFilter) return rankings;
+
     const filtered: any = {};
     for (const [key, entries] of Object.entries(rankings)) {
       if (Array.isArray(entries)) {
-        filtered[key] = entries.filter((e: any) => allowedIds.has(e.userId));
+        filtered[key] = entries.filter((e: any) => {
+          if (isWatchlistMode && watchedUserIds.length > 0 && !allowedIds.has(e.userId)) return false;
+          if (nodeIds && !nodeIds.has(e.userId)) return false;
+          if (yearIds && !yearIds.has(e.userId)) return false;
+          return true;
+        });
       } else {
         filtered[key] = entries;
       }
