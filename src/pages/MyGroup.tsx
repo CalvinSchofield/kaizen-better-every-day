@@ -1382,8 +1382,15 @@ const MyGroup = () => {
         }}
       />
 
-      {/* Leader onboarding tour */}
-      {isLeader && <LeaderOnboardingTour />}
+      {/* Leader onboarding tour - unified PageTour system */}
+      {isLeader && (
+        <PageTour
+          steps={myGroupTourSteps}
+          isOpen={showGroupTour}
+          onComplete={completeGroupTour}
+          onSkip={skipGroupTour}
+        />
+      )}
 
       <LeaderWelcomeDrawer
         open={welcomeDrawerOpen}
