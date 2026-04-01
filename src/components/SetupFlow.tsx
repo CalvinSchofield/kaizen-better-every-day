@@ -106,6 +106,17 @@ const SetupFlow = () => {
         if (storedInviteCode) {
           setInviteCode(storedInviteCode);
           setInviteName(user.user_metadata?.name || '');
+          // Check invite type to determine if year selector should show
+          const { data: inviteData } = await supabase
+            .from('invite_codes')
+            .select('invite_type')
+            .eq('code', storedInviteCode)
+            .eq('is_active', true)
+            .maybeSingle();
+          setIsLateralInvite(inviteData?.invite_type === 'lateral');
+          if (inviteData?.invite_type !== 'lateral') {
+            setInviteYear('Rookie');
+          }
           setShowInviteOnboarding(true);
           return;
         }
