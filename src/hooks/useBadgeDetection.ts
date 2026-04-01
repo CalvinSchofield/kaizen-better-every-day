@@ -57,7 +57,7 @@ export const useBadgeDetection = (
       // Get badge definition
       const { data: def } = await supabase
         .from("badge_definitions")
-        .select("id, name, icon_emoji, rookie_only")
+        .select("id, name, icon_emoji, rookie_only, rarity, description")
         .eq("slug", slug)
         .maybeSingle();
 
