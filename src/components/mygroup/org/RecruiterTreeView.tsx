@@ -177,7 +177,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         .filter((recruit) => isStageIn(recruit.stage, [...SIGNED_PLUS_STAGES]));
       const recruitRecord = getRecruitForRep(rep);
 
-      const children: TreeNode[] = [];
+      let children: TreeNode[] = [];
 
       // Children with app accounts
       recruiterRecruits.forEach((recruit) => {
