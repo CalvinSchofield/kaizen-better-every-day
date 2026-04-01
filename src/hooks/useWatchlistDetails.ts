@@ -205,6 +205,7 @@ export const useWatchlistDetails = () => {
           weekFp: ud.weekFp,
           monthFp: ud.monthFp,
           seasonFp: ud.seasonFp,
+          salesStreak: calcSalesStreak(ud.entryDates),
         };
       };
 
