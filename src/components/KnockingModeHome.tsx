@@ -170,7 +170,7 @@ export const KnockingModeHome = ({
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header with colored background */}
-      <div className="bg-primary text-primary-foreground p-6 pb-10">
+      <div data-tour="home-header" className="bg-primary text-primary-foreground p-6 pb-10">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1 min-w-0 pr-4">
