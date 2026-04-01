@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, GitBranch } from "lucide-react";
