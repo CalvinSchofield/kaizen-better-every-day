@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 
 import { format, addDays, getDay, startOfDay } from "date-fns";
@@ -48,9 +48,14 @@ export const ScheduleFollowUpDrawer = ({
   const [scheduledActivityId, setScheduledActivityId] = useState<string | null>(null);
   const [scheduledDateString, setScheduledDateString] = useState<string>('');
   
+  // Capture stable viewport height before keyboard opens
+  const stableHeightRef = useRef<number>(window.innerHeight);
+
   // Reset form state when drawer opens or recruit changes
   useEffect(() => {
     if (open) {
+      // Capture height BEFORE keyboard could fire
+      stableHeightRef.current = window.innerHeight;
       // Dismiss keyboard immediately to prevent height squishing
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -153,7 +158,7 @@ export const ScheduleFollowUpDrawer = ({
   return (
     <>
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85svh] flex flex-col" style={{ maxHeight: 'calc(85svh - var(--keyboard-height, 0px))' }}>
+      <DrawerContent className="flex flex-col" style={{ maxHeight: `${stableHeightRef.current * 0.85}px` }}>
         <DrawerHeader className="border-b flex-shrink-0">
           <DrawerTitle>
             Schedule Follow-up with {getCleanName(recruit.name)}
