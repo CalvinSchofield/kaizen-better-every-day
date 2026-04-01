@@ -310,6 +310,16 @@ export const useBadgeDetection = (
         }
       }
 
+      // Streak milestone notification (every 10 days)
+      if (salesStreak > 0 && salesStreak % 10 === 0) {
+        emitInAppNotification({
+          id: `streak-milestone-${salesStreak}-${date}`,
+          title: `🔥 ${salesStreak}-Day Streak!`,
+          body: `You've sold ${salesStreak} days in a row. Keep the fire alive!`,
+          type: "streak_milestone",
+        });
+      }
+
       // Multi-sale streaks (no protection — these require actual multi-sales)
       for (const ms of MULTI_SALE_STREAKS) {
         const streak = calcStreak(recentEntries, 'closes', ms.min, null);
