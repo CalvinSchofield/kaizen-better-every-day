@@ -205,3 +205,69 @@ export const goalsTourSteps: TourStep[] = [
     position: 'bottom',
   },
 ];
+
+export const getOrgChartTourSteps = (accessLevel?: string): TourStep[] => {
+  const isRegionalPlus = ['regional', 'sr_regional', 'partner', 'divisional', 'corporate'].includes(accessLevel || '');
+  const isSrMgmtPlus = isRegionalPlus || accessLevel === 'senior_manager';
+
+  const steps: TourStep[] = [
+    {
+      target: 'org-chart-page',
+      title: 'Welcome to Your Org Chart',
+      description: 'This is your command center for building and managing your organization. Everything starts here — let\'s walk through it.',
+      position: 'bottom',
+    },
+    {
+      target: 'org-chart-tabs',
+      title: 'Two Views of Your Org',
+      description: 'You have two tabs: Recruiter Tree shows who recruited who (the invite chain). Structure shows your formal org hierarchy — teams, MGMT groups, and offices.',
+      position: 'bottom',
+    },
+    {
+      target: 'org-chart-recruiter-tree',
+      title: 'The Recruiter Tree',
+      description: 'This tree builds automatically as people accept invite links. Each node is a person — tap one to see their details, long-press to manage them.',
+      position: 'bottom',
+    },
+    {
+      target: 'org-chart-tabs',
+      title: 'Now Let\'s See Structure',
+      description: 'Tap the "Structure" tab to see your formal org layout. This is where you\'ll create teams, MGMT groups, and assign leaders.',
+      position: 'bottom',
+      action: 'switchToStructureTab',
+    },
+    {
+      target: 'org-chart-structure-content',
+      title: 'Your Org Structure',
+      description: 'This tab shows your formal hierarchy. Unlike the Recruiter Tree, you build this manually by creating groups and assigning leaders.',
+      position: 'bottom',
+    },
+    {
+      target: 'org-chart-create-button',
+      title: 'Create Your First Group',
+      description: isSrMgmtPlus
+        ? 'Tap this + button to create Teams, MGMT Groups, or higher-level structures. Start by creating the groups your leaders will run.'
+        : 'Tap this + button to create Teams under your MGMT group. Assign a leader and your reps will appear under them.',
+      position: 'top',
+    },
+  ];
+
+  if (isRegionalPlus) {
+    steps.push({
+      target: 'org-chart-structure-content',
+      title: 'Build Top-Down',
+      description: 'Pro tip: Build your org from the top down. Create your MGMT groups first, then teams within them. Invite your leaders — they\'ll auto-fill into their assigned positions.',
+      position: 'bottom',
+    });
+  }
+
+  steps.push({
+    target: 'org-chart-tabs',
+    title: 'You\'re Ready to Build!',
+    description: 'Start by inviting your leaders and creating your org structure. As people join via invite links, the Recruiter Tree will grow automatically. You can always come back here from the bottom nav.',
+    position: 'bottom',
+    action: 'switchToTreeTab',
+  });
+
+  return steps;
+};

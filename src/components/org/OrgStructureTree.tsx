@@ -1047,7 +1047,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         // If only one option, show a direct button
         if (createOptions.length === 1) {
           return (
-            <div className="mb-3">
+            <div className="mb-3" data-tour="org-chart-create-button">
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: createOptions[0].type })}>
                 <Plus className="h-3.5 w-3.5" /> Create {createOptions[0].label}
               </Button>
@@ -1056,7 +1056,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         }
         
         return (
-          <div className="mb-3">
+          <div className="mb-3" data-tour="org-chart-create-button">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setActionTarget({ id: "__create__", name: "Create", type: "__create__" })}>
               <Plus className="h-3.5 w-3.5" /> Create
             </Button>

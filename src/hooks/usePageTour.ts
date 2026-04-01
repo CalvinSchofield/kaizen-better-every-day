@@ -11,7 +11,8 @@ export type TourablePage =
   | 'my-group' 
   | 'customers' 
   | 'reports'
-  | 'goals';
+  | 'goals'
+  | 'org-chart';
 
 interface UsePageTourOptions {
   page: TourablePage;
