@@ -218,6 +218,11 @@ export const PendingApprovalsSection = () => {
         }
       }
 
+      // Send approval notification to the rep (fire-and-forget)
+      supabase.functions.invoke('send-approval-notification', {
+        body: { recruitId },
+      }).catch(err => console.error('Failed to send approval notification:', err));
+
       return { autoAssignedLeader: false, preAssignedRole };
     },
     onSuccess: (result) => {
