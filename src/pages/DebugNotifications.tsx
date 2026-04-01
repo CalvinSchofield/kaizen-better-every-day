@@ -77,6 +77,7 @@ const STREAK_SCENARIOS = [
 export default function DebugNotifications() {
   const navigate = useNavigate();
   const [sending, setSending] = useState<string | null>(null);
+  const [previewPending, setPreviewPending] = useState<'direct' | 'external' | null>(null);
 
   const sendTest = async (type: string) => {
     setSending(type);
