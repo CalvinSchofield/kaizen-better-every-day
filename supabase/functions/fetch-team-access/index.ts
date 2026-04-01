@@ -91,12 +91,22 @@ Deno.serve(async (req) => {
     // Fetch all mgmt_groups
     const { data: mgmtGroupsRaw } = await supabase
       .from('mgmt_groups')
-      .select('id, name, lead_user_id');
+      .select('id, name, lead_user_id, office_id, sr_mgmt_group_id');
 
     // Fetch all teams
     const { data: teamsRaw } = await supabase
       .from('teams')
-      .select('id, name, lead_user_id');
+      .select('id, name, lead_user_id, office_id');
+
+    // Fetch all offices
+    const { data: officesRaw } = await supabase
+      .from('offices')
+      .select('id, name, location');
+
+    // Fetch all sr_mgmt_groups (full data for hierarchy)
+    const { data: allSrMgmtGroupsRaw } = await supabase
+      .from('sr_mgmt_groups')
+      .select('id, name, lead_user_id, office_id, region_id');
 
     // Fetch team-mgmt_group relationships
     const { data: teamMgmtGroupsRaw } = await supabase
@@ -118,19 +128,11 @@ Deno.serve(async (req) => {
     const teamMgmtGroups = teamMgmtGroupsRaw || [];
     const repsData = allReps || [];
     const recruitsData = allRecruits || [];
+    const officesData = officesRaw || [];
+    const allSrMgmtGroupsData = allSrMgmtGroupsRaw || [];
 
-    // === COMPUTE ACCESS LEVEL ===
-    // Determine structural roles from table relationships
-    const isTeamLeadStructural = teamsData.some(t => t.lead_user_id === user.id);
-    const isMgmtGroupLeadStructural = mgmtGroupsData.some(g => g.lead_user_id === user.id);
-    
     // Also check for sr_mgmt_group lead
-    const { data: srMgmtGroupsRaw } = await supabase
-      .from('sr_mgmt_groups')
-      .select('id, lead_user_id')
-      .eq('lead_user_id', user.id)
-      .limit(1);
-    const isSrMgmtGroupLead = (srMgmtGroupsRaw || []).length > 0;
+    const isSrMgmtGroupLead = allSrMgmtGroupsData.some(g => g.lead_user_id === user.id);
 
     // Check for regional/sr_regional/partner/divisional lead
     const { data: regionsLed } = await supabase
