@@ -3,7 +3,7 @@ import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, Building2 } from "lucide-react";
 import { getCleanName, getInitials } from "@/utils/nameUtils";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
 import { cn } from "@/lib/utils";
@@ -227,12 +227,18 @@ interface VisualRecruiterTreeProps {
   roots: TreeNode[];
   selectedNodeId: string | null;
   onSelectNode: (node: PositionedNode | null) => void;
+  groupByOffice?: boolean;
+  onGroupByOfficeChange?: (value: boolean) => void;
+  showGroupByOfficeToggle?: boolean;
 }
 
 export const VisualRecruiterTree = ({
   roots,
   selectedNodeId,
   onSelectNode,
+  groupByOffice = false,
+  onGroupByOfficeChange,
+  showGroupByOfficeToggle = false,
 }: VisualRecruiterTreeProps) => {
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
@@ -283,6 +289,19 @@ export const VisualRecruiterTree = ({
       >
         {({ zoomIn, zoomOut, resetTransform }) => (
           <>
+            {showGroupByOfficeToggle && (
+              <div className="absolute top-2 left-2 z-10">
+                <Button
+                  variant={groupByOffice ? "default" : "secondary"}
+                  size="sm"
+                  className={cn("h-7 shadow-sm gap-1.5 text-xs", groupByOffice && "bg-primary text-primary-foreground")}
+                  onClick={() => onGroupByOfficeChange?.(!groupByOffice)}
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  Offices
+                </Button>
+              </div>
+            )}
             <div className="absolute top-2 right-2 z-10 flex gap-1">
               <Button variant="secondary" size="icon" className="h-7 w-7 shadow-sm" onClick={() => zoomIn()}>
                 <ZoomIn className="h-3.5 w-3.5" />

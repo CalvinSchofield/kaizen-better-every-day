@@ -12,6 +12,16 @@ import { canManageTeam } from "@/utils/roleHierarchy";
 import { VisualRecruiterTree, type TreeNode } from "./VisualRecruiterTree";
 import { ReassignRecruiterDrawer } from "./ReassignRecruiterDrawer";
 
+const OFFICE_GROUPED_ACCESS_LEVELS = new Set([
+  "area_director",
+  "corporate",
+  "regional",
+  "sr_regional",
+  "partner",
+  "divisional",
+  "mgmt_group_lead",
+]);
+
 interface OrgRep {
   id: string;
   userId: string | null;
@@ -37,6 +47,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
   const { data: teamAccess, isLoading: accessLoading, isPlaceholderData: isTeamAccessPlaceholder } = useTeamAccess();
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [groupByOffice, setGroupByOffice] = useState(true);
   const [reassignOpen, setReassignOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<{
     id: string;
@@ -263,17 +274,8 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       }
     };
 
-    const officeGroupedAccessLevels = new Set([
-      "area_director",
-      "corporate",
-      "regional",
-      "sr_regional",
-      "partner",
-      "divisional",
-      "mgmt_group_lead",
-    ]);
 
-    if (officeGroupedAccessLevels.has(accessLevel)) {
+    if (OFFICE_GROUPED_ACCESS_LEVELS.has(accessLevel) && groupByOffice) {
       const allRecruiterIds = new Set(
         recruits.map((recruit) => recruit.recruiter_user_id).filter(Boolean) as string[]
       );
@@ -500,6 +502,23 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       const pruned = pruneDuplicates(rootNodes);
       rootNodes.length = 0;
       rootNodes.push(...pruned);
+    } else if (OFFICE_GROUPED_ACCESS_LEVELS.has(accessLevel) && !groupByOffice) {
+      // Pure lineage view — no office/mgmt grouping
+      const allRecruiterIds = new Set(
+        recruits.map((r) => r.recruiter_user_id).filter(Boolean) as string[]
+      );
+      const candidateRoots: TreeNode[] = [];
+      allRecruiterIds.forEach((recruiterId) => {
+        const node = buildNode(recruiterId);
+        if (node && node.children.length > 0) candidateRoots.push(node);
+      });
+      const allChildUserIds = new Set<string>();
+      candidateRoots.forEach((root) => collectChildUserIds(root.children, allChildUserIds));
+      candidateRoots.forEach((root) => {
+        if (!root.userId || (!allChildUserIds.has(root.userId) && !hasUpstreamRecruiter(root.userId))) {
+          rootNodes.push(root);
+        }
+      });
     } else if (currentAuthUserId) {
       const node = buildNode(currentAuthUserId);
       if (node && node.children.length > 0) {
@@ -508,7 +527,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
     }
 
     return rootNodes.sort((a, b) => b.children.length - a.children.length);
-  }, [treeData, teamAccess, currentAuthUserId]);
+  }, [treeData, teamAccess, currentAuthUserId, groupByOffice]);
 
   // Filter for search
   const filteredTree = useMemo(() => {
@@ -637,6 +656,9 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         roots={filteredTree}
         selectedNodeId={selectedNodeId}
         onSelectNode={handleSelectNode}
+        groupByOffice={groupByOffice}
+        onGroupByOfficeChange={setGroupByOffice}
+        showGroupByOfficeToggle={OFFICE_GROUPED_ACCESS_LEVELS.has(teamAccess?.accessLevel || '')}
       />
 
       <ReassignRecruiterDrawer
