@@ -3,6 +3,7 @@ import { useSubmitSuggestion, useMySuggestions } from "@/hooks/useGroupRecruits"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
+import { withTimeout } from "@/utils/withTimeout";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -472,10 +473,14 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase.functions.invoke('create-recruit', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: recruitData,
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('create-recruit', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: recruitData,
+        }),
+        30000,
+        'Request timed out — please check your connection and try again'
+      );
 
       if (error) throw error;
       if (data?.duplicateEmail) throw new Error(data.error);
@@ -566,17 +571,21 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       return;
     }
 
-    await createRecruitMutation.mutateAsync({
-      name: name.trim(),
-      phone: cleanPhone ? `+1${cleanPhone}` : '',
-      email: email.trim() || undefined,
-      location,
-      recruitmentSource,
-      teamId: selectedTeam || undefined,
-      stage: selectedStage,
-      spouseName: spouseName.trim() || undefined,
-      cautionNotes: cautionNotes.trim() || undefined,
-    });
+    try {
+      await createRecruitMutation.mutateAsync({
+        name: name.trim(),
+        phone: cleanPhone ? `+1${cleanPhone}` : '',
+        email: email.trim() || undefined,
+        location,
+        recruitmentSource,
+        teamId: selectedTeam || undefined,
+        stage: selectedStage,
+        spouseName: spouseName.trim() || undefined,
+        cautionNotes: cautionNotes.trim() || undefined,
+      });
+    } catch (e) {
+      console.error('handleLeaderSubmit error caught:', e);
+    }
   };
 
   const handleRepSubmit = async () => {

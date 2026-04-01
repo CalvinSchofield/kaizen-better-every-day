@@ -350,8 +350,8 @@ export default function AddRecruit() {
           headers: { Authorization: `Bearer ${session.access_token}` },
           body: recruitData,
         }),
-        15000,
-        'Request timed out — please try again'
+        30000,
+        'Request timed out — please check your connection and try again'
       );
       if (error) {
         // Extract message from edge function error response
@@ -404,18 +404,23 @@ export default function AddRecruit() {
     const recruiterData = allRecruiters.find(r => r.id === selectedRecruiter);
     const recruiterUserId = recruiterData?.userId || currentRep?.authUserId;
 
-    await createRecruitMutation.mutateAsync({
-      name: name.trim(),
-      phone: cleanPhone ? `+1${cleanPhone}` : '',
-      email: email.trim() || undefined,
-      location,
-      recruitmentSource,
-      teamId: selectedTeam || undefined,
-      stage: selectedStage,
-      spouseName: spouseName.trim() || undefined,
-      cautionNotes: cautionNotes.trim() || undefined,
-      recruiterUserId,
-    });
+    try {
+      await createRecruitMutation.mutateAsync({
+        name: name.trim(),
+        phone: cleanPhone ? `+1${cleanPhone}` : '',
+        email: email.trim() || undefined,
+        location,
+        recruitmentSource,
+        teamId: selectedTeam || undefined,
+        stage: selectedStage,
+        spouseName: spouseName.trim() || undefined,
+        cautionNotes: cautionNotes.trim() || undefined,
+        recruiterUserId,
+      });
+    } catch (e) {
+      // Error already handled by mutation's onError callback
+      console.error('handleLeaderSubmit error caught:', e);
+    }
   };
 
   const handleRepSubmit = async () => {
