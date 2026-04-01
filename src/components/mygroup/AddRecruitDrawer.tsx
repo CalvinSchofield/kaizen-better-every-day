@@ -805,6 +805,25 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
             </div>
 
             <div className="space-y-4">
+              {/* Team selection first for MGMT leads */}
+              {isMgmtOrAbove && allTeams.length > 0 && (
+                <div>
+                  <Label>Team</Label>
+                  <Select value={selectedTeam} onValueChange={handleTeamChange}>
+                    <SelectTrigger className="h-12 mt-1">
+                      <SelectValue placeholder="Select team" />
+                    </SelectTrigger>
+                    <SelectContent modal={false}>
+                      {allTeams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          {getCleanName(team.name)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Recruiter */}
               <div>
                 <Label>Recruiter</Label>
@@ -826,25 +845,6 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Team selection for MGMT leads */}
-              {isMgmtOrAbove && allTeams.length > 0 && (
-                <div>
-                  <Label>Team</Label>
-                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                    <SelectTrigger className="h-12 mt-1">
-                      <SelectValue placeholder="Select team" />
-                    </SelectTrigger>
-                    <SelectContent modal={false}>
-                      {allTeams.map((team) => (
-                        <SelectItem key={team.id} value={team.id}>
-                          {getCleanName(team.name)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
 
               {/* Spouse Name */}
               <div>
