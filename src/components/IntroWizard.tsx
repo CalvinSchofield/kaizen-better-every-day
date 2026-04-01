@@ -103,6 +103,7 @@ const getSlides = (userType: UserType, firstName: string, segment?: OnboardingSe
 export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader: isLeaderProp }: IntroWizardProps) => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isCropping, setIsCropping] = useState(false);
   const slides = getSlides(userType, firstName, segment, isLeaderProp);
   const totalSlides = slides.length;
   const isLastSlide = currentSlide === totalSlides - 1;
