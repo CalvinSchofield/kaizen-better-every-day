@@ -80,6 +80,7 @@ export const PreWorkingState = ({
   const greeting = getGreeting();
   const firstName = repName ? getCleanFirstName(repName) : '';
   const todayFormatted = format(new Date(), 'EEEE, MMMM d');
+  const { userId } = useCurrentUserId();
   
 
 
