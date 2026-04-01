@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { BadgeIcon } from "./BadgeIcon";
 import { BadgeDetailSheet } from "./BadgeDetailSheet";
 import { RARITY_PRIORITY, RARITY_COLORS } from "@/utils/badgeDefinitions";
+import { useGlobalBadgeCounts } from "@/hooks/useGlobalBadgeCount";
 import type { UserBadge, BadgeDefinition } from "@/hooks/useUserBadges";
 
 interface BadgeGridProps {
@@ -16,6 +17,8 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
   const [selectedBadge, setSelectedBadge] = useState<(UserBadge | BadgeDefinition) | null>(null);
   const [isSelectedEarned, setIsSelectedEarned] = useState(false);
   const [selectedCount, setSelectedCount] = useState(0);
+
+  const { data: globalCounts } = useGlobalBadgeCounts();
 
   // Count how many times each badge slug was earned
   const earnedCountMap = useMemo(() => {
@@ -63,6 +66,10 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
       setSelectedCount(0);
     }
   };
+
+  const selectedGlobalCount = selectedBadge
+    ? globalCounts?.[selectedBadge.id] || 0
+    : 0;
 
   return (
     <div className="space-y-5">
@@ -120,6 +127,7 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
         badge={selectedBadge}
         isEarned={isSelectedEarned}
         earnedCount={selectedCount}
+        globalCount={selectedGlobalCount}
       />
     </div>
   );

@@ -137,6 +137,46 @@ export const useBadgeDetection = (
       }
     }
 
+    // --- Rookie Quick-Win Badges (first-ever tracked, skip if synced historical data exists) ---
+    if (isRookie) {
+      // Check if the rep has any historical_entries (synced data) - if so, skip rookie firsts
+      const { count: historicalCount } = await supabase
+        .from("historical_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .limit(1);
+
+      const hasHistorical = (historicalCount || 0) > 0;
+
+      if (!hasHistorical) {
+        // Check prior daily_entries (excluding today) for each field
+        const { data: priorEntries } = await supabase
+          .from("daily_entries")
+          .select("doors_knocked, transitions, presentations, closes")
+          .eq("user_id", userId)
+          .neq("entry_date", date)
+          .limit(500);
+
+        const priorDoors = priorEntries?.some(e => (e.doors_knocked || 0) > 0);
+        const priorTransitions = priorEntries?.some(e => (e.transitions || 0) > 0);
+        const priorPresentations = priorEntries?.some(e => (e.presentations || 0) > 0);
+        const priorCloses = priorEntries?.some(e => (e.closes || 0) > 0);
+
+        if (doors > 0 && !priorDoors) {
+          await awardBadge(SPECIAL_SLUGS.FIRST_DOOR, date);
+        }
+        if ((todayEntry.transitions || 0) > 0 && !priorTransitions) {
+          await awardBadge(SPECIAL_SLUGS.FIRST_TRANSITION, date);
+        }
+        if ((todayEntry.presentations || 0) > 0 && !priorPresentations) {
+          await awardBadge(SPECIAL_SLUGS.FIRST_PRESENTATION, date);
+        }
+        if (closes > 0 && !priorCloses) {
+          await awardBadge(SPECIAL_SLUGS.FIRST_SALE, date);
+        }
+      }
+    }
+
     // Night Owl: has a door timestamp after 9 PM LOCAL TIME and made a sale
     if (closes > 0 && todayEntry.counter_timestamps) {
       const doorTs = todayEntry.counter_timestamps['doors_knocked'];
