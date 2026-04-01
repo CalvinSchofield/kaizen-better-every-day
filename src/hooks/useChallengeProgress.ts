@@ -55,7 +55,7 @@ interface ParticipantProgress {
 }
 
 interface TeamProgress {
-  team: 'a' | 'b';
+  team: string;
   members: ParticipantProgress[];
   total_value: number;
 }
