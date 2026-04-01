@@ -596,7 +596,12 @@ const Goals = () => {
       }
 
       toast.success("Got it — skipping goals and planning for now.");
-      navigate(gatedFrom || '/', { replace: true });
+      // Non-knocking leaders should go to org building
+      if (isRegionalPlus) {
+        navigate('/my-group?tab=structure', { replace: true });
+      } else {
+        navigate(gatedFrom || '/', { replace: true });
+      }
     } catch (error) {
       console.error('Error saving knocking decision:', error);
       toast.error('Failed to save your choice');
