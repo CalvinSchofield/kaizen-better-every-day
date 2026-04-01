@@ -6,11 +6,16 @@ export interface AssignableUser {
   name: string;
   role: string;
   repId: string;
+  profilePhotoUrl: string | null;
+  formalRole: string | null;
+  year: string | null;
+  location: string | null;
+  sameLocation: boolean;
 }
 
 interface UseAssignableUsersOptions {
   recruitId?: string;
-  recruitTeamLeader?: string | null; // Fallback for recruits not in reps table
+  recruitTeamLeader?: string | null;
 }
 
 export const useAssignableUsers = (options?: UseAssignableUsersOptions) => {
@@ -30,8 +35,8 @@ export const useAssignableUsers = (options?: UseAssignableUsersOptions) => {
       
       return (data?.assignableUsers || []) as AssignableUser[];
     },
-    staleTime: 15 * 60 * 1000, // 15 minutes - upline chain rarely changes mid-session
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    enabled: !!recruitId, // Only fetch when we have a recruit
+    staleTime: 15 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    enabled: !!recruitId,
   });
 };

@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, Loader2, User, ChevronDown } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { format, addDays, getDay, startOfDay } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { MentionInput } from "@/components/mygroup/recruit-detail/MentionInput";
-import { Skeleton } from "@/components/ui/skeleton";
+
 import { 
   Drawer, 
   DrawerContent, 
@@ -18,6 +18,8 @@ import { Recruit, RecruitActivity, useUpdateRecruitActivity } from "@/hooks/useG
 import { useAssignableUsers, AssignableUser } from "@/hooks/useAssignableUsers";
 import { useActivityCalendarEvent } from "@/hooks/useActivityCalendarEvents";
 import { AddToCalendarDrawer } from "./AddToCalendarPrompt";
+import { AssigneeSelector } from "./AssigneeSelector";
+import { useRepData } from "@/hooks/useRepData";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -60,7 +62,7 @@ export const RescheduleActivityDrawer = ({
   const [taskMentions, setTaskMentions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<AssignableUser | null>(null);
-  const [showAssigneePopover, setShowAssigneePopover] = useState(false);
+  const { repData } = useRepData();
   
   // Calendar prompt state
   const [showCalendarPrompt, setShowCalendarPrompt] = useState(false);
@@ -256,64 +258,13 @@ export const RescheduleActivityDrawer = ({
             <label className="text-sm font-medium mb-2 block">
               Assign to (optional)
             </label>
-            {assignableUsersLoading ? (
-              <Skeleton className="h-10 w-full" />
-            ) : assignableUsers.length > 0 ? (
-              <Popover open={showAssigneePopover} onOpenChange={setShowAssigneePopover}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between"
-                    role="combobox"
-                  >
-                    <span className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      {selectedAssignee ? selectedAssignee.name : "Me (default)"}
-                    </span>
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[280px] p-2" align="start">
-                  <div className="flex flex-col gap-1">
-                    <Button
-                      variant={!selectedAssignee ? "secondary" : "ghost"}
-                      className="w-full justify-start"
-                      onClick={() => {
-                        setSelectedAssignee(null);
-                        setShowAssigneePopover(false);
-                      }}
-                    >
-                      <User className="h-4 w-4 mr-2" />
-                      Me (default)
-                    </Button>
-                    {assignableUsers.map((user) => (
-                      <Button
-                        key={user.userId}
-                        variant={selectedAssignee?.userId === user.userId ? "secondary" : "ghost"}
-                        className="w-full justify-start"
-                        onClick={() => {
-                          setSelectedAssignee(user);
-                          setShowAssigneePopover(false);
-                        }}
-                      >
-                        <User className="h-4 w-4 mr-2" />
-                        <span className="flex-1 text-left">{user.name}</span>
-                        <span className="text-xs text-muted-foreground ml-2">{user.role}</span>
-                      </Button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            ) : (
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                disabled
-              >
-                <User className="h-4 w-4 mr-2" />
-                Me (default)
-              </Button>
-            )}
+            <AssigneeSelector
+              assignableUsers={assignableUsers}
+              selectedAssignee={selectedAssignee}
+              onSelect={setSelectedAssignee}
+              isLoading={assignableUsersLoading}
+              currentUserPhotoUrl={repData?.profile_photo_url}
+            />
           </div>
         </div>
 
