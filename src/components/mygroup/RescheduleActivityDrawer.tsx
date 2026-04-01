@@ -258,64 +258,13 @@ export const RescheduleActivityDrawer = ({
             <label className="text-sm font-medium mb-2 block">
               Assign to (optional)
             </label>
-            {assignableUsersLoading ? (
-              <Skeleton className="h-10 w-full" />
-            ) : assignableUsers.length > 0 ? (
-              <Popover open={showAssigneePopover} onOpenChange={setShowAssigneePopover}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between"
-                    role="combobox"
-                  >
-                    <span className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      {selectedAssignee ? selectedAssignee.name : "Me (default)"}
-                    </span>
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[280px] p-2" align="start">
-                  <div className="flex flex-col gap-1">
-                    <Button
-                      variant={!selectedAssignee ? "secondary" : "ghost"}
-                      className="w-full justify-start"
-                      onClick={() => {
-                        setSelectedAssignee(null);
-                        setShowAssigneePopover(false);
-                      }}
-                    >
-                      <User className="h-4 w-4 mr-2" />
-                      Me (default)
-                    </Button>
-                    {assignableUsers.map((user) => (
-                      <Button
-                        key={user.userId}
-                        variant={selectedAssignee?.userId === user.userId ? "secondary" : "ghost"}
-                        className="w-full justify-start"
-                        onClick={() => {
-                          setSelectedAssignee(user);
-                          setShowAssigneePopover(false);
-                        }}
-                      >
-                        <User className="h-4 w-4 mr-2" />
-                        <span className="flex-1 text-left">{user.name}</span>
-                        <span className="text-xs text-muted-foreground ml-2">{user.role}</span>
-                      </Button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            ) : (
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                disabled
-              >
-                <User className="h-4 w-4 mr-2" />
-                Me (default)
-              </Button>
-            )}
+            <AssigneeSelector
+              assignableUsers={assignableUsers}
+              selectedAssignee={selectedAssignee}
+              onSelect={setSelectedAssignee}
+              isLoading={assignableUsersLoading}
+              currentUserPhotoUrl={repData?.profile_photo_url}
+            />
           </div>
         </div>
 
