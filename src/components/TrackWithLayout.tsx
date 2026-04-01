@@ -74,6 +74,9 @@ const TrackWithLayout = () => {
   const { totalFP: preseasonFP } = usePreseasonFP();
   const goalPaceData = useGoalPaceCalculator();
   const { userId: currentUserId } = useCurrentUserId();
+  
+  // Page tour
+  const { showTour, completeTour, skipTour } = usePageTour({ page: 'track' });
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry, isRefreshing, isFreshDataVerified, isOfflineWithBackup } = useDailyEntry();
   const { addSale: addSaleToEntry, isAddingSale } = useAddSaleToEntry();
   const { updateSale, deleteSale: deleteSaleFromEntry, isDeleting: isDeletingSale } = useSaleUpdate();
