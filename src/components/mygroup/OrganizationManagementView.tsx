@@ -595,6 +595,7 @@ export const OrganizationManagementView = () => {
           mode={createMode}
           allReps={reps}
           allGroups={allGroups}
+          pendingRecruits={pendingRecruitsForLeader}
         />
       )}
     </div>
