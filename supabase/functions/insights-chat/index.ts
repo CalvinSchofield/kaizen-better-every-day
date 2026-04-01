@@ -232,16 +232,26 @@ function buildSystemPrompt(
     : "";
 
   // Weekly summary (last 6 weeks)
-  const sortedWeeks = Object.entries(weeklyBuckets).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6);
+  const sortedWeeks = Object.entries(weeklyBuckets).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 8);
   const weeklySummary = sortedWeeks.map(([wk, d]) => {
     const metricVal = efpModeEnabled ? efpFromPrmr(d.prmr).toFixed(2) : d.fp.toFixed(1);
-    return `  Week of ${wk}: ${d.days} days, ${d.doors} doors, ${d.closes} closes, ${metricVal} ${primaryMetric}, $${d.prmr.toFixed(0)} PRMR`;
+    const dmRate = d.doors > 0 ? ((d.dm / d.doors) * 100).toFixed(1) : "?";
+    const pitchRate = d.dm > 0 ? ((d.pitches / d.dm) * 100).toFixed(1) : "?";
+    const transRate = d.pitches > 0 ? ((d.transitions / d.pitches) * 100).toFixed(1) : "?";
+    const presRate = d.transitions > 0 ? ((d.presentations / d.transitions) * 100).toFixed(1) : "?";
+    const closeRate = d.presentations > 0 ? ((d.closes / d.presentations) * 100).toFixed(1) : "?";
+    return `  Week of ${wk}: ${d.days}d, ${d.doors}dk, ${d.closes}cl, ${metricVal} ${primaryMetric}, $${d.prmr.toFixed(0)} PRMR | DM%=${dmRate} Pitch%=${pitchRate} Trans%=${transRate} Pres%=${presRate} Close%=${closeRate}`;
   }).join("\n");
 
-  // Monthly summary
+  // Monthly summary (with funnel)
   const monthlySummary = Object.entries(monthlyBuckets).sort((a, b) => b[0].localeCompare(a[0])).map(([mo, d]) => {
     const metricVal = efpModeEnabled ? efpFromPrmr(d.prmr).toFixed(2) : d.fp.toFixed(1);
-    return `  ${mo}: ${d.days} days, ${d.doors} doors, ${d.closes} closes, ${metricVal} ${primaryMetric}, $${d.prmr.toFixed(0)} PRMR`;
+    const dmRate = d.doors > 0 ? ((d.dm / d.doors) * 100).toFixed(1) : "?";
+    const pitchRate = d.dm > 0 ? ((d.pitches / d.dm) * 100).toFixed(1) : "?";
+    const transRate = d.pitches > 0 ? ((d.transitions / d.pitches) * 100).toFixed(1) : "?";
+    const presRate = d.transitions > 0 ? ((d.presentations / d.transitions) * 100).toFixed(1) : "?";
+    const closeRate = d.presentations > 0 ? ((d.closes / d.presentations) * 100).toFixed(1) : "?";
+    return `  ${mo}: ${d.days}d, ${d.doors}dk, ${d.closes}cl, ${metricVal} ${primaryMetric}, $${d.prmr.toFixed(0)} PRMR | DM%=${dmRate} Pitch%=${pitchRate} Trans%=${transRate} Pres%=${presRate} Close%=${closeRate}`;
   }).join("\n");
 
   // Day of week summary
