@@ -596,7 +596,12 @@ const Goals = () => {
       }
 
       toast.success("Got it — skipping goals and planning for now.");
-      navigate(gatedFrom || '/', { replace: true });
+      // Non-knocking leaders should go to org building
+      if (isRegionalPlus) {
+        navigate('/my-group?tab=structure', { replace: true });
+      } else {
+        navigate(gatedFrom || '/', { replace: true });
+      }
     } catch (error) {
       console.error('Error saving knocking decision:', error);
       toast.error('Failed to save your choice');
@@ -734,7 +739,8 @@ const Goals = () => {
   }
 
   if (isNonKnockingRegionalLeader && !showSetupWizard) {
-    return <Navigate to={gatedFrom || '/'} replace />;
+    // Non-knocking leaders should go build their org
+    return <Navigate to={gatedFrom || (isRegionalPlus ? '/my-group?tab=structure' : '/')} replace />;
   }
 
   if (shouldShowSetupGate || showSetupWizard) {
@@ -896,7 +902,7 @@ const Goals = () => {
                     .maybeSingle();
                   const pagesToured = Array.isArray(repCheck?.pages_toured) ? (repCheck.pages_toured as string[]) : [];
                   if (!pagesToured.includes('my-group')) {
-                    navigate('/my-group', { state: { fromOnboarding: true } });
+                    navigate('/my-group?tab=structure', { state: { fromOnboarding: true } });
                     return;
                   }
                 }

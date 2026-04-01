@@ -128,9 +128,9 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
       onComplete();
       
       if (segment) {
-        // Leaders (team_lead+) always go to structure first
+        // Leaders (team_lead+) go to goals first for knocking decision, then org building
         if (isLeaderProp) {
-          navigate('/my-group?tab=structure');
+          navigate('/goals');
           return;
         }
         // Segment-based routing for non-leaders
@@ -367,7 +367,7 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
         >
           {isLastSlide ? (
             isLeaderProp
-              ? "Build Your Org"
+              ? "Set Up Goals"
               : segment === 'in-org-rookie-preseason' || segment === 'in-org-rookie-summer' || userType === 'pre-blitz-rookie' 
                 ? "Meet the Team" 
                 : segment === 'outside-org' || segment === 'in-org-vet'
