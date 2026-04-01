@@ -1398,6 +1398,22 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         />
       )}
 
+      {/* Office detail drawer */}
+      <OfficeDetailDrawer
+        open={!!officeDetailId}
+        onOpenChange={(open) => !open && setOfficeDetailId(null)}
+        office={officeDetailData ? { id: officeDetailData.id, name: officeDetailData.name, location: officeDetailData.location } : null}
+        orgData={orgData ? {
+          officeStaff: orgData.officeStaff,
+          mgmtGroups: orgData.mgmtGroups,
+          srMgmtGroups: orgData.srMgmtGroups,
+          teams: orgData.teams,
+          teamMgmt: orgData.teamMgmt,
+          reps: orgData.reps,
+          recruits: orgData.recruits,
+        } : undefined}
+      />
+
       {/* Configure region drawer */}
       {configRegionData && (
         <ConfigureRegionDrawer
