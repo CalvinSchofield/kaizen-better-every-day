@@ -15,7 +15,7 @@ interface ChallengeParticipant {
 
 interface Challenge {
   id: string;
-  type: '1v1' | 'group';
+  type: '1v1' | 'group' | 'car_wars';
   metric: 'fp_plus' | 'prmr' | 'transitions' | 'doors_knocked';
   status: string;
   start_date: string;
