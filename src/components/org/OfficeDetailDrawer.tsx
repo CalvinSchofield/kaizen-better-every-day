@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Building2, MapPin, Users, UserCheck, Shield } from "lucide-react";
 import { getCleanName, getInitials } from "@/utils/nameUtils";
-import { cn } from "@/lib/utils";
 import { SIGNED_PLUS_STAGES } from "@/utils/stageConstants";
 
 interface OfficeDetailDrawerProps {
@@ -66,12 +65,10 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
       if (!mg) return null;
       const leader = mg.lead_user_id ? repMap.get(mg.lead_user_id) : null;
 
-      // Count teams in this group
       const teamIds = orgData.teamMgmt
         .filter(tm => tm.mgmt_group_id === mgId)
         .map(tm => tm.team_id);
 
-      // Count reps in this group
       const repCount = orgData.recruits.filter(r =>
         (r.mgmt_group_id === mgId || (r.team_id && teamIds.includes(r.team_id))) &&
         r.stage && SIGNED_PLUS_STAGES.some(s => s.toLowerCase() === r.stage!.toLowerCase())
@@ -105,7 +102,6 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
       };
     }).filter(Boolean) as { teamName: string; name: string; profilePhotoUrl: string | null }[];
 
-    // Total rep count
     const totalReps = mgmtGroupDetails.reduce((sum, mg) => sum + mg.repCount, 0);
 
     return { areaDirectors, mgmtGroupDetails, teamLeads, totalReps };
@@ -116,10 +112,10 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh]">
-        {/* Hero header */}
-        <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/15 via-amber-600/10 to-orange-500/5" />
-          <div className="relative px-5 pt-5 pb-4">
+        {/* Hero header with smooth gradient */}
+        <div className="relative overflow-hidden rounded-t-2xl">
+          <div className="absolute inset-0 bg-gradient-to-b from-amber-500/12 via-amber-600/6 to-transparent" />
+          <div className="relative px-5 pt-5 pb-5">
             <div className="flex items-start gap-4">
               <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
                 <Building2 className="h-7 w-7 text-white" />
@@ -137,19 +133,28 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
               </div>
             </div>
 
-            {/* Stats row */}
-            <div className="grid grid-cols-3 gap-3 mt-4">
-              <div className="bg-card/80 backdrop-blur-sm rounded-xl p-3 border border-border/50">
+            {/* Stats row with labels */}
+            <div className="grid grid-cols-3 gap-3 mt-5">
+              <div className="rounded-xl p-3 bg-card border border-border/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Users className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Reps</span>
+                </div>
                 <div className="text-2xl font-bold text-foreground">{details.totalReps}</div>
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Reps</div>
               </div>
-              <div className="bg-card/80 backdrop-blur-sm rounded-xl p-3 border border-border/50">
+              <div className="rounded-xl p-3 bg-card border border-border/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Users className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">MGMT</span>
+                </div>
                 <div className="text-2xl font-bold text-foreground">{details.mgmtGroupDetails.length}</div>
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">MGMT Groups</div>
               </div>
-              <div className="bg-card/80 backdrop-blur-sm rounded-xl p-3 border border-border/50">
+              <div className="rounded-xl p-3 bg-card border border-border/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <UserCheck className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Teams</span>
+                </div>
                 <div className="text-2xl font-bold text-foreground">{details.teamLeads.length}</div>
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Teams</div>
               </div>
             </div>
           </div>
@@ -184,7 +189,7 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
             </div>
           )}
 
-          <Separator />
+          <Separator className="bg-border/50" />
 
           {/* MGMT Groups */}
           {details.mgmtGroupDetails.length > 0 && (
@@ -214,7 +219,7 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
                         <div className="text-xs text-muted-foreground">Led by {mg.leaderName}</div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <Badge variant="outline" className="text-[10px]">
                         {mg.teamCount} {mg.teamCount === 1 ? "team" : "teams"}
                       </Badge>
@@ -231,6 +236,7 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
           {/* Team Leads */}
           {details.teamLeads.length > 0 && (
             <div>
+              <Separator className="bg-border/50 mb-5" />
               <div className="flex items-center gap-2 mb-3">
                 <UserCheck className="h-4 w-4 text-green-500" />
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Team Leads</h3>

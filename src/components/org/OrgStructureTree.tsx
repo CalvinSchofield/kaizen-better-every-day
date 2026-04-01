@@ -1108,10 +1108,14 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
 
         return (
           <div className="space-y-1">
+            {hierarchyNodes.map((node) => (
+              <OrgNodeCard key={node.id} node={node} depth={0} onLongPressAction={handleLongPress} onTap={handleNodeTap} canManage={canManageTeams} />
+            ))}
+
             {officeNodes.length > 0 && (
               <>
-                {groupByOffice && officeNodes.length > 0 && hierarchyNodes.length > 0 && (
-                  <div className="flex items-center gap-2 py-2">
+                {hierarchyNodes.length > 0 && (
+                  <div className="flex items-center gap-2 py-3 mt-2">
                     <Building2 className="h-3.5 w-3.5 text-amber-500" />
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Offices</span>
                     <div className="flex-1 h-px bg-border" />
@@ -1122,18 +1126,6 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
                 ))}
               </>
             )}
-
-            {hierarchyNodes.length > 0 && officeNodes.length > 0 && (
-              <div className="flex items-center gap-2 py-3">
-                <Globe className="h-3.5 w-3.5 text-primary" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Organization Hierarchy</span>
-                <div className="flex-1 h-px bg-border" />
-              </div>
-            )}
-
-            {hierarchyNodes.map((node) => (
-              <OrgNodeCard key={node.id} node={node} depth={0} onLongPressAction={handleLongPress} onTap={handleNodeTap} canManage={canManageTeams} />
-            ))}
           </div>
         );
       })()}
