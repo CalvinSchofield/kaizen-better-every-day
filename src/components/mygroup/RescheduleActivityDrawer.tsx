@@ -5,7 +5,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { MentionInput } from "@/components/mygroup/recruit-detail/MentionInput";
-import { Skeleton } from "@/components/ui/skeleton";
+
 import { 
   Drawer, 
   DrawerContent, 
