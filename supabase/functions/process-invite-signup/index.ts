@@ -244,6 +244,8 @@ Deno.serve(async (req) => {
             office_id: resolvedOfficeId ?? target.recruit?.office_id ?? null,
             team_leader: isLateralInvite ? null : (inviterRep?.name || target.rep.team_leader || null),
             team_leader_phone: isLateralInvite ? null : (inviterRep?.phone || target.rep.team_leader_phone || null),
+            // Lateral invites: clear recruiter field since they're peers/upline, not subordinates
+            ...(isLateralInvite ? { recruiter: null } : {}),
             updated_at: nowIso,
           })
           .eq('id', target.rep.id);
@@ -275,9 +277,10 @@ Deno.serve(async (req) => {
             phone: claimedPhone,
             year: claimedYear,
             stage,
-            recruiter_user_id: resolvedRecruiterUserId ?? target.recruit.recruiter_user_id ?? null,
-            team_id: resolvedTeamId ?? target.recruit.team_id ?? null,
-            mgmt_group_id: resolvedMgmtGroupId ?? target.recruit.mgmt_group_id ?? null,
+            // Lateral invites: explicitly clear org placement — these leaders sit above teams/groups
+            recruiter_user_id: isLateralInvite ? null : (resolvedRecruiterUserId ?? target.recruit.recruiter_user_id ?? null),
+            team_id: isLateralInvite ? null : (resolvedTeamId ?? target.recruit.team_id ?? null),
+            mgmt_group_id: isLateralInvite ? null : (resolvedMgmtGroupId ?? target.recruit.mgmt_group_id ?? null),
             office_id: resolvedOfficeId ?? target.recruit.office_id ?? null,
             invite_code_used: inviteCode,
             approval_status: approvalStatus,
