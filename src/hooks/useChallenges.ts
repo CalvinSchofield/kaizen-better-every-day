@@ -6,17 +6,24 @@ import { withTimeout } from "@/utils/withTimeout";
 import { hapticSuccess, hapticWarning, hapticMedium } from "@/utils/haptics";
 import { toast } from "sonner";
 
-export type ChallengeType = '1v1' | 'group';
+export type ChallengeType = '1v1' | 'group' | 'car_wars';
 export type ChallengeMetric = 'fp_plus' | 'prmr' | 'transitions' | 'doors_knocked';
 export type ChallengeStatus = 'pending' | 'declined' | 'active' | 'completed' | 'voided';
 export type ChallengeVisibility = 'public' | 'private';
 export type ParticipantRole = 'captain_a' | 'captain_b' | 'member';
 
+export interface ChallengeTeam {
+  id: string;
+  challenge_id: string;
+  team_label: string;
+  team_key: string;
+}
+
 export interface ChallengeParticipant {
   id: string;
   challenge_id: string;
   user_id: string;
-  team: 'a' | 'b' | null;
+  team: string | null;
   role: ParticipantRole;
   accepted: boolean | null;
   final_value: number | null;
@@ -37,6 +44,7 @@ export interface Challenge {
   start_date: string;
   end_date: string;
   winner_user_id: string | null;
+  winner_team_key: string | null;
   is_tie: boolean;
   tiebreaker_winner_id: string | null;
   created_at: string;
@@ -44,6 +52,7 @@ export interface Challenge {
   // Joined data
   creator_name?: string;
   participants?: ChallengeParticipant[];
+  challenge_teams?: ChallengeTeam[];
 }
 
 export interface CreateChallengeInput {
@@ -56,8 +65,13 @@ export interface CreateChallengeInput {
   creator_timezone?: string;
   participants: Array<{
     user_id: string;
-    team?: 'a' | 'b';
+    team?: string;
     role: ParticipantRole;
+  }>;
+  // Car Wars specific
+  teams?: Array<{
+    team_key: string;
+    team_label: string;
   }>;
 }
 
