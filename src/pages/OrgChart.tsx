@@ -276,6 +276,20 @@ const OrgChart = () => {
       };
     };
 
+    /** Count total descendants (recursive) for sorting by downline size */
+    const countDescendants = (node: TreeNode): number => {
+      let count = node.children.length;
+      for (const child of node.children) {
+        count += countDescendants(child);
+      }
+      return count;
+    };
+
+    /** Sort nodes by total downline size (biggest first), leaf nodes last */
+    const sortByDownlineSize = (nodes: TreeNode[]): TreeNode[] => {
+      return [...nodes].sort((a, b) => countDescendants(b) - countDescendants(a));
+    };
+
     const collectChildUserIds = (nodes: TreeNode[], set: Set<string>) => {
       for (const node of nodes) {
         if (node.userId) set.add(node.userId);
