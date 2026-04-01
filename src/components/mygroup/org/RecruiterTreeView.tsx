@@ -243,15 +243,43 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       return Boolean(recruit?.recruiter_user_id);
     };
 
+    /**
+     * Creates a MGMT Group container node.
+     * If the leader has an account and appears as one of the children,
+     * promote that child to BE the container (person node with roleColor).
+     * Otherwise, create a lightweight label pill.
+     */
     const createMgmtLabelNode = (mgmtGroupId: string, children: TreeNode[] = []): TreeNode => {
       const mgmtGroup = mgmtGroupMap.get(mgmtGroupId);
+      const leadUserId = mgmtGroup?.lead_user_id || null;
+
+      // Try to find the leader among the children
+      if (leadUserId) {
+        const leaderIdx = children.findIndex((c) => c.userId === leadUserId);
+        if (leaderIdx !== -1) {
+          // Promote leader: take their node, apply MGMT styling, absorb siblings
+          const leaderNode = children[leaderIdx];
+          const siblings = children.filter((_, i) => i !== leaderIdx);
+          return {
+            ...leaderNode,
+            id: `mgmt-${mgmtGroupId}`, // keep stable id for orphan injection
+            roleColor: "mgmt_group",
+            role: "MGMT Group Leader",
+            // Leader's own recruiter children + sibling roots from this group
+            children: [...leaderNode.children, ...siblings]
+              .sort((a, b) => b.children.length - a.children.length),
+          };
+        }
+      }
+
+      // Fallback: lightweight label pill (leader has no account or isn't in children)
       return {
         id: `mgmt-${mgmtGroupId}`,
         name: mgmtGroup?.name || "MGMT Group",
-        userId: mgmtGroup?.lead_user_id || null,
+        userId: leadUserId,
         stage: null,
-        profilePhotoUrl: mgmtGroup?.lead_user_id
-          ? repMap.get(mgmtGroup.lead_user_id)?.profile_photo_url
+        profilePhotoUrl: leadUserId
+          ? repMap.get(leadUserId)?.profile_photo_url
           : null,
         isLabelNode: true,
         roleColor: "mgmt_group",
@@ -259,15 +287,37 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       };
     };
 
+    /**
+     * Creates a Sr MGMT Group container node. Same promotion logic as MGMT.
+     */
     const createSrMgmtLabelNode = (srMgmtGroupId: string, children: TreeNode[] = []): TreeNode => {
       const srMgmtGroup = srMgmtGroupMap.get(srMgmtGroupId);
+      const leadUserId = srMgmtGroup?.lead_user_id || null;
+
+      // Try to find the leader among the direct (non-label) children
+      if (leadUserId) {
+        const leaderIdx = children.findIndex((c) => c.userId === leadUserId && !c.isLabelNode);
+        if (leaderIdx !== -1) {
+          const leaderNode = children[leaderIdx];
+          const siblings = children.filter((_, i) => i !== leaderIdx);
+          return {
+            ...leaderNode,
+            id: `sr-mgmt-${srMgmtGroupId}`,
+            roleColor: "sr_mgmt_group",
+            role: "Sr MGMT Group Leader",
+            children: [...leaderNode.children, ...siblings]
+              .sort((a, b) => b.children.length - a.children.length),
+          };
+        }
+      }
+
       return {
         id: `sr-mgmt-${srMgmtGroupId}`,
         name: srMgmtGroup?.name || "Sr MGMT Group",
-        userId: srMgmtGroup?.lead_user_id || null,
+        userId: leadUserId,
         stage: null,
-        profilePhotoUrl: srMgmtGroup?.lead_user_id
-          ? repMap.get(srMgmtGroup.lead_user_id)?.profile_photo_url
+        profilePhotoUrl: leadUserId
+          ? repMap.get(leadUserId)?.profile_photo_url
           : null,
         isLabelNode: true,
         roleColor: "sr_mgmt_group",
