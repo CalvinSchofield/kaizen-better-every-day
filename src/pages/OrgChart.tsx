@@ -325,8 +325,7 @@ const OrgChart = () => {
             id: `mgmt-${mgmtGroupId}`,
             roleColor: "mgmt_group",
             role: "MGMT Group Leader",
-            children: [...leaderNode.children, ...siblings]
-              .sort((a, b) => b.children.length - a.children.length),
+            children: sortByDownlineSize([...leaderNode.children, ...siblings]),
           };
         }
       }
