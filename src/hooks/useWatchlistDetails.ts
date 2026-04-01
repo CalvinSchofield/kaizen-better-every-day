@@ -23,6 +23,8 @@ export interface WatchedUserDetail {
   weekFp: number;
   monthFp: number;
   seasonFp: number;
+  // Current sales streak
+  salesStreak: number;
 }
 
 export interface WatchlistDetailsData {
