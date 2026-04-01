@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
+import { withTimeout } from "@/utils/withTimeout";
 import { useTeamAccess } from "./useTeamAccess";
 import { useEffect, useCallback } from "react";
 import { toast } from "sonner";
@@ -154,131 +155,145 @@ export const useGroupRecruits = () => {
   const query = useQuery({
     queryKey: ['group-recruits', teamAccess?.accessLevel, teamAccess?.accessibleReps?.length],
     queryFn: async () => {
-      const { session } = await getSessionSafe();
-      if (!session) throw new Error('Not authenticated');
+      const cachedRaw = localStorage.getItem(CACHE_KEY);
+      let cachedResult: { recruits: Recruit[]; activities: RecruitActivity[]; pendingSuggestions: RecruitSuggestion[] } | null = null;
 
-      const accessLevel = teamAccess?.accessLevel;
-      const accessibleReps = teamAccess?.accessibleReps || [];
-      
-      console.log('[useGroupRecruits] Running query with accessLevel:', accessLevel, 'accessibleReps count:', accessibleReps.length);
-
-      // Get the current user's rep record
-      const { data: currentRep } = await supabase
-        .from('reps')
-        .select('id, user_id')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-      
-      if (!currentRep?.id) {
-        return { recruits: [], activities: [], pendingSuggestions: [] };
-      }
-
-      // Build lookup from accessibleReps to get team info (by user_id)
-      const accessibleRepsMap = new Map(
-        accessibleReps.filter(ar => ar.userId).map(ar => [ar.userId, ar])
-      );
-
-      // Get accessible user IDs from teamAccess for filtering
-      const accessibleUserIds = accessibleReps.map(ar => ar.userId).filter(Boolean) as string[];
-      
-      // Get accessible team IDs for filtering ghost reps (user_id = NULL) by their team_id in recruits table
-      const accessibleTeamIds = [...new Set(accessibleReps.map(ar => ar.teamId).filter(Boolean))] as string[];
-      
-      // Query from reps table (has 106 records) - My Group shows org members, not just recruiting CRM
-      // Filter by user_id being in accessible list, or for area directors query all
-      let repsQuery = supabase
-        .from('reps')
-        .select(`
-          id,
-          user_id,
-          name,
-          phone,
-          email,
-          stage,
-          year,
-          onboarding_complete,
-          trainings_complete,
-          slack_joined,
-          ramp_phase_1_complete,
-          ramp_phase_2_complete,
-          ramp_phase_3_complete,
-          ramp_phase_4_complete,
-          ipad_assigned,
-          blitz_ready,
-          recruiter,
-          team_leader,
-          created_at,
-          profile_photo_url
-        `)
-        .order('created_at', { ascending: false });
-      
-      // Filter by accessible user IDs unless area director (who sees everyone)
-      // CRITICAL: If accessibleUserIds is empty for non-area-directors, skip the query entirely
-      // to prevent accidentally fetching the entire reps table
-      let filteredReps: any[] = [];
-      
-      if (accessLevel === 'area_director') {
-        // Area directors see everyone
-        const { data: repsData, error: repsError } = await repsQuery;
-        if (repsError) {
-          console.error('Error fetching reps:', repsError);
-          throw repsError;
+      if (cachedRaw) {
+        try {
+          const { data } = JSON.parse(cachedRaw);
+          if (data) cachedResult = data;
+        } catch (error) {
+          console.error('[useGroupRecruits] Failed to parse cache for fallback:', error);
         }
-        filteredReps = (repsData || []).filter((r: any) => {
-          if (r.user_id === session.user.id) return false;
-          const stage = canonicalizeStage(r.stage);
-          return RECRUITING_STAGES.includes(stage);
-        });
-      } else if (accessibleUserIds.length > 0) {
-        // Non-area-directors with accessible user IDs - filter query
-        repsQuery = repsQuery.in('user_id', accessibleUserIds);
-        const { data: repsData, error: repsError } = await repsQuery;
-        if (repsError) {
-          console.error('Error fetching reps:', repsError);
-          throw repsError;
-        }
-        filteredReps = (repsData || []).filter((r: any) => {
-          if (r.user_id === session.user.id) return false;
-          const stage = canonicalizeStage(r.stage);
-          return RECRUITING_STAGES.includes(stage);
-        });
-      } else {
-        // Non-area-directors with NO accessible user IDs - skip reps query entirely
-        // This prevents accidentally querying the entire reps table
-        console.log('[useGroupRecruits] No accessible user IDs for non-AD, skipping reps query');
-        filteredReps = [];
       }
 
-      console.log('[useGroupRecruits] Fetched', filteredReps.length, 'reps from reps table');
+      try {
+        return await withTimeout((async () => {
+          const { session } = await getSessionSafe();
+          if (!session) throw new Error('Not authenticated');
 
-      // Also fetch ghost reps (user_id = NULL) from recruits table for accessible teams
-      // These are recruits without app accounts who won't appear in the reps query above
-      let ghostRecruits: any[] = [];
-      if (accessLevel === 'area_director') {
-        // Area directors see all recruits
-        const { data: allRecruits } = await supabase
-          .from('recruits')
-          .select(`
-            id, name, phone, email, stage, year, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, ipad_assigned, blitz_ready, created_at,
-            teams:team_id(id, name),
-            mgmt_groups:mgmt_group_id(id, name),
-            recruiter:recruiter_user_id(id, name, user_id)
-          `)
-          .order('created_at', { ascending: false });
-        ghostRecruits = allRecruits || [];
-      } else if (accessibleTeamIds.length > 0) {
-        const { data: teamRecruits } = await supabase
-          .from('recruits')
-          .select(`
-            id, name, phone, email, stage, year, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, ipad_assigned, blitz_ready, created_at,
-            teams:team_id(id, name),
-            mgmt_groups:mgmt_group_id(id, name),
-            recruiter:recruiter_user_id(id, name, user_id)
-          `)
-          .in('team_id', accessibleTeamIds)
-          .order('created_at', { ascending: false });
-        ghostRecruits = teamRecruits || [];
-      }
+          const accessLevel = teamAccess?.accessLevel;
+          const accessibleReps = teamAccess?.accessibleReps || [];
+          
+          console.log('[useGroupRecruits] Running query with accessLevel:', accessLevel, 'accessibleReps count:', accessibleReps.length);
+
+          // Get the current user's rep record
+          const { data: currentRep } = await supabase
+            .from('reps')
+            .select('id, user_id')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+          
+          if (!currentRep?.id) {
+            return { recruits: [], activities: [], pendingSuggestions: [] };
+          }
+
+          // Build lookup from accessibleReps to get team info (by user_id)
+          const accessibleRepsMap = new Map(
+            accessibleReps.filter(ar => ar.userId).map(ar => [ar.userId, ar])
+          );
+
+          // Get accessible user IDs from teamAccess for filtering
+          const accessibleUserIds = accessibleReps.map(ar => ar.userId).filter(Boolean) as string[];
+          
+          // Get accessible team IDs for filtering ghost reps (user_id = NULL) by their team_id in recruits table
+          const accessibleTeamIds = [...new Set(accessibleReps.map(ar => ar.teamId).filter(Boolean))] as string[];
+          
+          // Query from reps table (has 106 records) - My Group shows org members, not just recruiting CRM
+          // Filter by user_id being in accessible list, or for area directors query all
+          let repsQuery = supabase
+            .from('reps')
+            .select(`
+              id,
+              user_id,
+              name,
+              phone,
+              email,
+              stage,
+              year,
+              onboarding_complete,
+              trainings_complete,
+              slack_joined,
+              ramp_phase_1_complete,
+              ramp_phase_2_complete,
+              ramp_phase_3_complete,
+              ramp_phase_4_complete,
+              ipad_assigned,
+              blitz_ready,
+              recruiter,
+              team_leader,
+              created_at,
+              profile_photo_url
+            `)
+            .order('created_at', { ascending: false });
+          
+          // Filter by accessible user IDs unless area director (who sees everyone)
+          // CRITICAL: If accessibleUserIds is empty for non-area-directors, skip the query entirely
+          // to prevent accidentally fetching the entire reps table
+          let filteredReps: any[] = [];
+          
+          if (accessLevel === 'area_director') {
+            // Area directors see everyone
+            const { data: repsData, error: repsError } = await repsQuery;
+            if (repsError) {
+              console.error('Error fetching reps:', repsError);
+              throw repsError;
+            }
+            filteredReps = (repsData || []).filter((r: any) => {
+              if (r.user_id === session.user.id) return false;
+              const stage = canonicalizeStage(r.stage);
+              return RECRUITING_STAGES.includes(stage);
+            });
+          } else if (accessibleUserIds.length > 0) {
+            // Non-area-directors with accessible user IDs - filter query
+            repsQuery = repsQuery.in('user_id', accessibleUserIds);
+            const { data: repsData, error: repsError } = await repsQuery;
+            if (repsError) {
+              console.error('Error fetching reps:', repsError);
+              throw repsError;
+            }
+            filteredReps = (repsData || []).filter((r: any) => {
+              if (r.user_id === session.user.id) return false;
+              const stage = canonicalizeStage(r.stage);
+              return RECRUITING_STAGES.includes(stage);
+            });
+          } else {
+            // Non-area-directors with NO accessible user IDs - skip reps query entirely
+            // This prevents accidentally querying the entire reps table
+            console.log('[useGroupRecruits] No accessible user IDs for non-AD, skipping reps query');
+            filteredReps = [];
+          }
+
+          console.log('[useGroupRecruits] Fetched', filteredReps.length, 'reps from reps table');
+
+          // Also fetch ghost reps (user_id = NULL) from recruits table for accessible teams
+          // These are recruits without app accounts who won't appear in the reps query above
+          let ghostRecruits: any[] = [];
+          if (accessLevel === 'area_director') {
+            // Area directors see all recruits
+            const { data: allRecruits } = await supabase
+              .from('recruits')
+              .select(`
+                id, name, phone, email, stage, year, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, ipad_assigned, blitz_ready, created_at,
+                teams:team_id(id, name),
+                mgmt_groups:mgmt_group_id(id, name),
+                recruiter:recruiter_user_id(id, name, user_id)
+              `)
+              .order('created_at', { ascending: false });
+            ghostRecruits = allRecruits || [];
+          } else if (accessibleTeamIds.length > 0) {
+            const { data: teamRecruits } = await supabase
+              .from('recruits')
+              .select(`
+                id, name, phone, email, stage, year, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, ipad_assigned, blitz_ready, created_at,
+                teams:team_id(id, name),
+                mgmt_groups:mgmt_group_id(id, name),
+                recruiter:recruiter_user_id(id, name, user_id)
+              `)
+              .in('team_id', accessibleTeamIds)
+              .order('created_at', { ascending: false });
+            ghostRecruits = teamRecruits || [];
+          }
 
       // Normalization helpers (prevents duplicate "rep-only" rows from masking the real recruit UUID)
       const stripEmojisForKey = (text: string | null | undefined): string => {
@@ -648,7 +663,16 @@ export const useGroupRecruits = () => {
         console.warn('[useGroupRecruits] Failed to cache result (storage full?):', cacheError);
       }
 
-      return { recruits, activities, pendingSuggestions };
+          return { recruits, activities, pendingSuggestions };
+        })(), 8000, 'Timed out loading group data');
+      } catch (error) {
+        console.error('[useGroupRecruits] Query failed:', error);
+        if (cachedResult) {
+          console.log('[useGroupRecruits] Returning cached group data after failure');
+          return cachedResult;
+        }
+        throw error;
+      }
     },
     enabled: !!teamAccess?.accessLevel && isLeader,
     staleTime: 1000 * 60 * 2, // 2 minutes - faster refresh since we're not hitting Notion
@@ -669,7 +693,12 @@ export const useGroupRecruits = () => {
       }
       return undefined;
     },
-    retry: 2, // Reduced from 3 to prevent long waits on mobile
+    retry: (failureCount, error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === 'Not authenticated') return false;
+      if (message.includes('Timed out loading group data')) return false;
+      return failureCount < 1;
+    },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
