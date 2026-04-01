@@ -671,6 +671,57 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         injectInto(rootNodes);
       });
 
+      // --- Convert team-lead children to team label nodes when the person is already shown above ---
+      // Collect userIds that are promoted as container nodes (MGMT/Sr MGMT leaders)
+      const promotedUserIds = new Set<string>();
+      const collectPromoted = (nodes: TreeNode[]) => {
+        for (const n of nodes) {
+          // A promoted node is a non-label node that was created by label node creation
+          // (has roleColor mgmt_group or sr_mgmt_group and is NOT a label node)
+          if (!n.isLabelNode && n.userId && (n.roleColor === 'mgmt_group' || n.roleColor === 'sr_mgmt_group')) {
+            promotedUserIds.add(n.userId);
+          }
+          collectPromoted(n.children);
+        }
+      };
+      collectPromoted(rootNodes);
+
+      // For promoted users who also lead a team, replace their person-node child
+      // appearance with a team label node
+      const convertTeamLeadChildren = (nodes: TreeNode[]): TreeNode[] => {
+        return nodes.map((node) => {
+          const newChildren = convertTeamLeadChildren(node.children);
+
+          // Check if this node should become a team label
+          // (it's a person node whose userId is already promoted above AND leads a team)
+          if (!node.isLabelNode && node.userId && promotedUserIds.has(node.userId)) {
+            const ledTeam = teamByLeadUserId.get(node.userId);
+            if (ledTeam) {
+              // Convert to team label node, keeping only this person's children
+              return {
+                ...node,
+                id: `team-${ledTeam.id}`,
+                name: ledTeam.name || node.name + " Team",
+                isLabelNode: true,
+                roleColor: "team_lead" as const,
+                profilePhotoUrl: null,
+                children: newChildren,
+              };
+            }
+          }
+
+          return { ...node, children: newChildren };
+        });
+      };
+
+      // Apply to all root nodes
+      for (let i = 0; i < rootNodes.length; i++) {
+        rootNodes[i] = {
+          ...rootNodes[i],
+          children: convertTeamLeadChildren(rootNodes[i].children),
+        };
+      }
+
       // --- Final dedup: remove person-nodes that appear as children of another person ---
       const descendantUserIds = new Set<string>();
       const collectPersonDescendants = (nodes: TreeNode[], parentIsPerson: boolean) => {
