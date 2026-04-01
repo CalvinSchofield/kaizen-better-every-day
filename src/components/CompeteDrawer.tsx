@@ -311,13 +311,14 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
                       {activeChallenges.map(challenge => {
                         const me = challenge.participants?.find(p => p.user_id === currentUser);
                         const isGroupChallenge = challenge.type === 'group';
-                        const typeBadge = getChallengeTypeBadge(isGroupChallenge ? 'group' : '1v1');
+                        const isCarWars = challenge.type === 'car_wars';
+                        const typeBadge = getChallengeTypeBadge(challenge.type as any);
                         const TypeIcon = typeBadge.Icon;
                         
                         // Get display names for challenge
                         const captainA = challenge.participants?.find(p => p.role === 'captain_a');
                         const captainB = challenge.participants?.find(p => p.role === 'captain_b');
-                        const opponent = !isGroupChallenge 
+                        const opponent = !isGroupChallenge && !isCarWars
                           ? challenge.participants?.find(p => p.user_id !== currentUser)
                           : null;
                         
@@ -334,7 +335,9 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
                                 {typeBadge.label}
                               </Badge>
                               <span className="text-xs font-medium">
-                                {isGroupChallenge ? (
+                                {isCarWars ? (
+                                  `${challenge.challenge_teams?.length || 0} teams`
+                                ) : isGroupChallenge ? (
                                   <>
                                     <span className="text-red-500">{getCleanFirstName(captainA?.rep_name)}</span>
                                     <span className="text-muted-foreground"> vs </span>
