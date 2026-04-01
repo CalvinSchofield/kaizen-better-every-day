@@ -5,6 +5,48 @@ import { useCurrentUserId } from "./useCurrentUserId";
 
 import type { AccessLevel } from "@/utils/roleHierarchy";
 
+interface HierarchyTeam {
+  id: string;
+  name: string;
+  leadUserId: string | null;
+}
+
+interface HierarchyMgmtGroup {
+  id: string;
+  name: string;
+  leadUserId: string | null;
+  teams: HierarchyTeam[];
+}
+
+interface HierarchySrMgmtGroup {
+  id: string;
+  name: string;
+  leadUserId: string | null;
+  mgmtGroups: HierarchyMgmtGroup[];
+}
+
+interface HierarchyOffice {
+  id: string;
+  name: string;
+  location: string | null;
+  srMgmtGroups: HierarchySrMgmtGroup[];
+  mgmtGroups: HierarchyMgmtGroup[];
+  teams: HierarchyTeam[];
+}
+
+export interface OrgHierarchy {
+  offices: HierarchyOffice[];
+}
+
+export interface SrMgmtGroupInfo {
+  id: string;
+  name: string;
+  leadUserId: string | null;
+  officeId: string | null;
+  regionId: string | null;
+  mgmtGroupIds: string[];
+}
+
 interface TeamAccessResponse {
   accessLevel: AccessLevel;
   mgmtGroups: Array<{
@@ -34,6 +76,10 @@ interface TeamAccessResponse {
     rampPhase1Complete?: boolean;
     recruiterName?: string | null;
   }>;
+  isAreaDirector: boolean;
+  userOfficeIds: string[];
+  srMgmtGroups: SrMgmtGroupInfo[];
+  hierarchy: OrgHierarchy;
 }
 
 const getCachedData = (userId: string | null): TeamAccessResponse | undefined => {
