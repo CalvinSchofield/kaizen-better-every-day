@@ -318,8 +318,8 @@ serve(async (req) => {
     );
 
     const [repResult, entriesResult, officialsResult, goalsResult] = await Promise.all([
-      serviceClient.from("reps").select("name, year, email, stage").eq("user_id", userId).maybeSingle(),
-      serviceClient.from("daily_entries").select("entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, sales_log, is_finalized, counter_timestamps").eq("user_id", userId).order("entry_date", { ascending: true }),
+      serviceClient.from("reps").select("name, year, email, stage, efp_mode_enabled, timezone").eq("user_id", userId).maybeSingle(),
+      serviceClient.from("daily_entries").select("entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, sales_log, is_finalized, counter_timestamps, timezone").eq("user_id", userId).order("entry_date", { ascending: true }),
       serviceClient.from("official_totals").select("season_type, season_year, fp_plus, fp_sold, prmr, knocking_days").eq("user_id", userId).order("season_year", { ascending: false }),
       serviceClient.from("rep_goals").select("metric, target_value, season_type, season_year").eq("user_id", userId),
     ]);
