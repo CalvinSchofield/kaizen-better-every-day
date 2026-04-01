@@ -13,7 +13,10 @@ import {
   TRANSITION_STREAK_THRESHOLDS, transitionStreakSlug,
   PRESENTATION_STREAK_THRESHOLDS, presentationStreakSlug,
   MULTI_SALE_STREAKS,
+  STREAK_PROTECTION,
+  SEASON_DATES,
 } from "@/utils/badgeDefinitions";
+import { getSeasonAverage, getRecentProtectionCount } from "@/hooks/useStreakProtection";
 import { startOfWeek, endOfWeek, format } from "date-fns";
 
 const SEASON_START = "2025-09-28";
