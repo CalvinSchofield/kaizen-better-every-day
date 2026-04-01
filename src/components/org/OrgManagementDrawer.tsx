@@ -424,10 +424,59 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, p
                       </button>
                     ))
                   ) : (
-                    <p className="text-sm text-center text-muted-foreground py-4">No results</p>
+                    <div className="text-center py-4 space-y-3">
+                      <p className="text-sm text-muted-foreground">No results found</p>
+                    </div>
                   )}
                 </div>
               </ScrollArea>
+
+              {/* Invite someone new */}
+              <Separator />
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                disabled={isGeneratingInvite || isSubmitting}
+                onClick={async () => {
+                  if (!currentUserId) return;
+                  setIsGeneratingInvite(true);
+                  try {
+                    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+                    const { error } = await supabase.from('invite_codes').insert({
+                      code,
+                      inviter_user_id: currentUserId,
+                      is_active: true,
+                      invite_type: 'lateral',
+                    });
+                    if (error) throw error;
+
+                    const link = `${APP_BASE_URL}/auth?invite=${code}`;
+                    const shareText = `You've been invited to join Kaizen! Sign up here: ${link}`;
+                    
+                    if (navigator.share) {
+                      await navigator.share({ text: shareText }).catch(() => {});
+                    } else {
+                      await navigator.clipboard.writeText(link);
+                      toast.success("Invite link copied!");
+                    }
+
+                    // Create group without leader, user will assign later
+                    toast("Once they sign up, assign them as leader from the Structure tab.", {
+                      duration: 5000,
+                    });
+                    handleSelectLead(null);
+                  } catch (err) {
+                    console.error('Error generating invite:', err);
+                    toast.error("Failed to generate invite link");
+                  } finally {
+                    setIsGeneratingInvite(false);
+                  }
+                }}
+              >
+                <Send className="h-4 w-4" />
+                {isGeneratingInvite ? "Generating..." : "Invite someone new"}
+              </Button>
+
               <Button variant="outline" className="w-full" onClick={() => setStep("name")}>
                 ← Back
               </Button>
