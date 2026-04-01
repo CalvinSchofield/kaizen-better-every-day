@@ -1855,6 +1855,12 @@ const Home = () => {
         seasonEndDate="2026-04-11"
         timezone={repData?.timezone}
       />
+      <PageTour
+        steps={homeTourSteps}
+        isOpen={showHomeTour}
+        onComplete={completeHomeTour}
+        onSkip={skipHomeTour}
+      />
     </div>
   );
 };
