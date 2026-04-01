@@ -10,6 +10,8 @@ import { WatchlistPulseCard } from "./WatchlistPulseCard";
 
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
+import { StreakContextCard } from "./StreakContextCard";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 
 import { WeatherStrip } from "./WeatherStrip";
 import { LeaderboardMiniRow } from "./LeaderboardMiniRow";
@@ -78,6 +80,7 @@ export const PreWorkingState = ({
   const greeting = getGreeting();
   const firstName = repName ? getCleanFirstName(repName) : '';
   const todayFormatted = format(new Date(), 'EEEE, MMMM d');
+  const { userId } = useCurrentUserId();
   
 
 
@@ -138,6 +141,9 @@ export const PreWorkingState = ({
           <PlanningNudgeCard />
         </motion.div>
 
+        <motion.div variants={itemVariants}>
+          <StreakContextCard userId={userId} />
+        </motion.div>
 
         <motion.div variants={itemVariants}>
           <SeasonGoalsPreview />

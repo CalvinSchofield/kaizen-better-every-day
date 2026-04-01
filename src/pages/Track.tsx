@@ -41,6 +41,7 @@ import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { PreWorkingState } from "@/components/track";
 import { CompetitorNudgeBanner } from "@/components/track/CompetitorNudgeBanner";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
+import { StreakOutcomeCard } from "@/components/track/StreakOutcomeCard";
 
 interface TrackProps {
   entry: DailyEntry | {
@@ -415,6 +416,13 @@ const Track = ({
 
         {/* Contextual Card Stack */}
         <div className="px-4 space-y-3 mt-3">
+          {/* Streak Outcome Card - what happened to the streak today */}
+          <StreakOutcomeCard
+            userId={userId}
+            closes={entry.closes || 0}
+            entryDate={'entry_date' in entry ? entry.entry_date : undefined}
+          />
+
           {/* Goal Result Card - daily goal progress */}
           <GoalResultCard fpToday={fp} prmrToday={prmr} />
 
@@ -523,10 +531,29 @@ const Track = ({
   }
 
   // Active tracking state - show normal counters with entrance animation
+  // Effort encouragement: show vague message when closes=0 but doors are strong
+  const showEffortEncouragement = !entry.is_finalized && 
+    entry.work_start_time && 
+    (entry.closes || 0) === 0 && 
+    (entry.doors_knocked || 0) >= 60;
+
   return (
     <div className="flex flex-col h-full">
       {/* Competitor Nudge Banner - subtle motivational strip */}
       <CompetitorNudgeBanner competitor={competitorNudge as any} loading={competitorLoading} />
+
+      {/* Effort encouragement - vague signal when no sales but strong effort */}
+      {showEffortEncouragement && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="px-4 pb-1"
+        >
+          <p className="text-xs text-muted-foreground text-center py-1.5">
+            No sales yet, but your effort is being noticed 💪
+          </p>
+        </motion.div>
+      )}
 
       {/* Time Tracking Bar */}
       <motion.div 
