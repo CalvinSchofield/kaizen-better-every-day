@@ -161,7 +161,16 @@ const MyGroup = () => {
   useEffect(() => {
     if (hasProcessedNavState || isLoading || !teamAccess || !currentUserRep) return;
     
-    const navState = location.state as { openCategory?: string; autoSelectMyTeam?: boolean; newRecruitId?: string } | null;
+    const navState = location.state as { openCategory?: string; autoSelectMyTeam?: boolean; newRecruitId?: string; fromOnboarding?: boolean } | null;
+    
+    // Handle fromOnboarding: auto-open org tab in QuickView
+    if (navState?.fromOnboarding) {
+      setQuickViewInitialTab('org');
+      setQuickViewOpen(true);
+      window.history.replaceState({}, document.title);
+      setHasProcessedNavState(true);
+      return;
+    }
     
     // Handle newly created recruit - open detail drawer
     if (navState?.newRecruitId) {
