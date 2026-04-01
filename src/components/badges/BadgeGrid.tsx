@@ -68,7 +68,7 @@ export const BadgeGrid = ({ earnedBadges, allDefinitions, isOwnProfile }: BadgeG
   };
 
   const selectedGlobalCount = selectedBadge
-    ? globalCounts?.[selectedBadge.id] || 0
+    ? globalCounts?.['badgeId' in selectedBadge ? (selectedBadge as any).badgeId : selectedBadge.id] || 0
     : 0;
 
   return (
