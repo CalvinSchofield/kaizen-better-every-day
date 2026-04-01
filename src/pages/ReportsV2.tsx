@@ -21,14 +21,13 @@ import {
 } from "@/components/reports/v2";
 import { RecordDetailsDrawer } from "@/components/reports/v2/RecordDetailsDrawer";
 import { CustomDateRangeDrawer } from "@/components/shared/CustomDateRangeDrawer";
-import { TeamFilter } from "@/components/reports/v2/ReportsTeamFilter";
 import { WorkingRepsDrawer } from "@/components/reports/v2/WorkingRepsDrawer";
 import { GoalPaceDrawer } from "@/components/reports/v2/GoalPaceDrawer";
 import { GoalPaceSection } from "@/components/reports/v2/GoalPaceSection";
 import { GoalAttentionAlerts } from "@/components/reports/v2/GoalAttentionAlerts";
 import { RepTimesDrawer } from "@/components/reports/v2/RepTimesDrawer";
 import { DealAnalyticsDrawer } from "@/components/reports/v2/DealAnalyticsDrawer";
-import { SmartFilterDrawer, SmartFilterState, DEFAULT_FILTER_STATE, isFilterActive } from "@/components/filters/SmartFilterDrawer";
+import { UnifiedFilterDrawer, UnifiedFilterState, DEFAULT_UNIFIED_FILTER, isUnifiedFilterActive, resolveFilteredUserIds } from "@/components/filters/UnifiedFilterDrawer";
 import { LeaderAICoachComingSoon } from '@/components/reports/LeaderAICoachComingSoon';
 import { Sparkles } from "lucide-react";
 import { useHeader } from "@/contexts/HeaderContext";
