@@ -171,7 +171,7 @@ export default function AddRecruit() {
   const { data: teamAccess } = useTeamAccess();
   
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
-  const isMgmtOrAbove = teamAccess?.accessLevel === 'mgmt_group_lead' || teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'corporate';
+  const isMgmtOrAbove = teamAccess?.accessLevel && !['none', 'team_lead', 'recruiter'].includes(teamAccess.accessLevel);
   const totalSteps = isLeader ? 5 : 3;
 
   // Fetch property options
