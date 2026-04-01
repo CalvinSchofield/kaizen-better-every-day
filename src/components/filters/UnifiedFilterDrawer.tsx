@@ -136,8 +136,8 @@ export const resolveFilteredUserIds = (
   if (filterState.yearFilters.length > 0) {
     const allowedYears = new Set(filterState.yearFilters);
     const repsInYear = new Set(
-      accessibleReps
-        .filter(r => r.userId && allowedYears.has(r.year || ''))
+      (accessibleReps as Array<{ userId: string | null; year?: string | null }>)
+        .filter(r => r.userId && allowedYears.has((r as any).year || ''))
         .map(r => r.userId!)
     );
     ids = ids.filter(id => repsInYear.has(id));
