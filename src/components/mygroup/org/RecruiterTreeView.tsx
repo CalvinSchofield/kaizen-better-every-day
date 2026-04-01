@@ -203,7 +203,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         }
       });
 
-      childrenPLACEHOLDER_SORT;
+      children = sortByDownlineSize(children);
 
       // Determine role/color for this person
       const ledMgmtGroup = mgmtGroups.find((g) => g.lead_user_id === userId);
