@@ -595,9 +595,9 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
           rootNodes.push(createMgmtLabelNode(mgmtGroupId, dedupedNodes));
         });
 
-        const dedupedUngrouped = fullyUngrouped
-          .filter((node) => !node.userId || !globalDescendantIds.has(node.userId))
-          PLACEHOLDER_SORT;
+        const dedupedUngrouped = sortByDownlineSize(
+          fullyUngrouped.filter((node) => !node.userId || !globalDescendantIds.has(node.userId))
+        );
         rootNodes.push(...dedupedUngrouped);
       }
 
