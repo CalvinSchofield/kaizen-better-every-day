@@ -133,7 +133,7 @@ const WatchedPlayerCard = ({
             )}
             {user.salesStreak > 0 && (
               <span className="text-[9px] font-bold bg-orange-500/10 text-orange-500 px-1.5 py-0.5 rounded-full">
-                🔥 {user.salesStreak}
+                🔥{user.streakShieldCount > 0 ? '🛡️' : ''} {user.salesStreak}
               </span>
             )}
           </div>
