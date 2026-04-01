@@ -100,7 +100,7 @@ const OrgChart = () => {
   const fullTree = useMemo(() => {
     if (!treeData || !currentAuthUserId) return null;
 
-    const { recruits, reps, teams, mgmtGroups, teamMgmt, officeStaff } = treeData;
+    const { recruits, reps, teams, mgmtGroups, teamMgmt, officeStaff, srMgmtGroups } = treeData;
 
     const repMap = new Map<string, (typeof reps)[number]>();
     reps.forEach((rep) => {
@@ -117,6 +117,7 @@ const OrgChart = () => {
     teamMgmt.forEach((tm) => teamToMgmtGroup.set(tm.team_id, tm.mgmt_group_id));
 
     const mgmtGroupMap = new Map(mgmtGroups.map((mg) => [mg.id, mg]));
+    const srMgmtGroupMap = new Map(srMgmtGroups.map((smg: any) => [smg.id, smg]));
 
     // Team leads also see pipeline stages (Reached Out, Evaluating)
     const visibleStages = accessLevel === "team_lead"
