@@ -380,7 +380,24 @@ const Profile = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="badges" className="mt-4">
+          <TabsContent value="badges" className="mt-4 space-y-3">
+            {salesStreakData && salesStreakData.streak > 0 && (
+              <div className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-lg font-bold text-foreground">
+                    🔥 {salesStreakData.streak}-Day Sales Streak
+                  </p>
+                  {salesStreakData.globalReached > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {salesStreakData.globalReached === 1
+                        ? "Only 1 other rep has ever gotten this far"
+                        : `Only ${salesStreakData.globalReached} reps have ever gotten this far`}
+                    </p>
+                  )}
+                </div>
+                <span className="text-3xl">🔥</span>
+              </div>
+            )}
             <div className="bg-card border border-border rounded-2xl p-4">
               {allDefinitions && earnedBadges ? (
                 <BadgeGrid
