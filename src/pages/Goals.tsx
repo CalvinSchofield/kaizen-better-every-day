@@ -642,9 +642,31 @@ const Goals = () => {
     );
   }
 
+  // Reusable gate banner
+  const GateBanner = gatedRouteLabel ? (
+    <motion.div
+      className="mx-4 mt-4 mb-2 p-3 rounded-xl bg-primary/10 border border-primary/20"
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <div className="flex items-start gap-2">
+        <div className="p-1 rounded-full bg-primary/20 mt-0.5">
+          <AlertTriangle className="h-3.5 w-3.5 text-primary" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-foreground">Complete setup to unlock {gatedRouteLabel}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Finish the steps below — sync your baseline and set your goals — then you'll have full access.
+          </p>
+        </div>
+      </div>
+    </motion.div>
+  ) : null;
+
   if ((canDecideSetup && !goals?.setup_complete && !stickySetupComplete) || showSetupWizard) {
     return (
       <Layout>
+        {GateBanner}
         <div className="p-4">
           <div className="mb-6">
             {goals?.setup_complete && (
