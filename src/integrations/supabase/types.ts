@@ -2530,6 +2530,84 @@ export type Database = {
           },
         ]
       }
+      streak_protections: {
+        Row: {
+          actual_value: number | null
+          baseline_value: number | null
+          created_at: string
+          entry_date: string
+          id: string
+          method: string
+          protection_type: string
+          streak_length: number | null
+          user_id: string
+        }
+        Insert: {
+          actual_value?: number | null
+          baseline_value?: number | null
+          created_at?: string
+          entry_date: string
+          id?: string
+          method: string
+          protection_type: string
+          streak_length?: number | null
+          user_id: string
+        }
+        Update: {
+          actual_value?: number | null
+          baseline_value?: number | null
+          created_at?: string
+          entry_date?: string
+          id?: string
+          method?: string
+          protection_type?: string
+          streak_length?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      streak_recovery_windows: {
+        Row: {
+          created_at: string
+          id: string
+          knocking_days_used: Json | null
+          recovery_deadline_date: string | null
+          restored_streak: number | null
+          status: string
+          streak_lost_on: string
+          target_doors: number | null
+          target_fp: number | null
+          target_prmr: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          knocking_days_used?: Json | null
+          recovery_deadline_date?: string | null
+          restored_streak?: number | null
+          status?: string
+          streak_lost_on: string
+          target_doors?: number | null
+          target_fp?: number | null
+          target_prmr?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          knocking_days_used?: Json | null
+          recovery_deadline_date?: string | null
+          restored_streak?: number | null
+          status?: string
+          streak_lost_on?: string
+          target_doors?: number | null
+          target_fp?: number | null
+          target_prmr?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       tags: {
         Row: {
           created_at: string
