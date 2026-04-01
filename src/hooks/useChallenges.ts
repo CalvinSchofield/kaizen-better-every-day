@@ -259,6 +259,12 @@ export const useMyActiveChallenges = () => {
             role,
             accepted,
             final_value
+          ),
+          challenge_teams (
+            id,
+            challenge_id,
+            team_label,
+            team_key
           )
         `)
         .in('id', challengeIds)
@@ -298,6 +304,7 @@ export const useMyActiveChallenges = () => {
           rep_name: repMap.get(p.user_id)?.name || 'Unknown',
           profile_photo_url: repMap.get(p.user_id)?.profile_photo_url,
         })),
+        challenge_teams: c.challenge_teams || [],
       })) as Challenge[];
     },
     staleTime: 10 * 1000, // 10 seconds - faster refresh for active challenges
