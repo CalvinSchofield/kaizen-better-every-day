@@ -48,9 +48,14 @@ export const ScheduleFollowUpDrawer = ({
   const [scheduledActivityId, setScheduledActivityId] = useState<string | null>(null);
   const [scheduledDateString, setScheduledDateString] = useState<string>('');
   
+  // Capture stable viewport height before keyboard opens
+  const stableHeightRef = useRef<number>(window.innerHeight);
+
   // Reset form state when drawer opens or recruit changes
   useEffect(() => {
     if (open) {
+      // Capture height BEFORE keyboard could fire
+      stableHeightRef.current = window.innerHeight;
       // Dismiss keyboard immediately to prevent height squishing
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
