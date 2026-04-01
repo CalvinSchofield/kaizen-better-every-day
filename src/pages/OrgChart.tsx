@@ -719,7 +719,13 @@ const OrgChart = () => {
     [recruitLookup]
   );
 
-
+  const handleTourAction = useCallback((action: string) => {
+    if (action === 'switchToStructureTab') {
+      setActiveTab('structure');
+    } else if (action === 'switchToTreeTab') {
+      setActiveTab('tree');
+    }
+  }, []);
 
   if (accessLoading || isLoading) {
     return (
@@ -747,14 +753,6 @@ const OrgChart = () => {
       </div>
     );
   }
-
-  const handleTourAction = useCallback((action: string) => {
-    if (action === 'switchToStructureTab') {
-      setActiveTab('structure');
-    } else if (action === 'switchToTreeTab') {
-      setActiveTab('tree');
-    }
-  }, []);
 
   return (
     <div className="p-4 space-y-4 pb-24" data-tour="org-chart-page">
