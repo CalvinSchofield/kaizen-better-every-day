@@ -274,17 +274,8 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       }
     };
 
-    const officeGroupedAccessLevels = new Set([
-      "area_director",
-      "corporate",
-      "regional",
-      "sr_regional",
-      "partner",
-      "divisional",
-      "mgmt_group_lead",
-    ]);
 
-    if (officeGroupedAccessLevels.has(accessLevel) && groupByOffice) {
+    if (OFFICE_GROUPED_ACCESS_LEVELS.has(accessLevel) && groupByOffice) {
       const allRecruiterIds = new Set(
         recruits.map((recruit) => recruit.recruiter_user_id).filter(Boolean) as string[]
       );
