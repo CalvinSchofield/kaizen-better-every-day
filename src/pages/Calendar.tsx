@@ -26,6 +26,7 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
   const { repData, loading: loadingRepData, isInitializing } = useRepData();
   const navigate = useNavigate();
   const location = useLocation();
+  const { showTour, completeTour, skipTour } = usePageTour({ page: 'calendar' });
   const goalPaceData = useGoalPaceCalculator();
   const { addSale } = useAddSaleToEntry();
 

@@ -51,6 +51,7 @@ const Leaderboard = () => {
   const { setCustomRightContent } = useHeader();
   const queryClient = useQueryClient();
   const { data: teamAccess } = useTeamAccess();
+  const { showTour, completeTour, skipTour } = usePageTour({ page: 'leaderboard' });
 
   useSalesRealtime();
   const { watchedUserIds } = useWatchlist();

@@ -80,6 +80,7 @@ export default function Insights() {
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
+  const { showTour, completeTour, skipTour } = usePageTour({ page: 'insights' });
   const [chatOpen, setChatOpen] = useState(false);
   const { setCustomRightContent } = useHeader();
 
