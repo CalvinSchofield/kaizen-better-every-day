@@ -76,6 +76,7 @@ const MyGroup = () => {
   const deleteMutation = useDeleteMySuggestion();
   const { allBlitzes, allBlitzesIncludingPast, error: blitzError, refetch: refetchBlitzes, isUsingCache: blitzUsingCache } = useBlitzes();
   const { userId: currentUserId } = useCurrentUserId();
+  const { showTour: showGroupTour, completeTour: completeGroupTour, skipTour: skipGroupTour } = usePageTour({ page: 'my-group' });
 
   // Check if current user is a rookie (restricts "Add to Pipeline" access)
   const { data: currentUserYear } = useQuery({
