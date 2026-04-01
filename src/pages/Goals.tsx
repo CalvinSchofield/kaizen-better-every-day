@@ -902,7 +902,7 @@ const Goals = () => {
                     .maybeSingle();
                   const pagesToured = Array.isArray(repCheck?.pages_toured) ? (repCheck.pages_toured as string[]) : [];
                   if (!pagesToured.includes('my-group')) {
-                    navigate('/my-group', { state: { fromOnboarding: true } });
+                    navigate('/my-group?tab=structure', { state: { fromOnboarding: true } });
                     return;
                   }
                 }
