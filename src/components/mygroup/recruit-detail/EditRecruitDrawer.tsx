@@ -41,14 +41,15 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Drawer as ConfirmDrawer,
+  DrawerContent as ConfirmDrawerContent,
+  DrawerHeader as ConfirmDrawerHeader,
+  DrawerTitle as ConfirmDrawerTitle,
+  DrawerFooter as ConfirmDrawerFooter,
+} from "@/components/ui/drawer";
 
 interface EditRecruitDrawerProps {
   open: boolean;
