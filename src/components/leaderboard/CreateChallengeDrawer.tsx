@@ -14,11 +14,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, ChevronLeft, Loader2, Eye, EyeOff, X, CalendarIcon, CalendarCheck, Search, Building2 } from "lucide-react";
+import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, ChevronLeft, Loader2, Eye, EyeOff, X, CalendarIcon, CalendarCheck, Search, Building2, Car } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays, startOfWeek, endOfWeek } from "date-fns";
 import { getInitials } from "@/utils/nameUtils";
 import { YearBadge } from "./YearBadge";
+import { CarWarsTeamBuilder, CarWarsTeam } from "@/components/compete/CarWarsTeamBuilder";
 
 interface CreateChallengeDrawerProps {
   open: boolean;
