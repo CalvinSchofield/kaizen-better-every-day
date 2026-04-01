@@ -4,7 +4,7 @@ export const homeTourSteps: TourStep[] = [
   {
     target: 'home-header',
     title: 'Your Home Base',
-    description: 'This is your daily dashboard. It adapts based on whether you're pre-work, actively knocking, or done for the day.',
+    description: 'This is your daily dashboard. It adapts based on whether you are pre-work, actively knocking, or done for the day.',
     position: 'bottom',
   },
   {
@@ -25,7 +25,7 @@ export const trackTourSteps: TourStep[] = [
   {
     target: 'track-time-bar',
     title: 'Start Your Day Here',
-    description: "Tap 'Start' when you begin knocking. This tracks your hours automatically. Pause for breaks, then resume when you're back.",
+    description: "Tap 'Start' when you begin knocking. This tracks your hours automatically. Pause for breaks, then resume.",
     position: 'auto',
   },
   {
@@ -37,7 +37,7 @@ export const trackTourSteps: TourStep[] = [
   {
     target: 'track-fp-counter',
     title: 'Log Your Sales',
-    description: 'This is the big one! Tap here each time you close a deal. 🎉',
+    description: 'This is the big one! Tap here each time you close a deal.',
     position: 'top',
   },
   {
@@ -51,7 +51,7 @@ export const trackTourSteps: TourStep[] = [
   {
     target: 'track-prmr-help-button',
     title: 'Need Help with PRMR?',
-    description: "Tap the ? icon anytime. For upgrades, it opens a calculator that adds up your equipment automatically.",
+    description: 'Tap the ? icon anytime. For upgrades, it opens a calculator that adds up your equipment automatically.',
     position: 'bottom',
     action: 'switchToUpgradeAndShowHelp',
     lightOverlay: true,
@@ -59,7 +59,7 @@ export const trackTourSteps: TourStep[] = [
   {
     target: 'track-upgrade-calculator',
     title: 'Chat to Calculate Upgrade PRMR',
-    description: "Just type what you sold and the calculator does the math for you!",
+    description: 'Just type what you sold and the calculator does the math for you!',
     position: 'bottom',
     action: 'openUpgradeCalculator',
     lightOverlay: true,
@@ -70,7 +70,7 @@ export const calendarTourSteps: TourStep[] = [
   {
     target: 'calendar-grid',
     title: 'Your Progress at a Glance',
-    description: "Here you can see how you're doing on any given week or month. Once you set up goals, you'll see the breakdown of your daily and weekly targets.",
+    description: 'See how you are doing on any given week or month. Once you set up goals, you will see the breakdown of your daily and weekly targets.',
     position: 'bottom',
   },
   {
@@ -97,7 +97,7 @@ export const insightsTourSteps: TourStep[] = [
   {
     target: 'insights-metrics',
     title: 'Key Numbers',
-    description: 'Your most important metrics at a glance—tap any card for more detail!',
+    description: 'Your most important metrics at a glance. Tap any card for more detail!',
     position: 'bottom',
   },
 ];
@@ -106,7 +106,7 @@ export const leaderboardTourSteps: TourStep[] = [
   {
     target: 'leaderboard-hero',
     title: 'Your Standing',
-    description: "See how you rank and what awards you've earned. This updates in real-time during knocking hours!",
+    description: 'See how you rank and what awards you have earned. This updates in real-time during knocking hours!',
     position: 'bottom',
   },
   {
@@ -118,7 +118,7 @@ export const leaderboardTourSteps: TourStep[] = [
   {
     target: 'leaderboard-sales',
     title: 'Sales Leaders',
-    description: "Who's closing the most deals? See top performers for FP+, PRMR, and more.",
+    description: 'Who is closing the most deals? See top performers for FP+, PRMR, and more.',
     position: 'bottom',
   },
 ];
@@ -133,7 +133,7 @@ export const myGroupTourSteps: TourStep[] = [
   {
     target: 'add-action',
     title: 'Invite & Add People',
-    description: "Use the + button to create invite links for your sub-leaders. They'll get their own onboarding and can build their teams.",
+    description: 'Use the + button to create invite links for your sub-leaders. They will get their own onboarding and can build their teams.',
     position: 'bottom',
   },
   {
