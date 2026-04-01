@@ -12,7 +12,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       position="top-center"
-      offset="calc(max(env(safe-area-inset-top, 0px), 1rem) + 0.5rem)"
+      offset="calc(max(env(safe-area-inset-top, 0px), 1rem) + 1.25rem)"
       style={{ zIndex: 190 }}
       duration={Infinity}
       closeButton={false}

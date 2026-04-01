@@ -1192,7 +1192,7 @@ export const RecruitDetailDrawer = ({
       <Drawer open={logActivityOpen} onOpenChange={setLogActivityOpen}>
         <DrawerContent className="max-h-[85dvh]">
           <DrawerHeader><DrawerTitle>{isDirectSchedule ? 'Schedule Follow-up' : 'Log Activity'}</DrawerTitle></DrawerHeader>
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(85dvh-4rem)]">
             {!isDirectSchedule && (
               <div className="grid grid-cols-3 gap-2">
                 {(['phone_call', 'in_person', 'note'] as const).map((type) => (
