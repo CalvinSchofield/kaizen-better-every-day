@@ -25,6 +25,8 @@ export interface WatchedUserDetail {
   seasonFp: number;
   // Current sales streak
   salesStreak: number;
+  // Shield count in current streak
+  streakShieldCount: number;
 }
 
 export interface WatchlistDetailsData {
