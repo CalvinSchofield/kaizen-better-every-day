@@ -82,11 +82,14 @@ const getSlides = (userType: UserType, firstName: string, segment?: OnboardingSe
       case 'outside-org':
         return getOutsideOrgSlides(firstName);
       case 'in-org-vet':
+        // All leaders (team_lead+) get leader slides regardless of segment
         return getInOrgVetSlides(firstName, !!isLeader);
       case 'in-org-rookie-summer':
-        // Summer rookies still see team-sell slides
+        // Leaders who happen to be "rookie" year still get leader flow
+        if (isLeader) return getInOrgVetSlides(firstName, true);
         return getPreBlitzRookieSlides(firstName);
       case 'in-org-rookie-preseason':
+        if (isLeader) return getInOrgVetSlides(firstName, true);
         return getPreBlitzRookieSlides(firstName);
     }
   }
@@ -125,26 +128,23 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
       onComplete();
       
       if (segment) {
-        // Segment-based routing
+        // Leaders (team_lead+) always go to structure first
+        if (isLeaderProp) {
+          navigate('/my-group?tab=structure');
+          return;
+        }
+        // Segment-based routing for non-leaders
         switch (segment) {
           case 'outside-org':
-            // Go straight to Goals (sync gate → goal setup → calendar planning)
             navigate('/goals');
             break;
           case 'in-org-vet':
-            // Leaders go to org page to build structure first, then goals
-            if (isLeaderProp) {
-              navigate('/my-group?tab=structure');
-            } else {
-              navigate('/goals');
-            }
+            navigate('/goals');
             break;
           case 'in-org-rookie-preseason':
-            // Show About Team, then Home for ramp
             navigate('/about-team');
             break;
           case 'in-org-rookie-summer':
-            // Show About Team briefly, then Goals for sync+setup
             navigate('/about-team');
             break;
         }
@@ -366,11 +366,13 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
           className="px-8 h-12 rounded-full font-semibold pointer-events-auto"
         >
           {isLastSlide ? (
-            segment === 'in-org-rookie-preseason' || segment === 'in-org-rookie-summer' || userType === 'pre-blitz-rookie' 
-              ? "Meet the Team" 
-              : segment === 'outside-org' || segment === 'in-org-vet'
-                ? "Set Up Goals"
-                : "Get Started"
+            isLeaderProp
+              ? "Build Your Org"
+              : segment === 'in-org-rookie-preseason' || segment === 'in-org-rookie-summer' || userType === 'pre-blitz-rookie' 
+                ? "Meet the Team" 
+                : segment === 'outside-org' || segment === 'in-org-vet'
+                  ? "Set Up Goals"
+                  : "Get Started"
           ) : "Next"}
           {!isLastSlide && <ChevronRight className="w-5 h-5 ml-1" />}
         </Button>
