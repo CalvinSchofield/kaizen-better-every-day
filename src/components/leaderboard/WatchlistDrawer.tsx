@@ -131,6 +131,11 @@ const WatchedPlayerCard = ({
             {user.year === "Rookie" && (
               <span className="text-[9px] font-bold bg-primary/10 text-primary px-1 py-0.5 rounded">R</span>
             )}
+            {user.salesStreak > 0 && (
+              <span className="text-[9px] font-bold bg-orange-500/10 text-orange-500 px-1.5 py-0.5 rounded-full">
+                🔥 {user.salesStreak}
+              </span>
+            )}
           </div>
           
           {/* Today's headline stat */}

@@ -327,6 +327,32 @@ const Profile = () => {
         </div>
       </motion.div>
 
+      {/* Sales streak pill - always visible */}
+      {salesStreakData && salesStreakData.streak > 0 && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="mx-5 mt-2"
+        >
+          <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20 rounded-full px-4 py-2">
+            <span className="text-base">🔥</span>
+            <span className="text-sm font-bold text-foreground">
+              {salesStreakData.streak}-Day Sales Streak
+            </span>
+            {salesStreakData.globalReached > 0 && (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  {salesStreakData.globalReached === 1
+                    ? "Only 1 rep has ever gotten this far"
+                    : `Only ${salesStreakData.globalReached} reps have ever gotten this far`}
+                </span>
+              </>
+            )}
+          </div>
+        </motion.div>
+      )}
+
       {/* Momentum Sparkline / Goal Pace / Heatmap Swiper */}
       <ProfileSwiper
         dailyFp={profile.dailyFpValues}
@@ -381,23 +407,6 @@ const Profile = () => {
           </TabsContent>
 
           <TabsContent value="badges" className="mt-4 space-y-3">
-            {salesStreakData && salesStreakData.streak > 0 && (
-              <div className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-lg font-bold text-foreground">
-                    🔥 {salesStreakData.streak}-Day Sales Streak
-                  </p>
-                  {salesStreakData.globalReached > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {salesStreakData.globalReached === 1
-                        ? "Only 1 other rep has ever gotten this far"
-                        : `Only ${salesStreakData.globalReached} reps have ever gotten this far`}
-                    </p>
-                  )}
-                </div>
-                <span className="text-3xl">🔥</span>
-              </div>
-            )}
             <div className="bg-card border border-border rounded-2xl p-4">
               {allDefinitions && earnedBadges ? (
                 <BadgeGrid
