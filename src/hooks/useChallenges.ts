@@ -379,22 +379,33 @@ export const useCreateChallenge = () => {
 
       if (challengeError) throw challengeError;
 
-      // Add creator as participant (captain_a for 1v1/group)
+      // For car_wars, creator is organizer (not on a team). For others, creator is captain_a
+      const creatorParticipant = input.type === 'car_wars' 
+        ? {
+            challenge_id: challenge.id,
+            user_id: user.id,
+            team: null as string | null,
+            role: 'captain_a' as ParticipantRole,
+            accepted: true,
+            accepted_at: new Date().toISOString(),
+          }
+        : {
+            challenge_id: challenge.id,
+            user_id: user.id,
+            team: input.type === 'group' ? 'a' : null,
+            role: 'captain_a' as ParticipantRole,
+            accepted: true,
+            accepted_at: new Date().toISOString(),
+          };
+
       const participants = [
-        {
-          challenge_id: challenge.id,
-          user_id: user.id,
-          team: input.type === 'group' ? 'a' : null,
-          role: 'captain_a' as ParticipantRole,
-          accepted: true,
-          accepted_at: new Date().toISOString(),
-        },
+        creatorParticipant,
         ...input.participants.map(p => ({
           challenge_id: challenge.id,
           user_id: p.user_id,
           team: p.team || null,
           role: p.role,
-          accepted: null, // Initially pending
+          accepted: null as boolean | null, // Initially pending
         })),
       ];
 
@@ -403,6 +414,22 @@ export const useCreateChallenge = () => {
         .insert(participants);
 
       if (partError) throw partError;
+
+      // For car_wars, insert team metadata
+      if (input.type === 'car_wars' && input.teams && input.teams.length > 0) {
+        const { error: teamError } = await supabase
+          .from('challenge_teams')
+          .insert(input.teams.map(t => ({
+            challenge_id: challenge.id,
+            team_key: t.team_key,
+            team_label: t.team_label,
+          })));
+        
+        if (teamError) {
+          console.error('[useCreateChallenge] Failed to insert teams:', teamError);
+          throw teamError;
+        }
+      }
 
       // Check if all participants are in creator's downline - if so, auto-start
       let shouldAutoStart = false;
