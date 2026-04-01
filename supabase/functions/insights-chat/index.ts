@@ -113,19 +113,23 @@ function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goal
 
   // Weekly summary (last 6 weeks)
   const sortedWeeks = Object.entries(weeklyBuckets).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6);
-  const weeklySummary = sortedWeeks.map(([wk, d]) =>
-    `  Week of ${wk}: ${d.days} days, ${d.doors} doors, ${d.closes} closes, ${d.fp.toFixed(1)} FP+, $${d.prmr.toFixed(0)} PRMR`
-  ).join("\n");
+  const efpFromPrmr = (prmr: number) => Number((prmr / 85).toFixed(2));
+  const weeklySummary = sortedWeeks.map(([wk, d]) => {
+    const metricVal = efpModeEnabled ? efpFromPrmr(d.prmr).toFixed(2) : d.fp.toFixed(1);
+    return `  Week of ${wk}: ${d.days} days, ${d.doors} doors, ${d.closes} closes, ${metricVal} ${primaryMetric}, $${d.prmr.toFixed(0)} PRMR`;
+  }).join("\n");
 
   // Monthly summary
-  const monthlySummary = Object.entries(monthlyBuckets).sort((a, b) => b[0].localeCompare(a[0])).map(([mo, d]) =>
-    `  ${mo}: ${d.days} days, ${d.doors} doors, ${d.closes} closes, ${d.fp.toFixed(1)} FP+, $${d.prmr.toFixed(0)} PRMR`
-  ).join("\n");
+  const monthlySummary = Object.entries(monthlyBuckets).sort((a, b) => b[0].localeCompare(a[0])).map(([mo, d]) => {
+    const metricVal = efpModeEnabled ? efpFromPrmr(d.prmr).toFixed(2) : d.fp.toFixed(1);
+    return `  ${mo}: ${d.days} days, ${d.doors} doors, ${d.closes} closes, ${metricVal} ${primaryMetric}, $${d.prmr.toFixed(0)} PRMR`;
+  }).join("\n");
 
   // Day of week summary
-  const dowSummary = Object.entries(dowStats).map(([dow, d]) =>
-    `  ${dow}: ${d.days} days, avg ${(d.doors / d.days).toFixed(0)} doors, avg ${(d.fp / d.days).toFixed(2)} FP+, avg $${(d.prmr / d.days).toFixed(0)} PRMR`
-  ).join("\n");
+  const dowSummary = Object.entries(dowStats).map(([dow, d]) => {
+    const avgMetric = efpModeEnabled ? efpFromPrmr(d.prmr / d.days).toFixed(2) : (d.fp / d.days).toFixed(2);
+    return `  ${dow}: ${d.days} days, avg ${(d.doors / d.days).toFixed(0)} doors, avg ${avgMetric} ${primaryMetric}, avg $${(d.prmr / d.days).toFixed(0)} PRMR`;
+  }).join("\n");
 
   // Time of day (hours are in rep's LOCAL timezone)
   const timeSummary = Object.entries(salesByHour).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 5)
