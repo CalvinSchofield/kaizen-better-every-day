@@ -19,7 +19,7 @@ const STEPS = [
   {
     icon: Send,
     title: "Invite Your Leaders",
-    description: "Once your structure is set, use the + button to send invite links to your sub-leaders. They'll get their own guided setup.",
+    description: "Once your structure is set, use the + button to send invite links to your leaders. They'll get their own guided setup.",
   },
   {
     icon: Users,
