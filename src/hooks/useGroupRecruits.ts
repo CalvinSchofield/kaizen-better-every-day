@@ -920,7 +920,8 @@ export const useLogRecruitActivity = () => {
         throw new Error("Either recruitId or recruitNotionId is required");
       }
 
-      const { session } = await getSessionSafe();
+      // Use cached session to avoid network-heavy refresh on mobile
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
       // Use recruitId directly — it's already the Supabase UUID
