@@ -2887,6 +2887,10 @@ export type Database = {
       }
       cleanup_old_counter_events: { Args: never; Returns: undefined }
       get_accessible_team_ids: { Args: { _user_id: string }; Returns: string[] }
+      get_downline_recruit_ids: {
+        Args: { _user_id: string }
+        Returns: string[]
+      }
       get_user_office_ids: { Args: { _user_id: string }; Returns: string[] }
       has_active_upline: { Args: { _user_id: string }; Returns: boolean }
       has_min_role: {
