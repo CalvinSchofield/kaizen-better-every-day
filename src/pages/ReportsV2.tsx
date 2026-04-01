@@ -58,6 +58,7 @@ export const ReportsV2Page = () => {
   const [showTimeDrawer, setShowTimeDrawer] = useState(false);
   const [showDealDrawer, setShowDealDrawer] = useState(false);
   const [showRecordDrawer, setShowRecordDrawer] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const { setCustomRightContent } = useHeader();
   
   // Get team access
