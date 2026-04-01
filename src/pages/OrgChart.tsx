@@ -535,7 +535,7 @@ const OrgChart = () => {
       const groupedRoots = Array.from(mgmtNodes.entries())
         .map(([mgmtGroupId, node]) => createMgmtLabelNode(mgmtGroupId, dedupeRootNodes(node.children)))
         .filter((node) => node.children.length > 0)
-        .sort((a, b) => b.children.length - a.children.length);
+        .sort((a, b) => countDescendants(b) - countDescendants(a));
 
       // After creating MGMT group nodes, wrap them in Sr MGMT Group containers
       // This shows upline (e.g. Gunnar Bramwell Sr MGMT)
