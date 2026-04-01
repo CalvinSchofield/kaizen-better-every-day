@@ -1876,6 +1876,7 @@ const TrackWithLayout = () => {
         }}
       />
     </>
+  );
 };
 
 export default TrackWithLayout;
