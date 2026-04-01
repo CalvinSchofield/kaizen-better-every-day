@@ -25,6 +25,8 @@ export interface WatchedUserDetail {
   seasonFp: number;
   // Current sales streak
   salesStreak: number;
+  // Shield count in current streak
+  streakShieldCount: number;
 }
 
 export interface WatchlistDetailsData {
@@ -59,8 +61,8 @@ export const useWatchlistDetails = () => {
       // Season start
       const seasonStart = "2025-09-28";
 
-      // Fetch reps info and entries in parallel
-      const [repsResult, entriesResult] = await Promise.all([
+      // Fetch reps info, entries, and protections in parallel
+      const [repsResult, entriesResult, protectionsResult] = await Promise.all([
         supabase
           .from("reps")
           .select("user_id, name, profile_photo_url, year")
@@ -71,7 +73,20 @@ export const useWatchlistDetails = () => {
           .in("user_id", allUserIds)
           .gte("entry_date", seasonStart)
           .lte("entry_date", today),
+        supabase
+          .from("streak_protections")
+          .select("user_id, entry_date")
+          .in("user_id", allUserIds)
+          .order("entry_date", { ascending: false })
+          .limit(500),
       ]);
+
+      // Build per-user protection date sets
+      const userProtections = new Map<string, Set<string>>();
+      for (const p of protectionsResult.data || []) {
+        if (!userProtections.has(p.user_id)) userProtections.set(p.user_id, new Set());
+        userProtections.get(p.user_id)!.add(p.entry_date);
+      }
 
       const repsMap = new Map(
         (repsResult.data || []).map((r) => [r.user_id, r])
@@ -146,8 +161,9 @@ export const useWatchlistDetails = () => {
         ud.entryDates.push({ date: entry.entry_date, closes: entry.closes || 0 });
       }
 
-      // Calculate sales streak for a user from their entries
-      const calcSalesStreak = (entryDates: { date: string; closes: number }[]): number => {
+      // Calculate sales streak for a user from their entries (with protection support)
+      const calcSalesStreak = (uid: string, entryDates: { date: string; closes: number }[]): { streak: number; shieldCount: number } => {
+        const protectedSet = userProtections.get(uid) || new Set<string>();
         // Sort descending by date
         const sorted = [...entryDates].sort((a, b) => b.date.localeCompare(a.date));
         // Deduplicate by date (take max closes)
@@ -158,6 +174,7 @@ export const useWatchlistDetails = () => {
         const dates = [...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0]));
         
         let streak = 0;
+        let shieldCount = 0;
         let expectedDate = dates.length > 0 ? new Date(dates[0][0] + "T12:00:00") : null;
         
         for (const [dateStr, closes] of dates) {
@@ -169,13 +186,16 @@ export const useWatchlistDetails = () => {
           if (diffDays > 1) break;
           if (closes >= 1) {
             streak++;
+          } else if (protectedSet.has(dateStr)) {
+            streak++;
+            shieldCount++;
           } else {
             break;
           }
           expectedDate = new Date(entryDate);
           expectedDate.setDate(expectedDate.getDate() - 1);
         }
-        return streak;
+        return { streak, shieldCount };
       };
 
       // Build sparkline arrays (7 days, oldest first)
@@ -205,7 +225,10 @@ export const useWatchlistDetails = () => {
           weekFp: ud.weekFp,
           monthFp: ud.monthFp,
           seasonFp: ud.seasonFp,
-          salesStreak: calcSalesStreak(ud.entryDates),
+          ...(() => {
+            const s = calcSalesStreak(uid, ud.entryDates);
+            return { salesStreak: s.streak, streakShieldCount: s.shieldCount };
+          })(),
         };
       };
 

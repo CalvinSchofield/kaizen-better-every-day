@@ -60,6 +60,32 @@ export const STREAK_FREEZE = {
   sales: null, // no freeze allowed
 } as const;
 
+// Streak protection config
+export const STREAK_PROTECTION = {
+  /** Multiplier for effort-based protection (150% of season average) */
+  EFFORT_MULTIPLIER: 1.5,
+  /** Recovery multiplier (200% of season average over 2 knocking days) */
+  RECOVERY_MULTIPLIER: 2.0,
+  /** Max protections per rolling 7-day window */
+  MAX_PER_WEEK_VET: 1,
+  MAX_PER_WEEK_ROOKIE: 2,
+  /** Minimum knocking days of history before protection is available */
+  MIN_HISTORY_DAYS: 5,
+  /** Default floor for new rookies with < 5 days history */
+  ROOKIE_DEFAULT_DOORS: 60,
+  /** Default floor for new vets with < 5 days history */
+  VET_DEFAULT_TRANSITIONS: 2,
+  /** Recovery window: number of knocking days (excluding Sundays) */
+  RECOVERY_KNOCKING_DAYS: 2,
+} as const;
+
+// Season date boundaries
+export const SEASON_DATES = {
+  PRESEASON_START: '2025-09-28',
+  SUMMER_START_GLOBAL: '2026-04-12',
+  SUMMER_END: '2026-09-26',
+} as const;
+
 // Rarity display config
 export const RARITY_COLORS: Record<string, { border: string; glow: string }> = {
   legendary: { border: 'border-amber-400', glow: 'shadow-amber-400/40' },
