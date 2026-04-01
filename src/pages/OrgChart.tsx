@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
@@ -13,6 +14,9 @@ import { OrgStructureTree } from "@/components/org/OrgStructureTree";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
 import { SIGNED_PLUS_STAGES, STAGES } from "@/utils/stageConstants";
 import type { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { getOrgChartTourSteps } from "@/config/pageTours";
 
 
 const OFFICE_GROUPED_ACCESS_LEVELS = new Set([
