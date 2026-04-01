@@ -379,7 +379,7 @@ const OrgChart = () => {
         isAreaDirector: false,
         roleColor: "sr_mgmt_group",
         isLabelNode: true,
-        children: [...children].sort((a, b) => b.children.length - a.children.length),
+        children: sortByDownlineSize([...children]),
       };
     };
 
