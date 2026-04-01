@@ -231,6 +231,12 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       return null;
     };
 
+    // Helper: check if a user leads a Sr MGMT Group (returns the sr_mgmt_group_id)
+    const resolveSrMgmtGroupId = (userId: string): string | null => {
+      const ledSrGroup = srMgmtGroups.find((smg) => smg.lead_user_id === userId);
+      return ledSrGroup?.id || null;
+    };
+
     const hasUpstreamRecruiter = (userId: string) => {
       const rep = repMap.get(userId);
       const recruit = getRecruitForRep(rep);
