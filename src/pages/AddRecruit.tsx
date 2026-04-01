@@ -350,8 +350,8 @@ export default function AddRecruit() {
           headers: { Authorization: `Bearer ${session.access_token}` },
           body: recruitData,
         }),
-        15000,
-        'Request timed out — please try again'
+        30000,
+        'Request timed out — please check your connection and try again'
       );
       if (error) {
         // Extract message from edge function error response
