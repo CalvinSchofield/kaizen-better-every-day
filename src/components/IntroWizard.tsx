@@ -128,26 +128,23 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
       onComplete();
       
       if (segment) {
-        // Segment-based routing
+        // Leaders (team_lead+) always go to structure first
+        if (isLeaderProp) {
+          navigate('/my-group?tab=structure');
+          return;
+        }
+        // Segment-based routing for non-leaders
         switch (segment) {
           case 'outside-org':
-            // Go straight to Goals (sync gate → goal setup → calendar planning)
             navigate('/goals');
             break;
           case 'in-org-vet':
-            // Leaders go to org page to build structure first, then goals
-            if (isLeaderProp) {
-              navigate('/my-group?tab=structure');
-            } else {
-              navigate('/goals');
-            }
+            navigate('/goals');
             break;
           case 'in-org-rookie-preseason':
-            // Show About Team, then Home for ramp
             navigate('/about-team');
             break;
           case 'in-org-rookie-summer':
-            // Show About Team briefly, then Goals for sync+setup
             navigate('/about-team');
             break;
         }
