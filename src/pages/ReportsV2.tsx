@@ -123,17 +123,27 @@ export const ReportsV2Page = () => {
   useEffect(() => {
     const active = isFilterActive(smartFilter);
     setCustomRightContent(
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setShowFilterDrawer(true)}
-        className="relative h-10 w-10"
-      >
-        <Filter className="h-5 w-5" />
-        {active && (
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
-        )}
-      </Button>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setChatOpen(true)}
+          className="h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20"
+        >
+          <Sparkles className="h-5 w-5 text-primary" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowFilterDrawer(true)}
+          className="relative h-10 w-10"
+        >
+          <Filter className="h-5 w-5" />
+          {active && (
+            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
+          )}
+        </Button>
+      </div>
     );
     return () => setCustomRightContent(null);
   }, [setCustomRightContent, smartFilter]);
