@@ -978,39 +978,43 @@ export const EditRecruitDrawer = ({
         </DrawerFooter>
       </DrawerContent>
 
-      {/* Role Assignment Confirmation Dialog */}
-      <AlertDialog open={showRoleConfirm} onOpenChange={setShowRoleConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
+      {/* Role Assignment Confirmation Drawer */}
+      <ConfirmDrawer open={showRoleConfirm} onOpenChange={setShowRoleConfirm}>
+        <ConfirmDrawerContent>
+          <ConfirmDrawerHeader>
+            <ConfirmDrawerTitle className="flex items-center gap-2">
               {roleJumpInfo?.isLargeJump && (
                 <AlertTriangle className="h-5 w-5 text-amber-500" />
               )}
               Confirm Role Assignment
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-left space-y-2">
-              <p>
-                You're about to assign <strong>{name}</strong> the role of{' '}
-                <strong>{getRoleLabel(selectedRole as AccessLevel)}</strong>.
+            </ConfirmDrawerTitle>
+          </ConfirmDrawerHeader>
+          <div className="px-4 pb-2 space-y-2">
+            <p className="text-sm text-muted-foreground">
+              You're about to assign <strong>{name}</strong> the role of{' '}
+              <strong>{getRoleLabel(selectedRole as AccessLevel)}</strong>.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              This will give them management access at that level.
+            </p>
+            {roleJumpInfo?.isLargeJump && (
+              <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                ⚠️ This role is {roleJumpInfo.levelDiff} levels above your own — please double-check this is correct.
               </p>
-              <p className="text-muted-foreground">
-                This will give them management access at that level.
-              </p>
-              {roleJumpInfo?.isLargeJump && (
-                <p className="text-amber-600 dark:text-amber-400 font-medium">
-                  ⚠️ This role is {roleJumpInfo.levelDiff} levels above your own — please double-check this is correct.
-                </p>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Go Back</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSave}>
-              Yes, Assign {getRoleLabel(selectedRole as AccessLevel)}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            )}
+          </div>
+          <ConfirmDrawerFooter className="border-t pt-4">
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowRoleConfirm(false)}>
+                Go Back
+              </Button>
+              <Button className="flex-1" onClick={handleSave}>
+                Yes, Assign {getRoleLabel(selectedRole as AccessLevel)}
+              </Button>
+            </div>
+          </ConfirmDrawerFooter>
+        </ConfirmDrawerContent>
+      </ConfirmDrawer>
     </Drawer>
   );
 };
