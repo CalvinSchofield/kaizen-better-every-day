@@ -317,7 +317,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
           : null,
         isLabelNode: true,
         roleColor: "mgmt_group",
-        children: [...children]PLACEHOLDER_SORT,
+        children: sortByDownlineSize([...children]),
       };
     };
 
