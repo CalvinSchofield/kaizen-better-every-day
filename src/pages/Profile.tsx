@@ -361,6 +361,22 @@ const Profile = () => {
         </motion.div>
       )}
 
+      {/* Recovery state pill - own profile only */}
+      {isOwnProfile && salesStreakData && salesStreakData.streak === 0 && protectionData?.hasActiveRecovery && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="mx-5 mt-2 mb-3"
+        >
+          <div className="flex items-center justify-center gap-2 bg-warning/8 border border-warning/20 rounded-full px-4 py-2">
+            <span className="text-base">🔥</span>
+            <span className="text-sm font-semibold text-foreground">
+              Streak paused — earning it back
+            </span>
+          </div>
+        </motion.div>
+      )}
+
       {/* Momentum Sparkline / Goal Pace / Heatmap Swiper */}
       <ProfileSwiper
         dailyFp={profile.dailyFpValues}
