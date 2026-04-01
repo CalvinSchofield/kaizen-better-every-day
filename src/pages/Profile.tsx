@@ -14,6 +14,7 @@ import { useUserBadges, useBadgeDefinitions, getTopBadges } from "@/hooks/useUse
 import { BadgeGrid } from "@/components/badges/BadgeGrid";
 import { BadgeIcon } from "@/components/badges/BadgeIcon";
 import { useCurrentSalesStreak } from "@/hooks/useCurrentSalesStreak";
+import { useStreakProtection } from "@/hooks/useStreakProtection";
 
 import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
