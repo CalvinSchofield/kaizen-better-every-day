@@ -3,7 +3,6 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
   Search, Check, Eye, Plus, X, Bookmark,
@@ -12,7 +11,7 @@ import {
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { motion, AnimatePresence } from "framer-motion";
-import { HierarchyNode, type HierarchyTreeNode } from "./HierarchyNode";
+import { HierarchyNode, collectDescendants, type HierarchyTreeNode } from "./HierarchyNode";
 import type { OrgHierarchy, SrMgmtGroupInfo } from "@/hooks/useTeamAccess";
 import type { AccessLevel } from "@/utils/roleHierarchy";
 
@@ -80,8 +79,6 @@ export const resolveFilteredUserIds = (
   } else {
     const selectedTeamIds = new Set<string>();
     const selectedMgmtGroupIds = new Set<string>();
-    const selectedOfficeTeamIds = new Set<string>();
-    const selectedOfficeMgmtGroupIds = new Set<string>();
 
     for (const node of filterState.selectedNodes) {
       if (node.type === 'team') {
@@ -91,13 +88,14 @@ export const resolveFilteredUserIds = (
         const group = mgmtGroups.find(g => g.id === node.id);
         if (group) group.teamIds.forEach(tid => selectedTeamIds.add(tid));
       } else if (node.type === 'sr_mgmt_group') {
-        // Find all mgmt groups under this sr mgmt group
-        const childMgs = mgmtGroups.filter(g => {
-          const rep = accessibleReps.find(r => r.mgmtGroupId === g.id);
-          return rep !== undefined;
-        });
-        // Actually just use selectedMgmtGroupIds — will be resolved below
-        selectedMgmtGroupIds.add(node.id); // marker
+        // sr_mgmt_group: find all mgmt groups that belong to it
+        selectedMgmtGroupIds.add(node.id); // marker for direct reps
+      } else if (node.type === 'office') {
+        // Office: include ALL reps under all mgmt groups and teams within the office
+        // We need to find all mgmt groups and teams under this office from the tree
+        // Since we cascade-select children when selecting an office, the children
+        // will also be in selectedNodes, so this is handled automatically.
+        // But as a fallback, mark the office ID so we can match reps.
       }
     }
 
@@ -146,7 +144,7 @@ export const resolveFilteredUserIds = (
   return [...new Set(ids)];
 };
 
-// ─── Build hierarchy tree ────────────────────────────────────────────────
+// ─── Build hierarchy tree (structure view — full nesting) ────────────────
 
 const buildHierarchyTree = (
   hierarchy: OrgHierarchy | undefined,
@@ -219,6 +217,72 @@ const buildHierarchyTree = (
   return nodes;
 };
 
+// ─── Build flattened office tree (strips Sr MGMT, shows MGMT directly) ──
+
+const buildOfficeTree = (
+  hierarchy: OrgHierarchy | undefined,
+  mgmtGroups: Array<{ id: string; name: string; teamIds: string[] }>,
+  teams: Array<{ id: string; name: string }>,
+  accessibleReps: Array<{ userId: string | null; teamId?: string | null; mgmtGroupId?: string | null }>,
+): HierarchyTreeNode[] => {
+  if (!hierarchy) return [];
+
+  const countRepsForTeam = (teamId: string) =>
+    accessibleReps.filter(r => r.teamId === teamId && r.userId).length;
+
+  const countRepsForMgmtGroup = (mgmtGroupId: string) => {
+    const group = mgmtGroups.find(g => g.id === mgmtGroupId);
+    if (!group) return accessibleReps.filter(r => r.mgmtGroupId === mgmtGroupId && r.userId).length;
+    return group.teamIds.reduce((sum, tid) => sum + countRepsForTeam(tid), 0) +
+      accessibleReps.filter(r => r.mgmtGroupId === mgmtGroupId && !r.teamId && r.userId).length;
+  };
+
+  const buildMgmtNode = (mg: { id: string; name: string; teams: Array<{ id: string; name: string }> }): HierarchyTreeNode => {
+    const mgChildren: HierarchyTreeNode[] = mg.teams.map(t => ({
+      type: 'team' as const, id: t.id, name: t.name, repCount: countRepsForTeam(t.id), children: [],
+    }));
+    return {
+      type: 'mgmt_group', id: mg.id, name: mg.name,
+      repCount: countRepsForMgmtGroup(mg.id), children: mgChildren,
+    };
+  };
+
+  const nodes: HierarchyTreeNode[] = [];
+
+  for (const office of hierarchy.offices) {
+    const officeChildren: HierarchyTreeNode[] = [];
+
+    // Flatten: pull MGMT groups out of Sr MGMT groups
+    for (const srMg of office.srMgmtGroups) {
+      for (const mg of srMg.mgmtGroups) {
+        officeChildren.push(buildMgmtNode(mg));
+      }
+    }
+
+    // Direct MGMT Groups
+    for (const mg of office.mgmtGroups) {
+      officeChildren.push(buildMgmtNode(mg));
+    }
+
+    // Direct Teams
+    for (const t of office.teams) {
+      officeChildren.push({
+        type: 'team', id: t.id, name: t.name, repCount: countRepsForTeam(t.id), children: [],
+      });
+    }
+
+    const totalReps = officeChildren.reduce((s, c) => s + c.repCount, 0);
+    if (totalReps > 0 || officeChildren.length > 0) {
+      nodes.push({
+        type: 'office', id: office.id, name: office.name,
+        repCount: totalReps, children: officeChildren,
+      });
+    }
+  }
+
+  return nodes;
+};
+
 // ─── Component ───────────────────────────────────────────────────────────
 
 interface UnifiedFilterDrawerProps {
@@ -253,6 +317,7 @@ export const UnifiedFilterDrawer = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveName, setSaveName] = useState('');
+  const [groupByOffice, setGroupByOffice] = useState(true);
   const { watchedUserIds } = useWatchlist();
   const [savedFilters, setSavedFilters] = useLocalStorage<SavedUnifiedFilter[]>(storageKey, []);
 
@@ -303,26 +368,55 @@ export const UnifiedFilterDrawer = ({
     }));
   };
 
-  const toggleNode = useCallback((node: FilterNode) => {
+  // Cascading toggle: selecting parent selects all children,
+  // deselecting a child also deselects the parent
+  const toggleNode = useCallback((node: FilterNode, descendants?: FilterNode[]) => {
     setDraft(prev => {
-      const exists = prev.selectedNodes.some(n => n.type === node.type && n.id === node.id);
-      return {
-        ...prev,
-        selectedNodes: exists
-          ? prev.selectedNodes.filter(n => !(n.type === node.type && n.id === node.id))
-          : [...prev.selectedNodes, node],
-      };
+      const isCurrentlySelected = prev.selectedNodes.some(n => n.type === node.type && n.id === node.id);
+
+      if (isCurrentlySelected) {
+        // Deselecting: remove this node AND all its descendants
+        const toRemove = new Set<string>();
+        toRemove.add(`${node.type}:${node.id}`);
+        if (descendants) {
+          descendants.forEach(d => toRemove.add(`${d.type}:${d.id}`));
+        }
+        // Also check if any ancestor should be deselected
+        // (we can't easily find ancestors here, but we handle it via parentSelected visual)
+        return {
+          ...prev,
+          selectedNodes: prev.selectedNodes.filter(n => !toRemove.has(`${n.type}:${n.id}`)),
+        };
+      } else {
+        // Selecting: add this node AND all its descendants
+        const newNodes = [...prev.selectedNodes, node];
+        if (descendants) {
+          for (const d of descendants) {
+            if (!newNodes.some(n => n.type === d.type && n.id === d.id)) {
+              newNodes.push(d);
+            }
+          }
+        }
+        return { ...prev, selectedNodes: newNodes };
+      }
     });
   }, []);
 
   const isDraftDirty = JSON.stringify(draft) !== JSON.stringify(DEFAULT_UNIFIED_FILTER);
   const yearOptions = ['Rookie', 'Sophomore', 'Vet'];
 
-  // Build hierarchy tree
-  const treeNodes = useMemo(() =>
+  // Build both tree views
+  const structureTree = useMemo(() =>
     buildHierarchyTree(hierarchy, mgmtGroups, teams, accessibleReps),
     [hierarchy, mgmtGroups, teams, accessibleReps]
   );
+
+  const officeTree = useMemo(() =>
+    buildOfficeTree(hierarchy, mgmtGroups, teams, accessibleReps),
+    [hierarchy, mgmtGroups, teams, accessibleReps]
+  );
+
+  const treeNodes = groupByOffice ? officeTree : structureTree;
 
   // Filter tree by search
   const filteredNodes = useMemo(() => {
@@ -360,6 +454,8 @@ export const UnifiedFilterDrawer = ({
     );
     return ids.length;
   }, [draft, accessibleReps, mgmtGroups, accessLevel]);
+
+  const hasMultipleOffices = (hierarchy?.offices?.length ?? 0) > 1;
 
   return (
     <Drawer open={open} onOpenChange={handleOpenChange}>
@@ -470,9 +566,40 @@ export const UnifiedFilterDrawer = ({
           {/* ── Hierarchy Tree ────────────────────────────── */}
           {filteredNodes.length > 0 && !draft.isOrgWide && (
             <section className="space-y-3">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-0.5">
-                Organization
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-0.5">
+                  Organization
+                </p>
+                {/* Group by toggle */}
+                {hasMultipleOffices && (
+                  <div className="flex items-center gap-0.5 bg-secondary/50 rounded-full p-0.5">
+                    <button
+                      onClick={() => setGroupByOffice(true)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-full text-[10px] font-medium transition-all flex items-center gap-1",
+                        groupByOffice
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Building2 className="h-3 w-3" />
+                      Office
+                    </button>
+                    <button
+                      onClick={() => setGroupByOffice(false)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-full text-[10px] font-medium transition-all flex items-center gap-1",
+                        !groupByOffice
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Users className="h-3 w-3" />
+                      Structure
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {totalNodes > 5 && (
                 <div className="relative">

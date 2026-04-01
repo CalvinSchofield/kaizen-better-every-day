@@ -1,7 +1,6 @@
 import { useState, memo } from "react";
 import { cn } from "@/lib/utils";
 import { Check, ChevronRight, Building2, Users, Layers } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import type { FilterNode } from "./UnifiedFilterDrawer";
 
@@ -16,9 +15,11 @@ export interface HierarchyTreeNode {
 interface HierarchyNodeProps {
   node: HierarchyTreeNode;
   selectedNodes: FilterNode[];
-  onToggle: (node: FilterNode) => void;
+  onToggle: (node: FilterNode, children?: FilterNode[]) => void;
   depth: number;
   defaultExpanded?: boolean;
+  /** Whether this node's parent is selected (cascade highlight) */
+  parentSelected?: boolean;
 }
 
 const typeIcons: Record<string, typeof Building2> = {
@@ -28,11 +29,14 @@ const typeIcons: Record<string, typeof Building2> = {
   team: Users,
 };
 
-const typeLabels: Record<string, string> = {
-  office: 'Office',
-  sr_mgmt_group: 'Sr. MGMT',
-  mgmt_group: 'MGMT',
-  team: 'Team',
+/** Collect all descendant FilterNodes from a tree node */
+export const collectDescendants = (node: HierarchyTreeNode): FilterNode[] => {
+  const result: FilterNode[] = [];
+  for (const child of node.children) {
+    result.push({ type: child.type, id: child.id, name: child.name });
+    result.push(...collectDescendants(child));
+  }
+  return result;
 };
 
 export const HierarchyNode = memo(({
@@ -41,14 +45,17 @@ export const HierarchyNode = memo(({
   onToggle,
   depth,
   defaultExpanded = false,
+  parentSelected = false,
 }: HierarchyNodeProps) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const hasChildren = node.children.length > 0;
   const isSelected = selectedNodes.some(n => n.type === node.type && n.id === node.id);
+  const isEffectivelySelected = isSelected || parentSelected;
   const Icon = typeIcons[node.type] || Users;
 
   const handleClick = () => {
-    onToggle({ type: node.type, id: node.id, name: node.name });
+    const descendants = collectDescendants(node);
+    onToggle({ type: node.type, id: node.id, name: node.name }, descendants);
   };
 
   const handleExpand = (e: React.MouseEvent) => {
@@ -62,7 +69,7 @@ export const HierarchyNode = memo(({
         onClick={handleClick}
         className={cn(
           "w-full flex items-center gap-2 p-2.5 rounded-xl transition-all text-left",
-          isSelected
+          isEffectivelySelected
             ? "bg-primary/8 ring-1 ring-primary/30"
             : "hover:bg-muted/40"
         )}
@@ -86,13 +93,13 @@ export const HierarchyNode = memo(({
         {/* Icon */}
         <Icon className={cn(
           "h-4 w-4 flex-shrink-0",
-          isSelected ? "text-primary" : "text-muted-foreground"
+          isEffectivelySelected ? "text-primary" : "text-muted-foreground"
         )} />
 
         {/* Name */}
         <span className={cn(
           "text-sm flex-1 truncate",
-          isSelected ? "font-semibold text-primary" : "font-medium"
+          isEffectivelySelected ? "font-semibold text-primary" : "font-medium"
         )}>
           {node.name}
         </span>
@@ -105,7 +112,7 @@ export const HierarchyNode = memo(({
         )}
 
         {/* Checkmark */}
-        {isSelected && (
+        {isEffectivelySelected && (
           <Check className="h-4 w-4 text-primary flex-shrink-0" />
         )}
       </button>
@@ -120,7 +127,6 @@ export const HierarchyNode = memo(({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            {/* Left border for nesting */}
             <div
               className="border-l-2 border-border/50 ml-5"
               style={{ marginLeft: `${20 + depth * 16}px` }}
@@ -133,6 +139,7 @@ export const HierarchyNode = memo(({
                   onToggle={onToggle}
                   depth={depth + 1}
                   defaultExpanded={defaultExpanded}
+                  parentSelected={isEffectivelySelected}
                 />
               ))}
             </div>
