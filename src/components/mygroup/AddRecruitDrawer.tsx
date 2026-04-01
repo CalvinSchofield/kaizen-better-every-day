@@ -571,17 +571,21 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       return;
     }
 
-    await createRecruitMutation.mutateAsync({
-      name: name.trim(),
-      phone: cleanPhone ? `+1${cleanPhone}` : '',
-      email: email.trim() || undefined,
-      location,
-      recruitmentSource,
-      teamId: selectedTeam || undefined,
-      stage: selectedStage,
-      spouseName: spouseName.trim() || undefined,
-      cautionNotes: cautionNotes.trim() || undefined,
-    });
+    try {
+      await createRecruitMutation.mutateAsync({
+        name: name.trim(),
+        phone: cleanPhone ? `+1${cleanPhone}` : '',
+        email: email.trim() || undefined,
+        location,
+        recruitmentSource,
+        teamId: selectedTeam || undefined,
+        stage: selectedStage,
+        spouseName: spouseName.trim() || undefined,
+        cautionNotes: cautionNotes.trim() || undefined,
+      });
+    } catch (e) {
+      console.error('handleLeaderSubmit error caught:', e);
+    }
   };
 
   const handleRepSubmit = async () => {
