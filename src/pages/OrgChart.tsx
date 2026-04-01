@@ -363,8 +363,7 @@ const OrgChart = () => {
             id: `sr-mgmt-${srMgmtGroupId}`,
             roleColor: "sr_mgmt_group",
             role: "Sr MGMT Group Leader",
-            children: [...leaderNode.children, ...siblings]
-              .sort((a, b) => b.children.length - a.children.length),
+            children: sortByDownlineSize([...leaderNode.children, ...siblings]),
           };
         }
       }
