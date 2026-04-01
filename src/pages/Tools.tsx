@@ -138,7 +138,7 @@ const Tools = () => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.25, duration: 0.3 }}
+          transition={{ delay: 0.1, duration: 0.2 }}
           className="space-y-3"
         >
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">Vivint Portals</h2>
