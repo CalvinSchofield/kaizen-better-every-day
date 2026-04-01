@@ -141,6 +141,9 @@ export const PreWorkingState = ({
           <PlanningNudgeCard />
         </motion.div>
 
+        <motion.div variants={itemVariants}>
+          <StreakContextCard userId={userId} />
+        </motion.div>
 
         <motion.div variants={itemVariants}>
           <SeasonGoalsPreview />
