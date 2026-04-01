@@ -56,7 +56,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { repData, loading: repLoading } = useRepData();
 
   // Check recruit approval_status
-  const { data: recruitApproval } = useQuery({
+  const { data: recruitApproval, isLoading: approvalLoading } = useQuery({
     queryKey: ['recruit-approval-status', repData?.id],
     enabled: !!repData?.id,
     staleTime: 30 * 1000,
@@ -102,6 +102,16 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   if (!userId) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Wait for rep data and approval status to load before making access decisions
+  if (repLoading || (repData?.id && approvalLoading)) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-muted-foreground text-sm animate-fade-in">Loading your account...</p>
+      </div>
+    );
   }
 
   // Check if rep is in an inactive stage - block app access

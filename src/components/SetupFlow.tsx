@@ -27,6 +27,7 @@ const SetupFlow = () => {
   const [inviteName, setInviteName] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteYear, setInviteYear] = useState("Rookie");
+  const [isLateralInvite, setIsLateralInvite] = useState(false);
   const [isProcessingInvite, setIsProcessingInvite] = useState(false);
 
   useEffect(() => {
@@ -105,6 +106,17 @@ const SetupFlow = () => {
         if (storedInviteCode) {
           setInviteCode(storedInviteCode);
           setInviteName(user.user_metadata?.name || '');
+          // Check invite type to determine if year selector should show
+          const { data: inviteData } = await supabase
+            .from('invite_codes')
+            .select('invite_type')
+            .eq('code', storedInviteCode)
+            .eq('is_active', true)
+            .maybeSingle();
+          setIsLateralInvite(inviteData?.invite_type === 'lateral');
+          if (inviteData?.invite_type !== 'lateral') {
+            setInviteYear('Rookie');
+          }
           setShowInviteOnboarding(true);
           return;
         }
@@ -431,19 +443,21 @@ const SetupFlow = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="invite-year">Experience Level</Label>
-                <Select value={inviteYear} onValueChange={setInviteYear} disabled={isProcessingInvite}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your experience" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Rookie">Rookie (1st year)</SelectItem>
-                    <SelectItem value="Sophomore">Sophomore (2nd year)</SelectItem>
-                    <SelectItem value="Vet">Vet (3+ years)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {isLateralInvite && (
+                <div className="space-y-2">
+                  <Label htmlFor="invite-year">Experience Level</Label>
+                  <Select value={inviteYear} onValueChange={setInviteYear} disabled={isProcessingInvite}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your experience" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Rookie">Rookie (1st year)</SelectItem>
+                      <SelectItem value="Sophomore">Sophomore (2nd year)</SelectItem>
+                      <SelectItem value="Vet">Vet (3+ years)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {userEmail && (
                 <div className="bg-muted/50 rounded-lg p-3">
