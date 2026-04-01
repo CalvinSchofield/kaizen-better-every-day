@@ -440,7 +440,7 @@ const SetupFlow = () => {
                 />
               </div>
 
-              {isLateralInvite && (
+              {true && (
                 <div className="space-y-2">
                   <Label htmlFor="invite-year">Experience Level</Label>
                   <Select value={inviteYear} onValueChange={setInviteYear} disabled={isProcessingInvite}>
