@@ -679,12 +679,92 @@ Deno.serve(async (req) => {
     }
     console.log('Team counts:', Object.fromEntries(teamCounts));
 
+    // === BUILD HIERARCHY for filter drawer ===
+    // Build sr_mgmt_groups with child mgmt group IDs
+    const srMgmtGroups = allSrMgmtGroupsData.map(sg => {
+      const childMgmtGroupIds = mgmtGroupsData
+        .filter(mg => mg.sr_mgmt_group_id === sg.id)
+        .map(mg => mg.id);
+      return {
+        id: sg.id,
+        name: sg.name,
+        leadUserId: sg.lead_user_id,
+        officeId: sg.office_id,
+        regionId: sg.region_id,
+        mgmtGroupIds: childMgmtGroupIds,
+      };
+    });
+
+    // Build office hierarchy: offices → sr_mgmt_groups → mgmt_groups → teams
+    const hierarchy = {
+      offices: officesData.map(o => {
+        const officeSrMgmtGroups = allSrMgmtGroupsData.filter(sg => sg.office_id === o.id);
+        const officeMgmtGroups = mgmtGroupsData.filter(mg => mg.office_id === o.id);
+        const officeTeams = teamsData.filter(t => t.office_id === o.id);
+        
+        // Sr MGMT groups in this office
+        const srGroups = officeSrMgmtGroups.map(sg => {
+          const childMgs = mgmtGroupsData.filter(mg => mg.sr_mgmt_group_id === sg.id);
+          return {
+            id: sg.id,
+            name: sg.name,
+            leadUserId: sg.lead_user_id,
+            mgmtGroups: childMgs.map(mg => {
+              const mgTeamIds = teamMgmtGroups.filter(tmg => tmg.mgmt_group_id === mg.id).map(tmg => tmg.team_id);
+              const mgTeams = teamsData.filter(t => mgTeamIds.includes(t.id));
+              return {
+                id: mg.id,
+                name: mg.name,
+                leadUserId: mg.lead_user_id,
+                teams: mgTeams.map(t => ({ id: t.id, name: t.name, leadUserId: t.lead_user_id })),
+              };
+            }),
+          };
+        });
+
+        // MGMT groups directly in this office (not under a sr_mgmt_group)
+        const directMgmtGroups = officeMgmtGroups
+          .filter(mg => !mg.sr_mgmt_group_id || !officeSrMgmtGroups.some(sg => sg.id === mg.sr_mgmt_group_id))
+          .map(mg => {
+            const mgTeamIds = teamMgmtGroups.filter(tmg => tmg.mgmt_group_id === mg.id).map(tmg => tmg.team_id);
+            const mgTeams = teamsData.filter(t => mgTeamIds.includes(t.id));
+            return {
+              id: mg.id,
+              name: mg.name,
+              leadUserId: mg.lead_user_id,
+              teams: mgTeams.map(t => ({ id: t.id, name: t.name, leadUserId: t.lead_user_id })),
+            };
+          });
+
+        // Teams directly in this office (not under any mgmt group in this office)
+        const mgmtTeamIds = new Set(officeMgmtGroups.flatMap(mg => 
+          teamMgmtGroups.filter(tmg => tmg.mgmt_group_id === mg.id).map(tmg => tmg.team_id)
+        ));
+        const directTeams = officeTeams
+          .filter(t => !mgmtTeamIds.has(t.id))
+          .map(t => ({ id: t.id, name: t.name, leadUserId: t.lead_user_id }));
+
+        return {
+          id: o.id,
+          name: o.name,
+          location: o.location,
+          srMgmtGroups: srGroups,
+          mgmtGroups: directMgmtGroups,
+          teams: directTeams,
+        };
+      }),
+    };
+
     return new Response(JSON.stringify({ 
       accessLevel, 
       mgmtGroups, 
       teams, 
       accessibleUserIds, 
-      accessibleReps 
+      accessibleReps,
+      isAreaDirector: !!isAreaDirector,
+      userOfficeIds: officeIds,
+      srMgmtGroups,
+      hierarchy,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
