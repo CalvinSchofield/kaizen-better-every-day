@@ -601,11 +601,7 @@ const Goals = () => {
 
       toast.success("Got it — skipping goals and planning for now.");
       // Non-knocking leaders should go to org chart for deep onboarding tour
-      if (isRegionalPlus) {
-        navigate('/org-chart', { replace: true, state: { fromOnboarding: true } });
-      } else {
-        navigate(gatedFrom || '/', { replace: true });
-      }
+      navigate('/org-chart', { replace: true, state: { fromOnboarding: true } });
     } catch (error) {
       console.error('Error saving knocking decision:', error);
       toast.error('Failed to save your choice');
