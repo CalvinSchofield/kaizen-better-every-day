@@ -438,6 +438,12 @@ export default function Insights() {
         </SheetContent>
       </Sheet>
 
+      <PageTour
+        steps={insightsTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+      />
     </div>
   );
 }

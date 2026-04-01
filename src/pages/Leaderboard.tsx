@@ -318,6 +318,12 @@ const Leaderboard = () => {
           onOpenChange={setWatchlistDrawerOpen}
         />
       </div>
+      <PageTour
+        steps={leaderboardTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+      />
     </Layout>
   );
 };
