@@ -103,6 +103,7 @@ export const PreWorkingState = ({
 
   return (
     <motion.div 
+      data-tour="track-pre-work-state"
       className="flex flex-col h-full overflow-y-auto pb-24"
       variants={containerVariants}
       initial="hidden"
