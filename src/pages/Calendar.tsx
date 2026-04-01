@@ -173,7 +173,12 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
         preseasonDailyPace={goalPaceData.hasGoals ? goalPaceData.preseasonDailyPace : null}
         summerDailyPace={goalPaceData.hasGoals ? goalPaceData.summerDailyPace : null}
       />
-      
+      <PageTour
+        steps={calendarTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+      />
     </>
   );
 };
