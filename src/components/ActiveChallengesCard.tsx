@@ -14,7 +14,7 @@ import { useIncentiveProgress } from "@/hooks/useIncentiveProgress";
 import { CompeteDrawer } from "@/components/CompeteDrawer";
 import { IncentiveDetailSheet } from "@/components/leaderboard/IncentiveDetailSheet";
 import { ChallengeDetailSheet } from "@/components/leaderboard/ChallengeDetailSheet";
-import { Swords, Trophy, ChevronRight, Flame, Gift, Loader2, Plus, Users, User } from "lucide-react";
+import { Swords, Trophy, ChevronRight, Flame, Gift, Loader2, Plus, Users, User, Car } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getInitials, getCleanName, getCleanFirstName } from "@/utils/nameUtils";
 import { hapticLight } from "@/utils/haptics";
