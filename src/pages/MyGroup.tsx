@@ -1175,6 +1175,7 @@ const MyGroup = () => {
       <AddRecruitActionSheet
         open={addActionSheetOpen}
         onOpenChange={setAddActionSheetOpen}
+        isRookie={isCurrentUserRookie}
       />
 
       {/* Drawers */}
