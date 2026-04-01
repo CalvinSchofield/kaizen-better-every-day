@@ -376,9 +376,13 @@ export const PendingApprovalsSection = () => {
             queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
             // Show leadership prompt if a role was assigned
             if (assignedRole && editingRecruit) {
+              // Get the recruit's user_id for leader assignment
+              const { data: repData } = await supabase.from('reps').select('user_id').eq('id', editingRecruit.id).maybeSingle();
               setLeadershipPrompt({
                 name: editingRecruit.name,
                 role: getRoleLabel(assignedRole as any),
+                recruitId: editingRecruit.id,
+                recruitUserId: repData?.user_id || null,
               });
             }
           }}
