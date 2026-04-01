@@ -253,6 +253,22 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       };
     };
 
+    const createSrMgmtLabelNode = (srMgmtGroupId: string, children: TreeNode[] = []): TreeNode => {
+      const srMgmtGroup = srMgmtGroupMap.get(srMgmtGroupId);
+      return {
+        id: `sr-mgmt-${srMgmtGroupId}`,
+        name: srMgmtGroup?.name || "Sr MGMT Group",
+        userId: srMgmtGroup?.lead_user_id || null,
+        stage: null,
+        profilePhotoUrl: srMgmtGroup?.lead_user_id
+          ? repMap.get(srMgmtGroup.lead_user_id)?.profile_photo_url
+          : null,
+        isLabelNode: true,
+        roleColor: "sr_mgmt_group",
+        children: [...children].sort((a, b) => b.children.length - a.children.length),
+      };
+    };
+
     const createOfficeLabelNode = (officeId: string, children: TreeNode[]): TreeNode => {
       const office = officeMap.get(officeId);
       return {
