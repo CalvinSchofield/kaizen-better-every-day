@@ -443,19 +443,21 @@ const SetupFlow = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="invite-year">Experience Level</Label>
-                <Select value={inviteYear} onValueChange={setInviteYear} disabled={isProcessingInvite}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your experience" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Rookie">Rookie (1st year)</SelectItem>
-                    <SelectItem value="Sophomore">Sophomore (2nd year)</SelectItem>
-                    <SelectItem value="Vet">Vet (3+ years)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {isLateralInvite && (
+                <div className="space-y-2">
+                  <Label htmlFor="invite-year">Experience Level</Label>
+                  <Select value={inviteYear} onValueChange={setInviteYear} disabled={isProcessingInvite}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your experience" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Rookie">Rookie (1st year)</SelectItem>
+                      <SelectItem value="Sophomore">Sophomore (2nd year)</SelectItem>
+                      <SelectItem value="Vet">Vet (3+ years)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {userEmail && (
                 <div className="bg-muted/50 rounded-lg p-3">
