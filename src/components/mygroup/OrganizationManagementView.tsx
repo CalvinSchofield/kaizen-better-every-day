@@ -361,6 +361,14 @@ export const OrganizationManagementView = () => {
   const allGroups = groups.map((g) => ({ id: g.id, name: g.name }));
   const allTeams = teams.map((t) => ({ id: t.id, name: t.name }));
 
+  // Pending recruits for leader picker (recruits with approval_status = 'pending')
+  const pendingRecruitsForLeader = useMemo(() => {
+    if (!orgData) return [];
+    return orgData.recruits
+      .filter(r => (r as any).approval_status === 'pending' && r.name)
+      .map(r => ({ id: r.id, name: r.name, email: r.email }));
+  }, [orgData]);
+
   return (
     <div className="space-y-4">
       {/* Office Context Header */}
