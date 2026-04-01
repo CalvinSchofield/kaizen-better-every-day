@@ -41,10 +41,14 @@ interface OrgNode {
 }
 
 function countTotalDescendants(node: OrgNode): number {
-  if (node.children.length === 0) return 0;
   let count = 0;
+  // Count leaders of structural nodes as people
+  if (node.leadUserId && (node.type === "team" || node.type === "mgmt_group" || node.type === "sr_mgmt_group")) {
+    count += 1;
+  }
   for (const child of node.children) {
     if (child.type === "rep") count += 1;
+    else if (child.type === "recruiter_group") count += 1 + countTotalDescendants(child); // the recruiter + their recruits
     else count += countTotalDescendants(child);
   }
   return count;
@@ -692,6 +696,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         .map((t) => ({
           id: t.id, name: t.name, type: "team" as const,
           role: t.lead_user_id ? `Led by ${getRepName(t.lead_user_id)}` : undefined,
+          leadUserId: t.lead_user_id,
           children: buildTeamMembers(t.lead_user_id, t.name, t.id, mgmtGroupId, mgmtGroupName),
         }));
     };
@@ -867,6 +872,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
                 officeChildren.push({
                   id: t.id, name: t.name, type: "team" as const,
                   role: t.lead_user_id ? `Led by ${getRepName(t.lead_user_id)}` : undefined,
+                  leadUserId: t.lead_user_id,
                   children: buildTeamMembers(t.lead_user_id, t.name, t.id, mgLink?.id || null, mgLink?.name || null),
                 });
               }
