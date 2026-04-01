@@ -203,7 +203,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         }
       });
 
-      children.sort((a, b) => b.children.length - a.children.length);
+      childrenPLACEHOLDER_SORT;
 
       // Determine role/color for this person
       const ledMgmtGroup = mgmtGroups.find((g) => g.lead_user_id === userId);
@@ -302,7 +302,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
             role: "MGMT Group Leader",
             // Leader's own recruiter children + sibling roots from this group
             children: [...leaderNode.children, ...siblings]
-              .sort((a, b) => b.children.length - a.children.length),
+              PLACEHOLDER_SORT,
           };
         }
       }
@@ -318,7 +318,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
           : null,
         isLabelNode: true,
         roleColor: "mgmt_group",
-        children: [...children].sort((a, b) => b.children.length - a.children.length),
+        children: [...children]PLACEHOLDER_SORT,
       };
     };
 
@@ -341,7 +341,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
             roleColor: "sr_mgmt_group",
             role: "Sr MGMT Group Leader",
             children: [...leaderNode.children, ...siblings]
-              .sort((a, b) => b.children.length - a.children.length),
+              PLACEHOLDER_SORT,
           };
         }
       }
@@ -356,7 +356,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
           : null,
         isLabelNode: true,
         roleColor: "sr_mgmt_group",
-        children: [...children].sort((a, b) => b.children.length - a.children.length),
+        children: [...children]PLACEHOLDER_SORT,
       };
     };
 
@@ -370,7 +370,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         profilePhotoUrl: null,
         isLabelNode: true,
         roleColor: "area_director",
-        children: [...children].sort((a, b) => b.children.length - a.children.length),
+        children: [...children]PLACEHOLDER_SORT,
       };
     };
 
@@ -599,7 +599,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
 
         const dedupedUngrouped = fullyUngrouped
           .filter((node) => !node.userId || !globalDescendantIds.has(node.userId))
-          .sort((a, b) => b.children.length - a.children.length);
+          PLACEHOLDER_SORT;
         rootNodes.push(...dedupedUngrouped);
       }
 
@@ -753,7 +753,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       }
     }
 
-    return rootNodes.sort((a, b) => b.children.length - a.children.length);
+    return rootNodesPLACEHOLDER_SORT;
   }, [treeData, teamAccess, currentAuthUserId, groupByOffice]);
 
   // Filter for search
