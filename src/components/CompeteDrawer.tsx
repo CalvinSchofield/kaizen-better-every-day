@@ -14,7 +14,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { CreateChallengeDrawer } from "@/components/leaderboard/CreateChallengeDrawer";
 import { CreateIncentiveDrawer } from "@/components/leaderboard/CreateIncentiveDrawer";
 import { ChallengeScoreSlider } from "@/components/competitions/ChallengeScoreSlider";
-import { Swords, Trophy, Gift, ChevronRight, Loader2, Check, X, Flame, Plus, Users, User } from "lucide-react";
+import { Swords, Trophy, Gift, ChevronRight, Loader2, Check, X, Flame, Plus, Users, User, Car } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
