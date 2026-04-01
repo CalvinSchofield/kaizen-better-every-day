@@ -1028,8 +1028,12 @@ const Home = () => {
     }
   }
   
-  // Redirect Vets/Sophomores to Blitzes page
+  // Redirect Vets/Sophomores to Blitzes page (only if goals are set up)
   if (repData.year === "Vet" || repData.year === "Sophomore") {
+    if (!goals?.setup_complete) {
+      // Leaders who haven't set up goals go to Goals page for knocking decision + setup
+      return <Navigate to="/goals" replace />;
+    }
     return <Navigate to="/blitzes" replace />;
   }
 

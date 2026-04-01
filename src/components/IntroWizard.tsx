@@ -128,9 +128,9 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
       onComplete();
       
       if (segment) {
-        // Leaders (team_lead+) always go to structure first
+        // Leaders (team_lead+) go to goals first for knocking decision, then org building
         if (isLeaderProp) {
-          navigate('/my-group?tab=structure');
+          navigate('/goals');
           return;
         }
         // Segment-based routing for non-leaders

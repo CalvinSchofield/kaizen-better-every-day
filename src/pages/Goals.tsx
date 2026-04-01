@@ -739,7 +739,8 @@ const Goals = () => {
   }
 
   if (isNonKnockingRegionalLeader && !showSetupWizard) {
-    return <Navigate to={gatedFrom || '/'} replace />;
+    // Non-knocking leaders should go build their org
+    return <Navigate to={gatedFrom || (isRegionalPlus ? '/my-group?tab=structure' : '/')} replace />;
   }
 
   if (shouldShowSetupGate || showSetupWizard) {
