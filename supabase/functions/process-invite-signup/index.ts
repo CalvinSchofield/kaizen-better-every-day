@@ -247,6 +247,7 @@ Deno.serve(async (req) => {
       recruiter_user_id: resolvedRecruiterUserId,
       team_id: resolvedTeamId,
       mgmt_group_id: resolvedMgmtGroupId,
+      office_id: resolvedOfficeId,
       invite_code_used: inviteCode,
       approval_status: approvalStatus,
       ...(shouldAutoApprove ? {
