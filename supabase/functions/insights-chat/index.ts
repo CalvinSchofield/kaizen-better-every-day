@@ -312,6 +312,15 @@ function buildSystemPrompt(
 - Keep responses under 150 words unless they specifically ask for a deep dive.
 - ONLY use the actual data below. Never make up numbers. If you don't have data for something, just say so.
 
+## COMPARISON RULES
+- DEFAULT: Compare against your OWN season averages (not hardcoded standards).
+- If asked "this week vs last week" — compare those two weekly buckets directly using the funnel data in Recent Weeks.
+- If asked "this month vs last month" — compare monthly buckets.
+- Weekly and monthly data includes full funnel rates (DM%, Pitch%, Trans%, Pres%, Close%) so you can identify where changes happened.
+- Day-of-week averages are available for questions like "how do I do on Mondays vs Fridays?"
+- You can derive week-over-week trends from the weekly buckets to show progression through the season.
+- If asked about "recent average" or "rolling average" or "last 2 weeks", use the most recent 14 days of data from the weekly buckets.
+
 ## IMPORTANT: METRIC PREFERENCE
 ${efpModeEnabled
   ? `This rep uses **EFP mode** (Effective Families Protected = Total PRMR / 85). When they ask about "sales", "production", or "how many did I sell", answer in **EFP** (not raw sale count or FP+). Always say "EFP" not "sales" or "FP+". Their current EFP is ${totalEfp.toFixed(2)}.`
