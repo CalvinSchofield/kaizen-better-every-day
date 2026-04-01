@@ -259,20 +259,28 @@ export const getKnockingUserSlides = (firstName: string, isLeader: boolean): Int
   if (isLeader) {
     baseSlides.push(
       {
+        id: 'knocking-decision',
+        type: 'standard',
+        iconName: 'target',
+        title: "Are You Knocking?",
+        description: "Next we'll ask if you're knocking this summer. If yes, you'll set personal production goals. If not, no worries — you can skip straight to building your org.",
+        highlight: "Your call"
+      },
+      {
         id: 'define-group',
         type: 'standard',
         iconName: 'users',
-        title: "Define Your Group",
-        description: "Your org structure may already be started. Review your teams and groups, then create any that are missing.",
-        highlight: "Build your structure"
+        title: "Build Your Org",
+        description: "After goals, you'll define your group structure — create your teams and management groups so everything is ready before your leaders arrive.",
+        highlight: "Structure first"
       },
       {
         id: 'invite-leaders',
         type: 'standard',
-        iconName: 'users',
+        iconName: 'map',
         title: "Invite Your Leaders",
-        description: "Once your structure is set, invite your sub-leaders so they can build their own teams and start recruiting.",
-        highlight: "Grow your org"
+        description: "Once your structure is set, send invite links to your sub-leaders. They'll get their own onboarding and can start building their teams — no extra work for you.",
+        highlight: "They'll do the rest"
       }
     );
   }

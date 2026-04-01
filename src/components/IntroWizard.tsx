@@ -367,7 +367,7 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
         >
           {isLastSlide ? (
             isLeaderProp
-              ? "Build Your Org"
+              ? "Set Up Goals"
               : segment === 'in-org-rookie-preseason' || segment === 'in-org-rookie-summer' || userType === 'pre-blitz-rookie' 
                 ? "Meet the Team" 
                 : segment === 'outside-org' || segment === 'in-org-vet'
