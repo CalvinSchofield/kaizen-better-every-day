@@ -658,7 +658,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         onSelectNode={handleSelectNode}
         groupByOffice={groupByOffice}
         onGroupByOfficeChange={setGroupByOffice}
-        showGroupByOfficeToggle={officeGroupedAccessLevels.has(teamAccess?.accessLevel || '')}
+        showGroupByOfficeToggle={OFFICE_GROUPED_ACCESS_LEVELS.has(teamAccess?.accessLevel || '')}
       />
 
       <ReassignRecruiterDrawer
