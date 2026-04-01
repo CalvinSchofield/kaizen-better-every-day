@@ -103,6 +103,18 @@ const Goals = () => {
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
   const [syncGateSkipped, setSyncGateSkipped] = useState(false);
   const location = useLocation();
+  const gatedFrom = (location.state as any)?.gatedFrom as string | undefined;
+
+  // Friendly route name mapping for the gate banner
+  const gatedRouteLabel = useMemo(() => {
+    if (!gatedFrom) return null;
+    const labels: Record<string, string> = {
+      '/track': 'Track', '/calendar': 'Calendar', '/insights': 'Insights',
+      '/leaderboard': 'Leaderboard', '/compete': 'Compete', '/team-reports': 'Reports',
+      '/reports-v2': 'Reports', '/customers': 'Customers', '/log-sale': 'Log Sale',
+    };
+    return labels[gatedFrom] || Object.entries(labels).find(([k]) => gatedFrom.startsWith(k))?.[1] || 'that page';
+  }, [gatedFrom]);
 
   // Open sync wizard if navigated with openSync state (e.g. from Blitzes page)
   useEffect(() => {
