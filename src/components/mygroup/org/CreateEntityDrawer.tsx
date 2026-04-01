@@ -177,7 +177,7 @@ export const CreateEntityDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetState(); }}>
-      <DrawerContent>
+      <DrawerContent className="max-h-[90vh]">
         <DrawerHeader className="border-b">
           <div className="flex items-center justify-between">
             <DrawerTitle>{title}</DrawerTitle>
