@@ -27,7 +27,6 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile }: MomentumSparklinePr
 
     const formatted = productiveDays.map((d) => {
       const dateStr = String(d.date || '');
-      // Parse YYYY-MM-DD safely
       const parts = dateStr.split('-');
       let labelStr = '?';
       if (parts.length === 3) {
@@ -43,7 +42,10 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile }: MomentumSparklinePr
     });
 
     const values = formatted.map(d => d.value);
-    const average = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+    // Average across ALL days worked (not just days with sales)
+    const totalDaysWorked = dailyFp.length;
+    const totalValue = values.reduce((a, b) => a + b, 0);
+    const average = totalDaysWorked > 0 ? totalValue / totalDaysWorked : 0;
 
     const recent5 = values.slice(-5);
     const prev5 = values.slice(-10, -5);
@@ -55,7 +57,7 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile }: MomentumSparklinePr
       avg: average,
       trending: recentAvg >= prevAvg,
       metricLabel: label,
-      daysWorked: productiveDays.length,
+      daysWorked: totalDaysWorked,
     };
   }, [dailyFp, mode]);
 
