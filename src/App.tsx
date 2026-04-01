@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
 import OfflineIndicator from "./components/OfflineIndicator";
 import { InAppNotificationBanner } from "./components/InAppNotificationBanner";
+import { BadgeCelebrationOverlay } from "./components/badges/BadgeCelebrationOverlay";
 import { NativeAppPromo } from "./components/NativeAppPromo";
 import TrackWithLayout from "./components/TrackWithLayout";
 import SetupFlow from "./components/SetupFlow";
