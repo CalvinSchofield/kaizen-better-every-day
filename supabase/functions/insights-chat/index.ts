@@ -249,9 +249,9 @@ ${efpModeEnabled
 - Year: ${year} | Days worked: ${totalDays}
 - Doors: ${totalDoors} | DMs: ${totalDM} | Pitches: ${totalPitches}
 - Transitions: ${totalTransitions} | Presentations: ${totalPresentations} | Closes: ${totalCloses}
-- FP+: ${totalFP.toFixed(2)} | PRMR: $${totalPRMR.toFixed(0)}
+- ${primaryMetric}: ${primaryValue.toFixed(2)} | PRMR: $${totalPRMR.toFixed(0)}${efpModeEnabled ? `` : ` | EFP: ${totalEfp.toFixed(2)}`}
 - Avg PRMR/close: $${totalCloses > 0 ? (totalPRMR / totalCloses).toFixed(0) : "N/A"}
-- Doors/day: ${totalDays > 0 ? (totalDoors / totalDays).toFixed(0) : "N/A"} | FP+/day: ${totalDays > 0 ? (totalFP / totalDays).toFixed(2) : "N/A"}
+- Doors/day: ${totalDays > 0 ? (totalDoors / totalDays).toFixed(0) : "N/A"} | ${primaryMetric}/day: ${totalDays > 0 ? (primaryValue / totalDays).toFixed(2) : "N/A"}
 
 ### Funnel Rates
 - DM rate: ${totalDoors > 0 ? ((totalDM / totalDoors) * 100).toFixed(1) : "N/A"}%
