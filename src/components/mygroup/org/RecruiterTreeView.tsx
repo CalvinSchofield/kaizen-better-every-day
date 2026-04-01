@@ -20,6 +20,7 @@ const OFFICE_GROUPED_ACCESS_LEVELS = new Set([
   "partner",
   "divisional",
   "mgmt_group_lead",
+  "senior_manager",
 ]);
 
 interface OrgRep {
