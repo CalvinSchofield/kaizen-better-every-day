@@ -16,6 +16,7 @@ interface ProfilePhotoUploadProps {
   name?: string;
   size?: "sm" | "md" | "lg";
   showRemoveButton?: boolean;
+  onCropModeChange?: (isCropping: boolean) => void;
 }
 
 
