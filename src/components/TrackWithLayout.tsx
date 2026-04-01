@@ -16,6 +16,9 @@ import { SaleDetailSheet } from "./SaleDetailSheet";
 import { DeleteSalePickerSheet } from "./DeleteSalePickerSheet";
 import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
 import { PendingSalesAlert } from "./PendingSalesAlert";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { trackTourSteps } from "@/config/pageTours";
 
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";

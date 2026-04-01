@@ -20,6 +20,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { leaderboardTourSteps } from "@/config/pageTours";
 
 const LeaderboardSkeleton = () => (
   <div className="p-4 space-y-6">

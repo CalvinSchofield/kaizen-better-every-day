@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { calendarTourSteps } from "@/config/pageTours";
 
 interface CalendarProps {
   viewMode?: "week" | "month";

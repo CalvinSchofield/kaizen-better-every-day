@@ -28,6 +28,9 @@ import { InsightsOverviewTab } from '@/components/insights/InsightsOverviewTab';
 import { InsightsPerformanceTab } from '@/components/insights/InsightsPerformanceTab';
 import { InsightsPatternsTab } from '@/components/insights/InsightsPatternsTab';
 import { InsightsDealsTab } from '@/components/insights/InsightsDealsTab';
+import { PageTour } from '@/components/PageTour';
+import { usePageTour } from '@/hooks/usePageTour';
+import { insightsTourSteps } from '@/config/pageTours';
 
 type DatePreset = InsightsDatePreset;
 type InsightsTab = 'overview' | 'performance' | 'patterns' | 'deals';
