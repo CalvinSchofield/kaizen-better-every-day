@@ -34,7 +34,7 @@ const OrgChart = () => {
 
   const accessLevel = teamAccess?.accessLevel;
 
-  const { data: treeData, isLoading } = useQuery({
+  const { data: treeData, isLoading, isError: treeError, refetch: refetchTree } = useQuery({
     queryKey: ["org-chart-full-tree"],
     queryFn: async () => {
       const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, teamMgmtRes, officeStaffRes, officesRes, srMgmtGroupsRes] = await Promise.all([
