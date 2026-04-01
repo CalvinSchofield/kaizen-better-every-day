@@ -421,6 +421,17 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         }
       }
 
+      // Helper to resolve the office for a mgmt group (check sr_mgmt_group.office_id too)
+      const resolveOfficeId = (mgmtGroup: typeof mgmtGroups[number] | undefined): string | null => {
+        if (!mgmtGroup) return null;
+        if (mgmtGroup.office_id) return mgmtGroup.office_id;
+        if (mgmtGroup.sr_mgmt_group_id) {
+          const srMgmt = srMgmtGroupMap.get(mgmtGroup.sr_mgmt_group_id);
+          if (srMgmt?.office_id) return srMgmt.office_id;
+        }
+        return null;
+      };
+
       // Group roots by office → mgmt_group (FLAT — no Sr MGMT Group nesting)
       // Collect all MGMT groups per office (including those under Sr MGMT Groups)
       const officeMgmtGroupIds = new Map<string, Set<string>>(); // officeId → Set<mgmtGroupId>
