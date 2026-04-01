@@ -40,13 +40,14 @@ const LeaderboardSkeleton = () => (
 
 const Leaderboard = () => {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('live');
-  const [smartFilter, setSmartFilter] = useState<SmartFilterState>(DEFAULT_FILTER_STATE);
+  const [smartFilter, setSmartFilter] = useState<UnifiedFilterState>(DEFAULT_UNIFIED_FILTER);
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [customDateRange, setCustomDateRange] = useState<CustomDateRange | undefined>(undefined);
   const [watchlistDrawerOpen, setWatchlistDrawerOpen] = useState(false);
   const { userId: currentUserId } = useCurrentUserId();
   const { setCustomRightContent } = useHeader();
   const queryClient = useQueryClient();
+  const { data: teamAccess } = useTeamAccess();
 
   useSalesRealtime();
   const { watchedUserIds } = useWatchlist();
