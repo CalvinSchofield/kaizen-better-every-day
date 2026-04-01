@@ -243,7 +243,7 @@ export const CreateEntityDrawer = ({
                   autoFocus
                 />
               </div>
-              <div className="space-y-1 max-h-[300px] overflow-y-auto">
+              <div className="space-y-1 max-h-[50vh] overflow-y-auto">
                 {/* Pending recruits section */}
                 {filteredPendingRecruits.length > 0 && (
                   <>

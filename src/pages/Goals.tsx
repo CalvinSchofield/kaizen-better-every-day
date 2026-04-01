@@ -739,8 +739,8 @@ const Goals = () => {
   }
 
   if (isNonKnockingRegionalLeader && !showSetupWizard) {
-    // Non-knocking leaders should go build their org
-    return <Navigate to={gatedFrom || (isRegionalPlus ? '/my-group?tab=structure' : '/')} replace />;
+    // Non-knocking leaders should go to org chart first, then my-group
+    return <Navigate to="/org-chart" replace state={{ fromOnboarding: true }} />;
   }
 
   if (shouldShowSetupGate || showSetupWizard) {
