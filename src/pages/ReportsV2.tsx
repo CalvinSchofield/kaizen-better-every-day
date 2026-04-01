@@ -48,8 +48,7 @@ export const ReportsV2Page = () => {
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
   const [showCustomSheet, setShowCustomSheet] = useState(false);
   const [selectedRepId, setSelectedRepId] = useState<string | null>(null);
-  const [teamFilter, setTeamFilter] = useState<TeamFilter>('all');
-  const [smartFilter, setSmartFilter] = useState<SmartFilterState>(DEFAULT_FILTER_STATE);
+  const [smartFilter, setSmartFilter] = useState<UnifiedFilterState>(DEFAULT_UNIFIED_FILTER);
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [showWorkingDrawer, setShowWorkingDrawer] = useState(false);
