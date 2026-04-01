@@ -341,7 +341,7 @@ export const PendingApprovalsSection = () => {
               <h3 className="font-semibold text-sm">Pending Approvals</h3>
               <Badge variant="secondary" className="text-xs">{pendingRecruits.length}</Badge>
             </div>
-            {pendingRecruits.length > 1 && (
+            {canApprove && pendingRecruits.length > 1 && (
               <Button
                 variant="outline"
                 size="sm"
