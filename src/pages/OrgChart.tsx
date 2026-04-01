@@ -565,13 +565,12 @@ const OrgChart = () => {
         srMgmtNodes.push(createSrMgmtLabelNode(srMgmtId, children));
       });
 
-      const finalGrouped = [...srMgmtNodes, ...standaloneMgmtNodes]
-        .sort((a, b) => b.children.length - a.children.length);
+      const finalGrouped = sortByDownlineSize([...srMgmtNodes, ...standaloneMgmtNodes]);
 
-      return [...finalGrouped, ...ungroupedRoots].sort((a, b) => b.children.length - a.children.length);
+      return sortByDownlineSize([...finalGrouped, ...ungroupedRoots]);
     }
 
-    return dedupedRoots.sort((a, b) => b.children.length - a.children.length);
+    return sortByDownlineSize(dedupedRoots);
   }, [treeData, teamAccess, currentAuthUserId, accessLevel, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap]);
 
 
