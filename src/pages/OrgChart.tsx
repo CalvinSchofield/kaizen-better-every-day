@@ -258,9 +258,11 @@ const OrgChart = () => {
           };
 
           children = [...leaderChildren, labelNode];
-          children.sort((a, b) => b.children.length - a.children.length);
         }
       }
+
+      // Sort all children by downline size: nodes with recruits first (biggest to smallest), leaf nodes last
+      children = sortByDownlineSize(children);
 
       return {
         id: recruitRecord?.id || userId,
@@ -274,6 +276,20 @@ const OrgChart = () => {
         roleColor: roleInfo?.color || "none",
         children,
       };
+    };
+
+    /** Count total descendants (recursive) for sorting by downline size */
+    const countDescendants = (node: TreeNode): number => {
+      let count = node.children.length;
+      for (const child of node.children) {
+        count += countDescendants(child);
+      }
+      return count;
+    };
+
+    /** Sort nodes by total downline size (biggest first), leaf nodes last */
+    const sortByDownlineSize = (nodes: TreeNode[]): TreeNode[] => {
+      return [...nodes].sort((a, b) => countDescendants(b) - countDescendants(a));
     };
 
     const collectChildUserIds = (nodes: TreeNode[], set: Set<string>) => {
@@ -309,8 +325,7 @@ const OrgChart = () => {
             id: `mgmt-${mgmtGroupId}`,
             roleColor: "mgmt_group",
             role: "MGMT Group Leader",
-            children: [...leaderNode.children, ...siblings]
-              .sort((a, b) => b.children.length - a.children.length),
+            children: sortByDownlineSize([...leaderNode.children, ...siblings]),
           };
         }
       }
@@ -327,7 +342,7 @@ const OrgChart = () => {
         isAreaDirector: false,
         roleColor: "mgmt_group",
         isLabelNode: true,
-        children: [...children].sort((a, b) => b.children.length - a.children.length),
+        children: sortByDownlineSize([...children]),
       };
     };
 
@@ -348,8 +363,7 @@ const OrgChart = () => {
             id: `sr-mgmt-${srMgmtGroupId}`,
             roleColor: "sr_mgmt_group",
             role: "Sr MGMT Group Leader",
-            children: [...leaderNode.children, ...siblings]
-              .sort((a, b) => b.children.length - a.children.length),
+            children: sortByDownlineSize([...leaderNode.children, ...siblings]),
           };
         }
       }
@@ -365,7 +379,7 @@ const OrgChart = () => {
         isAreaDirector: false,
         roleColor: "sr_mgmt_group",
         isLabelNode: true,
-        children: [...children].sort((a, b) => b.children.length - a.children.length),
+        children: sortByDownlineSize([...children]),
       };
     };
 
@@ -521,7 +535,7 @@ const OrgChart = () => {
       const groupedRoots = Array.from(mgmtNodes.entries())
         .map(([mgmtGroupId, node]) => createMgmtLabelNode(mgmtGroupId, dedupeRootNodes(node.children)))
         .filter((node) => node.children.length > 0)
-        .sort((a, b) => b.children.length - a.children.length);
+        .sort((a, b) => countDescendants(b) - countDescendants(a));
 
       // After creating MGMT group nodes, wrap them in Sr MGMT Group containers
       // This shows upline (e.g. Gunnar Bramwell Sr MGMT)
@@ -551,13 +565,12 @@ const OrgChart = () => {
         srMgmtNodes.push(createSrMgmtLabelNode(srMgmtId, children));
       });
 
-      const finalGrouped = [...srMgmtNodes, ...standaloneMgmtNodes]
-        .sort((a, b) => b.children.length - a.children.length);
+      const finalGrouped = sortByDownlineSize([...srMgmtNodes, ...standaloneMgmtNodes]);
 
-      return [...finalGrouped, ...ungroupedRoots].sort((a, b) => b.children.length - a.children.length);
+      return sortByDownlineSize([...finalGrouped, ...ungroupedRoots]);
     }
 
-    return dedupedRoots.sort((a, b) => b.children.length - a.children.length);
+    return sortByDownlineSize(dedupedRoots);
   }, [treeData, teamAccess, currentAuthUserId, accessLevel, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap]);
 
 
