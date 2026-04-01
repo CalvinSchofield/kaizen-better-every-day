@@ -132,6 +132,41 @@ export default function DebugNotifications() {
           Fire each notification type to test deep links, action buttons, and APNs delivery.
         </p>
 
+        {/* Pending Approval Screen Preview */}
+        {previewPending ? (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-foreground">
+                👀 {previewPending === 'direct' ? 'Direct Org' : 'External Org'} Preview
+              </h2>
+              <Button size="sm" variant="outline" onClick={() => setPreviewPending(null)}>
+                Close
+              </Button>
+            </div>
+            <div className="border border-border rounded-xl overflow-hidden max-h-[70vh] overflow-y-auto">
+              <PendingApprovalScreen
+                repName="Gunnar TestRep"
+                teamLeader="Calvin Schofield"
+                teamLeaderPhone="(801) 555-1234"
+                showTeamInfoLink={previewPending === 'external'}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="mb-8">
+            <h2 className="text-lg font-bold text-foreground mb-1">👀 Pending Approval Screen</h2>
+            <p className="text-xs text-muted-foreground mb-3">Preview the screen new signups see while waiting for approval.</p>
+            <div className="space-y-2">
+              <Button className="w-full gap-2" variant="outline" onClick={() => setPreviewPending('direct')}>
+                <Eye className="w-4 h-4" /> Direct Org (Meet the Team)
+              </Button>
+              <Button className="w-full gap-2" variant="outline" onClick={() => setPreviewPending('external')}>
+                <Eye className="w-4 h-4" /> External Org (smarthomepros link)
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Badge Celebration Tests */}
         <div className="mb-8">
           <h2 className="text-lg font-bold text-foreground mb-1">🏅 Badge Celebration</h2>
