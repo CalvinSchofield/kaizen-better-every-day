@@ -502,7 +502,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       const pruned = pruneDuplicates(rootNodes);
       rootNodes.length = 0;
       rootNodes.push(...pruned);
-    } else if (officeGroupedAccessLevels.has(accessLevel) && !groupByOffice) {
+    } else if (OFFICE_GROUPED_ACCESS_LEVELS.has(accessLevel) && !groupByOffice) {
       // Pure lineage view — no office/mgmt grouping
       const allRecruiterIds = new Set(
         recruits.map((r) => r.recruiter_user_id).filter(Boolean) as string[]
