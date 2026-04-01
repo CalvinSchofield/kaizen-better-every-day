@@ -329,12 +329,13 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       if (currentUserId && r.userId === currentUserId) return true;
 
       const stageLower = (r.stage || '').toLowerCase();
+      // Exclude inactive/exited reps
       const excludePatterns = [
         'not interested', 'left', 'potential', 'follow up',
-        '100 list', '100_list', 'reached out', 'reached_out', 'evaluating',
+        '100 list', '100_list', 'reached out', 'reached_out',
       ];
       if (excludePatterns.some((p) => stageLower.includes(p))) return false;
-      return stageLower.includes('signed') || stageLower.includes('shadow') || stageLower.includes('sold');
+      return stageLower.includes('signed') || stageLower.includes('shadow') || stageLower.includes('sold') || stageLower.includes('evaluating');
     });
 
     const byId = new Map<string, any>();
@@ -350,17 +351,10 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     return Array.from(byId.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [teamAccess?.accessibleReps, currentRep?.authUserId, currentRep?.id, suggestionPrefill?.suggestedByNotionId, selectedRecruiter]);
 
-  // Filter teams based on selected recruiter
-  const filteredTeams = useMemo(() => {
-    if (!teamAccess?.teams) return [];
-    if (!selectedRecruiter) return teamAccess.teams;
-    
-    const recruiterData = allRecruiters.find(r => r.id === selectedRecruiter);
-    if (recruiterData?.teamId) {
-      return teamAccess.teams.filter(t => t.id === recruiterData.teamId);
-    }
-    return teamAccess.teams;
-  }, [teamAccess?.teams, selectedRecruiter, allRecruiters]);
+  // All downline teams
+  const allTeams = useMemo(() => {
+    return teamAccess?.teams || [];
+  }, [teamAccess?.teams]);
 
   // Filter recruiters by selected team (only show recruiters on that team)
   const filteredRecruiters = useMemo(() => {
