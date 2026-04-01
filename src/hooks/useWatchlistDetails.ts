@@ -95,6 +95,7 @@ export const useWatchlistDetails = () => {
           yesterdayFp: 0,
           dailyFp: new Map(),
           weekFp: 0, monthFp: 0, seasonFp: 0,
+          entryDates: [],
         });
       }
 
