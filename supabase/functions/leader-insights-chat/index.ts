@@ -335,6 +335,12 @@ DOW: ${dowLine || "none"}`
 - You can derive week-over-week trends from the weekly buckets to show progression through the season.
 - For team-level comparisons, aggregate the individual rep data for the requested teams.
 
+## CRITICAL: HANDLING REPS WITH NO DATA IN A PERIOD
+- When analyzing a specific time period (e.g., "this week", "last 3 days"), ONLY include reps who actually have entries (worked days) in that period.
+- If a rep has ZERO entries in the queried timeframe, they DID NOT WORK — do NOT report them as having "dropped to 0%". That is misleading.
+- Instead, if relevant, you can briefly note "X reps did not work this period" as a separate observation.
+- Never compare a rep's season average to 0% just because they didn't log any days in a given week. That's not a skill gap — they simply weren't working.
+
 ## VIVINT D2D BASICS
 - Product: Home security, cameras, smart home
 - Schedule: Mon-Fri noon to 8-9pm, Sat 9-10am to 8-9pm. Sunday off.
