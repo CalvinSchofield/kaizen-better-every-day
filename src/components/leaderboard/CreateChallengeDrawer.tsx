@@ -294,6 +294,10 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
     setSelectedOpponent(null);
     setTeamA([]);
     setTeamB([]);
+    setCarWarsTeams([
+      { key: '1', label: 'Car 1', members: [] },
+      { key: '2', label: 'Car 2', members: [] },
+    ]);
     setMetric('fp_plus');
     setDuration('today');
     setCustomStartDate(new Date());
