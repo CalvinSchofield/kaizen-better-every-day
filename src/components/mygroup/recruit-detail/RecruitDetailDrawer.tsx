@@ -5,7 +5,13 @@ import { useAssignableUsers } from "@/hooks/useAssignableUsers";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAutoStageProgression } from "@/hooks/useAutoStageProgression";
 import { supabase } from "@/integrations/supabase/client";
-import { getSessionSafe } from "@/utils/authSession";
+import { supabase } from "@/integrations/supabase/client";
+
+// Mobile-optimized session getter: reads local cache only, no network refresh
+const getSessionFast = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return { session, user: session?.user ?? null };
+};
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
