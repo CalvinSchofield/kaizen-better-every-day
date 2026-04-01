@@ -391,10 +391,25 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         collectChildUserIds(root.children, allChildUserIds);
       });
 
+      // Collect MGMT/Sr MGMT leaders — they must always be roots for promotion
+      const mgmtLeadUserIds = new Set(
+        mgmtGroups.map((g) => g.lead_user_id).filter(Boolean) as string[]
+      );
+      const srMgmtLeadUserIds = new Set(
+        srMgmtGroups.map((g) => g.lead_user_id).filter(Boolean) as string[]
+      );
+
       // Keep roots only if they are not a child anywhere and don't have an upstream recruiter
+      // Exception: MGMT/Sr MGMT leaders are always kept for promotion
       const trueRoots: TreeNode[] = [];
       candidateRoots.forEach((root) => {
         if (!root.userId) {
+          trueRoots.push(root);
+          return;
+        }
+
+        // Always keep group leaders as roots so promotion works
+        if (mgmtLeadUserIds.has(root.userId) || srMgmtLeadUserIds.has(root.userId)) {
           trueRoots.push(root);
           return;
         }
@@ -523,8 +538,9 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         const officeChildren: TreeNode[] = [];
 
         mgmtMap.forEach((nodes, mgmtGroupId) => {
+          const mgLeader = mgmtGroupMap.get(mgmtGroupId)?.lead_user_id;
           const dedupedNodes = dedupeGroupNodes(nodes)
-            .filter((node) => !node.userId || !globalDescendantIds.has(node.userId));
+            .filter((node) => !node.userId || !globalDescendantIds.has(node.userId) || node.userId === mgLeader);
           officeChildren.push(createMgmtLabelNode(mgmtGroupId, dedupedNodes));
         });
 
@@ -562,8 +578,9 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       // MGMT groups without an office
       if (!isOfficeScopedToUser) {
         ungroupedByMgmt.forEach((nodes, mgmtGroupId) => {
+          const mgLeader = mgmtGroupMap.get(mgmtGroupId)?.lead_user_id;
           const dedupedNodes = dedupeGroupNodes(nodes)
-            .filter((node) => !node.userId || !globalDescendantIds.has(node.userId));
+            .filter((node) => !node.userId || !globalDescendantIds.has(node.userId) || node.userId === mgLeader);
           rootNodes.push(createMgmtLabelNode(mgmtGroupId, dedupedNodes));
         });
 
