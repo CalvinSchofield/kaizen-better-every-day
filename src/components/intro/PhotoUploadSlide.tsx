@@ -34,6 +34,7 @@ export const PhotoUploadSlide = ({
           name={repData?.name || "User"}
           size="lg"
           showRemoveButton={false}
+          onCropModeChange={onCropModeChange}
         />
       </div>
       

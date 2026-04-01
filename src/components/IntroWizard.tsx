@@ -303,9 +303,9 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
       {/* Slide content - swipeable area */}
       <div 
         className="flex-1 flex items-center justify-center overflow-hidden px-6 touch-pan-y"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+        onTouchStart={isCropping ? undefined : onTouchStart}
+        onTouchMove={isCropping ? undefined : onTouchMove}
+        onTouchEnd={isCropping ? undefined : onTouchEnd}
       >
         <AnimatePresence mode="wait">
           {renderSlide()}
