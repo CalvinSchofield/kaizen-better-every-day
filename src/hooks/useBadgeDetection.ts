@@ -542,9 +542,16 @@ async function detectStreakProtection(
     streak_length: 0, // will be updated by streak calc
   });
 
-  // Toast
+  // Toast + in-app notification
   toast({
     title: "🛡️ Streak Protected!",
     description: "Your effort today earned you a streak shield!",
+  });
+
+  emitInAppNotification({
+    id: `streak-shield-${date}`,
+    title: "🛡️ Streak Protected!",
+    body: "Your effort today earned you a streak shield!",
+    type: "streak_shield_earned",
   });
 }
