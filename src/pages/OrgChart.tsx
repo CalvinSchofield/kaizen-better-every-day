@@ -1,8 +1,8 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getSessionSafe } from "@/utils/authSession";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, GitBranch, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,14 +23,8 @@ const OFFICE_GROUPED_ACCESS_LEVELS = new Set([
 const OrgChart = () => {
   const queryClient = useQueryClient();
   const { data: teamAccess, isLoading: accessLoading, isError: accessError } = useTeamAccess();
-  const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
+  const { userId: currentAuthUserId } = useCurrentUserId();
   const [groupByOffice, setGroupByOffice] = useState(false);
-
-  useEffect(() => {
-    getSessionSafe().then(({ user }) => {
-      setCurrentAuthUserId(user?.id || null);
-    });
-  }, []);
 
 
   const accessLevel = teamAccess?.accessLevel;
