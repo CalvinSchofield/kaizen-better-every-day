@@ -258,9 +258,11 @@ const OrgChart = () => {
           };
 
           children = [...leaderChildren, labelNode];
-          children.sort((a, b) => b.children.length - a.children.length);
         }
       }
+
+      // Sort all children by downline size: nodes with recruits first (biggest to smallest), leaf nodes last
+      children = sortByDownlineSize(children);
 
       return {
         id: recruitRecord?.id || userId,
