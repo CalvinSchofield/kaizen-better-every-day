@@ -1048,7 +1048,7 @@ const Goals = () => {
         </div>
 
         <motion.div 
-          id="goals-hero-ring"
+          data-tour="goals-hero-ring"
           className="px-4 py-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
