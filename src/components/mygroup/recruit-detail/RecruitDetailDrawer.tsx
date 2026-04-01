@@ -5,7 +5,6 @@ import { useAssignableUsers } from "@/hooks/useAssignableUsers";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAutoStageProgression } from "@/hooks/useAutoStageProgression";
 import { supabase } from "@/integrations/supabase/client";
-import { supabase } from "@/integrations/supabase/client";
 
 // Mobile-optimized session getter: reads local cache only, no network refresh
 const getSessionFast = async () => {
