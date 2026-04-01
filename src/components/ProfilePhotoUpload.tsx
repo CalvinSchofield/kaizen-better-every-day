@@ -237,6 +237,7 @@ export const ProfilePhotoUpload = ({
       const objectUrl = URL.createObjectURL(croppedBlob);
       setPreviewUrl(objectUrl);
       setCropMode(false);
+      onCropModeChange?.(false);
       setImageSrc(null);
 
       // Upload to storage
