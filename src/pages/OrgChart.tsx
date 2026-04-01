@@ -284,19 +284,85 @@ const OrgChart = () => {
       return nodes.filter((node) => !node.userId || !descendantIds.has(node.userId));
     };
 
-    const createMgmtLabelNode = (mgmtGroupId: string, children: TreeNode[] = []): TreeNode => ({
-      id: `mgmt-${mgmtGroupId}`,
-      name: mgmtGroupMap.get(mgmtGroupId)?.name || "MGMT Group",
-      userId: null,
-      stage: null,
-      profilePhotoUrl: null,
-      role: null,
-      year: null,
-      isAreaDirector: false,
-      roleColor: "mgmt_group",
-      isLabelNode: true,
-      children: [...children].sort((a, b) => b.children.length - a.children.length),
-    });
+    /**
+     * Creates a MGMT Group container node with leader promotion.
+     * If the leader has an account and appears as one of the children,
+     * promote that child to BE the container (person node with roleColor).
+     */
+    const createMgmtLabelNode = (mgmtGroupId: string, children: TreeNode[] = []): TreeNode => {
+      const mgmtGroup = mgmtGroupMap.get(mgmtGroupId);
+      const leadUserId = mgmtGroup?.lead_user_id || null;
+
+      // Try to find the leader among the children
+      if (leadUserId) {
+        const leaderIdx = children.findIndex((c) => c.userId === leadUserId);
+        if (leaderIdx !== -1) {
+          const leaderNode = children[leaderIdx];
+          const siblings = children.filter((_, i) => i !== leaderIdx);
+          return {
+            ...leaderNode,
+            id: `mgmt-${mgmtGroupId}`,
+            roleColor: "mgmt_group",
+            role: "MGMT Group Leader",
+            children: [...leaderNode.children, ...siblings]
+              .sort((a, b) => b.children.length - a.children.length),
+          };
+        }
+      }
+
+      // Fallback: lightweight label pill
+      return {
+        id: `mgmt-${mgmtGroupId}`,
+        name: mgmtGroup?.name || "MGMT Group",
+        userId: leadUserId,
+        stage: null,
+        profilePhotoUrl: leadUserId ? repMap.get(leadUserId)?.profile_photo_url : null,
+        role: null,
+        year: null,
+        isAreaDirector: false,
+        roleColor: "mgmt_group",
+        isLabelNode: true,
+        children: [...children].sort((a, b) => b.children.length - a.children.length),
+      };
+    };
+
+    /**
+     * Creates a Sr MGMT Group container node with leader promotion.
+     */
+    const createSrMgmtLabelNode = (srMgmtGroupId: string, children: TreeNode[] = []): TreeNode => {
+      const srMgmtGroup = srMgmtGroupMap.get(srMgmtGroupId);
+      const leadUserId = srMgmtGroup?.lead_user_id || null;
+
+      if (leadUserId) {
+        const leaderIdx = children.findIndex((c) => c.userId === leadUserId && !c.isLabelNode);
+        if (leaderIdx !== -1) {
+          const leaderNode = children[leaderIdx];
+          const siblings = children.filter((_, i) => i !== leaderIdx);
+          return {
+            ...leaderNode,
+            id: `sr-mgmt-${srMgmtGroupId}`,
+            roleColor: "sr_mgmt_group",
+            role: "Sr MGMT Group Leader",
+            children: [...leaderNode.children, ...siblings]
+              .sort((a, b) => b.children.length - a.children.length),
+          };
+        }
+      }
+
+      return {
+        id: `sr-mgmt-${srMgmtGroupId}`,
+        name: srMgmtGroup?.name || "Sr MGMT Group",
+        userId: leadUserId,
+        stage: null,
+        profilePhotoUrl: leadUserId ? repMap.get(leadUserId)?.profile_photo_url : null,
+        role: null,
+        year: null,
+        isAreaDirector: false,
+        roleColor: "sr_mgmt_group",
+        isLabelNode: true,
+        children: [...children].sort((a, b) => b.children.length - a.children.length),
+      };
+    };
 
     const rootNodes: TreeNode[] = [];
     const globalAccessLevels = new Set(["corporate", "regional", "sr_regional", "partner", "divisional"]);
