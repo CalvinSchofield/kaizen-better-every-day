@@ -277,9 +277,10 @@ Deno.serve(async (req) => {
             phone: claimedPhone,
             year: claimedYear,
             stage,
-            recruiter_user_id: resolvedRecruiterUserId ?? target.recruit.recruiter_user_id ?? null,
-            team_id: resolvedTeamId ?? target.recruit.team_id ?? null,
-            mgmt_group_id: resolvedMgmtGroupId ?? target.recruit.mgmt_group_id ?? null,
+            // Lateral invites: explicitly clear org placement — these leaders sit above teams/groups
+            recruiter_user_id: isLateralInvite ? null : (resolvedRecruiterUserId ?? target.recruit.recruiter_user_id ?? null),
+            team_id: isLateralInvite ? null : (resolvedTeamId ?? target.recruit.team_id ?? null),
+            mgmt_group_id: isLateralInvite ? null : (resolvedMgmtGroupId ?? target.recruit.mgmt_group_id ?? null),
             office_id: resolvedOfficeId ?? target.recruit.office_id ?? null,
             invite_code_used: inviteCode,
             approval_status: approvalStatus,
