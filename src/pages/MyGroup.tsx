@@ -179,8 +179,7 @@ const MyGroup = () => {
     
     // Handle fromOnboarding: auto-open org tab in QuickView
     if (navState?.fromOnboarding) {
-      setQuickViewInitialTab('org');
-      setQuickViewOpen(true);
+      setWelcomeDrawerOpen(true);
       window.history.replaceState({}, document.title);
       setHasProcessedNavState(true);
       return;
