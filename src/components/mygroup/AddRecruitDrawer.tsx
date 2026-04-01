@@ -430,6 +430,18 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     setSelectedRecruiter(recruiterId);
     hapticLight();
 
+  // When team changes, reset recruiter if it doesn't belong to the new team
+  const handleTeamChange = (teamId: string) => {
+    setSelectedTeam(teamId);
+    hapticLight();
+    if (selectedRecruiter) {
+      const recruiterData = allRecruiters.find(r => r.id === selectedRecruiter);
+      if (recruiterData && recruiterData.teamId !== teamId && recruiterData.id !== currentRep?.id) {
+        setSelectedRecruiter('');
+      }
+    }
+  };
+
     void (async () => {
       const recruiterData = allRecruiters.find((r) => r.id === recruiterId);
       if (recruiterData?.teamId) {
