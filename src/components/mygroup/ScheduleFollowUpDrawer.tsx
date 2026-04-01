@@ -51,6 +51,10 @@ export const ScheduleFollowUpDrawer = ({
   // Reset form state when drawer opens or recruit changes
   useEffect(() => {
     if (open) {
+      // Dismiss keyboard immediately to prevent height squishing
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
       setNotes('');
       setNotesMentions([]);
       setSelectedDate(addDays(new Date(), 1));
