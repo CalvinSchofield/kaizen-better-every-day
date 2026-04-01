@@ -425,9 +425,8 @@ export const PendingApprovalsSection = () => {
           recruit={toRecruitShape(editingRecruit)}
           showRoleAssignment={true}
           isBootstrapApproval={
-            // Bootstrap only when the current user is the direct inviter
-            // This allows "invite your boss" flow while preventing abuse
-            editingRecruit.recruiter_user_id === userId
+            // Bootstrap approval only for Calvin Schofield
+            userId === BOOTSTRAP_USER_ID
           }
           onSuccess={async (assignedRole) => {
             queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
