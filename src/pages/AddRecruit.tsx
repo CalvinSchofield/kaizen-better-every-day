@@ -315,6 +315,19 @@ export default function AddRecruit() {
     void applyTeamFromRecruiter(recruiterId);
   };
 
+  // When team changes, reset recruiter if it doesn't belong to the new team
+  const handleTeamChange = (teamId: string) => {
+    setSelectedTeam(teamId);
+    hapticLight();
+    // If current recruiter isn't on this team, reset
+    if (selectedRecruiter) {
+      const recruiterData = allRecruiters.find(r => r.id === selectedRecruiter);
+      if (recruiterData && recruiterData.teamId !== teamId && recruiterData.id !== currentRep?.id) {
+        setSelectedRecruiter('');
+      }
+    }
+  };
+
   // Create recruit mutation
   const createRecruitMutation = useMutation({
     mutationFn: async (recruitData: {
