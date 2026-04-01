@@ -47,12 +47,41 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
   }
 
   const isGroupChallenge = challenge.type === 'group';
+  const isCarWars = challenge.type === 'car_wars';
 
-  if (isGroupChallenge) {
-    const teamA = progress.participants.filter(p => p.team === 'a');
-    const teamB = progress.participants.filter(p => p.team === 'b');
-    const teamATotal = teamA.reduce((sum, p) => sum + (p.current_value || 0), 0);
-    const teamBTotal = teamB.reduce((sum, p) => sum + (p.current_value || 0), 0);
+  if (isCarWars && progress.teams) {
+    // Show top 2 teams
+    const sortedTeams = Object.values(progress.teams).sort((a, b) => b.total_value - a.total_value);
+    const first = sortedTeams[0];
+    const second = sortedTeams[1];
+    const total = (first?.total_value || 0) + (second?.total_value || 0);
+    const firstPercent = total > 0 ? ((first?.total_value || 0) / total) * 100 : 50;
+
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-purple-600 w-10 text-right">{formatFP(first?.total_value || 0)}</span>
+          <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+            <div 
+              className="h-full bg-purple-500 transition-all duration-300"
+              style={{ width: `${firstPercent}%` }}
+            />
+          </div>
+          <span className="text-xs font-semibold text-muted-foreground w-10">{formatFP(second?.total_value || 0)}</span>
+        </div>
+        {sortedTeams.length > 2 && (
+          <p className="text-[10px] text-center text-muted-foreground">+{sortedTeams.length - 2} more teams</p>
+        )}
+        {challenge.stakes && (
+          <p className="text-xs text-muted-foreground text-center">🎯 {challenge.stakes}</p>
+        )}
+      </div>
+    );
+  }
+
+  if (isGroupChallenge && progress.teams) {
+    const teamATotal = progress.teams['a']?.total_value || 0;
+    const teamBTotal = progress.teams['b']?.total_value || 0;
     const total = teamATotal + teamBTotal;
     const redPercent = total > 0 ? (teamATotal / total) * 100 : 50;
 
