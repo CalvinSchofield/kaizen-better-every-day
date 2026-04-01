@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { emitBadgeCelebration } from "@/components/badges/BadgeCelebrationOverlay";
+import PendingApprovalScreen from "@/components/PendingApprovalScreen";
 
 const NOTIFICATION_TYPES = [
   {
