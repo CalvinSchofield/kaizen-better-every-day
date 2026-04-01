@@ -55,7 +55,7 @@ export const MomentumSparkline = ({ dailyFp, isOwnProfile }: MomentumSparklinePr
       avg: average,
       trending: recentAvg >= prevAvg,
       metricLabel: label,
-      daysWorked: dailyFp.length,
+      daysWorked: productiveDays.length,
     };
   }, [dailyFp, mode]);
 
