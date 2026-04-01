@@ -79,7 +79,7 @@ const SetupFlow = () => {
       ]);
 
       setShowInviteOnboarding(false);
-      navigate(0);
+      navigate('/', { replace: true });
       return;
     } catch (error: any) {
       console.error('Invite processing error:', error);
