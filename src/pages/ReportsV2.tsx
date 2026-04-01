@@ -108,8 +108,21 @@ export const ReportsV2Page = () => {
       ids = allUserIds;
     }
 
+    // Only include the current user if viewing all reps OR if they belong to the filtered team/group
     if (currentUserId && teamAccess.accessLevel !== 'none' && !ids.includes(currentUserId)) {
-      ids = [currentUserId, ...ids];
+      const shouldIncludeLeader = teamFilter === 'all' || (() => {
+        const leaderRep = teamAccess.accessibleReps?.find(r => r.userId === currentUserId);
+        if (!leaderRep) return false;
+        if (teamFilter.type === 'team') return leaderRep.teamId === teamFilter.id;
+        if (teamFilter.type === 'mgmt_group') {
+          const group = teamAccess.mgmtGroups?.find(g => g.id === teamFilter.id);
+          return leaderRep.teamId && (group?.teamIds || []).includes(leaderRep.teamId);
+        }
+        return false;
+      })();
+      if (shouldIncludeLeader) {
+        ids = [currentUserId, ...ids];
+      }
     }
     return ids;
   }, [teamAccess, teamFilter, allUserIds, currentUserId]);
