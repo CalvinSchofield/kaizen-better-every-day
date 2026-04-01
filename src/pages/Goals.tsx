@@ -103,6 +103,7 @@ const Goals = () => {
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
   const [syncGateSkipped, setSyncGateSkipped] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const gatedFrom = (location.state as any)?.gatedFrom as string | undefined;
 
   // Friendly route name mapping for the gate banner
