@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { Recruit, RecruitActivity, useUpdateRecruitStage, useLogRecruitActivity, useUpdateRecruitActivity, useDeleteRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useAssignableUsers } from "@/hooks/useAssignableUsers";
+import { AssigneeSelector } from "@/components/mygroup/AssigneeSelector";
+import { useRepData } from "@/hooks/useRepData";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAutoStageProgression } from "@/hooks/useAutoStageProgression";
 import { supabase } from "@/integrations/supabase/client";
