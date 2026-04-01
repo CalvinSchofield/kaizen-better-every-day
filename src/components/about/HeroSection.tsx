@@ -5,7 +5,7 @@ import { BlurImage } from "@/components/ui/BlurImage";
 
 export const HeroSection = () => {
   const [displayValue, setDisplayValue] = useState(0);
-  const targetValue = 48512;
+  const targetValue = 46394;
 
   useEffect(() => {
     const duration = 2000;
