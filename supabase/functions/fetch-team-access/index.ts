@@ -131,7 +131,9 @@ Deno.serve(async (req) => {
     const officesData = officesRaw || [];
     const allSrMgmtGroupsData = allSrMgmtGroupsRaw || [];
 
-    // Also check for sr_mgmt_group lead
+    // Structural lead checks
+    const isTeamLeadStructural = teamsData.some(t => t.lead_user_id === user.id);
+    const isMgmtGroupLeadStructural = mgmtGroupsData.some(g => g.lead_user_id === user.id);
     const isSrMgmtGroupLead = allSrMgmtGroupsData.some(g => g.lead_user_id === user.id);
 
     // Check for regional/sr_regional/partner/divisional lead
