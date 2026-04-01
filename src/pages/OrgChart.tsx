@@ -31,6 +31,7 @@ const OrgChart = () => {
   const [groupByOffice, setGroupByOffice] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("tree");
   const location = useLocation();
+  const navigate = useNavigate();
   const fromOnboarding = (location.state as any)?.fromOnboarding === true;
 
   // Tour
