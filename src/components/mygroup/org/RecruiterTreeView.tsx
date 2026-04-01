@@ -155,6 +155,19 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       return recruitById.get(rep.id) || recruitByCleanName.get(getCleanName(rep.name).toLowerCase());
     };
 
+    /** Count total descendants (recursive) for sorting by downline size */
+    const countDescendants = (node: TreeNode): number => {
+      let count = node.children.length;
+      for (const child of node.children) {
+        count += countDescendants(child);
+      }
+      return count;
+    };
+
+    const sortByDownlineSize = (nodes: TreeNode[]): TreeNode[] => {
+      return [...nodes].sort((a, b) => countDescendants(b) - countDescendants(a));
+    };
+
     const buildNode = (userId: string, visited = new Set<string>()): TreeNode | null => {
       if (visited.has(userId)) return null;
       visited.add(userId);
