@@ -60,22 +60,30 @@ function buildSystemPrompt(
       if (hrs > 0 && hrs < 18) dowStats[dow].hours += hrs;
     }
 
-    // Weekly bucket
+    // Weekly bucket (full funnel)
     const weekStart = new Date(d);
     weekStart.setDate(d.getDate() - d.getDay());
     const wk = weekStart.toISOString().slice(0, 10);
-    if (!weeklyBuckets[wk]) weeklyBuckets[wk] = { days: 0, doors: 0, closes: 0, fp: 0, prmr: 0 };
+    if (!weeklyBuckets[wk]) weeklyBuckets[wk] = { days: 0, doors: 0, dm: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0 };
     weeklyBuckets[wk].days++;
     weeklyBuckets[wk].doors += e.doors_knocked || 0;
+    weeklyBuckets[wk].dm += e.decision_makers || 0;
+    weeklyBuckets[wk].pitches += e.pitches || 0;
+    weeklyBuckets[wk].transitions += e.transitions || 0;
+    weeklyBuckets[wk].presentations += e.presentations || 0;
     weeklyBuckets[wk].closes += e.closes || 0;
     weeklyBuckets[wk].fp += e.fp_plus || 0;
     weeklyBuckets[wk].prmr += e.prmr || 0;
 
-    // Monthly bucket
+    // Monthly bucket (full funnel)
     const mo = e.entry_date.slice(0, 7);
-    if (!monthlyBuckets[mo]) monthlyBuckets[mo] = { days: 0, doors: 0, closes: 0, fp: 0, prmr: 0 };
+    if (!monthlyBuckets[mo]) monthlyBuckets[mo] = { days: 0, doors: 0, dm: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0 };
     monthlyBuckets[mo].days++;
     monthlyBuckets[mo].doors += e.doors_knocked || 0;
+    monthlyBuckets[mo].dm += e.decision_makers || 0;
+    monthlyBuckets[mo].pitches += e.pitches || 0;
+    monthlyBuckets[mo].transitions += e.transitions || 0;
+    monthlyBuckets[mo].presentations += e.presentations || 0;
     monthlyBuckets[mo].closes += e.closes || 0;
     monthlyBuckets[mo].fp += e.fp_plus || 0;
     monthlyBuckets[mo].prmr += e.prmr || 0;
