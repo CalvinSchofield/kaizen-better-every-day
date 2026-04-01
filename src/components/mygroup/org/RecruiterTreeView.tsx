@@ -67,13 +67,14 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
   const { data: treeData, isLoading } = useQuery({
     queryKey: ["recruiter-tree-data"],
     queryFn: async () => {
-      const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, officesRes, teamMgmtGroupsRes] = await Promise.all([
+      const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, officesRes, teamMgmtGroupsRes, srMgmtGroupsRes] = await Promise.all([
         supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, mgmt_group_id, phone, email, created_at, updated_at").limit(5000),
         supabase.from("reps").select("id, user_id, name, profile_photo_url").limit(5000),
         supabase.from("teams").select("id, name, lead_user_id").limit(500),
-        supabase.from("mgmt_groups").select("id, name, office_id, lead_user_id").limit(500),
+        supabase.from("mgmt_groups").select("id, name, office_id, lead_user_id, sr_mgmt_group_id").limit(500),
         supabase.from("offices").select("id, name").limit(200),
         supabase.from("team_mgmt_groups").select("team_id, mgmt_group_id").limit(2000),
+        supabase.from("sr_mgmt_groups").select("id, name, lead_user_id, office_id").limit(500),
       ]);
 
       return {
@@ -83,6 +84,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         mgmtGroups: mgmtGroupsRes.data || [],
         offices: officesRes.data || [],
         teamMgmtGroups: teamMgmtGroupsRes.data || [],
+        srMgmtGroups: srMgmtGroupsRes.data || [],
       };
     },
     staleTime: 1000 * 60 * 2,
@@ -98,6 +100,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
     const mgmtGroups = treeData.mgmtGroups || [];
     const offices = treeData.offices || [];
     const teamMgmtGroups = treeData.teamMgmtGroups || [];
+    const srMgmtGroups = treeData.srMgmtGroups || [];
 
     const repMap = new Map<string, (typeof reps)[number]>();
     reps.forEach((rep) => {
@@ -136,6 +139,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
     // Build mgmt_group → office lookup
     const mgmtGroupMap = new Map(mgmtGroups.map((mg) => [mg.id, mg]));
     const officeMap = new Map(offices.map((o) => [o.id, o]));
+    const srMgmtGroupMap = new Map(srMgmtGroups.map((smg) => [smg.id, smg]));
 
     const recruitsByRecruiter = new Map<string, typeof recruits>();
     recruits.forEach((recruit) => {
@@ -227,6 +231,12 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       return null;
     };
 
+    // Helper: check if a user leads a Sr MGMT Group (returns the sr_mgmt_group_id)
+    const resolveSrMgmtGroupId = (userId: string): string | null => {
+      const ledSrGroup = srMgmtGroups.find((smg) => smg.lead_user_id === userId);
+      return ledSrGroup?.id || null;
+    };
+
     const hasUpstreamRecruiter = (userId: string) => {
       const rep = repMap.get(userId);
       const recruit = getRecruitForRep(rep);
@@ -245,6 +255,22 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
           : null,
         isLabelNode: true,
         roleColor: "mgmt_group",
+        children: [...children].sort((a, b) => b.children.length - a.children.length),
+      };
+    };
+
+    const createSrMgmtLabelNode = (srMgmtGroupId: string, children: TreeNode[] = []): TreeNode => {
+      const srMgmtGroup = srMgmtGroupMap.get(srMgmtGroupId);
+      return {
+        id: `sr-mgmt-${srMgmtGroupId}`,
+        name: srMgmtGroup?.name || "Sr MGMT Group",
+        userId: srMgmtGroup?.lead_user_id || null,
+        stage: null,
+        profilePhotoUrl: srMgmtGroup?.lead_user_id
+          ? repMap.get(srMgmtGroup.lead_user_id)?.profile_photo_url
+          : null,
+        isLabelNode: true,
+        roleColor: "sr_mgmt_group",
         children: [...children].sort((a, b) => b.children.length - a.children.length),
       };
     };
@@ -323,20 +349,66 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         }
       }
 
-      // Group roots by office → mgmt group
-      const officeGroups = new Map<string, Map<string, TreeNode[]>>();
+      // Group roots by office → sr_mgmt_group → mgmt_group
+      // Data structure: officeId → { srMgmtGroupId → { mgmtGroupId → roots[] } }
+      const officeGroups = new Map<string, Map<string, Map<string, TreeNode[]>>>();
       const ungroupedByMgmt = new Map<string, TreeNode[]>();
       const fullyUngrouped: TreeNode[] = [];
 
+      // Helper to resolve the office for a mgmt group (check sr_mgmt_group.office_id too)
+      const resolveOfficeId = (mgmtGroup: typeof mgmtGroups[number] | undefined): string | null => {
+        if (!mgmtGroup) return null;
+        if (mgmtGroup.office_id) return mgmtGroup.office_id;
+        // If mgmt group has a sr_mgmt_group, check its office
+        if (mgmtGroup.sr_mgmt_group_id) {
+          const srMgmt = srMgmtGroupMap.get(mgmtGroup.sr_mgmt_group_id);
+          if (srMgmt?.office_id) return srMgmt.office_id;
+        }
+        return null;
+      };
+
+      // Track roots that are Sr MGMT Group leaders placed directly under their Sr MGMT Group
+      // Key: srMgmtGroupId, Value: roots placed directly (not in a child MGMT Group)
+      const srMgmtDirectRoots = new Map<string, TreeNode[]>();
+
       trueRoots.forEach((root) => {
         const mgmtGroupId = root.userId ? resolveMgmtGroupId(root.userId) : null;
+
+        // If no MGMT group, check if this person leads a Sr MGMT Group
+        if (!mgmtGroupId && root.userId) {
+          const srMgmtId = resolveSrMgmtGroupId(root.userId);
+          if (srMgmtId) {
+            // This person is a Sr MGMT Group leader — place directly under their Sr MGMT Group
+            const srMgmt = srMgmtGroupMap.get(srMgmtId);
+            const officeId = srMgmt?.office_id || null;
+
+            if (isOfficeScopedToUser && (!officeId || !scopedOfficeIds.has(officeId))) return;
+
+            if (officeId) {
+              if (!officeGroups.has(officeId)) officeGroups.set(officeId, new Map());
+              const srMgmtMap = officeGroups.get(officeId)!;
+              if (!srMgmtMap.has(srMgmtId)) srMgmtMap.set(srMgmtId, new Map());
+              // Use a special key for direct placement under the Sr MGMT Group
+              const directKey = '__sr_mgmt_direct__';
+              const mgmtMap = srMgmtMap.get(srMgmtId)!;
+              if (!mgmtMap.has(directKey)) mgmtMap.set(directKey, []);
+              mgmtMap.get(directKey)!.push(root);
+            } else if (!isOfficeScopedToUser) {
+              if (!srMgmtDirectRoots.has(srMgmtId)) srMgmtDirectRoots.set(srMgmtId, []);
+              srMgmtDirectRoots.get(srMgmtId)!.push(root);
+            }
+            return;
+          }
+        }
+
         if (!mgmtGroupId) {
           if (!isOfficeScopedToUser) fullyUngrouped.push(root);
           return;
         }
 
         const mgmtGroup = mgmtGroupMap.get(mgmtGroupId);
-        const officeId = mgmtGroup?.office_id;
+        const officeId = resolveOfficeId(mgmtGroup);
+        const srMgmtGroupId = mgmtGroup?.sr_mgmt_group_id || null;
 
         if (isOfficeScopedToUser && (!officeId || !scopedOfficeIds.has(officeId))) {
           return;
@@ -344,7 +416,10 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
 
         if (officeId) {
           if (!officeGroups.has(officeId)) officeGroups.set(officeId, new Map());
-          const mgmtMap = officeGroups.get(officeId)!;
+          const srMgmtMap = officeGroups.get(officeId)!;
+          const srKey = srMgmtGroupId || '__no_sr_mgmt__';
+          if (!srMgmtMap.has(srKey)) srMgmtMap.set(srKey, new Map());
+          const mgmtMap = srMgmtMap.get(srKey)!;
           if (!mgmtMap.has(mgmtGroupId)) mgmtMap.set(mgmtGroupId, []);
           mgmtMap.get(mgmtGroupId)!.push(root);
           return;
@@ -369,27 +444,73 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         collectChildUserIds(root.children, globalDescendantIds);
       });
 
-      // Build existing office nodes
-      officeGroups.forEach((mgmtMap, officeId) => {
+      // Helper: build MGMT group nodes from a mgmt map (skips special __sr_mgmt_direct__ key)
+      const buildMgmtNodes = (mgmtMap: Map<string, TreeNode[]>): TreeNode[] => {
         const mgmtChildren: TreeNode[] = [];
-
         mgmtMap.forEach((nodes, mgmtGroupId) => {
+          if (mgmtGroupId === '__sr_mgmt_direct__') return; // handled separately
           const dedupedNodes = dedupeGroupNodes(nodes)
             .filter((node) => !node.userId || !globalDescendantIds.has(node.userId));
           mgmtChildren.push(createMgmtLabelNode(mgmtGroupId, dedupedNodes));
         });
+        return mgmtChildren;
+      };
 
-        // Add MGMT groups in this office that currently have no root recruiters
-        mgmtGroups.forEach((group) => {
-          if (group.office_id === officeId && !mgmtMap.has(group.id)) {
-            mgmtChildren.push(createMgmtLabelNode(group.id));
+      // Build office nodes with Sr MGMT Group layer
+      officeGroups.forEach((srMgmtMap, officeId) => {
+        const officeChildren: TreeNode[] = [];
+
+        srMgmtMap.forEach((mgmtMap, srKey) => {
+          const mgmtNodes = buildMgmtNodes(mgmtMap);
+
+          if (srKey !== '__no_sr_mgmt__') {
+            // Add any MGMT groups that belong to this Sr MGMT Group but have no roots yet
+            mgmtGroups.forEach((group) => {
+              if (group.sr_mgmt_group_id === srKey && !mgmtMap.has(group.id)) {
+                mgmtNodes.push(createMgmtLabelNode(group.id));
+              }
+            });
+
+            // Add direct Sr MGMT Group leader roots (not inside any child MGMT Group)
+            const directRoots = mgmtMap.get('__sr_mgmt_direct__') || [];
+            const dedupedDirectRoots = dedupeGroupNodes(directRoots)
+              .filter((node) => !node.userId || !globalDescendantIds.has(node.userId));
+            const allSrChildren = [...mgmtNodes, ...dedupedDirectRoots];
+            officeChildren.push(createSrMgmtLabelNode(srKey, allSrChildren));
+          } else {
+            officeChildren.push(...mgmtNodes);
           }
         });
 
-        rootNodes.push(createOfficeLabelNode(officeId, mgmtChildren));
+        // Add Sr MGMT groups in this office that have no roots yet
+        srMgmtGroups.forEach((smg) => {
+          const smgOfficeId = smg.office_id;
+          if (smgOfficeId !== officeId) return;
+          const alreadyInTree = srMgmtMap.has(smg.id);
+          if (alreadyInTree) return;
+
+          // Find MGMT groups under this Sr MGMT Group
+          const childMgmtNodes = mgmtGroups
+            .filter((mg) => mg.sr_mgmt_group_id === smg.id)
+            .map((mg) => createMgmtLabelNode(mg.id));
+          officeChildren.push(createSrMgmtLabelNode(smg.id, childMgmtNodes));
+        });
+
+        // Add orphan MGMT groups in this office with no Sr MGMT Group and no roots
+        mgmtGroups.forEach((group) => {
+          const groupOfficeId = resolveOfficeId(group);
+          if (groupOfficeId !== officeId) return;
+          if (group.sr_mgmt_group_id) return; // already under a Sr MGMT Group
+          // Check if already included via srMgmtMap '__no_sr_mgmt__'
+          const noSrMap = srMgmtMap.get('__no_sr_mgmt__');
+          if (noSrMap?.has(group.id)) return;
+          officeChildren.push(createMgmtLabelNode(group.id));
+        });
+
+        rootNodes.push(createOfficeLabelNode(officeId, officeChildren));
       });
 
-      // Ensure offices with mgmt groups still render even if they had zero roots
+      // Ensure offices with groups still render even if they had zero roots
       const existingOfficeIds = new Set(
         rootNodes
           .map((node) => node.id)
@@ -397,20 +518,43 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
           .map((id) => id.replace("office-", ""))
       );
 
-      const mgmtGroupsByOffice = new Map<string, (typeof mgmtGroups)>();
+      // Collect all offices that should appear (from mgmt groups and sr_mgmt_groups)
+      const allOfficeIds = new Set<string>();
       mgmtGroups.forEach((group) => {
-        if (!group.office_id) return;
-        if (isOfficeScopedToUser && !scopedOfficeIds.has(group.office_id)) return;
-
-        const existing = mgmtGroupsByOffice.get(group.office_id) || [];
-        existing.push(group);
-        mgmtGroupsByOffice.set(group.office_id, existing);
+        const oid = resolveOfficeId(group);
+        if (oid) {
+          if (!isOfficeScopedToUser || scopedOfficeIds.has(oid)) allOfficeIds.add(oid);
+        }
+      });
+      srMgmtGroups.forEach((smg) => {
+        if (smg.office_id) {
+          if (!isOfficeScopedToUser || scopedOfficeIds.has(smg.office_id)) allOfficeIds.add(smg.office_id);
+        }
       });
 
-      mgmtGroupsByOffice.forEach((groups, officeId) => {
+      allOfficeIds.forEach((officeId) => {
         if (existingOfficeIds.has(officeId)) return;
-        const mgmtChildren = groups.map((group) => createMgmtLabelNode(group.id));
-        rootNodes.push(createOfficeLabelNode(officeId, mgmtChildren));
+
+        const officeChildren: TreeNode[] = [];
+
+        // Sr MGMT Groups in this office
+        srMgmtGroups
+          .filter((smg) => smg.office_id === officeId)
+          .forEach((smg) => {
+            const childMgmtNodes = mgmtGroups
+              .filter((mg) => mg.sr_mgmt_group_id === smg.id)
+              .map((mg) => createMgmtLabelNode(mg.id));
+            officeChildren.push(createSrMgmtLabelNode(smg.id, childMgmtNodes));
+          });
+
+        // MGMT Groups directly in this office (no Sr MGMT Group)
+        mgmtGroups
+          .filter((mg) => mg.office_id === officeId && !mg.sr_mgmt_group_id)
+          .forEach((mg) => {
+            officeChildren.push(createMgmtLabelNode(mg.id));
+          });
+
+        rootNodes.push(createOfficeLabelNode(officeId, officeChildren));
       });
 
       // MGMT groups without an office

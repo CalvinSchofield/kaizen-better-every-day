@@ -15,6 +15,7 @@ export type RoleColor =
   | "corporate"   // gold
   | "regional"    // red
   | "area_director" // amber
+  | "sr_mgmt_group" // purple
   | "mgmt_group"  // blue
   | "team_lead"   // green
   | "none";        // default gray
@@ -75,6 +76,7 @@ const ROLE_RING_CLASSES: Record<RoleColor, string> = {
   corporate: "border-yellow-500 ring-2 ring-yellow-300/40",
   regional: "border-red-500 ring-2 ring-red-300/40",
   area_director: "border-amber-500 ring-2 ring-amber-300/40",
+  sr_mgmt_group: "border-purple-500 ring-2 ring-purple-300/40",
   mgmt_group: "border-blue-500 ring-2 ring-blue-300/40",
   team_lead: "border-green-500 ring-2 ring-green-300/40",
   none: "border-border",
@@ -84,6 +86,7 @@ const ROLE_BG_CLASSES: Record<RoleColor, string> = {
   corporate: "bg-yellow-50 dark:bg-yellow-950/30",
   regional: "bg-red-50 dark:bg-red-950/30",
   area_director: "bg-amber-50 dark:bg-amber-950/30",
+  sr_mgmt_group: "bg-purple-50 dark:bg-purple-950/30",
   mgmt_group: "bg-blue-50 dark:bg-blue-950/30",
   team_lead: "bg-green-50 dark:bg-green-950/30",
   none: "bg-muted",
@@ -93,6 +96,7 @@ const ROLE_STROKE_COLORS: Record<RoleColor, string> = {
   corporate: "#eab308",
   regional: "#ef4444",
   area_director: "#f59e0b",
+  sr_mgmt_group: "#a855f7",
   mgmt_group: "#3b82f6",
   team_lead: "#22c55e",
   none: "",  // will use CSS class
@@ -102,6 +106,7 @@ const ROLE_LABEL_TEXT: Record<RoleColor, string> = {
   corporate: "text-yellow-600 dark:text-yellow-400",
   regional: "text-red-600 dark:text-red-400",
   area_director: "text-amber-600 dark:text-amber-400",
+  sr_mgmt_group: "text-purple-600 dark:text-purple-400",
   mgmt_group: "text-blue-600 dark:text-blue-400",
   team_lead: "text-green-600 dark:text-green-400",
   none: "text-muted-foreground",
@@ -498,6 +503,7 @@ function LabelNodeRenderer({
     corporate: "bg-yellow-100 dark:bg-yellow-900/40 border-yellow-300 dark:border-yellow-700",
     regional: "bg-red-100 dark:bg-red-900/40 border-red-300 dark:border-red-700",
     area_director: "bg-amber-100 dark:bg-amber-900/40 border-amber-300 dark:border-amber-700",
+    sr_mgmt_group: "bg-purple-100 dark:bg-purple-900/40 border-purple-300 dark:border-purple-700",
     mgmt_group: "bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700",
     team_lead: "bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-700",
     none: "bg-muted border-border",
