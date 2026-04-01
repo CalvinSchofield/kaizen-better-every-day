@@ -751,7 +751,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       }
     }
 
-    return rootNodesPLACEHOLDER_SORT;
+    return sortByDownlineSize(rootNodes);
   }, [treeData, teamAccess, currentAuthUserId, groupByOffice]);
 
   // Filter for search
