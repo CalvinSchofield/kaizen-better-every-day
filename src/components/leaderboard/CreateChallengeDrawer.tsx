@@ -14,11 +14,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, ChevronLeft, Loader2, Eye, EyeOff, X, CalendarIcon, CalendarCheck, Search, Building2 } from "lucide-react";
+import { Trophy, DollarSign, ArrowRightLeft, Footprints, Users, User, ChevronRight, ChevronLeft, Loader2, Eye, EyeOff, X, CalendarIcon, CalendarCheck, Search, Building2, Car } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays, startOfWeek, endOfWeek } from "date-fns";
 import { getInitials } from "@/utils/nameUtils";
 import { YearBadge } from "./YearBadge";
+import { CarWarsTeamBuilder, CarWarsTeam } from "@/components/compete/CarWarsTeamBuilder";
 
 interface CreateChallengeDrawerProps {
   open: boolean;
@@ -37,8 +38,13 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
   const [type, setType] = useState<ChallengeType>('1v1');
   const [selectedOpponent, setSelectedOpponent] = useState<string | null>(null);
   // Team mode: multi-select for team members
-  const [teamA, setTeamA] = useState<string[]>([]); // Current user's team (excluding self, added automatically)
-  const [teamB, setTeamB] = useState<string[]>([]); // Opponent's team
+  const [teamA, setTeamA] = useState<string[]>([]);
+  const [teamB, setTeamB] = useState<string[]>([]);
+  // Car Wars teams
+  const [carWarsTeams, setCarWarsTeams] = useState<CarWarsTeam[]>([
+    { key: '1', label: 'Car 1', members: [] },
+    { key: '2', label: 'Car 2', members: [] },
+  ]);
   const [metric, setMetric] = useState<ChallengeMetric>('fp_plus');
   const [duration, setDuration] = useState<'today' | 'tomorrow' | 'week' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(new Date());
@@ -186,17 +192,20 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
         toast.error('Please select an opponent');
         return;
       }
-    } else {
-      // Group mode
+    } else if (type === 'group') {
       if (teamB.length === 0) {
         toast.error('Please select at least one opponent for Team B');
+        return;
+      }
+    } else if (type === 'car_wars') {
+      const teamsWithMembers = carWarsTeams.filter(t => t.members.length > 0);
+      if (teamsWithMembers.length < 2) {
+        toast.error('At least 2 teams need members');
         return;
       }
     }
 
     const { start, end } = getDateRange();
-
-    // Use rep's timezone or fall back to browser timezone
     const creatorTimezone = currentUserRep?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     try {
@@ -215,16 +224,38 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
             role: 'captain_b',
           }],
         });
+      } else if (type === 'car_wars') {
+        // Car Wars: all members from all teams
+        const participants = carWarsTeams.flatMap(team =>
+          team.members.map(userId => ({
+            user_id: userId,
+            team: team.key,
+            role: 'member' as const,
+          }))
+        );
+
+        result = await createMutation.mutateAsync({
+          type,
+          metric,
+          visibility: isPublic ? 'public' : 'private',
+          stakes: stakes || undefined,
+          start_date: format(start, 'yyyy-MM-dd'),
+          end_date: format(end, 'yyyy-MM-dd'),
+          creator_timezone: creatorTimezone,
+          participants,
+          teams: carWarsTeams.filter(t => t.members.length > 0).map(t => ({
+            team_key: t.key,
+            team_label: t.label,
+          })),
+        });
       } else {
         // Group/Team mode
         const participants = [
-          // Team A members (excluding creator who is added automatically)
           ...teamA.map(userId => ({
             user_id: userId,
             team: 'a' as const,
             role: 'member' as const,
           })),
-          // Team B - first person is captain_b, others are members
           ...teamB.map((userId, index) => ({
             user_id: userId,
             team: 'b' as const,
@@ -244,11 +275,10 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
         });
       }
       
-      // Show different toast based on whether challenge was auto-started
       if (result?.autoStarted) {
-        toast.success('Challenge started! 🚀');
+        toast.success(type === 'car_wars' ? 'Car Wars started! 🏎️' : 'Challenge started! 🚀');
       } else {
-        toast.success('Challenge sent! 🎯');
+        toast.success(type === 'car_wars' ? 'Car Wars created! 🏎️' : 'Challenge sent! 🎯');
       }
       
       onOpenChange(false);
@@ -264,6 +294,10 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
     setSelectedOpponent(null);
     setTeamA([]);
     setTeamB([]);
+    setCarWarsTeams([
+      { key: '1', label: 'Car 1', members: [] },
+      { key: '2', label: 'Car 2', members: [] },
+    ]);
     setMetric('fp_plus');
     setDuration('today');
     setCustomStartDate(new Date());
@@ -285,6 +319,8 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
 
   const getTotalSteps = () => 4;
 
+  const carWarsMinValid = type === 'car_wars' && carWarsTeams.filter(t => t.members.length > 0).length >= 2;
+
   return (
     <Drawer open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetForm(); }}>
       <DrawerContent className="max-h-[90vh]">
@@ -294,7 +330,9 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
               <ChevronLeft className="h-4 w-4" />
             </Button>
           )}
-          <DrawerTitle className="flex-1">New Challenge</DrawerTitle>
+          <DrawerTitle className="flex-1">
+            {type === 'car_wars' ? 'New Car Wars' : 'New Challenge'}
+          </DrawerTitle>
           <span className="text-xs text-muted-foreground">{step}/{getTotalSteps()}</span>
         </DrawerHeader>
 
@@ -302,23 +340,31 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
           {/* Step 1: Type */}
           {step === 1 && (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">Who do you want to challenge?</p>
-              <div className="grid grid-cols-2 gap-3">
+              <p className="text-sm text-muted-foreground">What type of competition?</p>
+              <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => { setType('1v1'); setStep(2); }}
                   className="p-4 rounded-xl border-2 border-border hover:border-primary transition-colors text-center"
                 >
                   <User className="h-8 w-8 mx-auto mb-2 text-primary" />
-                  <p className="font-semibold">1v1</p>
-                  <p className="text-xs text-muted-foreground">Head to head</p>
+                  <p className="font-semibold text-sm">1v1</p>
+                  <p className="text-[10px] text-muted-foreground">Head to head</p>
                 </button>
                 <button
                   onClick={() => { setType('group'); setStep(2); }}
                   className="p-4 rounded-xl border-2 border-border hover:border-primary transition-colors text-center"
                 >
                   <Users className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-                  <p className="font-semibold">Team</p>
-                  <p className="text-xs text-muted-foreground">Team vs Team</p>
+                  <p className="font-semibold text-sm">Team</p>
+                  <p className="text-[10px] text-muted-foreground">Team vs Team</p>
+                </button>
+                <button
+                  onClick={() => { setType('car_wars'); setStep(2); }}
+                  className="p-4 rounded-xl border-2 border-border hover:border-purple-500 transition-colors text-center"
+                >
+                  <Car className="h-8 w-8 mx-auto mb-2 text-purple-500" />
+                  <p className="font-semibold text-sm">Car Wars</p>
+                  <p className="text-[10px] text-muted-foreground">Multi-team</p>
                 </button>
               </div>
             </div>
@@ -597,6 +643,33 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
             </div>
           )}
 
+          {/* Step 2: Car Wars Team Builder */}
+          {step === 2 && type === 'car_wars' && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">Build your teams — tap a rep to assign them to the selected team</p>
+              
+              <CarWarsTeamBuilder
+                allReps={allReps}
+                currentUserId={currentUserId}
+                teams={carWarsTeams}
+                onTeamsChange={setCarWarsTeams}
+                availableScopes={availableScopes}
+                workingUserIds={workingUserIds}
+                isLoading={isLoadingPool}
+              />
+
+              <Button
+                onClick={() => setStep(3)}
+                className="w-full"
+                disabled={!carWarsMinValid}
+              >
+                {carWarsMinValid 
+                  ? `Continue with ${carWarsTeams.filter(t => t.members.length > 0).length} teams`
+                  : 'Need at least 2 teams with members'}
+              </Button>
+            </div>
+          )}
+
           {/* Step 3: Metric */}
           {step === 3 && (
             <div className="space-y-4">
@@ -709,7 +782,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
 
               <Button onClick={handleCreate} className="w-full" disabled={createMutation.isPending}>
                 {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Send Challenge 🔥
+                {type === 'car_wars' ? 'Start Car Wars 🏎️' : 'Send Challenge 🔥'}
               </Button>
             </div>
           )}

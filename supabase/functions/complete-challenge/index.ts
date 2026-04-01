@@ -15,7 +15,7 @@ interface ChallengeParticipant {
 
 interface Challenge {
   id: string;
-  type: '1v1' | 'group';
+  type: '1v1' | 'group' | 'car_wars';
   metric: 'fp_plus' | 'prmr' | 'transitions' | 'doors_knocked';
   status: string;
   start_date: string;
@@ -203,8 +203,60 @@ Deno.serve(async (req) => {
               console.log(`[complete-challenge] Non-FP+ tie - co-winners`);
             }
           }
+        } else if (challenge.type === 'car_wars') {
+          // Car Wars: Compare team totals across all teams
+          const { data: challengeTeams } = await supabase
+            .from('challenge_teams')
+            .select('team_key, team_label')
+            .eq('challenge_id', challenge.id);
+
+          const teamTotals = new Map<string, number>();
+          (challengeTeams || []).forEach(t => teamTotals.set(t.team_key, 0));
+
+          participants.forEach((p: ChallengeParticipant) => {
+            if (p.team) {
+              const current = teamTotals.get(p.team) || 0;
+              teamTotals.set(p.team, current + (userTotals.get(p.user_id)?.primary || 0));
+            }
+          });
+
+          // Find winning team
+          let maxScore = -1;
+          let winningTeamKey: string | null = null;
+          let tieCount = 0;
+
+          teamTotals.forEach((score, key) => {
+            if (score > maxScore) {
+              maxScore = score;
+              winningTeamKey = key;
+              tieCount = 1;
+            } else if (score === maxScore) {
+              tieCount++;
+            }
+          });
+
+          if (tieCount > 1) {
+            isTie = true;
+            winnerUserId = null;
+          } else if (winningTeamKey) {
+            // Winner is the first member of the winning team (or captain_a if they're on that team)
+            const winningMembers = participants.filter((p: ChallengeParticipant) => p.team === winningTeamKey);
+            winnerUserId = winningMembers[0]?.user_id || null;
+          }
+
+          // Store winner_team_key
+          const { error: teamKeyError } = await supabase
+            .from('challenges')
+            .update({ winner_team_key: winningTeamKey })
+            .eq('id', challenge.id);
+          
+          if (teamKeyError) {
+            console.error(`[complete-challenge] Error setting winner_team_key:`, teamKeyError);
+          }
+
+          console.log(`[complete-challenge] Car Wars - Winner team: ${winningTeamKey}, scores:`, Object.fromEntries(teamTotals));
         } else {
-          // Group: Compare team totals
+          // Group: Compare team totals (a vs b)
           const teamATotals = participants
             .filter((p: ChallengeParticipant) => p.team === 'a')
             .reduce((sum: number, p: ChallengeParticipant) => sum + (userTotals.get(p.user_id)?.primary || 0), 0);

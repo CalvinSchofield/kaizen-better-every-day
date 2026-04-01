@@ -464,6 +464,38 @@ export type Database = {
           },
         ]
       }
+      challenge_teams: {
+        Row: {
+          challenge_id: string
+          created_at: string
+          id: string
+          team_key: string
+          team_label: string
+        }
+        Insert: {
+          challenge_id: string
+          created_at?: string
+          id?: string
+          team_key: string
+          team_label?: string
+        }
+        Update: {
+          challenge_id?: string
+          created_at?: string
+          id?: string
+          team_key?: string
+          team_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_teams_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       challenges: {
         Row: {
           completed_at: string | null
@@ -480,6 +512,7 @@ export type Database = {
           tiebreaker_winner_id: string | null
           type: string
           visibility: string
+          winner_team_key: string | null
           winner_user_id: string | null
         }
         Insert: {
@@ -497,6 +530,7 @@ export type Database = {
           tiebreaker_winner_id?: string | null
           type: string
           visibility?: string
+          winner_team_key?: string | null
           winner_user_id?: string | null
         }
         Update: {
@@ -514,6 +548,7 @@ export type Database = {
           tiebreaker_winner_id?: string | null
           type?: string
           visibility?: string
+          winner_team_key?: string | null
           winner_user_id?: string | null
         }
         Relationships: []
