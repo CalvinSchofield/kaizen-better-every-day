@@ -366,11 +366,13 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
           className="px-8 h-12 rounded-full font-semibold pointer-events-auto"
         >
           {isLastSlide ? (
-            segment === 'in-org-rookie-preseason' || segment === 'in-org-rookie-summer' || userType === 'pre-blitz-rookie' 
-              ? "Meet the Team" 
-              : segment === 'outside-org' || segment === 'in-org-vet'
-                ? "Set Up Goals"
-                : "Get Started"
+            isLeaderProp
+              ? "Build Your Org"
+              : segment === 'in-org-rookie-preseason' || segment === 'in-org-rookie-summer' || userType === 'pre-blitz-rookie' 
+                ? "Meet the Team" 
+                : segment === 'outside-org' || segment === 'in-org-vet'
+                  ? "Set Up Goals"
+                  : "Get Started"
           ) : "Next"}
           {!isLastSlide && <ChevronRight className="w-5 h-5 ml-1" />}
         </Button>
