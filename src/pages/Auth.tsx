@@ -179,8 +179,17 @@ const Auth = () => {
           navigate("/setup");
         }
       } else {
-        // Sign up
-        if (!name.trim()) {
+        // Sign up — require invite code
+        if (!inviteCode) {
+          toast({
+            title: "Invite required",
+            description: "You need an invite link from your team leader to sign up.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
           toast({
             title: "Name required",
             description: "Please enter your name to continue.",
