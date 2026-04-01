@@ -225,7 +225,10 @@ export const useWatchlistDetails = () => {
           weekFp: ud.weekFp,
           monthFp: ud.monthFp,
           seasonFp: ud.seasonFp,
-          salesStreak: calcSalesStreak(ud.entryDates),
+          ...(() => {
+            const s = calcSalesStreak(uid, ud.entryDates);
+            return { salesStreak: s.streak, streakShieldCount: s.shieldCount };
+          })(),
         };
       };
 
