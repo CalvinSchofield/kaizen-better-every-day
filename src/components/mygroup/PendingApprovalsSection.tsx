@@ -59,6 +59,21 @@ export const PendingApprovalsSection = () => {
   const [selectedLeaderGroup, setSelectedLeaderGroup] = useState('');
   const [isAssigningLeader, setIsAssigningLeader] = useState(false);
 
+  // Determine if the current user can approve (must NOT be a rookie, and must be at least team_lead level)
+  const accessLevel = (teamAccess?.accessLevel || 'none') as AccessLevel;
+  const { data: currentUserYear } = useQuery({
+    queryKey: ['my-rep-year-for-approval', userId],
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase.from('reps').select('year').eq('user_id', userId!).maybeSingle();
+      return data?.year || 'Rookie';
+    },
+  });
+  const isRookie = currentUserYear === 'Rookie';
+  // Rookies cannot approve. Only non-rookies who are at least team_lead level (up to mgmt_group_lead) can approve.
+  const canApprove = !isRookie && hasMinAccess(accessLevel, 'team_lead');
+
   // Fetch unled groups when leadership prompt is shown
   const { data: unleadedGroups = [] } = useQuery({
     queryKey: ['unleaded-groups-for-assignment'],
