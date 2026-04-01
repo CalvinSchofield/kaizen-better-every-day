@@ -198,13 +198,18 @@ const Leaderboard = () => {
           />
         </div>
 
-        {/* Smart Filter Drawer */}
-        <SmartFilterDrawer
+        {/* Unified Filter Drawer */}
+        <UnifiedFilterDrawer
           open={showFilterDrawer}
           onOpenChange={setShowFilterDrawer}
           filterState={smartFilter}
           onFilterApply={setSmartFilter}
-          showTeamFilters={false}
+          mode="leaderboard"
+          hierarchy={teamAccess?.hierarchy}
+          mgmtGroups={teamAccess?.mgmtGroups || []}
+          teams={teamAccess?.teams || []}
+          accessibleReps={teamAccess?.accessibleReps || []}
+          accessLevel={teamAccess?.accessLevel}
         />
 
         {/* Content */}
