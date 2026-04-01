@@ -503,6 +503,7 @@ function LabelNodeRenderer({
     corporate: "bg-yellow-100 dark:bg-yellow-900/40 border-yellow-300 dark:border-yellow-700",
     regional: "bg-red-100 dark:bg-red-900/40 border-red-300 dark:border-red-700",
     area_director: "bg-amber-100 dark:bg-amber-900/40 border-amber-300 dark:border-amber-700",
+    sr_mgmt_group: "bg-purple-100 dark:bg-purple-900/40 border-purple-300 dark:border-purple-700",
     mgmt_group: "bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700",
     team_lead: "bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-700",
     none: "bg-muted border-border",
