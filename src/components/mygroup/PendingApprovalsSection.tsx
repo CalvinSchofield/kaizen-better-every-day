@@ -415,8 +415,8 @@ export const PendingApprovalsSection = () => {
         </DrawerContent>
       </Drawer>
 
-      {/* Post-approval leadership prompt */}
-      <Drawer open={!!leadershipPrompt} onOpenChange={(open) => !open && setLeadershipPrompt(null)}>
+      {/* Post-approval leadership prompt with optional group assignment */}
+      <Drawer open={!!leadershipPrompt} onOpenChange={(open) => { if (!open) { setLeadershipPrompt(null); setSelectedLeaderGroup(''); } }}>
         <DrawerContent>
           <DrawerHeader>
             <DrawerTitle>🎉 Role Assigned!</DrawerTitle>
@@ -426,11 +426,58 @@ export const PendingApprovalsSection = () => {
               <strong>{leadershipPrompt?.name}</strong> has been assigned the <strong>{leadershipPrompt?.role}</strong> role. 
               They can now manage their org structure and send invite links to their downline.
             </p>
+
+            {unleadedGroups.length > 0 && leadershipPrompt?.recruitUserId && (
+              <div className="space-y-2 pt-2 border-t">
+                <Label className="text-sm font-medium">Assign as leader of...</Label>
+                <Select value={selectedLeaderGroup} onValueChange={setSelectedLeaderGroup}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Skip — assign later" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Skip — assign later</SelectItem>
+                    {unleadedGroups.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name} ({g.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <p className="text-sm text-muted-foreground">
               💡 <strong>Next step:</strong> Let {leadershipPrompt?.name} know they can go to the <strong>Organization</strong> tab to set up their teams, then share their invite link with their people.
             </p>
-            <Button className="w-full" onClick={() => setLeadershipPrompt(null)}>
-              Got it
+            <Button
+              className="w-full"
+              disabled={isAssigningLeader}
+              onClick={async () => {
+                if (selectedLeaderGroup && selectedLeaderGroup !== '__none__' && leadershipPrompt?.recruitUserId) {
+                  setIsAssigningLeader(true);
+                  try {
+                    const [table, groupId] = selectedLeaderGroup.split(':');
+                    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+                    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+                    await fetch(`${supabaseUrl}/rest/v1/${table}?id=eq.${groupId}`, {
+                      method: 'PATCH',
+                      headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                      body: JSON.stringify({ lead_user_id: leadershipPrompt.recruitUserId }),
+                    });
+                    const groupName = unleadedGroups.find(g => g.id === selectedLeaderGroup)?.name;
+                    toast.success(`${leadershipPrompt.name} assigned as leader of ${groupName}`);
+                    queryClient.invalidateQueries({ queryKey: ['org-structure'] });
+                  } catch (e) {
+                    toast.error('Failed to assign leader');
+                  } finally {
+                    setIsAssigningLeader(false);
+                  }
+                }
+                setLeadershipPrompt(null);
+                setSelectedLeaderGroup('');
+              }}
+            >
+              {isAssigningLeader ? 'Assigning...' : selectedLeaderGroup && selectedLeaderGroup !== '__none__' ? 'Assign & Done' : 'Got it'}
             </Button>
           </div>
         </DrawerContent>
