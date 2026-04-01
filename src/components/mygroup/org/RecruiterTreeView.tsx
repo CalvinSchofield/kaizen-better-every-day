@@ -139,6 +139,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
     // Build mgmt_group → office lookup
     const mgmtGroupMap = new Map(mgmtGroups.map((mg) => [mg.id, mg]));
     const officeMap = new Map(offices.map((o) => [o.id, o]));
+    const srMgmtGroupMap = new Map(srMgmtGroups.map((smg) => [smg.id, smg]));
 
     const recruitsByRecruiter = new Map<string, typeof recruits>();
     recruits.forEach((recruit) => {
