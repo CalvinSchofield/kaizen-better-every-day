@@ -50,8 +50,33 @@ export const PendingApprovalsSection = () => {
   const { data: teamAccess } = useTeamAccess();
   const [editingRecruit, setEditingRecruit] = useState<PendingRecruit | null>(null);
   const [rejectConfirmId, setRejectConfirmId] = useState<string | null>(null);
-  const [leadershipPrompt, setLeadershipPrompt] = useState<{ name: string; role: string } | null>(null);
+  const [leadershipPrompt, setLeadershipPrompt] = useState<{ name: string; role: string; recruitId: string; recruitUserId: string | null } | null>(null);
   const [showReassignPrompt, setShowReassignPrompt] = useState(false);
+  const [selectedLeaderGroup, setSelectedLeaderGroup] = useState('');
+  const [isAssigningLeader, setIsAssigningLeader] = useState(false);
+
+  // Fetch unled groups when leadership prompt is shown
+  const { data: unleadedGroups = [] } = useQuery({
+    queryKey: ['unleaded-groups-for-assignment'],
+    enabled: !!leadershipPrompt,
+    queryFn: async () => {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const headers = { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` };
+
+      const results: { id: string; name: string; type: string }[] = [];
+      
+      for (const table of ['teams', 'mgmt_groups', 'sr_mgmt_groups'] as const) {
+        const res = await fetch(`${supabaseUrl}/rest/v1/${table}?lead_user_id=is.null&select=id,name`, { headers });
+        const rows = await res.json();
+        const typeLabel = table === 'teams' ? 'Team' : table === 'mgmt_groups' ? 'MGMT Group' : 'Sr MGMT Group';
+        for (const row of (rows || [])) {
+          results.push({ id: `${table}:${row.id}`, name: row.name, type: typeLabel });
+        }
+      }
+      return results;
+    },
+  });
 
   // Fetch pending recruits that this user can approve
   const { data: pendingRecruits = [], isLoading } = useQuery({
