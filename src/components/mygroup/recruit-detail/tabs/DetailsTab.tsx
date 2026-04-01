@@ -167,7 +167,8 @@ export const DetailsTab = ({
   const BOOTSTRAP_USER_ID = '843dac61-139d-4511-a057-c3bf359a9c07';
   const isBootstrapUser = currentUserId === BOOTSTRAP_USER_ID;
   const isOriginalInviter = recruitDetails?.recruiter_user_id === currentUserId;
-  const canEditRole = recruitRole && (
+  const isViewingSelf = recruitRole && (recruitRole as any).user_id === currentUserId;
+  const canEditRole = recruitRole && !isViewingSelf && (
     isOriginalInviter || hasMinAccess(accessLevel, 'mgmt_group_lead')
   );
 
