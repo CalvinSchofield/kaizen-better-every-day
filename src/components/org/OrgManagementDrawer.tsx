@@ -57,6 +57,7 @@ interface CreateDrawerProps {
 
 export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, parentType: propParentType }: CreateDrawerProps) => {
   const queryClient = useQueryClient();
+  const { userId: currentUserId } = useCurrentUserId();
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [step, setStep] = useState<"name" | "lead" | "parent">("name");
@@ -69,6 +70,7 @@ export const CreateDrawer = ({ open, onOpenChange, type, parentId, parentName, p
   const [selectedParentId, setSelectedParentId] = useState<string>("__none__");
   const [autoFilledParent, setAutoFilledParent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
 
   const typeLabel = type === "office" ? "Office"
     : type === "region" ? "Region"
