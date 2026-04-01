@@ -371,12 +371,10 @@ export const PendingApprovalsSection = () => {
             // This allows "invite your boss" flow while preventing abuse
             editingRecruit.recruiter_user_id === userId
           }
-          onSuccess={(assignedRole) => {
+          onSuccess={async (assignedRole) => {
             queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
             queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-            // Show leadership prompt if a role was assigned
             if (assignedRole && editingRecruit) {
-              // Get the recruit's user_id for leader assignment
               const { data: repData } = await supabase.from('reps').select('user_id').eq('id', editingRecruit.id).maybeSingle();
               setLeadershipPrompt({
                 name: editingRecruit.name,
@@ -384,6 +382,7 @@ export const PendingApprovalsSection = () => {
                 recruitId: editingRecruit.id,
                 recruitUserId: repData?.user_id || null,
               });
+              queryClient.invalidateQueries({ queryKey: ['unleaded-groups-for-assignment'] });
             }
           }}
         />
