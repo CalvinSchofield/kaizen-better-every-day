@@ -1,123 +1,73 @@
-# Unified Smart Filter System — Leaderboard & Reports
-
-## Overview
-
-Replace the current fragmented filter system with a single, world-class `UnifiedFilterDrawer` component shared by both Leaderboard and Reports pages. The drawer displays a nested organizational hierarchy, supports multi-select, saved filters, defaults, and respects scope boundaries per page context.
-
-## Key Differences Between Pages
 
 
-| Aspect                      | Leaderboard                           | Reports                         |
-| --------------------------- | ------------------------------------- | ------------------------------- |
-| Default scope               | User's office (Yosemite 2026)         | User's highest downline scope   |
-| Can expand beyond downline? | Yes — entire org/company              | No — limited to accessible reps |
-| AD summer override          | Default = office                      | Default = office                |
-| Multi-select                | Yes (multiple offices, teams, groups) | Yes (within downline only)      |
+# Streamline Leader Assignment for Pre-Built Org Structure
 
+## Current State
 
-## Architecture
+**What works today:**
+- Leaders CAN create groups first (teams, MGMT groups, etc.) with `lead_user_id = null` (no leader assigned yet)
+- The `auto_assign_ghost_leader` DB trigger auto-assigns leadership when a user signs up IF their name matches the group name exactly (e.g., user "Quinn Gleed" signs up → auto-assigned to "Quinn Gleed" MGMT group)
+- Ghost reps (no app account) appear in the leader picker during creation
 
-### 1. Backend: Enrich `fetch-team-access` Response
+**The gap:**
+1. If the group name doesn't match the person's name exactly (e.g., "West Coast MGMT" led by Quinn), auto-assignment won't fire
+2. When approving a pending invite, the approver can't assign the invitee as group leader — they can only approve/reject
+3. After approval, the leader has to navigate back to Org tab and manually edit the group to assign the new user as leader — this is clunky and easy to forget
 
-The edge function currently returns flat `mgmtGroups`, `teams`, `accessibleReps`. We need to add:
+## Recommended Flow: Structure First, Then Invite & Assign
 
-- `**hierarchy**` — nested tree structure:
-  - `offices` (with nested mgmt groups → teams)
-  - `srMgmtGroups` (with nested mgmt groups → teams)
-  - `regions` / `srRegions` (for regional+ users)
-- `**userOfficeIds**` — which offices the user is assigned to (already computed, just not returned)
-- `**isAreaDirector**` — boolean flag (already computed, not returned)
-- `**srMgmtGroups**` — list of Sr MGMT groups with child mgmt group IDs
+The ideal UX is: **Create structure first → Invite leaders → During invite approval, assign them as group leader in one step.**
 
-This gives the frontend the full tree to render nested filters without additional queries.
+### Changes
 
-### 2. New `UnifiedFilterDrawer` Component
+#### 1. Enhance Invite Approval Flow with Leader Assignment
+**File:** `src/components/mygroup/recruit-detail/RecruitDetailDrawer.tsx` (or approval component)
 
-Replaces `SmartFilterDrawer`. Single component used on both pages with a `mode` prop (`'leaderboard' | 'reports'`).
+When approving a pending invite for someone who has a leadership role pre-assigned or who could lead an unleaded group:
+- Show a new optional step: "Assign as leader of..." with a dropdown of unled groups the approver manages
+- If the group was pre-named after the person (e.g., "Quinn Gleed MGMT"), auto-suggest it
+- On approval + assignment, call the existing `manage-mgmt-group` (or equivalent) endpoint to set `lead_user_id`
 
-**Filter State Shape:**
+#### 2. Improve CreateEntityDrawer to Accept Pending/Ghost Leaders
+**File:** `src/components/mygroup/org/CreateEntityDrawer.tsx`
 
-```typescript
-interface UnifiedFilterState {
-  scope: 'all' | 'watchlist';
-  yearFilters: string[];           // ['Rookie', 'Sophomore', 'Vet']
-  selectedNodes: FilterNode[];      // multi-select hierarchy nodes
-  isOrgWide: boolean;              // leaderboard only — view entire company
-}
+Currently the leader picker only works well with users who have accounts. Enhance it to:
+- Show pending invitees (recruits with email but no `user_id` yet) as selectable leaders with a "Pending" badge
+- Store the recruit name/ID as a placeholder — when they sign up and get approved, auto-link via the existing ghost leader trigger
+- Add a note: "This person will be assigned as leader once they join"
 
-interface FilterNode {
-  type: 'office' | 'sr_mgmt_group' | 'mgmt_group' | 'team' | 'region';
-  id: string;
-  name: string;
-}
+#### 3. Strengthen `auto_assign_ghost_leader` Trigger
+**File:** Database migration
+
+Currently matches on exact name only. Enhance to also check:
+- If there's a recruit record with matching email whose name matches a group name
+- Store a `pending_lead_recruit_id` on teams/mgmt_groups tables so assignment is deterministic (not name-heuristic)
+
+#### 4. Post-Approval Auto-Assignment Hook
+**File:** `supabase/functions/process-invite-signup/index.ts` or `manage-org-request/index.ts`
+
+After a pending invite is approved and the user gets a `user_id`:
+- Check if any group has `pending_lead_recruit_id` matching this recruit
+- If so, set `lead_user_id` to the new user's ID and clear `pending_lead_recruit_id`
+
+### Summary of UX Flow
+
+```text
+Gunnar (Sr MGMT Lead) workflow:
+1. Goes to Org tab → Creates "Quinn Gleed MGMT" (no leader yet) ✓ (works today)
+2. Creates teams under it (no leaders yet) ✓ (works today)  
+3. Sends invite to Quinn → Quinn signs up → Pending approval
+4. Gunnar approves Quinn → NEW: prompted "Assign as leader of Quinn Gleed MGMT?" → Yes
+5. Quinn is now leader of that MGMT group immediately upon approval
 ```
 
-**UI Sections (top to bottom):**
+### Files to Modify
 
-1. **Saved Filters** — chips at top, tap to load, long-press to delete. Persisted to localStorage per page.
-2. **Set as Default** toggle — save current filter as the default for this page.
-3. **Quick Filters** — Watchlist toggle + Rookie/Sophomore/Vet pills (same as current).
-4. **Scope Section** (Leaderboard only) — "My Office" / "Entire Organization" toggle. When "Entire Organization" selected, show all offices/groups from a separate full-org endpoint or the existing `useAllOfficeReps` data.
-5. **Hierarchy Tree** — searchable, collapsible, multi-select:
-  - **Office** nodes (if user has office access)
-    - Nested MGMT Groups
-      - Nested Teams
-  - **Sr MGMT Groups** (if user is sr_manager+)
-    - Nested MGMT Groups
-      - Nested Teams
-  - **Standalone Teams** (if any aren't nested)
-   Each node has a checkbox. Selecting a parent auto-selects children. Deselecting a child removes parent selection and keeps siblings.
-6. **Apply Button** — sticky at bottom with count badge showing "Apply (23 reps)".
+| File | Change |
+|------|--------|
+| DB migration | Add `pending_lead_recruit_id` column to `teams`, `mgmt_groups`, `sr_mgmt_groups` |
+| `CreateEntityDrawer.tsx` | Allow selecting pending recruits as placeholder leaders, store `pending_lead_recruit_id` |
+| `manage-org-request/index.ts` | Handle `pending_lead_recruit_id` in create actions |
+| `process-invite-signup/index.ts` | Auto-assign leadership on approval if `pending_lead_recruit_id` matches |
+| Recruit approval UI | Add optional "Assign as leader of..." step during approval |
 
-**Mobile UX Details:**
-
-- Bottom drawer (max 85vh), smooth spring animation
-- Collapsible sections with chevron rotate animation
-- Search input at top of hierarchy section (only if 5+ nodes)
-- Rep count badge on each node
-- Indentation via left border + padding (not margin) for clean nesting
-- Selected nodes get a subtle primary tint + checkmark
-
-### 3. Reports Page Integration
-
-- Default filter = user's highest scope (all accessible reps). No `teamFilter` state needed — `selectedNodes` replaces it.
-- `filteredUserIds` memo: if `selectedNodes` is empty → use `allUserIds`. Otherwise, intersect `accessibleReps` with selected nodes' team/mgmt/office membership.
-- AD summer override: detect if user `isAreaDirector` and summer has started → default to office node selected.
-- Leader inclusion logic stays the same (only include self if they belong to selected nodes).
-- Year filters applied as final intersection (same as current).
-
-### 4. Leaderboard Page Integration
-
-- Default filter = user's office. If no office, fall back to "All".
-- For "Entire Organization" mode: the leaderboard hooks (`useExpandedLeaderboard`, `useTodayLeaderboard`) already return all reps — filtering happens client-side by filtering rankings arrays.
-- When nodes are selected, filter leaderboard rankings to only include reps whose userId matches the selected teams/groups/offices.
-- Watchlist + year filters applied as additional client-side intersections on rankings.
-
-### 5. Default Persistence
-
-- Store default filter per page in localStorage: `filter-default:leaderboard`, `filter-default:reports`.
-- On mount, load saved default → use as initial state.
-- AD summer override: if `isAreaDirector && isSummerStarted`, force default to office node regardless of saved default (for reports and leaderboard).
-
-## Files to Create/Modify
-
-
-| File                                              | Action                                                                              |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `supabase/functions/fetch-team-access/index.ts`   | Add hierarchy tree, officeIds, isAreaDirector, srMgmtGroups to response             |
-| `src/hooks/useTeamAccess.ts`                      | Update TypeScript interface for new response fields                                 |
-| `src/components/filters/UnifiedFilterDrawer.tsx`  | **New** — replaces SmartFilterDrawer                                                |
-| `src/components/filters/HierarchyNode.tsx`        | **New** — recursive tree node component                                             |
-| `src/components/filters/SmartFilterDrawer.tsx`    | **Delete**                                                                          |
-| `src/pages/Leaderboard.tsx`                       | Use new UnifiedFilterDrawer, update filter state, add client-side ranking filtering |
-| `src/pages/ReportsV2.tsx`                         | Use new UnifiedFilterDrawer, replace teamFilter+smartFilter with unified state      |
-| `src/components/reports/v2/ReportsTeamFilter.tsx` | **Delete** (no longer needed)                                                       |
-| `src/components/mygroup/TeamFilterSheet.tsx`      | Keep as-is (separate use case)                                                      |
-
-
-## Technical Considerations
-
-- The `fetch-team-access` response already contains `accessibleReps` with `teamId` and `mgmtGroupId` — we can derive which reps belong to which nodes client-side without extra queries.
-- For leaderboard org-wide mode, the existing hooks query all finalized daily entries (no user filtering server-side). We just need to pass the full rankings through a client-side filter.
-- Summer detection: use global summer start date
-- Multi-select filtering: a rep is included if their `teamId` matches ANY selected team node OR their `mgmtGroupId` matches ANY selected mgmt group node OR their team/mgmt is within a selected office.
