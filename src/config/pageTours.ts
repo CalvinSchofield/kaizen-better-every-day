@@ -171,9 +171,9 @@ export const getMyGroupTourSteps = (accessLevel?: string): TourStep[] => {
       position: 'top',
     },
     {
-      target: 'group-week-planner',
+      target: 'group-first-task',
       title: 'Your Scheduled Tasks',
-      description: 'See your planned tasks for the week. Swipe a task left to reschedule or contact, swipe right to mark it done.',
+      description: 'Each task card shows a planned action. Swipe left to reschedule or contact, swipe right to mark it done.',
       position: 'top',
     },
   ];
