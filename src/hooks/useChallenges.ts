@@ -154,6 +154,12 @@ export const useChallenges = (filter: 'active' | 'pending' | 'history' = 'active
             accepted,
             final_value,
             accepted_at
+          ),
+          challenge_teams (
+            id,
+            challenge_id,
+            team_label,
+            team_key
           )
         `)
         .in('status', statusFilter)
@@ -184,6 +190,7 @@ export const useChallenges = (filter: 'active' | 'pending' | 'history' = 'active
           rep_name: repMap.get(p.user_id)?.name || 'Unknown',
           profile_photo_url: repMap.get(p.user_id)?.profile_photo_url,
         })),
+        challenge_teams: c.challenge_teams || [],
       })) as Challenge[];
     },
     staleTime: 10 * 1000,
