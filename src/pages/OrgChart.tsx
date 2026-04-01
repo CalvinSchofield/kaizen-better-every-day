@@ -13,10 +13,16 @@ import { SIGNED_PLUS_STAGES, STAGES } from "@/utils/stageConstants";
 import type { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 
 
+const OFFICE_GROUPED_ACCESS_LEVELS = new Set([
+  "area_director", "corporate", "regional", "sr_regional", "partner", "divisional",
+  "mgmt_group_lead", "senior_manager",
+]);
+
 const OrgChart = () => {
   const queryClient = useQueryClient();
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
+  const [groupByOffice, setGroupByOffice] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => { const data = { user: session?.user ?? null };
@@ -30,14 +36,15 @@ const OrgChart = () => {
   const { data: treeData, isLoading } = useQuery({
     queryKey: ["org-chart-full-tree"],
     queryFn: async () => {
-      const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, teamMgmtRes, officeStaffRes, officesRes] = await Promise.all([
+      const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, teamMgmtRes, officeStaffRes, officesRes, srMgmtGroupsRes] = await Promise.all([
         supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, year, phone, email, location, recruitment_source, last_contact, next_action, next_action_due, created_at, mgmt_group_id, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, onboarding_complete, trainings_complete, slack_joined, ipad_assigned, blitz_ready, spouse_name, significant_other_name, caution_notes, watch_out_notes").limit(5000),
         supabase.from("reps").select("id, user_id, name, profile_photo_url, year, stage, phone, email").limit(5000),
         supabase.from("teams").select("id, name, lead_user_id").limit(500),
-        supabase.from("mgmt_groups").select("id, name, lead_user_id, office_id").limit(500),
+        supabase.from("mgmt_groups").select("id, name, lead_user_id, office_id, sr_mgmt_group_id").limit(500),
         supabase.from("team_mgmt_groups").select("team_id, mgmt_group_id").limit(500),
         supabase.from("office_staff").select("user_id, role, office_id").limit(500),
         supabase.from("offices").select("id, name").limit(500),
+        supabase.from("sr_mgmt_groups").select("id, name, lead_user_id, office_id").limit(500),
       ]);
       return {
         recruits: recruitsRes.data || [],
@@ -47,6 +54,7 @@ const OrgChart = () => {
         teamMgmt: teamMgmtRes.data || [],
         officeStaff: officeStaffRes.data || [],
         offices: officesRes.data || [],
+        srMgmtGroups: srMgmtGroupsRes.data || [],
       };
     },
     staleTime: 1000 * 60 * 2,
@@ -65,6 +73,9 @@ const OrgChart = () => {
     });
     treeData.mgmtGroups.forEach((mg) => {
       if (mg.lead_user_id) map.set(mg.lead_user_id, { title: "MGMT Group Lead", color: "mgmt_group" });
+    });
+    treeData.srMgmtGroups.forEach((smg: any) => {
+      if (smg.lead_user_id) map.set(smg.lead_user_id, { title: "Sr MGMT Group Leader", color: "sr_mgmt_group" });
     });
     treeData.officeStaff.forEach((s) => {
       if (s.role === "area_director") {
@@ -98,7 +109,7 @@ const OrgChart = () => {
   const fullTree = useMemo(() => {
     if (!treeData || !currentAuthUserId) return null;
 
-    const { recruits, reps, teams, mgmtGroups, teamMgmt, officeStaff } = treeData;
+    const { recruits, reps, teams, mgmtGroups, teamMgmt, officeStaff, srMgmtGroups } = treeData;
 
     const repMap = new Map<string, (typeof reps)[number]>();
     reps.forEach((rep) => {
@@ -115,6 +126,7 @@ const OrgChart = () => {
     teamMgmt.forEach((tm) => teamToMgmtGroup.set(tm.team_id, tm.mgmt_group_id));
 
     const mgmtGroupMap = new Map(mgmtGroups.map((mg) => [mg.id, mg]));
+    const srMgmtGroupMap = new Map(srMgmtGroups.map((smg: any) => [smg.id, smg]));
 
     // Team leads also see pipeline stages (Reached Out, Evaluating)
     const visibleStages = accessLevel === "team_lead"
@@ -281,19 +293,85 @@ const OrgChart = () => {
       return nodes.filter((node) => !node.userId || !descendantIds.has(node.userId));
     };
 
-    const createMgmtLabelNode = (mgmtGroupId: string, children: TreeNode[] = []): TreeNode => ({
-      id: `mgmt-${mgmtGroupId}`,
-      name: mgmtGroupMap.get(mgmtGroupId)?.name || "MGMT Group",
-      userId: null,
-      stage: null,
-      profilePhotoUrl: null,
-      role: null,
-      year: null,
-      isAreaDirector: false,
-      roleColor: "mgmt_group",
-      isLabelNode: true,
-      children: [...children].sort((a, b) => b.children.length - a.children.length),
-    });
+    /**
+     * Creates a MGMT Group container node with leader promotion.
+     * If the leader has an account and appears as one of the children,
+     * promote that child to BE the container (person node with roleColor).
+     */
+    const createMgmtLabelNode = (mgmtGroupId: string, children: TreeNode[] = []): TreeNode => {
+      const mgmtGroup = mgmtGroupMap.get(mgmtGroupId);
+      const leadUserId = mgmtGroup?.lead_user_id || null;
+
+      // Try to find the leader among the children
+      if (leadUserId) {
+        const leaderIdx = children.findIndex((c) => c.userId === leadUserId);
+        if (leaderIdx !== -1) {
+          const leaderNode = children[leaderIdx];
+          const siblings = children.filter((_, i) => i !== leaderIdx);
+          return {
+            ...leaderNode,
+            id: `mgmt-${mgmtGroupId}`,
+            roleColor: "mgmt_group",
+            role: "MGMT Group Leader",
+            children: [...leaderNode.children, ...siblings]
+              .sort((a, b) => b.children.length - a.children.length),
+          };
+        }
+      }
+
+      // Fallback: lightweight label pill
+      return {
+        id: `mgmt-${mgmtGroupId}`,
+        name: mgmtGroup?.name || "MGMT Group",
+        userId: leadUserId,
+        stage: null,
+        profilePhotoUrl: leadUserId ? repMap.get(leadUserId)?.profile_photo_url : null,
+        role: null,
+        year: null,
+        isAreaDirector: false,
+        roleColor: "mgmt_group",
+        isLabelNode: true,
+        children: [...children].sort((a, b) => b.children.length - a.children.length),
+      };
+    };
+
+    /**
+     * Creates a Sr MGMT Group container node with leader promotion.
+     */
+    const createSrMgmtLabelNode = (srMgmtGroupId: string, children: TreeNode[] = []): TreeNode => {
+      const srMgmtGroup = srMgmtGroupMap.get(srMgmtGroupId);
+      const leadUserId = srMgmtGroup?.lead_user_id || null;
+
+      if (leadUserId) {
+        const leaderIdx = children.findIndex((c) => c.userId === leadUserId && !c.isLabelNode);
+        if (leaderIdx !== -1) {
+          const leaderNode = children[leaderIdx];
+          const siblings = children.filter((_, i) => i !== leaderIdx);
+          return {
+            ...leaderNode,
+            id: `sr-mgmt-${srMgmtGroupId}`,
+            roleColor: "sr_mgmt_group",
+            role: "Sr MGMT Group Leader",
+            children: [...leaderNode.children, ...siblings]
+              .sort((a, b) => b.children.length - a.children.length),
+          };
+        }
+      }
+
+      return {
+        id: `sr-mgmt-${srMgmtGroupId}`,
+        name: srMgmtGroup?.name || "Sr MGMT Group",
+        userId: leadUserId,
+        stage: null,
+        profilePhotoUrl: leadUserId ? repMap.get(leadUserId)?.profile_photo_url : null,
+        role: null,
+        year: null,
+        isAreaDirector: false,
+        roleColor: "sr_mgmt_group",
+        isLabelNode: true,
+        children: [...children].sort((a, b) => b.children.length - a.children.length),
+      };
+    };
 
     const rootNodes: TreeNode[] = [];
     const globalAccessLevels = new Set(["corporate", "regional", "sr_regional", "partner", "divisional"]);
@@ -449,7 +527,38 @@ const OrgChart = () => {
         .filter((node) => node.children.length > 0)
         .sort((a, b) => b.children.length - a.children.length);
 
-      return [...groupedRoots, ...ungroupedRoots].sort((a, b) => b.children.length - a.children.length);
+      // After creating MGMT group nodes, wrap them in Sr MGMT Group containers
+      // This shows upline (e.g. Gunnar Bramwell Sr MGMT)
+      const mgmtGroupToSrMgmt = new Map<string, string>();
+      mgmtGroups.forEach((mg) => {
+        if (mg.sr_mgmt_group_id) mgmtGroupToSrMgmt.set(mg.id, mg.sr_mgmt_group_id);
+      });
+
+      const srMgmtChildren = new Map<string, TreeNode[]>();
+      const standaloneMgmtNodes: TreeNode[] = [];
+
+      groupedRoots.forEach((mgmtNode) => {
+        // Extract mgmtGroupId from node id (format: "mgmt-{id}" or promoted node)
+        const mgmtGroupId = mgmtNode.id.startsWith("mgmt-") ? mgmtNode.id.replace("mgmt-", "") : null;
+        const srMgmtId = mgmtGroupId ? mgmtGroupToSrMgmt.get(mgmtGroupId) : null;
+
+        if (srMgmtId) {
+          if (!srMgmtChildren.has(srMgmtId)) srMgmtChildren.set(srMgmtId, []);
+          srMgmtChildren.get(srMgmtId)!.push(mgmtNode);
+        } else {
+          standaloneMgmtNodes.push(mgmtNode);
+        }
+      });
+
+      const srMgmtNodes: TreeNode[] = [];
+      srMgmtChildren.forEach((children, srMgmtId) => {
+        srMgmtNodes.push(createSrMgmtLabelNode(srMgmtId, children));
+      });
+
+      const finalGrouped = [...srMgmtNodes, ...standaloneMgmtNodes]
+        .sort((a, b) => b.children.length - a.children.length);
+
+      return [...finalGrouped, ...ungroupedRoots].sort((a, b) => b.children.length - a.children.length);
     }
 
     return dedupedRoots.sort((a, b) => b.children.length - a.children.length);
@@ -625,6 +734,9 @@ const OrgChart = () => {
               roots={fullTree}
               selectedNodeId={selectedNodeId}
               onSelectNode={handleSelectNode}
+              groupByOffice={groupByOffice}
+              onGroupByOfficeChange={setGroupByOffice}
+              showGroupByOfficeToggle={OFFICE_GROUPED_ACCESS_LEVELS.has(teamAccess?.accessLevel || '')}
             />
           )}
         </TabsContent>
