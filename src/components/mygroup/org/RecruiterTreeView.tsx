@@ -501,6 +501,23 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       const pruned = pruneDuplicates(rootNodes);
       rootNodes.length = 0;
       rootNodes.push(...pruned);
+    } else if (officeGroupedAccessLevels.has(accessLevel) && !groupByOffice) {
+      // Pure lineage view — no office/mgmt grouping
+      const allRecruiterIds = new Set(
+        recruits.map((r) => r.recruiter_user_id).filter(Boolean) as string[]
+      );
+      const candidateRoots: TreeNode[] = [];
+      allRecruiterIds.forEach((recruiterId) => {
+        const node = buildNode(recruiterId);
+        if (node && node.children.length > 0) candidateRoots.push(node);
+      });
+      const allChildUserIds = new Set<string>();
+      candidateRoots.forEach((root) => collectChildUserIds(root.children, allChildUserIds));
+      candidateRoots.forEach((root) => {
+        if (!root.userId || (!allChildUserIds.has(root.userId) && !hasUpstreamRecruiter(root.userId))) {
+          rootNodes.push(root);
+        }
+      });
     } else if (currentAuthUserId) {
       const node = buildNode(currentAuthUserId);
       if (node && node.children.length > 0) {
