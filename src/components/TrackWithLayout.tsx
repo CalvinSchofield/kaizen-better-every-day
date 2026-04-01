@@ -19,6 +19,7 @@ import { PendingSalesAlert } from "./PendingSalesAlert";
 import { PageTour } from "@/components/PageTour";
 import { usePageTour } from "@/hooks/usePageTour";
 import { trackTourSteps } from "@/config/pageTours";
+import { TrackTourDayPreview } from "@/components/track/TrackTourDayPreview";
 
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
