@@ -124,8 +124,21 @@ export const ReportsV2Page = () => {
         ids = [currentUserId, ...ids];
       }
     }
+
+    // Apply year/experience filters (Rookie, Sophomore, Vet)
+    if (smartFilter.yearFilters.length > 0 && teamAccess.accessibleReps) {
+      const allowedYears = new Set(smartFilter.yearFilters);
+      const repsInYear = new Set(
+        teamAccess.accessibleReps
+          .filter(r => r.year && allowedYears.has(r.year))
+          .map(r => r.userId)
+          .filter((id): id is string => !!id)
+      );
+      ids = ids.filter(id => repsInYear.has(id));
+    }
+
     return ids;
-  }, [teamAccess, teamFilter, allUserIds, currentUserId]);
+  }, [teamAccess, teamFilter, smartFilter.yearFilters, allUserIds, currentUserId]);
 
   // Sync smart filter → team filter (must be before early returns)
   useEffect(() => {
