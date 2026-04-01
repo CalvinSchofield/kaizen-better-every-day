@@ -83,6 +83,8 @@ export const useWatchlistDetails = () => {
         yesterdayFp: number;
         dailyFp: Map<string, number>; // date -> fp for sparkline
         weekFp: number; monthFp: number; seasonFp: number;
+        // For streak: sorted entry dates with closes info
+        entryDates: { date: string; closes: number }[];
       }>();
 
       const yesterday = format(subDays(new Date(), 1), "yyyy-MM-dd");
