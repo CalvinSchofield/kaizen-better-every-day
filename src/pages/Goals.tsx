@@ -3,6 +3,9 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { goalsTourSteps } from "@/config/pageTours";
 import { Lock, SlidersHorizontal, ChevronDown, ArrowLeft, Loader2, Check, AlertTriangle } from "lucide-react";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useRepData } from "@/hooks/useRepData";
@@ -82,6 +85,7 @@ const Goals = () => {
   const { repData, isInitializing: repDataInitializing, loading: repDataLoading } = useRepData();
   const { userId, isReady: authReady } = useCurrentUserId();
   const teamAccess = useTeamAccess();
+  const { showTour: showGoalsTour, completeTour: completeGoalsTour, skipTour: skipGoalsTour } = usePageTour({ page: 'goals' });
   const { 
     totalFP: totalFpPlus, 
     totalPRMR, 
@@ -1027,7 +1031,7 @@ const Goals = () => {
           </div>
           <div className="flex gap-2">
             <Button
-              id="goals-settings-button"
+              data-tour="goals-settings-button"
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-xl"
@@ -1045,7 +1049,7 @@ const Goals = () => {
         </div>
 
         <motion.div 
-          id="goals-hero-ring"
+          data-tour="goals-hero-ring"
           className="px-4 py-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1113,7 +1117,7 @@ const Goals = () => {
         {/* Planning Section */}
         <div className="px-4 space-y-3 pb-6">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium pl-1">Planning</p>
-          <div id="goals-calendar-planning">
+          <div data-tour="goals-calendar-planning">
             <CalendarPlanningPreview
               goals={goals}
               activeTier={activeTier}
@@ -1334,6 +1338,12 @@ const Goals = () => {
           </DrawerContent>
         </Drawer>
       </div>
+      <PageTour
+        steps={goalsTourSteps}
+        isOpen={showGoalsTour}
+        onComplete={completeGoalsTour}
+        onSkip={skipGoalsTour}
+      />
     </Layout>
   );
 };

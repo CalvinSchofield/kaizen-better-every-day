@@ -17,6 +17,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { useUnifiedPushNotifications } from "@/hooks/useUnifiedPushNotifications";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
+import { resetAllTours } from "@/hooks/usePageTour";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -1678,9 +1679,34 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Add Custom Counter Drawer */}
+        {/* Replay Page Tours */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Page Tours</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Replay the guided tours on each page</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  if (repData?.user_id) {
+                    await resetAllTours(repData.user_id);
+                    queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+                    toast({ title: "Tours reset!", description: "You'll see guided tours again on each page." });
+                  }
+                }}
+                className="gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset Tours
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
       <Drawer open={showAddSheet} onOpenChange={setShowAddSheet}>
         <DrawerContent className="pb-safe">
           <DrawerHeader>

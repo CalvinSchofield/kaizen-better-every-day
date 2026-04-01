@@ -28,6 +28,9 @@ import { InsightsOverviewTab } from '@/components/insights/InsightsOverviewTab';
 import { InsightsPerformanceTab } from '@/components/insights/InsightsPerformanceTab';
 import { InsightsPatternsTab } from '@/components/insights/InsightsPatternsTab';
 import { InsightsDealsTab } from '@/components/insights/InsightsDealsTab';
+import { PageTour } from '@/components/PageTour';
+import { usePageTour } from '@/hooks/usePageTour';
+import { insightsTourSteps } from '@/config/pageTours';
 
 type DatePreset = InsightsDatePreset;
 type InsightsTab = 'overview' | 'performance' | 'patterns' | 'deals';
@@ -77,6 +80,7 @@ export default function Insights() {
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
+  const { showTour, completeTour, skipTour } = usePageTour({ page: 'insights' });
   const [chatOpen, setChatOpen] = useState(false);
   const { setCustomRightContent } = useHeader();
 
@@ -434,6 +438,12 @@ export default function Insights() {
         </SheetContent>
       </Sheet>
 
+      <PageTour
+        steps={insightsTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+      />
     </div>
   );
 }

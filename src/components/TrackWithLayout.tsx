@@ -16,6 +16,9 @@ import { SaleDetailSheet } from "./SaleDetailSheet";
 import { DeleteSalePickerSheet } from "./DeleteSalePickerSheet";
 import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
 import { PendingSalesAlert } from "./PendingSalesAlert";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { trackTourSteps } from "@/config/pageTours";
 
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
@@ -71,6 +74,9 @@ const TrackWithLayout = () => {
   const { totalFP: preseasonFP } = usePreseasonFP();
   const goalPaceData = useGoalPaceCalculator();
   const { userId: currentUserId } = useCurrentUserId();
+  
+  // Page tour
+  const { showTour, completeTour, skipTour } = usePageTour({ page: 'track' });
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry, isRefreshing, isFreshDataVerified, isOfflineWithBackup } = useDailyEntry();
   const { addSale: addSaleToEntry, isAddingSale } = useAddSaleToEntry();
   const { updateSale, deleteSale: deleteSaleFromEntry, isDeleting: isDeletingSale } = useSaleUpdate();
@@ -1857,6 +1863,18 @@ const TrackWithLayout = () => {
         />
       )}
 
+      {/* Page Tour */}
+      <PageTour
+        steps={trackTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+        onStepAction={(action) => {
+          if (action === 'openLogSaleSheet') {
+            setIsLogSaleSheetOpen(true);
+          }
+        }}
+      />
     </>
   );
 };

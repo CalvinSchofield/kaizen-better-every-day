@@ -1,4 +1,7 @@
 import { CheckCircle2, Circle, Lock, Loader2, ChevronRight, RefreshCw, LogOut, MapPin, Wifi, Key, Check, MessageCircle } from "lucide-react";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { homeTourSteps } from "@/config/pageTours";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +77,7 @@ const Home = () => {
     isInitializing,
     refetch
   } = useRepData();
+  const { showTour: showHomeTour, completeTour: completeHomeTour, skipTour: skipHomeTour } = usePageTour({ page: 'home' });
   
   const { isKnockingMode } = useAppMode(repData);
   const queryClient = useQueryClient();
@@ -1850,6 +1854,12 @@ const Home = () => {
         seasonStartDate="2025-09-28"
         seasonEndDate="2026-04-11"
         timezone={repData?.timezone}
+      />
+      <PageTour
+        steps={homeTourSteps}
+        isOpen={showHomeTour}
+        onComplete={completeHomeTour}
+        onSkip={skipHomeTour}
       />
     </div>
   );

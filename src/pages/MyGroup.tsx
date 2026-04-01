@@ -47,7 +47,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DataLoadError } from "@/components/mygroup/DataLoadError";
 import { AddRecruitActionSheet } from "@/components/mygroup/AddRecruitActionSheet";
 import Layout from "@/components/Layout";
-import { LeaderOnboardingTour } from "@/components/mygroup/LeaderOnboardingTour";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { myGroupTourSteps } from "@/config/pageTours";
 import { LeaderWelcomeDrawer } from "@/components/mygroup/LeaderWelcomeDrawer";
 import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, startOfToday } from "date-fns";
 import { toast } from "sonner";
@@ -74,6 +76,7 @@ const MyGroup = () => {
   const deleteMutation = useDeleteMySuggestion();
   const { allBlitzes, allBlitzesIncludingPast, error: blitzError, refetch: refetchBlitzes, isUsingCache: blitzUsingCache } = useBlitzes();
   const { userId: currentUserId } = useCurrentUserId();
+  const { showTour: showGroupTour, completeTour: completeGroupTour, skipTour: skipGroupTour } = usePageTour({ page: 'my-group' });
 
   // Check if current user is a rookie (restricts "Add to Pipeline" access)
   const { data: currentUserYear } = useQuery({
@@ -1379,8 +1382,15 @@ const MyGroup = () => {
         }}
       />
 
-      {/* Leader onboarding tour */}
-      {isLeader && <LeaderOnboardingTour />}
+      {/* Leader onboarding tour - unified PageTour system */}
+      {isLeader && (
+        <PageTour
+          steps={myGroupTourSteps}
+          isOpen={showGroupTour}
+          onComplete={completeGroupTour}
+          onSkip={skipGroupTour}
+        />
+      )}
 
       <LeaderWelcomeDrawer
         open={welcomeDrawerOpen}

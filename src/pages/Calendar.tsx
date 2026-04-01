@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { calendarTourSteps } from "@/config/pageTours";
 
 interface CalendarProps {
   viewMode?: "week" | "month";
@@ -23,6 +26,7 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
   const { repData, loading: loadingRepData, isInitializing } = useRepData();
   const navigate = useNavigate();
   const location = useLocation();
+  const { showTour, completeTour, skipTour } = usePageTour({ page: 'calendar' });
   const goalPaceData = useGoalPaceCalculator();
   const { addSale } = useAddSaleToEntry();
 
@@ -169,7 +173,12 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
         preseasonDailyPace={goalPaceData.hasGoals ? goalPaceData.preseasonDailyPace : null}
         summerDailyPace={goalPaceData.hasGoals ? goalPaceData.summerDailyPace : null}
       />
-      
+      <PageTour
+        steps={calendarTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+      />
     </>
   );
 };
