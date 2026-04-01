@@ -310,6 +310,7 @@ Deno.serve(async (req) => {
           year: finalYear,
           user_id: user.id,
           invite_code_used: inviteCode,
+          office_id: resolvedOfficeId,
           team_leader: isLateralInvite ? null : (inviterRep?.name || null),
           team_leader_phone: isLateralInvite ? null : (inviterRep?.phone || null),
         });
