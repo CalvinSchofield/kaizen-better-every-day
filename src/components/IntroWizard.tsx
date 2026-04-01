@@ -128,9 +128,16 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
         // Segment-based routing
         switch (segment) {
           case 'outside-org':
-          case 'in-org-vet':
             // Go straight to Goals (sync gate → goal setup → calendar planning)
             navigate('/goals');
+            break;
+          case 'in-org-vet':
+            // Leaders go to org page to build structure first, then goals
+            if (isLeaderProp) {
+              navigate('/my-group?tab=structure');
+            } else {
+              navigate('/goals');
+            }
             break;
           case 'in-org-rookie-preseason':
             // Show About Team, then Home for ramp
