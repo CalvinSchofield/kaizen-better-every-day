@@ -33,6 +33,23 @@ export const useOnboardingSegment = (repData: RepDataForSegment | null) => {
   const isRookie = repData?.year === "Rookie";
   const isVetOrSoph = repData?.year === "Vet" || repData?.year === "Sophomore";
 
+  // Check if user has a leadership role (regional+) which always means "in org"
+  const { data: hasLeadershipRole } = useQuery({
+    queryKey: ['has-leadership-role', userId],
+    enabled: !!userId,
+    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      if (!userId) return false;
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+      // Any formal role means they're "in org"
+      return !!data;
+    },
+  });
+
   // Fetch office team lead names to determine if user is "in org"
   const { data: officeTeamLeads, isLoading } = useQuery({
     queryKey: ['office-team-leads'],
@@ -133,6 +150,9 @@ export const useOnboardingSegment = (repData: RepDataForSegment | null) => {
   const isInMyOffice = useMemo(() => {
     if (!repData || !officeTeamLeads) return false;
     
+    // Users with formal leadership roles are always "in org"
+    if (hasLeadershipRole) return true;
+    
     // If the user IS an office leader, they're in the org
     if (isUserOfficeLeader) return true;
 
@@ -154,7 +174,7 @@ export const useOnboardingSegment = (repData: RepDataForSegment | null) => {
              cleanLeader.includes(cleanLead) || 
              cleanLead.includes(cleanLeader);
     });
-  }, [repData, officeTeamLeads, isUserOfficeLeader]);
+  }, [repData, officeTeamLeads, isUserOfficeLeader, hasLeadershipRole]);
 
   const isSummerStarted = useMemo(() => {
     return new Date() >= new Date(GLOBAL_SUMMER_START + 'T00:00:00');

@@ -19,24 +19,30 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
   const queryClient = useQueryClient();
   const hasRunRef = useRef(false);
 
-  // Fetch processed blitz IDs from database (persists across devices)
-  const { data: processedBlitzIds = [] } = useQuery({
+  // Fetch processed blitz IDs and rep created_at from database
+  const { data: processedData } = useQuery({
     queryKey: ['processed-blitz-ids'],
     queryFn: async () => {
       const { session } = await getSessionSafe();
-      if (!session) return [];
+      if (!session) return { ids: [] as string[], createdAt: null as string | null };
 
       const { data } = await supabase
         .from('reps')
-        .select('processed_blitz_ids')
+        .select('processed_blitz_ids, created_at')
         .eq('user_id', session.user.id)
         .maybeSingle();
 
-      return (data?.processed_blitz_ids as string[]) || [];
+      return {
+        ids: (data?.processed_blitz_ids as string[]) || [],
+        createdAt: data?.created_at || null,
+      };
     },
     staleTime: 30 * 1000, // 30 seconds
     enabled,
   });
+
+  const processedBlitzIds = processedData?.ids || [];
+  const repCreatedAt = processedData?.createdAt || null;
 
   const logBlitzAttendance = useCallback(async (blitz: BlitzEvent) => {
     try {
@@ -104,6 +110,17 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
           const endDate = new Date(endDateStr);
           endDate.setHours(0, 0, 0, 0);
           
+          // Skip blitzes that ended before this user's account was created
+          // This prevents toast spam when a new user first logs in
+          if (repCreatedAt) {
+            const accountCreated = new Date(repCreatedAt);
+            accountCreated.setHours(0, 0, 0, 0);
+            if (endDate < accountCreated) {
+              console.log(`[BlitzAttendance] Skipping ${blitz.name} - ended before account was created`);
+              return false;
+            }
+          }
+
           // Any blitz that has already ended (before today) is eligible
           if (endDate < today) {
             console.log(`[BlitzAttendance] ${blitz.name} eligible - past blitz`);
@@ -149,7 +166,7 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
     };
 
     processBlitzes();
-  }, [allBlitzes, enabled, logBlitzAttendance, toast, processedBlitzIds]);
+  }, [allBlitzes, enabled, logBlitzAttendance, toast, processedBlitzIds, repCreatedAt]);
 
   return {
     logBlitzAttendance,
