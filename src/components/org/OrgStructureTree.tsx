@@ -872,6 +872,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
                 officeChildren.push({
                   id: t.id, name: t.name, type: "team" as const,
                   role: t.lead_user_id ? `Led by ${getRepName(t.lead_user_id)}` : undefined,
+                  leadUserId: t.lead_user_id,
                   children: buildTeamMembers(t.lead_user_id, t.name, t.id, mgLink?.id || null, mgLink?.name || null),
                 });
               }
