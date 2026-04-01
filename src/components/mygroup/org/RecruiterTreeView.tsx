@@ -191,12 +191,33 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
 
       children.sort((a, b) => b.children.length - a.children.length);
 
+      // Determine role/color for this person
+      const ledMgmtGroup = mgmtGroups.find((g) => g.lead_user_id === userId);
+      const ledTeam = teams.find((t) => t.lead_user_id === userId);
+      const ledSrMgmtGroup = srMgmtGroups.find((smg) => smg.lead_user_id === userId);
+
+      let role: string | null = null;
+      let roleColor: RoleColor | undefined = undefined;
+
+      if (ledSrMgmtGroup) {
+        role = "Sr MGMT Group Leader";
+        roleColor = "sr_mgmt_group";
+      } else if (ledMgmtGroup) {
+        role = "MGMT Group Leader";
+        roleColor = "mgmt_group";
+      } else if (ledTeam) {
+        role = "Team Leader";
+        roleColor = "team_lead";
+      }
+
       return {
         id: recruitRecord?.id || userId,
         name: rep?.name || "Unknown",
         userId,
         stage: recruitRecord?.stage || null,
         profilePhotoUrl: rep?.profile_photo_url,
+        role,
+        roleColor,
         children,
       };
     };
