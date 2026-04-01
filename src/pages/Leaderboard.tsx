@@ -143,19 +143,11 @@ const Leaderboard = () => {
   const isLive = timeFilter === 'live';
   const currentDateRange = getDateRange(timeFilter, timeFilter === 'custom' ? customDateRange : undefined);
 
-  if (!hasCachedLeaderboard && (isLive ? todayLoading : isLoading)) {
-    return (
-      <Layout>
-        <LeaderboardSkeleton />
-      </Layout>
-    );
-  }
-
   // Compute allowed user IDs from unified filter (for non-watchlist node-based filtering)
   const filterAllowedUserIds = useMemo(() => {
     if (!teamAccess || smartFilter.selectedNodes.length === 0) return null;
     return new Set(resolveFilteredUserIds(
-      { ...smartFilter, scope: 'all', yearFilters: [] }, // nodes only
+      { ...smartFilter, scope: 'all', yearFilters: [] },
       teamAccess.accessibleReps || [],
       teamAccess.mgmtGroups || [],
       teamAccess.accessibleUserIds || [],
@@ -173,10 +165,8 @@ const Leaderboard = () => {
       if (currentUserId) allowedIds.add(currentUserId);
     }
 
-    // Apply node-based filtering
     const nodeIds = filterAllowedUserIds;
 
-    // Apply year filtering
     let yearIds: Set<string> | null = null;
     if (smartFilter.yearFilters.length > 0 && teamAccess?.accessibleReps) {
       const allowedYears = new Set(smartFilter.yearFilters);
@@ -205,6 +195,14 @@ const Leaderboard = () => {
     }
     return filtered;
   };
+
+  if (!hasCachedLeaderboard && (isLive ? todayLoading : isLoading)) {
+    return (
+      <Layout>
+        <LeaderboardSkeleton />
+      </Layout>
+    );
+  }
 
   const hasNoData = isLive
     ? !todayLeaderboard?.rankings || Object.values(todayLeaderboard.rankings).every(arr => arr.length === 0)
