@@ -27,6 +27,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { EditRecruitDrawer } from "./recruit-detail/EditRecruitDrawer";
 import { Recruit } from "@/hooks/useGroupRecruits";
+import { hasMinAccess, type AccessLevel } from "@/utils/roleHierarchy";
+
+// Only Calvin Schofield has bootstrap approval authority (can assign upward roles)
+const BOOTSTRAP_USER_ID = '843dac61-139d-4511-a057-c3bf359a9c07';
 
 interface PendingRecruit {
   id: string;
