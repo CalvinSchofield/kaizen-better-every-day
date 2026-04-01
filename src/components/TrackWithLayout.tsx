@@ -1864,6 +1864,9 @@ const TrackWithLayout = () => {
         />
       )}
 
+      {/* Day Complete Preview - only shown during tour */}
+      {showTour && <TrackTourDayPreview />}
+
       {/* Page Tour */}
       <PageTour
         steps={trackTourSteps}
@@ -1873,6 +1876,9 @@ const TrackWithLayout = () => {
         onStepAction={(action) => {
           if (action === 'openLogSaleSheet') {
             setIsLogSaleSheetOpen(true);
+          } else if (action === 'showDayCompletePreview') {
+            // Preview is rendered above — no extra action needed
+            setIsLogSaleSheetOpen(false);
           }
         }}
       />
