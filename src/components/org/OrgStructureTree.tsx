@@ -982,6 +982,11 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
     return { office, staff, groups };
   }, [configOffice, orgData]);
 
+  const officeDetailData = useMemo(() => {
+    if (!officeDetailId || !orgData) return null;
+    return orgData.offices.find((o) => o.id === officeDetailId) || null;
+  }, [officeDetailId, orgData]);
+
   const configRegionData = useMemo(() => {
     if (!configRegion || !orgData) return null;
     const region = orgData.regions.find((r) => r.id === configRegion);
