@@ -416,6 +416,13 @@ const Track = ({
 
         {/* Contextual Card Stack */}
         <div className="px-4 space-y-3 mt-3">
+          {/* Streak Outcome Card - what happened to the streak today */}
+          <StreakOutcomeCard
+            userId={userId}
+            closes={entry.closes || 0}
+            entryDate={'entry_date' in entry ? entry.entry_date : undefined}
+          />
+
           {/* Goal Result Card - daily goal progress */}
           <GoalResultCard fpToday={fp} prmrToday={prmr} />
 
