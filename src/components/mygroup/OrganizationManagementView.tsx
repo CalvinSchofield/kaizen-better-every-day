@@ -100,7 +100,7 @@ export const OrganizationManagementView = () => {
         supabase.from("teams").select("*"),
         supabase.from("mgmt_groups").select("*"),
         supabase.from("team_mgmt_groups").select("*"),
-        supabase.from("recruits").select("id, name, team_id, recruiter_user_id, stage, phone, email, created_at, updated_at, mgmt_group_id"),
+        supabase.from("recruits").select("id, name, team_id, recruiter_user_id, stage, phone, email, created_at, updated_at, mgmt_group_id, approval_status"),
         supabase.from("reps").select("user_id, name"),
         supabase.from("offices").select("id, name, region_id"),
         supabase.from("office_staff").select("user_id, office_id, role"),
