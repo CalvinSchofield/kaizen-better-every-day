@@ -17,6 +17,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { useUnifiedPushNotifications } from "@/hooks/useUnifiedPushNotifications";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
+import { resetAllTours } from "@/hooks/usePageTour";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
