@@ -133,15 +133,59 @@ export const useBadgeDetection = (
       await awardBadge(SPECIAL_SLUGS.FIRST_DOOR_MAGIC, date);
     }
 
-    // First Blood: check if this is the user's first-ever sale
+    // First Blood: first person on team to sell today, only if ≥1 teammate also worked/planned to work
     if (closes > 0) {
-      const { count } = await supabase
-        .from("user_badges")
-        .select("id", { count: "exact", head: true })
+      // Get user's team_leader to find teammates
+      const { data: myRep } = await supabase
+        .from("reps")
+        .select("team_leader")
         .eq("user_id", userId)
-        .eq("badge_id", (await supabase.from("badge_definitions").select("id").eq("slug", "first_blood").maybeSingle()).data?.id || "");
-      if (count === 0) {
-        await awardBadge(SPECIAL_SLUGS.FIRST_BLOOD, date);
+        .maybeSingle();
+
+      if (myRep?.team_leader) {
+        // Find teammates (same team_leader, excluding self)
+        const { data: teammates } = await supabase
+          .from("reps")
+          .select("user_id")
+          .eq("team_leader", myRep.team_leader)
+          .neq("user_id", userId);
+
+        const teammateIds = (teammates || []).map(t => t.user_id);
+
+        if (teammateIds.length > 0) {
+          // Check if at least one teammate planned to work or actually worked today
+          const [plannedResult, workedResult] = await Promise.all([
+            supabase
+              .from("planned_work_days")
+              .select("user_id", { count: "exact", head: true })
+              .in("user_id", teammateIds)
+              .eq("planned_date", date),
+            supabase
+              .from("daily_entries")
+              .select("user_id", { count: "exact", head: true })
+              .in("user_id", teammateIds)
+              .eq("entry_date", date),
+          ]);
+
+          const hasTeammateWorking = ((plannedResult.count || 0) > 0) || ((workedResult.count || 0) > 0);
+
+          if (hasTeammateWorking) {
+            // Check no teammate already has a sale today
+            const { data: teammateEntries } = await supabase
+              .from("daily_entries")
+              .select("closes")
+              .in("user_id", teammateIds)
+              .eq("entry_date", date)
+              .gt("closes", 0)
+              .limit(1);
+
+            const noTeammateSoldYet = !teammateEntries || teammateEntries.length === 0;
+
+            if (noTeammateSoldYet) {
+              await awardBadge(SPECIAL_SLUGS.FIRST_BLOOD, date);
+            }
+          }
+        }
       }
     }
 
