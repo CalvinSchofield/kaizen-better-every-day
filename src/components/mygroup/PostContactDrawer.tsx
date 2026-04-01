@@ -209,33 +209,25 @@ export const PostContactDrawer = ({
         return; // Don't proceed if the primary operation failed
       }
 
-      // ── STEP 2: Mark scheduled task complete (independent, non-blocking) ──
+      // ── STEP 2: Mark scheduled task complete (fire-and-forget to avoid stacking timeouts) ──
       const taskWasCompleted = scheduledActivity && wasConnected && markTaskComplete;
       if (taskWasCompleted) {
-        try {
-          const { error: completeError } = await withTimeout(
-            supabase
-              .from('recruit_activities')
-              .update({
-                assignment_status: 'completed',
-                completed_at: new Date().toISOString(),
-              })
-              .eq('id', scheduledActivity.id),
-            12000,
-            'Marking task complete timed out'
-          );
-          
-          if (completeError) {
-            console.error('Failed to mark task complete:', completeError);
-            toast.error('Contact logged, but failed to mark task complete');
-          } else {
-            queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
-            queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
-          }
-        } catch (err) {
-          console.error('Task completion error:', err);
-          toast.error('Contact logged, but task completion timed out');
-        }
+        supabase
+          .from('recruit_activities')
+          .update({
+            assignment_status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', scheduledActivity.id)
+          .then(({ error: completeError }) => {
+            if (completeError) {
+              console.error('Failed to mark task complete:', completeError);
+              toast.error('Contact logged, but failed to mark task complete');
+            } else {
+              queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+              queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
+            }
+          });
       }
 
       // ── STEP 3: Sync recruit row for scheduling (independent, non-blocking) ──
