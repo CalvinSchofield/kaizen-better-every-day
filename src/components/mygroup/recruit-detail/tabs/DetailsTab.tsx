@@ -35,7 +35,12 @@ import {
   SelectSeparator,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { getSessionSafe } from "@/utils/authSession";
+
+// Mobile-optimized: use local session cache, no network refresh
+const getSessionFast = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return { session, user: session?.user ?? null };
+};
 import { toast } from "sonner";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
@@ -739,7 +744,7 @@ const BlitzStatusCard = ({
       
       if (supabaseError) throw supabaseError;
       
-      const { session } = await getSessionSafe();
+      const { session } = await getSessionFast();
       if (session) {
         await supabase.functions.invoke('update-rookie-status', {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -954,7 +959,7 @@ const BlitzCommitmentsSection = ({
     queryClient.setQueryData(['recruit-blitzes-commitments', recruit.id], newCommittedBlitzIds);
     
     try {
-      const { session } = await getSessionSafe();
+      const { session } = await getSessionFast();
       if (!session) throw new Error('No session');
       
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {
