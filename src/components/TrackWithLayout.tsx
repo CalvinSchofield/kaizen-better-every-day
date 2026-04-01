@@ -1863,8 +1863,19 @@ const TrackWithLayout = () => {
         />
       )}
 
+      {/* Page Tour */}
+      <PageTour
+        steps={trackTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+        onStepAction={(action) => {
+          if (action === 'openLogSaleSheet') {
+            setIsLogSaleSheetOpen(true);
+          }
+        }}
+      />
     </>
-  );
 };
 
 export default TrackWithLayout;
