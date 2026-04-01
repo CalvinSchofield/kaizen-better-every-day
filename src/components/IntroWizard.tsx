@@ -252,6 +252,7 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
             key={slide.id}
             title={slide.title}
             description={slide.description}
+            onCropModeChange={setIsCropping}
           />
         );
       
