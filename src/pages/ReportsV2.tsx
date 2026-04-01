@@ -86,66 +86,19 @@ export const ReportsV2Page = () => {
 
   const filteredUserIds = useMemo(() => {
     if (!teamAccess) return [];
-    let ids: string[] = [];
-
-    if (teamFilter === 'all') {
-      ids = allUserIds;
-    } else if (teamFilter.type === 'team') {
-      ids = teamAccess.accessibleReps
-        ?.filter(r => r.teamId === teamFilter.id)
-        .map(r => r.userId)
-        .filter((id): id is string => !!id) || [];
-    } else if (teamFilter.type === 'mgmt_group') {
-      const group = teamAccess.mgmtGroups?.find(g => g.id === teamFilter.id);
-      const teamIds = group?.teamIds || [];
-      ids = teamAccess.accessibleReps
-        ?.filter(r => r.teamId && teamIds.includes(r.teamId))
-        .map(r => r.userId)
-        .filter((id): id is string => !!id) || [];
-    } else {
-      ids = allUserIds;
-    }
-
-    // Only include the current user if viewing all reps OR if they belong to the filtered team/group
-    if (currentUserId && teamAccess.accessLevel !== 'none' && !ids.includes(currentUserId)) {
-      const shouldIncludeLeader = teamFilter === 'all' || (() => {
-        const leaderRep = teamAccess.accessibleReps?.find(r => r.userId === currentUserId);
-        if (!leaderRep) return false;
-        if (teamFilter.type === 'team') return leaderRep.teamId === teamFilter.id;
-        if (teamFilter.type === 'mgmt_group') {
-          const group = teamAccess.mgmtGroups?.find(g => g.id === teamFilter.id);
-          return leaderRep.teamId && (group?.teamIds || []).includes(leaderRep.teamId);
-        }
-        return false;
-      })();
-      if (shouldIncludeLeader) {
-        ids = [currentUserId, ...ids];
-      }
-    }
-
-    // Apply year/experience filters (Rookie, Sophomore, Vet)
-    if (smartFilter.yearFilters.length > 0 && teamAccess.accessibleReps) {
-      const allowedYears = new Set(smartFilter.yearFilters);
-      const repsInYear = new Set(
-        teamAccess.accessibleReps
-          .filter(r => r.year && allowedYears.has(r.year))
-          .map(r => r.userId)
-          .filter((id): id is string => !!id)
-      );
-      ids = ids.filter(id => repsInYear.has(id));
-    }
-
-    return ids;
-  }, [teamAccess, teamFilter, smartFilter.yearFilters, allUserIds, currentUserId]);
-
-  // Sync smart filter → team filter (must be before early returns)
-  useEffect(() => {
-    setTeamFilter(smartFilter.teamFilter);
-  }, [smartFilter.teamFilter]);
+    return resolveFilteredUserIds(
+      smartFilter,
+      teamAccess.accessibleReps || [],
+      teamAccess.mgmtGroups || [],
+      allUserIds,
+      currentUserId || null,
+      teamAccess.accessLevel || 'none',
+    );
+  }, [teamAccess, smartFilter, allUserIds, currentUserId]);
 
   // Inject filter icon into header (must be before early returns)
   useEffect(() => {
-    const active = isFilterActive(smartFilter);
+    const active = isUnifiedFilterActive(smartFilter);
     setCustomRightContent(
       <div className="flex items-center gap-1">
         <Button
