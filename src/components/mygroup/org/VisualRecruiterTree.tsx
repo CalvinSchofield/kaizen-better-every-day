@@ -15,6 +15,7 @@ export type RoleColor =
   | "corporate"   // gold
   | "regional"    // red
   | "area_director" // amber
+  | "sr_mgmt_group" // purple
   | "mgmt_group"  // blue
   | "team_lead"   // green
   | "none";        // default gray
