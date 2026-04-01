@@ -29,6 +29,15 @@ const OrgChart = () => {
   const { data: teamAccess, isLoading: accessLoading, isError: accessError } = useTeamAccess();
   const { userId: currentAuthUserId } = useCurrentUserId();
   const [groupByOffice, setGroupByOffice] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("tree");
+  const location = useLocation();
+  const fromOnboarding = (location.state as any)?.fromOnboarding === true;
+
+  // Tour
+  const { showTour, completeTour, skipTour } = usePageTour({ 
+    page: 'org-chart',
+    enabled: fromOnboarding || undefined,
+  });
 
 
   const accessLevel = teamAccess?.accessLevel;
