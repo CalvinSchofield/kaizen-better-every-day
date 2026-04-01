@@ -41,7 +41,7 @@ export const ScheduleFollowUpDrawer = ({
   const [notesMentions, setNotesMentions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<AssignableUser | null>(null);
-  const [showAssigneePopover, setShowAssigneePopover] = useState(false);
+  const { repData } = useRepData();
   
   // Calendar prompt state
   const [showCalendarPrompt, setShowCalendarPrompt] = useState(false);
