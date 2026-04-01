@@ -21,19 +21,31 @@ function getLocalHour(timestamp: string, timezone: string | null): number {
   }
 }
 
-function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goals: any[]) {
+function buildSystemPrompt(
+  rep: any,
+  entries: any[],
+  officialTotals: any[],
+  repGoals: any,
+  plannedDays: string[],
+  seasonConfig: any,
+) {
   const name = rep?.name || "Rep";
   const year = rep?.year || "Rookie";
 
+  // EFP mode - declared early so summaries can use it
+  const isVet = year === "Vet";
+  const efpModeEnabled = isVet && (rep?.efp_mode_enabled || false);
+  const efpFromPrmr = (prmr: number) => Number((prmr / 85).toFixed(2));
+
   // Summarize entries by day of week
-  const dowStats: Record<string, { days: number; doors: number; dm: number; pitches: number; transitions: number; presentations: number; closes: number; fp: number; prmr: number }> = {};
+  const dowStats: Record<string, { days: number; doors: number; dm: number; pitches: number; transitions: number; presentations: number; closes: number; fp: number; prmr: number; hours: number }> = {};
   const weeklyBuckets: Record<string, any> = {};
   const monthlyBuckets: Record<string, any> = {};
 
   for (const e of entries) {
     const d = new Date(e.entry_date + "T12:00:00");
     const dow = DAY_NAMES[d.getDay()];
-    if (!dowStats[dow]) dowStats[dow] = { days: 0, doors: 0, dm: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0 };
+    if (!dowStats[dow]) dowStats[dow] = { days: 0, doors: 0, dm: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0, hours: 0 };
     dowStats[dow].days++;
     dowStats[dow].doors += e.doors_knocked || 0;
     dowStats[dow].dm += e.decision_makers || 0;
@@ -43,8 +55,12 @@ function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goal
     dowStats[dow].closes += e.closes || 0;
     dowStats[dow].fp += e.fp_plus || 0;
     dowStats[dow].prmr += e.prmr || 0;
+    if (e.work_start_time && e.work_end_time) {
+      const hrs = (new Date(e.work_end_time).getTime() - new Date(e.work_start_time).getTime()) / 3600000;
+      if (hrs > 0 && hrs < 18) dowStats[dow].hours += hrs;
+    }
 
-    // Weekly bucket (ISO week start Sunday)
+    // Weekly bucket
     const weekStart = new Date(d);
     weekStart.setDate(d.getDate() - d.getDay());
     const wk = weekStart.toISOString().slice(0, 10);
@@ -65,27 +81,47 @@ function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goal
     monthlyBuckets[mo].prmr += e.prmr || 0;
   }
 
-  // Sales log time-of-day analysis (using entry timezone for local hour)
+  // Sales log time-of-day analysis + per-customer breakdown
   const salesByHour: Record<number, number> = {};
-  // Also compute FP+ from sales_log for more accurate per-sale breakdown
   let totalFpSales = 0;
   let totalUpgradeSales = 0;
+  
+  // Customer-level detail
+  interface CustomerDetail {
+    date: string;
+    type: string;
+    prmr: number;
+    status: string;
+    hour: number | null;
+    customerName?: string;
+  }
+  const allSales: CustomerDetail[] = [];
+  
   for (const e of entries) {
     if (e.sales_log && Array.isArray(e.sales_log)) {
       const entryTz = e.timezone || rep?.timezone || null;
       for (const sale of e.sales_log) {
         const status = typeof sale.install_status === 'string' ? sale.install_status.toLowerCase().trim() : '';
         if (status === 'cancelled' || status === 'canceled' || status === 'never_installed') continue;
-        
-        // Count by type
+
         if (sale.type === 'fp') totalFpSales++;
         else if (sale.type === 'upgrade') totalUpgradeSales++;
-        
+
         const ts = sale.timestamp || sale.created_at;
+        let hour: number | null = null;
         if (ts) {
-          const hour = getLocalHour(ts, entryTz);
+          hour = getLocalHour(ts, entryTz);
           salesByHour[hour] = (salesByHour[hour] || 0) + 1;
         }
+        
+        allSales.push({
+          date: e.entry_date,
+          type: sale.type || 'fp',
+          prmr: sale.prmr || 0,
+          status: sale.install_status || 'unknown',
+          hour,
+          customerName: sale.customer_name || sale.name || undefined,
+        });
       }
     }
   }
@@ -100,27 +136,92 @@ function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goal
   const totalCloses = entries.reduce((s, e) => s + (e.closes || 0), 0);
   const totalFP = entries.reduce((s, e) => s + (e.fp_plus || 0), 0);
   const totalPRMR = entries.reduce((s, e) => s + (e.prmr || 0), 0);
-
-  // EFP mode - must be declared before weekly/monthly summaries that reference it
-  const isVet = year === "Vet";
-  const efpModeEnabled = isVet && (rep?.efp_mode_enabled || false);
-  const totalEfp = Number((totalPRMR / 85).toFixed(2));
+  const totalUpgradePRMR = entries.reduce((s, e) => s + (e.upgrade_prmr || 0), 0);
+  const totalEfp = efpFromPrmr(totalPRMR);
   const primaryMetric = efpModeEnabled ? "EFP" : "FP+";
   const primaryValue = efpModeEnabled ? totalEfp : totalFP;
 
-  // Goals
-  const goalInfo = goals.length > 0
-    ? `Season goals: ${JSON.stringify(goals.map(g => ({ metric: g.metric, target: g.target_value })))}`
-    : "";
+  // Total hours
+  let totalHours = 0;
+  for (const e of entries) {
+    if (e.work_start_time && e.work_end_time) {
+      const hrs = (new Date(e.work_end_time).getTime() - new Date(e.work_start_time).getTime()) / 3600000;
+      if (hrs > 0 && hrs < 18) totalHours += hrs;
+    }
+  }
+
+  // --- Goals section ---
+  let goalsSection = "";
+  if (repGoals) {
+    const g = repGoals;
+    const goalLines: string[] = [];
+    if (g.preseason_fp_goal) goalLines.push(`Preseason ${primaryMetric} goal: ${g.preseason_fp_goal}`);
+    if (g.must_do_fp_goal) goalLines.push(`Must-do ${primaryMetric} goal: ${g.must_do_fp_goal}`);
+    if (g.will_do_fp_goal) goalLines.push(`Will-do ${primaryMetric} goal: ${g.will_do_fp_goal}`);
+    if (g.could_do_fp_goal) goalLines.push(`Could-do ${primaryMetric} goal: ${g.could_do_fp_goal}`);
+    if (g.upgrade_fp_goal) goalLines.push(`Upgrade FP goal: ${g.upgrade_fp_goal}`);
+    if (g.focus_tier) goalLines.push(`Focus tier: ${g.focus_tier}`);
+    if (g.weeks_working) goalLines.push(`Planned weeks working: ${g.weeks_working}`);
+    if (g.months_off) goalLines.push(`Months off (not selling): ${g.months_off}`);
+    if (g.monthly_expenses) goalLines.push(`Monthly expenses: $${g.monthly_expenses}`);
+    if (g.rent_type) goalLines.push(`Housing type: ${g.rent_type}`);
+    if (g.cancel_rate) goalLines.push(`Expected cancel rate: ${g.cancel_rate}%`);
+    if (g.avg_prmr_per_fp) goalLines.push(`Target avg PRMR/FP: $${g.avg_prmr_per_fp}`);
+    if (g.custom_fp_pace) goalLines.push(`Custom daily FP pace: ${g.custom_fp_pace}`);
+    if (g.purpose_statement) goalLines.push(`Purpose statement: "${g.purpose_statement}"`);
+    if (goalLines.length > 0) {
+      goalsSection = `### Goals & Plan\n${goalLines.join("\n")}`;
+    }
+  }
+
+  // --- Planned days & pace ---
+  const today = new Date().toISOString().slice(0, 10);
+  const futurePlannedDays = plannedDays.filter(d => d >= today);
+  const pastPlannedDays = plannedDays.filter(d => d < today);
+  
+  let paceSection = "";
+  if (futurePlannedDays.length > 0 || pastPlannedDays.length > 0) {
+    const lines: string[] = [];
+    lines.push(`Total planned days (entire season): ${plannedDays.length}`);
+    lines.push(`Planned days remaining: ${futurePlannedDays.length}`);
+    lines.push(`Planned days already past: ${pastPlannedDays.length}`);
+    
+    // Calculate pace
+    const willDoGoal = repGoals?.will_do_fp_goal || repGoals?.must_do_fp_goal || 0;
+    if (willDoGoal > 0 && futurePlannedDays.length > 0) {
+      const remaining = willDoGoal - primaryValue;
+      const neededPerDay = remaining / futurePlannedDays.length;
+      lines.push(`${primaryMetric} remaining to will-do goal: ${remaining.toFixed(2)}`);
+      lines.push(`Needed ${primaryMetric}/day to hit will-do: ${neededPerDay.toFixed(2)}`);
+      if (totalDays > 0) {
+        const currentPace = primaryValue / totalDays;
+        lines.push(`Current avg ${primaryMetric}/day: ${currentPace.toFixed(2)}`);
+        const projectedTotal = currentPace * (totalDays + futurePlannedDays.length);
+        lines.push(`Projected season total at current pace: ${projectedTotal.toFixed(2)} ${primaryMetric}`);
+      }
+    }
+    paceSection = `### Pace & Planned Days\n${lines.join("\n")}`;
+  }
+
+  // --- Season config ---
+  let scheduleSection = "";
+  if (seasonConfig) {
+    const lines: string[] = [];
+    if (seasonConfig.personal_summer_start) lines.push(`Personal summer start: ${seasonConfig.personal_summer_start}`);
+    if (seasonConfig.personal_summer_end) lines.push(`Personal summer end: ${seasonConfig.personal_summer_end}`);
+    if (seasonConfig.excluded_summer_days?.length) lines.push(`Excluded summer days: ${seasonConfig.excluded_summer_days.length} days off`);
+    if (lines.length > 0) {
+      scheduleSection = `### Season Schedule\n${lines.join("\n")}`;
+    }
+  }
 
   // Official totals from past seasons
   const pastSeasons = officialTotals.length > 0
-    ? `Past season official totals:\n${officialTotals.map(o => `  ${o.season_type} ${o.season_year}: FP=${o.fp_plus ?? o.fp_sold ?? "?"}, PRMR=${o.prmr ?? "?"}, Days=${o.knocking_days ?? "?"}`).join("\n")}`
+    ? `### Past Season Totals\n${officialTotals.map(o => `  ${o.season_type} ${o.season_year}: FP=${o.fp_plus ?? o.fp_sold ?? "?"}, PRMR=${o.prmr ?? "?"}, Days=${o.knocking_days ?? "?"}`).join("\n")}`
     : "";
 
   // Weekly summary (last 6 weeks)
   const sortedWeeks = Object.entries(weeklyBuckets).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6);
-  const efpFromPrmr = (prmr: number) => Number((prmr / 85).toFixed(2));
   const weeklySummary = sortedWeeks.map(([wk, d]) => {
     const metricVal = efpModeEnabled ? efpFromPrmr(d.prmr).toFixed(2) : d.fp.toFixed(1);
     return `  Week of ${wk}: ${d.days} days, ${d.doors} doors, ${d.closes} closes, ${metricVal} ${primaryMetric}, $${d.prmr.toFixed(0)} PRMR`;
@@ -135,11 +236,12 @@ function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goal
   // Day of week summary
   const dowSummary = Object.entries(dowStats).map(([dow, d]) => {
     const avgMetric = efpModeEnabled ? efpFromPrmr(d.prmr / d.days).toFixed(2) : (d.fp / d.days).toFixed(2);
-    return `  ${dow}: ${d.days} days, avg ${(d.doors / d.days).toFixed(0)} doors, avg ${avgMetric} ${primaryMetric}, avg $${(d.prmr / d.days).toFixed(0)} PRMR`;
+    const avgHrs = d.hours > 0 ? (d.hours / d.days).toFixed(1) : "?";
+    return `  ${dow}: ${d.days} days, avg ${(d.doors / d.days).toFixed(0)} doors, avg ${avgMetric} ${primaryMetric}, avg ${avgHrs}h, avg $${(d.prmr / d.days).toFixed(0)} PRMR`;
   }).join("\n");
 
-  // Time of day (hours are in rep's LOCAL timezone)
-  const timeSummary = Object.entries(salesByHour).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 5)
+  // Time of day
+  const timeSummary = Object.entries(salesByHour).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 8)
     .map(([h, c]) => {
       const hr = Number(h);
       const display = hr === 0 ? "12am" : hr < 12 ? `${hr}am` : hr === 12 ? "12pm" : `${hr - 12}pm`;
@@ -147,7 +249,31 @@ function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goal
     })
     .join("\n");
 
-  // EFP mode variables declared above (after totalPRMR)
+  // Per-sale detail (last 50 sales for context)
+  const recentSales = allSales.slice(-50);
+  let salesDetailSection = "";
+  if (recentSales.length > 0) {
+    const salesLines = recentSales.map(s => {
+      const hourStr = s.hour !== null ? `${s.hour > 12 ? s.hour - 12 : s.hour}${s.hour >= 12 ? 'pm' : 'am'}` : '?';
+      const nameStr = s.customerName ? ` "${s.customerName}"` : '';
+      return `  ${s.date} ${hourStr}: ${s.type} $${s.prmr.toFixed(0)} PRMR [${s.status}]${nameStr}`;
+    }).join("\n");
+    salesDetailSection = `### Recent Sales (last ${recentSales.length})\n${salesLines}`;
+  }
+
+  // Upgrade analysis
+  let upgradeSection = "";
+  const upgradeSales = allSales.filter(s => s.type === 'upgrade');
+  if (upgradeSales.length > 0) {
+    const avgUpgradePrmr = upgradeSales.reduce((s, u) => s + u.prmr, 0) / upgradeSales.length;
+    const upgradesByHour: Record<number, number> = {};
+    for (const u of upgradeSales) {
+      if (u.hour !== null) upgradesByHour[u.hour] = (upgradesByHour[u.hour] || 0) + 1;
+    }
+    const bestUpgradeHours = Object.entries(upgradesByHour).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 3)
+      .map(([h, c]) => { const hr = Number(h); return `${hr > 12 ? hr - 12 : hr}${hr >= 12 ? 'pm' : 'am'} (${c})`; }).join(", ");
+    upgradeSection = `### Upgrade Analysis\n  Total upgrades: ${upgradeSales.length}\n  Total upgrade PRMR: $${totalUpgradePRMR.toFixed(0)}\n  Avg upgrade PRMR: $${avgUpgradePrmr.toFixed(0)}\n  Best hours for upgrades: ${bestUpgradeHours || "N/A"}`;
+  }
 
   return `You are an AI sales coach for Vivint SmartHome door-to-door reps. You're chatting with ${name}, a ${year} rep.
 
@@ -170,6 +296,7 @@ ${efpModeEnabled
 }
 - There are two types of sales: "fp" (new installs, count as 1 FP+ each) and "upgrade" (count as PRMR/85 toward FP+). This rep has ${totalFpSales} new install sales and ${totalUpgradeSales} upgrade sales.
 - When discussing time-of-day patterns, the "Best Selling Hours" data below is already in the rep's LOCAL timezone. Do NOT adjust or convert it.
+- You have access to individual sale details including PRMR, type, time, and status. Use this to answer questions about ROI, best/worst deals, upgrade timing, etc.
 
 ## VIVINT D2D BASICS
 - Product: Home security, cameras, smart home (doorbell cams, smart locks, thermostats, etc.)
@@ -248,12 +375,14 @@ ${efpModeEnabled
 ## ${name.toUpperCase()}'S NUMBERS
 
 ### Overview
-- Year: ${year} | Days worked: ${totalDays}
+- Year: ${year} | Days worked: ${totalDays} | Total hours: ${totalHours.toFixed(1)}
 - Doors: ${totalDoors} | DMs: ${totalDM} | Pitches: ${totalPitches}
 - Transitions: ${totalTransitions} | Presentations: ${totalPresentations} | Closes: ${totalCloses}
 - ${primaryMetric}: ${primaryValue.toFixed(2)} | PRMR: $${totalPRMR.toFixed(0)}${efpModeEnabled ? `` : ` | EFP: ${totalEfp.toFixed(2)}`}
+- Upgrade PRMR: $${totalUpgradePRMR.toFixed(0)}
 - Avg PRMR/close: $${totalCloses > 0 ? (totalPRMR / totalCloses).toFixed(0) : "N/A"}
 - Doors/day: ${totalDays > 0 ? (totalDoors / totalDays).toFixed(0) : "N/A"} | ${primaryMetric}/day: ${totalDays > 0 ? (primaryValue / totalDays).toFixed(2) : "N/A"}
+- Avg hours/day: ${totalDays > 0 ? (totalHours / totalDays).toFixed(1) : "N/A"}
 
 ### Funnel Rates
 - DM rate: ${totalDoors > 0 ? ((totalDM / totalDoors) * 100).toFixed(1) : "N/A"}%
@@ -275,13 +404,25 @@ ${monthlySummary || "No data"}
 ### Best Selling Hours
 ${timeSummary || "No time data"}
 
-${goalInfo}
+${goalsSection}
+
+${paceSection}
+
+${scheduleSection}
+
 ${pastSeasons}
+
+${upgradeSection}
+
+${salesDetailSection}
 
 ## KEY RULES
 - Reference real numbers. Bold the key ones with **markdown**.
 - When comparing periods, show both numbers side by side.
-- For pacing: calculate based on days remaining and current rate.
+- For pacing: use the Pace & Planned Days data above. Calculate based on remaining planned days and current rate.
+- When asked about goals, reference their specific must-do/will-do/could-do goals.
+- When asked about specific customers or sales, use the Recent Sales data.
+- When asked about upgrade strategy or timing, use the Upgrade Analysis data.
 - Always end on something positive or actionable — leave them pumped to go knock.
 - If they want to talk to their leader about something, help them frame it: "You could bring this up in your 1-on-1: [specific insight]"
 - Never say "I don't have access to your data" — you DO have it above.`;
@@ -323,19 +464,23 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const [repResult, entriesResult, officialsResult, goalsResult] = await Promise.all([
+    const [repResult, entriesResult, officialsResult, repGoalsResult, plannedDaysResult, seasonConfigResult] = await Promise.all([
       serviceClient.from("reps").select("name, year, email, stage, efp_mode_enabled, timezone").eq("user_id", userId).maybeSingle(),
       serviceClient.from("daily_entries").select("entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, sales_log, is_finalized, counter_timestamps, timezone").eq("user_id", userId).order("entry_date", { ascending: true }),
       serviceClient.from("official_totals").select("season_type, season_year, fp_plus, fp_sold, prmr, knocking_days").eq("user_id", userId).order("season_year", { ascending: false }),
-      serviceClient.from("rep_goals").select("metric, target_value, season_type, season_year").eq("user_id", userId),
+      serviceClient.from("rep_goals").select("*").eq("user_id", userId).maybeSingle(),
+      serviceClient.from("planned_work_days").select("planned_date").eq("user_id", userId).order("planned_date", { ascending: true }),
+      serviceClient.from("season_config").select("*").eq("user_id", userId).maybeSingle(),
     ]);
 
     const rep = repResult.data;
     const entries = (entriesResult.data || []).filter((e: any) => e.is_finalized || (e.doors_knocked && e.doors_knocked > 0));
     const officials = officialsResult.data || [];
-    const goals = goalsResult.data || [];
+    const repGoals = repGoalsResult.data;
+    const plannedDays = (plannedDaysResult.data || []).map((d: any) => d.planned_date);
+    const seasonConfig = seasonConfigResult.data;
 
-    const systemPrompt = buildSystemPrompt(rep, entries, officials, goals);
+    const systemPrompt = buildSystemPrompt(rep, entries, officials, repGoals, plannedDays, seasonConfig);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
