@@ -123,26 +123,40 @@ export const leaderboardTourSteps: TourStep[] = [
   },
 ];
 
-export const myGroupTourSteps: TourStep[] = [
-  {
-    target: 'quick-view-org',
-    title: 'Your Org Structure',
-    description: 'Tap this grid icon to view, create, and manage your teams and management groups. Start here to build your org.',
-    position: 'bottom',
-  },
-  {
-    target: 'add-action',
-    title: 'Invite & Add People',
-    description: 'Use the + button to create invite links for your sub-leaders. They will get their own onboarding and can build their teams.',
-    position: 'bottom',
-  },
-  {
-    target: 'group-attention-chips',
-    title: 'Track What Needs Attention',
-    description: 'These chips show who needs follow-up, has overdue tasks, or needs onboarding help. Tap any to see details.',
-    position: 'top',
-  },
-];
+export const getMyGroupTourSteps = (accessLevel?: string): TourStep[] => {
+  // Role-adaptive invite description
+  const isTeamLead = accessLevel === 'team_lead' || accessLevel === 'assistant_manager';
+  const inviteDesc = isTeamLead
+    ? 'Use the + button to add recruits to your pipeline and create invite links for your reps.'
+    : 'Use the + button to create invite links for your leaders. They will get their own onboarding and can build their teams.';
+
+  return [
+    {
+      target: 'group-hero-card',
+      title: 'Today\'s Focus',
+      description: 'This card highlights your most important recruit action for today — the person who needs your attention most right now.',
+      position: 'bottom',
+    },
+    {
+      target: 'add-action',
+      title: 'Invite & Add People',
+      description: inviteDesc,
+      position: 'bottom',
+    },
+    {
+      target: 'group-attention-chips',
+      title: 'Track What Needs Attention',
+      description: 'These chips show who needs follow-up, has overdue tasks, or needs onboarding help. Tap any to filter.',
+      position: 'top',
+    },
+    {
+      target: 'group-week-planner',
+      title: 'Your Scheduled Tasks',
+      description: 'See your planned tasks for the week. Swipe a task left to reschedule or contact, swipe right to mark it done.',
+      position: 'top',
+    },
+  ];
+};
 
 export const goalsTourSteps: TourStep[] = [
   {
