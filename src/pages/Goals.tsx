@@ -1030,7 +1030,7 @@ const Goals = () => {
           </div>
           <div className="flex gap-2">
             <Button
-              id="goals-settings-button"
+              data-tour="goals-settings-button"
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-xl"
