@@ -538,8 +538,9 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         const officeChildren: TreeNode[] = [];
 
         mgmtMap.forEach((nodes, mgmtGroupId) => {
+          const mgLeader = mgmtGroupMap.get(mgmtGroupId)?.lead_user_id;
           const dedupedNodes = dedupeGroupNodes(nodes)
-            .filter((node) => !node.userId || !globalDescendantIds.has(node.userId));
+            .filter((node) => !node.userId || !globalDescendantIds.has(node.userId) || node.userId === mgLeader);
           officeChildren.push(createMgmtLabelNode(mgmtGroupId, dedupedNodes));
         });
 
