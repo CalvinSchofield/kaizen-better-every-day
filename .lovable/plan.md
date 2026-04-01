@@ -1,86 +1,152 @@
-# Car Wars — Multi-Team Competition
+# Houston 2026 Office Onboarding Analysis
 
-## What It Is
+## Issue 1: Office shows 0 reps
 
-A new competition type alongside 1v1 and Team, where **multiple teams (up to 25)** compete against each other on a metric. One team wins. Think of it as an office-wide battle royale between car groups.
+Gunnar is assigned as Area Director via `office_staff`, but the Office Detail Drawer counts reps by looking at MGMT groups and teams with `office_id` matching the Houston office. Since no MGMT groups or teams have been assigned to that office yet, it shows 0 reps -- and Gunnar himself isn't counted because the drawer only counts recruits in those groups/teams, not the AD staff entry.
 
-## Database Changes
+**Fix**: The drawer should include Area Directors in the rep count, and Gunnar should show as "1 rep" at minimum.
 
-**1. Expand `challenges.type` constraint**
+---
 
-- Add `'car_wars'` to the allowed values: `CHECK (type IN ('1v1', 'group', 'car_wars'))`
+## Issue 2: No office_id inheritance from invite flow
 
-**2. Expand `challenge_participants.team` constraint**
+Looking at `process-invite-signup`, the function sets `team_id`, `mgmt_group_id`, and `recruiter_user_id` on the new recruit, but **never sets `office_id**`. Office assignment is resolved at read-time via the cascading logic (Rep > Team > MGMT Group > Sr MGMT Group), but since Gunnar has no teams or MGMT groups yet, new signups won't be associated with Houston 2026 at all.
 
-- Currently only `'a'` or `'b'`. Change to allow any single-character or short identifier (e.g., `team_1` through `team_25`)
-- Drop the existing CHECK and replace with a more flexible one, or switch to a text field with no constraint (validation in code)
+**This is a gap.** There is no mechanism to auto-inherit the office from an Area Director's invite.  
+  
+**most of the time, the office will be inherited based on where the recruiter is going. like if one of my sophomores recruits some rookie, theyre going to go wherever the sophomore is going (my office). It's only when higher ups recruit other high ups (ex. Josh gruwell a sr regional who doesn't have an app account yet onboards christopher mevs a regional in his downline who also doesnt have an app accoutn yet. josh isn't even deploying for summers so he doesnt have an office assigned to him but regardless -- office assignments should be inherit based on the recruiter and then reasseed with cascading logic if a change is made after the fact (aka christopher mevs doesn't have an office hes going to, and half of his MGMT group is coming with yosemite and the other half is going with houstin office)
 
-**3. New table: `challenge_teams**`
+---
 
-- Stores team metadata for car_wars challenges (team name, color/number)
-- Schema: `id uuid PK`, `challenge_id uuid FK`, `team_label text` (e.g., "Car 1", "Blue Team"), `team_key text` (e.g., "1", "2"... up to "15"), `created_at timestamptz`
-- The `challenge_participants.team` column references team_key for car_wars challenges
-- RLS: viewable by anyone who can view the challenge, insertable by creator
+## Detailed Walkthrough: Scenario A -- Gunnar blasts downline invite to all 30 reps
 
-**4. Expand `challenge_participants.role**`
+### What happens technically:
 
-- Add `'car_captain'` or reuse existing roles. Each car_wars team has one captain (first assigned). Alternatively, keep `captain_a` for the creator's team and use `member` for everyone else, with a separate `car_wars_captain` flag or just track via the `challenge_teams` table.
-- Simpler approach: for car_wars, the challenge creator is overall organizer. Each team's first member is that team's captain. Role stays as `member` for all non-creator participants.
+1. Gunnar shares a **downline** invite link from "My Group > Add Recruit > Share Kaizen"
+2. Each person who signs up triggers `process-invite-signup`:
+  - `recruiter_user_id` = Gunnar's user_id (for ALL 30 signups)
+  - `team_id` = null (Gunnar doesn't lead a team)
+  - `mgmt_group_id` = null (Gunnar doesn't lead a MGMT group)
+  - `approval_status` = "pending"
+3. All 30 show up in Gunnar's **Pending Approvals** section on My Group
 
-## Creation UX (New Wizard Flow)
+### What Gunnar sees:
 
-**Step 1 — Competition Type** (existing screen + new option)
+- 30 pending approval cards, each showing name, year, email, "Invited by Gunnar Bramwell"
+- He can approve individually or "Approve All"
+- He can tap the pencil icon to edit each recruit (assign role, change team/recruiter)
+- After approving all, a prompt says: "Go to the Recruiter Tree to reassign anyone who has a different direct recruiter than you"
 
-- Add a third card: 🏎️ **Car Wars** / "Multi-team battle"
-- Selecting it sets `type = 'car_wars'` and proceeds to Step 2
+### The problem:
 
-**Step 2 — Set Up Teams**
+- **All 30 reps have `recruiter_user_id = Gunnar**`. In reality, most of them were recruited by their team leads or MGMT group leaders, not Gunnar directly.
+- The recruiter tree would show Gunnar with 30 direct reports -- completely flat, no hierarchy.
+- Gunnar would need to manually reassign each rep's recruiter in the Recruiter Tree (drag/drop or node menu), which is extremely tedious for 30 people. ****drag an ddrop is not currently supported on the recruiter tree to reassign recruit/recruiter relationships or team/mgmt/sr mgmt relationships....*****
+- No teams or MGMT groups exist yet, so there's no structure to place them in. ******(this can be done in the strcuture tab -- he should be able to create both mgmt group sand teams since he is a sr mgmt group leader right?)
+- None of the reps are associated with Houston 2026 office.
 
-- Top section: horizontal scrollable row of team "cards" (Car 1, Car 2, Car 3...)
-- **Add Team** button at the end of the row (up to 15)
-- Tapping a team card selects it as the "active" team to assign members to
-- Below: the participant pool (same search/filter UI already built) with a simple tap-to-assign flow
-- Each rep shows which team they're on (colored dot or badge), or "Unassigned"
-- Tap an unassigned rep → they join the active team. Tap an assigned rep → remove them
-- Each team card shows member count and a mini avatar stack
-- Team names are editable (tap the name to rename, defaults to "Car 1", "Car 2", etc.)
-- **Minimum**: 2 teams with at least 1 member each
+### What each rep sees during onboarding:
 
-**Step 3 — Metric** (reuse existing)
+1. **Sign up** via invite link (web) -- enters name, phone, year (Rookie/Vet/etc)
+2. **"Welcome to Kaizen!"** toast, then **Pending Approval Screen** blocks all access -- ******w**hat does the pending approval screen even look like? gunnar sent me a screenshot of what he saw after i onbaorded him before i approved him, and it looked like he had full app access already lol**
+3. The screen says "Your signup is being reviewed by your team leader"
+4. They're stuck here until Gunnar approves them
+5. Once approved, they hit `SetupFlow` → `IntroWizard` → `BiweeklySyncGate` (Initial Sync) → `GoalSetupWizard`
+6. **Onboarding segment**: Since Houston 2026 has no teams/MGMT groups with `office_id` set, `useOnboardingSegment` classifies ALL of them as **"outside-org"** -- they skip team-sell intro slides and bypass why/expenses/preseason commitment steps. *****The hsould be outside the org because they are not in MY org (Calvin schofield MGMT).  But more importantly -- why doe we skip the why/expenses? i see why we skip the preseason commitment steps but why skip the why/expenses part of the goalsSetupWizard?******
+7. Leaders (MGMT leads, TLs) who were assigned roles: if Gunnar assigned them roles during approval, they get the auto-approved toast instead and can access Org tab to build structure
 
-**Step 4 — Duration, Stakes, Privacy** (reuse existing)
+---
 
-**Step 5 — Review & Send**
+## Detailed Walkthrough: Scenario B -- Gunnar invites leaders first, then they invite their downline (RECOMMENDED)
 
-- Summary showing all teams with their members
-- One-tap send
-- Let's use the same logic for down line stuff as before. If I'm creating the car wars and everyone who is participating in the multi team competition is in my down line, then there are no approvals needed to start the car war
+### Step 1: Gunnar sends lateral invites to his ~5 leaders
 
-## Scoring & Winner Logic
+Gunnar creates **lateral** invite links with pre-assigned roles from the invite creation flow:
 
-- Each team's score = sum of all team members' metric values over the date range (same as existing group challenge scoring)
-- Winner = team with highest aggregate score
-- The existing `complete-challenges` edge function will be extended to handle car_wars: iterate all teams, sum per team, determine winner
-- `winner_user_id` could store the team captain's user_id, or we add a `winner_team_key` column to challenges for car_wars
+- Leader A → `pre_assigned_role: mgmt_group_lead`
+- Leader B → `pre_assigned_role: mgmt_group_lead`
+- Leader C → `pre_assigned_role: team_lead`
+- etc.
 
-## Display / Active View
+### What happens technically:
 
-- Active car_wars challenges show a **leaderboard-style card** with teams ranked by current score
-- Each team row: rank, team name, member count, aggregate score
-- Tapping expands to show individual member contributions
-- Reuses the existing `ActiveChallengesCard` and `CompeteDrawer` patterns
+- `shouldAutoApprove = true` (lateral + pre_assigned_role)
+- `recruiter_user_id = null` (lateral auto-approve skips recruiter assignment)
+- `team_id = null`, `mgmt_group_id = null`
+- Role is auto-assigned via `user_roles` table
+- No pending approval needed
 
-## Files to Create/Edit
+### What leaders see:
 
+1. Sign up → toast: "You're set up as mgmt group lead. Head to Organization to build your structure."
+2. They bypass pending approval entirely
+3. They hit onboarding: classified as **"outside-org"** (no office teams exist yet)
+4. After onboarding, they go to **Organization tab** and can:
+  - Create teams (if MGMT group lead)
+  - See the "Create" button based on their role
+  - **BUT**: they don't have a MGMT group to lead yet -- Gunnar or they need to create it
 
-| File                                                   | Change                                                              |
-| ------------------------------------------------------ | ------------------------------------------------------------------- |
-| `supabase/migrations/new.sql`                          | Add `challenge_teams` table, expand type/team constraints           |
-| `src/utils/competitionTypeConfig.ts`                   | Add `'car_wars'` type config                                        |
-| `src/hooks/useChallenges.ts`                           | Expand types, creation input, fetch logic for car_wars teams        |
-| `src/components/leaderboard/CreateChallengeDrawer.tsx` | Add car_wars option in step 1, new step 2 for multi-team assignment |
-| `src/components/compete/CarWarsTeamBuilder.tsx`        | **New** — the multi-team assignment UI component                    |
-| `src/components/compete/CarWarsActiveCard.tsx`         | **New** — active car_wars display with team leaderboard             |
-| `src/components/CompeteDrawer.tsx`                     | Handle car_wars in the competition list                             |
-| `src/components/ActiveChallengesCard.tsx`              | Handle car_wars display                                             |
-| `supabase/functions/complete-challenges/index.ts`      | Extend winner logic for multi-team scoring                          |
+### Step 2: Gunnar sets up the org structure
+
+After leaders are approved/onboarded:
+
+1. Gunnar goes to Organization tab
+2. Creates MGMT groups, assigns leaders
+3. Creates teams under MGMT groups, assigns team leads
+4. Uses "Assign to Office" to link MGMT groups to Houston 2026
+5. Now the office shows reps
+
+### Step 3: Leaders send downline invites to their reps
+
+Each leader shares their own invite link:
+
+- `recruiter_user_id` = the leader who sent it
+- `team_id` = auto-resolved from the leader's team
+- `mgmt_group_id` = auto-resolved from the leader's MGMT group
+- Recruiter relationships are **correct by construction**
+
+### What Gunnar sees:
+
+- Leaders' pending approvals show up (if he used downline not lateral)
+- After leaders are set up, their recruits show up under the correct team/MGMT group
+- The recruiter tree is properly hierarchical
+- Houston 2026 shows actual rep counts once MGMT groups are assigned to the office
+
+### What reps see:
+
+- Same onboarding flow as Scenario A
+- But now with proper team assignment, they may be classified as **"in-org"** if office_id is set on their team/MGMT group ****they shouldnt be "in-org" because they aren't in Calvin Schofield MGMT Group******
+- They see the full in-org onboarding experience (team-sell intro, preseason commitments, etc.)
+
+---
+
+## Gaps and Recommended Fixes
+
+### 1. Office rep count should include Area Directors
+
+The `OfficeDetailDrawer` should count the AD as a rep in the office.
+
+### 2. No office_id inheritance from AD invite
+
+When an AD sends an invite, the `process-invite-signup` function should check if the inviter is an Area Director and, if so, set `office_id` on the new rep's record. This would at minimum associate the rep with the office for counting purposes.
+
+### 3. Onboarding segment misclassification
+
+Since Houston 2026 has no teams yet, all signups are classified as "outside-org" and get a stripped-down onboarding. Fix: `useOnboardingSegment` should also check if the user's recruiter is an AD in an office, not just match team_leader names.
+
+### 4. Batch recruiter reassignment is manual and tedious
+
+After Scenario A (blast to all 30), Gunnar gets a text prompt to "go to the recruiter tree" but no bulk reassignment tool. This is a UX gap for large batches.
+
+### 5. Recommended approach for Gunnar
+
+**Scenario B is strongly recommended**: invite leaders first with lateral+role, let them build their structure, then have them invite their own downline. This produces correct recruiter chains, proper team/MGMT placement, and accurate office association automatically.
+
+---
+
+## Implementation Plan
+
+1. **Fix Office Detail Drawer rep count** -- include ADs in the count
+2. **Add office_id resolution to `process-invite-signup**` -- if inviter is an AD, set the new rep's `office_id` to the AD's office
+3. **Fix `useOnboardingSegment**` -- check recruiter chain for office association, not just team_leader name matching
+4. **Consider bulk recruiter reassignment UI** for Scenario A (future enhancement)
