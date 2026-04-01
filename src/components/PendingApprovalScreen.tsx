@@ -1,15 +1,16 @@
-import { useState } from "react";
-import { 
-  Clock, LogOut, ExternalLink, Smartphone, Download, 
-  Target, CalendarDays, BarChart3, TrendingUp, Trophy, 
-  Flame, Users, BookOpen, ArrowLeft, ChevronRight
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { Clock, LogOut, Download, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { clearAllRepCaches } from "@/hooks/useRepData";
 import { motion, AnimatePresence } from "framer-motion";
-import AboutTeam from "@/pages/AboutTeam";
-import KaizenLogo from "@/components/KaizenLogo";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+} from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
+import { Target, CalendarDays, BarChart3, TrendingUp, Trophy, Flame, Users, BookOpen } from "lucide-react";
 
 const TESTFLIGHT_URL = "https://testflight.apple.com/join/MGGUFyE7";
 
@@ -27,14 +28,14 @@ const isNativeApp = (): boolean => {
 };
 
 const FEATURES = [
-  { icon: Target, title: "Set Goals", description: "Daily, weekly & monthly targets to keep you locked in", delay: 0.1 },
-  { icon: CalendarDays, title: "Make Plans", description: "Schedule your knocking days and build consistency", delay: 0.15 },
-  { icon: BarChart3, title: "Track Inputs", description: "Doors, pitches, closes — all tracked in real time", delay: 0.2 },
-  { icon: TrendingUp, title: "Learn & Improve", description: "See your trends and ratios to get better every day", delay: 0.25 },
-  { icon: Trophy, title: "Leaderboard", description: "Live rankings — see where you stack up on the team", delay: 0.3 },
-  { icon: Flame, title: "Challenges", description: "Compete head-to-head or run group incentives", delay: 0.35 },
-  { icon: Users, title: "Recruiting", description: "Full CRM to build, track, and grow your team", delay: 0.4 },
-  { icon: BookOpen, title: "Sales Log", description: "Customer CRM to manage every deal from pitch to close", delay: 0.45 },
+  { icon: Target, title: "Set & Crush Goals", description: "Daily, weekly & monthly targets that keep you accountable and locked in.", color: "from-orange-500 to-amber-500" },
+  { icon: BarChart3, title: "Track Every Door", description: "Doors, pitches, closes — tracked in real time so you always know your numbers.", color: "from-blue-500 to-cyan-500" },
+  { icon: TrendingUp, title: "See Your Growth", description: "Ratios, trends & insights that show you exactly where to improve.", color: "from-emerald-500 to-green-500" },
+  { icon: Trophy, title: "Live Leaderboard", description: "See where you rank against the team — updated in real time.", color: "from-yellow-500 to-orange-500" },
+  { icon: Flame, title: "Compete & Win", description: "Head-to-head challenges and group incentives to push your limits.", color: "from-red-500 to-rose-500" },
+  { icon: CalendarDays, title: "Plan Your Days", description: "Schedule knocking days and build the consistency that wins.", color: "from-violet-500 to-purple-500" },
+  { icon: Users, title: "Build Your Team", description: "Full recruiting CRM to track, manage, and grow your downline.", color: "from-pink-500 to-fuchsia-500" },
+  { icon: BookOpen, title: "Sales CRM", description: "Manage every deal from pitch to close — never lose track of a customer.", color: "from-teal-500 to-cyan-500" },
 ];
 
 interface PendingApprovalScreenProps {
@@ -44,26 +45,17 @@ interface PendingApprovalScreenProps {
   showTeamInfoLink?: boolean;
 }
 
-const FeatureCard = ({ icon: Icon, title, description, delay }: typeof FEATURES[0]) => (
-  <motion.div
-    initial={{ opacity: 0, y: 16 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ delay, duration: 0.35, ease: "easeOut" }}
-    className="bg-card border border-border/50 rounded-2xl p-4 flex gap-3.5 items-start shadow-sm"
-  >
-    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-      <Icon className="w-5 h-5 text-primary" />
+const FeatureSlide = ({ icon: Icon, title, description, color }: typeof FEATURES[0]) => (
+  <div className="h-full flex flex-col items-center text-center px-2 py-6">
+    <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center mb-4 shadow-lg`}>
+      <Icon className="w-7 h-7 text-white" />
     </div>
-    <div className="min-w-0">
-      <p className="font-semibold text-sm text-foreground">{title}</p>
-      <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{description}</p>
-    </div>
-  </motion.div>
+    <h3 className="font-bold text-base text-foreground mb-1.5">{title}</h3>
+    <p className="text-sm text-muted-foreground leading-relaxed max-w-[240px]">{description}</p>
+  </div>
 );
 
-const PendingApprovalScreen = ({ repName, teamLeader, teamLeaderPhone, showTeamInfoLink }: PendingApprovalScreenProps) => {
-  const [view, setView] = useState<'features' | 'about'>('features');
-
+const PendingApprovalScreen = ({ repName }: PendingApprovalScreenProps) => {
   const handleLogout = async () => {
     clearAllRepCaches();
     await supabase.auth.signOut();
@@ -71,190 +63,103 @@ const PendingApprovalScreen = ({ repName, teamLeader, teamLeaderPhone, showTeamI
 
   const firstName = repName?.split(' ')[0] || 'there';
   const showAppDownload = isIOS() && !isNativeApp();
-  const isDirectOrg = !showTeamInfoLink;
-
-  // About Team view for direct org recruits
-  if (view === 'about') {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-lg border-b border-border/50 px-4 py-3">
-          <button
-            onClick={() => setView('features')}
-            className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
-        </div>
-        <AboutTeam />
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Scrollable content */}
-      <div className="max-w-lg mx-auto px-5 py-8 pb-12">
-
-        {/* Pending status badge — quiet, top of page */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="flex justify-center mb-6"
-        >
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20">
-            <Clock className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs font-medium text-primary">Account under review</span>
-          </div>
-        </motion.div>
-
-        {/* Hero — Kaizen branding + welcome */}
+    <div className="min-h-[100dvh] bg-background flex flex-col">
+      {/* Top section */}
+      <div className="flex-1 flex flex-col items-center justify-center px-5 pt-10 pb-4">
+        {/* Welcome */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05, duration: 0.4 }}
-          className="text-center mb-8"
+          transition={{ duration: 0.4 }}
+          className="text-center mb-3"
         >
-          <KaizenLogo />
-          <h1 className="text-2xl font-bold text-foreground mt-5 mb-2">
+          <h1 className="text-2xl font-bold text-foreground">
             Welcome, {firstName}! 🎉
           </h1>
-          <p className="text-muted-foreground text-sm max-w-xs mx-auto leading-relaxed">
-            Your account is being reviewed. While you wait, here's a look at everything you'll unlock.
+        </motion.div>
+
+        {/* Pending badge + explanation */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.35 }}
+          className="text-center mb-6"
+        >
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-3">
+            <Clock className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-medium text-primary">Pending Approval</span>
+          </div>
+          <p className="text-muted-foreground text-sm max-w-[280px] mx-auto leading-relaxed">
+            Your upline needs to approve your account before you can get started. Hang tight!
           </p>
         </motion.div>
 
-        {/* Team leader contact */}
-        {teamLeader && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08, duration: 0.35 }}
-            className="bg-muted/50 rounded-xl p-4 mb-8 text-center"
-          >
-            <p className="text-xs text-muted-foreground mb-1">Reviewing your signup</p>
-            <p className="font-semibold text-foreground">{teamLeader}</p>
-            {teamLeaderPhone && (
-              <a href={`tel:${teamLeaderPhone}`} className="text-sm text-primary hover:underline">
-                {teamLeaderPhone}
-              </a>
-            )}
-          </motion.div>
-        )}
-
-        {/* Section label */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1, duration: 0.3 }}
-          className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 px-1"
-        >
-          What you'll get access to
-        </motion.p>
-
-        {/* Feature cards grid */}
-        <div className="grid grid-cols-1 gap-3 mb-8">
-          {FEATURES.map((feature) => (
-            <FeatureCard key={feature.title} {...feature} />
-          ))}
-        </div>
-
-        {/* Meet the Team button for direct org */}
-        {isDirectOrg && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.35 }}
-            className="mb-4"
-          >
-            <button
-              onClick={() => setView('about')}
-              className="w-full flex items-center justify-between bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:border-primary/30 transition-colors group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <Users className="w-5 h-5 text-primary" />
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-sm text-foreground">Meet the Team</p>
-                  <p className="text-xs text-muted-foreground">Learn about who you'll be working with</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-            </button>
-          </motion.div>
-        )}
-
-        {/* External link for non-direct org */}
-        {showTeamInfoLink && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.35 }}
-            className="mb-4"
-          >
-            <a
-              href="https://www.smarthomepros.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full flex items-center justify-between bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:border-primary/30 transition-colors group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <ExternalLink className="w-5 h-5 text-primary" />
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-sm text-foreground">Learn About the Team</p>
-                  <p className="text-xs text-muted-foreground">Visit our website to learn more</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-            </a>
-          </motion.div>
-        )}
-
-        {/* iOS app download */}
-        {showAppDownload && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.55, duration: 0.35 }}
-            className="bg-primary/5 border border-primary/20 rounded-2xl p-4 mb-4"
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                <Smartphone className="h-5 w-5 text-primary" />
-              </div>
-              <div className="text-left">
-                <p className="font-semibold text-sm text-foreground">Get the Kaizen App</p>
-                <p className="text-xs text-muted-foreground">Faster, smoother, with push notifications</p>
-              </div>
-            </div>
-            <Button
-              onClick={() => window.open(TESTFLIGHT_URL, "_blank", "noopener,noreferrer")}
-              size="sm"
-              className="w-full gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Download via TestFlight
-            </Button>
-          </motion.div>
-        )}
-
-        {/* Sign out */}
+        {/* Feature carousel */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.6, duration: 0.3 }}
-          className="flex justify-center pt-4"
+          transition={{ delay: 0.2, duration: 0.4 }}
+          className="w-full max-w-lg"
         >
-          <Button variant="ghost" onClick={handleLogout} className="gap-2 text-muted-foreground">
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </Button>
+          <Carousel
+            opts={{
+              align: "center",
+              loop: true,
+            }}
+            plugins={[
+              Autoplay({ delay: 3000, stopOnInteraction: false }),
+            ]}
+            className="w-full"
+          >
+            <CarouselContent>
+              {FEATURES.map((feature) => (
+                <CarouselItem key={feature.title} className="basis-[75%] sm:basis-[60%]">
+                  <FeatureSlide {...feature} />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+          </Carousel>
         </motion.div>
       </div>
+
+      {/* Bottom actions */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35, duration: 0.35 }}
+        className="px-5 pb-8 space-y-3 max-w-lg mx-auto w-full"
+      >
+        {/* iOS download - always show on iOS web */}
+        {showAppDownload && (
+          <Button
+            onClick={() => window.open(TESTFLIGHT_URL, "_blank", "noopener,noreferrer")}
+            className="w-full gap-2"
+            size="lg"
+          >
+            <Download className="h-4 w-4" />
+            Download the App (TestFlight)
+          </Button>
+        )}
+
+        {/* Non-iOS: just show a note about the app */}
+        {!showAppDownload && !isNativeApp() && (
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground">
+              📱 Download Kaizen on iOS via{" "}
+              <a href={TESTFLIGHT_URL} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                TestFlight
+              </a>
+            </p>
+          </div>
+        )}
+
+        <Button variant="ghost" onClick={handleLogout} className="w-full gap-2 text-muted-foreground">
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </Button>
+      </motion.div>
     </div>
   );
 };
