@@ -41,8 +41,12 @@ interface OrgNode {
 }
 
 function countTotalDescendants(node: OrgNode): number {
-  if (node.children.length === 0) return 0;
   let count = 0;
+  // Count this node's leader as a person if it has one
+  // (team leads, mgmt group leads, sr mgmt leads are people too)
+  if (node.leadUserId && (node.type === "team" || node.type === "mgmt_group" || node.type === "sr_mgmt_group")) {
+    count += 1;
+  }
   for (const child of node.children) {
     if (child.type === "rep") count += 1;
     else count += countTotalDescendants(child);
