@@ -131,7 +131,7 @@ export function RecapTimingSlide({
             <div className="flex items-center gap-2">
               <span className="text-lg font-semibold">{avgEndTime}</span>
               {timeComparison?.avgEndTime && (
-                <TimeTrendBadge earlier={!timeComparison.avgEndTime.later} diff={timeComparison.avgEndTime.diff} />
+                <TimeTrendBadge isPositive={timeComparison.avgEndTime.later} diff={timeComparison.avgEndTime.diff} label={timeComparison.avgEndTime.later ? 'later' : 'earlier'} />
               )}
             </div>
           </div>
