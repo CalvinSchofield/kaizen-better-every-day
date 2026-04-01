@@ -76,8 +76,8 @@ Deno.serve(async (req) => {
 
     const isLateralInvite = invite.invite_type === 'lateral';
     const preAssignedRole = invite.pre_assigned_role || null;
-    // Auto-approve lateral invites that have a pre-assigned role
-    const shouldAutoApprove = isLateralInvite && !!preAssignedRole;
+    // ALL signups require explicit approval — roles can be pre-assigned but approval stays pending
+    const shouldAutoApprove = false;
 
     // 2. Get inviter's rep record for team info
     const { data: inviterRep } = await supabase
@@ -90,9 +90,9 @@ Deno.serve(async (req) => {
     let resolvedTeamId: string | null = null;
     let resolvedMgmtGroupId: string | null = null;
     let resolvedOfficeId: string | null = null;
-    // For lateral invites with auto-approve, don't set recruiter — the leader's
+    // For lateral invites, don't set recruiter — the leader's
     // actual recruiter is their upline who may not be onboarded yet
-    let resolvedRecruiterUserId: string | null = shouldAutoApprove ? null : invite.inviter_user_id;
+    let resolvedRecruiterUserId: string | null = isLateralInvite ? null : invite.inviter_user_id;
 
     if (!isLateralInvite) {
       // Standard downline flow — auto-assign org placement

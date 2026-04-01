@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -103,6 +103,7 @@ const Goals = () => {
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
   const [syncGateSkipped, setSyncGateSkipped] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const gatedFrom = (location.state as any)?.gatedFrom as string | undefined;
 
   // Friendly route name mapping for the gate banner
@@ -806,6 +807,26 @@ const Goals = () => {
                 setShowSetupWizard(false);
                 invalidateGoalRelatedQueries(queryClient);
                 toast.success("Goals saved!");
+
+                // Post-setup redirect for leaders: take them to My Group org tab
+                const { data: teamAccessCheck } = await supabase.rpc('is_team_lead', { _user_id: user.id });
+                const { data: mgmtCheck } = await supabase.rpc('is_mgmt_group_lead', { _user_id: user.id });
+                const { data: adCheck } = await supabase.rpc('is_area_director', { _user_id: user.id });
+                const isLeaderUser = teamAccessCheck || mgmtCheck || adCheck;
+                
+                if (isLeaderUser) {
+                  // Check if they've already toured my-group
+                  const { data: repCheck } = await supabase
+                    .from('reps')
+                    .select('pages_toured')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+                  const pagesToured = Array.isArray(repCheck?.pages_toured) ? (repCheck.pages_toured as string[]) : [];
+                  if (!pagesToured.includes('my-group')) {
+                    navigate('/my-group', { state: { fromOnboarding: true } });
+                    return;
+                  }
+                }
               } catch (error) {
                 toast.error("Failed to save goals");
               }

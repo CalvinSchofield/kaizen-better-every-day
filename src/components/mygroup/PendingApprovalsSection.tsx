@@ -142,6 +142,9 @@ export const PendingApprovalsSection = () => {
 
   const approveMutation = useMutation({
     mutationFn: async (recruitId: string) => {
+      // Find the recruit to check for pre-assigned role from invite code
+      const recruit = pendingRecruits.find(r => r.id === recruitId);
+      
       const { error } = await supabase
         .from('recruits')
         .update({
@@ -159,6 +162,27 @@ export const PendingApprovalsSection = () => {
         logged_by_user_id: userId!,
         notes: 'Signup approved ✅',
       });
+
+      // Check if invite code had a pre-assigned role and assign it
+      let preAssignedRole: string | null = null;
+      if (recruit?.invite_code_used) {
+        const { data: inviteData } = await supabase
+          .from('invite_codes')
+          .select('pre_assigned_role')
+          .eq('code', recruit.invite_code_used)
+          .maybeSingle();
+        
+        if (inviteData?.pre_assigned_role) {
+          preAssignedRole = inviteData.pre_assigned_role;
+          const repData = await supabase.from('reps').select('user_id').eq('id', recruitId).maybeSingle();
+          if (repData.data?.user_id) {
+            await supabase.from('user_roles').upsert(
+              { user_id: repData.data.user_id, role: preAssignedRole as any },
+              { onConflict: 'user_id,role' }
+            );
+          }
+        }
+      }
 
       // Auto-assign leadership: check if any team/group has this recruit as pending leader
       const repData = await supabase
@@ -190,16 +214,18 @@ export const PendingApprovalsSection = () => {
         }
 
         if (autoAssignedNames.length > 0) {
-          return { autoAssignedLeader: true, groupNames: autoAssignedNames.join(', ') };
+          return { autoAssignedLeader: true, groupNames: autoAssignedNames.join(', '), preAssignedRole };
         }
       }
 
-      return { autoAssignedLeader: false };
+      return { autoAssignedLeader: false, preAssignedRole };
     },
     onSuccess: (result) => {
       hapticSuccess();
       if (result?.autoAssignedLeader) {
         toast.success(`Approved! Auto-assigned as leader of ${result.groupNames}`);
+      } else if (result?.preAssignedRole) {
+        toast.success(`Approved with pre-assigned role: ${getRoleLabel(result.preAssignedRole as any)}`);
       } else {
         toast.success('Signup approved!');
       }

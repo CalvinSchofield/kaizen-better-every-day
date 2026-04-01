@@ -47,6 +47,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DataLoadError } from "@/components/mygroup/DataLoadError";
 import { AddRecruitActionSheet } from "@/components/mygroup/AddRecruitActionSheet";
 import Layout from "@/components/Layout";
+import { LeaderOnboardingTour } from "@/components/mygroup/LeaderOnboardingTour";
 import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, startOfToday } from "date-fns";
 import { toast } from "sonner";
 import { UndoBanner } from "@/components/ui/UndoBanner";
@@ -160,7 +161,16 @@ const MyGroup = () => {
   useEffect(() => {
     if (hasProcessedNavState || isLoading || !teamAccess || !currentUserRep) return;
     
-    const navState = location.state as { openCategory?: string; autoSelectMyTeam?: boolean; newRecruitId?: string } | null;
+    const navState = location.state as { openCategory?: string; autoSelectMyTeam?: boolean; newRecruitId?: string; fromOnboarding?: boolean } | null;
+    
+    // Handle fromOnboarding: auto-open org tab in QuickView
+    if (navState?.fromOnboarding) {
+      setQuickViewInitialTab('org');
+      setQuickViewOpen(true);
+      window.history.replaceState({}, document.title);
+      setHasProcessedNavState(true);
+      return;
+    }
     
     // Handle newly created recruit - open detail drawer
     if (navState?.newRecruitId) {
@@ -868,7 +878,7 @@ const MyGroup = () => {
   // Simplified header - just filter button for higher-level leaders
   const headerControls = (
     <div className="flex items-center gap-2">
-      <Button variant="ghost" size="icon" onClick={() => setAddActionSheetOpen(true)}>
+      <Button variant="ghost" size="icon" onClick={() => setAddActionSheetOpen(true)} data-tour="add-action">
         <Plus className="h-5 w-5" />
       </Button>
       {activeFilterName && (
@@ -903,6 +913,7 @@ const MyGroup = () => {
         <Button 
           variant="ghost" 
           size="icon"
+          data-tour="quick-view-org"
           onClick={() => {
             setQuickViewInitialTab(undefined);
             setQuickViewOpen(true);
@@ -1353,6 +1364,9 @@ const MyGroup = () => {
           setRescheduleActivity(null);
         }}
       />
+
+      {/* Leader onboarding tour */}
+      {isLeader && <LeaderOnboardingTour />}
 
     </Layout>
   );
