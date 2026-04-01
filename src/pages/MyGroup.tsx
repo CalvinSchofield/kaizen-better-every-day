@@ -49,7 +49,7 @@ import { AddRecruitActionSheet } from "@/components/mygroup/AddRecruitActionShee
 import Layout from "@/components/Layout";
 import { PageTour } from "@/components/PageTour";
 import { usePageTour } from "@/hooks/usePageTour";
-import { myGroupTourSteps } from "@/config/pageTours";
+import { getMyGroupTourSteps } from "@/config/pageTours";
 import { LeaderWelcomeDrawer } from "@/components/mygroup/LeaderWelcomeDrawer";
 import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, startOfToday } from "date-fns";
 import { toast } from "sonner";
@@ -1385,7 +1385,7 @@ const MyGroup = () => {
       {/* Leader onboarding tour - unified PageTour system */}
       {isLeader && (
         <PageTour
-          steps={myGroupTourSteps}
+          steps={getMyGroupTourSteps(teamAccess?.accessLevel)}
           isOpen={showGroupTour}
           onComplete={completeGroupTour}
           onSkip={skipGroupTour}
