@@ -292,6 +292,7 @@ Deno.serve(async (req) => {
           name: finalName,
           phone: phone || null,
           year: finalYear,
+          office_id: resolvedOfficeId,
           team_leader: isLateralInvite ? null : (inviterRep?.name || null),
           team_leader_phone: isLateralInvite ? null : (inviterRep?.phone || null),
           updated_at: new Date().toISOString(),
