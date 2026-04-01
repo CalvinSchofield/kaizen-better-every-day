@@ -1,9 +1,11 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, GitBranch } from "lucide-react";
+import { Users, GitBranch, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { getCleanName } from "@/utils/nameUtils";
 import { VisualRecruiterTree, type TreeNode, type RoleColor } from "@/components/mygroup/org/VisualRecruiterTree";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,20 +22,20 @@ const OFFICE_GROUPED_ACCESS_LEVELS = new Set([
 
 const OrgChart = () => {
   const queryClient = useQueryClient();
-  const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
+  const { data: teamAccess, isLoading: accessLoading, isError: accessError } = useTeamAccess();
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
   const [groupByOffice, setGroupByOffice] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => { const data = { user: session?.user ?? null };
-      setCurrentAuthUserId(data.user?.id || null);
+    getSessionSafe().then(({ user }) => {
+      setCurrentAuthUserId(user?.id || null);
     });
   }, []);
 
 
   const accessLevel = teamAccess?.accessLevel;
 
-  const { data: treeData, isLoading } = useQuery({
+  const { data: treeData, isLoading, isError: treeError, refetch: refetchTree } = useQuery({
     queryKey: ["org-chart-full-tree"],
     queryFn: async () => {
       const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, teamMgmtRes, officeStaffRes, officesRes, srMgmtGroupsRes] = await Promise.all([
@@ -704,6 +706,24 @@ const OrgChart = () => {
       <div className="p-4 space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  if (accessError || treeError) {
+    return (
+      <div className="p-4 flex flex-col items-center justify-center gap-4 pt-20">
+        <GitBranch className="h-12 w-12 text-muted-foreground opacity-50" />
+        <p className="text-muted-foreground text-center">Couldn't load org data. This can happen on a slow connection.</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetchTree()}
+          className="gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Retry
+        </Button>
       </div>
     );
   }
