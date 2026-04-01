@@ -337,26 +337,28 @@ export const ReportsV2Page = () => {
   return (
     <div className="p-4 space-y-5 pb-20">
       {/* Active filter badge */}
-      {isFilterActive(smartFilter) && (
+      {isUnifiedFilterActive(smartFilter) && (
         <Badge variant="secondary" className="text-xs">
           {smartFilter.scope === 'watchlist' && '👀 Watchlist'}
           {smartFilter.yearFilters.length > 0 && ` · ${smartFilter.yearFilters.join(', ')}`}
-          {smartFilter.teamFilter !== 'all' && ` · ${smartFilter.teamFilter.name}`}
+          {smartFilter.selectedNodes.length > 0 && ` · ${smartFilter.selectedNodes.map(n => n.name).join(', ')}`}
           {' '}({filteredUserIds.length} reps)
         </Badge>
       )}
 
-      {/* Smart Filter Drawer */}
-      <SmartFilterDrawer
+      {/* Unified Filter Drawer */}
+      <UnifiedFilterDrawer
         open={showFilterDrawer}
         onOpenChange={setShowFilterDrawer}
         filterState={smartFilter}
         onFilterApply={setSmartFilter}
-        teams={teamAccess.teams || []}
+        mode="reports"
+        hierarchy={teamAccess.hierarchy}
         mgmtGroups={teamAccess.mgmtGroups || []}
+        teams={teamAccess.teams || []}
+        accessibleReps={teamAccess.accessibleReps || []}
         accessLevel={teamAccess.accessLevel}
         repCount={filteredUserIds.length}
-        showTeamFilters={canFilterByTeam(teamAccess.accessLevel)}
       />
 
       {/* Date presets */}
