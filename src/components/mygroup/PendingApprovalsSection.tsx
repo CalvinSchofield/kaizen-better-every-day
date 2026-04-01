@@ -224,6 +224,8 @@ export const PendingApprovalsSection = () => {
       hapticSuccess();
       if (result?.autoAssignedLeader) {
         toast.success(`Approved! Auto-assigned as leader of ${result.groupNames}`);
+      } else if (result?.preAssignedRole) {
+        toast.success(`Approved with pre-assigned role: ${getRoleLabel(result.preAssignedRole as any)}`);
       } else {
         toast.success('Signup approved!');
       }
