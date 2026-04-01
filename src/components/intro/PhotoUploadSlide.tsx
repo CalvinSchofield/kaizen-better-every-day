@@ -5,11 +5,13 @@ import { useRepData } from "@/hooks/useRepData";
 interface PhotoUploadSlideProps {
   title: string;
   description: string;
+  onCropModeChange?: (isCropping: boolean) => void;
 }
 
 export const PhotoUploadSlide = ({
   title,
   description,
+  onCropModeChange,
 }: PhotoUploadSlideProps) => {
   const { repData } = useRepData();
 
