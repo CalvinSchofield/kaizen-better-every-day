@@ -100,6 +100,9 @@ const Blitzes = () => {
 
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
 
+  // Check if user is a pre-blitz rookie (locked out of production pages)
+  const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
+
   const committedBlitzesArr = (repData?.committed_blitzes as any[]) || [];
 
   // Feed ALL past blitzes into recap stats to determine attendance from actual work data
