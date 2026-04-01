@@ -38,8 +38,13 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
   const [type, setType] = useState<ChallengeType>('1v1');
   const [selectedOpponent, setSelectedOpponent] = useState<string | null>(null);
   // Team mode: multi-select for team members
-  const [teamA, setTeamA] = useState<string[]>([]); // Current user's team (excluding self, added automatically)
-  const [teamB, setTeamB] = useState<string[]>([]); // Opponent's team
+  const [teamA, setTeamA] = useState<string[]>([]);
+  const [teamB, setTeamB] = useState<string[]>([]);
+  // Car Wars teams
+  const [carWarsTeams, setCarWarsTeams] = useState<CarWarsTeam[]>([
+    { key: '1', label: 'Car 1', members: [] },
+    { key: '2', label: 'Car 2', members: [] },
+  ]);
   const [metric, setMetric] = useState<ChallengeMetric>('fp_plus');
   const [duration, setDuration] = useState<'today' | 'tomorrow' | 'week' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(new Date());
