@@ -463,17 +463,23 @@ const Auth = () => {
             <div className="space-y-3">
               {isLogin ? (
                 <>
-                  <div className="bg-primary/10 rounded-lg p-3 border border-primary/20">
-                    <p className="text-sm text-muted-foreground mb-1">New to Kaizen?</p>
-                    <button
-                      type="button"
-                      onClick={() => setIsLogin(false)}
-                      className="text-primary hover:underline font-semibold text-base"
-                      disabled={isLoading}
-                    >
-                      Create an account →
-                    </button>
-                  </div>
+                  {inviteCode ? (
+                    <div className="bg-primary/10 rounded-lg p-3 border border-primary/20">
+                      <p className="text-sm text-muted-foreground mb-1">New to Kaizen?</p>
+                      <button
+                        type="button"
+                        onClick={() => setIsLogin(false)}
+                        className="text-primary hover:underline font-semibold text-base"
+                        disabled={isLoading}
+                      >
+                        Create an account →
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Need an account? Ask your team leader for an invite link.
+                    </p>
+                  )}
                   <button
                     type="button"
                     onClick={() => navigate("/forgot-password")}
