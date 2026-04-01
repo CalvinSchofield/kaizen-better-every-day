@@ -27,6 +27,7 @@ const SetupFlow = () => {
   const [inviteName, setInviteName] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteYear, setInviteYear] = useState("Rookie");
+  const [isLateralInvite, setIsLateralInvite] = useState(false);
   const [isProcessingInvite, setIsProcessingInvite] = useState(false);
 
   useEffect(() => {
