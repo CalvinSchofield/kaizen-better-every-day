@@ -56,7 +56,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { repData, loading: repLoading } = useRepData();
 
   // Check recruit approval_status
-  const { data: recruitApproval } = useQuery({
+  const { data: recruitApproval, isLoading: approvalLoading } = useQuery({
     queryKey: ['recruit-approval-status', repData?.id],
     enabled: !!repData?.id,
     staleTime: 30 * 1000,
