@@ -153,7 +153,7 @@ export const ScheduleFollowUpDrawer = ({
   return (
     <>
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85svh] flex flex-col" style={{ maxHeight: 'calc(85svh - var(--keyboard-height, 0px))' }}>
+      <DrawerContent className="max-h-[85dvh] flex flex-col" style={{ position: 'fixed', bottom: 0 }}>
         <DrawerHeader className="border-b flex-shrink-0">
           <DrawerTitle>
             Schedule Follow-up with {getCleanName(recruit.name)}
