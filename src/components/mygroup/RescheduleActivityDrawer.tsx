@@ -18,6 +18,8 @@ import { Recruit, RecruitActivity, useUpdateRecruitActivity } from "@/hooks/useG
 import { useAssignableUsers, AssignableUser } from "@/hooks/useAssignableUsers";
 import { useActivityCalendarEvent } from "@/hooks/useActivityCalendarEvents";
 import { AddToCalendarDrawer } from "./AddToCalendarPrompt";
+import { AssigneeSelector } from "./AssigneeSelector";
+import { useRepData } from "@/hooks/useRepData";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
