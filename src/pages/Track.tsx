@@ -41,6 +41,7 @@ import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { PreWorkingState } from "@/components/track";
 import { CompetitorNudgeBanner } from "@/components/track/CompetitorNudgeBanner";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
+import { StreakOutcomeCard } from "@/components/track/StreakOutcomeCard";
 
 interface TrackProps {
   entry: DailyEntry | {
