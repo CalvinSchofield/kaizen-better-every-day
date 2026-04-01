@@ -50,7 +50,7 @@ interface ParticipantProgress {
   user_id: string;
   rep_name: string;
   profile_photo_url?: string;
-  team: 'a' | 'b' | null;
+  team: string | null;
   current_value: number;
 }
 
