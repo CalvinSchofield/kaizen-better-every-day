@@ -147,12 +147,7 @@ function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goal
     })
     .join("\n");
 
-  // EFP mode
-  const isVet = year === "Vet";
-  const efpModeEnabled = isVet && (rep?.efp_mode_enabled || false);
-  const totalEfp = Number((totalPRMR / 85).toFixed(2));
-  const primaryMetric = efpModeEnabled ? "EFP" : "FP+";
-  const primaryValue = efpModeEnabled ? totalEfp : totalFP;
+  // EFP mode variables declared above (after totalPRMR)
 
   return `You are an AI sales coach for Vivint SmartHome door-to-door reps. You're chatting with ${name}, a ${year} rep.
 
