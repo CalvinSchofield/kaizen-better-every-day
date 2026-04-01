@@ -101,6 +101,13 @@ function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goal
   const totalFP = entries.reduce((s, e) => s + (e.fp_plus || 0), 0);
   const totalPRMR = entries.reduce((s, e) => s + (e.prmr || 0), 0);
 
+  // EFP mode - must be declared before weekly/monthly summaries that reference it
+  const isVet = year === "Vet";
+  const efpModeEnabled = isVet && (rep?.efp_mode_enabled || false);
+  const totalEfp = Number((totalPRMR / 85).toFixed(2));
+  const primaryMetric = efpModeEnabled ? "EFP" : "FP+";
+  const primaryValue = efpModeEnabled ? totalEfp : totalFP;
+
   // Goals
   const goalInfo = goals.length > 0
     ? `Season goals: ${JSON.stringify(goals.map(g => ({ metric: g.metric, target: g.target_value })))}`
@@ -140,12 +147,7 @@ function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goal
     })
     .join("\n");
 
-  // EFP mode
-  const isVet = year === "Vet";
-  const efpModeEnabled = isVet && (rep?.efp_mode_enabled || false);
-  const totalEfp = Number((totalPRMR / 85).toFixed(2));
-  const primaryMetric = efpModeEnabled ? "EFP" : "FP+";
-  const primaryValue = efpModeEnabled ? totalEfp : totalFP;
+  // EFP mode variables declared above (after totalPRMR)
 
   return `You are an AI sales coach for Vivint SmartHome door-to-door reps. You're chatting with ${name}, a ${year} rep.
 
