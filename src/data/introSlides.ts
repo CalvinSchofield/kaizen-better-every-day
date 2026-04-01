@@ -193,20 +193,28 @@ export const getInOrgVetSlides = (firstName: string, isLeader: boolean): IntroSl
   if (isLeader) {
     slides.push(
       {
+        id: 'knocking-decision',
+        type: 'standard',
+        iconName: 'target',
+        title: "Are You Knocking?",
+        description: "Next we'll ask if you're knocking this summer. If yes, you'll set personal production goals. If not, no worries — you can skip straight to building your org.",
+        highlight: "Your call"
+      },
+      {
         id: 'define-group',
         type: 'standard',
         iconName: 'users',
-        title: "Define Your Group",
-        description: "Your org structure may already be started. Review your teams and groups, then create any that are missing.",
-        highlight: "Build your structure"
+        title: "Build Your Org",
+        description: "After goals, you'll define your group structure — create your teams and management groups so everything is ready before your leaders arrive.",
+        highlight: "Structure first"
       },
       {
         id: 'invite-leaders',
         type: 'standard',
-        iconName: 'users',
+        iconName: 'map',
         title: "Invite Your Leaders",
-        description: "Once your structure is set, invite your sub-leaders so they can build their own teams and start recruiting.",
-        highlight: "Grow your org"
+        description: "Once your structure is set, send invite links to your sub-leaders. They'll get their own onboarding and can start building their teams — no extra work for you.",
+        highlight: "They'll do the rest"
       }
     );
   }
@@ -215,9 +223,11 @@ export const getInOrgVetSlides = (firstName: string, isLeader: boolean): IntroSl
     id: 'lets-go',
     type: 'cta',
     iconName: 'sparkles',
-    title: "Let's Get Started!",
-    description: "We'll sync your current numbers, set your goals, and plan your season.",
-    ctaText: "Set Up Goals",
+    title: isLeader ? "Let's Build Your Team!" : "Let's Get Started!",
+    description: isLeader 
+      ? "First up: decide if you're knocking, then set goals and build out your org." 
+      : "We'll sync your current numbers, set your goals, and plan your season.",
+    ctaText: isLeader ? "Set Up Goals" : "Set Up Goals",
     showConfetti: true,
   });
 
