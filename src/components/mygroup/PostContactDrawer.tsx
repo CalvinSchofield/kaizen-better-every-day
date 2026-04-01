@@ -22,7 +22,6 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MentionInput } from "./recruit-detail/MentionInput";
 import { format, addDays, getDay, startOfDay } from "date-fns";
-import { format, addDays, getDay, startOfDay } from "date-fns";
 
 interface PostContactDrawerProps {
   open: boolean;
