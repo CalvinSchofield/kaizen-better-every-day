@@ -80,6 +80,7 @@ const Profile = () => {
   const { data: allDefinitions } = useBadgeDefinitions();
   const topBadges = earnedBadges ? getTopBadges(earnedBadges, 2) : [];
   const { data: salesStreakData } = useCurrentSalesStreak(targetUserId);
+  const { data: protectionData } = useStreakProtection(isOwnProfile ? targetUserId : null);
 
   // Scroll-based header title: show rep name when scrolled past the name
   useEffect(() => {
