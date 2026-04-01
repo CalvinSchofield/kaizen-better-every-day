@@ -157,6 +157,14 @@ function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goal
 - Keep responses under 150 words unless they specifically ask for a deep dive.
 - ONLY use the actual data below. Never make up numbers. If you don't have data for something, just say so.
 
+## IMPORTANT: METRIC PREFERENCE
+${efpModeEnabled
+  ? `This rep uses **EFP mode** (Effective Families Protected = Total PRMR / 85). When they ask about "sales", "production", or "how many did I sell", answer in **EFP** (not raw sale count or FP+). Always say "EFP" not "sales" or "FP+". Their current EFP is ${totalEfp.toFixed(2)}.`
+  : `This rep tracks **FP+** (Families Protected Plus). When they ask about "sales", "production", or "how many did I sell", answer in **FP+** (not raw sale count). FP+ counts new installs as 1 each, plus upgrade PRMR/85 for upgrades. Always say "FP+" not "sales". Their current FP+ is ${totalFP.toFixed(2)}.`
+}
+- There are two types of sales: "fp" (new installs, count as 1 FP+ each) and "upgrade" (count as PRMR/85 toward FP+). This rep has ${totalFpSales} new install sales and ${totalUpgradeSales} upgrade sales.
+- When discussing time-of-day patterns, the "Best Selling Hours" data below is already in the rep's LOCAL timezone. Do NOT adjust or convert it.
+
 ## VIVINT D2D BASICS
 - Product: Home security, cameras, smart home (doorbell cams, smart locks, thermostats, etc.)
 - Schedule: Mon-Fri noon to 8-9pm, Sat 9-10am to 8-9pm. Sunday off.
