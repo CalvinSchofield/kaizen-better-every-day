@@ -126,12 +126,75 @@ export const PendingApprovalsSection = () => {
         logged_by_user_id: userId!,
         notes: 'Signup approved ✅',
       });
+
+      // Auto-assign leadership: check if any team/group has this recruit as pending leader
+      const repData = await supabase
+        .from('reps')
+        .select('user_id')
+        .eq('id', recruitId)
+        .maybeSingle();
+      
+      if (repData.data?.user_id) {
+        const repUserId = repData.data.user_id;
+
+        // Check teams
+        const { data: pendingTeams } = await supabase
+          .from('teams')
+          .select('id, name')
+          .eq('pending_lead_recruit_id' as any, recruitId);
+        
+        for (const team of (pendingTeams || [])) {
+          await supabase
+            .from('teams')
+            .update({ lead_user_id: repUserId, pending_lead_recruit_id: null } as any)
+            .eq('id', team.id);
+        }
+
+        // Check mgmt_groups
+        const { data: pendingGroups } = await supabase
+          .from('mgmt_groups')
+          .select('id, name')
+          .eq('pending_lead_recruit_id' as any, recruitId);
+        
+        for (const group of (pendingGroups || [])) {
+          await supabase
+            .from('mgmt_groups')
+            .update({ lead_user_id: repUserId, pending_lead_recruit_id: null } as any)
+            .eq('id', group.id);
+        }
+
+        // Check sr_mgmt_groups
+        const { data: pendingSrGroups } = await supabase
+          .from('sr_mgmt_groups')
+          .select('id, name')
+          .eq('pending_lead_recruit_id' as any, recruitId);
+        
+        for (const group of (pendingSrGroups || [])) {
+          await supabase
+            .from('sr_mgmt_groups')
+            .update({ lead_user_id: repUserId, pending_lead_recruit_id: null } as any)
+            .eq('id', group.id);
+        }
+
+        const totalAssigned = (pendingTeams?.length || 0) + (pendingGroups?.length || 0) + (pendingSrGroups?.length || 0);
+        if (totalAssigned > 0) {
+          const names = [...(pendingTeams || []), ...(pendingGroups || []), ...(pendingSrGroups || [])].map(g => g.name).join(', ');
+          return { autoAssignedLeader: true, groupNames: names };
+        }
+      }
+
+      return { autoAssignedLeader: false };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       hapticSuccess();
-      toast.success('Signup approved!');
+      if (result?.autoAssignedLeader) {
+        toast.success(`Approved! Auto-assigned as leader of ${result.groupNames}`);
+      } else {
+        toast.success('Signup approved!');
+      }
       queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['org-structure'] });
     },
     onError: () => toast.error('Failed to approve'),
   });
