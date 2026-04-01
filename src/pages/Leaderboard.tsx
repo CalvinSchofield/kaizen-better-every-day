@@ -105,7 +105,7 @@ const Leaderboard = () => {
 
   // Inject filter icon into header
   useEffect(() => {
-    const active = isFilterActive(smartFilter);
+    const active = isUnifiedFilterActive(smartFilter);
     setCustomRightContent(
       <Button
         variant="ghost"
