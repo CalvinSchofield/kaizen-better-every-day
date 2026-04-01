@@ -17,9 +17,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2, Search, Building2, Users, Globe, UserPlus, Pencil } from "lucide-react";
+import { Plus, Trash2, Search, Building2, Users, Globe, UserPlus, Pencil, Send, Copy, Share2 } from "lucide-react";
 import { getCleanName } from "@/utils/nameUtils";
 import { cn } from "@/lib/utils";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import { APP_BASE_URL } from "@/utils/constants";
 
 // ==========================================
 // CREATE DRAWER — for creating any org entity
