@@ -274,7 +274,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       "mgmt_group_lead",
     ]);
 
-    if (officeGroupedAccessLevels.has(accessLevel)) {
+    if (officeGroupedAccessLevels.has(accessLevel) && groupByOffice) {
       const allRecruiterIds = new Set(
         recruits.map((recruit) => recruit.recruiter_user_id).filter(Boolean) as string[]
       );
