@@ -1070,6 +1070,7 @@ export type Database = {
           lead_user_id: string | null
           name: string
           office_id: string | null
+          pending_lead_recruit_id: string | null
           sr_mgmt_group_id: string | null
           updated_at: string | null
         }
@@ -1079,6 +1080,7 @@ export type Database = {
           lead_user_id?: string | null
           name: string
           office_id?: string | null
+          pending_lead_recruit_id?: string | null
           sr_mgmt_group_id?: string | null
           updated_at?: string | null
         }
@@ -1088,6 +1090,7 @@ export type Database = {
           lead_user_id?: string | null
           name?: string
           office_id?: string | null
+          pending_lead_recruit_id?: string | null
           sr_mgmt_group_id?: string | null
           updated_at?: string | null
         }
@@ -1104,6 +1107,13 @@ export type Database = {
             columns: ["office_id"]
             isOneToOne: false
             referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mgmt_groups_pending_lead_recruit_id_fkey"
+            columns: ["pending_lead_recruit_id"]
+            isOneToOne: false
+            referencedRelation: "recruits"
             referencedColumns: ["id"]
           },
           {
@@ -2443,6 +2453,7 @@ export type Database = {
           lead_user_id: string | null
           name: string
           office_id: string | null
+          pending_lead_recruit_id: string | null
           region_id: string | null
           updated_at: string | null
         }
@@ -2452,6 +2463,7 @@ export type Database = {
           lead_user_id?: string | null
           name: string
           office_id?: string | null
+          pending_lead_recruit_id?: string | null
           region_id?: string | null
           updated_at?: string | null
         }
@@ -2461,6 +2473,7 @@ export type Database = {
           lead_user_id?: string | null
           name?: string
           office_id?: string | null
+          pending_lead_recruit_id?: string | null
           region_id?: string | null
           updated_at?: string | null
         }
@@ -2477,6 +2490,13 @@ export type Database = {
             columns: ["office_id"]
             isOneToOne: false
             referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sr_mgmt_groups_pending_lead_recruit_id_fkey"
+            columns: ["pending_lead_recruit_id"]
+            isOneToOne: false
+            referencedRelation: "recruits"
             referencedColumns: ["id"]
           },
           {
@@ -2666,6 +2686,7 @@ export type Database = {
           lead_user_id: string | null
           name: string
           office_id: string | null
+          pending_lead_recruit_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2674,6 +2695,7 @@ export type Database = {
           lead_user_id?: string | null
           name: string
           office_id?: string | null
+          pending_lead_recruit_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2682,6 +2704,7 @@ export type Database = {
           lead_user_id?: string | null
           name?: string
           office_id?: string | null
+          pending_lead_recruit_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -2697,6 +2720,13 @@ export type Database = {
             columns: ["office_id"]
             isOneToOne: false
             referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teams_pending_lead_recruit_id_fkey"
+            columns: ["pending_lead_recruit_id"]
+            isOneToOne: false
+            referencedRelation: "recruits"
             referencedColumns: ["id"]
           },
         ]

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
@@ -17,6 +17,14 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { EditRecruitDrawer } from "./recruit-detail/EditRecruitDrawer";
 import { Recruit } from "@/hooks/useGroupRecruits";
 
@@ -42,8 +50,33 @@ export const PendingApprovalsSection = () => {
   const { data: teamAccess } = useTeamAccess();
   const [editingRecruit, setEditingRecruit] = useState<PendingRecruit | null>(null);
   const [rejectConfirmId, setRejectConfirmId] = useState<string | null>(null);
-  const [leadershipPrompt, setLeadershipPrompt] = useState<{ name: string; role: string } | null>(null);
+  const [leadershipPrompt, setLeadershipPrompt] = useState<{ name: string; role: string; recruitId: string; recruitUserId: string | null } | null>(null);
   const [showReassignPrompt, setShowReassignPrompt] = useState(false);
+  const [selectedLeaderGroup, setSelectedLeaderGroup] = useState('');
+  const [isAssigningLeader, setIsAssigningLeader] = useState(false);
+
+  // Fetch unled groups when leadership prompt is shown
+  const { data: unleadedGroups = [] } = useQuery({
+    queryKey: ['unleaded-groups-for-assignment'],
+    enabled: !!leadershipPrompt,
+    queryFn: async () => {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const headers = { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` };
+
+      const results: { id: string; name: string; type: string }[] = [];
+      
+      for (const table of ['teams', 'mgmt_groups', 'sr_mgmt_groups'] as const) {
+        const res = await fetch(`${supabaseUrl}/rest/v1/${table}?lead_user_id=is.null&select=id,name`, { headers });
+        const rows = await res.json();
+        const typeLabel = table === 'teams' ? 'Team' : table === 'mgmt_groups' ? 'MGMT Group' : 'Sr MGMT Group';
+        for (const row of (rows || [])) {
+          results.push({ id: `${table}:${row.id}`, name: row.name, type: typeLabel });
+        }
+      }
+      return results;
+    },
+  });
 
   // Fetch pending recruits that this user can approve
   const { data: pendingRecruits = [], isLoading } = useQuery({
@@ -126,12 +159,53 @@ export const PendingApprovalsSection = () => {
         logged_by_user_id: userId!,
         notes: 'Signup approved ✅',
       });
+
+      // Auto-assign leadership: check if any team/group has this recruit as pending leader
+      const repData = await supabase
+        .from('reps')
+        .select('user_id')
+        .eq('id', recruitId)
+        .maybeSingle();
+      
+      if (repData.data?.user_id) {
+        const repUserId = repData.data.user_id;
+        // Use raw fetch for pending_lead_recruit_id (column not yet in generated types)
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const headers = { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+
+        const autoAssignedNames: string[] = [];
+
+        for (const table of ['teams', 'mgmt_groups', 'sr_mgmt_groups']) {
+          const res = await fetch(`${supabaseUrl}/rest/v1/${table}?pending_lead_recruit_id=eq.${recruitId}&select=id,name`, { headers });
+          const rows = await res.json();
+          for (const row of (rows || [])) {
+            await fetch(`${supabaseUrl}/rest/v1/${table}?id=eq.${row.id}`, {
+              method: 'PATCH',
+              headers: { ...headers, 'Prefer': 'return=minimal' },
+              body: JSON.stringify({ lead_user_id: repUserId, pending_lead_recruit_id: null }),
+            });
+            autoAssignedNames.push(row.name);
+          }
+        }
+
+        if (autoAssignedNames.length > 0) {
+          return { autoAssignedLeader: true, groupNames: autoAssignedNames.join(', ') };
+        }
+      }
+
+      return { autoAssignedLeader: false };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       hapticSuccess();
-      toast.success('Signup approved!');
+      if (result?.autoAssignedLeader) {
+        toast.success(`Approved! Auto-assigned as leader of ${result.groupNames}`);
+      } else {
+        toast.success('Signup approved!');
+      }
       queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['org-structure'] });
     },
     onError: () => toast.error('Failed to approve'),
   });
@@ -297,15 +371,18 @@ export const PendingApprovalsSection = () => {
             // This allows "invite your boss" flow while preventing abuse
             editingRecruit.recruiter_user_id === userId
           }
-          onSuccess={(assignedRole) => {
+          onSuccess={async (assignedRole) => {
             queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
             queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-            // Show leadership prompt if a role was assigned
             if (assignedRole && editingRecruit) {
+              const { data: repData } = await supabase.from('reps').select('user_id').eq('id', editingRecruit.id).maybeSingle();
               setLeadershipPrompt({
                 name: editingRecruit.name,
                 role: getRoleLabel(assignedRole as any),
+                recruitId: editingRecruit.id,
+                recruitUserId: repData?.user_id || null,
               });
+              queryClient.invalidateQueries({ queryKey: ['unleaded-groups-for-assignment'] });
             }
           }}
         />
@@ -338,8 +415,8 @@ export const PendingApprovalsSection = () => {
         </DrawerContent>
       </Drawer>
 
-      {/* Post-approval leadership prompt */}
-      <Drawer open={!!leadershipPrompt} onOpenChange={(open) => !open && setLeadershipPrompt(null)}>
+      {/* Post-approval leadership prompt with optional group assignment */}
+      <Drawer open={!!leadershipPrompt} onOpenChange={(open) => { if (!open) { setLeadershipPrompt(null); setSelectedLeaderGroup(''); } }}>
         <DrawerContent>
           <DrawerHeader>
             <DrawerTitle>🎉 Role Assigned!</DrawerTitle>
@@ -349,11 +426,58 @@ export const PendingApprovalsSection = () => {
               <strong>{leadershipPrompt?.name}</strong> has been assigned the <strong>{leadershipPrompt?.role}</strong> role. 
               They can now manage their org structure and send invite links to their downline.
             </p>
+
+            {unleadedGroups.length > 0 && leadershipPrompt?.recruitUserId && (
+              <div className="space-y-2 pt-2 border-t">
+                <Label className="text-sm font-medium">Assign as leader of...</Label>
+                <Select value={selectedLeaderGroup} onValueChange={setSelectedLeaderGroup}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Skip — assign later" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Skip — assign later</SelectItem>
+                    {unleadedGroups.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name} ({g.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <p className="text-sm text-muted-foreground">
               💡 <strong>Next step:</strong> Let {leadershipPrompt?.name} know they can go to the <strong>Organization</strong> tab to set up their teams, then share their invite link with their people.
             </p>
-            <Button className="w-full" onClick={() => setLeadershipPrompt(null)}>
-              Got it
+            <Button
+              className="w-full"
+              disabled={isAssigningLeader}
+              onClick={async () => {
+                if (selectedLeaderGroup && selectedLeaderGroup !== '__none__' && leadershipPrompt?.recruitUserId) {
+                  setIsAssigningLeader(true);
+                  try {
+                    const [table, groupId] = selectedLeaderGroup.split(':');
+                    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+                    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+                    await fetch(`${supabaseUrl}/rest/v1/${table}?id=eq.${groupId}`, {
+                      method: 'PATCH',
+                      headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                      body: JSON.stringify({ lead_user_id: leadershipPrompt.recruitUserId }),
+                    });
+                    const groupName = unleadedGroups.find(g => g.id === selectedLeaderGroup)?.name;
+                    toast.success(`${leadershipPrompt.name} assigned as leader of ${groupName}`);
+                    queryClient.invalidateQueries({ queryKey: ['org-structure'] });
+                  } catch (e) {
+                    toast.error('Failed to assign leader');
+                  } finally {
+                    setIsAssigningLeader(false);
+                  }
+                }
+                setLeadershipPrompt(null);
+                setSelectedLeaderGroup('');
+              }}
+            >
+              {isAssigningLeader ? 'Assigning...' : selectedLeaderGroup && selectedLeaderGroup !== '__none__' ? 'Assign & Done' : 'Got it'}
             </Button>
           </div>
         </DrawerContent>

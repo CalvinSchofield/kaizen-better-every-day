@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { X, ShieldCheck, Search } from "lucide-react";
+import { X, ShieldCheck, Search, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,12 @@ interface Rep {
   mgmtGroupId?: string | null;
 }
 
+interface PendingRecruit {
+  id: string;
+  name: string;
+  email: string | null;
+}
+
 interface MgmtGroup {
   id: string;
   name: string;
@@ -41,6 +47,7 @@ interface CreateEntityDrawerProps {
   mode: "team" | "mgmt_group";
   allReps: Rep[];
   allGroups?: MgmtGroup[];
+  pendingRecruits?: PendingRecruit[];
 }
 
 export const CreateEntityDrawer = ({
@@ -49,12 +56,14 @@ export const CreateEntityDrawer = ({
   mode,
   allReps,
   allGroups = [],
+  pendingRecruits = [],
 }: CreateEntityDrawerProps) => {
   const [name, setName] = useState("");
   const [step, setStep] = useState<"name" | "lead" | "group">("name");
   const [leadSearch, setLeadSearch] = useState("");
   const [selectedLeadUserId, setSelectedLeadUserId] = useState<string | null>(null);
   const [selectedLeadName, setSelectedLeadName] = useState<string | null>(null);
+  const [selectedPendingRecruitId, setSelectedPendingRecruitId] = useState<string | null>(null);
   const [mgmtGroupId, setMgmtGroupId] = useState("__none__");
   const { data: teamAccess } = useTeamAccess();
   const submitRequest = useSubmitOrgRequest();
@@ -63,11 +72,30 @@ export const CreateEntityDrawer = ({
   const isCorporate = hasMinAccess(accessLevel, 'corporate');
   const requestType = mode === "team" ? "create_team" : "create_mgmt_group";
 
+  // Combined list: active reps + pending recruits (no app account yet)
   const filteredReps = useMemo(() => {
-    if (!leadSearch.trim()) return allReps.slice(0, 20);
-    const q = leadSearch.toLowerCase();
-    return allReps.filter(r => getCleanName(r.name).toLowerCase().includes(q)).slice(0, 20);
+    const q = leadSearch.toLowerCase().trim();
+    const filtered = q
+      ? allReps.filter(r => getCleanName(r.name).toLowerCase().includes(q))
+      : allReps;
+    return filtered.slice(0, 20);
   }, [allReps, leadSearch]);
+
+  const filteredPendingRecruits = useMemo(() => {
+    if (pendingRecruits.length === 0) return [];
+    const q = leadSearch.toLowerCase().trim();
+    // Exclude recruits who already appear in allReps (they have accounts)
+    const repUserIds = new Set(allReps.filter(r => r.userId).map(r => r.userId));
+    const repNames = new Set(allReps.map(r => getCleanName(r.name).toLowerCase()));
+    
+    const available = pendingRecruits.filter(pr => {
+      // Skip if they already have an account as a rep
+      if (repNames.has(getCleanName(pr.name).toLowerCase())) return false;
+      if (!q) return true;
+      return getCleanName(pr.name).toLowerCase().includes(q);
+    });
+    return available.slice(0, 10);
+  }, [pendingRecruits, leadSearch, allReps]);
 
   // When a leader is selected, auto-fill their MGMT group
   useEffect(() => {
@@ -79,9 +107,11 @@ export const CreateEntityDrawer = ({
     }
   }, [selectedLeadUserId, allReps, mode]);
 
-  const handleSelectLead = (userId: string | null, repName?: string) => {
+  const handleSelectLead = (userId: string | null, repName?: string, pendingRecruitId?: string) => {
     setSelectedLeadUserId(userId);
     setSelectedLeadName(repName || null);
+    setSelectedPendingRecruitId(pendingRecruitId || null);
+
     if (mode === "team" && allGroups.length > 0) {
       // Auto-fill mgmt group from leader's current group
       if (userId) {
@@ -97,19 +127,25 @@ export const CreateEntityDrawer = ({
       setStep("group");
     } else {
       // No groups to assign, submit directly
-      handleSubmit(userId);
+      handleSubmit(userId, pendingRecruitId);
     }
   };
 
-  const handleSubmit = async (leadUserId?: string | null) => {
+  const handleSubmit = async (leadUserId?: string | null, pendingRecruitIdOverride?: string) => {
     if (!name.trim()) return;
 
     const finalLeadUserId = leadUserId !== undefined ? leadUserId : selectedLeadUserId;
+    const finalPendingRecruitId = pendingRecruitIdOverride !== undefined ? pendingRecruitIdOverride : selectedPendingRecruitId;
 
     const requestData: Record<string, any> = {
       name: name.trim(),
       leadUserId: finalLeadUserId || null,
     };
+
+    // If a pending recruit was selected as leader (no userId yet), store their recruit ID
+    if (!finalLeadUserId && finalPendingRecruitId) {
+      requestData.pendingLeadRecruitId = finalPendingRecruitId;
+    }
 
     if (mode === "team" && mgmtGroupId !== "__none__") {
       requestData.mgmtGroupId = mgmtGroupId;
@@ -132,10 +168,12 @@ export const CreateEntityDrawer = ({
     setLeadSearch("");
     setSelectedLeadUserId(null);
     setSelectedLeadName(null);
+    setSelectedPendingRecruitId(null);
     setMgmtGroupId("__none__");
   };
 
   const title = mode === "team" ? "Create New Team" : "Create New Management Group";
+  const isPendingLeader = !!selectedPendingRecruitId && !selectedLeadUserId;
 
   return (
     <Drawer open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetState(); }}>
@@ -206,6 +244,37 @@ export const CreateEntityDrawer = ({
                 />
               </div>
               <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                {/* Pending recruits section */}
+                {filteredPendingRecruits.length > 0 && (
+                  <>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-1 pt-2">
+                      Pending Signups
+                    </p>
+                    {filteredPendingRecruits.map((pr) => (
+                      <button
+                        key={`pending-${pr.id}`}
+                        onClick={() => handleSelectLead(null, getCleanName(pr.name), pr.id)}
+                        disabled={submitRequest.isPending}
+                        className="w-full text-left p-3 rounded-lg border border-dashed border-primary/30 hover:bg-accent transition-colors flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                          <p className="text-sm font-medium">{getCleanName(pr.name)}</p>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] text-primary shrink-0">
+                          Pending
+                        </Badge>
+                      </button>
+                    ))}
+                    {filteredReps.length > 0 && (
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-1 pt-2">
+                        Active Reps
+                      </p>
+                    )}
+                  </>
+                )}
+
+                {/* Active reps */}
                 {filteredReps.length > 0 ? (
                   filteredReps.map((rep, idx) => (
                     <button
@@ -222,9 +291,9 @@ export const CreateEntityDrawer = ({
                       )}
                     </button>
                   ))
-                ) : (
+                ) : filteredPendingRecruits.length === 0 ? (
                   <p className="text-sm text-center text-muted-foreground py-4">No results</p>
-                )}
+                ) : null}
               </div>
               <Button variant="outline" className="w-full" onClick={() => setStep("name")}>
                 ← Back
@@ -241,6 +310,15 @@ export const CreateEntityDrawer = ({
                   : `Assign "${name.trim()}" to a Management Group`
                 }
               </p>
+
+              {isPendingLeader && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <Clock className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <p className="text-xs text-muted-foreground">
+                    {selectedLeadName} will be assigned as leader once they're approved and join the app.
+                  </p>
+                </div>
+              )}
 
               {selectedLeadUserId && mgmtGroupId !== "__none__" && (
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-accent/50 border border-border/50">
