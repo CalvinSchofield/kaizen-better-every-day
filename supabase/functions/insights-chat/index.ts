@@ -9,6 +9,18 @@ const corsHeaders = {
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+function getLocalHour(timestamp: string, timezone: string | null): number {
+  const tz = timezone || "America/Chicago";
+  try {
+    const d = new Date(timestamp);
+    const parts = new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: tz }).formatToParts(d);
+    const hourPart = parts.find(p => p.type === "hour");
+    return hourPart ? parseInt(hourPart.value, 10) : d.getHours();
+  } catch {
+    return new Date(timestamp).getHours();
+  }
+}
+
 function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goals: any[]) {
   const name = rep?.name || "Rep";
   const year = rep?.year || "Rookie";
