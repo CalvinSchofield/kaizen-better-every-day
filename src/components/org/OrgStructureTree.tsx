@@ -42,13 +42,13 @@ interface OrgNode {
 
 function countTotalDescendants(node: OrgNode): number {
   let count = 0;
-  // Count this node's leader as a person if it has one
-  // (team leads, mgmt group leads, sr mgmt leads are people too)
+  // Count leaders of structural nodes as people
   if (node.leadUserId && (node.type === "team" || node.type === "mgmt_group" || node.type === "sr_mgmt_group")) {
     count += 1;
   }
   for (const child of node.children) {
     if (child.type === "rep") count += 1;
+    else if (child.type === "recruiter_group") count += 1 + countTotalDescendants(child); // the recruiter + their recruits
     else count += countTotalDescendants(child);
   }
   return count;
