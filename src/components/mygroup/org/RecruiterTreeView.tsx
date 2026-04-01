@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { getCleanName } from "@/utils/nameUtils";
 import { canManageTeam } from "@/utils/roleHierarchy";
-import { VisualRecruiterTree, type TreeNode } from "./VisualRecruiterTree";
+import { VisualRecruiterTree, type TreeNode, type RoleColor } from "./VisualRecruiterTree";
 import { ReassignRecruiterDrawer } from "./ReassignRecruiterDrawer";
 
 const OFFICE_GROUPED_ACCESS_LEVELS = new Set([
@@ -191,12 +191,33 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
 
       children.sort((a, b) => b.children.length - a.children.length);
 
+      // Determine role/color for this person
+      const ledMgmtGroup = mgmtGroups.find((g) => g.lead_user_id === userId);
+      const ledTeam = teams.find((t) => t.lead_user_id === userId);
+      const ledSrMgmtGroup = srMgmtGroups.find((smg) => smg.lead_user_id === userId);
+
+      let role: string | null = null;
+      let roleColor: RoleColor | undefined = undefined;
+
+      if (ledSrMgmtGroup) {
+        role = "Sr MGMT Group Leader";
+        roleColor = "sr_mgmt_group";
+      } else if (ledMgmtGroup) {
+        role = "MGMT Group Leader";
+        roleColor = "mgmt_group";
+      } else if (ledTeam) {
+        role = "Team Leader";
+        roleColor = "team_lead";
+      }
+
       return {
         id: recruitRecord?.id || userId,
         name: rep?.name || "Unknown",
         userId,
         stage: recruitRecord?.stage || null,
         profilePhotoUrl: rep?.profile_photo_url,
+        role,
+        roleColor,
         children,
       };
     };
@@ -243,15 +264,43 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       return Boolean(recruit?.recruiter_user_id);
     };
 
+    /**
+     * Creates a MGMT Group container node.
+     * If the leader has an account and appears as one of the children,
+     * promote that child to BE the container (person node with roleColor).
+     * Otherwise, create a lightweight label pill.
+     */
     const createMgmtLabelNode = (mgmtGroupId: string, children: TreeNode[] = []): TreeNode => {
       const mgmtGroup = mgmtGroupMap.get(mgmtGroupId);
+      const leadUserId = mgmtGroup?.lead_user_id || null;
+
+      // Try to find the leader among the children
+      if (leadUserId) {
+        const leaderIdx = children.findIndex((c) => c.userId === leadUserId);
+        if (leaderIdx !== -1) {
+          // Promote leader: take their node, apply MGMT styling, absorb siblings
+          const leaderNode = children[leaderIdx];
+          const siblings = children.filter((_, i) => i !== leaderIdx);
+          return {
+            ...leaderNode,
+            id: `mgmt-${mgmtGroupId}`, // keep stable id for orphan injection
+            roleColor: "mgmt_group",
+            role: "MGMT Group Leader",
+            // Leader's own recruiter children + sibling roots from this group
+            children: [...leaderNode.children, ...siblings]
+              .sort((a, b) => b.children.length - a.children.length),
+          };
+        }
+      }
+
+      // Fallback: lightweight label pill (leader has no account or isn't in children)
       return {
         id: `mgmt-${mgmtGroupId}`,
         name: mgmtGroup?.name || "MGMT Group",
-        userId: mgmtGroup?.lead_user_id || null,
+        userId: leadUserId,
         stage: null,
-        profilePhotoUrl: mgmtGroup?.lead_user_id
-          ? repMap.get(mgmtGroup.lead_user_id)?.profile_photo_url
+        profilePhotoUrl: leadUserId
+          ? repMap.get(leadUserId)?.profile_photo_url
           : null,
         isLabelNode: true,
         roleColor: "mgmt_group",
@@ -259,15 +308,37 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
       };
     };
 
+    /**
+     * Creates a Sr MGMT Group container node. Same promotion logic as MGMT.
+     */
     const createSrMgmtLabelNode = (srMgmtGroupId: string, children: TreeNode[] = []): TreeNode => {
       const srMgmtGroup = srMgmtGroupMap.get(srMgmtGroupId);
+      const leadUserId = srMgmtGroup?.lead_user_id || null;
+
+      // Try to find the leader among the direct (non-label) children
+      if (leadUserId) {
+        const leaderIdx = children.findIndex((c) => c.userId === leadUserId && !c.isLabelNode);
+        if (leaderIdx !== -1) {
+          const leaderNode = children[leaderIdx];
+          const siblings = children.filter((_, i) => i !== leaderIdx);
+          return {
+            ...leaderNode,
+            id: `sr-mgmt-${srMgmtGroupId}`,
+            roleColor: "sr_mgmt_group",
+            role: "Sr MGMT Group Leader",
+            children: [...leaderNode.children, ...siblings]
+              .sort((a, b) => b.children.length - a.children.length),
+          };
+        }
+      }
+
       return {
         id: `sr-mgmt-${srMgmtGroupId}`,
         name: srMgmtGroup?.name || "Sr MGMT Group",
-        userId: srMgmtGroup?.lead_user_id || null,
+        userId: leadUserId,
         stage: null,
-        profilePhotoUrl: srMgmtGroup?.lead_user_id
-          ? repMap.get(srMgmtGroup.lead_user_id)?.profile_photo_url
+        profilePhotoUrl: leadUserId
+          ? repMap.get(leadUserId)?.profile_photo_url
           : null,
         isLabelNode: true,
         roleColor: "sr_mgmt_group",
@@ -620,6 +691,57 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         };
         injectInto(rootNodes);
       });
+
+      // --- Convert team-lead children to team label nodes when the person is already shown above ---
+      // Collect userIds that are promoted as container nodes (MGMT/Sr MGMT leaders)
+      const promotedUserIds = new Set<string>();
+      const collectPromoted = (nodes: TreeNode[]) => {
+        for (const n of nodes) {
+          // A promoted node is a non-label node that was created by label node creation
+          // (has roleColor mgmt_group or sr_mgmt_group and is NOT a label node)
+          if (!n.isLabelNode && n.userId && (n.roleColor === 'mgmt_group' || n.roleColor === 'sr_mgmt_group')) {
+            promotedUserIds.add(n.userId);
+          }
+          collectPromoted(n.children);
+        }
+      };
+      collectPromoted(rootNodes);
+
+      // For promoted users who also lead a team, replace their person-node child
+      // appearance with a team label node
+      const convertTeamLeadChildren = (nodes: TreeNode[]): TreeNode[] => {
+        return nodes.map((node) => {
+          const newChildren = convertTeamLeadChildren(node.children);
+
+          // Check if this node should become a team label
+          // (it's a person node whose userId is already promoted above AND leads a team)
+          if (!node.isLabelNode && node.userId && promotedUserIds.has(node.userId)) {
+            const ledTeam = teamByLeadUserId.get(node.userId);
+            if (ledTeam) {
+              // Convert to team label node, keeping only this person's children
+              return {
+                ...node,
+                id: `team-${ledTeam.id}`,
+                name: ledTeam.name || node.name + " Team",
+                isLabelNode: true,
+                roleColor: "team_lead" as const,
+                profilePhotoUrl: null,
+                children: newChildren,
+              };
+            }
+          }
+
+          return { ...node, children: newChildren };
+        });
+      };
+
+      // Apply to all root nodes
+      for (let i = 0; i < rootNodes.length; i++) {
+        rootNodes[i] = {
+          ...rootNodes[i],
+          children: convertTeamLeadChildren(rootNodes[i].children),
+        };
+      }
 
       // --- Final dedup: remove person-nodes that appear as children of another person ---
       const descendantUserIds = new Set<string>();
