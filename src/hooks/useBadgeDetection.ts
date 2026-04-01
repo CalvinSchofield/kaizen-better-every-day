@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { emitInAppNotification } from "@/components/InAppNotificationBanner";
 import {
   DAILY_FP_THRESHOLDS, dailyFpSlug,
   WEEKLY_FP_THRESHOLDS, weeklyFpSlug,
