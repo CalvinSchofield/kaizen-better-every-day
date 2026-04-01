@@ -920,7 +920,8 @@ export const useLogRecruitActivity = () => {
         throw new Error("Either recruitId or recruitNotionId is required");
       }
 
-      const { session } = await getSessionSafe();
+      // Use cached session to avoid network-heavy refresh on mobile
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
       // Use recruitId directly — it's already the Supabase UUID
@@ -1150,26 +1151,51 @@ export const useDeleteRecruitActivity = () => {
 
   return useMutation({
     mutationFn: async (activityId: string) => {
-      const { session } = await getSessionSafe();
+      // Optimistic: don't block on auth refresh — use cached session
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const { error } = await supabase
+      const deletePromise = supabase
         .from('recruit_activities')
         .delete()
         .eq('id', activityId);
 
+      // Race against a 12s timeout to prevent native WebView hangs
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Delete timed out')), 12000)
+      );
+
+      const { error } = await Promise.race([deletePromise, timeoutPromise]) as any;
       if (error) throw error;
       return { activityId };
     },
-    onSuccess: (data) => {
+    onMutate: async (activityId) => {
+      await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
+      const previousData = queryClient.getQueriesData({ queryKey: ['group-recruits'] });
+
+      // Optimistically remove the activity from cache
       queryClient.setQueriesData({ queryKey: ['group-recruits'] }, (old: any) => {
         if (!old) return old;
         return {
           ...old,
-          activities: old.activities.filter((a: any) => a.id !== data.activityId),
+          activities: old.activities.filter((a: any) => a.id !== activityId),
         };
       });
+
+      return { previousData };
+    },
+    onError: (err, _activityId, context) => {
+      console.error('useDeleteRecruitActivity error:', err);
+      // Rollback optimistic update
+      if (context?.previousData) {
+        context.previousData.forEach(([queryKey, data]: [any, any]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
     },
   });
 };
