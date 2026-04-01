@@ -85,6 +85,7 @@ const Goals = () => {
   const { repData, isInitializing: repDataInitializing, loading: repDataLoading } = useRepData();
   const { userId, isReady: authReady } = useCurrentUserId();
   const teamAccess = useTeamAccess();
+  const { showTour: showGoalsTour, completeTour: completeGoalsTour, skipTour: skipGoalsTour } = usePageTour({ page: 'goals' });
   const { 
     totalFP: totalFpPlus, 
     totalPRMR, 
