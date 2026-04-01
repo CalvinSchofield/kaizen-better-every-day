@@ -470,19 +470,22 @@ const SetupFlow = () => {
                 {isProcessingInvite ? "Setting up your account..." : "Join My Team →"}
               </Button>
 
-              <Button
-                variant="ghost"
-                onClick={async () => {
-                  sessionStorage.removeItem('kaizen-invite-code');
-                  await supabase.auth.signOut();
-                  navigate('/auth');
-                }}
-                className="w-full text-muted-foreground"
-                size="sm"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
-              </Button>
+              {/* Only show sign out if user hasn't started filling out the form */}
+              {!inviteName.trim() && !invitePhone.trim() && (
+                <Button
+                  variant="ghost"
+                  onClick={async () => {
+                    sessionStorage.removeItem('kaizen-invite-code');
+                    await supabase.auth.signOut();
+                    navigate('/auth');
+                  }}
+                  className="w-full text-muted-foreground"
+                  size="sm"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
