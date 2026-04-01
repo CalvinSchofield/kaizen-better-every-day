@@ -189,7 +189,7 @@ const Auth = () => {
           setIsLoading(false);
           return;
         }
-
+        if (!name.trim()) {
           toast({
             title: "Name required",
             description: "Please enter your name to continue.",
