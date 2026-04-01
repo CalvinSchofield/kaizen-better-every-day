@@ -782,7 +782,7 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
 
               <Button onClick={handleCreate} className="w-full" disabled={createMutation.isPending}>
                 {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Send Challenge 🔥
+                {type === 'car_wars' ? 'Start Car Wars 🏎️' : 'Send Challenge 🔥'}
               </Button>
             </div>
           )}
