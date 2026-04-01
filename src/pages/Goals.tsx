@@ -898,23 +898,15 @@ const Goals = () => {
                 const isLeaderUser = teamAccessCheck || mgmtCheck || adCheck;
                 
                 if (isLeaderUser) {
-                  // Check if they've already toured org-chart (MGMT group lead+ gets org chart tour first)
+                  // Check if they've already toured my-group
                   const { data: repCheck } = await supabase
                     .from('reps')
                     .select('pages_toured')
                     .eq('user_id', user.id)
                     .maybeSingle();
                   const pagesToured = Array.isArray(repCheck?.pages_toured) ? (repCheck.pages_toured as string[]) : [];
-
-                  // MGMT group lead+ get the org chart deep tour first, then my-group
-                  const isMgmtGroupLeadPlus = mgmtCheck || adCheck || hasMinAccess(teamAccess.data?.accessLevel ?? 'none', 'mgmt_group_lead');
-                  if (isMgmtGroupLeadPlus && !pagesToured.includes('org-chart')) {
-                    navigate('/org-chart', { state: { fromOnboarding: true } });
-                    return;
-                  }
-
                   if (!pagesToured.includes('my-group')) {
-                    navigate('/my-group', { state: { fromOnboarding: true } });
+                    navigate('/my-group?tab=structure', { state: { fromOnboarding: true } });
                     return;
                   }
                 }
