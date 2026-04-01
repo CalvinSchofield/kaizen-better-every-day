@@ -72,8 +72,6 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
         redTotal={first?.total_value || 0}
         blueTotal={second?.total_value || 0}
         variant="compact"
-        redLabel={teamLabel(first?.team || '1')}
-        blueLabel={sortedTeams.length > 2 ? `+${sortedTeams.length - 1} teams` : teamLabel(second?.team || '2')}
       />
     );
   }
