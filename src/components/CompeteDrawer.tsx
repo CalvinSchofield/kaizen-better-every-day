@@ -54,12 +54,33 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
   }
 
   const isGroupChallenge = challenge.type === 'group';
+  const isCarWars = challenge.type === 'car_wars';
 
-  if (isGroupChallenge) {
-    const teamA = progress.participants.filter(p => p.team === 'a');
-    const teamB = progress.participants.filter(p => p.team === 'b');
-    const teamATotal = teamA.reduce((sum, p) => sum + (p.current_value || 0), 0);
-    const teamBTotal = teamB.reduce((sum, p) => sum + (p.current_value || 0), 0);
+  if (isCarWars && progress.teams) {
+    // Car Wars: show top 2 teams as a slider
+    const sortedTeams = Object.values(progress.teams).sort((a, b) => b.total_value - a.total_value);
+    const first = sortedTeams[0];
+    const second = sortedTeams[1];
+    const teamLabel = (teamKey: string) => {
+      const ct = challenge.challenge_teams?.find(t => t.team_key === teamKey);
+      return ct?.team_label || `Team ${teamKey}`;
+    };
+    
+    return (
+      <ChallengeScoreSlider
+        isTeamBattle
+        redTotal={first?.total_value || 0}
+        blueTotal={second?.total_value || 0}
+        variant="compact"
+        redLabel={teamLabel(first?.team || '1')}
+        blueLabel={sortedTeams.length > 2 ? `+${sortedTeams.length - 1} teams` : teamLabel(second?.team || '2')}
+      />
+    );
+  }
+
+  if (isGroupChallenge && progress.teams) {
+    const teamATotal = progress.teams['a']?.total_value || 0;
+    const teamBTotal = progress.teams['b']?.total_value || 0;
 
     return (
       <ChallengeScoreSlider
