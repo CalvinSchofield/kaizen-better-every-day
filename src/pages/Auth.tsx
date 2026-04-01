@@ -58,7 +58,7 @@ const Auth = () => {
     // If coming from callback with recovery flag, set password reset mode
     if (isRecoveryFromCallback) {
       setIsPasswordReset(true);
-      return; // Don't check session or redirect
+      return; // Don't check session or redirect — user needs to set new password
     }
     
     // Listen for auth state changes to detect password recovery
@@ -66,30 +66,16 @@ const Auth = () => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordReset(true);
       } else if (event === 'SIGNED_IN' && session && !isPasswordReset && !isRecoveryFromCallback) {
-        const setupComplete = localStorage.getItem('kaizen-setup-complete');
-        if (setupComplete) {
-          navigate("/");
-        } else {
-          navigate("/setup");
-        }
+        navigate("/");
       }
     });
 
     // Check if user is already logged in (but not if we're doing password reset)
-    if (!isRecoveryFromCallback) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session && !isPasswordReset) {
-          const setupComplete = localStorage.getItem('kaizen-setup-complete');
-          if (setupComplete) {
-            navigate("/");
-          } else {
-            navigate("/setup");
-          }
-        }
-      });
-    }
-
-    return () => subscription.unsubscribe();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session && !isPasswordReset) {
+        navigate("/");
+      }
+    });
 
     // Set default view based on signup history
     if (hasUserSignedUp()) {
@@ -97,7 +83,7 @@ const Auth = () => {
     }
 
     return () => subscription.unsubscribe();
-  }, [navigate, isPasswordReset]);
+  }, [navigate, isPasswordReset, isRecoveryFromCallback]);
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
