@@ -244,6 +244,8 @@ Deno.serve(async (req) => {
             office_id: resolvedOfficeId ?? target.recruit?.office_id ?? null,
             team_leader: isLateralInvite ? null : (inviterRep?.name || target.rep.team_leader || null),
             team_leader_phone: isLateralInvite ? null : (inviterRep?.phone || target.rep.team_leader_phone || null),
+            // Lateral invites: clear recruiter field since they're peers/upline, not subordinates
+            recruiter: isLateralInvite ? null : (target.rep.recruiter ?? null),
             updated_at: nowIso,
           })
           .eq('id', target.rep.id);
