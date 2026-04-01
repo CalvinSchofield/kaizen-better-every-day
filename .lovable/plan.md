@@ -1,66 +1,39 @@
-# Badge System Overhaul
 
-## Changes Overview
 
-### 1. Update Daily FP+ Emojis to Number Emojis
+# Fix Global Badge Rarity + Elevate Sales Streak
 
-Update the `badge_definitions` rows for `daily_fp_2` through `daily_fp_10` to use number emojis: 2️⃣, 3️⃣, 4️⃣, 5️⃣, 6️⃣, 7️⃣, 8️⃣, 9️⃣, 🔟.
+## Issue 1: Global badge rarity not showing
 
-### 2. Add Rookie Quick-Win Badges (4 new badges)
+**Root cause**: In `BadgeGrid.tsx` line 71, `selectedBadge.id` is used to look up global counts. But when the selected badge is an earned `UserBadge`, its `.id` is the `user_badges` row UUID — not the `badge_definitions` UUID. The `globalCounts` map is keyed by `badge_id` (definition ID).
 
-New hidden=false, rookie_only=true, category="special", rarity="common" badges:
+**Fix**: Use `selectedBadge.badgeId` when the badge is a `UserBadge` (has `badgeId` field), fall back to `.id` for `BadgeDefinition`.
 
-- `first_door` — 🚪 "First Door" — "Knocked your very first door"
-- `first_transition` — 🚶 "First Transition" — "Got inside for the first time"
-- `first_presentation` — 📋 "First Presentation" — "Gave your first full presentation"
-- `first_sale` — 💰 "First Sale" — "Closed your very first deal"
+```
+File: src/components/badges/BadgeGrid.tsx
+Line 70-72: Change to check 'badgeId' in selectedBadge
+```
 
-Detection logic in `useBadgeDetection.ts`: check if the rep has ever had a nonzero value for each field. If today is the first day they've ever knocked a door (doors_knocked > 0 and no prior entries with doors_knocked > 0), award `first_door`, etc. `first_sale` replaces or supplements `first_blood` (which already exists but isn't rookie-only). ****This is just ofr their FIRST EVER tracked. also if they sync their numbers during setup and already have sales even though they are rookies, lets skip this badge earning
+## Issue 2: Move sales streak to a prominent pill at top of profile
 
-### 3. Expand Multi-Sale Streak Badges
+Currently the streak lives inside the Badges tab content (lines 384-400 of Profile.tsx). Move it to right below the stats bar (after line 328), rendered as a compact pill/banner that's always visible regardless of which tab is active.
 
-Replace current 4 multi-sale definitions with expanded set:
+Design: A slim rounded pill below the stats card:
+`🔥 46-Day Sales Streak · Only 3 reps have ever gotten this far`
 
-**Double sales (min: 2):** 3, 6, 10, 12, 18, 24 day thresholds
-**Triple sales (min: 3):** 3, 6, 10, 12, 18, 24 day thresholds  
-**Quad sales (min: 4):** 3, 6, 10, 12, 18, 24 day thresholds
+When streak is 0, nothing renders.
 
-That's 18 new badge definitions total (replacing the current 4). Slugs: `streak_multi_2_3`, `streak_multi_2_6`, etc.
+## Issue 3: Show sales streak on watchlist cards
 
-Update `badgeDefinitions.ts` MULTI_SALE_STREAKS array and insert corresponding rows into `badge_definitions` table.
+Add sales streak data to `useWatchlistDetails` hook and display it as a small fire pill on `WatchedPlayerCard` when the watched user has an active streak > 0.
 
-### 4. Add Longer Sales Streak Thresholds
+This requires the watchlist details hook to also fetch each watched user's current streak. To avoid N+1 queries, we'll batch-fetch the most recent daily entries for all watched users and calculate streaks client-side, or more simply add a small `🔥 X` pill next to the user's name if they have any streak badge recently earned.
 
-Current: [3, 5, 7, 10, 14, 21]. Extend to: [3, 6, 10, 12, 18, 24, 30, 36, 42, 60].  
-Insert new `badge_definitions` rows for `streak_sales_30`, `streak_sales_45`, `streak_sales_60, etc`.
+**Simpler approach**: Fetch each watched user's recent daily_entries in the existing `useWatchlistDetails` query and compute streak client-side. Since watchlists are small (typically < 10 users), this is fine.
 
-### 5. Live Sales Streak Display
+## Files to change
 
-Create a `useCurrentSalesStreak` hook that calculates the user's current consecutive working days with at least 1 sale (or FP+>0). This returns a number (e.g., 46).
+1. **`src/components/badges/BadgeGrid.tsx`** — Fix `selectedGlobalCount` to use `badgeId` for earned badges
+2. **`src/pages/Profile.tsx`** — Move streak display from badges tab to above the swiper/tabs area as a pill
+3. **`src/hooks/useWatchlistDetails.ts`** — Add streak calculation for each watched user
+4. **`src/components/leaderboard/WatchlistDrawer.tsx`** — Show `🔥 X` streak pill on cards
 
-Display this on the **Profile page** as a prominent counter near the top badges area — something like "🔥 46-Day Sales Streak" with a subtitle showing global ranking (see #6).
-
-### 6. Global Badge Rarity Stats
-
-Add a `useGlobalBadgeCount` hook that queries `user_badges` grouped by `badge_id` to get how many distinct users have earned each badge. Pass this count into `BadgeDetailSheet` to display "Only X reps have earned this badge" when viewing badge details.
-
-For the live sales streak, query how many other users have ever reached that streak length or higher, and display "Only X reps have ever gotten this far."
-
-### Technical Details
-
-**Database changes (via migration tool):**
-
-- INSERT ~22 new badge_definitions rows (4 rookie quick-wins + 18 multi-sale streaks + 3 extended sales streaks, minus 4 replaced multi-sale = net ~21 new rows)
-- UPDATE 9 existing daily_fp rows to change `icon_emoji`
-
-**Code file changes:**
-
-- `src/utils/badgeDefinitions.ts` — update MULTI_SALE_STREAKS array, add SALES_STREAK extended thresholds, add SPECIAL_SLUGS for rookie badges
-- `src/hooks/useBadgeDetection.ts` — add detection for first_door, first_transition, first_presentation, first_sale (check historical entries for prior nonzero values)
-- `src/hooks/useCurrentSalesStreak.ts` — new hook, queries recent daily_entries descending, counts consecutive days with closes >= 1
-- `src/hooks/useGlobalBadgeCount.ts` — new hook, queries count of distinct user_ids per badge_id from user_badges
-- `src/components/badges/BadgeDetailSheet.tsx` — add globalCount prop, display "Only X reps have earned this" line
-- `src/components/badges/BadgeGrid.tsx` — pass global counts to detail sheet
-- `src/pages/Profile.tsx` — add live sales streak display with global comparison
-
-**Streak clarification:** Yes, transition/presentation streaks count consecutive **working days** (days with entries). A 30-day transition streak means 30 entries in a row where the rep got at least 1 transition. Weekends/off days are simply gaps — the `calcStreak` function already works this way by walking consecutive entry dates, not calendar dates.
