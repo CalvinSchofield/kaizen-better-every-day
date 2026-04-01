@@ -827,6 +827,7 @@ const Goals = () => {
   if ((needsInitialSync || needsBiweekly) && !isActivelyWorking && !syncGateSkipped) {
     return (
       <Layout>
+        {GateBanner}
         <BiweeklySyncGate
           seasonType="preseason"
           effectiveData={effectiveFPData!}
