@@ -279,23 +279,37 @@ export const useBadgeDetection = (
     }
 
     // --- Streak detection ---
-    const { data: recentEntries } = await supabase
-      .from("daily_entries")
-      .select("entry_date, closes, transitions, presentations, doors_knocked")
-      .eq("user_id", userId)
-      .order("entry_date", { ascending: false })
-      .limit(35);
+    // Fetch protections for this user to factor into streak calc
+    const [recentEntriesResult, protectionsResult] = await Promise.all([
+      supabase
+        .from("daily_entries")
+        .select("entry_date, closes, transitions, presentations, doors_knocked")
+        .eq("user_id", userId)
+        .order("entry_date", { ascending: false })
+        .limit(35),
+      supabase
+        .from("streak_protections")
+        .select("entry_date")
+        .eq("user_id", userId)
+        .order("entry_date", { ascending: false })
+        .limit(100),
+    ]);
+
+    const recentEntries = recentEntriesResult.data;
+    const protectedDates = new Set(
+      (protectionsResult.data || []).map(p => p.entry_date)
+    );
 
     if (recentEntries && recentEntries.length > 0) {
-      // Sales streaks (no freeze)
-      const salesStreak = calcStreak(recentEntries, 'closes', 1, null);
+      // Sales streaks (with protection support)
+      const salesStreak = calcStreakWithProtection(recentEntries, 'closes', 1, null, protectedDates);
       for (const t of SALES_STREAK_THRESHOLDS) {
         if (salesStreak >= t) {
           await awardBadge(salesStreakSlug(t), date, { streak: salesStreak });
         }
       }
 
-      // Multi-sale streaks
+      // Multi-sale streaks (no protection — these require actual multi-sales)
       for (const ms of MULTI_SALE_STREAKS) {
         const streak = calcStreak(recentEntries, 'closes', ms.min, null);
         if (streak >= ms.days) {
@@ -319,6 +333,12 @@ export const useBadgeDetection = (
             await awardBadge(presentationStreakSlug(t), date, { streak: presStreak });
           }
         }
+      }
+
+      // --- Streak protection detection ---
+      // If today has no sale, check if rep earned effort-based protection
+      if (closes === 0 && doors > 0) {
+        await detectStreakProtection(userId, date, todayEntry, isRookie);
       }
     }
   }, [userId, todayEntry, isRookie, awardBadge]);
