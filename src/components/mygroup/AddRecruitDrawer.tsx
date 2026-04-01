@@ -472,10 +472,14 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase.functions.invoke('create-recruit', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: recruitData,
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('create-recruit', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: recruitData,
+        }),
+        30000,
+        'Request timed out — please check your connection and try again'
+      );
 
       if (error) throw error;
       if (data?.duplicateEmail) throw new Error(data.error);
