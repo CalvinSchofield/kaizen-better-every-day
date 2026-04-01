@@ -818,8 +818,18 @@ const OrgChart = () => {
       <PageTour
         steps={getOrgChartTourSteps(teamAccess?.accessLevel)}
         isOpen={showTour}
-        onComplete={completeTour}
-        onSkip={skipTour}
+        onComplete={async () => {
+          await completeTour();
+          if (fromOnboarding) {
+            navigate('/my-group?tab=structure', { state: { fromOnboarding: true } });
+          }
+        }}
+        onSkip={async () => {
+          await skipTour();
+          if (fromOnboarding) {
+            navigate('/my-group?tab=structure', { state: { fromOnboarding: true } });
+          }
+        }}
         onStepAction={handleTourAction}
       />
     </div>
