@@ -61,8 +61,8 @@ export const useWatchlistDetails = () => {
       // Season start
       const seasonStart = "2025-09-28";
 
-      // Fetch reps info and entries in parallel
-      const [repsResult, entriesResult] = await Promise.all([
+      // Fetch reps info, entries, and protections in parallel
+      const [repsResult, entriesResult, protectionsResult] = await Promise.all([
         supabase
           .from("reps")
           .select("user_id, name, profile_photo_url, year")
@@ -73,7 +73,20 @@ export const useWatchlistDetails = () => {
           .in("user_id", allUserIds)
           .gte("entry_date", seasonStart)
           .lte("entry_date", today),
+        supabase
+          .from("streak_protections")
+          .select("user_id, entry_date")
+          .in("user_id", allUserIds)
+          .order("entry_date", { ascending: false })
+          .limit(500),
       ]);
+
+      // Build per-user protection date sets
+      const userProtections = new Map<string, Set<string>>();
+      for (const p of protectionsResult.data || []) {
+        if (!userProtections.has(p.user_id)) userProtections.set(p.user_id, new Set());
+        userProtections.get(p.user_id)!.add(p.entry_date);
+      }
 
       const repsMap = new Map(
         (repsResult.data || []).map((r) => [r.user_id, r])
