@@ -1382,6 +1382,19 @@ const MyGroup = () => {
       {/* Leader onboarding tour */}
       {isLeader && <LeaderOnboardingTour />}
 
+      <LeaderWelcomeDrawer
+        open={welcomeDrawerOpen}
+        onOpenChange={setWelcomeDrawerOpen}
+        onGetStarted={() => {
+          setWelcomeDrawerOpen(false);
+          // Open org structure after welcome closes
+          setTimeout(() => {
+            setQuickViewInitialTab('org');
+            setQuickViewOpen(true);
+          }, 400);
+        }}
+      />
+
     </Layout>
   );
 };
