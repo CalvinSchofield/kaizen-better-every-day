@@ -98,6 +98,7 @@ const MyGroup = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [attentionDrawerOpen, setAttentionDrawerOpen] = useState(false);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
+  const [welcomeDrawerOpen, setWelcomeDrawerOpen] = useState(false);
   const [quickViewInitialTab, setQuickViewInitialTab] = useState<'board' | 'availability' | 'org' | 'digest' | 'goals' | undefined>(undefined);
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
   const [selectedRecruitInitialTab, setSelectedRecruitInitialTab] = useState<'details' | 'activity' | 'progress' | undefined>(undefined);
