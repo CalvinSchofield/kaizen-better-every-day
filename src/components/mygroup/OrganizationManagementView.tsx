@@ -355,6 +355,7 @@ export const OrganizationManagementView = () => {
       .map(r => ({ id: r.id, name: r.name, email: r.email }));
   }, [orgData]);
 
+  if (accessLoading || orgLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-32" />
