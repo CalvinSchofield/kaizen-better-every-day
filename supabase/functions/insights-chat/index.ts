@@ -65,15 +65,25 @@ function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goal
     monthlyBuckets[mo].prmr += e.prmr || 0;
   }
 
-  // Sales log time-of-day analysis
+  // Sales log time-of-day analysis (using entry timezone for local hour)
   const salesByHour: Record<number, number> = {};
+  // Also compute FP+ from sales_log for more accurate per-sale breakdown
+  let totalFpSales = 0;
+  let totalUpgradeSales = 0;
   for (const e of entries) {
     if (e.sales_log && Array.isArray(e.sales_log)) {
+      const entryTz = e.timezone || rep?.timezone || null;
       for (const sale of e.sales_log) {
-        if (sale.install_status === "cancelled" || sale.install_status === "never_installed") continue;
+        const status = typeof sale.install_status === 'string' ? sale.install_status.toLowerCase().trim() : '';
+        if (status === 'cancelled' || status === 'canceled' || status === 'never_installed') continue;
+        
+        // Count by type
+        if (sale.type === 'fp') totalFpSales++;
+        else if (sale.type === 'upgrade') totalUpgradeSales++;
+        
         const ts = sale.timestamp || sale.created_at;
         if (ts) {
-          const hour = new Date(ts).getHours();
+          const hour = getLocalHour(ts, entryTz);
           salesByHour[hour] = (salesByHour[hour] || 0) + 1;
         }
       }
