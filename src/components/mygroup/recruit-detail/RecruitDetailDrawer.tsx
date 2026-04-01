@@ -1537,26 +1537,16 @@ export const RecruitDetailDrawer = ({
                 {/* Assignee selector - only show for next_step activities */}
                 {selectedActivity.activity_type === 'next_step' && (
                   <div>
-                    <Label className="flex items-center gap-2">
+                    <Label className="flex items-center gap-2 mb-1">
                       <UserCircle className="h-4 w-4" />
                       Assigned To
                     </Label>
-                    <Select 
-                      value={editAssignee || 'me'} 
-                      onValueChange={(v) => setEditAssignee(v === 'me' ? null : v)}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select assignee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="me">Me</SelectItem>
-                        {assignableUsers.map((user) => (
-                          <SelectItem key={user.userId} value={user.userId}>
-                            {user.name.split(' ')[0]} ({user.role})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <AssigneeSelector
+                      assignableUsers={assignableUsers}
+                      selectedAssignee={assignableUsers.find(u => u.userId === editAssignee) || null}
+                      onSelect={(user) => setEditAssignee(user?.userId || null)}
+                      currentUserPhotoUrl={repData?.profile_photo_url}
+                    />
                   </div>
                 )}
                 
