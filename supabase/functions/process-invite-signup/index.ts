@@ -5,6 +5,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const normalizeIdentityName = (value: string | null | undefined) =>
+  (value || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const buildLooseNamePattern = (value: string) => {
+  const normalized = normalizeIdentityName(value);
+  if (!normalized) return null;
+
+  const tokens = normalized.split(' ').filter(Boolean);
+  if (tokens.length === 0) return null;
+
+  return `%${tokens.join('%')}%`;
+};
+
 /**
  * Called after a user signs up with an invite code.
  * Creates the recruit + rep records and links them to the inviter.
@@ -185,33 +202,111 @@ Deno.serve(async (req) => {
     const finalYear = year || 'Rookie';
     const approvalStatus = shouldAutoApprove ? 'approved' : 'pending';
 
-    // 3. Check if rep already exists (ghost rep claim or duplicate)
-    const { data: existingRep } = await supabase
-      .from('reps')
-      .select('id, user_id')
-      .or(`user_id.eq.${user.id},email.ilike.${user.email}`)
-      .maybeSingle();
+    // 3. Check if recruit/rep already exists (linked user, email match, or safe unique name match)
+    const nowIso = new Date().toISOString();
+    const target = await resolveExistingInviteTarget(
+      supabase,
+      user.id,
+      user.email ?? null,
+      finalName,
+      resolvedTeamId,
+      resolvedMgmtGroupId,
+      resolvedRecruiterUserId,
+    );
 
-    if (existingRep) {
-      if (!existingRep.user_id) {
+    if (target.rep?.user_id && target.rep.user_id !== user.id) {
+      return new Response(JSON.stringify({
+        error: 'This recruit is already linked to another app account. Please contact your leader.',
+      }), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (target.recruit?.id || target.rep?.id) {
+      const claimedId = target.recruit?.id || target.rep?.id;
+      const stage = target.recruit?.stage || target.rep?.stage || 'Signed';
+      const claimedPhone = phone || target.recruit?.phone || target.rep?.phone || null;
+      const claimedYear = year || target.recruit?.year || target.rep?.year || 'Rookie';
+
+      if (target.rep) {
         await supabase
           .from('reps')
-          .update({ user_id: user.id, invite_code_used: inviteCode, updated_at: new Date().toISOString() })
-          .eq('id', existingRep.id);
+          .update({
+            user_id: user.id,
+            name: finalName,
+            email: user.email,
+            phone: claimedPhone,
+            year: claimedYear,
+            stage,
+            intro_seen: false,
+            invite_code_used: inviteCode,
+            office_id: resolvedOfficeId ?? target.recruit?.office_id ?? null,
+            team_leader: isLateralInvite ? null : (inviterRep?.name || target.rep.team_leader || null),
+            team_leader_phone: isLateralInvite ? null : (inviterRep?.phone || target.rep.team_leader_phone || null),
+            updated_at: nowIso,
+          })
+          .eq('id', target.rep.id);
+      } else {
+        await supabase
+          .from('reps')
+          .insert({
+            id: claimedId,
+            name: finalName,
+            email: user.email,
+            phone: claimedPhone,
+            stage,
+            year: claimedYear,
+            user_id: user.id,
+            intro_seen: false,
+            invite_code_used: inviteCode,
+            office_id: resolvedOfficeId ?? target.recruit?.office_id ?? null,
+            team_leader: isLateralInvite ? null : (inviterRep?.name || null),
+            team_leader_phone: isLateralInvite ? null : (inviterRep?.phone || null),
+          });
       }
 
-      await supabase
-        .from('recruits')
-        .update({ 
-          approval_status: approvalStatus,
-          ...(shouldAutoApprove ? {
-            approved_at: new Date().toISOString(),
-            approved_by_user_id: invite.inviter_user_id,
-          } : {}),
-        })
-        .eq('id', existingRep.id);
+      if (target.recruit) {
+        await supabase
+          .from('recruits')
+          .update({
+            name: finalName,
+            email: user.email,
+            phone: claimedPhone,
+            year: claimedYear,
+            stage,
+            recruiter_user_id: resolvedRecruiterUserId ?? target.recruit.recruiter_user_id ?? null,
+            team_id: resolvedTeamId ?? target.recruit.team_id ?? null,
+            mgmt_group_id: resolvedMgmtGroupId ?? target.recruit.mgmt_group_id ?? null,
+            office_id: resolvedOfficeId ?? target.recruit.office_id ?? null,
+            invite_code_used: inviteCode,
+            approval_status: approvalStatus,
+            approved_at: shouldAutoApprove ? nowIso : null,
+            approved_by_user_id: shouldAutoApprove ? invite.inviter_user_id : null,
+            updated_at: nowIso,
+          })
+          .eq('id', target.recruit.id);
+      } else {
+        await supabase
+          .from('recruits')
+          .insert({
+            id: claimedId,
+            name: finalName,
+            email: user.email,
+            phone: claimedPhone,
+            stage,
+            year: claimedYear,
+            recruiter_user_id: resolvedRecruiterUserId,
+            team_id: resolvedTeamId,
+            mgmt_group_id: resolvedMgmtGroupId,
+            office_id: resolvedOfficeId,
+            invite_code_used: inviteCode,
+            approval_status: approvalStatus,
+            approved_at: shouldAutoApprove ? nowIso : null,
+            approved_by_user_id: shouldAutoApprove ? invite.inviter_user_id : null,
+          });
+      }
 
-      // Assign role if pre-assigned
       if (shouldAutoApprove && preAssignedRole) {
         await assignRole(supabase, user.id, preAssignedRole);
       }
@@ -222,19 +317,21 @@ Deno.serve(async (req) => {
         .eq('id', invite.id);
 
       if (!shouldAutoApprove) {
-        await notifyUplineOfPendingApproval(supabase, invite.inviter_user_id, finalName, existingRep.id, isLateralInvite);
+        await notifyUplineOfPendingApproval(supabase, invite.inviter_user_id, finalName, claimedId, isLateralInvite);
       }
 
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'Existing account linked',
-        repId: existingRep.id,
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Existing pipeline record linked',
+        repId: claimedId,
         pendingApproval: !shouldAutoApprove,
         isLateralInvite,
         autoApproved: shouldAutoApprove,
         assignedRole: preAssignedRole,
+        matchSource: target.matchSource,
       }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -413,6 +510,136 @@ async function assignRole(
   } else {
     console.log(`[assignRole] Assigned ${mappedRole} to ${userId}`);
   }
+}
+
+async function resolveExistingInviteTarget(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  userEmail: string | null,
+  fullName: string,
+  resolvedTeamId: string | null,
+  resolvedMgmtGroupId: string | null,
+  resolvedRecruiterUserId: string | null,
+) {
+  const repSelect = 'id, user_id, name, email, phone, year, stage, team_leader, team_leader_phone, office_id';
+  const recruitSelect = 'id, name, email, phone, year, stage, recruiter_user_id, team_id, mgmt_group_id, office_id';
+
+  const { data: linkedRep } = await supabase
+    .from('reps')
+    .select(repSelect)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (linkedRep) {
+    const { data: linkedRecruit } = await supabase
+      .from('recruits')
+      .select(recruitSelect)
+      .eq('id', linkedRep.id)
+      .maybeSingle();
+
+    return { rep: linkedRep, recruit: linkedRecruit, matchSource: 'user_id' };
+  }
+
+  if (userEmail) {
+    const { data: recruitByEmail } = await supabase
+      .from('recruits')
+      .select(recruitSelect)
+      .ilike('email', userEmail)
+      .maybeSingle();
+
+    if (recruitByEmail) {
+      const { data: repByRecruitId } = await supabase
+        .from('reps')
+        .select(repSelect)
+        .eq('id', recruitByEmail.id)
+        .maybeSingle();
+
+      return { rep: repByRecruitId, recruit: recruitByEmail, matchSource: 'email' };
+    }
+
+    const { data: repByEmail } = await supabase
+      .from('reps')
+      .select(repSelect)
+      .ilike('email', userEmail)
+      .maybeSingle();
+
+    if (repByEmail) {
+      const { data: recruitByRepId } = await supabase
+        .from('recruits')
+        .select(recruitSelect)
+        .eq('id', repByEmail.id)
+        .maybeSingle();
+
+      return { rep: repByEmail, recruit: recruitByRepId, matchSource: 'email' };
+    }
+  }
+
+  const namePattern = buildLooseNamePattern(fullName);
+  if (!namePattern) {
+    return { rep: null, recruit: null, matchSource: null };
+  }
+
+  const normalizedTargetName = normalizeIdentityName(fullName);
+
+  const { data: recruitCandidates } = await supabase
+    .from('recruits')
+    .select(recruitSelect)
+    .ilike('name', namePattern)
+    .limit(20);
+
+  const normalizedRecruitCandidates = (recruitCandidates || []).filter((candidate) =>
+    normalizeIdentityName(candidate.name) === normalizedTargetName
+  );
+
+  const scopedRecruitCandidates = normalizedRecruitCandidates.filter((candidate) => {
+    if (resolvedRecruiterUserId && candidate.recruiter_user_id === resolvedRecruiterUserId) return true;
+    if (resolvedTeamId && candidate.team_id === resolvedTeamId) return true;
+    if (resolvedMgmtGroupId && candidate.mgmt_group_id === resolvedMgmtGroupId) return true;
+    return !resolvedRecruiterUserId && !resolvedTeamId && !resolvedMgmtGroupId;
+  });
+
+  const finalRecruitCandidates = scopedRecruitCandidates.length === 1
+    ? scopedRecruitCandidates
+    : normalizedRecruitCandidates.length === 1
+      ? normalizedRecruitCandidates
+      : [];
+
+  if (finalRecruitCandidates.length === 1) {
+    const recruit = finalRecruitCandidates[0];
+    const { data: rep } = await supabase
+      .from('reps')
+      .select(repSelect)
+      .eq('id', recruit.id)
+      .maybeSingle();
+
+    if (!rep || !rep.user_id || rep.user_id === userId) {
+      return { rep, recruit, matchSource: 'name' };
+    }
+  }
+
+  const { data: repCandidates } = await supabase
+    .from('reps')
+    .select(repSelect)
+    .is('user_id', null)
+    .ilike('name', namePattern)
+    .limit(20);
+
+  const finalRepCandidates = (repCandidates || []).filter((candidate) =>
+    normalizeIdentityName(candidate.name) === normalizedTargetName
+  );
+
+  if (finalRepCandidates.length === 1) {
+    const rep = finalRepCandidates[0];
+    const { data: recruit } = await supabase
+      .from('recruits')
+      .select(recruitSelect)
+      .eq('id', rep.id)
+      .maybeSingle();
+
+    return { rep, recruit, matchSource: 'name' };
+  }
+
+  return { rep: null, recruit: null, matchSource: null };
 }
 
 /**

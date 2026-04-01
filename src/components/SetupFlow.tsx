@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
 import { UserX, Mail, LogOut } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 
 const SetupFlow = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [statusText, setStatusText] = useState("Loading your profile...");
   const [notInSystem, setNotInSystem] = useState(false);
@@ -37,8 +39,8 @@ const SetupFlow = () => {
   const processInviteSignup = async () => {
     setIsProcessingInvite(true);
     try {
-      const { session } = await getSessionSafe();
-      if (!session) throw new Error('Not authenticated');
+      const { session, user } = await getSessionSafe();
+      if (!session || !user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase.functions.invoke('process-invite-signup', {
         body: {
@@ -66,9 +68,19 @@ const SetupFlow = () => {
               : "Your account has been set up.",
       });
 
-      // Now continue with normal setup flow
+      sessionStorage.removeItem('kaizen-invite-code');
+      localStorage.removeItem('kaizen-setup-complete');
+      localStorage.removeItem('kaizen-setup-timestamp');
+      localStorage.removeItem(`rep-data-cache-${user.id}`);
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['rep-data'] }),
+        queryClient.invalidateQueries({ queryKey: ['recruit-approval-status'] }),
+      ]);
+
       setShowInviteOnboarding(false);
-      await runSetup();
+      navigate(0);
+      return;
     } catch (error: any) {
       console.error('Invite processing error:', error);
       toast({
@@ -92,6 +104,17 @@ const SetupFlow = () => {
       // Check for invite code (from sessionStorage or user metadata)
       const storedInviteCode = sessionStorage.getItem('kaizen-invite-code') || user.user_metadata?.invite_code;
 
+      let inviteData: { invite_type?: string } | null = null;
+      if (storedInviteCode) {
+        const { data } = await supabase
+          .from('invite_codes')
+          .select('invite_type')
+          .eq('code', storedInviteCode)
+          .eq('is_active', true)
+          .maybeSingle();
+        inviteData = data;
+      }
+
       // Step 1: Check rep profile in Supabase
       setStatusText("Loading your profile...");
       
@@ -106,13 +129,6 @@ const SetupFlow = () => {
         if (storedInviteCode) {
           setInviteCode(storedInviteCode);
           setInviteName(user.user_metadata?.name || '');
-          // Check invite type to determine if year selector should show
-          const { data: inviteData } = await supabase
-            .from('invite_codes')
-            .select('invite_type')
-            .eq('code', storedInviteCode)
-            .eq('is_active', true)
-            .maybeSingle();
           setIsLateralInvite(inviteData?.invite_type === 'lateral');
           setShowInviteOnboarding(true);
           return;
@@ -120,6 +136,29 @@ const SetupFlow = () => {
         // No invite code either - user needs to be added by admin
         setNotInSystem(true);
         return;
+      }
+
+      if (storedInviteCode) {
+        const { data: existingRecruit } = await supabase
+          .from('recruits')
+          .select('id, name, email, phone, year, approval_status, invite_code_used')
+          .eq('id', existingRep.id)
+          .maybeSingle();
+
+        const needsInviteVerification =
+          !existingRecruit ||
+          existingRecruit.approval_status !== 'pending' ||
+          existingRecruit.invite_code_used !== storedInviteCode;
+
+        if (needsInviteVerification) {
+          setInviteCode(storedInviteCode);
+          setInviteName(existingRecruit?.name || existingRep.name || user.user_metadata?.name || '');
+          setInvitePhone(existingRecruit?.phone || existingRep.phone || '');
+          setInviteYear(existingRecruit?.year || existingRep.year || 'Rookie');
+          setIsLateralInvite(inviteData?.invite_type === 'lateral');
+          setShowInviteOnboarding(true);
+          return;
+        }
       }
       
       // Clear invite code from session storage since we're past that point
