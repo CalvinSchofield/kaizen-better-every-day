@@ -255,12 +255,13 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
           />
         </svg>
 
-        {/* Interaction blocker - but let the card buttons work */}
+        {/* Interaction blocker - prevents clicking outside from dismissing the tour */}
         <div 
           className="absolute inset-0" 
           aria-hidden="true"
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
         />
 
         {/* Spotlight border glow */}
