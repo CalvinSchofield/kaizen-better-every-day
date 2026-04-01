@@ -526,7 +526,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
     }
 
     return rootNodes.sort((a, b) => b.children.length - a.children.length);
-  }, [treeData, teamAccess, currentAuthUserId]);
+  }, [treeData, teamAccess, currentAuthUserId, groupByOffice]);
 
   // Filter for search
   const filteredTree = useMemo(() => {
