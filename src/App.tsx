@@ -100,6 +100,7 @@ const App = () => {
             <OfflineIndicator />
             <NativeAppPromo />
             <ChallengeWinListener />
+            <BadgeCelebrationOverlay />
             <BrowserRouter>
               <InAppNotificationBanner />
               <ScrollToTop />
