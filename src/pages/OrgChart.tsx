@@ -513,6 +513,11 @@ const OrgChart = () => {
         allVisibleUserIds.add(rep.user_id);
       });
 
+      const groupedRoots = Array.from(mgmtNodes.values())
+        .map((node) => ({ ...node, children: dedupeRootNodes(node.children) }))
+        .filter((node) => node.children.length > 0)
+        .sort((a, b) => b.children.length - a.children.length);
+
       // After creating MGMT group nodes, wrap them in Sr MGMT Group containers
       // This shows upline (e.g. Gunnar Bramwell Sr MGMT)
       const mgmtGroupToSrMgmt = new Map<string, string>();
