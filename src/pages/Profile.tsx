@@ -13,6 +13,7 @@ import { useHeader } from "@/contexts/HeaderContext";
 import { useUserBadges, useBadgeDefinitions, getTopBadges } from "@/hooks/useUserBadges";
 import { BadgeGrid } from "@/components/badges/BadgeGrid";
 import { BadgeIcon } from "@/components/badges/BadgeIcon";
+import { useCurrentSalesStreak } from "@/hooks/useCurrentSalesStreak";
 
 import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
@@ -77,6 +78,7 @@ const Profile = () => {
   const { data: earnedBadges } = useUserBadges(targetUserId);
   const { data: allDefinitions } = useBadgeDefinitions();
   const topBadges = earnedBadges ? getTopBadges(earnedBadges, 2) : [];
+  const { data: salesStreakData } = useCurrentSalesStreak(targetUserId);
 
   // Scroll-based header title: show rep name when scrolled past the name
   useEffect(() => {
@@ -378,7 +380,24 @@ const Profile = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="badges" className="mt-4">
+          <TabsContent value="badges" className="mt-4 space-y-3">
+            {salesStreakData && salesStreakData.streak > 0 && (
+              <div className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-lg font-bold text-foreground">
+                    🔥 {salesStreakData.streak}-Day Sales Streak
+                  </p>
+                  {salesStreakData.globalReached > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {salesStreakData.globalReached === 1
+                        ? "Only 1 other rep has ever gotten this far"
+                        : `Only ${salesStreakData.globalReached} reps have ever gotten this far`}
+                    </p>
+                  )}
+                </div>
+                <span className="text-3xl">🔥</span>
+              </div>
+            )}
             <div className="bg-card border border-border rounded-2xl p-4">
               {allDefinitions && earnedBadges ? (
                 <BadgeGrid
