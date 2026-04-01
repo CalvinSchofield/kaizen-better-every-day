@@ -12,6 +12,16 @@ import { canManageTeam } from "@/utils/roleHierarchy";
 import { VisualRecruiterTree, type TreeNode } from "./VisualRecruiterTree";
 import { ReassignRecruiterDrawer } from "./ReassignRecruiterDrawer";
 
+const OFFICE_GROUPED_ACCESS_LEVELS = new Set([
+  "area_director",
+  "corporate",
+  "regional",
+  "sr_regional",
+  "partner",
+  "divisional",
+  "mgmt_group_lead",
+]);
+
 interface OrgRep {
   id: string;
   userId: string | null;
