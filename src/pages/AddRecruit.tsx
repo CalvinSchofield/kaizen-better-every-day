@@ -436,9 +436,9 @@ export default function AddRecruit() {
 
   // Get team display name
   const teamName = useMemo(() => {
-    const team = filteredTeams.find(t => t.id === selectedTeam);
+    const team = allTeams.find(t => t.id === selectedTeam);
     return getCleanName(team?.name) || '';
-  }, [selectedTeam, filteredTeams]);
+  }, [selectedTeam, allTeams]);
 
   // Render step content for leaders
   const renderLeaderStep = () => {
@@ -549,13 +549,13 @@ export default function AddRecruit() {
                   </SelectContent>
                 </Select>
               </div>
-              {isMgmtOrAbove && filteredTeams.length > 0 && (
+              {isMgmtOrAbove && allTeams.length > 0 && (
                 <div>
                   <Label>Team</Label>
                   <Select value={selectedTeam} onValueChange={setSelectedTeam}>
                     <SelectTrigger className="h-12 mt-1"><SelectValue placeholder="Select team" /></SelectTrigger>
                     <SelectContent>
-                      {filteredTeams.map((team) => (
+                      {allTeams.map((team) => (
                         <SelectItem key={team.id} value={team.id}>{getCleanName(team.name)}</SelectItem>
                       ))}
                     </SelectContent>

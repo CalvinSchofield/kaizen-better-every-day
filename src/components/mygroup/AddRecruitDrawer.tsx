@@ -621,9 +621,9 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
 
   // Get team display name
   const teamName = useMemo(() => {
-    const team = filteredTeams.find(t => t.id === selectedTeam);
+    const team = allTeams.find(t => t.id === selectedTeam);
     return getCleanName(team?.name) || '';
-  }, [selectedTeam, filteredTeams]);
+  }, [selectedTeam, allTeams]);
 
   // Render step content for leaders
   const renderLeaderStep = () => {
@@ -816,7 +816,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
               </div>
 
               {/* Team selection for MGMT leads */}
-              {isMgmtOrAbove && filteredTeams.length > 0 && (
+              {isMgmtOrAbove && allTeams.length > 0 && (
                 <div>
                   <Label>Team</Label>
                   <Select value={selectedTeam} onValueChange={setSelectedTeam}>
@@ -824,7 +824,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
                       <SelectValue placeholder="Select team" />
                     </SelectTrigger>
                     <SelectContent modal={false}>
-                      {filteredTeams.map((team) => (
+                      {allTeams.map((team) => (
                         <SelectItem key={team.id} value={team.id}>
                           {getCleanName(team.name)}
                         </SelectItem>
