@@ -181,8 +181,8 @@ Deno.serve(async (req) => {
     }
 
     const finalName = name || user.user_metadata?.name || user.email?.split('@')[0] || 'New Rep';
-    // Force 'Rookie' for downline invites — only lateral invites can specify year
-    const finalYear = isLateralInvite ? (year || 'Rookie') : 'Rookie';
+    // Allow all invitees to specify their experience level
+    const finalYear = year || 'Rookie';
     const approvalStatus = shouldAutoApprove ? 'approved' : 'pending';
 
     // 3. Check if rep already exists (ghost rep claim or duplicate)
