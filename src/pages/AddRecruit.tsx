@@ -546,6 +546,20 @@ export default function AddRecruit() {
               <p className="text-sm text-muted-foreground">Assign to a recruiter and add notes</p>
             </div>
             <div className="space-y-4">
+              {/* Team selection first for MGMT leads */}
+              {isMgmtOrAbove && allTeams.length > 0 && (
+                <div>
+                  <Label>Team</Label>
+                  <Select value={selectedTeam} onValueChange={handleTeamChange}>
+                    <SelectTrigger className="h-12 mt-1"><SelectValue placeholder="Select team" /></SelectTrigger>
+                    <SelectContent>
+                      {allTeams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>{getCleanName(team.name)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <Label>Recruiter</Label>
                 <Select value={selectedRecruiter} onValueChange={handleRecruiterChange}>
@@ -562,19 +576,6 @@ export default function AddRecruit() {
                   </SelectContent>
                 </Select>
               </div>
-              {isMgmtOrAbove && allTeams.length > 0 && (
-                <div>
-                  <Label>Team</Label>
-                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                    <SelectTrigger className="h-12 mt-1"><SelectValue placeholder="Select team" /></SelectTrigger>
-                    <SelectContent>
-                      {allTeams.map((team) => (
-                        <SelectItem key={team.id} value={team.id}>{getCleanName(team.name)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
               <div>
                 <Label className="flex items-center gap-1.5"><Heart className="h-3.5 w-3.5 text-pink-500" /> Spouse/Partner Name</Label>
                 <Input value={spouseName} onChange={(e) => setSpouseName(e.target.value)} placeholder="Optional" className="h-12 mt-1" />
