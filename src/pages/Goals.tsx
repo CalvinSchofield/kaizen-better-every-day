@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +16,7 @@ import { useEffectiveFP } from "@/hooks/useEffectiveFP";
 import { useGoalPaceCalculator } from "@/hooks/useGoalPaceCalculator";
 import { invalidateGoalRelatedQueries } from "@/utils/goalInvalidation";
 import { GoalSetupWizard } from "@/components/goals/GoalSetupWizard";
+import { KnockingDecisionCard } from "@/components/goals/KnockingDecisionCard";
 import { GoalHeroRing, GoalTier } from "@/components/goals/GoalHeroRing";
 import { CommitmentChips } from "@/components/goals/CommitmentChips";
 import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
@@ -28,6 +29,7 @@ import { EarningsBreakdownCard } from "@/components/goals/EarningsBreakdownCard"
 import { PreseasonCommitmentsCard } from "@/components/goals/PreseasonCommitmentsCard";
 import { useSyncedWeeklyLogs } from "@/hooks/useSyncedWeeklyLogs";
 import { usePendingInstalls } from "@/hooks/usePendingInstalls";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 
 
 import { SyncDiscrepancyIndicator } from "@/components/catchup/SyncDiscrepancyIndicator";
@@ -49,6 +51,7 @@ import { parseDateAsLocal, formatBlitzDate } from "@/utils/blitzDateUtils";
 import { SummerCountdownHero } from "@/components/SummerCountdownHero";
 import { calculatePaceContext, getLearningCurvePrincipleMessage, calculateSuggestedStretchGoal } from "@/utils/learningCurveData";
 import { hasCompletedGoalsSetup } from "@/lib/goalsSetupCache";
+import { hasMinAccess } from "@/utils/roleHierarchy";
 
 interface CommittedBlitz {
   id: string;
@@ -78,6 +81,7 @@ const Goals = () => {
   } = useRepGoals();
   const { repData, isInitializing: repDataInitializing, loading: repDataLoading } = useRepData();
   const { userId, isReady: authReady } = useCurrentUserId();
+  const teamAccess = useTeamAccess();
   const { 
     totalFP: totalFpPlus, 
     totalPRMR, 
@@ -93,6 +97,7 @@ const Goals = () => {
   const unifiedPaceData = useGoalPaceCalculator();
   const queryClient = useQueryClient();
   const { toast: toastHook } = useToast();
+  const [isSavingKnockingDecision, setIsSavingKnockingDecision] = useState(false);
   
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
@@ -172,13 +177,13 @@ const Goals = () => {
     gcTime: 30 * 60 * 1000,
   });
 
-  const { data: seasonConfig } = useQuery({
+  const { data: seasonConfig, isLoading: seasonConfigLoading } = useQuery({
     queryKey: ['season-config-for-goals-page', userId],
     queryFn: async () => {
       if (!userId) return null;
       const { data, error } = await supabase
         .from('season_config')
-        .select('personal_summer_start, personal_summer_end')
+        .select('personal_summer_start, personal_summer_end, knocking_mode_enabled')
         .eq('user_id', userId)
         .maybeSingle();
       if (error) throw error;
@@ -552,10 +557,53 @@ const Goals = () => {
   };
 
   const hasGoalsData = !!goals;
-  const canDecideSetup = authReady && !!userId && !isLoading;
-  const isDataLoading = repDataInitializing || repDataLoading || !repData;
+  const accessLevel = teamAccess.data?.accessLevel ?? 'none';
+  const isRegionalPlus = hasMinAccess(accessLevel, 'regional');
+  const canDecideSetup = authReady && !!userId && !isLoading && !teamAccess.isLoading;
+  const isDataLoading = repDataInitializing || repDataLoading || !repData || seasonConfigLoading;
   const stickySetupComplete = hasCompletedGoalsSetup(userId);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const shouldShowSetupGate = canDecideSetup && !goals?.setup_complete && !stickySetupComplete;
+  const needsKnockingDecision = shouldShowSetupGate && isRegionalPlus && seasonConfig?.knocking_mode_enabled == null;
+  const isNonKnockingRegionalLeader = shouldShowSetupGate && isRegionalPlus && seasonConfig?.knocking_mode_enabled === false;
+
+  const handleKnockingDecision = useCallback(async (willBeKnocking: boolean) => {
+    if (!userId) return;
+
+    setIsSavingKnockingDecision(true);
+
+    try {
+      const { error } = await supabase
+        .from('season_config')
+        .upsert({
+          user_id: userId,
+          knocking_mode_enabled: willBeKnocking,
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) throw error;
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['season-config-for-goals-page', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['setup-status', userId] }),
+      ]);
+
+      if (willBeKnocking) {
+        setShowSetupWizard(true);
+        toast.success("Perfect — let’s set your goals.");
+        return;
+      }
+
+      toast.success("Got it — skipping goals and planning for now.");
+      navigate(gatedFrom || '/', { replace: true });
+    } catch (error) {
+      console.error('Error saving knocking decision:', error);
+      toast.error('Failed to save your choice');
+    } finally {
+      setIsSavingKnockingDecision(false);
+    }
+  }, [gatedFrom, navigate, queryClient, userId]);
 
   useEffect(() => {
     if (hasGoalsData || !stickySetupComplete) {
@@ -664,7 +712,32 @@ const Goals = () => {
     </motion.div>
   ) : null;
 
-  if ((canDecideSetup && !goals?.setup_complete && !stickySetupComplete) || showSetupWizard) {
+  if (needsKnockingDecision && !showSetupWizard) {
+    return (
+      <Layout>
+        {GateBanner}
+        <div className="p-4">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold">Before we set goals</h1>
+            <p className="text-muted-foreground">
+              We need one quick answer so your onboarding matches your role this year.
+            </p>
+          </div>
+
+          <KnockingDecisionCard
+            isSaving={isSavingKnockingDecision}
+            onChoose={handleKnockingDecision}
+          />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (isNonKnockingRegionalLeader && !showSetupWizard) {
+    return <Navigate to={gatedFrom || '/'} replace />;
+  }
+
+  if (shouldShowSetupGate || showSetupWizard) {
     return (
       <Layout>
         {GateBanner}
