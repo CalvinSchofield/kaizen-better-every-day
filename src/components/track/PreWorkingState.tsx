@@ -10,6 +10,8 @@ import { WatchlistPulseCard } from "./WatchlistPulseCard";
 
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
+import { StreakContextCard } from "./StreakContextCard";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 
 import { WeatherStrip } from "./WeatherStrip";
 import { LeaderboardMiniRow } from "./LeaderboardMiniRow";
