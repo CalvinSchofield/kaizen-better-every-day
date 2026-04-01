@@ -207,7 +207,7 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
       .filter(r => r.downlineSize >= 5)
       .sort((a, b) => b.downlineSize - a.downlineSize);
 
-    const totalReps = mgmtGroupDetails.reduce((sum, mg) => sum + mg.repCount, 0);
+    const totalReps = mgmtGroupDetails.reduce((sum, mg) => sum + mg.repCount, 0) + areaDirectors.length;
 
     return {
       areaDirectors,
