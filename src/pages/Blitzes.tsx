@@ -16,6 +16,7 @@ import { useBlitzRecapStats } from "@/hooks/useBlitzRecapStats";
 import { BlitzRecapCard } from "@/components/BlitzRecapCard";
 import { BlitzDetailDrawer } from "@/components/blitz/BlitzDetailDrawer";
 import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
+import { useRepGoals } from "@/hooks/useRepGoals";
 import { Card, CardContent } from "@/components/ui/card";
 
 import { formatBlitzDateRange as formatBlitzDateRangeUtil } from "@/utils/blitzDateUtils";
