@@ -903,6 +903,7 @@ const MyGroup = () => {
         <Button 
           variant="ghost" 
           size="icon"
+          data-tour="quick-view-org"
           onClick={() => {
             setQuickViewInitialTab(undefined);
             setQuickViewOpen(true);
