@@ -123,12 +123,7 @@ const Auth = () => {
       setConfirmPassword("");
       
       // Redirect to home
-      const setupComplete = localStorage.getItem('kaizen-setup-complete');
-      if (setupComplete) {
-        navigate("/");
-      } else {
-        navigate("/setup");
-      }
+      navigate("/");
     } catch (error: any) {
       toast({
         title: "Error",
