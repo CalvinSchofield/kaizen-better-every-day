@@ -163,6 +163,9 @@ export const DetailsTab = ({
   const [showRoleRemoveConfirm, setShowRoleRemoveConfirm] = useState(false);
 
   // Can this user edit the recruit's role?
+  // Bootstrap authority is restricted to Calvin Schofield only
+  const BOOTSTRAP_USER_ID = '843dac61-139d-4511-a057-c3bf359a9c07';
+  const isBootstrapUser = currentUserId === BOOTSTRAP_USER_ID;
   const isOriginalInviter = recruitDetails?.recruiter_user_id === currentUserId;
   const canEditRole = recruitRole && (
     isOriginalInviter || hasMinAccess(accessLevel, 'mgmt_group_lead')
@@ -170,9 +173,9 @@ export const DetailsTab = ({
 
   // Determine assignable roles for editing
   const editableRoles = useMemo(() => {
-    if (isOriginalInviter) return ASSIGNABLE_ROLES; // Bootstrap authority
+    if (isBootstrapUser && isOriginalInviter) return ASSIGNABLE_ROLES; // Bootstrap authority (Calvin only)
     return getAssignableRoles(accessLevel);
-  }, [accessLevel, isOriginalInviter]);
+  }, [accessLevel, isBootstrapUser, isOriginalInviter]);
 
   const roleJumpInfo = useMemo(() => {
     if (!newRole) return null;
