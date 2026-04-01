@@ -103,6 +103,7 @@ const getSlides = (userType: UserType, firstName: string, segment?: OnboardingSe
 export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader: isLeaderProp }: IntroWizardProps) => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isCropping, setIsCropping] = useState(false);
   const slides = getSlides(userType, firstName, segment, isLeaderProp);
   const totalSlides = slides.length;
   const isLastSlide = currentSlide === totalSlides - 1;
@@ -159,13 +160,15 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
     onComplete();
   }, [onComplete]);
 
-  // Swipe navigation
+  // Swipe navigation - disabled during photo cropping
   const { onTouchStart, onTouchMove, onTouchEnd } = useSwipeNavigation({
     onSwipeLeft: () => {
+      if (isCropping) return;
       hapticSelection();
       handleNext();
     },
     onSwipeRight: () => {
+      if (isCropping) return;
       hapticSelection();
       handlePrev();
     },
@@ -249,6 +252,7 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
             key={slide.id}
             title={slide.title}
             description={slide.description}
+            onCropModeChange={setIsCropping}
           />
         );
       
@@ -299,9 +303,9 @@ export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader
       {/* Slide content - swipeable area */}
       <div 
         className="flex-1 flex items-center justify-center overflow-hidden px-6 touch-pan-y"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+        onTouchStart={isCropping ? undefined : onTouchStart}
+        onTouchMove={isCropping ? undefined : onTouchMove}
+        onTouchEnd={isCropping ? undefined : onTouchEnd}
       >
         <AnimatePresence mode="wait">
           {renderSlide()}

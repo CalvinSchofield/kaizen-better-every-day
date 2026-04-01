@@ -16,6 +16,7 @@ interface ProfilePhotoUploadProps {
   name?: string;
   size?: "sm" | "md" | "lg";
   showRemoveButton?: boolean;
+  onCropModeChange?: (isCropping: boolean) => void;
 }
 
 
@@ -156,7 +157,8 @@ export const ProfilePhotoUpload = ({
   onPhotoUpdated, 
   name = "",
   size = "lg",
-  showRemoveButton = true
+  showRemoveButton = true,
+  onCropModeChange,
 }: ProfilePhotoUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentPhotoUrl || null);
@@ -203,6 +205,7 @@ export const ProfilePhotoUpload = ({
       const objectUrl = URL.createObjectURL(processedBlob);
       setImageSrc(objectUrl);
       setCropMode(true);
+      onCropModeChange?.(true);
     } catch (error) {
       console.error('Error processing image:', error);
       toast({
@@ -234,6 +237,7 @@ export const ProfilePhotoUpload = ({
       const objectUrl = URL.createObjectURL(croppedBlob);
       setPreviewUrl(objectUrl);
       setCropMode(false);
+      onCropModeChange?.(false);
       setImageSrc(null);
 
       // Upload to storage
@@ -291,6 +295,7 @@ export const ProfilePhotoUpload = ({
 
   const handleCropCancel = () => {
     setCropMode(false);
+    onCropModeChange?.(false);
     setImageSrc(null);
     setCrop(undefined);
   };
@@ -338,38 +343,47 @@ export const ProfilePhotoUpload = ({
   // Crop mode UI
   if (cropMode && imageSrc) {
     return (
-      <div className="flex flex-col items-center gap-4 w-full">
-        <p className="text-sm text-muted-foreground">Drag to adjust crop</p>
-        <div className="w-full max-w-[280px] rounded-lg overflow-hidden">
+      <div 
+        className="flex flex-col items-center gap-5 w-full"
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
+      >
+        <p className="text-sm text-muted-foreground font-medium">Pinch & drag to adjust</p>
+        <div className="w-full max-w-[320px] rounded-2xl overflow-hidden bg-black/5 dark:bg-white/5 shadow-lg ring-1 ring-border/50">
           <ReactCrop
             crop={crop}
             onChange={(c) => setCrop(c)}
             aspect={1}
             circularCrop
+            className="[&_.ReactCrop__crop-selection]:!border-2 [&_.ReactCrop__crop-selection]:!border-primary/80"
           >
             <img
               ref={imgRef}
               src={imageSrc}
               alt="Crop preview"
               onLoad={onImageLoad}
-              className="max-w-full"
+              className="max-w-full touch-none"
+              draggable={false}
             />
           </ReactCrop>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3 w-full max-w-[280px]">
           <Button
             variant="outline"
-            size="sm"
+            size="lg"
             onClick={handleCropCancel}
             disabled={isUploading}
+            className="flex-1"
           >
             <X className="h-4 w-4 mr-1.5" />
             Cancel
           </Button>
           <Button
-            size="sm"
+            size="lg"
             onClick={handleCropConfirm}
             disabled={isUploading}
+            className="flex-1"
           >
             {isUploading ? (
               <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
