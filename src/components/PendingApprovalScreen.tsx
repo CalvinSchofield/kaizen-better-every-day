@@ -65,7 +65,7 @@ const PendingApprovalScreen = ({ repName }: PendingApprovalScreenProps) => {
   const showAppDownload = isIOS() && !isNativeApp();
 
   return (
-    <div className="min-h-[100dvh] bg-background flex flex-col">
+    <div className="min-h-[100dvh] bg-background flex flex-col fixed inset-0 z-[100]">
       {/* Top section */}
       <div className="flex-1 flex flex-col items-center justify-center px-5 pt-10 pb-4">
         {/* Welcome */}
