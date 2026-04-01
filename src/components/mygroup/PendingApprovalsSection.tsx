@@ -156,10 +156,8 @@ export const PendingApprovalsSection = () => {
           }
         }
 
-        const totalAssigned = (pendingTeams?.length || 0) + (pendingGroups?.length || 0) + (pendingSrGroups?.length || 0);
-        if (totalAssigned > 0) {
-          const names = [...(pendingTeams || []), ...(pendingGroups || []), ...(pendingSrGroups || [])].map(g => g.name).join(', ');
-          return { autoAssignedLeader: true, groupNames: names };
+        if (autoAssignedNames.length > 0) {
+          return { autoAssignedLeader: true, groupNames: autoAssignedNames.join(', ') };
         }
       }
 
