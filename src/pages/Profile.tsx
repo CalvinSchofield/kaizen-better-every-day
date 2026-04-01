@@ -336,8 +336,14 @@ const Profile = () => {
         >
           <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20 rounded-full px-4 py-2">
             <span className="text-base">🔥</span>
+            {(salesStreakData.shieldCount || 0) > 0 && <span className="text-base">🛡️</span>}
             <span className="text-sm font-bold text-foreground">
               {salesStreakData.streak}-Day Sales Streak
+              {(salesStreakData.shieldCount || 0) > 0 && (
+                <span className="text-xs font-medium text-muted-foreground ml-1">
+                  ({salesStreakData.shieldCount} {salesStreakData.shieldCount === 1 ? 'shield' : 'shields'})
+                </span>
+              )}
             </span>
             {salesStreakData.globalReached > 0 && (
               <>
