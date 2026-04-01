@@ -63,10 +63,7 @@ interface TeamProgress {
 export interface ChallengeProgressData {
   challenge: Challenge;
   participants: ParticipantProgress[];
-  teams?: {
-    a: TeamProgress;
-    b: TeamProgress;
-  };
+  teams?: Record<string, TeamProgress>;
   leader: ParticipantProgress | null;
   isUserAhead: boolean;
   userProgress: ParticipantProgress | null;
