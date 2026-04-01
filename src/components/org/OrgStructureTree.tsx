@@ -549,12 +549,13 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const handleNodeTap = useCallback((node: OrgNode) => {
     if (node.type === "rep") {
       handleRepTap(node);
-    } else if (node.type === "office" && canConfigureOffice(node.id)) {
-      setConfigOffice(node.id);
+    } else if (node.type === "office") {
+      // Always show office detail drawer; config is via long-press
+      setOfficeDetailId(node.id);
     } else if (node.type === "region" && canManageRegions && node.id !== "unassigned") {
       setConfigRegion(node.id);
     }
-  }, [handleRepTap, canConfigureOffice, canManageRegions]);
+  }, [handleRepTap, canManageRegions]);
 
   const handleLongPress = useCallback((node: OrgNode) => {
     const actionableTypes = ["rep", "team", "mgmt_group", "sr_mgmt_group", "region", "sr_region", "partner", "division", "office"];
