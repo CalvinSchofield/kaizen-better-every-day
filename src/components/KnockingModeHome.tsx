@@ -203,7 +203,7 @@ export const KnockingModeHome = ({
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 -mt-4 pb-8 home-card-container">
+      <div data-tour="home-cards" className="max-w-4xl mx-auto px-4 -mt-4 pb-8 home-card-container">
         {/* Pending Install Alert - shows after 7 PM if pending installs */}
         <PendingInstallAlertCard />
         
