@@ -378,25 +378,27 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
             {activeChallenges.slice(0, 2).map(challenge => {
               const me = challenge.participants?.find(p => p.role === 'captain_a');
               const isGroupChallenge = challenge.type === 'group';
+              const isCarWars = challenge.type === 'car_wars';
               
               // For team battles, show captain names
               const captainA = challenge.participants?.find(p => p.role === 'captain_a');
               const captainB = challenge.participants?.find(p => p.role === 'captain_b');
               
               // For 1v1, get opponent
-              const opponent = !isGroupChallenge 
+              const opponent = !isGroupChallenge && !isCarWars
                 ? challenge.participants?.find(p => p.user_id !== me?.user_id)
                 : null;
               
               // Determine the display name based on challenge type
               const getDisplayVsName = () => {
+                if (isCarWars) {
+                  return `🏎️ ${challenge.challenge_teams?.length || 0} teams`;
+                }
                 if (!isGroupChallenge && opponent) {
-                  // Simple 1v1 format without team colors
                   const myName = getCleanFirstName(me?.rep_name);
                   const opponentName = getCleanFirstName(opponent?.rep_name);
                   return `${myName} vs ${opponentName}`;
                 }
-                // For team battles, show "🔴 Red vs 🔵 Blue" with captain names
                 const captainAName = getCleanFirstName(captainA?.rep_name);
                 const captainBName = getCleanFirstName(captainB?.rep_name);
                 return (
@@ -408,7 +410,7 @@ export const ActiveChallengesCard = ({ hideCta = false }: ActiveChallengesCardPr
                 );
               };
               
-              const typeBadge = getChallengeTypeBadge(isGroupChallenge ? 'group' : '1v1');
+              const typeBadge = getChallengeTypeBadge(challenge.type as any);
               const TypeIcon = typeBadge.Icon;
               
               return (
