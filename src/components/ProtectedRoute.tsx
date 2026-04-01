@@ -142,7 +142,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   if (setupReady && needsSetup && repData) {
     const isGatedRoute = GATED_ROUTES.some(route => location.pathname.startsWith(route));
     if (isGatedRoute) {
-      return <Navigate to="/goals" replace />;
+      return <Navigate to="/goals" replace state={{ gatedFrom: location.pathname }} />;
     }
   }
 

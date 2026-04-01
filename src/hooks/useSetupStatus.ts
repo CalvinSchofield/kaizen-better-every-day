@@ -71,10 +71,10 @@ export const useSetupStatus = (): SetupStatus => {
     queryFn: async () => {
       if (!userId) return null;
 
-      // Return localStorage cache if fresh (avoids 3 DB queries on every route change)
-      const cached = getCachedSetup(userId);
-      if (cached) return cached;
-
+      // ALWAYS hit DB — placeholderData handles instant display from cache.
+      // Previously this returned cached data from queryFn, which meant stale
+      // "needsSetup=true" values persisted for 30 minutes even after setup was complete,
+      // locking users out of gated routes (Track, Reports, Leaderboard, etc.).
       const [totalsRes, goalsRes, configRes] = await Promise.all([
         supabase
           .from('official_totals')

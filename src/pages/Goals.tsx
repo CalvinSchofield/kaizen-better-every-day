@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Lock, SlidersHorizontal, ChevronDown, ArrowLeft, Loader2, Check } from "lucide-react";
+import { Lock, SlidersHorizontal, ChevronDown, ArrowLeft, Loader2, Check, AlertTriangle } from "lucide-react";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -103,6 +103,18 @@ const Goals = () => {
   const [hasManualTierSelection, setHasManualTierSelection] = useState(false);
   const [syncGateSkipped, setSyncGateSkipped] = useState(false);
   const location = useLocation();
+  const gatedFrom = (location.state as any)?.gatedFrom as string | undefined;
+
+  // Friendly route name mapping for the gate banner
+  const gatedRouteLabel = useMemo(() => {
+    if (!gatedFrom) return null;
+    const labels: Record<string, string> = {
+      '/track': 'Track', '/calendar': 'Calendar', '/insights': 'Insights',
+      '/leaderboard': 'Leaderboard', '/compete': 'Compete', '/team-reports': 'Reports',
+      '/reports-v2': 'Reports', '/customers': 'Customers', '/log-sale': 'Log Sale',
+    };
+    return labels[gatedFrom] || Object.entries(labels).find(([k]) => gatedFrom.startsWith(k))?.[1] || 'that page';
+  }, [gatedFrom]);
 
   // Open sync wizard if navigated with openSync state (e.g. from Blitzes page)
   useEffect(() => {
@@ -630,9 +642,31 @@ const Goals = () => {
     );
   }
 
+  // Reusable gate banner
+  const GateBanner = gatedRouteLabel ? (
+    <motion.div
+      className="mx-4 mt-4 mb-2 p-3 rounded-xl bg-primary/10 border border-primary/20"
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <div className="flex items-start gap-2">
+        <div className="p-1 rounded-full bg-primary/20 mt-0.5">
+          <AlertTriangle className="h-3.5 w-3.5 text-primary" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-foreground">Complete setup to unlock {gatedRouteLabel}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Finish the steps below — sync your baseline and set your goals — then you'll have full access.
+          </p>
+        </div>
+      </div>
+    </motion.div>
+  ) : null;
+
   if ((canDecideSetup && !goals?.setup_complete && !stickySetupComplete) || showSetupWizard) {
     return (
       <Layout>
+        {GateBanner}
         <div className="p-4">
           <div className="mb-6">
             {goals?.setup_complete && (
@@ -793,6 +827,7 @@ const Goals = () => {
   if ((needsInitialSync || needsBiweekly) && !isActivelyWorking && !syncGateSkipped) {
     return (
       <Layout>
+        {GateBanner}
         <BiweeklySyncGate
           seasonType="preseason"
           effectiveData={effectiveFPData!}
