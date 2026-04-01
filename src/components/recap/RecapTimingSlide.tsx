@@ -22,14 +22,14 @@ function formatHour(hour: number): string {
   return `${displayHour} ${period}`;
 }
 
-function TimeTrendBadge({ earlier, diff }: { earlier: boolean; diff: number }) {
+function TimeTrendBadge({ isPositive, diff, label }: { isPositive: boolean; diff: number; label: string }) {
   const mins = Math.round(diff);
   if (mins < 1) return null;
   
   return (
-    <span className={`flex items-center gap-1 text-xs ${earlier ? 'text-green-500' : 'text-orange-400'}`}>
-      {earlier ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-      {mins}m {earlier ? 'earlier' : 'later'}
+    <span className={`flex items-center gap-1 text-xs ${isPositive ? 'text-green-500' : 'text-orange-400'}`}>
+      {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+      {mins}m {label}
     </span>
   );
 }
