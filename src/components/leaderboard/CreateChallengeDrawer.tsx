@@ -192,17 +192,20 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
         toast.error('Please select an opponent');
         return;
       }
-    } else {
-      // Group mode
+    } else if (type === 'group') {
       if (teamB.length === 0) {
         toast.error('Please select at least one opponent for Team B');
+        return;
+      }
+    } else if (type === 'car_wars') {
+      const teamsWithMembers = carWarsTeams.filter(t => t.members.length > 0);
+      if (teamsWithMembers.length < 2) {
+        toast.error('At least 2 teams need members');
         return;
       }
     }
 
     const { start, end } = getDateRange();
-
-    // Use rep's timezone or fall back to browser timezone
     const creatorTimezone = currentUserRep?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     try {
@@ -221,16 +224,38 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
             role: 'captain_b',
           }],
         });
+      } else if (type === 'car_wars') {
+        // Car Wars: all members from all teams
+        const participants = carWarsTeams.flatMap(team =>
+          team.members.map(userId => ({
+            user_id: userId,
+            team: team.key,
+            role: 'member' as const,
+          }))
+        );
+
+        result = await createMutation.mutateAsync({
+          type,
+          metric,
+          visibility: isPublic ? 'public' : 'private',
+          stakes: stakes || undefined,
+          start_date: format(start, 'yyyy-MM-dd'),
+          end_date: format(end, 'yyyy-MM-dd'),
+          creator_timezone: creatorTimezone,
+          participants,
+          teams: carWarsTeams.filter(t => t.members.length > 0).map(t => ({
+            team_key: t.key,
+            team_label: t.label,
+          })),
+        });
       } else {
         // Group/Team mode
         const participants = [
-          // Team A members (excluding creator who is added automatically)
           ...teamA.map(userId => ({
             user_id: userId,
             team: 'a' as const,
             role: 'member' as const,
           })),
-          // Team B - first person is captain_b, others are members
           ...teamB.map((userId, index) => ({
             user_id: userId,
             team: 'b' as const,
@@ -250,11 +275,10 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
         });
       }
       
-      // Show different toast based on whether challenge was auto-started
       if (result?.autoStarted) {
-        toast.success('Challenge started! 🚀');
+        toast.success(type === 'car_wars' ? 'Car Wars started! 🏎️' : 'Challenge started! 🚀');
       } else {
-        toast.success('Challenge sent! 🎯');
+        toast.success(type === 'car_wars' ? 'Car Wars created! 🏎️' : 'Challenge sent! 🎯');
       }
       
       onOpenChange(false);
