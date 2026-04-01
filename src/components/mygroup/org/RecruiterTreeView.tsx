@@ -67,13 +67,14 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
   const { data: treeData, isLoading } = useQuery({
     queryKey: ["recruiter-tree-data"],
     queryFn: async () => {
-      const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, officesRes, teamMgmtGroupsRes] = await Promise.all([
+      const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, officesRes, teamMgmtGroupsRes, srMgmtGroupsRes] = await Promise.all([
         supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, mgmt_group_id, phone, email, created_at, updated_at").limit(5000),
         supabase.from("reps").select("id, user_id, name, profile_photo_url").limit(5000),
         supabase.from("teams").select("id, name, lead_user_id").limit(500),
-        supabase.from("mgmt_groups").select("id, name, office_id, lead_user_id").limit(500),
+        supabase.from("mgmt_groups").select("id, name, office_id, lead_user_id, sr_mgmt_group_id").limit(500),
         supabase.from("offices").select("id, name").limit(200),
         supabase.from("team_mgmt_groups").select("team_id, mgmt_group_id").limit(2000),
+        supabase.from("sr_mgmt_groups").select("id, name, lead_user_id, office_id").limit(500),
       ]);
 
       return {
@@ -83,6 +84,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         mgmtGroups: mgmtGroupsRes.data || [],
         offices: officesRes.data || [],
         teamMgmtGroups: teamMgmtGroupsRes.data || [],
+        srMgmtGroups: srMgmtGroupsRes.data || [],
       };
     },
     staleTime: 1000 * 60 * 2,
