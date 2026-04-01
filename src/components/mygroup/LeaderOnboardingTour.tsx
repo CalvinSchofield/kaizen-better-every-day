@@ -15,13 +15,19 @@ const LEADER_TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="quick-view-org"]',
     title: "Your Org Structure",
-    description: "Tap here to view your teams and groups. Review what's been set up and create anything that's missing.",
+    description: "Tap this grid icon to view, create, and manage your teams and management groups. Start here to build your org.",
     position: 'bottom',
   },
   {
     target: '[data-tour="add-action"]',
-    title: "Add & Invite",
-    description: "Use this button to add recruits, create invite links, or invite sub-leaders to your downline.",
+    title: "Invite & Add People",
+    description: "Use the + button to create invite links for your sub-leaders. They'll get their own onboarding and can build their teams.",
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="group-attention-chips"]',
+    title: "Track What Needs Attention",
+    description: "These chips show who needs follow-up, has overdue tasks, or needs onboarding help. Tap any to see details.",
     position: 'top',
   },
 ];

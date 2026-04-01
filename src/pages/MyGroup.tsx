@@ -48,6 +48,7 @@ import { DataLoadError } from "@/components/mygroup/DataLoadError";
 import { AddRecruitActionSheet } from "@/components/mygroup/AddRecruitActionSheet";
 import Layout from "@/components/Layout";
 import { LeaderOnboardingTour } from "@/components/mygroup/LeaderOnboardingTour";
+import { LeaderWelcomeDrawer } from "@/components/mygroup/LeaderWelcomeDrawer";
 import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, startOfToday } from "date-fns";
 import { toast } from "sonner";
 import { UndoBanner } from "@/components/ui/UndoBanner";
@@ -97,6 +98,7 @@ const MyGroup = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [attentionDrawerOpen, setAttentionDrawerOpen] = useState(false);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
+  const [welcomeDrawerOpen, setWelcomeDrawerOpen] = useState(false);
   const [quickViewInitialTab, setQuickViewInitialTab] = useState<'board' | 'availability' | 'org' | 'digest' | 'goals' | undefined>(undefined);
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
   const [selectedRecruitInitialTab, setSelectedRecruitInitialTab] = useState<'details' | 'activity' | 'progress' | undefined>(undefined);
@@ -177,8 +179,7 @@ const MyGroup = () => {
     
     // Handle fromOnboarding: auto-open org tab in QuickView
     if (navState?.fromOnboarding) {
-      setQuickViewInitialTab('org');
-      setQuickViewOpen(true);
+      setWelcomeDrawerOpen(true);
       window.history.replaceState({}, document.title);
       setHasProcessedNavState(true);
       return;
@@ -1380,6 +1381,19 @@ const MyGroup = () => {
 
       {/* Leader onboarding tour */}
       {isLeader && <LeaderOnboardingTour />}
+
+      <LeaderWelcomeDrawer
+        open={welcomeDrawerOpen}
+        onOpenChange={setWelcomeDrawerOpen}
+        onGetStarted={() => {
+          setWelcomeDrawerOpen(false);
+          // Open org structure after welcome closes
+          setTimeout(() => {
+            setQuickViewInitialTab('org');
+            setQuickViewOpen(true);
+          }, 400);
+        }}
+      />
 
     </Layout>
   );

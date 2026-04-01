@@ -596,9 +596,9 @@ const Goals = () => {
       }
 
       toast.success("Got it — skipping goals and planning for now.");
-      // Non-knocking leaders should go to org building
+      // Non-knocking leaders should go to org building with onboarding context
       if (isRegionalPlus) {
-        navigate('/my-group?tab=structure', { replace: true });
+        navigate('/my-group?tab=structure', { replace: true, state: { fromOnboarding: true } });
       } else {
         navigate(gatedFrom || '/', { replace: true });
       }
