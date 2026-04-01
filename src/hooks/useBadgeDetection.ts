@@ -57,7 +57,7 @@ export const useBadgeDetection = (
       // Get badge definition
       const { data: def } = await supabase
         .from("badge_definitions")
-        .select("id, name, icon_emoji, rookie_only")
+        .select("id, name, icon_emoji, rookie_only, rarity, description")
         .eq("slug", slug)
         .maybeSingle();
 
@@ -89,10 +89,14 @@ export const useBadgeDetection = (
         return false;
       }
 
-      // Celebration toast
-      toast({
-        title: `${def.icon_emoji} Badge Earned!`,
-        description: def.name,
+      // Full-screen celebration
+      const { emitBadgeCelebration } = await import("@/components/badges/BadgeCelebrationOverlay");
+      emitBadgeCelebration({
+        id: `${slug}-${entryDate}-${Date.now()}`,
+        emoji: def.icon_emoji || '🏅',
+        name: def.name,
+        description: def.description || undefined,
+        rarity: def.rarity || 'common',
       });
 
       // Invalidate badge queries
