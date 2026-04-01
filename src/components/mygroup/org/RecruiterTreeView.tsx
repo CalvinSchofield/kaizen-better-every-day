@@ -368,7 +368,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         profilePhotoUrl: null,
         isLabelNode: true,
         roleColor: "area_director",
-        children: [...children]PLACEHOLDER_SORT,
+        children: sortByDownlineSize([...children]),
       };
     };
 
