@@ -280,7 +280,7 @@ const Leaderboard = () => {
             {isLive ? (
               todayLeaderboard && (
                 <UnifiedRaceSection
-                  rankings={filterRankingsByWatchlist(todayLeaderboard.rankings)}
+                  rankings={filterRankings(todayLeaderboard.rankings)}
                   currentUserId={currentUserId}
                   isLive={true}
                   isFetching={todayFetching}
