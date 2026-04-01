@@ -29,7 +29,7 @@ import { GoalAttentionAlerts } from "@/components/reports/v2/GoalAttentionAlerts
 import { RepTimesDrawer } from "@/components/reports/v2/RepTimesDrawer";
 import { DealAnalyticsDrawer } from "@/components/reports/v2/DealAnalyticsDrawer";
 import { SmartFilterDrawer, SmartFilterState, DEFAULT_FILTER_STATE, isFilterActive } from "@/components/filters/SmartFilterDrawer";
-import { ChatOverlay } from "@/components/shared/ChatOverlay";
+import { LeaderAICoachComingSoon } from '@/components/reports/LeaderAICoachComingSoon';
 import { Sparkles } from "lucide-react";
 import { useHeader } from "@/contexts/HeaderContext";
 import { Card } from "@/components/ui/card";
@@ -608,22 +608,9 @@ export const ReportsV2Page = () => {
         records={activeRecords}
       />
 
-      <ChatOverlay
+      <LeaderAICoachComingSoon
         isOpen={chatOpen}
         onClose={() => setChatOpen(false)}
-        chatUrl={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/leader-insights-chat`}
-        title="Team AI Coach"
-        placeholder="Ask about your group's numbers..."
-        suggestedPrompts={[
-          "What's the team's biggest funnel dropoff this week?",
-          "Who's off pace for their goal?",
-          "What time of day are we selling the most FP?",
-          "Give me coaching priorities for today",
-          "Who has days off planned next week?",
-          "How's our group pacing this month vs last month?",
-        ]}
-        emptyStateTitle="Talk to Your Team's Data"
-        emptyStateDescription="Ask anything about your group's performance — I've got everyone's numbers ready."
       />
     </div>
   );
