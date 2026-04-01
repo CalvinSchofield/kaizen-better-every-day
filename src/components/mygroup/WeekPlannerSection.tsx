@@ -598,20 +598,21 @@ export const WeekPlannerSection = ({
             {todayTasks.length > 0 && (
               <div className="space-y-2">
                 {todayTasks.map(({ recruit, activity }, index) => (
-                  <SwipeableTaskItem
-                    key={`${recruit.id}-${activity.id}`}
-                    recruit={recruit}
-                    activity={activity}
-                    onRecruitClick={handleLocalRecruitClick}
-                    onContact={handleSwipeContact}
-                    onSchedule={handleSwipeSchedule}
-                    onReschedule={handleSwipeReschedule}
-                    onDirectCall={handleDirectCall}
-                    onDirectText={handleDirectText}
-                    showSwipeDemo={index === 0 && recommendations.length === 0}
-                    onDemoComplete={handleDemoComplete}
-                    hasTodayScheduledActivity
-                  />
+                  <div key={`${recruit.id}-${activity.id}`} {...(index === 0 ? { 'data-tour': 'group-first-task' } : {})}>
+                    <SwipeableTaskItem
+                      recruit={recruit}
+                      activity={activity}
+                      onRecruitClick={handleLocalRecruitClick}
+                      onContact={handleSwipeContact}
+                      onSchedule={handleSwipeSchedule}
+                      onReschedule={handleSwipeReschedule}
+                      onDirectCall={handleDirectCall}
+                      onDirectText={handleDirectText}
+                      showSwipeDemo={index === 0 && recommendations.length === 0}
+                      onDemoComplete={handleDemoComplete}
+                      hasTodayScheduledActivity
+                    />
+                  </div>
                 ))}
               </div>
             )}
