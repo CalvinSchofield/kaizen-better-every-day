@@ -77,6 +77,7 @@ const Home = () => {
     isInitializing,
     refetch
   } = useRepData();
+  const { showTour: showHomeTour, completeTour: completeHomeTour, skipTour: skipHomeTour } = usePageTour({ page: 'home' });
   
   const { isKnockingMode } = useAppMode(repData);
   const queryClient = useQueryClient();
