@@ -1385,7 +1385,7 @@ const MyGroup = () => {
       {/* Leader onboarding tour - unified PageTour system */}
       {isLeader && (
         <PageTour
-          steps={myGroupTourSteps}
+          steps={getMyGroupTourSteps(teamAccess?.accessLevel)}
           isOpen={showGroupTour}
           onComplete={completeGroupTour}
           onSkip={skipGroupTour}
