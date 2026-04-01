@@ -88,18 +88,33 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 4. Resolve upline: recruiter → team lead → MGMT group leader + area director
+    // 4. Resolve upline: recruiter (if Soph/Vet) → team lead → MGMT group leader + area director
     const uplineUserIds: Set<string> = new Set();
+
+    // Get the rep's UUID to find their recruit record
+    const { data: repRecord } = await supabase
+      .from("reps")
+      .select("id")
+      .eq("user_id", rookieUserId)
+      .maybeSingle();
 
     const { data: recruit } = await supabase
       .from("recruits")
       .select("recruiter_user_id, team_id, mgmt_group_id")
-      .eq("id", (await supabase.from("reps").select("id").eq("user_id", rookieUserId).maybeSingle()).data?.id || "")
+      .eq("id", repRecord?.id || "")
       .maybeSingle();
 
-    // Direct recruiter
+    // Direct recruiter — only if they're NOT a Rookie
     if (recruit?.recruiter_user_id) {
-      uplineUserIds.add(recruit.recruiter_user_id);
+      const { data: recruiterRep } = await supabase
+        .from("reps")
+        .select("year")
+        .eq("user_id", recruit.recruiter_user_id)
+        .maybeSingle();
+
+      if (recruiterRep?.year && recruiterRep.year !== "Rookie") {
+        uplineUserIds.add(recruit.recruiter_user_id);
+      }
     }
 
     // Team lead
@@ -117,36 +132,34 @@ Deno.serve(async (req) => {
         .select("mgmt_group_id")
         .eq("team_id", recruit.team_id);
 
+      const officeIds: Set<string> = new Set();
       if (tmgs?.length) {
         const { data: mgs } = await supabase
           .from("mgmt_groups")
           .select("lead_user_id, office_id")
           .in("id", tmgs.map((t) => t.mgmt_group_id));
 
-        const officeIds: Set<string> = new Set();
         mgs?.forEach((mg) => {
           if (mg.lead_user_id) uplineUserIds.add(mg.lead_user_id);
           if (mg.office_id) officeIds.add(mg.office_id);
         });
+      }
 
-        // Area directors for those offices
-        if (officeIds.size > 0) {
-          const { data: ads } = await supabase
-            .from("area_directors")
-            .select("user_id");
-          // Area directors who are office_staff for relevant offices
-          const { data: officeStaff } = await supabase
-            .from("office_staff")
-            .select("user_id")
-            .in("office_id", [...officeIds]);
-          
-          // Add area directors who are staff at these offices
-          if (ads && officeStaff) {
-            const adUserIds = new Set(ads.map((a) => a.user_id));
-            officeStaff.forEach((os) => {
-              if (adUserIds.has(os.user_id)) uplineUserIds.add(os.user_id);
-            });
-          }
+      // Area directors for relevant offices (deduped with existing upline)
+      if (officeIds.size > 0) {
+        const { data: ads } = await supabase
+          .from("area_directors")
+          .select("user_id");
+        const { data: officeStaff } = await supabase
+          .from("office_staff")
+          .select("user_id")
+          .in("office_id", [...officeIds]);
+
+        if (ads && officeStaff) {
+          const adUserIds = new Set(ads.map((a) => a.user_id));
+          officeStaff.forEach((os) => {
+            if (adUserIds.has(os.user_id)) uplineUserIds.add(os.user_id);
+          });
         }
       }
     }
