@@ -367,8 +367,40 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
         return null;
       };
 
+      // Track roots that are Sr MGMT Group leaders placed directly under their Sr MGMT Group
+      // Key: srMgmtGroupId, Value: roots placed directly (not in a child MGMT Group)
+      const srMgmtDirectRoots = new Map<string, TreeNode[]>();
+
       trueRoots.forEach((root) => {
         const mgmtGroupId = root.userId ? resolveMgmtGroupId(root.userId) : null;
+
+        // If no MGMT group, check if this person leads a Sr MGMT Group
+        if (!mgmtGroupId && root.userId) {
+          const srMgmtId = resolveSrMgmtGroupId(root.userId);
+          if (srMgmtId) {
+            // This person is a Sr MGMT Group leader — place directly under their Sr MGMT Group
+            const srMgmt = srMgmtGroupMap.get(srMgmtId);
+            const officeId = srMgmt?.office_id || null;
+
+            if (isOfficeScopedToUser && (!officeId || !scopedOfficeIds.has(officeId))) return;
+
+            if (officeId) {
+              if (!officeGroups.has(officeId)) officeGroups.set(officeId, new Map());
+              const srMgmtMap = officeGroups.get(officeId)!;
+              if (!srMgmtMap.has(srMgmtId)) srMgmtMap.set(srMgmtId, new Map());
+              // Use a special key for direct placement under the Sr MGMT Group
+              const directKey = '__sr_mgmt_direct__';
+              const mgmtMap = srMgmtMap.get(srMgmtId)!;
+              if (!mgmtMap.has(directKey)) mgmtMap.set(directKey, []);
+              mgmtMap.get(directKey)!.push(root);
+            } else if (!isOfficeScopedToUser) {
+              if (!srMgmtDirectRoots.has(srMgmtId)) srMgmtDirectRoots.set(srMgmtId, []);
+              srMgmtDirectRoots.get(srMgmtId)!.push(root);
+            }
+            return;
+          }
+        }
+
         if (!mgmtGroupId) {
           if (!isOfficeScopedToUser) fullyUngrouped.push(root);
           return;
