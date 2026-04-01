@@ -891,20 +891,24 @@ const Goals = () => {
                 invalidateGoalRelatedQueries(queryClient);
                 toast.success("Goals saved!");
 
-                // Post-setup redirect for leaders: take them to My Group org tab
+                // Post-setup redirect for leaders: knocking? -> goals -> plan -> org-chart -> my-group
                 const { data: teamAccessCheck } = await supabase.rpc('is_team_lead', { _user_id: user.id });
                 const { data: mgmtCheck } = await supabase.rpc('is_mgmt_group_lead', { _user_id: user.id });
                 const { data: adCheck } = await supabase.rpc('is_area_director', { _user_id: user.id });
                 const isLeaderUser = teamAccessCheck || mgmtCheck || adCheck;
                 
                 if (isLeaderUser) {
-                  // Check if they've already toured my-group
+                  // Check if they've already toured org-chart
                   const { data: repCheck } = await supabase
                     .from('reps')
                     .select('pages_toured')
                     .eq('user_id', user.id)
                     .maybeSingle();
                   const pagesToured = Array.isArray(repCheck?.pages_toured) ? (repCheck.pages_toured as string[]) : [];
+                  if (!pagesToured.includes('org-chart')) {
+                    navigate('/org-chart', { replace: true, state: { fromOnboarding: true } });
+                    return;
+                  }
                   if (!pagesToured.includes('my-group')) {
                     navigate('/my-group?tab=structure', { state: { fromOnboarding: true } });
                     return;
