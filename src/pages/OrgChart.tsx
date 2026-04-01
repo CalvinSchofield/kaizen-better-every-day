@@ -513,12 +513,38 @@ const OrgChart = () => {
         allVisibleUserIds.add(rep.user_id);
       });
 
-      const groupedRoots = Array.from(mgmtNodes.values())
-        .map((node) => ({ ...node, children: dedupeRootNodes(node.children) }))
-        .filter((node) => node.children.length > 0)
+      // After creating MGMT group nodes, wrap them in Sr MGMT Group containers
+      // This shows upline (e.g. Gunnar Bramwell Sr MGMT)
+      const mgmtGroupToSrMgmt = new Map<string, string>();
+      mgmtGroups.forEach((mg) => {
+        if (mg.sr_mgmt_group_id) mgmtGroupToSrMgmt.set(mg.id, mg.sr_mgmt_group_id);
+      });
+
+      const srMgmtChildren = new Map<string, TreeNode[]>();
+      const standaloneMgmtNodes: TreeNode[] = [];
+
+      groupedRoots.forEach((mgmtNode) => {
+        // Extract mgmtGroupId from node id (format: "mgmt-{id}" or promoted node)
+        const mgmtGroupId = mgmtNode.id.startsWith("mgmt-") ? mgmtNode.id.replace("mgmt-", "") : null;
+        const srMgmtId = mgmtGroupId ? mgmtGroupToSrMgmt.get(mgmtGroupId) : null;
+
+        if (srMgmtId) {
+          if (!srMgmtChildren.has(srMgmtId)) srMgmtChildren.set(srMgmtId, []);
+          srMgmtChildren.get(srMgmtId)!.push(mgmtNode);
+        } else {
+          standaloneMgmtNodes.push(mgmtNode);
+        }
+      });
+
+      const srMgmtNodes: TreeNode[] = [];
+      srMgmtChildren.forEach((children, srMgmtId) => {
+        srMgmtNodes.push(createSrMgmtLabelNode(srMgmtId, children));
+      });
+
+      const finalGrouped = [...srMgmtNodes, ...standaloneMgmtNodes]
         .sort((a, b) => b.children.length - a.children.length);
 
-      return [...groupedRoots, ...ungroupedRoots].sort((a, b) => b.children.length - a.children.length);
+      return [...finalGrouped, ...ungroupedRoots].sort((a, b) => b.children.length - a.children.length);
     }
 
     return dedupedRoots.sort((a, b) => b.children.length - a.children.length);
