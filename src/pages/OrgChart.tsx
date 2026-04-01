@@ -710,6 +710,24 @@ const OrgChart = () => {
     );
   }
 
+  if (accessError || treeError) {
+    return (
+      <div className="p-4 flex flex-col items-center justify-center gap-4 pt-20">
+        <GitBranch className="h-12 w-12 text-muted-foreground opacity-50" />
+        <p className="text-muted-foreground text-center">Couldn't load org data. This can happen on a slow connection.</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetchTree()}
+          className="gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 space-y-4 pb-24">
       <Tabs defaultValue="tree" className="w-full">
