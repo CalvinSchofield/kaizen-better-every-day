@@ -157,7 +157,8 @@ export const ProfilePhotoUpload = ({
   onPhotoUpdated, 
   name = "",
   size = "lg",
-  showRemoveButton = true
+  showRemoveButton = true,
+  onCropModeChange,
 }: ProfilePhotoUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentPhotoUrl || null);
