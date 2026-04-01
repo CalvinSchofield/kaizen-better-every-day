@@ -1,11 +1,17 @@
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Building2, MapPin, Users, UserCheck, Shield, GitBranch } from "lucide-react";
+import { Building2, MapPin, Users, UserCheck, Shield, GitBranch, TrendingUp, DollarSign } from "lucide-react";
 import { getCleanName, getInitials } from "@/utils/nameUtils";
 import { SIGNED_PLUS_STAGES } from "@/utils/stageConstants";
+import { supabase } from "@/integrations/supabase/client";
+import { calculateFromSalesLog } from "@/utils/salesLogCalculations";
+
+const SEASON_START = '2025-09-28';
+const SUMMER_START = '2026-04-12';
 
 interface OfficeDetailDrawerProps {
   open: boolean;
@@ -22,24 +28,46 @@ interface OfficeDetailDrawerProps {
     teams: { id: string; name: string; lead_user_id: string | null }[];
     teamMgmt: { team_id: string; mgmt_group_id: string }[];
     reps: { user_id: string; name: string; profile_photo_url?: string | null; year?: string | null; stage?: string | null }[];
-    recruits: { id: string; team_id: string | null; mgmt_group_id: string | null; stage: string | null; recruiter_user_id: string | null }[];
+    recruits: { id: string; name: string; team_id: string | null; mgmt_group_id: string | null; stage: string | null; recruiter_user_id: string | null }[];
   };
 }
 
 /** Count total downline size for a recruiter (recursive) */
 function countDownline(
   userId: string,
-  recruitsByRecruiter: Map<string, string[]>,
+  recruiterToRecruits: Map<string, string[]>,
   visited: Set<string>
 ): number {
   if (visited.has(userId)) return 0;
   visited.add(userId);
-  const directRecruits = recruitsByRecruiter.get(userId) || [];
+  const directRecruits = recruiterToRecruits.get(userId) || [];
   let count = directRecruits.length;
   for (const recruitId of directRecruits) {
-    count += countDownline(recruitId, recruitsByRecruiter, visited);
+    count += countDownline(recruitId, recruiterToRecruits, visited);
   }
   return count;
+}
+
+/** Fetch all rows from a query, paginating past the 1000 row limit */
+async function fetchAllEntries(userIds: string[]) {
+  const allEntries: { user_id: string; entry_date: string; fp_plus: number | null; prmr: number | null; sales_log: any }[] = [];
+  let from = 0;
+  const BATCH = 1000;
+  while (true) {
+    const { data, error } = await supabase
+      .from('daily_entries')
+      .select('user_id, entry_date, fp_plus, prmr, sales_log')
+      .in('user_id', userIds)
+      .gte('entry_date', SEASON_START)
+      .lt('entry_date', SUMMER_START)
+      .range(from, from + BATCH - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allEntries.push(...data);
+    if (data.length < BATCH) break;
+    from += BATCH;
+  }
+  return allEntries;
 }
 
 export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: OfficeDetailDrawerProps) => {
@@ -75,6 +103,14 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
       });
     });
 
+    // All team IDs in the office
+    const officeTeamIds = new Set<string>();
+    Array.from(officeMgmtGroupIds).forEach(mgId => {
+      orgData.teamMgmt
+        .filter(tm => tm.mgmt_group_id === mgId)
+        .forEach(tm => officeTeamIds.add(tm.team_id));
+    });
+
     // MGMT Groups with leader info
     const mgmtGroupDetails = Array.from(officeMgmtGroupIds).map(mgId => {
       const mg = orgData.mgmtGroups.find(m => m.id === mgId);
@@ -100,13 +136,7 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
       };
     }).filter(Boolean) as { id: string; name: string; leaderName: string | null; leaderPhoto: string | null; teamCount: number; repCount: number }[];
 
-    // Team leads across office
-    const officeTeamIds = new Set<string>();
-    mgmtGroupDetails.forEach(mg => {
-      orgData.teamMgmt
-        .filter(tm => tm.mgmt_group_id === mg.id)
-        .forEach(tm => officeTeamIds.add(tm.team_id));
-    });
+    // Team leads
     const teamLeads = Array.from(officeTeamIds).map(tId => {
       const team = orgData.teams.find(t => t.id === tId);
       if (!team?.lead_user_id) return null;
@@ -118,39 +148,42 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
       };
     }).filter(Boolean) as { teamName: string; name: string; profilePhotoUrl: string | null }[];
 
-    // Recruiters section: find reps in this office with 5+ downline
-    // Build recruiter_user_id -> [recruit user_ids] map
-    // First, map recruit names to user_ids
-    const repNameToUserId = new Map<string, string>();
+    // Collect ALL rep user_ids in this office (match recruit names to reps)
+    const nameToUserId = new Map<string, string>();
     orgData.reps.forEach(r => {
-      repNameToUserId.set(getCleanName(r.name).toLowerCase(), r.user_id);
+      nameToUserId.set(getCleanName(r.name).toLowerCase(), r.user_id);
     });
 
-    // Build recruiter map using recruiter_user_id
-    const recruitsByRecruiter = new Map<string, string[]>();
-    const officeRecruitsSet = new Set<string>();
+    const officeRepUserIds = new Set<string>();
 
-    // Get all recruits in office teams/mgmt groups
-    const allOfficeTeamIds = new Set(officeTeamIds);
+    // Add leaders
+    Array.from(officeMgmtGroupIds).forEach(mgId => {
+      const mg = orgData.mgmtGroups.find(m => m.id === mgId);
+      if (mg?.lead_user_id) officeRepUserIds.add(mg.lead_user_id);
+    });
+    Array.from(officeTeamIds).forEach(tId => {
+      const team = orgData.teams.find(t => t.id === tId);
+      if (team?.lead_user_id) officeRepUserIds.add(team.lead_user_id);
+    });
+    areaDirectors.forEach(ad => officeRepUserIds.add(ad.userId));
+
+    // Match recruits in office to rep user_ids by name
     orgData.recruits.forEach(r => {
       if (
         (r.mgmt_group_id && officeMgmtGroupIds.has(r.mgmt_group_id)) ||
-        (r.team_id && allOfficeTeamIds.has(r.team_id))
+        (r.team_id && officeTeamIds.has(r.team_id))
       ) {
-        officeRecruitsSet.add(r.id);
+        const userId = nameToUserId.get(getCleanName(r.name).toLowerCase());
+        if (userId) officeRepUserIds.add(userId);
       }
     });
 
-    // Build global recruiter->recruits map (using user_id matching)
-    orgData.recruits.forEach(r => {
-      if (r.recruiter_user_id) {
-        const existing = recruitsByRecruiter.get(r.recruiter_user_id) || [];
-        existing.push(r.recruiter_user_id); // We just need count, use recruiter as proxy
-        recruitsByRecruiter.set(r.recruiter_user_id, existing);
-      }
+    // Also add reps with direct office_id match
+    orgData.reps.forEach(r => {
+      if ((r as any).office_id === office.id) officeRepUserIds.add(r.user_id);
     });
 
-    // Actually build it properly: recruiter_user_id -> list of recruit IDs
+    // Recruiter section
     const recruiterToRecruits = new Map<string, string[]>();
     orgData.recruits.forEach(r => {
       if (r.recruiter_user_id) {
@@ -158,32 +191,6 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
         list.push(r.id);
         recruiterToRecruits.set(r.recruiter_user_id, list);
       }
-    });
-
-    // Find reps in office with 5+ total downline
-    const officeRepUserIds = new Set<string>();
-    // Leaders of mgmt groups and teams
-    mgmtGroupDetails.forEach(mg => {
-      const mgFull = orgData.mgmtGroups.find(m => m.id === mg.id);
-      if (mgFull?.lead_user_id) officeRepUserIds.add(mgFull.lead_user_id);
-    });
-    Array.from(officeTeamIds).forEach(tId => {
-      const team = orgData.teams.find(t => t.id === tId);
-      if (team?.lead_user_id) officeRepUserIds.add(team.lead_user_id);
-    });
-    // All reps in office recruits
-    orgData.recruits.forEach(r => {
-      if (
-        (r.mgmt_group_id && officeMgmtGroupIds.has(r.mgmt_group_id)) ||
-        (r.team_id && allOfficeTeamIds.has(r.team_id))
-      ) {
-        // Find rep user_id by matching recruit to rep
-        // recruits don't have user_id directly, but reps do
-      }
-    });
-    // Also add all reps who have office_id
-    orgData.reps.forEach(r => {
-      if ((r as any).office_id === office.id) officeRepUserIds.add(r.user_id);
     });
 
     const topRecruiters = Array.from(officeRepUserIds)
@@ -202,16 +209,124 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
 
     const totalReps = mgmtGroupDetails.reduce((sum, mg) => sum + mg.repCount, 0);
 
-    return { areaDirectors, mgmtGroupDetails, teamLeads, totalReps, topRecruiters };
+    return {
+      areaDirectors,
+      mgmtGroupDetails,
+      teamLeads,
+      totalReps,
+      topRecruiters,
+      officeRepUserIds: Array.from(officeRepUserIds),
+    };
   }, [office, orgData]);
 
+  // Fetch production data for the office
+  const { data: productionStats } = useQuery({
+    queryKey: ['office-production', office?.id, details?.officeRepUserIds?.length],
+    queryFn: async () => {
+      if (!details || details.officeRepUserIds.length === 0) return { totalFp: 0, totalPrmr: 0 };
+
+      const userIds = details.officeRepUserIds;
+
+      // Fetch official totals (baselines) and daily entries in parallel
+      const [officialResult, entries] = await Promise.all([
+        supabase
+          .from('official_totals')
+          .select('user_id, fp_plus, prmr, last_verified_at')
+          .in('user_id', userIds)
+          .eq('season_year', 2026)
+          .eq('season_type', 'preseason'),
+        fetchAllEntries(userIds),
+      ]);
+
+      const officialMap = new Map<string, { fp_plus: number; prmr: number; last_verified_at: string | null }>();
+      (officialResult.data || []).forEach(ot => {
+        officialMap.set(ot.user_id, {
+          fp_plus: ot.fp_plus || 0,
+          prmr: ot.prmr || 0,
+          last_verified_at: ot.last_verified_at,
+        });
+      });
+
+      // Group daily entries by user
+      const entriesByUser = new Map<string, typeof entries>();
+      entries.forEach(e => {
+        const list = entriesByUser.get(e.user_id) || [];
+        list.push(e);
+        entriesByUser.set(e.user_id, list);
+      });
+
+      let totalFp = 0;
+      let totalPrmr = 0;
+
+      // For each user, compute effective totals
+      const allUserIds = new Set([...userIds, ...Array.from(officialMap.keys())]);
+      for (const uid of allUserIds) {
+        if (!userIds.includes(uid)) continue;
+
+        const official = officialMap.get(uid);
+        const userEntries = entriesByUser.get(uid) || [];
+
+        if (official) {
+          // effective = official baseline + tracked since verification
+          const lastVerifiedDate = official.last_verified_at
+            ? new Date(official.last_verified_at).toISOString().split('T')[0]
+            : null;
+
+          let trackedFpSince = 0;
+          let trackedPrmrSince = 0;
+
+          for (const entry of userEntries) {
+            const salesLog = entry.sales_log as any[] | null;
+            let fp = entry.fp_plus || 0;
+            let prmr = entry.prmr || 0;
+            if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
+              const calc = calculateFromSalesLog(salesLog);
+              fp = calc.fp;
+              prmr = calc.prmr;
+            }
+            if (!lastVerifiedDate || entry.entry_date > lastVerifiedDate) {
+              trackedFpSince += fp;
+              trackedPrmrSince += prmr;
+            }
+          }
+
+          totalFp += official.fp_plus + trackedFpSince;
+          totalPrmr += official.prmr + trackedPrmrSince;
+        } else {
+          // No official totals — sum all tracked
+          for (const entry of userEntries) {
+            const salesLog = entry.sales_log as any[] | null;
+            let fp = entry.fp_plus || 0;
+            let prmr = entry.prmr || 0;
+            if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
+              const calc = calculateFromSalesLog(salesLog);
+              fp = calc.fp;
+              prmr = calc.prmr;
+            }
+            totalFp += fp;
+            totalPrmr += prmr;
+          }
+        }
+      }
+
+      return { totalFp: Math.round(totalFp * 10) / 10, totalPrmr: Math.round(totalPrmr) };
+    },
+    enabled: open && !!details && details.officeRepUserIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
   if (!office || !details) return null;
+
+  const fpDisplay = productionStats?.totalFp ?? '—';
+  const prmrDisplay = productionStats?.totalPrmr
+    ? `$${productionStats.totalPrmr.toLocaleString()}`
+    : '—';
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh]">
         <div className="overflow-y-auto">
-          {/* Hero header with smooth gradient */}
+          {/* Hero header */}
           <div className="relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-b from-amber-500/12 via-amber-600/6 to-transparent" />
             <div className="relative px-5 pt-5 pb-5">
@@ -232,19 +347,30 @@ export const OfficeDetailDrawer = ({ open, onOpenChange, office, orgData }: Offi
                 </div>
               </div>
 
-              {/* Stats row with labels above numbers */}
+              {/* Stats: Reps | FP+ | PRMR */}
               <div className="grid grid-cols-3 gap-3 mt-5">
                 <div className="rounded-xl p-3 bg-card border border-border/50">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Reps</div>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Users className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Reps</span>
+                  </div>
                   <div className="text-2xl font-bold text-foreground">{details.totalReps}</div>
                 </div>
                 <div className="rounded-xl p-3 bg-card border border-border/50">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">MGMT Groups</div>
-                  <div className="text-2xl font-bold text-foreground">{details.mgmtGroupDetails.length}</div>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">FP+</span>
+                  </div>
+                  <div className="text-2xl font-bold text-foreground">{fpDisplay}</div>
+                  <div className="text-[9px] text-muted-foreground/60 mt-0.5">Preseason</div>
                 </div>
                 <div className="rounded-xl p-3 bg-card border border-border/50">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Teams</div>
-                  <div className="text-2xl font-bold text-foreground">{details.teamLeads.length}</div>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <DollarSign className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">PRMR</span>
+                  </div>
+                  <div className="text-lg font-bold text-foreground leading-tight">{prmrDisplay}</div>
+                  <div className="text-[9px] text-muted-foreground/60 mt-0.5">Preseason</div>
                 </div>
               </div>
             </div>

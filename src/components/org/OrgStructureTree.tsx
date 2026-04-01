@@ -1408,7 +1408,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           teams: orgData.teams,
           teamMgmt: orgData.teamMgmt,
           reps: orgData.reps,
-          recruits: orgData.recruits.map(r => ({ ...r, recruiter_user_id: r.recruiter_user_id })),
+          recruits: orgData.recruits.map(r => ({ id: r.id, name: r.name, team_id: r.team_id, mgmt_group_id: r.mgmt_group_id, stage: r.stage, recruiter_user_id: r.recruiter_user_id })),
         } : undefined}
       />
 
