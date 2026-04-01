@@ -103,6 +103,7 @@ export const PreWorkingState = ({
 
   return (
     <motion.div 
+      data-tour="track-pre-work-state"
       className="flex flex-col h-full overflow-y-auto pb-24"
       variants={containerVariants}
       initial="hidden"
@@ -173,7 +174,8 @@ export const PreWorkingState = ({
         className="sticky bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent pt-8"
         variants={itemVariants}
       >
-        <Button
+          <Button
+            data-tour="track-start-button"
           onClick={handleStartDay}
           disabled={isButtonLoading}
           size="lg"

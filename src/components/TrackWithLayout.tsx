@@ -19,6 +19,7 @@ import { PendingSalesAlert } from "./PendingSalesAlert";
 import { PageTour } from "@/components/PageTour";
 import { usePageTour } from "@/hooks/usePageTour";
 import { trackTourSteps } from "@/config/pageTours";
+import { TrackTourDayPreview } from "@/components/track/TrackTourDayPreview";
 
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
@@ -1863,6 +1864,9 @@ const TrackWithLayout = () => {
         />
       )}
 
+      {/* Day Complete Preview - only shown during tour */}
+      {showTour && <TrackTourDayPreview />}
+
       {/* Page Tour */}
       <PageTour
         steps={trackTourSteps}
@@ -1872,6 +1876,9 @@ const TrackWithLayout = () => {
         onStepAction={(action) => {
           if (action === 'openLogSaleSheet') {
             setIsLogSaleSheetOpen(true);
+          } else if (action === 'showDayCompletePreview') {
+            // Preview is rendered above — no extra action needed
+            setIsLogSaleSheetOpen(false);
           }
         }}
       />

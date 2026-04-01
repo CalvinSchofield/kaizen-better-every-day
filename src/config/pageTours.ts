@@ -22,47 +22,68 @@ export const homeTourSteps: TourStep[] = [
 ];
 
 export const trackTourSteps: TourStep[] = [
+  // Phase 1: Context — The Three States
+  {
+    target: 'track-pre-work-state',
+    title: 'Track Adapts to Your Day',
+    description: 'Track has three modes: before you start, while you\'re knocking, and after you save your day. Right now you\'re in Pre-Work mode — let\'s walk through it.',
+    position: 'bottom',
+  },
+  {
+    target: 'track-start-button',
+    title: 'Start Your Day',
+    description: 'When you\'re ready to hit doors, tap this button. It starts your clock, which will help you see how much money you make per hour as you continue to track and sell!',
+    position: 'top',
+  },
+  // Phase 2: Active Working Mode
   {
     target: 'track-time-bar',
-    title: 'Start Your Day Here',
-    description: "Tap 'Start' when you begin knocking. This tracks your hours automatically. Pause for breaks, then resume.",
-    position: 'auto',
+    title: 'Your Time Clock',
+    description: 'Your hours are tracked automatically. Tap pause for lunch or breaks — it keeps your actual knocking time accurate.',
+    position: 'bottom',
   },
   {
     target: 'track-counter-grid',
     title: 'Count Your Activity',
-    description: 'Tap any counter to add one. Swipe down to subtract. Your progress saves automatically.',
+    description: 'Tap any counter to add one. Swipe down to subtract. Doors, pitches, presentations, closes — everything saves automatically as you go.',
     position: 'auto',
   },
   {
     target: 'track-fp-counter',
     title: 'Log Your Sales',
-    description: 'This is the big one! Tap here each time you close a deal.',
+    description: 'This is the big one. Each time you close a deal, tap here to log it. You\'ll choose FP or Upgrade and enter the PRMR.',
     position: 'top',
   },
+  // Phase 3: Log Sale Sheet
   {
     target: 'track-sale-type-toggle',
     title: 'FP or Upgrade?',
-    description: "Choose 'FP' for new accounts or 'Upgrade' when you add equipment to an existing customer.",
+    description: 'Choose \'FP\' for brand-new accounts or \'Upgrade\' when adding equipment to an existing customer. Let\'s see how it works.',
     position: 'bottom',
     action: 'openLogSaleSheet',
     lightOverlay: true,
   },
   {
     target: 'track-prmr-help-button',
-    title: 'Need Help with PRMR?',
-    description: 'Tap the ? icon anytime. For upgrades, it opens a calculator that adds up your equipment automatically.',
+    title: 'PRMR Help',
+    description: 'Not sure about the PRMR? Tap the ? icon. For upgrades, it opens a calculator — just type what you sold and it does the math.',
     position: 'bottom',
     action: 'switchToUpgradeAndShowHelp',
     lightOverlay: true,
   },
+  // Phase 4: Day Complete
   {
-    target: 'track-upgrade-calculator',
-    title: 'Chat to Calculate Upgrade PRMR',
-    description: 'Just type what you sold and the calculator does the math for you!',
+    target: 'track-end-clock',
+    title: 'Save & Review Your Day',
+    description: 'When you\'re done knocking, tap \'End\' to set your stop time, then save your day. You\'ll see a summary of your activity, sales, and goal progress.',
     position: 'bottom',
-    action: 'openUpgradeCalculator',
-    lightOverlay: true,
+  },
+  {
+    target: 'track-day-complete-preview',
+    title: 'Your Day Complete View',
+    description: 'After saving, Track transforms into your day recap — an activity ring, your stats, and how today moved you toward your goal. Here\'s what a great day looks like!',
+    position: 'top',
+    action: 'showDayCompletePreview',
   },
 ];
 
