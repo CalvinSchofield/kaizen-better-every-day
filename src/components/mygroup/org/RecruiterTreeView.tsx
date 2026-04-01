@@ -37,6 +37,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
   const { data: teamAccess, isLoading: accessLoading, isPlaceholderData: isTeamAccessPlaceholder } = useTeamAccess();
   const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [groupByOffice, setGroupByOffice] = useState(true);
   const [reassignOpen, setReassignOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<{
     id: string;
