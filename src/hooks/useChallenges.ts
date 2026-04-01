@@ -485,9 +485,10 @@ export const useCreateChallenge = () => {
           const creatorName = creatorRep?.name || 'Someone';
           const notifType = shouldAutoStart ? 'challenge_started' : 'challenge_invite';
           const notifTitle = shouldAutoStart ? '⚔️ Challenge Started!' : '🎯 Challenge Invite!';
+          const typeLabel = input.type === 'car_wars' ? 'Car Wars' : input.type === '1v1' ? '1v1' : 'team';
           const notifBody = shouldAutoStart
-            ? `${creatorName} started a ${input.type === '1v1' ? '1v1' : 'team'} ${input.metric.replace('_', ' ').toUpperCase()} challenge with you!`
-            : `${creatorName} challenged you to a ${input.type === '1v1' ? '1v1' : 'team'} battle on ${input.metric.replace('_', ' ').toUpperCase()}!`;
+            ? `${creatorName} started a ${typeLabel} ${input.metric.replace('_', ' ').toUpperCase()} challenge with you!`
+            : `${creatorName} challenged you to a ${typeLabel} battle on ${input.metric.replace('_', ' ').toUpperCase()}!`;
           
           await supabase.functions.invoke('send-challenge-notification', {
             body: {
