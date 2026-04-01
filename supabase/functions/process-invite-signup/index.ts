@@ -90,9 +90,9 @@ Deno.serve(async (req) => {
     let resolvedTeamId: string | null = null;
     let resolvedMgmtGroupId: string | null = null;
     let resolvedOfficeId: string | null = null;
-    // For lateral invites with auto-approve, don't set recruiter — the leader's
+    // For lateral invites, don't set recruiter — the leader's
     // actual recruiter is their upline who may not be onboarded yet
-    let resolvedRecruiterUserId: string | null = shouldAutoApprove ? null : invite.inviter_user_id;
+    let resolvedRecruiterUserId: string | null = isLateralInvite ? null : invite.inviter_user_id;
 
     if (!isLateralInvite) {
       // Standard downline flow — auto-assign org placement
