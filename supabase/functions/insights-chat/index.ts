@@ -127,10 +127,21 @@ function buildSystemPrompt(rep: any, entries: any[], officialTotals: any[], goal
     `  ${dow}: ${d.days} days, avg ${(d.doors / d.days).toFixed(0)} doors, avg ${(d.fp / d.days).toFixed(2)} FP+, avg $${(d.prmr / d.days).toFixed(0)} PRMR`
   ).join("\n");
 
-  // Time of day
+  // Time of day (hours are in rep's LOCAL timezone)
   const timeSummary = Object.entries(salesByHour).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 5)
-    .map(([h, c]) => `  ${Number(h) > 12 ? Number(h) - 12 : h}${Number(h) >= 12 ? "pm" : "am"}: ${c} sales`)
+    .map(([h, c]) => {
+      const hr = Number(h);
+      const display = hr === 0 ? "12am" : hr < 12 ? `${hr}am` : hr === 12 ? "12pm" : `${hr - 12}pm`;
+      return `  ${display}: ${c} sales`;
+    })
     .join("\n");
+
+  // EFP mode
+  const isVet = year === "Vet";
+  const efpModeEnabled = isVet && (rep?.efp_mode_enabled || false);
+  const totalEfp = Number((totalPRMR / 85).toFixed(2));
+  const primaryMetric = efpModeEnabled ? "EFP" : "FP+";
+  const primaryValue = efpModeEnabled ? totalEfp : totalFP;
 
   return `You are an AI sales coach for Vivint SmartHome door-to-door reps. You're chatting with ${name}, a ${year} rep.
 
