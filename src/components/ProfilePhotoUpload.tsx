@@ -205,6 +205,7 @@ export const ProfilePhotoUpload = ({
       const objectUrl = URL.createObjectURL(processedBlob);
       setImageSrc(objectUrl);
       setCropMode(true);
+      onCropModeChange?.(true);
     } catch (error) {
       console.error('Error processing image:', error);
       toast({
