@@ -643,6 +643,33 @@ export const CreateChallengeDrawer = ({ open, onOpenChange }: CreateChallengeDra
             </div>
           )}
 
+          {/* Step 2: Car Wars Team Builder */}
+          {step === 2 && type === 'car_wars' && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">Build your teams — tap a rep to assign them to the selected team</p>
+              
+              <CarWarsTeamBuilder
+                allReps={allReps}
+                currentUserId={currentUserId}
+                teams={carWarsTeams}
+                onTeamsChange={setCarWarsTeams}
+                availableScopes={availableScopes}
+                workingUserIds={workingUserIds}
+                isLoading={isLoadingPool}
+              />
+
+              <Button
+                onClick={() => setStep(3)}
+                className="w-full"
+                disabled={!carWarsMinValid}
+              >
+                {carWarsMinValid 
+                  ? `Continue with ${carWarsTeams.filter(t => t.members.length > 0).length} teams`
+                  : 'Need at least 2 teams with members'}
+              </Button>
+            </div>
+          )}
+
           {/* Step 3: Metric */}
           {step === 3 && (
             <div className="space-y-4">
