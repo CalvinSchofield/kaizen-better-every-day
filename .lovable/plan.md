@@ -1,166 +1,101 @@
-# Streak Protection System + Name Cleanup
+# Streak Awareness Touchpoints — UX Audit & Design Plan
 
-## Part 1: Name Emoji Cleanup
+## Philosophy
 
-Run a one-time SQL UPDATE on the `reps` table to strip emojis from all `name` values using a regex replace. This is a data operation via the insert tool.
+The streak system should feel like Duolingo's: **ambient awareness** throughout the day with **escalating urgency** only when the streak is at risk. The rep should never need to go looking for streak info — it should find them at the right moment, in the right tone.
 
-```sql
-UPDATE reps 
-SET name = TRIM(regexp_replace(name, '[^\x20-\x7E\xC0-\xFF]', '', 'g'))
-WHERE name ~ '[^\x20-\x7E\xC0-\xFF]';
-```
+## The 5 Touchpoints
 
-This strips any non-ASCII-printable characters (emojis, special unicode) while preserving standard Latin characters.
+### 1. PreWorkingState (Morning Briefing) — "Set the tone"
 
----
+Add a **StreakContextCard** in the card stack (after DailyMissionCard, before SeasonGoalsPreview). This card adapts based on state:
 
-## Part 2: Never-Installed Sales & Streaks
+- **Healthy streak**: "🔥 Day 47 — keep it going today" (minimal, confidence-building)
+- **Shield used yesterday**: "🔥🛡️ Day 47 — your effort yesterday saved your streak. Let's sell today." (gentle nudge)
+- **Recovery window active**: Amber/urgent card — "Your streak is on the line. 2 days to earn it back." No specifics on targets, just urgency + encouragement. ******HEre i think it should show waht is required (show both FP+ requirement and PRMR requireement and how much is remaining) *******
+- **No active streak**: Nothing shown (don't remind them of failure every morning)
 
-The current streak logic checks `closes >= 1` from `daily_entries.closes`. When a sale is marked `never_installed`, the `upsert_daily_entry_safe` function recalculates `closes` excluding those sales. So if all of a day's sales become `never_installed`, `closes` drops to 0 and the streak would break on the next detection run.
+This is a small, static card — no interaction needed. Just awareness before they start.
 
-**Gap identified**: Streak badges already awarded don't get revoked. And `useCurrentSalesStreak` (the live counter) also uses `closes` — so it would retroactively show a shorter streak if a past day's closes drop to 0. This is actually correct behavior, but we should also make the **badge detection re-evaluate** when sales statuses change (not just when new entries are made). This would be a cache invalidation fix — when a sale is marked never_installed, invalidate the streak queries.
-
-**Action**: Add streak query invalidation to the sale status update flow. No schema change needed.
+**File**: New `src/components/track/StreakContextCard.tsx`, inserted into `PreWorkingState.tsx`
 
 ---
 
-## Part 3: Streak Protection System
+### 2. Active Tracking (Counter Grid) — "Real-time effort signal"
 
-### Data Model
+During active knocking, when the rep has **0 sales but is approaching protection thresholds**, show a subtle contextual message inside the existing `CompetitorNudgeBanner` slot or as a new slim banner below the time bar:
 
-New table: `streak_protections`
+- When there is only about ~2 hours of knocking left before the typical local end time with 0 sales but strong door count: "No sales yet, but your effort is being noticed 💪" (deliberately vague — they don't know the exact threshold)
+- If they've already earned protection mid-day: Nothing changes in the UI. The protection is awarded at finalization, not during tracking. This prevents gaming.
 
-```
-id              uuid PK
-user_id         uuid NOT NULL
-entry_date      date NOT NULL (the day protection was used)
-protection_type text NOT NULL ('earned' | 'recovery')
-method          text NOT NULL ('doors_150' | 'presentations_150' | 'recovery_sales' | 'recovery_doors')
-baseline_value  numeric (their average used as baseline)
-actual_value    numeric (what they actually hit)
-streak_length   integer (streak length at time of protection)
-created_at      timestamptz
-UNIQUE(user_id, entry_date)
-```
+**Key decision**: Do NOT show real-time protection progress. The rep should focus on selling, not on hitting a protection floor. The only signal during tracking is a vague encouragement if effort is high but sales are 0.  
+  
+****IDEA: maybe this could live inside of the doors knocked counter on the track page instead of yet another thing to add to take up vertical space? wht are the tradeoffs of doing that? instead of showing the last timestamp when the door was knocked in this case when this happens.********
 
-RLS: users can view/insert their own protections. Leaders can view downline.
-
-### Protection Logic (4 Parts)
-
-**1. Earned Protection (effort-based, personalized)**
-
-When a rep doesn't sell on a knocking day, check if they earned protection:
-
-- Calculate their **personal 14-day rolling average** for doors and presentations (from their own daily_entries, excluding Sundays)
-- If `today_doors >= CEIL(their_avg_doors * 1.5)` → protection earned via doors
-- If `today_presentations >= CEIL(their_avg_presentations * 1.5)` → protection earned via presentations
-- Both are checked; either qualifies
-
-This is fully personalized — a rep averaging 80 doors needs 120, a rep averaging 40 needs 60.  
-*******INSTEAD OF 14 DAY ROLLING AVERAGE, USE SEASON AVERAGE. (EX. SUMMER KNOKCING DAYS IS DIFFERENT THAN PRSEASON KNOCKING DAYS). 
-
-**2. Weekly Limit**
-
-- Vets: max 1 protection per rolling 7-day window
-- Rookies: max 2 per rolling 7-day window
-- Check `streak_protections` table for recent uses before allowing
-
-**3. Visual Distinction**
-
-- Clean streak: 🔥 only
-- Streak with protection(s) used: 🔥🛡️
-- Track `protections_used` count in the streak display
-- On profile pill: "🔥 46-Day Streak" vs "🔥🛡️ 46-Day Streak (2 shields used)"
-- On badge detail / watchlist: show shield count
-
-**4. Streak Recovery**
-
-When streak is lost:
-
-- Calculate their **season-specific daily average** FP+ (preseason vs summer, from daily_entries within that season window)
-- Over the next 2 knocking days (skip Sundays), they must either:
-  - Sell `>= CEIL(avg_daily_fp * 2)` total FP+ OR PRMR across those 2 days, OR
-  - Knock `>= CEIL(avg_daily_doors * 2)` total doors across those 2 days
-- If achieved, streak is restored (with a recovery marker)
-- Recovery window expires after 2 knocking days — no second chances  
-******MAKE SURE THAT STREAK RECOVERY CAN BE EARNED FROM 2x FP+ OR 2x PRMR*******
-
-New table: `streak_recovery_windows`
-
-```
-id              uuid PK
-user_id         uuid NOT NULL
-streak_lost_on  date NOT NULL
-recovery_deadline_date date (2nd knocking day after loss)
-knocking_days_used jsonb DEFAULT '[]' (dates counted)
-target_fp       numeric
-target_doors    numeric
-status          text ('active' | 'recovered' | 'expired')
-restored_streak integer (the streak length being recovered)
-created_at      timestamptz
-```
-
-### Integration Points
-
-- `**calcStreak` function**: Modified to check `streak_protections` table — if a day has `closes = 0` but has a valid protection record, the streak continues
-- `**useCurrentSalesStreak**`: Same logic — factor in protections
-- **Badge detection**: After entry finalization, check if protection was earned
-- **Recovery detection**: After each finalization during an active recovery window, check if targets are met
-
-### Anti-Gaming Design
-
-The user asked how to balance transparency vs gaming. Here's the approach:
-
-**What we show**:
-
-- "Your streak is protected today! 🛡️" — after they've already earned it through effort (post-hoc notification)
-- "You have X shield(s) available this week" — so they know the mechanic exists
-- Recovery: "You can earn your streak back over the next 2 knocking days" — vague on specifics
-
-**What we DON'T show**:
-
-- The exact 150% multiplier
-- The exact door/presentation count needed
-- The exact recovery targets
-- Instead, use language like "exceptional effort" and "put in significantly more work than usual"
-
-**UI copy examples**:
-
-- Protection earned: "Your effort today earned you a streak shield! 🛡️"
-- No sale, no protection: "Streak broken. Put in exceptional work over the next 2 days to earn it back."
-- Recovery earned: "Incredible effort! Your streak has been restored. 🔥"
-
-This way reps know the system exists and rewards effort, but can't precisely calculate the minimum threshold to game it.
+**File**: Update `Track.tsx` to conditionally show a slim effort encouragement banner. Logic lives in a lightweight check (doors > season avg and closes === 0).
 
 ---
 
-## Fairness Review & Considerations
+### 3. Finalized Day (End-of-Day Cards) — "The reveal"
 
-**What's good:**
+After the day is finalized, this is where streak outcomes are communicated clearly. Add a **StreakOutcomeCard** in the finalized card stack (before GoalResultCard):
 
-- Fully personalized baselines — a 50-door/day rep and a 100-door/day rep have different thresholds
-- Season-aware averages for recovery (preseason vs summer)
-- Weekly limits prevent abuse
-- Visual distinction rewards clean streaks
+- **Sale made, streak continues**: "🔥 48-Day Streak — another one in the books" (celebratory, brief)
+- **No sale, protection earned**: "🛡️ Streak Protected — Your effort today earned you a shield. Day 48 continues." (positive framing of a tough day)
+- **No sale, no protection, streak broken**: "Your 47-day streak has ended. Put in exceptional work over the next 2 days to earn it back." (no doom, just a path forward) *****HERE Lets define waht would be rquired FP+ OR PRMR to save the streak over the next 2 days
+- **Recovery achieved**: "🔥 Streak Restored! Incredible effort." (celebration moment)
 
-**Things to consider:**
+This card is the single source of truth for "what happened to my streak today." It replaces the need for a separate notification in most cases.
 
-1. **New reps with no history**: If a rookie has only 2 days of data, their "average" is unreliable. Suggest: require minimum 5 knocking days of history before protection is available. Before that, use a reasonable default floor (e.g., 60 doors minimum for protection). *******FAIR. FOR ROOKIES USE A DEFAULT OF 60 DOORS MINIMUM. FOR VETS, USE A MINIMUM OF 2 TRANSITIONS AS A DEFAULT UNTIL 5+ KNOCKING DAYS
-2. **Sunday exclusion**: The system should skip Sundays when counting "next 2 knocking days" for recovery. Already accounted for in the plan.
-3. **What counts as a "knocking day"?**: A day with an entry where `doors_knocked > 0`. Days with 0 doors but a sale (e.g., a callback close) should probably not count as knocking days for average calculations. *****FAIR. DONT COUNT THOSE DAYS WHERE REFERRALS WERE DONE OR SOMETHING OF THE SORT AND SALES WERE LOGGED BUT WORK WASNT*****
-4. **Retroactive never_installed**: If a sale that saved a streak is later marked never_installed, should the streak retroactively break? This gets complex. Suggest: once a day is "locked in" as a streak day (entry finalized), it stays. Only live/today's status matters for current detection. ****THATS FINE*****
-5. **Multiple protections in a row**: With rookies getting 2/week, they could theoretically go 2 days without selling and keep the streak. This seems acceptable given they're putting in 150% effort those days.
-6. **The recovery window creates urgency**: 2 knocking days is tight — this is intentional and good. It prevents someone from coasting and recovering weeks later.
+**File**: New `src/components/track/StreakOutcomeCard.tsx`, inserted into finalized view in `Track.tsx`
 
 ---
 
-## Files to Change
+### 4. Notifications (Push + In-App) — "Timely nudges only"
 
-1. **Database**: Create `streak_protections` and `streak_recovery_windows` tables with RLS
-2. `**src/utils/badgeDefinitions.ts**`: Add streak protection constants
-3. `**src/hooks/useBadgeDetection.ts**`: Update `calcStreak` to consult protections table; add protection earning logic; add recovery detection
-4. `**src/hooks/useCurrentSalesStreak.ts**`: Factor in protections when calculating live streak; include protection count in return
-5. `**src/hooks/useStreakProtection.ts**` (new): Hook for checking/using protection status, recovery windows
-6. `**src/pages/Profile.tsx**`: Update streak pill to show 🛡️ when protections used
-7. `**src/components/leaderboard/WatchlistDrawer.tsx**`: Show shield indicator
-8. **One-time SQL**: Strip emojis from reps.name
+Notifications should be **sparse and high-signal**. Not every streak event needs a push. Here's the matrix:
+
+
+| Event                           | In-App Banner        | Native Push                           |
+| ------------------------------- | -------------------- | ------------------------------------- |
+| Shield earned (at finalization) | Yes                  | No (they'll see the card)             |
+| Streak broken                   | Yes                  | Yes (if app is backgrounded)          |
+| Recovery window opening         | No (card handles it) | Yes (next morning, before they start) |
+| Recovery achieved               | Yes                  | Yes (celebratory)                     |
+| Milestone (every 10 days)       | Yes                  | No                                    |
+
+
+Push notifications use the existing `InAppNotificationBanner` system for foreground and native APNs for background. The notification types would be: `streak_shield_earned`, `streak_broken`, `streak_recovery_open`, `streak_recovery_achieved`, `streak_milestone`.
+
+**File**: Add notification firing logic to `useBadgeDetection.ts` (streak protection detection) and the edge function that sends pushes. Register new notification types.
+
+---
+
+### 5. Profile + Watchlist — "Social proof" (already implemented)
+
+The streak pill on Profile and the fire indicator on Watchlist cards are already in place. One addition:
+
+- On the **Profile streak pill**, if a recovery window is active for the viewed user, show a subtle "recovering" state: "🔥 Streak paused — earning it back" (only visible on your own profile, not others').
+
+**File**: Minor update to `Profile.tsx` streak pill section.
+
+---
+
+## What NOT to Do
+
+- **No streak info on the Leaderboard page**. The leaderboard is about production ranking, not streaks. Mixing the two dilutes both. Streaks live on Profile (personal) and Watchlist (social).
+- **No real-time "you're X doors away from protection"** counter. This directly enables gaming. The rep should knock hard because they want to sell, not because they're watching a protection meter fill up.
+- **No notification for "streak continues" on a normal sale day**. That's noise. The finalized card handles it.
+- **No streak info in the counter grid UI**. The grid is for tapping, not reading. Keep it clean.
+
+## Summary of New/Changed Files
+
+1. `**src/components/track/StreakContextCard.tsx**` (new) — Morning briefing card showing streak state
+2. `**src/components/track/StreakOutcomeCard.tsx**` (new) — Finalized day card showing what happened to the streak
+3. `**src/components/track/PreWorkingState.tsx**` — Insert StreakContextCard
+4. `**src/pages/Track.tsx**` — Insert StreakOutcomeCard in finalized view; add subtle effort encouragement banner in active view
+5. `**src/hooks/useStreakProtection.ts**` — Add helper for checking current streak status (healthy/shielded/broken/recovering)
+6. `**src/pages/Profile.tsx**` — Add "recovering" state to streak pill
+7. `**src/hooks/useBadgeDetection.ts**` — Fire notifications on streak break/recovery events
+
+No database changes needed — all data already exists in `streak_protections`, `streak_recovery_windows`, and `daily_entries`.
