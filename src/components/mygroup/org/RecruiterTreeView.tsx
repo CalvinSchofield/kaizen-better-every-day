@@ -301,8 +301,7 @@ export const RecruiterTreeView = ({ searchQuery, onEditRep }: RecruiterTreeViewP
             roleColor: "mgmt_group",
             role: "MGMT Group Leader",
             // Leader's own recruiter children + sibling roots from this group
-            children: [...leaderNode.children, ...siblings]
-              PLACEHOLDER_SORT,
+            children: sortByDownlineSize([...leaderNode.children, ...siblings]),
           };
         }
       }
