@@ -156,6 +156,7 @@ export const RecruitDetailDrawer = ({
     recruitId: recruitProp?.id,
     recruitTeamLeader: recruitProp?.teamName 
   });
+  const { repData } = useRepData();
   const queryClient = useQueryClient();
   const { checkAndUpdateStage } = useAutoStageProgression();
 
