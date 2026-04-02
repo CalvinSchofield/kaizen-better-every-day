@@ -852,6 +852,7 @@ const OrgChart = () => {
                 groupByOffice={groupByOffice}
                 onGroupByOfficeChange={setGroupByOffice}
                 showGroupByOfficeToggle={OFFICE_GROUPED_ACCESS_LEVELS.has(teamAccess?.accessLevel || '')}
+                onOfficeNodeClick={handleOfficeNodeClick}
               />
             )}
           </div>
