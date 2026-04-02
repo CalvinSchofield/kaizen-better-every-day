@@ -8,6 +8,7 @@ interface LiveRepData {
   name: string;
   year?: string;
   teamId?: string | null; // For grouping in reports
+  mgmtGroupId?: string | null;
   teamName: string;
   mgmtGroupName: string;
   recruiterName?: string | null; // For organic hierarchy grouping
