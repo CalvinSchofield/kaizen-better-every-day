@@ -60,6 +60,8 @@ export const ReportsPeopleTab = ({
   aggregatedLoading,
   rankingsTitle,
   allGoals,
+  onRepClick,
+  groupedByTeam,
 }: ReportsPeopleTabProps) => {
   // Use org-grouped view for mgmt_group_lead+ or manager
   const useOrgGrouping = hasMinAccess(accessLevel, 'mgmt_group_lead') || 
