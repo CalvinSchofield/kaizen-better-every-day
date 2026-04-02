@@ -157,15 +157,22 @@ export const CalendarPlanningPreview = ({
       ? Math.round((currentProgress + dailyAvg * Math.max(daysLeft, 0)) * 10) / 10
       : Math.round(currentProgress * 10) / 10;
 
+    const summerDailyPace = Math.round(unifiedPace.summerDailyPace * 10) / 10;
+
+    // When preseason has 0 planned days left, pivot the hero stat to summer pace
+    const preseasonExhausted = isPreseasonTier && daysLeft <= 0 && !preseasonGoalHit;
+    const showSummerPreview = preseasonExhausted && summerDailyPace > 0;
+
     return {
       daysLeft: Math.max(0, daysLeft),
       dailyNeeded,
       weeklyNeeded,
       forecastedPreseasonTotal,
       preseasonDailyPace: Math.round(unifiedPace.preseasonDailyPace * 10) / 10,
-      summerDailyPace: Math.round(unifiedPace.summerDailyPace * 10) / 10,
+      summerDailyPace,
       remainingFp,
       preseasonGoalHit,
+      showSummerPreview,
     };
   }, [unifiedPace, activeTier, knockingDays, currentProgress]);
 
