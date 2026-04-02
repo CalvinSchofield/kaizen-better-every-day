@@ -597,6 +597,7 @@ const TeamReports = () => {
             <TabsContent value="people" className="mt-0">
               <ReportsPeopleTab
                 viewType={getViewType()}
+                accessLevel={accessData?.accessLevel || 'team_lead'}
                 liveReps={liveData?.liveReps}
                 workingCount={liveData?.workingCount}
                 forgottenCount={liveData?.forgottenCount}
