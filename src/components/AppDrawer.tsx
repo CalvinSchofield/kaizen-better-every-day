@@ -143,29 +143,56 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
     setIsRefreshing(true);
     hapticLight();
     try {
-      // Clear ALL caches
+      // 1. Refresh auth session FIRST — ensures valid token before any refetch
+      console.log('[Refresh] Step 1: Refreshing auth session…');
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshData?.session) {
+        console.warn('[Refresh] Session refresh failed, trying getSession fallback');
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData?.session) {
+          toast({
+            title: "Session expired",
+            description: "Please log out and sign in again.",
+            variant: "destructive",
+          });
+          setIsRefreshing(false);
+          return;
+        }
+      }
+      console.log('[Refresh] Auth session valid');
+
+      // 2. Clear persisted caches (localStorage) — but auth/userId cache stays
       clearPersistedCache();
       clearCachedLayoutState();
-      
-      // Clear all localStorage caches
+
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key?.startsWith('rep-data-cache') || 
-            key?.startsWith('competitors-cache') ||
-            key?.startsWith('blitzes-cache') ||
-            key?.startsWith('team-access-cache') ||
-            key?.startsWith('season-config-cache') ||
-            key?.startsWith('group-recruits-cache')) {
+        if (!key) continue;
+        // Preserve auth-critical keys and track backups
+        if (key === 'kaizen-current-user-id' || key.startsWith('track-backup-')) continue;
+        if (key.startsWith('rep-data-cache') || 
+            key.startsWith('rep-goals-cache') ||
+            key.startsWith('preseason-fp-cache') ||
+            key.startsWith('ytd-prmr-cache') ||
+            key.startsWith('cumulative-fp-cache') ||
+            key.startsWith('goals-knocking-days-cache') ||
+            key.startsWith('goals-season-config-cache') ||
+            key.startsWith('competitors-cache') ||
+            key.startsWith('blitzes-cache') ||
+            key.startsWith('team-access-cache') ||
+            key.startsWith('season-config-cache') ||
+            key.startsWith('group-recruits-cache')) {
           keysToRemove.push(key);
         }
       }
       keysToRemove.forEach(key => localStorage.removeItem(key));
-      
-      // Clear React Query cache and refetch all queries
-      queryClient.clear();
-      await queryClient.invalidateQueries();
-      
+
+      // 3. Invalidate all queries (NOT clear!) so they refetch with fresh auth
+      // clear() destroys the cache entirely and causes auth state loss + stuck loading
+      await queryClient.invalidateQueries({ refetchType: 'all' });
+
+      console.log('[Refresh] Complete — all queries invalidated');
       toast({
         title: "Data refreshed",
         description: "All cached data has been cleared and reloaded.",
