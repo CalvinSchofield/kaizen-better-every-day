@@ -9,6 +9,7 @@ export interface RepRankingData {
   teamName?: string;
   mgmtGroupId?: string | null;
   mgmtGroupName?: string;
+  recruiterName?: string | null;
   year?: string;
   phone?: string;
   timezone?: string;
