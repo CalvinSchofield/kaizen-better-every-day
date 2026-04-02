@@ -949,15 +949,14 @@ export const useLogRecruitActivity = () => {
         throw new Error("Either recruitId or recruitNotionId is required");
       }
 
-      // Use cached session — getSession() reads from memory, no network call
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        // Fallback: try refreshing session once (covers expired token on mobile)
-        const { data: refreshData } = await supabase.auth.refreshSession();
-        if (!refreshData?.session) throw new Error('Not authenticated');
-        var activeSession = refreshData.session;
-      } else {
-        var activeSession = session;
+      const { session: activeSession } = await withTimeout(
+        getSessionSafe(),
+        5000,
+        'Auth recovery timed out'
+      );
+
+      if (!activeSession) {
+        throw new Error('Not authenticated');
       }
 
       // Use recruitId directly — it's already the Supabase UUID
@@ -981,19 +980,27 @@ export const useLogRecruitActivity = () => {
       };
 
       // Insert activity — skip .select().single() to avoid extra round-trip on mobile
-      const { error } = await supabase
-        .from('recruit_activities')
-        .insert(insertPayload);
+      const { error } = await withTimeout(
+        supabase
+          .from('recruit_activities')
+          .insert(insertPayload),
+        8000,
+        'Timed out logging activity'
+      );
 
       if (error) throw error;
 
       // Update last_contact on the recruit (fire-and-forget to avoid timeout)
       if (actualRecruitId && (activityType === 'phone_call' || activityType === 'in_person' || activityType === 'text')) {
         const contactDate = activityDate || new Date().toISOString().split('T')[0];
-        supabase
-          .from('recruits')
-          .update({ last_contact: contactDate })
-          .eq('id', actualRecruitId)
+        withTimeout(
+          supabase
+            .from('recruits')
+            .update({ last_contact: contactDate })
+            .eq('id', actualRecruitId),
+          5000,
+          'Timed out updating last_contact'
+        )
           .then(({ error }) => {
             if (error) console.error('Failed to update last_contact:', error);
           });

@@ -1,6 +1,7 @@
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 
 export const CACHE_KEY = 'kaizen-app-cache';
+const USER_ID_STORAGE_KEY = 'kaizen-current-user-id';
 
 export const queryPersister = createSyncStoragePersister({
   storage: typeof window !== 'undefined' ? window.localStorage : undefined,
@@ -21,6 +22,7 @@ export const clearPersistedCache = () => {
       
       // Preserve Track backups - these are critical for data recovery
       if (key.startsWith('track-backup-')) continue;
+      if (key === USER_ID_STORAGE_KEY) continue;
       
       // Clear all other app-specific caches
       if (key.startsWith('rep-data-cache') || 
