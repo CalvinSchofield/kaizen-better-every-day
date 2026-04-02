@@ -101,12 +101,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   // Wait for rep data and approval status to load before making access decisions
   if (repLoading || (repData?.id && approvalLoading)) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <p className="text-muted-foreground text-sm animate-fade-in">Loading your account...</p>
-      </div>
-    );
+    return <AppSplashScreen message="Loading your account…" />;
   }
 
   // Check if rep is in an inactive stage - block app access
