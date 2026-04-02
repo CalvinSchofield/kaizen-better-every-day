@@ -123,6 +123,7 @@ export const ReportsPeopleTab = ({
       teamName: r.teamName,
       mgmtGroupId: r.mgmtGroupId,
       mgmtGroupName: r.mgmtGroupName,
+      recruiterName: r.recruiterName || null,
       fp: r.stats.fp,
       prmr: r.stats.prmr,
       doors: r.stats.doors,
