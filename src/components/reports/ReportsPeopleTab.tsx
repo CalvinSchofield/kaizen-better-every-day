@@ -79,6 +79,7 @@ export const ReportsPeopleTab = ({
       teamName: r.teamName,
       mgmtGroupId: r.mgmtGroupId,
       mgmtGroupName: r.mgmtGroupName,
+      recruiterName: r.recruiterName || null,
       fp: r.todayStats?.fp || 0,
       prmr: r.todayStats?.prmr || 0,
       doors: r.todayStats?.doors || 0,
