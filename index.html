@@ -37,7 +37,20 @@
 </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Inline splash shown before React mounts — matches AppSplashScreen styling -->
+      <div id="inline-splash" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50;background:var(--background, hsl(30 50% 97%));">
+        <img src="/icon-192.png" alt="Kaizen" width="64" height="64" style="border-radius:1rem;margin-bottom:1.5rem;opacity:0;transform:scale(0.8);animation:splash-fade-in .35s ease-out forwards;" />
+        <div style="width:7rem;height:0.25rem;border-radius:9999px;background:var(--muted, hsl(30 10% 90%));overflow:hidden;opacity:0;animation:splash-fade-in .3s ease-out .25s forwards;">
+          <div style="height:100%;border-radius:9999px;background:var(--primary, hsl(25 90% 53%));animation:splash-progress 2.5s ease-in-out infinite alternate;" ></div>
+        </div>
+        <p style="font-size:.875rem;color:var(--muted-foreground, hsl(30 5% 50%));margin-top:1rem;opacity:0;animation:splash-fade-in .3s ease-out .5s forwards;">Loading…</p>
+      </div>
+      <style>
+        @keyframes splash-fade-in { to { opacity:1; transform:scale(1); } }
+        @keyframes splash-progress { from { width:0% } to { width:100% } }
+      </style>
+    </div>
 
     <!-- Prevent stale service-worker cache issues on Lovable preview host -->
     <script>
