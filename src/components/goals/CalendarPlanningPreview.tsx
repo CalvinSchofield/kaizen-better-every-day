@@ -157,15 +157,22 @@ export const CalendarPlanningPreview = ({
       ? Math.round((currentProgress + dailyAvg * Math.max(daysLeft, 0)) * 10) / 10
       : Math.round(currentProgress * 10) / 10;
 
+    const summerDailyPace = Math.round(unifiedPace.summerDailyPace * 10) / 10;
+
+    // When preseason has 0 planned days left, pivot the hero stat to summer pace
+    const preseasonExhausted = isPreseasonTier && daysLeft <= 0 && !preseasonGoalHit;
+    const showSummerPreview = preseasonExhausted && summerDailyPace > 0;
+
     return {
       daysLeft: Math.max(0, daysLeft),
       dailyNeeded,
       weeklyNeeded,
       forecastedPreseasonTotal,
       preseasonDailyPace: Math.round(unifiedPace.preseasonDailyPace * 10) / 10,
-      summerDailyPace: Math.round(unifiedPace.summerDailyPace * 10) / 10,
+      summerDailyPace,
       remainingFp,
       preseasonGoalHit,
+      showSummerPreview,
     };
   }, [unifiedPace, activeTier, knockingDays, currentProgress]);
 
@@ -203,24 +210,46 @@ export const CalendarPlanningPreview = ({
                   </div>
                 ) : (
                   <>
-                    <motion.div
-                      key={stats.dailyNeeded}
-                      initial={{ scale: 0.95, opacity: 0.5 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                      className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-amber-500"
-                    >
-                      {stats.dailyNeeded} / day needed
-                    </motion.div>
-                    <div className="text-xs text-muted-foreground leading-snug max-w-[260px] mx-auto">
-                      {activeTier === 'preseason'
-                        ? `${efpLabel} to hit your preseason goal`
-                        : `${efpLabel} to hit your ${unifiedPace.tierLabel} goal`
-                      }
-                    </div>
-                    <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
-                      {stats.daysLeft} {activeTier === 'preseason' ? 'preseason' : isSummerStarted ? 'summer' : 'planned'} days left
-                    </div>
+                    {stats.showSummerPreview ? (
+                      <>
+                        <motion.div
+                          key={`summer-${stats.summerDailyPace}`}
+                          initial={{ scale: 0.95, opacity: 0.5 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                          className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-orange-500"
+                        >
+                          {stats.summerDailyPace} / day needed
+                        </motion.div>
+                        <div className="text-xs text-muted-foreground leading-snug max-w-[260px] mx-auto">
+                          {efpLabel} to hit your summer {unifiedPace.tierLabel} goal
+                        </div>
+                        <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-[10px] text-amber-500 font-medium">
+                          ☀️ Summer pace preview
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <motion.div
+                          key={stats.dailyNeeded}
+                          initial={{ scale: 0.95, opacity: 0.5 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                          className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-amber-500"
+                        >
+                          {stats.dailyNeeded} / day needed
+                        </motion.div>
+                        <div className="text-xs text-muted-foreground leading-snug max-w-[260px] mx-auto">
+                          {activeTier === 'preseason'
+                            ? `${efpLabel} to hit your preseason goal`
+                            : `${efpLabel} to hit your ${unifiedPace.tierLabel} goal`
+                          }
+                        </div>
+                        <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
+                          {stats.daysLeft} {activeTier === 'preseason' ? 'preseason' : isSummerStarted ? 'summer' : 'planned'} days left
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
               </div>
@@ -250,7 +279,7 @@ export const CalendarPlanningPreview = ({
                       <div className="flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-primary" />
                         <div>
-                          <div className="text-sm font-semibold text-foreground">{stats.dailyNeeded} {efpLabel}/day needed</div>
+                          <div className="text-sm font-semibold text-foreground">{stats.showSummerPreview ? stats.summerDailyPace : stats.dailyNeeded} {efpLabel}/day needed</div>
                           <div className="text-[10px] text-muted-foreground">Explore what-if scenarios</div>
                         </div>
                       </div>

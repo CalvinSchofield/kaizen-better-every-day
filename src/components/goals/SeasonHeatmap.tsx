@@ -302,7 +302,8 @@ export const SeasonHeatmap = ({
     return null;
   }, [tappedCell, weeks]);
 
-  if (isLoading) {
+  // Show skeleton when explicitly loading OR when entry data hasn't arrived yet
+  if (isLoading || dailyEntries === undefined) {
     return (
       <div className="space-y-2">
         <Skeleton className="h-3 w-32" />
