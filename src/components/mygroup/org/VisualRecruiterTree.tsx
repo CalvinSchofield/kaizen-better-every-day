@@ -544,9 +544,14 @@ function LabelNodeRenderer({
           ROLE_LABEL_TEXT[roleColor]
         )}
         onClick={(e) => {
-          if (node.totalDescendants > 0) toggleCollapse(node.id, e);
+          e.stopPropagation();
+          if (node.isOfficeNode && node.officeId && onOfficeNodeClick) {
+            onOfficeNodeClick(node.officeId);
+          } else if (node.totalDescendants > 0) {
+            toggleCollapse(node.id, e);
+          }
         }}
-        style={{ cursor: node.totalDescendants > 0 ? "pointer" : "default" }}
+        style={{ cursor: (node.isOfficeNode || node.totalDescendants > 0) ? "pointer" : "default" }}
       >
         <span className="truncate max-w-[80px]">{node.name}</span>
         {node.totalDescendants > 0 && (
