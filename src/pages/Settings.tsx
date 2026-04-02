@@ -550,7 +550,7 @@ export default function Settings() {
               title="Sales Logger"
               subtitle="Log sale details when you close"
               toggle={{
-                checked: repData?.sales_log_enabled || false,
+                checked: repData?.sales_logger_enabled || false,
                 onCheckedChange: async (enabled) => {
                   setIsSavingSalesLogger(true);
                   try {
