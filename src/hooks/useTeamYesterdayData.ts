@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 interface YesterdayRepData {
   userId: string;
   name: string;
+  teamId?: string | null;
   teamName: string;
+  mgmtGroupId?: string | null;
   mgmtGroupName: string;
   stats: {
     doors: number;
