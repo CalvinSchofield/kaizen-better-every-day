@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { clearPersistedCache, clearCachedLayoutState } from "@/lib/queryPersister";
+import { FORCE_SPLASH_KEY } from "./HydrationGate";
 import { hapticSelection, hapticLight } from "@/utils/haptics";
 import { getInitials } from "@/utils/nameUtils";
 import { getSessionSafe } from "@/utils/authSession";
