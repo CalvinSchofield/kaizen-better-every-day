@@ -570,34 +570,6 @@ const OrgChart = () => {
         .filter((node) => node.children.length > 0)
         .sort((a, b) => countDescendants(b) - countDescendants(a));
 
-      // After creating MGMT group nodes, wrap them in Sr MGMT Group containers
-      // This shows upline (e.g. Gunnar Bramwell Sr MGMT)
-      const mgmtGroupToSrMgmt = new Map<string, string>();
-      mgmtGroups.forEach((mg) => {
-        if (mg.sr_mgmt_group_id) mgmtGroupToSrMgmt.set(mg.id, mg.sr_mgmt_group_id);
-      });
-
-      const srMgmtChildren = new Map<string, TreeNode[]>();
-      const standaloneMgmtNodes: TreeNode[] = [];
-
-      groupedRoots.forEach((mgmtNode) => {
-        // Extract mgmtGroupId from node id (format: "mgmt-{id}" or promoted node)
-        const mgmtGroupId = mgmtNode.id.startsWith("mgmt-") ? mgmtNode.id.replace("mgmt-", "") : null;
-        const srMgmtId = mgmtGroupId ? mgmtGroupToSrMgmt.get(mgmtGroupId) : null;
-
-        if (srMgmtId) {
-          if (!srMgmtChildren.has(srMgmtId)) srMgmtChildren.set(srMgmtId, []);
-          srMgmtChildren.get(srMgmtId)!.push(mgmtNode);
-        } else {
-          standaloneMgmtNodes.push(mgmtNode);
-        }
-      });
-
-      const srMgmtNodes: TreeNode[] = [];
-      srMgmtChildren.forEach((children, srMgmtId) => {
-        srMgmtNodes.push(createSrMgmtLabelNode(srMgmtId, children));
-      });
-
       // When grouping by office, wrap MGMT groups under office containers instead of Sr MGMT
       if (groupByOffice) {
         const officeChildren = new Map<string, TreeNode[]>();
