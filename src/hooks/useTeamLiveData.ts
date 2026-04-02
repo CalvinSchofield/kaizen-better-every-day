@@ -186,6 +186,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         // Use teamName from cache, or fallback to "Team [leader name]", or finally "No Team"
         const teamLeaderName = repInfo?.team_leader;
         const teamId = teamInfo?.teamId || null;
+        const mgmtGroupId = teamInfo?.mgmtGroupId || null;
         const teamName = teamInfo?.teamName || 
                         (teamLeaderName ? `Team ${teamLeaderName}` : 'No Team');
         const mgmtGroupName = teamInfo?.mgmtGroupName || '';
