@@ -515,6 +515,9 @@ const SetupFlow = () => {
                   variant="ghost"
                   onClick={async () => {
                     sessionStorage.removeItem('kaizen-invite-code');
+                    try {
+                      sessionStorage.setItem('kaizen-expected-signout-at', Date.now().toString());
+                    } catch {}
                     await supabase.auth.signOut();
                     navigate('/auth');
                   }}
@@ -617,6 +620,9 @@ const SetupFlow = () => {
               <Button
                 variant="outline"
                 onClick={async () => {
+                  try {
+                    sessionStorage.setItem('kaizen-expected-signout-at', Date.now().toString());
+                  } catch {}
                   await supabase.auth.signOut();
                   navigate('/auth');
                 }}

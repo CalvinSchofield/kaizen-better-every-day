@@ -188,6 +188,10 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
 
   const confirmLogout = async () => {
     try {
+      try {
+        sessionStorage.setItem('kaizen-expected-signout-at', Date.now().toString());
+      } catch {}
+
       // Clear ALL caches before signing out
       clearPersistedCache();
       clearCachedLayoutState();

@@ -57,6 +57,10 @@ const FeatureSlide = ({ icon: Icon, title, description, color }: typeof FEATURES
 
 const PendingApprovalScreen = ({ repName }: PendingApprovalScreenProps) => {
   const handleLogout = async () => {
+    try {
+      sessionStorage.setItem('kaizen-expected-signout-at', Date.now().toString());
+    } catch {}
+
     clearAllRepCaches();
     await supabase.auth.signOut();
   };

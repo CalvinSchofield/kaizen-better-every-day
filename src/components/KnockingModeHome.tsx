@@ -112,6 +112,10 @@ export const KnockingModeHome = ({
   }, [entry, hasStartedWorkToday]);
 
   const handleLogout = async () => {
+    try {
+      sessionStorage.setItem('kaizen-expected-signout-at', Date.now().toString());
+    } catch {}
+
     // Clear all caches before signing out
     localStorage.removeItem('rep-data-cache');
     queryClient.clear();
