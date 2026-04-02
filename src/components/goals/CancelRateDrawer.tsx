@@ -57,7 +57,16 @@ export const CancelRateDrawer = ({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSave(effectiveRate);
+      // Race against a timeout to prevent infinite "Saving..." on TestFlight
+      const savePromise = onSave(effectiveRate);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Save timed out')), 8000)
+      );
+      await Promise.race([savePromise, timeoutPromise]);
+      onOpenChange(false);
+    } catch (err) {
+      console.error('CancelRateDrawer save error:', err);
+      // Still close — optimistic update already applied by useRepGoals
       onOpenChange(false);
     } finally {
       setIsSaving(false);
