@@ -128,6 +128,25 @@ export const useTeamAggregatedRankings = ({
         }
       ]) || []);
 
+      // Fetch team/MGMT group mapping from the team access cache
+      let accessibleReps: any[] = [];
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.startsWith('team-access-cache:v4:')) {
+            const cached = localStorage.getItem(key);
+            if (cached) {
+              const { data } = JSON.parse(cached);
+              accessibleReps = data?.accessibleReps || [];
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse team access cache:', e);
+      }
+      const repInfoMap = new Map(accessibleReps.map((r: any) => [r.userId, r]));
+
       // Fetch ALL entries for the period (including unfinalized)
       const { data: entries, error: entriesError } = await supabase
         .from("daily_entries")
