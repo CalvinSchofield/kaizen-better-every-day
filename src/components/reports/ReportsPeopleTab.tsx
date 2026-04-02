@@ -132,10 +132,49 @@ export const ReportsPeopleTab = ({
     }));
   }, [aggregatedReps]);
 
+  // Build coaching rep data for alerts
+  const coachingReps = useMemo(() => {
+    if (viewType === 'today' && liveReps) {
+      return liveReps.map((r: any) => ({
+        userId: r.userId,
+        name: r.name,
+        doors: r.todayStats?.doors || 0,
+        presentations: r.todayStats?.presentations || 0,
+        transitions: r.todayStats?.transitions || 0,
+        pitches: r.todayStats?.pitches || 0,
+        closes: r.todayStats?.closes || 0,
+        fp: r.todayStats?.fp || 0,
+        isWorking: r.isWorking,
+        workStartTime: r.workStartTime,
+        year: r.year,
+      }));
+    }
+    if (viewType === 'aggregated' && aggregatedReps) {
+      return aggregatedReps.map(r => ({
+        userId: r.userId,
+        name: r.name,
+        doors: r.stats.doors,
+        presentations: r.stats.presentations,
+        transitions: r.stats.transitions,
+        pitches: r.stats.pitches,
+        closes: r.stats.closes,
+        fp: r.stats.fp,
+        year: r.year,
+      }));
+    }
+    return [];
+  }, [viewType, liveReps, aggregatedReps]);
+
   if (viewType === 'today') {
     if (useOrgGrouping) {
       return (
         <div className="space-y-4">
+          <CoachingAlerts
+            reps={coachingReps}
+            isLiveView
+            onRepClick={onRepClick}
+            groupedByTeam={groupedByTeam}
+          />
           <OrgGroupedRepList
             reps={liveOrgReps}
             accessLevel={accessLevel}
@@ -147,6 +186,12 @@ export const ReportsPeopleTab = ({
     }
     return (
       <div className="space-y-4">
+        <CoachingAlerts
+          reps={coachingReps}
+          isLiveView
+          onRepClick={onRepClick}
+          groupedByTeam={groupedByTeam}
+        />
         <LiveLeaderboard
           liveReps={liveReps || []}
           isLoading={liveLoading}
