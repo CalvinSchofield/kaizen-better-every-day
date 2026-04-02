@@ -157,21 +157,18 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
         return;
       }
 
-      await queryClient.cancelQueries();
-
       // Clear app caches but preserve auth + cached user identity, then hard reload.
       clearPersistedCache();
       clearCachedLayoutState();
 
       setOpen(false);
-      toast({
-        title: "Refreshing app",
-        description: "Restarting with a clean session and fresh data.",
-      });
+
+      // Set flag so HydrationGate shows the splash screen during reload
+      try { sessionStorage.setItem(FORCE_SPLASH_KEY, '1'); } catch {}
 
       window.setTimeout(() => {
         window.location.reload();
-      }, 150);
+      }, 100);
     } catch (error) {
       console.error("Refresh error:", error);
       toast({
