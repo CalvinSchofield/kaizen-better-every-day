@@ -21,3 +21,10 @@ export { RepArchetypes } from './RepArchetypes';
 export { AutoInsights } from './AutoInsights';
 export { ProductionTrendChart } from './ProductionTrendChart';
 export { HourlyActivityChart } from './HourlyActivityChart';
+
+// Sales dashboard components
+export { HeroDrillDownDrawer } from './HeroDrillDownDrawer';
+export { GroupComparisonChart } from './GroupComparisonChart';
+export { PeriodComparisonCard } from './PeriodComparisonCard';
+export { GoalPaceCard } from './GoalPaceCard';
+export { CoachingAlerts } from './CoachingAlerts';
