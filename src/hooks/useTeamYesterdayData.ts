@@ -8,6 +8,7 @@ interface YesterdayRepData {
   teamName: string;
   mgmtGroupId?: string | null;
   mgmtGroupName: string;
+  recruiterName?: string | null;
   stats: {
     doors: number;
     dms: number;
