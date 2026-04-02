@@ -279,7 +279,7 @@ export const CalendarPlanningPreview = ({
                       <div className="flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-primary" />
                         <div>
-                          <div className="text-sm font-semibold text-foreground">{stats.dailyNeeded} {efpLabel}/day needed</div>
+                          <div className="text-sm font-semibold text-foreground">{stats.showSummerPreview ? stats.summerDailyPace : stats.dailyNeeded} {efpLabel}/day needed</div>
                           <div className="text-[10px] text-muted-foreground">Explore what-if scenarios</div>
                         </div>
                       </div>
