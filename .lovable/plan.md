@@ -1,73 +1,84 @@
-# Track Page Tour Redesign — World-Class Onboarding
 
-## Overview
 
-Rebuild the Track tour from 6 steps into a comprehensive, state-aware experience that walks users through all three knocking states (pre-work, working, day-complete) with dummy data examples showing a real FP sale and an upgrade sale during the save flow.
+# Settings Page Redesign — World-Class Mobile App
 
-## Current Problems
+## Current State
+The Settings page is 1814 lines of monolithic code with a flat list of Card+Collapsible sections. It looks like a generic form page, not a polished mobile settings experience. There's also a build error that needs fixing first.
 
-1. Tour only covers the "working" state — never teaches pre-work or day-complete
-2. No visual example of saving a day or what the post-save screen looks like
-3. Steps jump straight into counters without context about the page's adaptive states
-4. Log Sale sheet steps are tightly coupled to actions that may not work well during onboarding
+## Design Vision
+Model it after iOS/Android settings pages: grouped rows with icons, clean section headers, subtle separators, and tap-to-navigate rows. Think Apple Settings or Spotify's settings — no bulky cards, no collapsible chevrons everywhere.
 
-## Redesigned Tour Flow (8–9 steps)
+## Architecture
 
-### Phase 1: The Three States (context-setting)
+```text
+┌─────────────────────────────────┐
+│  Profile Hero (photo + name)    │
+│  ────────────────────────────── │
+│  ACCOUNT                        │
+│  ☀️  Summer Season  ›  Apr–Sep  │
+│  🎯  Preseason Commitments  ›   │
+│  ────────────────────────────── │
+│  TRACKING (vets only)           │
+│  📊  EFP Mode          [toggle] │
+│  📉  Cancel Rate         10%  › │
+│  🔢  Custom Counters       3  › │
+│  📋  Sales Logger      [toggle] │
+│  ────────────────────────────── │
+│  ME VS ME (vets only)           │
+│  🏆  Me vs Me          [toggle] │
+│  ────────────────────────────── │
+│  NOTIFICATIONS                  │
+│  🔔  Push Notifications    ›    │
+│  ────────────────────────────── │
+│  RECAPS                         │
+│  📊  Pay Level            100›  │
+│  📖  Past Recaps            ›   │
+│  ✨  Team Recaps            ›   │
+│  ────────────────────────────── │
+│  ABOUT                          │
+│  🔄  Replay Intro           ›   │
+│  🗺️  Reset Page Tours       ›   │
+│  🧪  Developer Tools        ›   │ (Calvin only)
+│  ────────────────────────────── │
+│  Sign Out                        │
+└─────────────────────────────────┘
+```
 
-**Step 1 — "Track Adapts to Your Day"**
+## Plan
 
-- Target: `track-pre-work-state` (the PreWorkingState container)
-- Description: "Track has three modes: before you start, while you're knocking, and after you save your day. Right now you're in Pre-Work mode — let's walk through it."
+### 1. Create a reusable `SettingsRow` component
+A single row with icon, title, subtitle, and a right-side accessory (chevron, toggle, value badge). Used for every item on the page.
 
-**Step 2 — "Start Your Day"**
+### 2. Create a `SettingsSection` component
+Renders a section label + a rounded container with dividers between rows. Like iOS grouped table sections.
 
-- Target: `track-start-button` (the Start Knocking button in PreWorkingState)
-- Description: "When you're ready to hit doors, tap this button. It starts your clock, which will help you get an idea of how much money make per hour as he continue to track and sell!"
+### 3. Rebuild the Profile hero
+Large centered avatar with camera overlay, editable name below it, and the rep's role/year as a subtitle. Clean, minimal.
 
-### Phase 2: Active Working Mode
+### 4. Refactor Settings.tsx into grouped sections
+- Extract all handler logic into the same file but organize the JSX into clean `SettingsSection` blocks
+- Inline toggles for simple on/off settings (EFP mode, Sales Logger)
+- Navigation rows (chevron ›) for complex settings that open Drawers: Summer Dates, Cancel Rate, Custom Counters, Notifications, Recaps
+- Keep existing Drawer-based editing UIs but trigger them from clean rows instead of collapsibles
 
-**Step 3 — "Your Time Clock"**
+### 5. Style the page
+- Remove all Card wrappers — use full-width grouped rows with `bg-card rounded-xl` per section
+- Section headers: uppercase, small, muted text with left padding
+- Rows: 56px height, consistent padding, right-aligned accessories
+- Subtle dividers between rows (not between sections)
+- Page background stays `bg-background`
 
-- Target: `track-time-bar` (TimeTrackingBar)
-- Action: auto-start the timer (or simulate it) so the UI transitions to working state
-- Description: "Your hours are tracked automatically. Tap pause for lunch or breaks — it keeps your actual knocking time accurate."
+### 6. Fix build error
+Investigate and resolve the current build failure before applying changes.
 
-**Step 4 — "Count Your Activity"**
+## Technical Details
 
-- Target: `track-counter-grid` (QTallyGrid)
-- Description: "Tap any counter to add one. swipe down to subtract. Doors, pitches, presentations, closes — everything saves automatically as you go."
+**New files:**
+- `src/components/settings/SettingsRow.tsx` — Reusable row (icon, title, subtitle, accessory slot)
+- `src/components/settings/SettingsSection.tsx` — Section wrapper with label
 
-**Step 5 — "Log Your Sales"**
+**Modified files:**
+- `src/pages/Settings.tsx` — Complete rewrite of JSX structure; all existing handlers/state preserved, just reorganized
 
-- Target: `track-fp-counter` (the FP+/sales counter)
-- Description: "This is the big one. Each time you close a deal, tap here to log it. You'll choose FP or Upgrade and enter the PRMR."
+**No database changes needed.** All existing functionality (save profile, toggle EFP, counters, notifications, recaps) remains identical — only the presentation layer changes.
 
-### Phase 3: Log Sale Sheet (with dummy data)
-
-**Step 6 — "FP or Upgrade?"**
-
-- Target: `track-sale-type-toggle`
-- Action: `openLogSaleSheet` — opens the sheet
-- Description: "Choose 'FP' for brand-new accounts or 'Upgrade' when adding equipment to an existing customer. Let's see how it works."
-- lightOverlay: true
-
-**Step 7 — "PRMR Help"**
-
-- Target: `track-prmr-help-button`
-- Action: `switchToUpgradeAndShowHelp`
-- Description: "Not sure about the PRMR? Tap the ? icon. For upgrades, it opens a calculator — just type what you sold and it does the math."
-- lightOverlay: true
-
-### Phase 4: Day Complete Preview
-
-**Step 8 — "Save & Review Your Day"**
-
-- Target: `track-save-button` (the End/Save Day button in TimeTrackingBar or header)
-- Description: "When you're done knocking, tap 'End Day' to save. You'll see a summary of your activity, your sales, and how you're tracking against your goals."
-
-**Step 9 — "Your Day Complete View"**
-
-- Target: `track-day-complete-preview` (a new dummy preview card we render during the tour)
-- Description: "After saving, Track transforms into your day recap — an activity ring, your stats, coaching insights, and how today moved you toward your goal. Here's what a great day looks like!"
-- This step
