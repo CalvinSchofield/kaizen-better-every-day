@@ -37,6 +37,7 @@ export const clearPersistedCache = () => {
           key.startsWith('team-access-cache') ||
           key.startsWith('season-config-cache') ||
           key.startsWith('group-recruits-cache') ||
+          key.startsWith('setup-status-cache') ||  // Setup status - prevents stale goals gate
           key.startsWith('kaizen-layout-state') ||
           key.startsWith('kaizen-')) {
         keysToRemove.push(key);

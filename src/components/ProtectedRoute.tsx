@@ -99,8 +99,9 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/auth" replace />;
   }
 
-  // Wait for rep data and approval status to load before making access decisions
-  if (repLoading || (repData?.id && approvalLoading)) {
+  // Wait for rep data, approval status, AND setup status to load before making access decisions.
+  // This prevents the goals page from flashing the setup wizard before real data arrives.
+  if (repLoading || (repData?.id && approvalLoading) || (repData && !setupReady)) {
     return <AppSplashScreen message="Loading your account…" />;
   }
 
