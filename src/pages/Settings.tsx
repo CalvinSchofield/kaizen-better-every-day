@@ -441,6 +441,10 @@ export default function Settings() {
   const handleIntroComplete = () => { setShowIntroWizard(false); markIntroComplete(); };
 
   const handleSignOut = async () => {
+    try {
+      sessionStorage.setItem('kaizen-expected-signout-at', Date.now().toString());
+    } catch {}
+
     await supabase.auth.signOut();
     navigate('/auth');
   };

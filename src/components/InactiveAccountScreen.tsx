@@ -11,6 +11,10 @@ interface InactiveAccountScreenProps {
 
 const InactiveAccountScreen = ({ repName, teamLeader, teamLeaderPhone }: InactiveAccountScreenProps) => {
   const handleLogout = async () => {
+    try {
+      sessionStorage.setItem('kaizen-expected-signout-at', Date.now().toString());
+    } catch {}
+
     clearAllRepCaches();
     await supabase.auth.signOut();
   };

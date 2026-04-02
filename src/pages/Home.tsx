@@ -717,6 +717,10 @@ const Home = () => {
 
   const handleLogout = async () => {
     try {
+      try {
+        sessionStorage.setItem('kaizen-expected-signout-at', Date.now().toString());
+      } catch {}
+
       // Clear all caches before signing out
       localStorage.removeItem('rep-data-cache');
       queryClient.clear();

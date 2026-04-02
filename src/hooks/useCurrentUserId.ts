@@ -1,10 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getSessionSafe } from '@/utils/authSession';
 import { clearAllRepCaches } from './useRepData';
 
 // Shared localStorage key (used by useRepData too)
 const USER_ID_STORAGE_KEY = 'kaizen-current-user-id';
+const EXPECTED_SIGN_OUT_KEY = 'kaizen-expected-signout-at';
+const EXPECTED_SIGN_OUT_WINDOW_MS = 15000;
+const UNEXPECTED_SIGN_OUT_RETRY_MS = 2000;
+const UNEXPECTED_SIGN_OUT_SETTLE_MS = 800;
 
 /**
  * Get cached userId synchronously - for instant hydration
@@ -29,6 +33,22 @@ const storeCachedUserId = (userId: string | null) => {
     }
   } catch {
     // Ignore storage errors
+  }
+};
+
+const consumeExpectedSignOut = () => {
+  try {
+    const raw = sessionStorage.getItem(EXPECTED_SIGN_OUT_KEY);
+    sessionStorage.removeItem(EXPECTED_SIGN_OUT_KEY);
+
+    if (!raw) return false;
+
+    const timestamp = Number(raw);
+    if (!Number.isFinite(timestamp)) return false;
+
+    return Date.now() - timestamp < EXPECTED_SIGN_OUT_WINDOW_MS;
+  } catch {
+    return false;
   }
 };
 
@@ -75,11 +95,66 @@ export const useCurrentUserId = () => {
   const [isReady, setIsReady] = useState(false);
   // authVerified means we've gotten a response from auth.getUser
   const [authVerified, setAuthVerified] = useState(false);
+  const unexpectedSignOutRetryRef = useRef<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
     const cachedUserId = getCachedUserId();
     const AUTH_READY_TIMEOUT_MS = 4000;
+
+    const clearUnexpectedSignOutRetry = () => {
+      if (unexpectedSignOutRetryRef.current !== null) {
+        window.clearTimeout(unexpectedSignOutRetryRef.current);
+        unexpectedSignOutRetryRef.current = null;
+      }
+    };
+
+    const finalizeSignedOut = () => {
+      clearUnexpectedSignOutRetry();
+      clearAllRepCaches();
+      clearStaleCaches();
+      setUserId(null);
+      storeCachedUserId(null);
+      setIsReady(true);
+      setAuthVerified(true);
+    };
+
+    const verifyUnexpectedSignOut = async (fallbackUserId: string | null, attempt: 1 | 2 = 1) => {
+      if (attempt === 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, UNEXPECTED_SIGN_OUT_SETTLE_MS));
+      }
+
+      const { user } = await getSessionSafe();
+
+      if (!mounted) return;
+
+      if (user?.id) {
+        console.warn('[useCurrentUserId] Recovered session after unexpected SIGNED_OUT event');
+        clearUnexpectedSignOutRetry();
+        setUserId(user.id);
+        storeCachedUserId(user.id);
+        setIsReady(true);
+        setAuthVerified(true);
+        return;
+      }
+
+      if (fallbackUserId && attempt === 1) {
+        console.warn('[useCurrentUserId] Unexpected SIGNED_OUT not yet recovered; preserving cached identity and retrying verification');
+        setUserId(fallbackUserId);
+        storeCachedUserId(fallbackUserId);
+        setIsReady(true);
+        setAuthVerified(true);
+
+        clearUnexpectedSignOutRetry();
+        unexpectedSignOutRetryRef.current = window.setTimeout(() => {
+          void verifyUnexpectedSignOut(fallbackUserId, 2);
+        }, UNEXPECTED_SIGN_OUT_RETRY_MS);
+        return;
+      }
+
+      console.warn('[useCurrentUserId] Confirmed signed out after verification');
+      finalizeSignedOut();
+    };
 
     const getUser = async () => {
       type AuthResult = { userId: string | null; timedOut: boolean };
@@ -103,6 +178,8 @@ export const useCurrentUserId = () => {
       }
 
       const newUserId = authResult.userId;
+
+      clearUnexpectedSignOutRetry();
 
       // On native iOS we can transiently lose auth visibility even though a relaunch restores it.
       // Preserve the cached identity here and only clear caches on an explicit SIGNED_OUT event.
@@ -138,15 +215,20 @@ export const useCurrentUserId = () => {
       
       // Only treat explicit sign-out as a real logout.
       if (event === 'SIGNED_OUT') {
-        console.log('[useCurrentUserId] Auth change: session ended, clearing caches');
-        clearAllRepCaches();
-        clearStaleCaches();
-        setUserId(null);
-        storeCachedUserId(null);
-        setIsReady(true);
-        setAuthVerified(true);
+        const expectedSignOut = consumeExpectedSignOut();
+
+        if (expectedSignOut) {
+          console.log('[useCurrentUserId] Auth change: expected sign-out confirmed, clearing caches');
+          finalizeSignedOut();
+          return;
+        }
+
+        console.warn('[useCurrentUserId] Unexpected SIGNED_OUT event received; verifying before clearing auth state');
+        void verifyUnexpectedSignOut(currentCached, 1);
         return;
       }
+
+      clearUnexpectedSignOutRetry();
       
       // If user changed, clear old caches
       if (currentCached && newUserId && currentCached !== newUserId) {
@@ -171,6 +253,7 @@ export const useCurrentUserId = () => {
     
     return () => {
       mounted = false;
+      clearUnexpectedSignOutRetry();
       subscription.unsubscribe();
     };
   }, []);
