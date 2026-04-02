@@ -5,7 +5,9 @@ import { getLocalDateString } from "@/lib/utils";
 export interface RepRankingData {
   userId: string;
   name: string;
+  teamId?: string | null;
   teamName?: string;
+  mgmtGroupId?: string | null;
   mgmtGroupName?: string;
   year?: string;
   phone?: string;
