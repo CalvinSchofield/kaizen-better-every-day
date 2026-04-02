@@ -501,11 +501,13 @@ function LabelNodeRenderer({
   PADDING,
   collapsedIds,
   toggleCollapse,
+  onOfficeNodeClick,
 }: {
   node: PositionedNode;
   PADDING: number;
   collapsedIds: Set<string>;
   toggleCollapse: (id: string, e: React.MouseEvent) => void;
+  onOfficeNodeClick?: (officeId: string) => void;
 }) {
   const isCollapsed = collapsedIds.has(node.id);
   const roleColor = node.roleColor || "none";
