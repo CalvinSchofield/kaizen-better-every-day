@@ -50,6 +50,8 @@ interface PositionedNode {
   isAreaDirector?: boolean;
   roleColor?: RoleColor;
   isLabelNode?: boolean;
+  isOfficeNode?: boolean;
+  officeId?: string;
   x: number;
   y: number;
   childCount: number;
