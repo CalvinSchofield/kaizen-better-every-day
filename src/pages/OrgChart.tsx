@@ -739,6 +739,11 @@ const OrgChart = () => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [drawerRecruit, setDrawerRecruit] = useState<Recruit | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [officeDetailId, setOfficeDetailId] = useState<string | null>(null);
+
+  const handleOfficeNodeClick = useCallback((officeId: string) => {
+    setOfficeDetailId(officeId);
+  }, []);
 
   const handleSelectNode = useCallback(
     (node: { id: string; name: string; userId: string | null; stage: string | null } | null) => {
