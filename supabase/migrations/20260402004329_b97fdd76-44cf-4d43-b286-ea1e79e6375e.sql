@@ -1,0 +1,1 @@
+UPDATE mgmt_groups SET sr_mgmt_group_id = '1ecc6c50-a447-4539-91f8-979e259dd208' WHERE id IN ('93e8f751-f3e7-4960-8e77-3343b3487642', 'd646a7c0-8d45-49f6-b2c8-4d8695644116');
