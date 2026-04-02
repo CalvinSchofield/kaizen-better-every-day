@@ -92,12 +92,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   });
 
   if (!authVerified) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <p className="text-muted-foreground text-sm animate-fade-in">Welcome back! Loading your data...</p>
-      </div>
-    );
+    return <AppSplashScreen message="Welcome back!" />;
   }
 
   if (!userId) {
