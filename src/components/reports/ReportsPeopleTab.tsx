@@ -1,12 +1,18 @@
 import { AggregatedRankingsCard } from "./AggregatedRankingsCard";
 import { LiveLeaderboard } from "./LiveLeaderboard";
 import { RookieCohortCard } from "./RookieCohortCard";
+import { OrgGroupedRepList, OrgRepData } from "./OrgGroupedRepList";
 import { RepRankingData } from "@/hooks/useTeamAggregatedRankings";
 import { RepGoals } from "@/hooks/useRepGoals";
+import { AccessLevel, hasMinAccess } from "@/utils/roleHierarchy";
+import { useMemo } from "react";
 
 interface ReportsPeopleTabProps {
   // View type
   viewType: 'today' | 'yesterday' | 'aggregated';
+  
+  // Access level for org-aware grouping
+  accessLevel?: AccessLevel;
   
   // Today/Live data
   liveReps?: any[];
@@ -32,6 +38,7 @@ interface ReportsPeopleTabProps {
 
 export const ReportsPeopleTab = ({
   viewType,
+  accessLevel = 'team_lead',
   liveReps,
   workingCount,
   forgottenCount,
@@ -46,7 +53,88 @@ export const ReportsPeopleTab = ({
   rankingsTitle,
   allGoals,
 }: ReportsPeopleTabProps) => {
+  // Use org-grouped view for mgmt_group_lead+ or manager
+  const useOrgGrouping = hasMinAccess(accessLevel, 'mgmt_group_lead') || 
+                          accessLevel === 'manager' ||
+                          accessLevel === 'area_director';
+
+  // Transform live reps to OrgRepData
+  const liveOrgReps: OrgRepData[] = useMemo(() => {
+    if (!liveReps) return [];
+    return liveReps.map((r: any) => ({
+      userId: r.userId,
+      name: r.name,
+      year: r.year,
+      teamId: r.teamId,
+      teamName: r.teamName,
+      mgmtGroupId: r.mgmtGroupId,
+      mgmtGroupName: r.mgmtGroupName,
+      fp: r.todayStats?.fp || 0,
+      prmr: r.todayStats?.prmr || 0,
+      doors: r.todayStats?.doors || 0,
+      presentations: r.todayStats?.presentations || 0,
+      transitions: r.todayStats?.transitions || 0,
+      pitches: r.todayStats?.pitches || 0,
+      isWorking: r.isWorking,
+    }));
+  }, [liveReps]);
+
+  // Transform yesterday reps to OrgRepData
+  const yesterdayOrgReps: OrgRepData[] = useMemo(() => {
+    if (!yesterdayReps) return [];
+    return yesterdayReps.map((r: any) => ({
+      userId: r.userId,
+      name: r.name,
+      year: r.year,
+      teamId: r.teamId,
+      teamName: r.teamName,
+      mgmtGroupId: r.mgmtGroupId,
+      mgmtGroupName: r.mgmtGroupName,
+      fp: r.stats?.fp || 0,
+      prmr: r.stats?.prmr || 0,
+      doors: r.stats?.doors || 0,
+      presentations: r.stats?.presentations || 0,
+      transitions: r.stats?.transitions || 0,
+      pitches: r.stats?.pitches || 0,
+      isWorking: false,
+    }));
+  }, [yesterdayReps]);
+
+  // Transform aggregated reps to OrgRepData
+  const aggregatedOrgReps: OrgRepData[] = useMemo(() => {
+    if (!aggregatedReps) return [];
+    return aggregatedReps.map(r => ({
+      userId: r.userId,
+      name: r.name,
+      year: r.year,
+      teamId: r.teamId,
+      teamName: r.teamName,
+      mgmtGroupId: r.mgmtGroupId,
+      mgmtGroupName: r.mgmtGroupName,
+      fp: r.stats.fp,
+      prmr: r.stats.prmr,
+      doors: r.stats.doors,
+      presentations: r.stats.presentations,
+      transitions: r.stats.transitions,
+      pitches: r.stats.pitches,
+      hoursWorked: r.hoursWorked,
+      daysWorked: r.daysWorked,
+    }));
+  }, [aggregatedReps]);
+
   if (viewType === 'today') {
+    if (useOrgGrouping) {
+      return (
+        <div className="space-y-4">
+          <OrgGroupedRepList
+            reps={liveOrgReps}
+            accessLevel={accessLevel}
+            isLoading={liveLoading}
+            emptyMessage="No one working yet today"
+          />
+        </div>
+      );
+    }
     return (
       <div className="space-y-4">
         <LiveLeaderboard
@@ -61,6 +149,18 @@ export const ReportsPeopleTab = ({
   }
 
   if (viewType === 'yesterday') {
+    if (useOrgGrouping) {
+      return (
+        <div className="space-y-4">
+          <OrgGroupedRepList
+            reps={yesterdayOrgReps}
+            accessLevel={accessLevel}
+            isLoading={yesterdayLoading}
+            emptyMessage="No activity data from yesterday"
+          />
+        </div>
+      );
+    }
     return (
       <div className="space-y-4">
         <LiveLeaderboard
@@ -81,6 +181,20 @@ export const ReportsPeopleTab = ({
   }
 
   // Aggregated view (week/month/season/ytd)
+  if (useOrgGrouping) {
+    return (
+      <div className="space-y-4">
+        <RookieCohortCard reps={aggregatedReps || []} />
+        <OrgGroupedRepList
+          reps={aggregatedOrgReps}
+          accessLevel={accessLevel}
+          isLoading={aggregatedLoading}
+          emptyMessage="No activity data for this period"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Rookie Cohort Comparison */}

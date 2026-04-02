@@ -5,7 +5,9 @@ import { getLocalDateString } from "@/lib/utils";
 export interface RepRankingData {
   userId: string;
   name: string;
+  teamId?: string | null;
   teamName?: string;
+  mgmtGroupId?: string | null;
   mgmtGroupName?: string;
   year?: string;
   phone?: string;
@@ -125,6 +127,25 @@ export const useTeamAggregatedRankings = ({
           phone: r.phone || undefined,
         }
       ]) || []);
+
+      // Fetch team/MGMT group mapping from the team access cache
+      let accessibleReps: any[] = [];
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.startsWith('team-access-cache:v4:')) {
+            const cached = localStorage.getItem(key);
+            if (cached) {
+              const { data } = JSON.parse(cached);
+              accessibleReps = data?.accessibleReps || [];
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse team access cache:', e);
+      }
+      const repInfoMap = new Map(accessibleReps.map((r: any) => [r.userId, r]));
 
       // Fetch ALL entries for the period (including unfinalized)
       const { data: entries, error: entriesError } = await supabase
@@ -403,6 +424,7 @@ export const useTeamAggregatedRankings = ({
       const reps: RepRankingData[] = [];
       userTotals.forEach((totals, userId) => {
         const repInfo = repsMap.get(userId);
+        const teamInfo = repInfoMap.get(userId);
         if (!repInfo) return;
 
         const avgStartMinutes = totals.startTimeCount > 0 
@@ -415,7 +437,10 @@ export const useTeamAggregatedRankings = ({
         reps.push({
           userId,
           name: repInfo.name,
-          teamName: repInfo.teamName,
+          teamId: teamInfo?.teamId || null,
+          teamName: teamInfo?.teamName || repInfo.teamName,
+          mgmtGroupId: teamInfo?.mgmtGroupId || null,
+          mgmtGroupName: teamInfo?.mgmtGroupName || undefined,
           year: repInfo.year,
           phone: repInfo.phone,
           timezone: repInfo.timezone,

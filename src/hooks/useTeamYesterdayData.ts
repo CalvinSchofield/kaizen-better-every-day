@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 interface YesterdayRepData {
   userId: string;
   name: string;
+  teamId?: string | null;
   teamName: string;
+  mgmtGroupId?: string | null;
   mgmtGroupName: string;
   stats: {
     doors: number;
@@ -193,7 +195,9 @@ export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYe
         reps.push({
           userId: entry.user_id,
           name: repInfo?.name || 'Unknown',
+          teamId: teamInfo?.teamId || null,
           teamName,
+          mgmtGroupId: teamInfo?.mgmtGroupId || null,
           mgmtGroupName,
           stats: {
             doors: entry.doors_knocked || 0,

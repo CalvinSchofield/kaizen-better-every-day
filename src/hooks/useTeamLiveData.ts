@@ -8,6 +8,7 @@ interface LiveRepData {
   name: string;
   year?: string;
   teamId?: string | null; // For grouping in reports
+  mgmtGroupId?: string | null;
   teamName: string;
   mgmtGroupName: string;
   recruiterName?: string | null; // For organic hierarchy grouping
@@ -186,6 +187,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         // Use teamName from cache, or fallback to "Team [leader name]", or finally "No Team"
         const teamLeaderName = repInfo?.team_leader;
         const teamId = teamInfo?.teamId || null;
+        const mgmtGroupId = teamInfo?.mgmtGroupId || null;
         const teamName = teamInfo?.teamName || 
                         (teamLeaderName ? `Team ${teamLeaderName}` : 'No Team');
         const mgmtGroupName = teamInfo?.mgmtGroupName || '';
@@ -287,6 +289,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
               name: repInfo?.name || 'Unknown',
               year: repInfo?.year || teamInfo?.year || undefined,
               teamId,
+              mgmtGroupId,
               teamName,
               mgmtGroupName,
               recruiterName,
@@ -332,6 +335,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
             userId,
             name: repInfo?.name || 'Unknown',
             teamId,
+            mgmtGroupId,
             teamName,
             mgmtGroupName,
             recruiterName,
