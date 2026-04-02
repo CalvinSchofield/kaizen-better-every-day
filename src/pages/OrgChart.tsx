@@ -11,6 +11,7 @@ import { getCleanName } from "@/utils/nameUtils";
 import { VisualRecruiterTree, type TreeNode, type RoleColor } from "@/components/mygroup/org/VisualRecruiterTree";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrgStructureTree } from "@/components/org/OrgStructureTree";
+import { OfficeDetailDrawer } from "@/components/org/OfficeDetailDrawer";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
 import { SIGNED_PLUS_STAGES, STAGES } from "@/utils/stageConstants";
 import type { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
@@ -368,6 +369,7 @@ const OrgChart = () => {
       const leadUserId = srMgmtGroup?.lead_user_id || null;
 
       if (leadUserId) {
+        // Try to find the leader among the children (promoted leader pattern)
         const leaderIdx = children.findIndex((c) => c.userId === leadUserId && !c.isLabelNode);
         if (leaderIdx !== -1) {
           const leaderNode = children[leaderIdx];
@@ -378,6 +380,24 @@ const OrgChart = () => {
             roleColor: "sr_mgmt_group",
             role: "Sr MGMT Group Leader",
             children: sortByDownlineSize([...leaderNode.children, ...siblings]),
+          };
+        }
+
+        // Leader not among children — create a person node if rep data exists
+        const leaderRep = repMap.get(leadUserId);
+        if (leaderRep) {
+          const leaderRecruit = getRecruitForRep(leaderRep);
+          return {
+            id: `sr-mgmt-${srMgmtGroupId}`,
+            name: leaderRep.name || srMgmtGroup?.name || "Sr MGMT Group",
+            userId: leadUserId,
+            stage: leaderRecruit?.stage || leaderRep.stage || null,
+            profilePhotoUrl: leaderRep.profile_photo_url,
+            role: "Sr MGMT Group Leader",
+            year: leaderRep.year || leaderRecruit?.year || null,
+            isAreaDirector: areaDirectorSet.has(leadUserId),
+            roleColor: "sr_mgmt_group",
+            children: sortByDownlineSize([...children]),
           };
         }
       }
@@ -551,8 +571,49 @@ const OrgChart = () => {
         .filter((node) => node.children.length > 0)
         .sort((a, b) => countDescendants(b) - countDescendants(a));
 
-      // After creating MGMT group nodes, wrap them in Sr MGMT Group containers
-      // This shows upline (e.g. Gunnar Bramwell Sr MGMT)
+      // When grouping by office, wrap MGMT groups under office containers instead of Sr MGMT
+      if (groupByOffice) {
+        const officeChildren = new Map<string, TreeNode[]>();
+        const noOfficeNodes: TreeNode[] = [];
+
+        groupedRoots.forEach((mgmtNode) => {
+          const mgmtGroupId = mgmtNode.id.startsWith("mgmt-") ? mgmtNode.id.replace("mgmt-", "") : null;
+          const mg = mgmtGroupId ? mgmtGroupMap.get(mgmtGroupId) : null;
+          const officeId = mg?.office_id;
+
+          if (officeId) {
+            if (!officeChildren.has(officeId)) officeChildren.set(officeId, []);
+            officeChildren.get(officeId)!.push(mgmtNode);
+          } else {
+            noOfficeNodes.push(mgmtNode);
+          }
+        });
+
+        const officeNodes: TreeNode[] = [];
+        officeChildren.forEach((children, officeId) => {
+          const office = treeData.offices.find((o: any) => o.id === officeId);
+          officeNodes.push({
+            id: `office-${officeId}`,
+            name: office?.name || "Office",
+            userId: null,
+            stage: null,
+            profilePhotoUrl: null,
+            role: null,
+            year: null,
+            isAreaDirector: false,
+            roleColor: "area_director",
+            isLabelNode: true,
+            isOfficeNode: true,
+            officeId,
+            children: sortByDownlineSize(children),
+          });
+        });
+
+        const finalGrouped = sortByDownlineSize([...officeNodes, ...noOfficeNodes]);
+        return sortByDownlineSize([...finalGrouped, ...ungroupedRoots]);
+      }
+
+      // Default: group by Sr MGMT
       const mgmtGroupToSrMgmt = new Map<string, string>();
       mgmtGroups.forEach((mg) => {
         if (mg.sr_mgmt_group_id) mgmtGroupToSrMgmt.set(mg.id, mg.sr_mgmt_group_id);
@@ -562,7 +623,6 @@ const OrgChart = () => {
       const standaloneMgmtNodes: TreeNode[] = [];
 
       groupedRoots.forEach((mgmtNode) => {
-        // Extract mgmtGroupId from node id (format: "mgmt-{id}" or promoted node)
         const mgmtGroupId = mgmtNode.id.startsWith("mgmt-") ? mgmtNode.id.replace("mgmt-", "") : null;
         const srMgmtId = mgmtGroupId ? mgmtGroupToSrMgmt.get(mgmtGroupId) : null;
 
@@ -585,7 +645,7 @@ const OrgChart = () => {
     }
 
     return sortByDownlineSize(dedupedRoots);
-  }, [treeData, teamAccess, currentAuthUserId, accessLevel, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap]);
+  }, [treeData, teamAccess, currentAuthUserId, accessLevel, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap, groupByOffice]);
 
 
   // Build a lookup for full recruit data — cross-references current org structure
@@ -679,6 +739,11 @@ const OrgChart = () => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [drawerRecruit, setDrawerRecruit] = useState<Recruit | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [officeDetailId, setOfficeDetailId] = useState<string | null>(null);
+
+  const handleOfficeNodeClick = useCallback((officeId: string) => {
+    setOfficeDetailId(officeId);
+  }, []);
 
   const handleSelectNode = useCallback(
     (node: { id: string; name: string; userId: string | null; stage: string | null } | null) => {
@@ -787,6 +852,7 @@ const OrgChart = () => {
                 groupByOffice={groupByOffice}
                 onGroupByOfficeChange={setGroupByOffice}
                 showGroupByOfficeToggle={OFFICE_GROUPED_ACCESS_LEVELS.has(teamAccess?.accessLevel || '')}
+                onOfficeNodeClick={handleOfficeNodeClick}
               />
             )}
           </div>
@@ -813,6 +879,22 @@ const OrgChart = () => {
           }
         }}
         initialTab="details"
+      />
+
+      {/* Office Detail Drawer */}
+      <OfficeDetailDrawer
+        open={!!officeDetailId}
+        onOpenChange={(open) => !open && setOfficeDetailId(null)}
+        office={officeDetailId && treeData ? (treeData.offices.find((o: any) => o.id === officeDetailId) || null) : null}
+        orgData={treeData ? {
+          officeStaff: treeData.officeStaff,
+          mgmtGroups: treeData.mgmtGroups,
+          srMgmtGroups: treeData.srMgmtGroups,
+          teams: treeData.teams,
+          teamMgmt: treeData.teamMgmt,
+          reps: treeData.reps,
+          recruits: treeData.recruits,
+        } : undefined}
       />
 
       {/* Org Chart Tour */}

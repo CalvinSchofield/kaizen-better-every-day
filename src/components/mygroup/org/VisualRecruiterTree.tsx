@@ -32,6 +32,10 @@ export interface TreeNode {
   roleColor?: RoleColor;
   /** If true, this is a lightweight label node (e.g. "Calvin Schofield Team") not a real person */
   isLabelNode?: boolean;
+  /** If true, this is an office container node */
+  isOfficeNode?: boolean;
+  /** Office ID for office nodes */
+  officeId?: string;
   children: TreeNode[];
 }
 
@@ -46,6 +50,8 @@ interface PositionedNode {
   isAreaDirector?: boolean;
   roleColor?: RoleColor;
   isLabelNode?: boolean;
+  isOfficeNode?: boolean;
+  officeId?: string;
   x: number;
   y: number;
   childCount: number;
@@ -171,6 +177,8 @@ function layoutNodes(
     isAreaDirector: node.isAreaDirector,
     roleColor: nodeRoleColor,
     isLabelNode: node.isLabelNode,
+    isOfficeNode: node.isOfficeNode,
+    officeId: node.officeId,
     x: cx,
     y: cy,
     childCount: node.children.length,
@@ -235,6 +243,7 @@ interface VisualRecruiterTreeProps {
   groupByOffice?: boolean;
   onGroupByOfficeChange?: (value: boolean) => void;
   showGroupByOfficeToggle?: boolean;
+  onOfficeNodeClick?: (officeId: string) => void;
 }
 
 export const VisualRecruiterTree = ({
@@ -244,6 +253,7 @@ export const VisualRecruiterTree = ({
   groupByOffice = false,
   onGroupByOfficeChange,
   showGroupByOfficeToggle = false,
+  onOfficeNodeClick,
 }: VisualRecruiterTreeProps) => {
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
@@ -366,7 +376,7 @@ export const VisualRecruiterTree = ({
                 <AnimatePresence>
                   {nodes.map((node) => {
                     if (node.isLabelNode) {
-                      return <LabelNodeRenderer key={node.id} node={node} PADDING={PADDING} collapsedIds={collapsedIds} toggleCollapse={toggleCollapse} />;
+                      return <LabelNodeRenderer key={node.id} node={node} PADDING={PADDING} collapsedIds={collapsedIds} toggleCollapse={toggleCollapse} onOfficeNodeClick={node.isOfficeNode ? onOfficeNodeClick : undefined} />;
                     }
 
                     const cleanName = getCleanName(node.name);
@@ -491,11 +501,13 @@ function LabelNodeRenderer({
   PADDING,
   collapsedIds,
   toggleCollapse,
+  onOfficeNodeClick,
 }: {
   node: PositionedNode;
   PADDING: number;
   collapsedIds: Set<string>;
   toggleCollapse: (id: string, e: React.MouseEvent) => void;
+  onOfficeNodeClick?: (officeId: string) => void;
 }) {
   const isCollapsed = collapsedIds.has(node.id);
   const roleColor = node.roleColor || "none";
@@ -532,9 +544,14 @@ function LabelNodeRenderer({
           ROLE_LABEL_TEXT[roleColor]
         )}
         onClick={(e) => {
-          if (node.totalDescendants > 0) toggleCollapse(node.id, e);
+          e.stopPropagation();
+          if (node.isOfficeNode && node.officeId && onOfficeNodeClick) {
+            onOfficeNodeClick(node.officeId);
+          } else if (node.totalDescendants > 0) {
+            toggleCollapse(node.id, e);
+          }
         }}
-        style={{ cursor: node.totalDescendants > 0 ? "pointer" : "default" }}
+        style={{ cursor: (node.isOfficeNode || node.totalDescendants > 0) ? "pointer" : "default" }}
       >
         <span className="truncate max-w-[80px]">{node.name}</span>
         {node.totalDescendants > 0 && (
