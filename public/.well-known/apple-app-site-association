@@ -7,5 +7,10 @@
         "paths": ["/add-applicant", "/add-applicant?*", "/auth", "/auth?*"]
       }
     ]
+  },
+  "webcredentials": {
+    "apps": [
+      "QCVT3GD3YM.com.calvinschofield.kaizen.beter.everyday"
+    ]
   }
 }

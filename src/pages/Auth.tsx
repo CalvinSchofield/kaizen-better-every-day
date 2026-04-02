@@ -423,6 +423,7 @@ const Auth = () => {
                 required
                 disabled={isLoading}
                 minLength={6}
+                autoComplete={isLogin ? "current-password" : "new-password"}
               />
             </div>
             <Button
