@@ -32,6 +32,10 @@ export interface TreeNode {
   roleColor?: RoleColor;
   /** If true, this is a lightweight label node (e.g. "Calvin Schofield Team") not a real person */
   isLabelNode?: boolean;
+  /** If true, this is an office container node */
+  isOfficeNode?: boolean;
+  /** Office ID for office nodes */
+  officeId?: string;
   children: TreeNode[];
 }
 
