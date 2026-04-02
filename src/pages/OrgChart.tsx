@@ -881,6 +881,22 @@ const OrgChart = () => {
         initialTab="details"
       />
 
+      {/* Office Detail Drawer */}
+      <OfficeDetailDrawer
+        open={!!officeDetailId}
+        onOpenChange={(open) => !open && setOfficeDetailId(null)}
+        office={officeDetailId && treeData ? (treeData.offices.find((o: any) => o.id === officeDetailId) || null) : null}
+        orgData={treeData ? {
+          officeStaff: treeData.officeStaff,
+          mgmtGroups: treeData.mgmtGroups,
+          srMgmtGroups: treeData.srMgmtGroups,
+          teams: treeData.teams,
+          teamMgmt: treeData.teamMgmt,
+          reps: treeData.reps,
+          recruits: treeData.recruits,
+        } : undefined}
+      />
+
       {/* Org Chart Tour */}
       <PageTour
         steps={getOrgChartTourSteps(teamAccess?.accessLevel)}
