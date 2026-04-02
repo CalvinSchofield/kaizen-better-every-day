@@ -1,16 +1,14 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, ChevronRight, Bell, Percent, ClipboardList, RotateCcw, BarChart3, Save, Sparkles } from "lucide-react";
+import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, Bell, RotateCcw, Save, LogOut } from "lucide-react";
 import { format } from "date-fns";
 import { parseLocalDate } from "@/utils/dateUtils";
 import { useRepData } from "@/hooks/useRepData";
@@ -18,12 +16,10 @@ import { useUnifiedPushNotifications } from "@/hooks/useUnifiedPushNotifications
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
 import { resetAllTours } from "@/hooks/usePageTour";
-
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { IntroWizard } from "@/components/IntroWizard";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useOnboardingSegment } from "@/hooks/useOnboardingSegment";
@@ -35,8 +31,10 @@ import { TeamRecapStory } from "@/components/team-recap";
 import { PastRecapsSection } from "@/components/recap/PastRecapsSection";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCumulativeFP } from "@/hooks/useCumulativeFP";
-
 import { Separator } from "@/components/ui/separator";
+import { SettingsRow } from "@/components/settings/SettingsRow";
+import { SettingsSection } from "@/components/settings/SettingsSection";
+import { useMeVsMe } from "@/hooks/useMeVsMe";
 
 // Payscale tier options for recap
 const RECAP_TIER_OPTIONS = [60, 100, 150, 200, 250, 300];
@@ -74,25 +72,36 @@ export default function Settings() {
   const { repData } = useRepData();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { goals, updateGoals: updateRepGoals, isUpdating: isUpdatingGoals } = useRepGoals();
   const { resetIntro, markIntroComplete } = useIntroStatus(repData?.user_id);
   const teamAccess = useTeamAccess();
   const { data: cumulativeData } = useCumulativeFP();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
   const { segment: onboardingSegment } = useOnboardingSegment(repData);
+  const { isEnabled: meVsMeEnabled, isLoading: meVsMeLoading, toggleEnabled: toggleMeVsMe, isToggling: isTogglingMeVsMe } = useMeVsMe();
   
-  // Get user's current cumulative FP+ for minimum tier restriction
   const userCumulativeFpPlus = cumulativeData && cumulativeData.length > 0 
     ? cumulativeData[cumulativeData.length - 1].cumulativeFp 
     : 0;
   
+  // Drawer states
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [counterName, setCounterName] = useState("");
   const [counterEmoji, setCounterEmoji] = useState("📊");
   const [deleteConfirmCounter, setDeleteConfirmCounter] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Intro wizard state - show immediately in Settings
+  // Drawer-based section states
+  const [summerDrawerOpen, setSummerDrawerOpen] = useState(false);
+  const [cancelRateDrawerOpen, setCancelRateDrawerOpen] = useState(false);
+  const [countersDrawerOpen, setCountersDrawerOpen] = useState(false);
+  const [notificationsDrawerOpen, setNotificationsDrawerOpen] = useState(false);
+  const [recapsDrawerOpen, setRecapsDrawerOpen] = useState(false);
+  const [meVsMeDrawerOpen, setMeVsMeDrawerOpen] = useState(false);
+  const [devToolsDrawerOpen, setDevToolsDrawerOpen] = useState(false);
+  
+  // Intro wizard state
   const [showIntroWizard, setShowIntroWizard] = useState(false);
   
   // Profile state
@@ -108,12 +117,19 @@ export default function Settings() {
   // EFP mode state
   const [isSavingEfp, setIsSavingEfp] = useState(false);
   
+  // Sales Logger state
+  const [isSavingSalesLogger, setIsSavingSalesLogger] = useState(false);
+  
   // Counter layout state
   const [counterLayout, setCounterLayout] = useState<CounterLayoutConfig>({
     order: DEFAULT_COUNTER_ORDER
   });
   const [isSavingLayout, setIsSavingLayout] = useState(false);
   const [draggedCounter, setDraggedCounter] = useState<string | null>(null);
+  
+  // Cancel rate
+  const [cancelRate, setCancelRate] = useState(10);
+  const [isSavingCancelRate, setIsSavingCancelRate] = useState(false);
   
   // Push notifications
   const {
@@ -128,34 +144,15 @@ export default function Settings() {
     debug: pushDebug,
     refreshStoredTokenFlag,
   } = useUnifiedPushNotifications();
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
   const [isSendingTestPush, setIsSendingTestPush] = useState(false);
   const [apnsTokenCount, setApnsTokenCount] = useState<number | null>(null);
   const [isCheckingApnsToken, setIsCheckingApnsToken] = useState(false);
-  
-  // Collapsible states
-  const [isSummerDatesOpen, setIsSummerDatesOpen] = useState(false);
-  const [isEfpModeOpen, setIsEfpModeOpen] = useState(false);
-  const [isCancelRateOpen, setIsCancelRateOpen] = useState(false);
-  const [cancelRate, setCancelRate] = useState(10); // percentage (5-15)
-  const [isSavingCancelRate, setIsSavingCancelRate] = useState(false);
-  const [isTrackCountersOpen, setIsTrackCountersOpen] = useState(false);
-  const [isSalesLoggerOpen, setIsSalesLoggerOpen] = useState(false);
-  const [isSavingSalesLogger, setIsSavingSalesLogger] = useState(false);
-  
-  
-  
-  // Me vs Me state
-  const [isMeVsMeOpen, setIsMeVsMeOpen] = useState(false);
 
-  // Archived reports state
-  const [isArchivedReportsOpen, setIsArchivedReportsOpen] = useState(false);
+  // Recaps
   const [showTeamRecapStory, setShowTeamRecapStory] = useState(false);
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const { data: publishedReports } = useWeeklyReports('published');
-
-
 
   const canAddCustomCounters = repData?.year === "Vet" || repData?.year === "Sophomore";
   const isVet = repData?.year === "Vet";
@@ -177,7 +174,6 @@ export default function Settings() {
     }
   }, [repData]);
 
-  // Track profile changes
   useEffect(() => {
     if (repData) {
       const nameChanged = name !== (repData.name || "");
@@ -185,12 +181,11 @@ export default function Settings() {
     }
   }, [name, repData]);
   
-  // Load summer dates and EFP mode from database on mount
+  // Load summer dates and layout config
   useEffect(() => {
     const loadUserData = async () => {
       if (!repData?.user_id) return;
       
-      // Load season config for summer dates
       const { data: seasonConfig } = await supabase
         .from('season_config')
         .select('*')
@@ -206,7 +201,6 @@ export default function Settings() {
         }
       }
       
-      // Load counter layout config
       if ((repData as any).counter_layout_config) {
         setCounterLayout((repData as any).counter_layout_config as CounterLayoutConfig);
       }
@@ -215,53 +209,29 @@ export default function Settings() {
     loadUserData();
   }, [repData]);
 
-  // Load cancel rate from goals
   useEffect(() => {
     if (goals?.cancel_rate !== undefined) {
       setCancelRate(Math.round(goals.cancel_rate * 100));
     }
   }, [goals?.cancel_rate]);
 
+  // ── Handlers (unchanged) ──────────────────────────────────────────
 
   const handleSaveProfile = async () => {
     if (!repData?.id) return;
-    
     if (!name.trim()) {
-      toast({
-        title: "Name required",
-        description: "Please enter your name",
-        variant: "destructive",
-      });
+      toast({ title: "Name required", description: "Please enter your name", variant: "destructive" });
       return;
     }
-
     setIsSavingProfile(true);
-    
     try {
-      const { error } = await supabase
-        .from('reps')
-        .update({
-          name: name.trim(),
-        })
-        .eq('id', repData.id);
-      
+      const { error } = await supabase.from('reps').update({ name: name.trim() }).eq('id', repData.id);
       if (error) throw error;
-      
       await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
-      
-      toast({
-        title: "Profile updated",
-        description: "Your changes have been saved",
-      });
-      
+      toast({ title: "Profile updated", description: "Your changes have been saved" });
       setHasProfileChanges(false);
     } catch (error: any) {
-      console.error("Error saving profile:", error);
-      toast({
-        title: "Failed to save",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Failed to save", description: error.message, variant: "destructive" });
     } finally {
       setIsSavingProfile(false);
     }
@@ -276,17 +246,9 @@ export default function Settings() {
     setIsSavingCancelRate(true);
     try {
       await updateRepGoals({ cancel_rate: newRate / 100 });
-      toast({
-        title: "Cancel rate saved",
-        description: `Your cancel/unfunded rate has been set to ${newRate}%`,
-      });
+      toast({ title: "Cancel rate saved", description: `Set to ${newRate}%` });
     } catch (error: any) {
-      console.error("Error saving cancel rate:", error);
-      toast({
-        title: "Failed to save",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Failed to save", description: error.message, variant: "destructive" });
     } finally {
       setIsSavingCancelRate(false);
     }
@@ -294,67 +256,25 @@ export default function Settings() {
 
   const handleAddCounter = async () => {
     if (!counterName.trim()) {
-      toast({
-        title: "Name required",
-        description: "Please enter a name for your counter",
-        variant: "destructive",
-      });
+      toast({ title: "Name required", description: "Please enter a name for your counter", variant: "destructive" });
       return;
     }
-
     if (counterName.length > 20) {
-      toast({
-        title: "Name too long",
-        description: "Counter names must be 20 characters or less",
-        variant: "destructive",
-      });
+      toast({ title: "Name too long", description: "Counter names must be 20 characters or less", variant: "destructive" });
       return;
     }
-
     setIsSaving(true);
-
     try {
-      const newCounter: CustomCounter = {
-        id: crypto.randomUUID(),
-        name: counterName.trim(),
-        emoji: counterEmoji || "📊",
-        hidden: false,
-      };
-
+      const newCounter: CustomCounter = { id: crypto.randomUUID(), name: counterName.trim(), emoji: counterEmoji || "📊", hidden: false };
       const updatedCounters = [...customCounters, newCounter];
-      
-      console.log("Adding counter:", newCounter);
-      console.log("Updated counters array:", updatedCounters);
-
-      const { data, error } = await supabase
-        .from("reps")
-        .update({ custom_counter_config: updatedCounters as any })
-        .eq("id", repData?.id)
-        .select();
-      
-      console.log("Supabase update response:", { data, error });
-
+      const { error } = await supabase.from("reps").update({ custom_counter_config: updatedCounters as any }).eq("id", repData?.id).select();
       if (error) throw error;
-
-      // Force immediate refetch
       await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       await queryClient.refetchQueries({ queryKey: ['rep-data'] });
-
-      toast({
-        title: "Counter added",
-        description: `${newCounter.emoji} ${newCounter.name} has been added to your Track page`,
-      });
-
-      setCounterName("");
-      setCounterEmoji("📊");
-      setShowAddSheet(false);
+      toast({ title: "Counter added", description: `${newCounter.emoji} ${newCounter.name} has been added` });
+      setCounterName(""); setCounterEmoji("📊"); setShowAddSheet(false);
     } catch (error: any) {
-      console.error("Error adding counter:", error);
-      toast({
-        title: "Failed to add counter",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Failed to add counter", description: error.message, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -363,145 +283,59 @@ export default function Settings() {
   const handleDeleteCounter = async (counterId: string) => {
     try {
       const updatedCounters = customCounters.filter(c => c.id !== counterId);
-      
-      // Also remove from counter layout order
       const updatedOrder = counterLayout.order.filter(id => id !== `custom_${counterId}`);
-      
-      const { error } = await supabase
-        .from('reps')
-        .update({ 
-          custom_counter_config: updatedCounters as any,
-          counter_layout_config: { order: updatedOrder } as any
-        })
-        .eq('id', repData?.id);
-
+      const { error } = await supabase.from('reps').update({ custom_counter_config: updatedCounters as any, counter_layout_config: { order: updatedOrder } as any }).eq('id', repData?.id);
       if (error) throw error;
-
-      toast({
-        title: "Counter deleted",
-        description: "Custom counter has been removed.",
-      });
-      
+      toast({ title: "Counter deleted" });
       setDeleteConfirmCounter(null);
       await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       await queryClient.refetchQueries({ queryKey: ['rep-data'] });
     } catch (error: any) {
-      console.error('Error deleting counter:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete counter. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to delete counter.", variant: "destructive" });
     }
   };
 
   const handleToggleCounterVisibility = async (counterId: string) => {
     try {
-      const updatedCounters = customCounters.map(c => 
-        c.id === counterId ? { ...c, hidden: !c.hidden } : c
-      );
-      
-      const { error } = await supabase
-        .from('reps')
-        .update({ 
-          custom_counter_config: updatedCounters as any
-        })
-        .eq('id', repData?.id);
-
+      const updatedCounters = customCounters.map(c => c.id === counterId ? { ...c, hidden: !c.hidden } : c);
+      const { error } = await supabase.from('reps').update({ custom_counter_config: updatedCounters as any }).eq('id', repData?.id);
       if (error) throw error;
-
       const wasHidden = customCounters.find(c => c.id === counterId)?.hidden;
-
-      toast({
-        title: wasHidden ? "Counter visible" : "Counter hidden",
-        description: wasHidden 
-          ? "Counter is now visible on Track page." 
-          : "Counter hidden from Track page.",
-      });
-      
+      toast({ title: wasHidden ? "Counter visible" : "Counter hidden" });
       await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       await queryClient.refetchQueries({ queryKey: ['rep-data'] });
     } catch (error: any) {
-      console.error('Error toggling counter visibility:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update counter visibility.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to update counter visibility.", variant: "destructive" });
     }
   };
 
   const handleSaveSummerDates = async () => {
     if (!summerStart || !summerEnd) {
-      toast({
-        title: "Dates required",
-        description: "Please select both start and end dates",
-        variant: "destructive",
-      });
+      toast({ title: "Dates required", description: "Please select both start and end dates", variant: "destructive" });
       return;
     }
-    
     const minDate = new Date('2026-04-12');
     const maxDate = new Date('2026-09-27');
-    
     if (summerStart < minDate || summerStart > maxDate || summerEnd < minDate || summerEnd > maxDate) {
-      toast({
-        title: "Invalid dates",
-        description: "Dates must be between April 12, 2026 and September 27, 2026",
-        variant: "destructive",
-      });
+      toast({ title: "Invalid dates", description: "Dates must be between April 12 and September 27, 2026", variant: "destructive" });
       return;
     }
-    
     if (summerEnd < summerStart) {
-      toast({
-        title: "Invalid date range",
-        description: "End date must be after start date",
-        variant: "destructive",
-      });
+      toast({ title: "Invalid date range", description: "End date must be after start date", variant: "destructive" });
       return;
     }
-    
     setIsSavingSummer(true);
-    
     const startDateStr = format(summerStart, 'yyyy-MM-dd');
     const endDateStr = format(summerEnd, 'yyyy-MM-dd');
-    
     try {
-      const { error } = await supabase
-        .from('season_config')
-        .upsert({
-          user_id: repData?.user_id,
-          personal_summer_start: startDateStr,
-          personal_summer_end: endDateStr,
-        }, {
-          onConflict: 'user_id'
-        });
-      
+      const { error } = await supabase.from('season_config').upsert({ user_id: repData?.user_id, personal_summer_start: startDateStr, personal_summer_end: endDateStr }, { onConflict: 'user_id' });
       if (error) throw error;
-      
-      // Sync via edge function
       if (repData?.id) {
-        await supabase.functions.invoke('update-summer-dates', {
-          body: {
-            repId: repData.id,
-            startDate: startDateStr,
-            endDate: endDateStr,
-          },
-        });
+        await supabase.functions.invoke('update-summer-dates', { body: { repId: repData.id, startDate: startDateStr, endDate: endDateStr } });
       }
-      
-      toast({
-        title: "Summer dates saved",
-        description: "Your personal summer season has been updated",
-      });
+      toast({ title: "Summer dates saved" });
     } catch (error: any) {
-      console.error("Error saving summer dates:", error);
-      toast({
-        title: "Failed to save dates",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Failed to save dates", description: error.message, variant: "destructive" });
     } finally {
       setIsSavingSummer(false);
     }
@@ -509,97 +343,43 @@ export default function Settings() {
   
   const handleToggleEfpMode = async (enabled: boolean) => {
     setIsSavingEfp(true);
-    
     try {
-      // Update database first
-      const { error } = await supabase
-        .from('reps')
-        .update({ efp_mode_enabled: enabled })
-        .eq('id', repData?.id);
-      
+      const { error } = await supabase.from('reps').update({ efp_mode_enabled: enabled }).eq('id', repData?.id);
       if (error) throw error;
-      
-      // Invalidate queries to refetch with new value (uses correct key with userId)
       await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
-      
-      toast({
-        title: enabled ? "EFP mode enabled" : "EFP mode disabled",
-        description: enabled 
-          ? "EFP will now be your primary metric in Calendar and Insights"
-          : "FP+ will now be your primary metric",
-      });
+      toast({ title: enabled ? "EFP mode enabled" : "EFP mode disabled", description: enabled ? "EFP is now your primary metric" : "FP+ is now your primary metric" });
     } catch (error: any) {
-      console.error("Error toggling EFP mode:", error);
-      
-      toast({
-        title: "Failed to update EFP mode",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Failed to update EFP mode", description: error.message, variant: "destructive" });
     } finally {
       setIsSavingEfp(false);
     }
   };
   
-  const handleDragStart = (counterId: string) => {
-    setDraggedCounter(counterId);
-  };
-  
+  const handleDragStart = (counterId: string) => { setDraggedCounter(counterId); };
   const handleDragOver = (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
     if (!draggedCounter || draggedCounter === targetId) return;
-    
-    // Build a combined list of all counter IDs (core + custom)
-    const allCounterIds = [
-      ...counterLayout.order,
-      ...customCounters.map(c => `custom_${c.id}`)
-    ];
-    
+    const allCounterIds = [...counterLayout.order, ...customCounters.map(c => `custom_${c.id}`)];
     const draggedIndex = allCounterIds.indexOf(draggedCounter);
     const targetIndex = allCounterIds.indexOf(targetId);
-    
     if (draggedIndex === -1 || targetIndex === -1) return;
-    
-    // Reorder the combined list
     const reordered = [...allCounterIds];
     reordered.splice(draggedIndex, 1);
     reordered.splice(targetIndex, 0, draggedCounter);
-    
-    // Update order (includes both core and custom IDs)
-    setCounterLayout({
-      order: reordered
-    });
+    setCounterLayout({ order: reordered });
   };
-  
-  const handleDragEnd = () => {
-    setDraggedCounter(null);
-  };
+  const handleDragEnd = () => { setDraggedCounter(null); };
   
   const handleSaveCounterLayout = async () => {
     setIsSavingLayout(true);
-    
     try {
-      const { error } = await supabase
-        .from('reps')
-        .update({ counter_layout_config: counterLayout as any })
-        .eq('id', repData?.id);
-      
+      const { error } = await supabase.from('reps').update({ counter_layout_config: counterLayout as any }).eq('id', repData?.id);
       if (error) throw error;
-      
       await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       await queryClient.refetchQueries({ queryKey: ['rep-data'] });
-      
-      toast({
-        title: "Layout saved",
-        description: "Your counter layout has been updated",
-      });
+      toast({ title: "Layout saved" });
     } catch (error: any) {
-      console.error("Error saving counter layout:", error);
-      toast({
-        title: "Failed to save layout",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Failed to save layout", description: error.message, variant: "destructive" });
     } finally {
       setIsSavingLayout(false);
     }
@@ -607,46 +387,25 @@ export default function Settings() {
 
   const commonEmojis = ["📊", "📈", "📞", "🎯", "✅", "💰", "📝", "🔥", "⭐", "💪"];
 
-  // Handle notification toggle
   const handleToggleNotifications = async (enabled: boolean) => {
     setIsSavingNotifications(true);
     try {
       if (enabled) {
         const success = await subscribe();
-        if (success) {
-          toast({
-            title: "Notifications enabled",
-            description: "You'll receive reminders to save your work after sunset.",
-          });
-        } else {
-          toast({
-            title: "Could not enable notifications",
-            description: "Check your browser settings and try again.",
-            variant: "destructive",
-          });
-        }
+        if (success) { toast({ title: "Notifications enabled" }); }
+        else { toast({ title: "Could not enable notifications", description: "Check your browser settings.", variant: "destructive" }); }
       } else {
         const success = await unsubscribe();
-        if (success) {
-          toast({
-            title: "Notifications disabled",
-            description: "You won't receive save reminders anymore.",
-          });
-        }
+        if (success) { toast({ title: "Notifications disabled" }); }
       }
     } catch (error: any) {
-      console.error("Error toggling notifications:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update notification settings.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to update notification settings.", variant: "destructive" });
     } finally {
       setIsSavingNotifications(false);
     }
   };
 
-  // Build ordered list combining core and custom counters
+  // Build ordered counters list
   const orderedCounters = [
     ...counterLayout.order.map(id => {
       if (id.startsWith('custom_')) {
@@ -661,35 +420,29 @@ export default function Settings() {
       .map(c => ({ id: `custom_${c.id}`, emoji: c.emoji, name: c.name, isCustom: true, hidden: c.hidden }))
   ] as Array<{ id: string; emoji: string; name: string; isCustom: boolean; hidden?: boolean }>;
 
-  // Determine user type for intro wizard
   const getUserType = (): 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader' => {
     const year = repData?.year || "Rookie";
     const isVetOrSoph = year === "Vet" || year === "Sophomore";
     const committedBlitzes = (repData?.committed_blitzes as any[]) || [];
     const hasAttendedBlitz = committedBlitzes.some((blitz: any) => {
       if (!blitz?.endDate) return false;
-      const endDate = new Date(blitz.endDate);
-      return endDate < new Date();
+      return new Date(blitz.endDate) < new Date();
     });
-    
-    // Check phase completion
     const phase = repData?.ramp_to_blitz_phase || "Not started";
     const phaseLower = phase.toLowerCase();
     const phase4Complete = phaseLower.includes("phase 4") && phaseLower.includes("✅");
-    
     if (isLeader && isVetOrSoph) return 'leader';
     if (isVetOrSoph) return 'vet';
     if (year === "Rookie" && phase4Complete && hasAttendedBlitz) return 'post-blitz-rookie';
     return 'pre-blitz-rookie';
   };
 
-  const handleShowIntro = () => {
-    setShowIntroWizard(true);
-  };
+  const handleShowIntro = () => { setShowIntroWizard(true); };
+  const handleIntroComplete = () => { setShowIntroWizard(false); markIntroComplete(); };
 
-  const handleIntroComplete = () => {
-    setShowIntroWizard(false);
-    markIntroComplete();
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate('/auth');
   };
 
   // Show intro wizard if requested
@@ -706,1061 +459,669 @@ export default function Settings() {
     );
   }
 
+  const summerDatesSummary = summerStart && summerEnd
+    ? `${format(summerStart, 'MMM d')} – ${format(summerEnd, 'MMM d')}`
+    : 'Not set';
+
+  const notificationStatus = isSubscribed ? "On" : permission === 'denied' ? "Blocked" : "Off";
+
   return (
-    <div className="min-h-screen bg-background p-4 pb-24">
-      <div className="max-w-lg mx-auto space-y-6">
-        {/* Profile Section - Simple */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <ProfilePhotoUpload
-                currentPhotoUrl={repData?.profile_photo_url}
-                name={repData?.name || "User"}
-                onPhotoUpdated={handlePhotoUpdate}
-                size="md"
-                showRemoveButton={false}
+    <div className="min-h-screen bg-background pb-28">
+      <div className="max-w-lg mx-auto space-y-6 pt-6 px-4">
+
+        {/* ── Profile Hero ────────────────────────────────── */}
+        <div className="flex flex-col items-center gap-3 py-4">
+          <ProfilePhotoUpload
+            currentPhotoUrl={repData?.profile_photo_url}
+            name={repData?.name || "User"}
+            onPhotoUpdated={handlePhotoUpdate}
+            size="lg"
+            showRemoveButton={false}
+          />
+          <div className="w-full max-w-[220px] space-y-1 text-center">
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+              className="text-center text-lg font-semibold h-10 border-0 bg-transparent shadow-none focus-visible:ring-1"
+            />
+            <p className="text-xs text-muted-foreground">
+              {repData?.year || "Rep"}
+            </p>
+          </div>
+          {hasProfileChanges && (
+            <Button
+              onClick={handleSaveProfile}
+              disabled={isSavingProfile}
+              size="sm"
+              className="gap-2"
+            >
+              <Save className="h-3.5 w-3.5" />
+              {isSavingProfile ? "Saving..." : "Save"}
+            </Button>
+          )}
+        </div>
+
+        {/* ── Account ─────────────────────────────────────── */}
+        <SettingsSection label="Account">
+          <SettingsRow
+            icon="☀️"
+            title="Summer Season"
+            value={summerDatesSummary}
+            onClick={() => setSummerDrawerOpen(true)}
+          />
+          <SettingsRow
+            icon="🎯"
+            title="Preseason Commitments"
+            subtitle="Training, books, blitzes & more"
+            onClick={() => navigate('/goals')}
+          />
+        </SettingsSection>
+
+        {/* ── Tracking (Vets/Sophomores) ──────────────────── */}
+        {isVet && (
+          <SettingsSection label="Tracking">
+            <SettingsRow
+              icon="📊"
+              title="EFP Mode"
+              subtitle="Use EFP as primary metric"
+              toggle={{
+                checked: repData?.efp_mode_enabled || false,
+                onCheckedChange: handleToggleEfpMode,
+                disabled: isSavingEfp,
+              }}
+            />
+            <SettingsRow
+              icon="📉"
+              title="Cancel/Unfunded Rate"
+              value={`${cancelRate}%`}
+              onClick={() => setCancelRateDrawerOpen(true)}
+            />
+            {canAddCustomCounters && (
+              <SettingsRow
+                icon="🔢"
+                title="Custom Counters"
+                value={`${customCounters.length}`}
+                onClick={() => setCountersDrawerOpen(true)}
               />
-              <div className="flex-1 space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="name" className="text-xs text-muted-foreground">Name</Label>
-                  <Input
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name"
-                    className="h-9"
-                  />
-                </div>
-              </div>
-            </div>
-            {hasProfileChanges && (
-              <Button
-                onClick={handleSaveProfile}
-                disabled={isSavingProfile}
-                size="sm"
-                className="w-full mt-4"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {isSavingProfile ? "Saving..." : "Save Changes"}
-              </Button>
             )}
-          </CardContent>
-        </Card>
+            <SettingsRow
+              icon="📋"
+              title="Sales Logger"
+              subtitle="Log sale details when you close"
+              toggle={{
+                checked: repData?.sales_logger_enabled || false,
+                onCheckedChange: async (enabled) => {
+                  setIsSavingSalesLogger(true);
+                  try {
+                    const { error } = await supabase.from('reps').update({ sales_logger_enabled: enabled }).eq('id', repData?.id);
+                    if (error) throw error;
+                    await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+                    toast({ title: enabled ? "Sales Logger enabled" : "Sales Logger disabled" });
+                  } catch (err: any) {
+                    toast({ title: "Error", description: err.message, variant: "destructive" });
+                  } finally {
+                    setIsSavingSalesLogger(false);
+                  }
+                },
+                disabled: isSavingSalesLogger,
+              }}
+            />
+          </SettingsSection>
+        )}
 
+        {/* Non-vet counters */}
+        {!isVet && canAddCustomCounters && (
+          <SettingsSection label="Tracking">
+            <SettingsRow
+              icon="🔢"
+              title="Custom Counters"
+              value={`${customCounters.length}`}
+              onClick={() => setCountersDrawerOpen(true)}
+            />
+          </SettingsSection>
+        )}
 
-        {/* Summer Season Dates - Collapsible */}
-        <Card>
-          <Collapsible open={isSummerDatesOpen} onOpenChange={setIsSummerDatesOpen}>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <CardTitle>Summer Season Dates</CardTitle>
-                    {!isSummerDatesOpen && (summerStart || summerEnd) && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {summerStart ? format(summerStart, 'MMM d') : '—'} to {summerEnd ? format(summerEnd, 'MMM d, yyyy') : '—'}
-                      </p>
-                    )}
-                  </div>
-                  <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isSummerDatesOpen && "rotate-180")} />
-                </div>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div>
-                    <Label>Start Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal mt-1"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {summerStart ? format(summerStart, "PPP") : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={summerStart}
-                          onSelect={setSummerStart}
-                          disabled={(date) =>
-                            date < new Date('2026-04-12') || 
-                            date > new Date('2026-09-27') ||
-                            (summerEnd && date > summerEnd)
-                          }
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  
-                  <div>
-                    <Label>End Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal mt-1"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {summerEnd ? format(summerEnd, "PPP") : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={summerEnd}
-                          onSelect={setSummerEnd}
-                          disabled={(date) =>
-                            date < new Date('2026-04-12') || 
-                            date > new Date('2026-09-27') ||
-                            (summerStart && date < summerStart)
-                          }
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-                
-                <Button 
-                  onClick={handleSaveSummerDates}
-                  disabled={!summerStart || !summerEnd || isSavingSummer}
-                  className="w-full"
-                >
-                  {isSavingSummer ? "Saving..." : "Save Summer Dates"}
-                </Button>
-                
-                <p className="text-xs text-muted-foreground">
-                  These dates will be used for your personal goal calculations
-                </p>
-              </CardContent>
-            </CollapsibleContent>
-          </Collapsible>
-        </Card>
+        {/* ── Me vs Me (vets/sophomores) ──────────────────── */}
+        {repData?.year !== 'Rookie' && (
+          <SettingsSection label="Me vs Me">
+            <SettingsRow
+              icon="🏆"
+              title="Year-over-Year"
+              subtitle="Compare with last season"
+              toggle={{
+                checked: meVsMeEnabled,
+                onCheckedChange: (checked) => { toggleMeVsMe(checked); },
+                disabled: isTogglingMeVsMe || meVsMeLoading,
+              }}
+            />
+            {meVsMeEnabled && (
+              <SettingsRow
+                icon="📂"
+                title="Manage Data"
+                subtitle="Import or delete historical data"
+                onClick={() => setMeVsMeDrawerOpen(true)}
+              />
+            )}
+          </SettingsSection>
+        )}
 
-        {/* Preseason Commitments */}
-        <Card>
-          <CardHeader className="cursor-pointer" onClick={() => window.location.href = '/goals'}>
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <CardTitle>Preseason Commitments</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Training hours, books, blitzes & more
+        {/* ── Notifications ───────────────────────────────── */}
+        <SettingsSection label="Notifications">
+          <SettingsRow
+            icon="🔔"
+            title="Push Notifications"
+            value={notificationStatus}
+            onClick={() => setNotificationsDrawerOpen(true)}
+          />
+        </SettingsSection>
+
+        {/* ── Recaps ──────────────────────────────────────── */}
+        <SettingsSection label="Recaps">
+          <SettingsRow
+            icon="💰"
+            title="Pay Level"
+            onClick={() => setRecapsDrawerOpen(true)}
+          >
+            <Select
+              value={String(goals?.custom_payscale_fp ?? (repData?.year === 'Rookie' ? 60 : 100))}
+              onValueChange={(value) => { updateRepGoals({ custom_payscale_fp: parseInt(value) }); }}
+            >
+              <SelectTrigger className="w-24 h-8 text-xs border-0 bg-transparent shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {userCumulativeFpPlus > 0 && (
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground border-b border-border mb-1">
+                    Current: {Math.round(userCumulativeFpPlus)} FP+
+                  </div>
+                )}
+                {RECAP_TIER_OPTIONS.map((tier) => {
+                  const isDisabled = tier < userCumulativeFpPlus;
+                  return (
+                    <SelectItem key={tier} value={String(tier)} disabled={isDisabled} className={isDisabled ? 'opacity-50' : ''}>
+                      {tier} FP+
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+          <SettingsRow
+            icon="📖"
+            title="Past Recaps"
+            subtitle="Weekly & monthly summaries"
+            onClick={() => setRecapsDrawerOpen(true)}
+          />
+          {publishedReports && publishedReports.length > 0 && (
+            <SettingsRow
+              icon="✨"
+              title="Team Recaps"
+              value={`${publishedReports.length}`}
+              onClick={() => setRecapsDrawerOpen(true)}
+            />
+          )}
+        </SettingsSection>
+
+        {/* ── About ───────────────────────────────────────── */}
+        <SettingsSection label="About">
+          <SettingsRow
+            icon="🔄"
+            title="Replay Intro"
+            subtitle="Watch the welcome walkthrough again"
+            onClick={handleShowIntro}
+          />
+          <SettingsRow
+            icon="🗺️"
+            title="Reset Page Tours"
+            subtitle="See guided tips on each page"
+            onClick={async () => {
+              if (repData?.user_id) {
+                await resetAllTours(repData.user_id);
+                queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+                toast({ title: "Tours reset!", description: "You'll see guided tours again on each page." });
+              }
+            }}
+          />
+          {repData?.email?.toLowerCase() === 'calvinjschofield@gmail.com' && (
+            <SettingsRow
+              icon="🧪"
+              title="Developer Tools"
+              subtitle="Test & debug"
+              onClick={() => setDevToolsDrawerOpen(true)}
+            />
+          )}
+        </SettingsSection>
+
+        {/* ── Sign Out ────────────────────────────────────── */}
+        <SettingsSection>
+          <SettingsRow
+            icon="👋"
+            title="Sign Out"
+            destructive
+            onClick={handleSignOut}
+          />
+        </SettingsSection>
+
+        <div className="h-4" />
+      </div>
+
+      {/* ═══════════════════════════════════════════════════
+          DRAWERS
+         ═══════════════════════════════════════════════════ */}
+
+      {/* Summer Dates Drawer */}
+      <Drawer open={summerDrawerOpen} onOpenChange={setSummerDrawerOpen}>
+        <DrawerContent className="pb-safe">
+          <DrawerHeader>
+            <DrawerTitle>Summer Season Dates</DrawerTitle>
+            <DrawerDescription>Set your personal summer start & end dates</DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 space-y-4 pb-6">
+            <div>
+              <Label>Start Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal mt-1">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {summerStart ? format(summerStart, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={summerStart}
+                    onSelect={setSummerStart}
+                    disabled={(date) => date < new Date('2026-04-12') || date > new Date('2026-09-27') || !!(summerEnd && date > summerEnd)}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label>End Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal mt-1">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {summerEnd ? format(summerEnd, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={summerEnd}
+                    onSelect={setSummerEnd}
+                    disabled={(date) => date < new Date('2026-04-12') || date > new Date('2026-09-27') || !!(summerStart && date < summerStart)}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <Button onClick={handleSaveSummerDates} disabled={!summerStart || !summerEnd || isSavingSummer} className="w-full">
+              {isSavingSummer ? "Saving..." : "Save Summer Dates"}
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              Used for your personal goal calculations
+            </p>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Cancel Rate Drawer */}
+      <Drawer open={cancelRateDrawerOpen} onOpenChange={setCancelRateDrawerOpen}>
+        <DrawerContent className="pb-safe">
+          <DrawerHeader>
+            <DrawerTitle>Cancel/Unfunded Rate</DrawerTitle>
+            <DrawerDescription>Adjust goals to account for expected cancellations</DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 space-y-5 pb-6">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-accent/30">
+              <div>
+                <p className="font-semibold">Cancel Rate</p>
+                <p className="text-sm text-muted-foreground">
+                  Sell {((1 / (1 - cancelRate / 100)) * 100).toFixed(0)}% of goal to hit target
                 </p>
               </div>
-              <ChevronDown className="h-5 w-5 text-muted-foreground -rotate-90" />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline" size="icon" className="h-9 w-9 rounded-full"
+                  onClick={() => { const r = Math.max(5, cancelRate - 1); setCancelRate(r); handleSaveCancelRate(r); }}
+                  disabled={cancelRate <= 5 || isSavingCancelRate}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span className="text-xl font-bold w-12 text-center tabular-nums">{cancelRate}%</span>
+                <Button
+                  variant="outline" size="icon" className="h-9 w-9 rounded-full"
+                  onClick={() => { const r = Math.min(15, cancelRate + 1); setCancelRate(r); handleSaveCancelRate(r); }}
+                  disabled={cancelRate >= 15 || isSavingCancelRate}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </CardHeader>
-        </Card>
-        
-        {/* EFP Mode (Vets only) - Collapsible */}
-        {isVet && (
-          <Card>
-            <Collapsible open={isEfpModeOpen} onOpenChange={setIsEfpModeOpen}>
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <CardTitle>EFP Mode</CardTitle>
-                      {!isEfpModeOpen && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {repData?.efp_mode_enabled ? "Enabled" : "Disabled"}
-                        </p>
-                      )}
-                    </div>
-                    <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isEfpModeOpen && "rotate-180")} />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-base">Enable EFP Mode</Label>
-                      <p className="text-sm text-muted-foreground">
-                        When enabled, Calendar and Insights will show EFP as your primary metric
-                      </p>
-                    </div>
-                  <Switch
-                    checked={repData?.efp_mode_enabled || false}
-                    onCheckedChange={handleToggleEfpMode}
-                    disabled={isSavingEfp}
-                  />
-                  </div>
-                </CardContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </Card>
-        )}
+            <div className="p-3 rounded-lg bg-muted/50 space-y-1">
+              <p className="text-xs font-medium">Example</p>
+              <p className="text-sm text-muted-foreground">
+                Goal: <span className="font-semibold text-foreground">100 FP+ funded</span> → sell <span className="font-semibold text-foreground">{Math.round(100 / (1 - cancelRate / 100))} FP+</span> after {cancelRate}% cancel.
+              </p>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
-        {/* Cancel/Unfunded Rate (Vets only) - Collapsible */}
-        {isVet && (
-          <Card>
-            <Collapsible open={isCancelRateOpen} onOpenChange={setIsCancelRateOpen}>
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
-                        <Percent className="h-4 w-4 text-primary" />
-                        Cancel/Unfunded Rate
-                      </CardTitle>
-                      {!isCancelRateOpen && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {cancelRate}% — Goals adjusted by {((1 / (1 - cancelRate / 100) - 1) * 100).toFixed(0)}%
-                        </p>
-                      )}
-                    </div>
-                    <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isCancelRateOpen && "rotate-180")} />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-5">
-                  <p className="text-sm text-muted-foreground">
-                    This includes ROR cancels and unfunded accounts. Your goals will be adjusted to account for expected cancellations.
-                  </p>
-                  
-                  {/* Stepper for cancel rate */}
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-accent/30">
-                    <div>
-                      <p className="font-semibold">Cancel Rate</p>
-                      <p className="text-sm text-muted-foreground">
-                        Sell {((1 / (1 - cancelRate / 100)) * 100).toFixed(0)}% of goal to hit target
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9 rounded-full"
-                        onClick={() => {
-                          const newRate = Math.max(5, cancelRate - 1);
-                          setCancelRate(newRate);
-                          handleSaveCancelRate(newRate);
-                        }}
-                        disabled={cancelRate <= 5 || isSavingCancelRate}
-                      >
-                        <Minus className="h-4 w-4" />
+      {/* Counters Drawer */}
+      <Drawer open={countersDrawerOpen} onOpenChange={setCountersDrawerOpen}>
+        <DrawerContent className="pb-safe max-h-[85vh]">
+          <DrawerHeader>
+            <DrawerTitle>Track Counters</DrawerTitle>
+            <DrawerDescription>Reorder & manage your counters</DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 space-y-4 pb-6 overflow-y-auto">
+            <p className="text-xs text-muted-foreground">
+              Core counters feed team leaderboards. Custom counters appear only in your personal Insights.
+            </p>
+            <div className="space-y-2">
+              {orderedCounters.map((counter) => (
+                <div
+                  key={counter.id}
+                  draggable
+                  onDragStart={() => handleDragStart(counter.id)}
+                  onDragOver={(e) => handleDragOver(e, counter.id)}
+                  onDragEnd={handleDragEnd}
+                  className={`group flex items-center gap-3 p-3 border rounded-lg bg-card border-border transition-opacity ${draggedCounter === counter.id ? 'opacity-50' : ''}`}
+                >
+                  <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
+                  <span className="flex-1 font-medium flex items-center gap-2 text-sm">
+                    {counter.emoji && <span className="text-lg">{counter.emoji}</span>}
+                    {counter.name}
+                  </span>
+                  {!counter.isCustom && (
+                    <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">Core</span>
+                  )}
+                  {counter.isCustom && (
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleToggleCounterVisibility(counter.id.replace('custom_', '')); }}>
+                        {counter.hidden ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                       </Button>
-                      <span className="text-xl font-bold w-12 text-center tabular-nums">
-                        {cancelRate}%
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9 rounded-full"
-                        onClick={() => {
-                          const newRate = Math.min(15, cancelRate + 1);
-                          setCancelRate(newRate);
-                          handleSaveCancelRate(newRate);
-                        }}
-                        disabled={cancelRate >= 15 || isSavingCancelRate}
-                      >
-                        <Plus className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setDeleteConfirmCounter(counter.id.replace('custom_', '')); }}>
+                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                       </Button>
                     </div>
-                  </div>
-                  
-                  {/* Example calculation */}
-                  <div className="p-3 rounded-lg bg-muted/50 space-y-1">
-                    <p className="text-xs font-medium">Example</p>
-                    <p className="text-sm text-muted-foreground">
-                      If your goal is <span className="font-semibold text-foreground">100 FP+ funded</span>, 
-                      you need to sell <span className="font-semibold text-foreground">{Math.round(100 / (1 - cancelRate / 100))} FP+</span> to 
-                      end up with 100 funded after {cancelRate}% cancel.
-                    </p>
-                  </div>
-                </CardContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </Card>
-        )}
-
-
-        {/* Me vs Me Settings - Only for vets/sophomores */}
-        {repData?.year !== 'Rookie' && (
-          <MeVsMeSettings isOpen={isMeVsMeOpen} onOpenChange={setIsMeVsMeOpen} />
-        )}
-
-        {/* Notifications */}
-        <Card>
-          <Collapsible open={isNotificationsOpen} onOpenChange={setIsNotificationsOpen}>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="flex items-center gap-2">
-                      <Bell className="h-4 w-4" />
-                      Notifications
-                    </CardTitle>
-                    {!isNotificationsOpen && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {isSubscribed ? "Enabled" : permission === 'denied' ? "Blocked" : "Disabled"}
-                      </p>
-                    )}
-                  </div>
-                  <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isNotificationsOpen && "rotate-180")} />
-                </div>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent>
-                <NotificationSettings />
-              </CardContent>
-            </CollapsibleContent>
-          </Collapsible>
-        </Card>
-
-        {/* Developer Tools - Only visible for Calvin */}
-        {repData?.email?.toLowerCase() === 'calvinjschofield@gmail.com' && (
-          <Card>
-            <Collapsible>
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
-                        🧪 Developer Tools
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Test notifications & debug
-                      </p>
-                    </div>
-                    <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform" />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-4">
-                  {/* Test All Notifications */}
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">Test Notifications</h4>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start"
-                      disabled={isSendingTestPush}
-                      onClick={async () => {
-                        setIsSendingTestPush(true);
-                        try {
-                          // If there's no APNs token stored, calling the APNs sender will return non-2xx.
-                          // So we check first and skip APNs when there's no token yet.
-                          const { session } = await getSessionSafe();
-                          const currentUserId = session?.user?.id;
-                          const { count, error: countErr } = await supabase
-                            .from('apns_device_tokens')
-                            .select('id', { count: 'exact', head: true })
-                            .eq('user_id', currentUserId ?? '');
-
-                          if (countErr) throw countErr;
-
-                          const tokenCount = count ?? 0;
-                          setApnsTokenCount(tokenCount);
-
-                          const webPromise = supabase.functions.invoke('test-push-notification', {
-                            body: { targetEmail: 'calvinjschofield@gmail.com' },
-                          });
-
-                          const apnsPromise = tokenCount > 0
-                            ? supabase.functions.invoke('send-apns-notification', {
-                                body: {
-                                  targetEmail: 'calvinjschofield@gmail.com',
-                                  title: '🧪 Native Test',
-                                  body: 'Test notification from TestFlight!',
-                                  type: 'test',
-                                },
-                              })
-                            : Promise.resolve({ data: { success: false, error: 'No APNs token stored yet.' }, error: null } as any);
-
-                          const [webRes, apnsRes] = await Promise.all([webPromise, apnsPromise]);
-
-                          const webOk = !webRes.error && webRes.data?.success !== false;
-                          const apnsOk = tokenCount > 0 && !apnsRes.error && apnsRes.data?.success === true;
-
-                          toast({
-                            title: "Test sent",
-                            description: `Web: ${webOk ? '✓' : '✗'} | APNs: ${apnsOk ? '✓' : tokenCount > 0 ? '✗' : '—'}`,
-                            variant: (!webOk || (tokenCount > 0 && !apnsOk)) ? "destructive" : undefined,
-                          });
-
-                          const apnsErrorText =
-                            tokenCount === 0
-                              ? 'APNs skipped (no token in DB yet). Tap “Re-register & Self-Test Push”.'
-                              : apnsRes.error?.message || apnsRes.data?.errors?.[0] || apnsRes.data?.error;
-
-                          if (!apnsOk && apnsErrorText) {
-                            toast({
-                              title: 'APNs',
-                              description: apnsErrorText,
-                              variant: tokenCount === 0 ? undefined : 'destructive',
-                            });
-                          }
-                        } catch (err: any) {
-                          toast({ title: "Failed", description: err.message, variant: "destructive" });
-                        } finally {
-                          setIsSendingTestPush(false);
-                        }
-                      }}
-                    >
-                      🔔 Rich Notification (Both)
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start"
-                      disabled={isSendingTestPush}
-                      onClick={async () => {
-                        setIsSendingTestPush(true);
-                        try {
-                          await supabase.functions.invoke('check-inactivity-notifications');
-                          toast({ title: "Inactivity check triggered", description: "Check your notifications" });
-                        } catch (err: any) {
-                          toast({ title: "Failed", description: err.message, variant: "destructive" });
-                        } finally {
-                          setIsSendingTestPush(false);
-                        }
-                      }}
-                    >
-                      ⏰ Inactivity Nudge
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start"
-                      disabled={isSendingTestPush}
-                      onClick={async () => {
-                        setIsSendingTestPush(true);
-                        try {
-                          await supabase.functions.invoke('check-blitz-rsvp-reminders');
-                          toast({ title: "RSVP reminder check triggered", description: "Check your notifications" });
-                        } catch (err: any) {
-                          toast({ title: "Failed", description: err.message, variant: "destructive" });
-                        } finally {
-                          setIsSendingTestPush(false);
-                        }
-                      }}
-                    >
-                      📅 Blitz RSVP Reminder
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start"
-                      disabled={isSendingTestPush}
-                      onClick={async () => {
-                        setIsSendingTestPush(true);
-                        try {
-                          await supabase.functions.invoke('check-ramp-progress-notifications');
-                          toast({ title: "Ramp progress check triggered", description: "Check your notifications" });
-                        } catch (err: any) {
-                          toast({ title: "Failed", description: err.message, variant: "destructive" });
-                        } finally {
-                          setIsSendingTestPush(false);
-                        }
-                      }}
-                    >
-                      🚀 Ramp to Blitz Nudge
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start"
-                      disabled={isSendingTestPush}
-                      onClick={async () => {
-                        setIsSendingTestPush(true);
-                        try {
-                          await supabase.functions.invoke('check-preseason-accountability');
-                          toast({ title: "Preseason accountability check triggered", description: "Check your notifications" });
-                        } catch (err: any) {
-                          toast({ title: "Failed", description: err.message, variant: "destructive" });
-                        } finally {
-                          setIsSendingTestPush(false);
-                        }
-                      }}
-                    >
-                      📊 Preseason Accountability
-                    </Button>
-                  </div>
-
-                  <Separator />
-
-                  {/* Legacy Reports Link */}
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">Legacy Tools</h4>
-                    
-                    <Link to="/team-reports" className="block">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start"
-                      >
-                        📊 Reports V1 (Legacy)
-                      </Button>
-                    </Link>
-                  </div>
-
-                  <Separator />
-
-                   {/* Debug Tools */}
-                   <div className="space-y-2">
-                     <h4 className="text-sm font-medium text-muted-foreground">Debug Tools</h4>
-
-                     <Link to="/debug-notifications">
-                       <Button variant="outline" size="sm" className="w-full justify-start">
-                         🧪 Notification Tester
-                       </Button>
-                     </Link>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        // Clear all caches
-                        const keysToRemove: string[] = [];
-                        for (let i = 0; i < localStorage.length; i++) {
-                          const key = localStorage.key(i);
-                          if (key && (
-                            key.startsWith('rep-data-cache') || 
-                            key.startsWith('competitors-cache') ||
-                            key.startsWith('blitzes-cache') ||
-                            key.startsWith('team-access-cache') ||
-                            key.startsWith('season-config-cache') ||
-                            key.startsWith('group-recruits-cache') ||
-                            key.startsWith('blitz-attendance-cache') ||
-                            key.startsWith('kaizen-') ||
-                            key.startsWith('REACT_QUERY')
-                          )) {
-                            keysToRemove.push(key);
-                          }
-                        }
-                        keysToRemove.forEach(key => localStorage.removeItem(key));
-                        queryClient.clear();
-                        toast({ title: "Refreshing...", description: "Cache cleared" });
-                        setTimeout(() => window.location.reload(), 500);
-                      }}
-                    >
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Force Refresh
-                    </Button>
-
-                    {platform === 'native' && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full justify-start"
-                          disabled={isCheckingApnsToken}
-                          onClick={async () => {
-                            setIsCheckingApnsToken(true);
-                            try {
-                              const { data: { session: s } } = await supabase.auth.getSession();
-                              const uid = s?.user?.id;
-                              const { count, error } = await supabase
-                                .from('apns_device_tokens')
-                                .select('id', { count: 'exact', head: true })
-                                .eq('user_id', uid ?? '');
-
-                              if (error) throw error;
-
-                              const c = count ?? 0;
-                              setApnsTokenCount(c);
-
-                              toast({
-                                title: 'APNs token check',
-                                description: c > 0 ? `Found ${c} token(s) stored.` : 'No APNs token stored yet.',
-                                variant: c > 0 ? undefined : 'destructive',
-                              });
-                            } catch (err: any) {
-                              toast({
-                                title: 'APNs token check failed',
-                                description: err.message,
-                                variant: 'destructive',
-                              });
-                            } finally {
-                              setIsCheckingApnsToken(false);
-                            }
-                          }}
-                        >
-                          <Bell className="h-4 w-4 mr-2" />
-                          {isCheckingApnsToken ? 'Checking APNs token…' : 'Check APNs Token In DB'}
-                        </Button>
-
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="w-full justify-start"
-                          disabled={isSendingTestPush}
-                          onClick={async () => {
-                            setIsSendingTestPush(true);
-                            const steps: string[] = [];
-
-                            try {
-                              // Step 0: Force an APNs unregister so we get a fresh token event
-                              toast({ title: '0/4 Resetting push registration…' });
-                              await unsubscribe();
-
-                              // Step 1: Re-register for push
-                              toast({ title: '1/4 Requesting permission…' });
-
-                              const registered = await subscribe();
-                              if (!registered) {
-                                toast({ title: 'Registration failed', description: 'Permission denied or error.', variant: 'destructive' });
-                                return;
-                              }
-                              steps.push('Registered ✓');
-
-                              // Step 2: Wait/poll for token storage
-                              toast({ title: '2/4 Waiting for token storage…' });
-                              const deadline = Date.now() + 12_000;
-                              let tokenCount = 0;
-
-                              while (Date.now() < deadline) {
-                                const { data: { session: pollSession } } = await supabase.auth.getSession();
-                                const pollUid = pollSession?.user?.id;
-                                const { count, error: countErr } = await supabase
-                                  .from('apns_device_tokens')
-                                  .select('id', { count: 'exact', head: true })
-                                  .eq('user_id', pollUid ?? '');
-
-                                if (countErr) throw countErr;
-
-                                tokenCount = count ?? 0;
-                                if (tokenCount > 0) break;
-
-                                await new Promise((r) => setTimeout(r, 1000));
-                              }
-
-                              // Step 3: Verify token in DB
-                              toast({ title: '3/4 Checking token in DB…' });
-                              setApnsTokenCount(tokenCount);
-
-                              if (tokenCount === 0) {
-                                const hint =
-                                  pushDebug?.lastRegistrationError
-                                    ? `Registration error: ${pushDebug.lastRegistrationError}`
-                                    : pushDebug?.lastTokenStoreError
-                                      ? `Token store error: ${pushDebug.lastTokenStoreError}`
-                                      : 'No token stored yet. (This is usually an iOS capability / provisioning issue.)';
-
-                                toast({
-                                  title: 'Token not stored',
-                                  description: hint,
-                                  variant: 'destructive',
-                                });
-                                return;
-                              }
-                              steps.push(`Token in DB ✓ (${tokenCount})`);
-
-                              // Step 4: Send test APNs to self
-                              toast({ title: '4/4 Sending test notification…' });
-                              const { data: apnsRes, error: apnsErr } = await supabase.functions.invoke('send-apns-notification', {
-                                body: {
-                                  targetEmail: repData?.email,
-                                  title: '🎉 Push Works!',
-                                  body: 'Re-registration successful. You should see this!',
-                                  type: 'test',
-                                },
-                              });
-
-                              if (apnsErr) throw apnsErr;
-
-                              const apnsOk = apnsRes?.success === true;
-                              if (apnsOk) {
-                                steps.push('APNs sent ✓');
-                                toast({ title: '✅ All steps passed!', description: steps.join(' → ') });
-                              } else {
-                                toast({
-                                  title: 'APNs send failed',
-                                  description: apnsRes?.error || apnsRes?.errors?.[0] || 'Unknown error',
-                                  variant: 'destructive',
-                                });
-                              }
-                            } catch (err: any) {
-                              toast({ title: 'Re-register failed', description: err.message, variant: 'destructive' });
-                            } finally {
-                              setIsSendingTestPush(false);
-                            }
-                          }}
-                        >
-                          🔄 Re-register & Self-Test Push
-                        </Button>
-                      </>
-                    )}
-
-                    <div className="text-xs text-muted-foreground p-2 bg-muted/50 rounded space-y-1">
-                      <p><strong>Platform:</strong> {platform}</p>
-                      <p><strong>Push Registered:</strong> {isSubscribed ? 'Yes' : 'No'}</p>
-                      <p><strong>Permission:</strong> {permission}</p>
-
-                      {platform === 'native' && (
-                        <>
-                          <p><strong>APNs token in DB:</strong> {apnsTokenCount === null ? 'Unknown' : apnsTokenCount > 0 ? 'Yes' : 'No'}</p>
-                          <p><strong>Phase:</strong> {pushDebug?.phase ?? '—'}</p>
-                          {pushDebug?.lastTokenPrefix && (
-                            <p><strong>Last token:</strong> {pushDebug.lastTokenPrefix}…</p>
-                          )}
-                          {pushDebug?.lastTokenStoreError && (
-                            <p className="text-destructive"><strong>Token store error:</strong> {pushDebug.lastTokenStoreError}</p>
-                          )}
-                          {pushDebug?.lastRegistrationError && (
-                            <p className="text-destructive"><strong>Registration error:</strong> {pushDebug.lastRegistrationError}</p>
-                          )}
-                          {permission === 'granted' && !pushDebug?.lastTokenPrefix && !pushDebug?.lastRegistrationError && (
-                            <p className="text-yellow-600"><strong>⚠️ Likely iOS capability / provisioning issue.</strong> Verify Push Notifications capability is added in Xcode.</p>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </Card>
-        )}
-
-        {canAddCustomCounters && (
-          <Card>
-            <Collapsible open={isTrackCountersOpen} onOpenChange={setIsTrackCountersOpen}>
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <CardTitle>Track Counters</CardTitle>
-                      {!isTrackCountersOpen && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {customCounters.length} custom counter{customCounters.length !== 1 ? 's' : ''}
-                        </p>
-                      )}
-                    </div>
-                    <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isTrackCountersOpen && "rotate-180")} />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold">All Counters</h3>
-                      <span className="text-xs text-muted-foreground">Drag to reorder</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Core counters feed team leaderboards. Custom counters appear only in your personal Insights.
-                    </p>
-                    
-                    <div className="space-y-2">
-                      {orderedCounters.map((counter) => (
-                        <div
-                          key={counter.id}
-                          draggable
-                          onDragStart={() => handleDragStart(counter.id)}
-                          onDragOver={(e) => handleDragOver(e, counter.id)}
-                          onDragEnd={handleDragEnd}
-                          className={`group flex items-center gap-3 p-3 border rounded-lg bg-card border-border transition-opacity ${
-                            draggedCounter === counter.id ? 'opacity-50' : ''
-                          }`}
-                        >
-                          <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
-                          <span className="flex-1 font-medium flex items-center gap-2">
-                            {counter.emoji && <span className="text-xl">{counter.emoji}</span>}
-                            {counter.name}
-                          </span>
-                          {!counter.isCustom && (
-                            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">Core</span>
-                          )}
-                          {counter.isCustom && (
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const customId = counter.id.replace('custom_', '');
-                                  handleToggleCounterVisibility(customId);
-                                }}
-                              >
-                                {counter.hidden ? (
-                                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <Eye className="h-4 w-4 text-muted-foreground" />
-                                )}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const customId = counter.id.replace('custom_', '');
-                                  setDeleteConfirmCounter(customId);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    
-                    <Button
-                      onClick={handleSaveCounterLayout}
-                      disabled={isSavingLayout}
-                      size="sm"
-                      className="w-full"
-                    >
-                      {isSavingLayout ? "Saving..." : "Save Counter Order"}
-                    </Button>
-                  </div>
-                  
-                  {/* Add Counter Button */}
-                  <div className="pt-2 border-t border-border">
-                    {canAddMore ? (
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => setShowAddSheet(true)}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Custom Counter ({customCounters.length}/{maxCounters})
-                      </Button>
-                    ) : (
-                      <p className="text-sm text-muted-foreground text-center">
-                        Maximum of {maxCounters} custom counters reached
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </Card>
-        )}
-
-        {/* Recaps - Personal + Team */}
-        <Card>
-          <Collapsible open={isArchivedReportsOpen} onOpenChange={setIsArchivedReportsOpen}>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-base">Recaps</CardTitle>
-                    {!isArchivedReportsOpen && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        View past weekly & monthly recaps
-                      </p>
-                    )}
-                  </div>
-                  <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isArchivedReportsOpen && "rotate-180")} />
-                </div>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="space-y-4">
-                {/* Pay Level Setting */}
-                <div className="p-3 rounded-lg bg-muted/30 border border-border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Pay Level for Recap</p>
-                      <p className="text-xs text-muted-foreground">Used to calculate total pay in recaps</p>
-                    </div>
-                    <Select
-                      value={String(goals?.custom_payscale_fp ?? (repData?.year === 'Rookie' ? 60 : 100))}
-                      onValueChange={(value) => {
-                        updateRepGoals({ custom_payscale_fp: parseInt(value) });
-                      }}
-                    >
-                      <SelectTrigger className="w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {/* Show current FP+ level at top */}
-                        {userCumulativeFpPlus > 0 && (
-                          <div className="px-2 py-1.5 text-xs text-muted-foreground border-b border-border mb-1">
-                            Current: {Math.round(userCumulativeFpPlus)} FP+
-                          </div>
-                        )}
-                        {RECAP_TIER_OPTIONS.map((tier) => {
-                          const isDisabled = tier < userCumulativeFpPlus;
-                          return (
-                            <SelectItem 
-                              key={tier} 
-                              value={String(tier)}
-                              disabled={isDisabled}
-                              className={isDisabled ? 'opacity-50' : ''}
-                            >
-                              {tier} FP+
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Personal Recaps */}
-                <PastRecapsSection />
-
-                <Separator />
-
-                {/* Team Recaps */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Sparkles className="w-4 h-4" />
-                    Team Recaps
-                  </h3>
-                  {publishedReports && publishedReports.length > 0 ? (
-                    publishedReports.map((report) => (
-                      <button
-                        key={report.id}
-                        onClick={() => {
-                          setSelectedReport(report);
-                          setShowTeamRecapStory(true);
-                        }}
-                        className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent transition-colors"
-                      >
-                        <Sparkles className="w-5 h-5 text-primary" />
-                        <div className="flex-1 text-left">
-                          <p className="font-medium text-sm">
-                            {report.report_type === 'weekly' ? 'Weekly' : report.report_type === 'monthly' ? 'Monthly' : 'Blitz'} Recap
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(report.period_start), 'MMM d')} - {format(new Date(report.period_end), 'MMM d, yyyy')}
-                          </p>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-2">
-                      No team recaps published yet
-                    </p>
                   )}
                 </div>
-              </CardContent>
-            </CollapsibleContent>
-          </Collapsible>
-        </Card>
-
-        {/* App Tours - at bottom as least important */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">App Tours</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Welcome Intro</p>
-                <p className="text-xs text-muted-foreground">The onboarding slideshow</p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleShowIntro}
-                className="gap-2"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Replay
-              </Button>
+              ))}
             </div>
-          </CardContent>
-        </Card>
+            <Button onClick={handleSaveCounterLayout} disabled={isSavingLayout} size="sm" className="w-full">
+              {isSavingLayout ? "Saving..." : "Save Counter Order"}
+            </Button>
+            <Separator />
+            {canAddMore ? (
+              <Button variant="outline" className="w-full" onClick={() => setShowAddSheet(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Custom Counter ({customCounters.length}/{maxCounters})
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center">Maximum of {maxCounters} custom counters reached</p>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
 
-        {/* Replay Page Tours */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">Page Tours</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">Replay the guided tours on each page</p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
+      {/* Notifications Drawer */}
+      <Drawer open={notificationsDrawerOpen} onOpenChange={setNotificationsDrawerOpen}>
+        <DrawerContent className="pb-safe max-h-[85vh]">
+          <DrawerHeader>
+            <DrawerTitle>Notifications</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 overflow-y-auto">
+            <NotificationSettings />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Recaps Drawer */}
+      <Drawer open={recapsDrawerOpen} onOpenChange={setRecapsDrawerOpen}>
+        <DrawerContent className="pb-safe max-h-[85vh]">
+          <DrawerHeader>
+            <DrawerTitle>Recaps</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 space-y-6 overflow-y-auto">
+            <PastRecapsSection />
+            
+            {publishedReports && publishedReports.length > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-muted-foreground">Team Recaps</h3>
+                  {publishedReports.map((report) => (
+                    <button
+                      key={report.id}
+                      onClick={() => {
+                        setSelectedReport(report);
+                        setShowTeamRecapStory(true);
+                        setRecapsDrawerOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent transition-colors"
+                    >
+                      <span className="text-lg">✨</span>
+                      <div className="flex-1 text-left">
+                        <p className="font-medium text-sm">
+                          {report.report_type === 'weekly' ? 'Weekly' : report.report_type === 'monthly' ? 'Monthly' : 'Blitz'} Recap
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(report.period_start), 'MMM d')} - {format(new Date(report.period_end), 'MMM d, yyyy')}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Me vs Me Drawer */}
+      <Drawer open={meVsMeDrawerOpen} onOpenChange={setMeVsMeDrawerOpen}>
+        <DrawerContent className="pb-safe max-h-[85vh]">
+          <DrawerHeader>
+            <DrawerTitle>Me vs Me — Manage Data</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 overflow-y-auto">
+            <MeVsMeSettings isOpen={true} onOpenChange={() => {}} />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Developer Tools Drawer */}
+      {repData?.email?.toLowerCase() === 'calvinjschofield@gmail.com' && (
+        <Drawer open={devToolsDrawerOpen} onOpenChange={setDevToolsDrawerOpen}>
+          <DrawerContent className="pb-safe max-h-[85vh]">
+            <DrawerHeader>
+              <DrawerTitle>🧪 Developer Tools</DrawerTitle>
+            </DrawerHeader>
+            <div className="px-4 pb-6 space-y-3 overflow-y-auto">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Test Notifications</h4>
+              <Button variant="outline" size="sm" className="w-full justify-start" disabled={isSendingTestPush}
                 onClick={async () => {
-                  if (repData?.user_id) {
-                    await resetAllTours(repData.user_id);
-                    queryClient.invalidateQueries({ queryKey: ['rep-data'] });
-                    toast({ title: "Tours reset!", description: "You'll see guided tours again on each page." });
-                  }
+                  setIsSendingTestPush(true);
+                  try {
+                    const { session } = await getSessionSafe();
+                    const currentUserId = session?.user?.id;
+                    const { count } = await supabase.from('apns_device_tokens').select('id', { count: 'exact', head: true }).eq('user_id', currentUserId ?? '');
+                    const tokenCount = count ?? 0;
+                    setApnsTokenCount(tokenCount);
+                    const webPromise = supabase.functions.invoke('test-push-notification', { body: { targetEmail: 'calvinjschofield@gmail.com' } });
+                    const apnsPromise = tokenCount > 0
+                      ? supabase.functions.invoke('send-apns-notification', { body: { targetEmail: 'calvinjschofield@gmail.com', title: '🧪 Native Test', body: 'Test notification!', type: 'test' } })
+                      : Promise.resolve({ data: { success: false }, error: null } as any);
+                    const [webRes, apnsRes] = await Promise.all([webPromise, apnsPromise]);
+                    const webOk = !webRes.error && webRes.data?.success !== false;
+                    const apnsOk = tokenCount > 0 && !apnsRes.error && apnsRes.data?.success === true;
+                    toast({ title: "Test sent", description: `Web: ${webOk ? '✓' : '✗'} | APNs: ${apnsOk ? '✓' : tokenCount > 0 ? '✗' : '—'}` });
+                  } catch (err: any) {
+                    toast({ title: "Failed", description: err.message, variant: "destructive" });
+                  } finally { setIsSendingTestPush(false); }
                 }}
-                className="gap-2"
+              >🔔 Rich Notification (Both)</Button>
+
+              <Button variant="outline" size="sm" className="w-full justify-start" disabled={isSendingTestPush}
+                onClick={async () => {
+                  setIsSendingTestPush(true);
+                  try { await supabase.functions.invoke('check-inactivity-notifications'); toast({ title: "Inactivity check triggered" }); }
+                  catch (err: any) { toast({ title: "Failed", description: err.message, variant: "destructive" }); }
+                  finally { setIsSendingTestPush(false); }
+                }}
+              >⏰ Inactivity Nudge</Button>
+
+              <Button variant="outline" size="sm" className="w-full justify-start" disabled={isSendingTestPush}
+                onClick={async () => {
+                  setIsSendingTestPush(true);
+                  try { await supabase.functions.invoke('check-blitz-rsvp-reminders'); toast({ title: "RSVP reminder check triggered" }); }
+                  catch (err: any) { toast({ title: "Failed", description: err.message, variant: "destructive" }); }
+                  finally { setIsSendingTestPush(false); }
+                }}
+              >📅 Blitz RSVP Reminder</Button>
+
+              <Button variant="outline" size="sm" className="w-full justify-start" disabled={isSendingTestPush}
+                onClick={async () => {
+                  setIsSendingTestPush(true);
+                  try { await supabase.functions.invoke('check-ramp-progress-notifications'); toast({ title: "Ramp progress check triggered" }); }
+                  catch (err: any) { toast({ title: "Failed", description: err.message, variant: "destructive" }); }
+                  finally { setIsSendingTestPush(false); }
+                }}
+              >🚀 Ramp to Blitz Nudge</Button>
+
+              <Button variant="outline" size="sm" className="w-full justify-start" disabled={isSendingTestPush}
+                onClick={async () => {
+                  setIsSendingTestPush(true);
+                  try { await supabase.functions.invoke('check-preseason-accountability'); toast({ title: "Preseason accountability check triggered" }); }
+                  catch (err: any) { toast({ title: "Failed", description: err.message, variant: "destructive" }); }
+                  finally { setIsSendingTestPush(false); }
+                }}
+              >📊 Preseason Accountability</Button>
+
+              <Separator />
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Legacy & Debug</h4>
+              <Link to="/team-reports"><Button variant="outline" size="sm" className="w-full justify-start">📊 Reports V1 (Legacy)</Button></Link>
+              <Link to="/debug-notifications"><Button variant="outline" size="sm" className="w-full justify-start">🧪 Notification Tester</Button></Link>
+              <Button variant="outline" size="sm" className="w-full justify-start"
+                onClick={() => {
+                  const keysToRemove: string[] = [];
+                  for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.startsWith('rep-data-cache') || key.startsWith('competitors-cache') || key.startsWith('blitzes-cache') || key.startsWith('team-access-cache') || key.startsWith('season-config-cache') || key.startsWith('group-recruits-cache') || key.startsWith('blitz-attendance-cache') || key.startsWith('kaizen-') || key.startsWith('REACT_QUERY'))) {
+                      keysToRemove.push(key);
+                    }
+                  }
+                  keysToRemove.forEach(key => localStorage.removeItem(key));
+                  queryClient.clear();
+                  toast({ title: "Refreshing...", description: "Cache cleared" });
+                  setTimeout(() => window.location.reload(), 500);
+                }}
               >
-                <RotateCcw className="h-4 w-4" />
-                Reset Tours
+                <RotateCcw className="h-4 w-4 mr-2" />Force Refresh
               </Button>
+
+              {platform === 'native' && (
+                <>
+                  <Button variant="outline" size="sm" className="w-full justify-start" disabled={isCheckingApnsToken}
+                    onClick={async () => {
+                      setIsCheckingApnsToken(true);
+                      try {
+                        const { data: { session: s } } = await supabase.auth.getSession();
+                        const uid = s?.user?.id;
+                        const { count, error } = await supabase.from('apns_device_tokens').select('id', { count: 'exact', head: true }).eq('user_id', uid ?? '');
+                        if (error) throw error;
+                        const c = count ?? 0;
+                        setApnsTokenCount(c);
+                        toast({ title: 'APNs token check', description: c > 0 ? `Found ${c} token(s).` : 'No token stored.', variant: c > 0 ? undefined : 'destructive' });
+                      } catch (err: any) { toast({ title: 'Check failed', description: err.message, variant: 'destructive' }); }
+                      finally { setIsCheckingApnsToken(false); }
+                    }}
+                  ><Bell className="h-4 w-4 mr-2" />{isCheckingApnsToken ? 'Checking…' : 'Check APNs Token'}</Button>
+
+                  <Button variant="default" size="sm" className="w-full justify-start" disabled={isSendingTestPush}
+                    onClick={async () => {
+                      setIsSendingTestPush(true);
+                      try {
+                        toast({ title: '0/4 Resetting push…' });
+                        await unsubscribe();
+                        toast({ title: '1/4 Requesting permission…' });
+                        const registered = await subscribe();
+                        if (!registered) { toast({ title: 'Registration failed', variant: 'destructive' }); return; }
+                        toast({ title: '2/4 Waiting for token…' });
+                        const deadline = Date.now() + 12_000;
+                        let tokenCount = 0;
+                        while (Date.now() < deadline) {
+                          const { data: { session: ps } } = await supabase.auth.getSession();
+                          const { count } = await supabase.from('apns_device_tokens').select('id', { count: 'exact', head: true }).eq('user_id', ps?.user?.id ?? '');
+                          tokenCount = count ?? 0;
+                          if (tokenCount > 0) break;
+                          await new Promise(r => setTimeout(r, 1000));
+                        }
+                        toast({ title: '3/4 Checking token…' });
+                        setApnsTokenCount(tokenCount);
+                        if (tokenCount === 0) { toast({ title: 'Token not stored', variant: 'destructive' }); return; }
+                        toast({ title: '4/4 Sending test…' });
+                        const { data, error } = await supabase.functions.invoke('send-apns-notification', {
+                          body: { targetEmail: 'calvinjschofield@gmail.com', title: '🧪 Self-Test', body: 'Push works end-to-end!', type: 'test' },
+                        });
+                        toast({ title: data?.success ? '✅ Push delivered!' : '❌ Push failed', description: data?.error || error?.message, variant: data?.success ? undefined : 'destructive' });
+                      } catch (err: any) { toast({ title: 'Failed', description: err.message, variant: 'destructive' }); }
+                      finally { setIsSendingTestPush(false); }
+                    }}
+                  ><Bell className="h-4 w-4 mr-2" />Re-register & Self-Test Push</Button>
+                </>
+              )}
+
+              <div className="text-xs text-muted-foreground p-2 bg-muted/50 rounded space-y-1">
+                <p><strong>Platform:</strong> {platform}</p>
+                <p><strong>Push Registered:</strong> {isSubscribed ? 'Yes' : 'No'}</p>
+                <p><strong>Permission:</strong> {permission}</p>
+                {platform === 'native' && (
+                  <>
+                    <p><strong>APNs token in DB:</strong> {apnsTokenCount === null ? 'Unknown' : apnsTokenCount > 0 ? 'Yes' : 'No'}</p>
+                    <p><strong>Phase:</strong> {pushDebug?.phase ?? '—'}</p>
+                    {pushDebug?.lastTokenPrefix && <p><strong>Last token:</strong> {pushDebug.lastTokenPrefix}…</p>}
+                    {pushDebug?.lastTokenStoreError && <p className="text-destructive"><strong>Token store error:</strong> {pushDebug.lastTokenStoreError}</p>}
+                    {pushDebug?.lastRegistrationError && <p className="text-destructive"><strong>Registration error:</strong> {pushDebug.lastRegistrationError}</p>}
+                  </>
+                )}
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </DrawerContent>
+        </Drawer>
+      )}
+
+      {/* Add Counter Drawer */}
       <Drawer open={showAddSheet} onOpenChange={setShowAddSheet}>
         <DrawerContent className="pb-safe">
           <DrawerHeader>
             <DrawerTitle>Add Custom Counter</DrawerTitle>
-            <DrawerDescription>
-              Create a custom counter to track additional metrics on the Track page.
-            </DrawerDescription>
+            <DrawerDescription>Create a custom counter to track additional metrics.</DrawerDescription>
           </DrawerHeader>
-
-          <div className="space-y-4 mt-6 px-4">
+          <div className="space-y-4 mt-2 px-4 pb-4">
             <div>
               <Label htmlFor="counter-name">Counter Name</Label>
-              <Input
-                id="counter-name"
-                placeholder="e.g., Referrals"
-                value={counterName}
-                onChange={(e) => setCounterName(e.target.value)}
-                maxLength={20}
-                className="mt-1"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {counterName.length}/20 characters
-              </p>
+              <Input id="counter-name" placeholder="e.g., Referrals" value={counterName} onChange={(e) => setCounterName(e.target.value)} maxLength={20} className="mt-1" />
+              <p className="text-xs text-muted-foreground mt-1">{counterName.length}/20 characters</p>
             </div>
-
             <div>
               <Label>Emoji (Optional)</Label>
               <div className="grid grid-cols-5 gap-2 mt-2">
                 {commonEmojis.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => setCounterEmoji(emoji)}
-                    className={`p-3 text-2xl border rounded-lg transition-colors ${
-                      counterEmoji === emoji
-                        ? "border-primary bg-primary/10"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    {emoji}
-                  </button>
+                  <button key={emoji} type="button" onClick={() => setCounterEmoji(emoji)}
+                    className={`p-3 text-2xl border rounded-lg transition-colors ${counterEmoji === emoji ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}
+                  >{emoji}</button>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Selected: {counterEmoji}
-              </p>
             </div>
-
-            <Button
-              className="w-full py-6 text-lg font-semibold"
-              onClick={handleAddCounter}
-              disabled={!counterName.trim() || isSaving}
-              size="lg"
-            >
+            <Button className="w-full py-6 text-lg font-semibold" onClick={handleAddCounter} disabled={!counterName.trim() || isSaving} size="lg">
               {isSaving ? "Adding..." : "Add Counter"}
             </Button>
           </div>
@@ -1772,28 +1133,11 @@ export default function Settings() {
         <DrawerContent className="pb-safe">
           <DrawerHeader>
             <DrawerTitle>Delete Counter?</DrawerTitle>
-            <DrawerDescription>
-              This will permanently delete this custom counter. This action cannot be undone.
-            </DrawerDescription>
+            <DrawerDescription>This will permanently delete this custom counter.</DrawerDescription>
           </DrawerHeader>
-          
           <div className="flex flex-col gap-3 px-4 pb-4">
-            <Button
-              onClick={() => deleteConfirmCounter && handleDeleteCounter(deleteConfirmCounter)}
-              variant="destructive"
-              className="w-full py-6 text-lg font-semibold"
-              size="lg"
-            >
-              Delete
-            </Button>
-            <Button
-              onClick={() => setDeleteConfirmCounter(null)}
-              variant="outline"
-              className="w-full py-6 text-lg font-semibold"
-              size="lg"
-            >
-              Cancel
-            </Button>
+            <Button onClick={() => deleteConfirmCounter && handleDeleteCounter(deleteConfirmCounter)} variant="destructive" className="w-full py-6 text-lg font-semibold" size="lg">Delete</Button>
+            <Button onClick={() => setDeleteConfirmCounter(null)} variant="outline" className="w-full py-6 text-lg font-semibold" size="lg">Cancel</Button>
           </div>
         </DrawerContent>
       </Drawer>
@@ -1802,13 +1146,9 @@ export default function Settings() {
       {showTeamRecapStory && selectedReport && (
         <TeamRecapStory
           report={selectedReport}
-          onClose={() => {
-            setShowTeamRecapStory(false);
-            setSelectedReport(null);
-          }}
+          onClose={() => { setShowTeamRecapStory(false); setSelectedReport(null); }}
         />
       )}
-
     </div>
   );
 }
