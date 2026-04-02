@@ -368,6 +368,7 @@ const OrgChart = () => {
       const leadUserId = srMgmtGroup?.lead_user_id || null;
 
       if (leadUserId) {
+        // Try to find the leader among the children (promoted leader pattern)
         const leaderIdx = children.findIndex((c) => c.userId === leadUserId && !c.isLabelNode);
         if (leaderIdx !== -1) {
           const leaderNode = children[leaderIdx];
@@ -378,6 +379,24 @@ const OrgChart = () => {
             roleColor: "sr_mgmt_group",
             role: "Sr MGMT Group Leader",
             children: sortByDownlineSize([...leaderNode.children, ...siblings]),
+          };
+        }
+
+        // Leader not among children — create a person node if rep data exists
+        const leaderRep = repMap.get(leadUserId);
+        if (leaderRep) {
+          const leaderRecruit = getRecruitForRep(leaderRep);
+          return {
+            id: `sr-mgmt-${srMgmtGroupId}`,
+            name: leaderRep.name || srMgmtGroup?.name || "Sr MGMT Group",
+            userId: leadUserId,
+            stage: leaderRecruit?.stage || leaderRep.stage || null,
+            profilePhotoUrl: leaderRep.profile_photo_url,
+            role: "Sr MGMT Group Leader",
+            year: leaderRep.year || leaderRecruit?.year || null,
+            isAreaDirector: areaDirectorSet.has(leadUserId),
+            roleColor: "sr_mgmt_group",
+            children: sortByDownlineSize([...children]),
           };
         }
       }
