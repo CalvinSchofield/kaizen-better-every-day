@@ -314,22 +314,116 @@ export const OrgGroupedRepList = ({
     );
   }
 
-  // ─── Flat list for team leads ───
+  // ── Helper to render recruiter sub-groups within a team/group ──
+  const renderRecruiterGroupedReps = (teamReps: OrgRepData[], parentKey: string, mlClass: string) => {
+    const { groups, solo } = groupByRecruiter(teamReps);
+    
+    // If no meaningful recruiter groups, just render flat
+    if (groups.length === 0) {
+      return (
+        <div className={cn("space-y-1.5 mt-1.5", mlClass)}>
+          {sortReps(teamReps).map(rep => <RepRow key={rep.userId} rep={rep} onClick={() => onRepClick?.(rep.userId)} />)}
+        </div>
+      );
+    }
+    
+    return (
+      <div className={cn("space-y-1.5 mt-1.5", mlClass)}>
+        {groups.map(rGroup => {
+          const rKey = `${parentKey}:r:${rGroup.name}`;
+          const rExp = effectiveExpanded.has(rKey);
+          const rFP = rGroup.reps.reduce((s, r) => s + r.fp, 0);
+          const rWC = rGroup.reps.filter(r => r.isWorking).length;
+          
+          return (
+            <Collapsible key={rKey} open={rExp} onOpenChange={() => toggle(rKey)}>
+              <CollapsibleTrigger className="w-full">
+                <GroupHeader label={rGroup.name} repCount={rGroup.reps.length} totalFP={rFP} workingCount={rWC} isLive={isLive} isExpanded={rExp} depth={2} />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="space-y-1.5 mt-1.5 ml-4">
+                  {sortReps(rGroup.reps).map(rep => <RepRow key={rep.userId} rep={rep} onClick={() => onRepClick?.(rep.userId)} />)}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          );
+        })}
+        {/* Solo reps (no recruiter group or single-member groups) */}
+        {sortReps(solo).map(rep => <RepRow key={rep.userId} rep={rep} onClick={() => onRepClick?.(rep.userId)} />)}
+      </div>
+    );
+  };
+
+  // ─── Team Lead: recruiting groups ───
   if (!showTeamGrouping || !tree) {
-    const sorted = sortReps(filteredReps);
+    const { groups, solo } = groupByRecruiter(filteredReps);
+    
+    // If no meaningful recruiter groups, show flat list
+    if (groups.length === 0) {
+      const sorted = sortReps(filteredReps);
+      return (
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input placeholder="Search reps..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" />
+          </div>
+          <div className="text-xs text-muted-foreground px-1">{sorted.length} reps</div>
+          <div className="space-y-1.5">
+            {sorted.map(rep => (
+              <RepRow key={rep.userId} rep={rep} onClick={() => onRepClick?.(rep.userId)} />
+            ))}
+          </div>
+          {sorted.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <Users className="w-10 h-10 mx-auto mb-2 opacity-30" />
+              <p>{searchQuery ? 'No reps match your search' : emptyMessage}</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+    
     return (
       <div className="space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Search reps..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" />
         </div>
-        <div className="text-xs text-muted-foreground px-1">{sorted.length} reps</div>
-        <div className="space-y-1.5">
-          {sorted.map(rep => (
-            <RepRow key={rep.userId} rep={rep} onClick={() => onRepClick?.(rep.userId)} />
-          ))}
+        <div className="text-xs text-muted-foreground px-1">{filteredReps.length} reps</div>
+        <div className="space-y-2">
+          {groups.map(rGroup => {
+            const rKey = `recruiter:${rGroup.name}`;
+            const rExp = effectiveExpanded.has(rKey);
+            const rFP = rGroup.reps.reduce((s, r) => s + r.fp, 0);
+            const rWC = rGroup.reps.filter(r => r.isWorking).length;
+            
+            return (
+              <Collapsible key={rKey} open={rExp} onOpenChange={() => toggle(rKey)}>
+                <CollapsibleTrigger className="w-full">
+                  <GroupHeader label={rGroup.name} repCount={rGroup.reps.length} totalFP={rFP} workingCount={rWC} isLive={isLive} isExpanded={rExp} depth={1} />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-1.5 mt-1.5 ml-4">
+                    {sortReps(rGroup.reps).map(rep => <RepRow key={rep.userId} rep={rep} onClick={() => onRepClick?.(rep.userId)} />)}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })}
+          {solo.length > 0 && (
+            <Collapsible open={effectiveExpanded.has('recruiter:__solo__')} onOpenChange={() => toggle('recruiter:__solo__')}>
+              <CollapsibleTrigger className="w-full">
+                <GroupHeader label="Ungrouped" repCount={solo.length} totalFP={solo.reduce((s, r) => s + r.fp, 0)} workingCount={solo.filter(r => r.isWorking).length} isLive={isLive} isExpanded={effectiveExpanded.has('recruiter:__solo__')} depth={1} />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="space-y-1.5 mt-1.5 ml-4">
+                  {sortReps(solo).map(rep => <RepRow key={rep.userId} rep={rep} onClick={() => onRepClick?.(rep.userId)} />)}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </div>
-        {sorted.length === 0 && (
+        {filteredReps.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             <Users className="w-10 h-10 mx-auto mb-2 opacity-30" />
             <p>{searchQuery ? 'No reps match your search' : emptyMessage}</p>
@@ -339,7 +433,7 @@ export const OrgGroupedRepList = ({
     );
   }
 
-  // ─── MGMT Group lead: team grouping only ───
+  // ─── MGMT Group lead: Team → Recruiting Groups ───
   if (!showMgmtGrouping) {
     const flat = tree.mgmtMap.get('__flat__');
     const teams = flat ? Array.from(flat.teams.values()) : [];
@@ -363,7 +457,6 @@ export const OrgGroupedRepList = ({
           {teams.map(team => {
             const tKey = `__flat__:${team.id}`;
             const isExp = effectiveExpanded.has(tKey);
-            const sorted = sortReps(team.reps);
             const totalFP = team.reps.reduce((s, r) => s + r.fp, 0);
             const wc = team.reps.filter(r => r.isWorking).length;
 
@@ -373,9 +466,7 @@ export const OrgGroupedRepList = ({
                   <GroupHeader label={team.name} repCount={team.reps.length} totalFP={totalFP} workingCount={wc} isLive={isLive} isExpanded={isExp} depth={1} />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="space-y-1.5 mt-1.5 ml-4">
-                    {sorted.map(rep => <RepRow key={rep.userId} rep={rep} onClick={() => onRepClick?.(rep.userId)} />)}
-                  </div>
+                  {renderRecruiterGroupedReps(team.reps, tKey, "ml-4")}
                 </CollapsibleContent>
               </Collapsible>
             );
@@ -403,7 +494,7 @@ export const OrgGroupedRepList = ({
     );
   }
 
-  // ─── Sr Manager+ / AD: MGMT Group > Team ───
+  // ─── Sr Manager+ / AD: MGMT Group → Team → Recruiting Groups ───
   const mgmtGroups = Array.from(tree.mgmtMap.entries())
     .map(([key, mgmt]) => ({
       key,
@@ -449,9 +540,7 @@ export const OrgGroupedRepList = ({
                           <GroupHeader label={team.name} repCount={team.reps.length} totalFP={teamFP} workingCount={teamWC} isLive={isLive} isExpanded={tExp} depth={1} />
                         </CollapsibleTrigger>
                         <CollapsibleContent>
-                          <div className="space-y-1.5 mt-1.5 ml-4">
-                            {sortReps(team.reps).map(rep => <RepRow key={rep.userId} rep={rep} onClick={() => onRepClick?.(rep.userId)} />)}
-                          </div>
+                          {renderRecruiterGroupedReps(team.reps, tKey, "ml-4")}
                         </CollapsibleContent>
                       </Collapsible>
                     );
