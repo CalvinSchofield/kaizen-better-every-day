@@ -22,6 +22,7 @@ import { ReportsPerformanceTab } from "@/components/reports/ReportsPerformanceTa
 import { ReportsPatternsTab } from "@/components/reports/ReportsPatternsTab";
 import { LeaderAICoachFab } from "@/components/reports/LeaderAICoachFab";
 import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAvailableDatePresets";
+import { HeroDrillDownDrawer } from "@/components/reports/v2/HeroDrillDownDrawer";
 
 type DatePreset = ReportsDatePreset;
 type ReportTab = 'people' | 'performance' | 'patterns';
